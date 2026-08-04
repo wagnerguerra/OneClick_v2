@@ -105,10 +105,28 @@ export const HELPDESK_STATUS_REABERTURA: HelpdeskStatus = 'EM_ANDAMENTO'
  * sido resolvido. É a SEGUNDA transição permitida ao solicitante — a primeira é
  * cancelar (acima). Sem ela, o gatilho de reabertura que existe desde o #HLP0062
  * fica inacessível para quem abriu o chamado.
+ *
+ * OBS: CANCELADO é terminal para o solicitante, mas essa trava fica no próprio
+ * `update()` (guarda localizada da operação de reabertura), não aqui — assim esta
+ * função continua sendo só "está num estado encerrado?".
  */
 export function helpdeskSolicitantePodeReabrir(args: { status: HelpdeskStatus; arquivado: boolean }): boolean {
   return args.arquivado
     || helpdeskStatusRank(args.status) >= helpdeskStatusRank('RESOLVIDO')
+}
+
+/**
+ * Etapas em que faz sentido ARQUIVAR um chamado — as finais do kanban. Arquivar
+ * é para tirar da vista o que já se encerrou; um chamado ainda em atendimento não
+ * se arquiva. FONTE ÚNICA consumida pelo kanban (arquivar em lote), pela sidebar
+ * do detalhe e pelo backend (`update`). Desarquivar não usa isto (é sempre
+ * permitido — é o caminho de reabertura).
+ */
+export const HELPDESK_STATUS_ARQUIVAVEL: HelpdeskStatus[] = ['CONCLUIDO', 'CANCELADO']
+
+/** O chamado pode ser arquivado a partir deste status? (só as etapas finais). */
+export function helpdeskPodeArquivar(status: HelpdeskStatus): boolean {
+  return HELPDESK_STATUS_ARQUIVAVEL.includes(status)
 }
 
 // SLA padrão (horas) por prioridade — pode ser overridden em SystemConfig
@@ -166,6 +184,10 @@ export const addMensagemSchema = z.object({
   conteudo: z.string().min(1, 'Mensagem vazia'),
   interna: z.boolean().default(false),
   respostaParaId: z.string().optional().nullable(),
+  // Nº de anexos que o front vai vincular a esta mensagem logo após criá-la (os
+  // addAnexo vêm em chamadas seguintes). Serve só pro CONTADOR do e-mail de
+  // notificação, que é montado antes dos anexos existirem no banco.
+  numAnexos: z.number().int().min(0).optional(),
 })
 export type AddMensagemInput = z.infer<typeof addMensagemSchema>
 

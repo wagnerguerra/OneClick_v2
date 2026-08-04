@@ -24,6 +24,8 @@ SheetOverlay.displayName = 'SheetOverlay'
 interface SheetContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
   side?: 'left' | 'right'
   size?: 'sm' | 'md' | 'lg' | 'xl'
+  /** Oculta o botão de fechar padrão (X) — para quem renderiza um próprio. */
+  hideClose?: boolean
 }
 
 const SIZES = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }
@@ -31,7 +33,7 @@ const SIZES = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl'
 const SheetContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   SheetContentProps
->(({ className, children, side = 'right', size = 'lg', ...props }, ref) => (
+>(({ className, children, side = 'right', size = 'lg', hideClose = false, ...props }, ref) => (
   <DialogPrimitive.Portal>
     <SheetOverlay />
     <DialogPrimitive.Content
@@ -58,10 +60,12 @@ const SheetContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 z-10 flex h-7 w-7 items-center justify-center rounded-md opacity-60 ring-offset-background transition-all hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Fechar</span>
-      </DialogPrimitive.Close>
+      {!hideClose && (
+        <DialogPrimitive.Close className="absolute right-4 top-4 z-10 flex h-7 w-7 items-center justify-center rounded-md opacity-60 ring-offset-background transition-all hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Fechar</span>
+        </DialogPrimitive.Close>
+      )}
     </DialogPrimitive.Content>
   </DialogPrimitive.Portal>
 ))

@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import {
   BarChart3, Loader2, AlertTriangle, CheckCircle2, Star, Clock,
   Inbox, RefreshCcw, TrendingUp, Tag, Users, ListChecks, Activity,
+  Search, ChevronLeft, ChevronRight, CalendarDays,
 } from 'lucide-react'
+import Link from 'next/link'
 import {
-  Card, CardContent, Badge, Button, Input,
+  Card, CardContent, Badge, Button, Input, cn,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -16,6 +19,10 @@ import {
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { fmtDateBR } from '@/lib/date'
+import { USER_PERMISSIONS_REFRESH_EVENT } from '@/hooks/use-user-permissions'
+import { HELPDESK_STATUS_COR } from '../_lib/status-styles'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import {
   HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE_LABELS, HELPDESK_TIPO_LABELS,
   HELPDESK_PRIORIDADE_COLORS,
@@ -48,12 +55,31 @@ interface Dashboard {
   csatDist: Array<{ nota: number; total: number }>
   serie: Array<{ periodo: string; criados: number; resolvidos: number }>
   porCategoria: Array<{ id: string | null; nome: string; cor: string | null; total: number; pct: number }>
-  porResponsavel: Array<{ id: string; name: string; image: string | null; total: number; mttrHoras: number | null; slaPct: number | null }>
+  porResponsavel: Array<{ id: string; name: string; image: string | null; total: number; mttrHoras: number | null; slaPct: number | null; csatMedio: number | null; csatRespostas: number }>
   slaEstourados: Array<{
     id: string; numero: number; titulo: string; prioridade: HelpdeskPrioridade
     status: HelpdeskStatus; prazoSla: string | null; createdAt: string
     responsavel: string | null; categoria: { nome: string; cor: string | null } | null
   }>
+}
+
+// C9 — lista de avaliações (CSAT). Usada tanto no painel reduzido (só as
+// próprias, do agente sem métricas completas) quanto no completo (todas ou de um
+// responsável). `responsavelNome` só é relevante na visão "todos".
+interface Avaliacao {
+  ticketId: string; numero: number; titulo: string
+  nota: number | null; comentario: string | null
+  responsavelId?: string | null
+  responsavelNome?: string | null
+  responsavelImage?: string | null
+  solicitanteNome?: string | null
+  solicitanteImage?: string | null
+  respondidoEm: string | null
+}
+interface AvaliacoesLista {
+  media: number | null
+  total: number
+  avaliacoes: Avaliacao[]
 }
 
 function formatHoras(h: number | null): string {
@@ -67,18 +93,297 @@ function toInputDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const STATUS_COR: Record<HelpdeskStatus, string> = {
-  NOVO: '#3b82f6',
-  AGUARDANDO_AUDITORIA: '#06b6d4',
-  EM_ANDAMENTO: '#f59e0b',
-  RESOLVIDO: '#a855f7',
-  CONCLUIDO: '#10b981',
-  CANCELADO: '#ef4444',
-}
+// Cor de status: fonte única em _lib/status-styles.
+const STATUS_COR = HELPDESK_STATUS_COR
 
 // Cores para distribuição de CSAT (1=ruim → 5=ótimo)
 const CSAT_COR: Record<number, string> = {
   1: '#ef4444', 2: '#f59e0b', 3: '#eab308', 4: '#84cc16', 5: '#10b981',
+}
+
+/** Uma entrada do histórico de avaliações. O avatar/nome é de quem AVALIOU
+ *  (solicitante); o responsável avaliado aparece rotulado ("Atendido por").
+ *  `showAvatar` liga o avatar do solicitante; `showResp` mostra o responsável
+ *  (útil na visão "todos"). Reusada no painel reduzido e no histórico completo. */
+function AvaliacaoRow({ a, showResp, showAvatar }: { a: Avaliacao; showResp?: boolean; showAvatar?: boolean }) {
+  const autor = a.solicitanteNome?.trim() || 'Solicitante'
+  return (
+    <div className="flex items-start gap-3 py-3">
+      {showAvatar && (
+        <UserAvatar
+          user={{ name: autor, image: a.solicitanteImage ?? null }}
+          className="mt-0.5 h-8 w-8 text-[10px] shrink-0"
+          title={`Avaliação feita por ${autor}`}
+        />
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className="text-xs font-medium text-foreground/80">{autor}</span>
+          <span className="text-xs text-muted-foreground/50">·</span>
+          <span className="flex shrink-0 items-center gap-0.5">
+            {[1, 2, 3, 4, 5].map(n => (
+              <Star key={n} className={cn('h-3.5 w-3.5', n <= (a.nota ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30')} />
+            ))}
+          </span>
+          <span className="text-xs font-semibold tabular-nums">{a.nota ?? '—'}/5</span>
+        </div>
+        {a.comentario?.trim() ? (
+          <p className="mt-1 text-sm text-foreground">“{a.comentario.trim()}”</p>
+        ) : (
+          <p className="mt-1 text-sm italic text-muted-foreground/60">Sem comentário</p>
+        )}
+        <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+          <Link href={`/helpdesk/${a.ticketId}`} className="inline-flex min-w-0 items-center gap-1.5 hover:underline">
+            <span className="font-mono shrink-0">#HLP{String(a.numero).padStart(4, '0')}</span>
+            <span className="truncate">· {a.titulo}</span>
+          </Link>
+          {showResp && a.responsavelNome && (
+            <span className="inline-flex items-center gap-1">
+              · Atendido por:
+              <UserAvatar user={{ name: a.responsavelNome, image: a.responsavelImage ?? null }} className="h-4 w-4 text-[8px]" />
+              <span className="font-medium text-foreground/80">{a.responsavelNome}</span>
+            </span>
+          )}
+        </div>
+      </div>
+      <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+        {a.respondidoEm ? new Date(a.respondidoEm).toLocaleDateString('pt-BR') : ''}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * C9 — visão do agente sem acesso às métricas completas: só as avaliações que
+ * ele recebeu como responsável (média + total + lista).
+ */
+function MinhasAvaliacoesView({ minhas }: { minhas: AvaliacoesLista | null }) {
+  const [q, setQ] = useState('')
+  const [notaFiltro, setNotaFiltro] = useState('__all__')
+  const filtradas = useMemo(
+    () => aplicarFiltrosAvaliacoes(minhas?.avaliacoes ?? [], q, notaFiltro),
+    [minhas, q, notaFiltro],
+  )
+  if (!minhas) return null
+  const semAvaliacoes = minhas.avaliacoes.length === 0
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Card><CardContent className="p-4">
+          <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+            <Star className="h-3.5 w-3.5" /> Minha média de CSAT
+          </div>
+          <p className="text-3xl font-bold tabular-nums">
+            {minhas.media === null ? '—' : minhas.media.toFixed(1)}
+            {minhas.media !== null && <span className="ml-1 text-lg text-muted-foreground">/ 5</span>}
+          </p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Avaliações recebidas
+          </div>
+          <p className="text-3xl font-bold tabular-nums">{minhas.total}</p>
+        </CardContent></Card>
+      </div>
+      <Card><CardContent className="p-4">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <Star className="h-4 w-4" /> Minhas avaliações
+        </h3>
+        {!semAvaliacoes && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <BuscaAvaliacoes value={q} onChange={setQ} className="w-[320px]" />
+            <FiltroNotaSelect value={notaFiltro} onChange={setNotaFiltro} />
+          </div>
+        )}
+        {semAvaliacoes ? (
+          <div className="py-12 text-center text-xs text-muted-foreground">Você ainda não recebeu avaliações no período.</div>
+        ) : filtradas.length === 0 ? (
+          <div className="py-12 text-center text-xs text-muted-foreground">Nenhuma avaliação corresponde aos filtros.</div>
+        ) : (
+          <div className="divide-y">
+            {filtradas.map(a => <AvaliacaoRow key={a.ticketId} a={a} showAvatar />)}
+          </div>
+        )}
+      </CardContent></Card>
+    </div>
+  )
+}
+
+const HIST_PAGE_SIZE = 6
+
+/** Normaliza texto para busca (minúsculo + sem acentos). */
+function normalizar(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+}
+
+/** Aplica filtro por nota + busca textual sobre uma lista de avaliações
+ *  (client-side). Compartilhado pelas visões reduzida e completa. */
+function aplicarFiltrosAvaliacoes(avaliacoes: Avaliacao[], q: string, notaFiltro: string): Avaliacao[] {
+  const termo = normalizar(q.trim())
+  const nota = notaFiltro === '__all__' ? null : Number(notaFiltro)
+  let base = avaliacoes
+  if (nota !== null) base = base.filter(a => a.nota === nota)
+  if (termo) base = base.filter(a => normalizar(
+    `${a.comentario ?? ''} ${a.titulo} #hlp${String(a.numero).padStart(4, '0')} ${a.responsavelNome ?? ''} ${a.solicitanteNome ?? ''}`,
+  ).includes(termo))
+  return base
+}
+
+/** Campo de busca das avaliações (ícone + input). */
+function BuscaAvaliacoes({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
+  return (
+    <div className={cn('relative', className)}>
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Input value={value} onChange={e => onChange(e.target.value)}
+        placeholder="Buscar comentário, ticket, solicitante…"
+        className="h-8 pl-8 text-xs" />
+    </div>
+  )
+}
+
+/** Select de filtro por nota (estrelas cheias/vazias). */
+function FiltroNotaSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__all__">Todas as notas</SelectItem>
+        {[5, 4, 3, 2, 1].map(n => (
+          <SelectItem key={n} value={String(n)}>
+            <span className="flex items-center">
+              <span className="text-amber-400">{'★'.repeat(n)}</span>
+              <span className="text-muted-foreground/40">{'★'.repeat(5 - n)}</span>
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+/**
+ * C9a — Histórico de avaliações (painel COMPLETO): filtro por responsável +
+ * busca textual + paginação. O período segue o filtro de data do topo da
+ * página (props inicio/fim). O responsável + período é server-side
+ * (avaliacoesCompletas); a busca e a paginação são client-side sobre o
+ * conjunto retornado.
+ */
+function AvaliacoesCompletasCard({ responsaveis, inicio, fim }: {
+  responsaveis: Array<{ id: string; name: string }>
+  inicio: string
+  fim: string
+}) {
+  const [respId, setRespId] = useState('__all__')
+  const [notaFiltro, setNotaFiltro] = useState('__all__')
+  const [q, setQ] = useState('')
+  const [page, setPage] = useState(1)
+  const [lista, setLista] = useState<AvaliacoesLista | null>(null)
+  const [carregando, setCarregando] = useState(false)
+
+  // UX: ao selecionar um filtro, traz o cabeçalho da seção para logo abaixo das
+  // abas fixas (scroll-mt-[110px] no wrapper). Pula o primeiro render.
+  const cardRef = useRef<HTMLDivElement>(null)
+  const primeiraRender = useRef(true)
+  useEffect(() => {
+    if (primeiraRender.current) { primeiraRender.current = false; return }
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [respId, notaFiltro])
+
+  // Server-side: responsável + período (o período vem do filtro do topo)
+  useEffect(() => {
+    setCarregando(true)
+    ;(trpc.helpdesk as any).avaliacoesCompletas
+      .query({ responsavelId: respId === '__all__' ? undefined : respId, inicio, fim })
+      .then((r: AvaliacoesLista) => setLista(r))
+      .catch(() => setLista(null))
+      .finally(() => setCarregando(false))
+  }, [respId, inicio, fim])
+
+  // Client-side: filtro por nota + busca textual sobre o conjunto retornado
+  const filtradas = useMemo(
+    () => aplicarFiltrosAvaliacoes(lista?.avaliacoes ?? [], q, notaFiltro),
+    [lista, q, notaFiltro],
+  )
+
+  // Reset de página quando qualquer filtro/busca muda
+  useEffect(() => { setPage(1) }, [respId, inicio, fim, q, notaFiltro])
+
+  const media = useMemo(() => {
+    const notas = filtradas.map(a => a.nota ?? 0).filter(n => n > 0)
+    return notas.length ? notas.reduce((s, n) => s + n, 0) / notas.length : null
+  }, [filtradas])
+
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / HIST_PAGE_SIZE))
+  const pagina = Math.min(page, totalPaginas)
+  const slice = filtradas.slice((pagina - 1) * HIST_PAGE_SIZE, pagina * HIST_PAGE_SIZE)
+
+  return (
+    <div ref={cardRef} className="scroll-mt-[110px]">
+    <Card><CardContent className="p-4">
+      {/* Cabeçalho */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+          <Star className="h-4 w-4" /> Histórico de avaliações
+          {filtradas.length > 0 && (
+            <span className="text-xs font-normal text-muted-foreground">
+              — média {media?.toFixed(1)} · {filtradas.length} avaliaç{filtradas.length === 1 ? 'ão' : 'ões'}
+            </span>
+          )}
+        </h3>
+        {/* Indica que o período segue o filtro de data do topo da página */}
+        <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground" title="O período segue o filtro de data no topo da página">
+          <CalendarDays className="h-3.5 w-3.5" />
+          {fmtDateBR(inicio)} – {fmtDateBR(fim)}
+        </span>
+      </div>
+
+      {/* Filtros: busca + responsável + nota */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <BuscaAvaliacoes value={q} onChange={setQ} className="w-[320px]" />
+        <Select value={respId} onValueChange={setRespId}>
+          <SelectTrigger className="h-8 w-[200px] text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todos os responsáveis</SelectItem>
+            {responsaveis.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <FiltroNotaSelect value={notaFiltro} onChange={setNotaFiltro} />
+      </div>
+
+      {/* Lista paginada. Durante um recarregamento (troca de responsável) a
+          lista anterior permanece visível esmaecida, para a altura não colapsar
+          e o scroll do filtro não estourar. Só o primeiro load mostra vazio. */}
+      {lista === null ? (
+        <div className="py-10 text-center text-xs text-muted-foreground">Carregando…</div>
+      ) : filtradas.length === 0 ? (
+        <div className="py-10 text-center text-xs text-muted-foreground">
+          {q.trim() || notaFiltro !== '__all__' ? 'Nenhuma avaliação corresponde aos filtros.' : 'Nenhuma avaliação no período.'}
+        </div>
+      ) : (
+        <div className={cn('transition-opacity', carregando && 'pointer-events-none opacity-50')}>
+          <div className="divide-y">
+            {slice.map(a => <AvaliacaoRow key={a.ticketId} a={a} showResp={respId === '__all__'} showAvatar />)}
+          </div>
+          {totalPaginas > 1 && (
+            <div className="mt-3 flex items-center gap-3 border-t pt-3 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="sm" className="h-7 gap-1 px-2" disabled={pagina <= 1}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}>
+                  <ChevronLeft className="h-3.5 w-3.5" /> Anterior
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 gap-1 px-2" disabled={pagina >= totalPaginas}
+                  onClick={() => setPage(p => Math.min(totalPaginas, p + 1))}>
+                  Próxima <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <span>Página {pagina} de {totalPaginas}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </CardContent></Card>
+    </div>
+  )
 }
 
 export default function HelpdeskIndicadoresPage() {
@@ -86,15 +391,35 @@ export default function HelpdeskIndicadoresPage() {
   const [inicio, setInicio] = useState(() => toInputDate(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000)))
   const [fim, setFim] = useState(() => toInputDate(new Date()))
   const [data, setData] = useState<Dashboard | null>(null)
+  const [minhas, setMinhas] = useState<AvaliacoesLista | null>(null)
   const [loading, setLoading] = useState(true)
+  // null = ainda probando; governa a bifurcação completa × só minhas avaliações.
+  const [completas, setCompletas] = useState<boolean | null>(null)
+
+  // Probe: define se o usuário vê as métricas completas ou só as próprias.
+  // Reprobado quando as permissões mudam (SSE → user-permissions-refresh), pra
+  // a bifurcação propagar sem recarregar a página.
+  const probeCompletas = useCallback(() => {
+    ;(trpc.helpdesk as any).probeMetricasCompletas.query()
+      .then((c: boolean) => setCompletas(!!c))
+      .catch(() => setCompletas(false))
+  }, [])
+  useEffect(() => {
+    probeCompletas()
+    window.addEventListener(USER_PERMISSIONS_REFRESH_EVENT, probeCompletas)
+    return () => window.removeEventListener(USER_PERMISSIONS_REFRESH_EVENT, probeCompletas)
+  }, [probeCompletas])
 
   const fetchData = useCallback(() => {
+    if (completas === null) return
     setLoading(true)
-    ;(trpc.helpdesk as any).dashboard.query({ inicio, fim })
-      .then((d: Dashboard) => setData(d))
-      .catch((e: Error) => { alerts.error('Erro ao carregar indicadores', e.message); setData(null) })
+    const req = completas
+      ? (trpc.helpdesk as any).dashboard.query({ inicio, fim }).then((d: Dashboard) => setData(d))
+      : (trpc.helpdesk as any).minhasAvaliacoes.query({ inicio, fim }).then((m: AvaliacoesLista) => setMinhas(m))
+    req
+      .catch((e: Error) => { alerts.error('Erro ao carregar indicadores', e.message) })
       .finally(() => setLoading(false))
-  }, [inicio, fim])
+  }, [inicio, fim, completas])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -117,7 +442,9 @@ export default function HelpdeskIndicadoresPage() {
           <div>
             <h1>HelpDesk — Indicadores</h1>
             <p className="text-sm text-muted-foreground">
-              Volume, SLA, tempos de atendimento, CSAT e relatórios por categoria e responsável.
+              {completas === false
+                ? 'Suas avaliações (CSAT) recebidas como responsável no período.'
+                : 'Volume, SLA, tempos de atendimento, CSAT e relatórios por categoria e responsável.'}
             </p>
           </div>
         </div>
@@ -149,11 +476,13 @@ export default function HelpdeskIndicadoresPage() {
         </div>
       </div>
 
-      {loading || !data ? (
+      {completas === null || loading || (completas && !data) ? (
         <Card><CardContent className="flex items-center justify-center gap-2 p-16 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Carregando indicadores...
         </CardContent></Card>
-      ) : (
+      ) : !completas ? (
+        <MinhasAvaliacoesView minhas={minhas} />
+      ) : data ? (
         <>
           {/* KPI cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -303,86 +632,7 @@ export default function HelpdeskIndicadoresPage() {
             </CardContent></Card>
           </div>
 
-          {/* Relatórios — tabelas */}
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {/* Por categoria */}
-            <Card><CardContent className="p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                <Tag className="h-4 w-4" /> Tickets por categoria
-              </h3>
-              {data.porCategoria.length === 0 ? <Empty /> : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Categoria</TableHead>
-                      <TableHead className="text-right text-xs">Volume</TableHead>
-                      <TableHead className="text-right text-xs">%</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.porCategoria.map(c => (
-                      <TableRow key={c.id ?? 'sem'}>
-                        <TableCell className="text-sm">
-                          <span className="flex items-center gap-2">
-                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.cor || MOD }} />
-                            <span className="truncate">{c.nome}</span>
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right text-sm tabular-nums">{c.total}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground">{c.pct}%</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent></Card>
-
-            {/* Por responsável */}
-            <Card><CardContent className="p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                <Users className="h-4 w-4" /> Desempenho por responsável
-              </h3>
-              {data.porResponsavel.length === 0 ? (
-                <div className="py-12 text-center text-xs text-muted-foreground">Sem tickets resolvidos atribuídos no período.</div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Agente</TableHead>
-                      <TableHead className="text-right text-xs">Resolvidos</TableHead>
-                      <TableHead className="text-right text-xs">MTTR</TableHead>
-                      <TableHead className="text-right text-xs">SLA</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.porResponsavel.map(a => (
-                      <TableRow key={a.id}>
-                        <TableCell className="max-w-[160px] truncate text-sm">{a.name}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums">{a.total}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground">{formatHoras(a.mttrHoras)}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums">
-                          {a.slaPct === null ? '—' : (
-                            <Badge
-                              variant="outline"
-                              className={
-                                a.slaPct >= 90 ? 'border-emerald-300 text-emerald-600 dark:border-emerald-800'
-                                  : a.slaPct >= 70 ? 'border-amber-300 text-amber-600 dark:border-amber-800'
-                                  : 'border-rose-300 text-rose-600 dark:border-rose-800'
-                              }
-                            >
-                              {a.slaPct}%
-                            </Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent></Card>
-          </div>
-
-          {/* Por tipo + SLA estourados */}
+          {/* Criados por tipo + SLA estourados */}
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
             <Card><CardContent className="p-4">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
@@ -450,7 +700,110 @@ export default function HelpdeskIndicadoresPage() {
               )}
             </CardContent></Card>
           </div>
+
+          {/* Relatórios — tabelas */}
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {/* Por categoria */}
+            <Card><CardContent className="p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                <Tag className="h-4 w-4" /> Tickets por categoria
+              </h3>
+              {data.porCategoria.length === 0 ? <Empty /> : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Categoria</TableHead>
+                      <TableHead className="text-right text-xs">Volume</TableHead>
+                      <TableHead className="text-right text-xs">%</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.porCategoria.map(c => (
+                      <TableRow key={c.id ?? 'sem'}>
+                        <TableCell className="text-sm">
+                          <span className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.cor || MOD }} />
+                            <span className="truncate">{c.nome}</span>
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">{c.total}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground">{c.pct}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent></Card>
+
+            {/* Por responsável */}
+            <Card><CardContent className="p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                <Users className="h-4 w-4" /> Desempenho por responsável
+              </h3>
+              {data.porResponsavel.length === 0 ? (
+                <div className="py-12 text-center text-xs text-muted-foreground">Sem tickets resolvidos atribuídos no período.</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Agente</TableHead>
+                      <TableHead className="text-right text-xs">Resolvidos</TableHead>
+                      <TableHead className="text-right text-xs">MTTR</TableHead>
+                      <TableHead className="text-right text-xs">SLA</TableHead>
+                      <TableHead className="text-right text-xs">CSAT</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.porResponsavel.map(a => (
+                      <TableRow key={a.id}>
+                        <TableCell className="max-w-[160px] truncate text-sm">{a.name}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">{a.total}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-muted-foreground">{formatHoras(a.mttrHoras)}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">
+                          {a.slaPct === null ? '—' : (
+                            <Badge
+                              variant="outline"
+                              className={
+                                a.slaPct >= 90 ? 'border-emerald-300 text-emerald-600 dark:border-emerald-800'
+                                  : a.slaPct >= 70 ? 'border-amber-300 text-amber-600 dark:border-amber-800'
+                                  : 'border-rose-300 text-rose-600 dark:border-rose-800'
+                              }
+                            >
+                              {a.slaPct}%
+                            </Badge>
+                          )}
+                        </TableCell>
+                        {/* C9 — CSAT médio por responsável (nº de avaliações no período entre parênteses) */}
+                        <TableCell className="text-right text-sm tabular-nums">
+                          {a.csatMedio === null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <span className="inline-flex items-center justify-end gap-1" title={`${a.csatRespostas} avaliação${a.csatRespostas === 1 ? '' : 'ões'} no período`}>
+                              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                              <span className="font-medium">{a.csatMedio.toFixed(1)}</span>
+                              <span className="text-[11px] text-muted-foreground">({a.csatRespostas})</span>
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent></Card>
+          </div>
+
+          {/* Lista de avaliações — todas ou de um responsável específico */}
+          <AvaliacoesCompletasCard
+            responsaveis={data.porResponsavel.map(a => ({ id: a.id, name: a.name }))}
+            inicio={inicio}
+            fim={fim}
+          />
         </>
+      ) : (
+        <Card><CardContent className="flex items-center justify-center gap-2 p-16 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Carregando indicadores...
+        </CardContent></Card>
       )}
     </div>
   )
@@ -473,12 +826,12 @@ function Kpi({ label, value, sub, icon: Icon, tone }: {
   tone: KpiTone
 }) {
   const styles: Record<KpiTone, string> = {
-    cyan: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 text-cyan-600',
-    rose: 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-600',
-    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600',
-    violet: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-600',
-    amber: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-600',
-    slate: 'bg-slate-50 dark:bg-slate-900/20 border-slate-200 dark:border-slate-800 text-slate-600',
+    cyan: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-300',
+    rose: 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300',
+    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-300',
+    violet: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-300',
+    amber: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-300',
+    slate: 'bg-slate-50 dark:bg-slate-900/20 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300',
   }
   return (
     <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${styles[tone]}`}>

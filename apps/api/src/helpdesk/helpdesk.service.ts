@@ -18,6 +18,9 @@ import {
   HELPDESK_STATUS_CANCELAVEL_PELO_SOLICITANTE,
   helpdeskSolicitantePodeReabrir,
   HELPDESK_STATUS_REABERTURA,
+  helpdeskStatusRank,
+  helpdeskPodeArquivar,
+  HELPDESK_STATUS_LABELS,
 } from '@saas/types'
 import { NotificationService } from '../notification/notification.service'
 import { EmailService } from '../common/email.service'
@@ -64,37 +67,31 @@ export class HelpdeskService {
    *  - Líder da área do ticket → o próprio
    */
   async canAccess(userId: string, ticketId: string): Promise<boolean> {
-    // Agentes da TI (master/empresa-master, DIRETOR/COORDENADOR, sub-perm
-    // helpdesk.atuar_agente, ou pertencer à área de TI/Suporte/Tecnologia)
-    // veem TODOS os tickets — consistente com o `isPriv` do list().
-    // Sem essa checagem, um agente apareceria na listagem (sem filtro de escopo)
-    // mas receberia FORBIDDEN ao clicar num ticket de outra área.
-    if (await this.canAtuarAgente(userId)) return true
+    // Espelha a visibilidade do list(): o que o usuário vê na lista é o que ele
+    // pode abrir. Sem isso, um ticket que aparece na listagem por escopo de área
+    // (ex.: chefia) receberia FORBIDDEN ao clicar.
+    const { scope, areaId } = await this.resolverEscopoEfetivo(userId)
+    if (scope === 'todos') return true
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { areaId: true },
-    })
-    if (!user) return false
+    const filtro = this.filtroVisibilidade(scope, userId, areaId)
+    if (filtro) {
+      const visivel = await prisma.helpdeskTicket.findFirst({
+        where: { id: ticketId, ...filtro },
+        select: { id: true },
+      })
+      if (visivel) return true
+    }
 
+    // Bônus preservados do comportamento anterior, independentes do escopo:
+    // líder da área do ticket, e membro da mesma área com permissão de leitura.
     const t = await prisma.helpdeskTicket.findUnique({
       where: { id: ticketId },
-      select: { solicitanteId: true, responsavelId: true, areaId: true, watchers: { select: { userId: true } } },
+      select: { areaId: true },
     })
-    if (!t) return false
-    if (t.solicitanteId === userId) return true
-    if (t.responsavelId === userId) return true
-    if (t.watchers.some(w => w.userId === userId)) return true
-
-    if (t.areaId) {
-      const area = await prisma.area.findUnique({
-        where: { id: t.areaId },
-        select: { leaderId: true },
-      })
+    if (t?.areaId) {
+      const area = await prisma.area.findUnique({ where: { id: t.areaId }, select: { leaderId: true } })
       if (area?.leaderId === userId) return true
-      // Mesma área do user (qualquer agente)
-      if (user.areaId === t.areaId) {
-        // Tem permissão helpdesk?
+      if (areaId && areaId === t.areaId) {
         const perm = await prisma.userPermission.findFirst({
           where: { userId, moduleSlug: 'helpdesk', canRead: true },
           select: { id: true },
@@ -112,14 +109,9 @@ export class HelpdeskService {
   }
 
   /**
-   * Verifica se o usuário pode ATUAR como agente (TI real). Critérios (qualquer um basta):
-   *  1. master / empresa-master
-   *  2. role DIRETOR / COORDENADOR
-   *  3. sub-permissão helpdesk.atuar_agente = true (explícita)
-   *  4. está em uma ÁREA de TI/Tecnologia/Suporte/Helpdesk (auto — qualquer usuário
-   *     dessas áreas é considerado agente sem precisar de sub-permissão manual)
-   *
-   * Usar em qualquer ação restrita à TI (kanban, configurações, mover/atribuir cards).
+   * Pode ATUAR como agente da TI (kanban, configurações, mover/atribuir cards,
+   * notas internas). Delega para a fonte única `ehAgenteHelpdesk` — ver a doc
+   * dela para os critérios. NÃO inclui mais os cargos DIRETOR/COORDENADOR.
    */
   async canAtuarAgente(userId: string): Promise<boolean> {
     const user = await prisma.user.findUnique({
@@ -127,46 +119,183 @@ export class HelpdeskService {
       select: {
         isMaster: true,
         isEmpresaMaster: true,
-        role: true,
         area: { select: { name: true } },
+        permissions: { where: { moduleSlug: 'helpdesk' }, select: { subPermissions: true } },
+      },
+    })
+    if (!user) return false
+    return ehAgenteHelpdesk({
+      isMaster: user.isMaster,
+      isEmpresaMaster: user.isEmpresaMaster,
+      subPermissions: user.permissions[0]?.subPermissions,
+      areaName: user.area?.name,
+    })
+  }
+
+  /**
+   * Pode ver as MÉTRICAS COMPLETAS do HelpDesk (indicadores de todos): exige
+   * master/empresa-master, o cargo DIRETOR/COORDENADOR, ou a sub-permissão
+   * helpdesk.panel_metricas. NÃO basta ser agente da TI. Quem não tem só enxerga
+   * as PRÓPRIAS avaliações (ver `minhasAvaliacoes`).
+   */
+  async podeVerMetricasCompletas(userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        isMaster: true, isEmpresaMaster: true, role: true,
+        permissions: { where: { moduleSlug: 'helpdesk' }, select: { subPermissions: true } },
       },
     })
     if (!user) return false
     if (user.isMaster || user.isEmpresaMaster) return true
     if (user.role === 'DIRETOR' || user.role === 'COORDENADOR') return true
-
-    // Sub-permissão explícita
-    const perm = await prisma.userPermission.findFirst({
-      where: { userId, moduleSlug: 'helpdesk' },
-      select: { subPermissions: true },
-    })
-    const sub = (perm?.subPermissions ?? {}) as Record<string, boolean>
-    if (sub.atuar_agente === true) return true
-
-    // Área do usuário pertence ao suporte/TI? (auto-agente)
-    if (user.area?.name && isAreaTi(user.area.name)) return true
-
-    return false
+    const sub = user.permissions[0]?.subPermissions as Record<string, unknown> | null
+    return sub?.panel_metricas === true
   }
 
   /**
-   * Escopo EFETIVO de visualização do usuário no HelpDesk (#HLP0139). Privilegiado
-   * (canAtuarAgente: TI/diretor/coordenador/master) enxerga tudo ('todos'); os
-   * demais seguem a sub-permissão de escopo (escolha única proprios/area/todos).
-   * `temArea` indica se a opção "minha área" faz sentido (usuário tem área). Sem
-   * área, 'area' degrada para 'proprios'.
+   * Avaliações (CSAT) recebidas pelo usuário como RESPONSÁVEL — a visão do
+   * próprio agente quando ele NÃO tem acesso às métricas completas. Retorna nota
+   * + comentário + ticket, além de média e total. Intervalo de datas opcional
+   * (ISO) sobre `csatRespondidoEm`.
    */
-  async getMeuEscopo(userId: string): Promise<{ scope: HelpdeskScope; temArea: boolean; areaId: string | null }> {
-    const [user, perm, isPriv] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId }, select: { areaId: true } }),
-      prisma.userPermission.findFirst({ where: { userId, moduleSlug: 'helpdesk' }, select: { subPermissions: true } }),
-      this.canAtuarAgente(userId),
-    ])
+  async minhasAvaliacoes(
+    userId: string,
+    empresaId?: string | null,
+    range?: { inicio?: string | null; fim?: string | null },
+  ) {
+    return this.listarAvaliacoes(empresaId ?? null, { responsavelId: userId, ...range })
+  }
+
+  /**
+   * Lista de avaliações (CSAT) do PAINEL COMPLETO — todas, ou de um responsável
+   * específico (`responsavelId`). O gate (`podeVerMetricasCompletas`) fica no
+   * router; aqui é só a consulta.
+   */
+  async avaliacoesCompletas(
+    empresaId: string | null | undefined,
+    opts: { responsavelId?: string | null; inicio?: string | null; fim?: string | null },
+  ) {
+    return this.listarAvaliacoes(empresaId ?? null, opts)
+  }
+
+  /**
+   * FONTE ÚNICA da lista de avaliações (CSAT): tickets com nota, no período,
+   * opcionalmente de um responsável. Cada linha traz o nome do responsável (útil
+   * na visão "todos"). Consumida por `minhasAvaliacoes` e `avaliacoesCompletas`.
+   */
+  private async listarAvaliacoes(
+    empresaId: string | null,
+    opts: { responsavelId?: string | null; inicio?: string | null; fim?: string | null },
+  ) {
+    const tenantFilter = empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}
+    const respondidoRange: Prisma.DateTimeNullableFilter = {}
+    if (opts.inicio) respondidoRange.gte = new Date(opts.inicio)
+    if (opts.fim) {
+      // fim inclusivo: cobre o dia inteiro (até 23:59:59.999) da data informada
+      const ate = new Date(opts.fim)
+      ate.setHours(23, 59, 59, 999)
+      respondidoRange.lte = ate
+    }
+    const rows = await prisma.helpdeskTicket.findMany({
+      where: {
+        ativo: true,
+        ...tenantFilter,
+        ...(opts.responsavelId ? { responsavelId: opts.responsavelId } : {}),
+        csatNota: { not: null },
+        ...(Object.keys(respondidoRange).length ? { csatRespondidoEm: respondidoRange } : {}),
+      },
+      select: {
+        id: true, numero: true, titulo: true, csatNota: true, csatComentario: true, csatRespondidoEm: true,
+        responsavel: { select: { id: true, name: true, image: true } },
+        // Quem fez a avaliação = solicitante (interno OU externo por e-mail)
+        solicitante: { select: { name: true, image: true } },
+        solicitanteExternoNome: true,
+      },
+      orderBy: { csatRespondidoEm: 'desc' },
+      take: 300,
+    })
+    const notas = rows.map(r => r.csatNota ?? 0).filter(n => n > 0)
+    const media = notas.length ? notas.reduce((a, b) => a + b, 0) / notas.length : null
+    return {
+      media,
+      total: notas.length,
+      avaliacoes: rows.map(r => ({
+        ticketId: r.id,
+        numero: r.numero,
+        titulo: r.titulo,
+        nota: r.csatNota,
+        comentario: r.csatComentario,
+        responsavelId: r.responsavel?.id ?? null,
+        responsavelNome: r.responsavel?.name ?? null,
+        responsavelImage: r.responsavel?.image ?? null,
+        // Autor da avaliação (solicitante)
+        solicitanteNome: r.solicitante?.name ?? r.solicitanteExternoNome ?? null,
+        solicitanteImage: r.solicitante?.image ?? null,
+        respondidoEm: r.csatRespondidoEm ? r.csatRespondidoEm.toISOString() : null,
+      })),
+    }
+  }
+
+  /**
+   * Escopo EFETIVO de visualização do usuário no HelpDesk (#HLP0139) — FONTE
+   * ÚNICA, consumida por `getMeuEscopo` (UI), `list()`, `canAccess()` e
+   * `relatorioTickets()`. Regra decidida:
+   *   - master / empresa-master        → 'todos'  (toda a empresa)
+   *   - DIRETOR / COORDENADOR (cargos) → 'area'   (a própria área — não são agentes)
+   *   - agente (sub-perm / área de TI) → 'todos'
+   *   - demais                         → sub-permissão de escopo (proprios/area/todos)
+   * Sem área cadastrada, 'area' degrada para 'proprios'.
+   */
+  private async resolverEscopoEfetivo(userId: string): Promise<{ scope: HelpdeskScope; temArea: boolean; areaId: string | null }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        areaId: true, isMaster: true, isEmpresaMaster: true, role: true,
+        area: { select: { name: true } },
+        permissions: { where: { moduleSlug: 'helpdesk' }, select: { subPermissions: true } },
+      },
+    })
     const temArea = !!user?.areaId
-    let scope: HelpdeskScope = isPriv ? 'todos' : resolveHelpdeskScope(perm?.subPermissions as Record<string, unknown> | null)
-    // Sem área cadastrada, "minha área" não se aplica → cai pra 'proprios'.
+    const sub = user?.permissions[0]?.subPermissions as Record<string, unknown> | null
+    let scope: HelpdeskScope
+    if (user?.isMaster || user?.isEmpresaMaster) {
+      scope = 'todos'
+    } else if (user?.role === 'DIRETOR' || user?.role === 'COORDENADOR') {
+      scope = 'area'
+    } else if (ehAgenteHelpdesk({ isMaster: user?.isMaster, isEmpresaMaster: user?.isEmpresaMaster, subPermissions: sub, areaName: user?.area?.name })) {
+      scope = 'todos'
+    } else {
+      scope = resolveHelpdeskScope(sub)
+    }
     if (scope === 'area' && !temArea) scope = 'proprios'
     return { scope, temArea, areaId: user?.areaId ?? null }
+  }
+
+  /** Endpoint tRPC — a UI usa pra saber quais opções de escopo oferecer. */
+  async getMeuEscopo(userId: string): Promise<{ scope: HelpdeskScope; temArea: boolean; areaId: string | null }> {
+    return this.resolverEscopoEfetivo(userId)
+  }
+
+  /**
+   * Condições Prisma de visibilidade de um escopo. `null` = sem restrição
+   * (scope 'todos'). Fonte única usada por `list()`, `canAccess()` e
+   * `relatorioTickets()` — garante que "o que aparece na lista" == "o que dá
+   * pra abrir". O escopo 'area' inclui os próprios + tickets cujo ticket.areaId
+   * é a área OU cujo solicitante pertence à área (o ticket.areaId quase nunca é
+   * preenchido — ver #HLP0318).
+   */
+  private filtroVisibilidade(scope: HelpdeskScope, userId: string, areaId: string | null): Prisma.HelpdeskTicketWhereInput | null {
+    if (scope === 'todos') return null
+    const meus: Prisma.HelpdeskTicketWhereInput[] = [
+      { solicitanteId: userId },
+      { responsavelId: userId },
+      { watchers: { some: { userId } } },
+    ]
+    if (scope === 'area' && areaId) {
+      return { OR: [...meus, { areaId }, { solicitante: { is: { areaId } } }] }
+    }
+    return { OR: meus }
   }
 
   /**
@@ -182,20 +311,19 @@ export class HelpdeskService {
         OR: empresaId ? [{ empresaId }, { empresaId: null }] : [{ empresaId: null }],
       },
       select: {
-        id: true, name: true, image: true, isMaster: true,
+        id: true, name: true, image: true, isMaster: true, isEmpresaMaster: true,
         area: { select: { name: true } },
         permissions: { where: { moduleSlug: 'helpdesk' }, select: { subPermissions: true } },
       },
       orderBy: { name: 'asc' },
     })
     return users
-      .filter((u) => {
-        if (u.isMaster) return true
-        const sub = (u.permissions[0]?.subPermissions ?? {}) as Record<string, boolean>
-        if (sub.atuar_agente === true) return true
-        if (u.area?.name && isAreaTi(u.area.name)) return true
-        return false
-      })
+      .filter((u) => ehAgenteHelpdesk({
+        isMaster: u.isMaster,
+        isEmpresaMaster: u.isEmpresaMaster,
+        subPermissions: u.permissions[0]?.subPermissions,
+        areaName: u.area?.name,
+      }))
       .map((u) => ({ id: u.id, name: u.name, image: u.image, areaName: u.area?.name ?? null }))
   }
 
@@ -271,14 +399,9 @@ export class HelpdeskService {
       tipo: input.tipo,
     })
 
-    // Notifica agentes da área (sino) — Fase 5 também manda e-mail
-    const notificouAgentes = await this.notificarAgentesArea(ticket.id, areaId, userId, empresaId)
-
-    // Fallback: se não há agentes da área (ex: ticket veio sem categoria via FAB
-    // "Fale com a TI"), envia email pro endereço configurado em HelpdeskConfig.
-    if (!notificouAgentes) {
-      await this.notificarEmailFallback(ticket.id)
-    }
+    // Notificação de novo ticket (sino in-app + e-mail). Quem recebe depende da
+    // config `notificarTodosAgentes` — ver o método (R1.3).
+    await this.notificarNovoTicket(ticket.id, empresaId)
 
     // Triagem IA — fire-and-forget. Não bloqueia o create (retorno em <100ms).
     // O agente classifica simples/complexo e atualiza o ticket de forma assíncrona;
@@ -291,93 +414,149 @@ export class HelpdeskService {
   }
 
   /**
-   * Notificação por email quando nenhum agente da área foi notificado
-   * (ticket sem categoria/área — ex: FAB "Fale com a TI").
+   * Notificação de um novo ticket: sino (in-app) para usuários + e-mail. Quem
+   * recebe depende do toggle `notificarTodosAgentes` da config (R1.3):
+   *   - LIGADO:    todos os agentes do HelpDesk (sino + e-mail) + e-mail aos
+   *                Destinatários adicionais.
+   *   - DESLIGADO: se o ticket tem área, os membros dela (sino + e-mail); se
+   *                não tem área, e-mail aos Destinatários alternativos. Se a área
+   *                não tem ninguém com e-mail, o e-mail cai (fallback) nos
+   *                Destinatários alternativos pra não se perder.
+   * Sempre exclui o próprio solicitante. Falhas são logadas, não propagam.
    */
-  private async notificarEmailFallback(ticketId: string) {
+  private async notificarNovoTicket(ticketId: string, empresaId?: string | null) {
     try {
-      const cfg = await this.getConfig()
-      const destinatario = cfg.emailNotificacao
-      if (!destinatario) return
-
       const ticket = await prisma.helpdeskTicket.findUnique({
         where: { id: ticketId },
-        select: {
-          numero: true, titulo: true, descricao: true, tipo: true, prioridade: true, tags: true,
-          solicitante: { select: { name: true, email: true } },
-        },
+        select: { areaId: true, solicitanteId: true, solicitante: { select: { email: true } } },
       })
       if (!ticket) return
+      const cfg = await this.getConfig(empresaId ?? null)
+      const solicitanteEmail = ticket.solicitante?.email?.trim().toLowerCase() ?? null
 
-      const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
-      const origem = ticket.tags.includes('fab-feedback') ? '🔔 Via balão "Fale com a TI"' : 'Sem categoria definida'
-      const html = `
-        <p>Um novo ticket foi aberto e precisa de atenção:</p>
-        <p><strong>${ticketNum}</strong> — ${escapeHtml(ticket.titulo)}</p>
-        <p style="font-size:12px;color:#6b7280;margin-top:4px;">
-          Tipo: <strong>${ticket.tipo}</strong> · Prioridade: <strong>${ticket.prioridade}</strong> · ${origem}
-        </p>
-        <p style="font-size:12px;color:#6b7280;">
-          Solicitante: ${ticket.solicitante ? escapeHtml(`${ticket.solicitante.name} <${ticket.solicitante.email}>`) : '—'}
-        </p>
-        <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;">
-        ${ticket.descricao}
-        <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb;">
-        <p style="font-size:11px;color:#9ca3af;">
-          Para responder, abra o ticket no HelpDesk do OneClick.
-        </p>`
+      if (cfg.notificarTodosAgentes) {
+        const agentes = (await this.usuariosAgentes(empresaId ?? null)).filter(a => a.id !== ticket.solicitanteId)
+        await this.sinoNovoTicket(ticketId, agentes.map(a => a.id), empresaId ?? null)
+        await this.emailNovoTicket(ticketId, [...agentes.map(a => a.email), ...cfg.destinatarios], solicitanteEmail)
+        return
+      }
 
-      await this.emailService.sendMail({
-        to: destinatario,
-        subject: `HelpDesk ${ticketNum} — ${ticket.titulo.slice(0, 60)}`,
-        html,
-      })
+      // Toggle desligado: por área, ou (sem área) aos Destinatários alternativos.
+      if (ticket.areaId) {
+        const membros = await this.usuariosDaArea(ticket.areaId, ticket.solicitanteId, empresaId ?? null)
+        await this.sinoNovoTicket(ticketId, membros.map(m => m.id), empresaId ?? null)
+        // E-mail: membros da área. Se a área não rende nenhum destinatário de
+        // e-mail (sem membros, ou nenhum com e-mail cadastrado além do próprio
+        // solicitante), FALLBACK para os Destinatários alternativos — senão o
+        // aviso por e-mail se perde. O sino já foi só para os membros (se houver).
+        const emailsArea = membros
+          .map(m => m.email?.trim().toLowerCase())
+          .filter((e): e is string => !!e && e !== solicitanteEmail)
+        const destinoEmail = emailsArea.length > 0 ? emailsArea : cfg.destinatarios
+        await this.emailNovoTicket(ticketId, destinoEmail, solicitanteEmail)
+      } else {
+        await this.emailNovoTicket(ticketId, cfg.destinatarios, solicitanteEmail)
+      }
     } catch (e) {
-      console.warn('[Helpdesk] Falha no fallback email:', (e as Error).message)
+      console.warn('[Helpdesk] Falha ao notificar novo ticket:', (e as Error).message)
     }
   }
 
-  private async notificarAgentesArea(
-    ticketId: string,
-    areaId: string | null,
-    solicitanteId: string,
-    empresaId?: string | null,
-  ): Promise<boolean> {
-    if (!areaId) return false
-    // Pega usuários da área com permissão helpdesk.atuar_agente
-    const agentes = await prisma.user.findMany({
+  /** Usuários ativos que são agentes do HelpDesk (fonte única ehAgenteHelpdesk), com e-mail. */
+  private async usuariosAgentes(empresaId: string | null): Promise<Array<{ id: string; email: string | null }>> {
+    const users = await prisma.user.findMany({
+      where: { isActive: true, OR: empresaId ? [{ empresaId }, { empresaId: null }] : [{ empresaId: null }] },
+      select: {
+        id: true, email: true, isMaster: true, isEmpresaMaster: true,
+        area: { select: { name: true } },
+        permissions: { where: { moduleSlug: 'helpdesk' }, select: { subPermissions: true } },
+      },
+    })
+    return users
+      .filter(u => ehAgenteHelpdesk({ isMaster: u.isMaster, isEmpresaMaster: u.isEmpresaMaster, subPermissions: u.permissions[0]?.subPermissions, areaName: u.area?.name }))
+      .map(u => ({ id: u.id, email: u.email }))
+  }
+
+  /** Usuários ativos da área do ticket (exceto o solicitante), com e-mail. */
+  private async usuariosDaArea(areaId: string, exceptId: string | null, empresaId: string | null): Promise<Array<{ id: string; email: string | null }>> {
+    return prisma.user.findMany({
       where: {
-        areaId,
-        isActive: true,
-        id: { not: solicitanteId },
+        areaId, isActive: true,
+        ...(exceptId ? { id: { not: exceptId } } : {}),
         ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
       },
-      select: { id: true },
+      select: { id: true, email: true },
     })
-    if (agentes.length === 0) return false
+  }
+
+  /** Sino (in-app) de novo ticket para os usuários dados. */
+  private async sinoNovoTicket(ticketId: string, userIds: string[], empresaId: string | null) {
+    const ids = Array.from(new Set(userIds.filter(Boolean)))
+    if (ids.length === 0) return
     const ticket = await prisma.helpdeskTicket.findUnique({
       where: { id: ticketId },
       select: { numero: true, titulo: true, prioridade: true },
     })
-    if (!ticket) return false
+    if (!ticket) return
     const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
     try {
-      await this.notificationService.criarParaUsers(
-        agentes.map(a => a.id),
-        {
-          titulo: `Novo ticket ${ticketNum}`,
-          mensagem: `${ticket.titulo} (${ticket.prioridade})`,
-          tipo: 'info',
-          link: `/helpdesk/${ticketId}`,
-          origem: 'helpdesk',
-          empresaId: empresaId || null,
-        },
-      )
-      return true
+      await this.notificationService.criarParaUsers(ids, {
+        titulo: `Novo ticket ${ticketNum}`,
+        mensagem: `${ticket.titulo} (${ticket.prioridade})`,
+        tipo: 'info',
+        link: `/helpdesk/${ticketId}`,
+        origem: 'helpdesk',
+        empresaId: empresaId || null,
+      })
     } catch (e) {
-      console.warn('[Helpdesk] Falha ao notificar agentes:', (e as Error).message)
-      return false
+      console.warn('[Helpdesk] Falha no sino de novo ticket:', (e as Error).message)
     }
+  }
+
+  /** E-mail de novo ticket para a lista de endereços (dedup, exceto o solicitante). */
+  private async emailNovoTicket(ticketId: string, emails: Array<string | null | undefined>, exceptEmail: string | null) {
+    const dest = Array.from(new Set(
+      emails.map(e => e?.trim().toLowerCase()).filter((e): e is string => !!e),
+    )).filter(e => e !== exceptEmail)
+    if (dest.length === 0) return
+
+    const ticket = await prisma.helpdeskTicket.findUnique({
+      where: { id: ticketId },
+      select: {
+        numero: true, titulo: true, descricao: true, tipo: true, prioridade: true, tags: true,
+        area: { select: { name: true } },
+        solicitante: { select: { name: true, email: true } },
+      },
+    })
+    if (!ticket) return
+
+    const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
+    const origem = ticket.area?.name
+      ? `Área: ${escapeHtml(ticket.area.name)}`
+      : (ticket.tags.includes('fab-feedback') ? '🔔 Via balão "Fale com a TI"' : 'Sem área definida')
+    // Anexos iniciais do ticket (os da descrição, sem mensagem) pro contador (R1.1).
+    const numAnexos = await prisma.helpdeskAnexo.count({ where: { ticketId, mensagemId: null } })
+
+    // R1.1 — corpo com autor (solicitante) + a descrição (com imagens embutidas)
+    // + contador de anexos. Rodapé de "não responda" vem do emailTpl.
+    const corpo =
+      `<p style="margin:0 0 8px">Um novo ticket foi aberto e precisa de atenção:</p>` +
+      `<p style="margin:0 0 4px"><strong>${ticketNum}</strong> — ${escapeHtml(ticket.titulo)}</p>` +
+      `<p style="font-size:12px;color:#6b7280;margin:0 0 12px">Tipo: <strong>${ticket.tipo}</strong> · Prioridade: <strong>${ticket.prioridade}</strong> · ${origem}</p>` +
+      this.blocoMensagemEmail({
+        autorNome: ticket.solicitante?.name ?? 'Solicitante',
+        conteudoHtml: ticket.descricao,
+        numAnexos,
+      })
+    const html = await this.emailTpl(ticketNum, corpo, `/helpdesk/${ticketId}`)
+
+    // Um único e-mail com todos em BCC — não expõe os endereços uns aos outros
+    // e evita inflar a caixa com N cópias idênticas.
+    await this.emailService.sendMail({
+      bcc: dest,
+      subject: `HelpDesk ${ticketNum} — ${ticket.titulo.slice(0, 60)}`,
+      html,
+    })
   }
 
   /** Detalhe completo do ticket (com mensagens, anexos, eventos, watchers, autores enriquecidos). */
@@ -434,21 +613,30 @@ export class HelpdeskService {
           : null,
       }
     })
-    return { ...ticket, mensagens }
+    // R5.2 — flags de avaliação para o solicitante (a config de janela é
+    // agente-only, então computamos aqui):
+    //  - avaliacaoDisponivel: pode avaliar agora (RESOLVIDO, ou CONCLUÍDO sem
+    //    nota dentro da janela).
+    //  - concluidoSemAvaliacao: foi concluído sem avaliação registrada (ex.:
+    //    auto-fechado) — a UI mostra o aviso disso.
+    const janela = await this.avaliacaoPosConclusaoDias()
+    const avaliacaoDisponivel = this.avaliacaoDisponivel(ticket, janela)
+    const concluidoSemAvaliacao = ticket.status === 'CONCLUIDO' && ticket.csatNota == null && !ticket.csatRespondidoEm
+    // R5.1 — flags de ESTADO (freeze/bloqueio) computadas na fonte única do back;
+    // o front só as consome e compõe o papel do usuário por cima (sem repetir a
+    // regra). Ver [[flags-de-estado-vem-do-backend]].
+    const status = ticket.status as HelpdeskStatus
+    return {
+      ...ticket, mensagens, avaliacaoDisponivel, concluidoSemAvaliacao, avaliacaoPosConclusaoDias: janela,
+      congelado: ticketCongelado(status, ticket.arquivado),
+      bloqueiaMensagemPublica: bloqueiaMensagemPublica(status, ticket.arquivado, ticket.csatRespondidoEm != null),
+      permiteTrocarResponsavel: permiteTrocarResponsavel(status, ticket.arquivado),
+      reaberturaDisponivel: podeReabrirSolicitante(status, ticket.arquivado, ticket.csatRespondidoEm != null),
+    }
   }
 
-  /** Listagem do agente (kanban e tabela). Escopo definido por sub-permissões. */
+  /** Listagem do agente (kanban e tabela). Escopo via `resolverEscopoEfetivo`. */
   async list(input: ListTicketInput, userId: string, empresaId?: string | null) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, isMaster: true, isEmpresaMaster: true, role: true, areaId: true },
-    })
-    // Privilegiado vê tudo sem filtro de escopo. Usa o mesmo critério do
-    // canAtuarAgente: master/empresa-master, DIRETOR/COORDENADOR, sub-perm
-    // helpdesk.atuar_agente, OU pertencer à área de TI/Suporte/Tecnologia.
-    const isPriv = await this.canAtuarAgente(userId)
-    console.log(`[Helpdesk.list] userId=${userId} scope=${input.scope} isPriv=${isPriv}`)
-
     // Where base
     const where: any = {
       arquivado: input.arquivado,
@@ -480,45 +668,18 @@ export class HelpdeskService {
       where.OR = or
     }
 
-    // Escopo efetivo (#HLP0139): privilegiado = 'todos'; senão, a escolha única
-    // da sub-permissão. O scope PEDIDO é clampado ao permitido (nunca excede).
-    //  - 'todos'    → sem restrição de escopo
-    //  - 'area'     → os próprios + tickets ABERTOS por membros da área (gestor)
-    //  - 'proprios' → só os próprios
-    const meusConds = [
-      { solicitanteId: userId },
-      { responsavelId: userId },
-      { watchers: { some: { userId } } },
-    ]
-    const perm = isPriv ? null : await prisma.userPermission.findFirst({
-      where: { userId, moduleSlug: 'helpdesk' }, select: { subPermissions: true },
-    })
-    let efetivo: HelpdeskScope = isPriv
-      ? 'todos'
-      : resolveHelpdeskScope(perm?.subPermissions as Record<string, unknown> | null)
-    if (efetivo === 'area' && !user?.areaId) efetivo = 'proprios'
-
+    // Escopo efetivo (#HLP0139) via fonte única. O scope PEDIDO pela UI é
+    // clampado ao permitido (nunca excede), e a visibilidade sai do mesmo
+    // `filtroVisibilidade` que canAccess/relatorioTickets usam.
+    const { scope: efetivo, areaId } = await this.resolverEscopoEfetivo(userId)
     const pedidoScope: HelpdeskScope = input.scope === 'TODOS' ? 'todos' : input.scope === 'AREA' ? 'area' : 'proprios'
     const aplicRank = Math.min(HELPDESK_SCOPE_RANK[pedidoScope], HELPDESK_SCOPE_RANK[efetivo])
-
-    console.log(`[Helpdesk.list] userId=${userId} pedido=${input.scope} efetivo=${efetivo} aplicRank=${aplicRank} isPriv=${isPriv}`)
-
-    if (aplicRank >= HELPDESK_SCOPE_RANK.todos) {
-      // sem restrição de escopo
-    } else if (aplicRank === HELPDESK_SCOPE_RANK.area && user?.areaId) {
-      // "Área" (gestor): além dos próprios, inclui os tickets ABERTOS por
-      // membros da área. O ticket.areaId vem da CATEGORIA e quase nunca é
-      // preenchido (na prática ~todos ficam null), então filtrar só por ele não
-      // traz nada — o que o gestor espera ver é "tickets abertos pela minha
-      // área", i.e. cujo solicitante pertence à área dele. #HLP0318
-      where.AND = [{ OR: [
-        ...meusConds,
-        { areaId: user.areaId },
-        { solicitante: { is: { areaId: user.areaId } } },
-      ] }]
-    } else {
-      where.AND = [{ OR: meusConds }]
-    }
+    const scopeAplicado: HelpdeskScope =
+      aplicRank >= HELPDESK_SCOPE_RANK.todos ? 'todos'
+      : aplicRank === HELPDESK_SCOPE_RANK.area ? 'area'
+      : 'proprios'
+    const filtro = this.filtroVisibilidade(scopeAplicado, userId, areaId)
+    if (filtro) where.AND = [filtro]
 
     const [total, items] = await Promise.all([
       prisma.helpdeskTicket.count({ where }),
@@ -583,13 +744,14 @@ export class HelpdeskService {
    * vê só os próprios/responsável/watcher.
    */
   async relatorioTickets(userId: string, empresaId?: string | null) {
-    const isAgente = await this.canAtuarAgente(userId)
+    const { scope, areaId } = await this.resolverEscopoEfetivo(userId)
+    const filtro = this.filtroVisibilidade(scope, userId, areaId)
     const where: Prisma.HelpdeskTicketWhereInput = {
       ativo: true,
       arquivado: false,
       status: { notIn: ['CONCLUIDO', 'CANCELADO'] },
       ...(empresaId ? { empresaId } : {}),
-      ...(isAgente ? {} : { OR: [{ solicitanteId: userId }, { responsavelId: userId }, { watchers: { some: { userId } } }] }),
+      ...(filtro ?? {}),
     }
     return prisma.helpdeskTicket.findMany({
       where,
@@ -654,7 +816,7 @@ export class HelpdeskService {
         status: true, responsavelId: true, prioridade: true, categoriaId: true,
         areaId: true, prazoSla: true, pausadoEm: true, totalPausadoMs: true,
         primeiroAtendimentoEm: true, solicitanteId: true, titulo: true, descricao: true,
-        arquivado: true, tipo: true,
+        arquivado: true, tipo: true, csatRespondidoEm: true,
       },
     })
     if (!before) throw new Error('Ticket não encontrado')
@@ -699,11 +861,27 @@ export class HelpdeskService {
 
     const querMudarTitulo = data.titulo !== undefined && data.titulo !== before.titulo
     const querMudarDescricao = data.descricao !== undefined && data.descricao !== before.descricao
-    if (querMudarTitulo || querMudarDescricao) {
-      if (before.status === 'CANCELADO') {
-        throw new Error('Ticket cancelado — edição não permitida')
-      }
 
+    // R5.1 — congelamento por ESTADO ENCERRADO: com o ticket CONCLUÍDO,
+    // CANCELADO ou ARQUIVADO, os campos de CONTEÚDO/meta ficam bloqueados para
+    // edição. O ciclo de vida (status e arquivamento) fica de fora de propósito
+    // — é o que permite REABRIR/desarquivar (5.4) e o agente arquivar/desarquivar.
+    const congeladoTotal = ticketCongelado(before.status as HelpdeskStatus, before.arquivado)
+    const querEditarConteudo = querMudarTitulo || querMudarDescricao
+      || (data.tipo !== undefined && data.tipo !== before.tipo)
+      || (data.tags !== undefined)
+      || (data.prioridade !== undefined && data.prioridade !== before.prioridade)
+      || (data.categoriaId !== undefined && data.categoriaId !== before.categoriaId)
+      || (data.areaId !== undefined && data.areaId !== before.areaId)
+      || (data.prazoSla !== undefined)
+      || (data.responsavelId !== undefined && data.responsavelId !== before.responsavelId)
+    if (congeladoTotal && querEditarConteudo) {
+      const estado = before.arquivado ? 'arquivado'
+        : before.status === 'CANCELADO' ? 'cancelado' : 'concluído'
+      throw new Error(`Ticket ${estado} — reabra o chamado para poder editá-lo.`)
+    }
+
+    if (querMudarTitulo || querMudarDescricao) {
       if (querMudarTitulo) {
         if (!ehSolicitante && !ehAgente) {
           throw new Error('Só o criador do ticket ou um agente da TI pode editar o título')
@@ -741,6 +919,12 @@ export class HelpdeskService {
         && helpdeskSolicitantePodeReabrir({ status: before.status as HelpdeskStatus, arquivado: before.arquivado })
       if (!podeCom('arquivar') && !desarquivandoParaReabrir) {
         throw new Error('Você não tem permissão para arquivar tickets')
+      }
+      // Só se ARQUIVA a partir das etapas finais (CONCLUÍDO/CANCELADO) — fonte
+      // única compartilhada com o kanban e a sidebar. Desarquivar é livre (é o
+      // caminho de reabertura).
+      if (data.arquivado === true && !helpdeskPodeArquivar(before.status as HelpdeskStatus)) {
+        throw new Error('Só é possível arquivar chamados concluídos ou cancelados')
       }
       patch.arquivado = data.arquivado
       eventos.push({
@@ -786,6 +970,12 @@ export class HelpdeskService {
     }
 
     if (data.responsavelId !== undefined && data.responsavelId !== before.responsavelId) {
+      // R5.1 — de "Aguardando avaliação" (RESOLVIDO) em diante, o responsável
+      // congela mesmo com permissão: evita "roubar" a avaliação de outro agente.
+      // Comparação por POSIÇÃO na ordem dos status (pegajoso), não por igualdade.
+      if (helpdeskStatusRank(before.status as HelpdeskStatus) >= helpdeskStatusRank('RESOLVIDO')) {
+        throw new Error('Da etapa "Aguardando avaliação" em diante o responsável não pode ser alterado.')
+      }
       if (!podeCom('change_responsavel')) throw new Error('Você não tem permissão para atribuir responsável')
       patch.responsavelId = data.responsavelId
       const novoNome = data.responsavelId
@@ -828,8 +1018,17 @@ export class HelpdeskService {
             throw new Error('O chamado já está em atendimento — fale com o responsável para encerrá-lo')
           }
         } else if (querReabrir) {
-          if (!helpdeskSolicitantePodeReabrir({ status: before.status as HelpdeskStatus, arquivado: before.arquivado })) {
-            throw new Error('Este chamado ainda está em atendimento — acompanhe por aqui mesmo.')
+          // Fonte única `podeReabrirSolicitante` (mesma regra que o getById
+          // devolve ao front como `reaberturaDisponivel`): cancelado é terminal,
+          // avaliado já fechou o loop, e o resto segue o estado reabrível.
+          if (!podeReabrirSolicitante(before.status as HelpdeskStatus, before.arquivado, before.csatRespondidoEm != null)) {
+            throw new Error(
+              before.status === 'CANCELADO'
+                ? 'Chamado cancelado não pode ser reaberto — abra um novo chamado.'
+                : before.csatRespondidoEm != null
+                  ? 'Este chamado já foi avaliado e não pode ser reaberto.'
+                  : 'Este chamado ainda está em atendimento — acompanhe por aqui mesmo.',
+            )
           }
         } else {
           throw new Error('Como solicitante, você só pode cancelar ou reabrir o próprio ticket')
@@ -1010,8 +1209,8 @@ export class HelpdeskService {
             tipo: 'info',
           },
           {
-            subject: `HelpDesk ${ticketNum} — responsável alterado`,
-            html: this.emailTpl(ticketNum, corpo, link),
+            subject: `HelpDesk ${ticketNum} — Responsável alterado`,
+            html: await this.emailTpl(ticketNum, corpo, link),
           },
         )
       }
@@ -1022,43 +1221,58 @@ export class HelpdeskService {
       // E mudou status na mesma operação (ex.: reabrir), dispara só uma vez.
       const mudouStatus = !!patch.status && patch.status !== before.status && patch.status !== 'NOVO'
       const desarquivou = patch.arquivado === false && before.arquivado === true
-      if (mudouStatus || desarquivou) {
-        const statusLabel = (mudouStatus ? patch.status : t.status) as string
+      // Reabertura = voltou pra "Em andamento" vindo de um estado encerrado
+      // (RESOLVIDO+ ou arquivado). Aí o responsável — ou TODOS os agentes, se não
+      // houver — recebe um e-mail ESPECÍFICO de "reaberto", em vez do genérico de
+      // status. (A reabertura por mensagem no RESOLVIDO é tratada no addMensagem.)
+      const ehReabertura = patch.status === HELPDESK_STATUS_REABERTURA
+        && (helpdeskStatusRank(before.status as HelpdeskStatus) >= helpdeskStatusRank('RESOLVIDO') || !!before.arquivado)
+      if (ehReabertura) {
+        void this.notificarReabertura(ticketId, before.responsavelId, t.empresaId, { actorId })
+      } else if (mudouStatus || desarquivou) {
+        // Rótulo da etapa (não o valor cru do enum). Ex.: RESOLVIDO → "Aguardando
+        // avaliação", batendo com a UI. Alimenta corpo + assunto do e-mail e o
+        // título do sino.
+        const statusVal = (mudouStatus ? patch.status : t.status) as HelpdeskStatus
+        const statusLabel = HELPDESK_STATUS_LABELS[statusVal] ?? statusVal
         const soDesarquivou = desarquivou && !mudouStatus
+        const virouAvaliacao = patch.status === 'RESOLVIDO'
         const corpo = soDesarquivou
-          ? `O ticket <strong>${t.titulo}</strong> foi reaberto (desarquivado). Status atual: <strong>${statusLabel}</strong>.`
-          : `Status do ticket <strong>${t.titulo}</strong> alterado para <strong>${statusLabel}</strong>.`
+          ? `O ticket <strong>${escapeHtml(t.titulo)}</strong> foi reaberto (desarquivado). Status atual: <strong>${statusLabel}</strong>.`
+          : `Status do ticket <strong>${escapeHtml(t.titulo)}</strong> alterado para <strong>${statusLabel}</strong>.`
+        // R1.2 — em RESOLVIDO ("Aguardando avaliação") o solicitante recebe a
+        // versão "avalie" (abaixo), com CTA próprio; então o e-mail genérico vai
+        // só ao responsável, evitando dois e-mails ao solicitante.
         await notificarLote(
-          [t.solicitante, t.responsavel],
+          virouAvaliacao ? [t.responsavel] : [t.solicitante, t.responsavel],
           {
             titulo: soDesarquivou ? `${ticketNum} — reaberto` : `${ticketNum} → ${statusLabel}`,
             mensagem: t.titulo,
             tipo: mudouStatus && (patch.status === 'RESOLVIDO' || patch.status === 'CONCLUIDO') ? 'success' : 'info',
           },
           {
-            subject: soDesarquivou ? `HelpDesk ${ticketNum} — reaberto` : `HelpDesk ${ticketNum} — ${statusLabel}`,
-            html: this.emailTpl(ticketNum, corpo, link),
+            subject: soDesarquivou ? `HelpDesk ${ticketNum} — Reaberto` : `HelpDesk ${ticketNum} — ${statusLabel}`,
+            html: await this.emailTpl(ticketNum, corpo, link),
           },
         )
 
-        // E-mail extra pro solicitante quando RESOLVIDO — pedindo CSAT.
-        // Mantém comportamento existente (sobrepõe ao genérico acima — é ok,
-        // são dois e-mails: "status alterado" + "avalie").
-        if (patch.status === 'RESOLVIDO' && t.solicitante?.email && t.solicitante.id !== actorId) {
-          void this.emailService.sendMail({
-            to: t.solicitante.email,
-            subject: `HelpDesk ${ticketNum} resolvido — avalie o atendimento`,
-            html: this.emailTpl(
-              ticketNum,
-              `Seu ticket <strong>${t.titulo}</strong> foi resolvido. ` +
-              `Avalie o atendimento (5 estrelas máx) para fechar o chamado. ` +
-              // #HLP0180: o auto-fechamento deixou de gravar nota (ver
-              // autoFecharResolvidos), então prometer "nota neutra" era falso — e
-              // ainda desincentivava responder, já que a nota sairia de graça.
-              `Após 3 dias sem resposta, o chamado é fechado automaticamente, sem registrar avaliação.`,
-              link,
-            ),
-          })
+        // R1.2 — RESOLVIDO: sino + e-mail ao solicitante com CTA de AVALIAR.
+        if (virouAvaliacao && t.solicitante && t.solicitante.id !== actorId) {
+          await this.notificationService.criarParaUsers([t.solicitante.id], {
+            titulo: `${ticketNum} — RESOLVIDO - Avalie o atendimento`,
+            mensagem: t.titulo,
+            tipo: 'success',
+            link,
+            origem: 'helpdesk',
+            empresaId: t.empresaId,
+          }).catch(() => {})
+          if (t.solicitante.email) {
+            void this.emailService.sendMail({
+              to: t.solicitante.email,
+              subject: `HelpDesk ${ticketNum} resolvido — Avalie o atendimento!`,
+              html: await this.emailAvaliacaoTpl(ticketNum, t.titulo, link),
+            })
+          }
         }
       }
     } catch (e) {
@@ -1066,16 +1280,135 @@ export class HelpdeskService {
     }
   }
 
-  private emailTpl(ticketNum: string, corpoHtml: string, linkRel: string): string {
+  /** Endereço inbound configurado (respostas por e-mail). Vazio = não configurado. */
+  private async inboundEmailConfig(): Promise<string> {
+    const cfg = await prisma.systemConfig.findUnique({ where: { key: HelpdeskService.CFG_INBOUND_EMAIL } }).catch(() => null)
+    return (cfg?.value ?? '').trim()
+  }
+
+  /**
+   * R1.2 — e-mail de "avalie o atendimento" (RESOLVIDO). Reaproveita a MOLDURA do
+   * `emailTpl` (container + cabeçalho + rodapé condicional a inbound) e passa
+   * apenas o CORPO — título, 5 estrelas grandes clicáveis (abrem o ticket p/
+   * avaliar) e CTA próprio. Por isso vai com `ctaLabel: null` (sem o botão padrão).
+   * Email-safe: estilos inline; botão em tabela; estrela ★ (U+2605).
+   */
+  private emailAvaliacaoTpl(ticketNum: string, tituloTicket: string, linkRel: string): Promise<string> {
     const base = process.env.NEXT_PUBLIC_APP_URL || 'https://app.oneclick.com.br'
+    const url = `${base}${linkRel}`
+    const corpo = `<div style="text-align:center;padding:8px 8px 0">
+      <div style="font-size:19px;font-weight:800;color:#0f172a">Como foi o seu atendimento?</div>
+      <p style="margin:10px 0 0;font-size:14.5px;line-height:1.55;color:#374151">
+        O seu chamado <strong style="color:#0f172a">${escapeHtml(tituloTicket)}</strong> foi <strong style="color:#0e7490">resolvido</strong> &#127881;<br>Sua opinião ajuda a TI a melhorar — dê a sua nota:
+      </p>
+      <div style="padding:18px 0 2px">
+        <a href="${url}" style="text-decoration:none;font-size:40px;line-height:1;letter-spacing:8px;color:#f59e0b">&#9733;&#9733;&#9733;&#9733;&#9733;</a>
+      </div>
+      <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:10px auto 0">
+        <tr><td align="center" bgcolor="#0e7490" style="border-radius:8px">
+          <a href="${url}" style="display:inline-block;padding:13px 32px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:8px">Avaliar agora</a>
+        </td></tr>
+      </table>
+    </div>`
+    return this.emailTpl(ticketNum, corpo, linkRel, null, 'Sem avaliação, o chamado é encerrado automaticamente em alguns dias, sem registrar nota. E-mail automático — <strong>não responda por aqui</strong>.')
+  }
+
+  private async emailTpl(ticketNum: string, corpoHtml: string, linkRel: string, ctaLabel: string | null = 'Abrir ticket', notaRodape?: string): Promise<string> {
+    const base = process.env.NEXT_PUBLIC_APP_URL || 'https://app.oneclick.com.br'
+    // Rodapé condicional: se o módulo tem endereço inbound configurado (respostas
+    // por e-mail habilitadas), o texto convida a responder; senão, avisa que a
+    // resposta se perde e manda abrir o ticket. (O Reply-To para o endereço
+    // inbound ainda não é setado — depende da configuração do inbound.)
+    // `notaRodape` (opcional, HTML confiável vindo do código) SUBSTITUI por
+    // completo o texto padrão do rodapé — usado quando o e-mail NÃO deve sugerir
+    // resposta por e-mail (ex.: o de avaliação, que só se conclui pelo botão).
+    // Sem ela, usa o texto condicional ao inbound.
+    let rodapeTexto = notaRodape
+    if (!rodapeTexto) {
+      const inbound = await this.inboundEmailConfig()
+      rodapeTexto = inbound
+        ? 'Você pode <strong>responder este e-mail</strong> para adicionar ao ticket, ou abrir no botão acima para acompanhar.'
+        : 'E-mail automático — <strong>não responda por aqui</strong>, a resposta se perde. Para responder ou acompanhar, abra o ticket no botão acima.'
+    }
+    const rodape = `<p style="margin-top:24px;font-size:11px;color:#9ca3af">${rodapeTexto}</p>`
     return `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:560px;margin:0 auto;padding:20px;color:#1f2937">
       <div style="border-left:4px solid #22d3ee;padding:12px 16px;background:#ecfeff;border-radius:4px">
         <h2 style="margin:0 0 4px 0;font-size:14px;color:#0e7490">HelpDesk · ${ticketNum}</h2>
       </div>
       <div style="padding:16px 0;font-size:14px;line-height:1.5">${corpoHtml}</div>
-      <a href="${base}${linkRel}" style="display:inline-block;background:#22d3ee;color:white;padding:10px 16px;border-radius:4px;text-decoration:none;font-size:13px">Abrir ticket</a>
-      <p style="margin-top:24px;font-size:11px;color:#9ca3af">E-mail automático. Para responder ao agente, use o link acima ou responda esta mensagem (o sistema reconhece o número do ticket no assunto).</p>
+      ${ctaLabel ? `<a href="${base}${linkRel}" style="display:inline-block;background:#22d3ee;color:white;padding:10px 16px;border-radius:4px;text-decoration:none;font-size:13px">${escapeHtml(ctaLabel)}</a>` : ''}
+      ${rodape}
     </div>`
+  }
+
+  /**
+   * Bloco de "mensagem" pro corpo do e-mail (R1.1): autor + o conteúdo da
+   * mensagem (com as imagens embutidas nele) + contador de anexos, se houver.
+   * O conteúdo é o HTML do editor; imagens inseridas pelo editor já têm URL
+   * absoluta e renderizam no cliente de e-mail.
+   */
+  private blocoMensagemEmail(args: { autorNome: string; conteudoHtml: string; numAnexos: number }): string {
+    const anexos = args.numAnexos > 0
+      ? `<p style="margin:10px 0 0;font-size:12px;color:#6b7280">📎 ${args.numAnexos} anexo${args.numAnexos > 1 ? 's' : ''}</p>`
+      : ''
+    return `
+      <p style="margin:0 0 8px;font-size:13px;color:#374151"><strong>${escapeHtml(args.autorNome)}</strong> escreveu:</p>
+      <div style="border-left:3px solid #e5e7eb;padding-left:12px;font-size:14px;line-height:1.5">${args.conteudoHtml}</div>
+      ${anexos}`
+  }
+
+  /**
+   * Avisa que o chamado foi REABERTO (voltou para "Em andamento"). Vai para o
+   * responsável; se não houver, para TODOS os agentes do HelpDesk (fallback —
+   * fonte única `usuariosAgentes`). Sino + e-mail único em BCC. Pula o `actorId`
+   * (quem reabriu não se notifica). `motivoHtml` acrescenta um contexto ao corpo
+   * (ex.: o retorno do solicitante no lugar de avaliar, R5.5).
+   */
+  private async notificarReabertura(
+    ticketId: string,
+    responsavelId: string | null,
+    empresaId: string | null,
+    opts?: { motivoHtml?: string; actorId?: string },
+  ) {
+    try {
+      const t = await prisma.helpdeskTicket.findUnique({
+        where: { id: ticketId },
+        select: { numero: true, titulo: true },
+      })
+      if (!t) return
+      const ticketNum = `#HLP${String(t.numero).padStart(4, '0')}`
+      const link = `/helpdesk/${ticketId}`
+
+      let users: Array<{ id: string; email: string | null }> = []
+      if (responsavelId) {
+        const r = await prisma.user.findUnique({ where: { id: responsavelId }, select: { id: true, email: true } })
+        if (r) users = [r]
+      } else {
+        users = await this.usuariosAgentes(empresaId)
+      }
+      users = users.filter(u => u.id !== opts?.actorId)
+      if (users.length === 0) return
+
+      await this.notificationService.criarParaUsers(users.map(u => u.id), {
+        titulo: `${ticketNum} — reaberto`,
+        mensagem: t.titulo,
+        tipo: 'warning',
+        link,
+        origem: 'helpdesk',
+        empresaId: empresaId || null,
+      }).catch(() => {})
+
+      const corpo = `O chamado <strong>${escapeHtml(t.titulo)}</strong> foi <strong>reaberto</strong> e voltou para <strong>Em andamento</strong>.` +
+        (opts?.motivoHtml ? ` ${opts.motivoHtml}` : '') +
+        ` Confira e dê sequência.`
+      const dest = Array.from(new Set(users.map(u => u.email?.trim().toLowerCase()).filter((e): e is string => !!e)))
+      // Um único e-mail com todos em BCC (não expõe endereços, sem N cópias).
+      if (dest.length) {
+        await this.emailService.sendMail({ bcc: dest, subject: `HelpDesk ${ticketNum} — Reaberto`, html: await this.emailTpl(ticketNum, corpo, link) })
+      }
+    } catch (e) {
+      console.warn('[Helpdesk] Falha ao notificar reabertura:', (e as Error).message)
+    }
   }
 
   // ── Mensagens ──────────────────────────────────────────────────
@@ -1090,16 +1423,24 @@ export class HelpdeskService {
       where: { id: input.ticketId },
       select: {
         id: true, status: true, solicitanteId: true, responsavelId: true,
-        primeiroAtendimentoEm: true,
+        primeiroAtendimentoEm: true, arquivado: true, empresaId: true, csatRespondidoEm: true,
       },
     })
     if (!ticket) throw new Error('Ticket não encontrado')
+
+    // R5.1/5.4 — mensagem PÚBLICA bloqueada segue a FONTE ÚNICA (mesma flag que o
+    // getById devolve ao front). Notas internas: sempre liberadas.
+    if (!input.interna && bloqueiaMensagemPublica(ticket.status as HelpdeskStatus, ticket.arquivado, ticket.csatRespondidoEm != null)) {
+      // Neutro de propósito: quem pode reabrir (arquivado) usa o botão dedicado;
+      // cancelado é terminal para o solicitante.
+      throw new Error('Este chamado está encerrado e não recebe novas mensagens.')
+    }
 
     const msg = await prisma.helpdeskMensagem.create({
       data: {
         ticketId: input.ticketId,
         autorId: userId,
-        conteudo: input.conteudo,
+        conteudo: trimConteudoHtml(input.conteudo),
         interna: input.interna,
       },
     })
@@ -1122,18 +1463,30 @@ export class HelpdeskService {
 
     // Comportamentos automáticos em mensagem pública:
     //  - marca primeiroAtendimentoEm se for primeira resposta de agente
+    //  - R5.5: solicitante escrever no RESOLVIDO ("Aguardando avaliação") =
+    //    não considera resolvido → volta pra EM_ANDAMENTO e avisa o responsável
+    //    (ou todos os agentes, se não houver).
     if (!input.interna) {
       const patch: any = {}
       if (userId !== ticket.solicitanteId && !ticket.primeiroAtendimentoEm) {
         patch.primeiroAtendimentoEm = new Date()
       }
+      const solicitanteRetornou = userId === ticket.solicitanteId && ticket.status === 'RESOLVIDO'
+      if (solicitanteRetornou) patch.status = 'EM_ANDAMENTO'
       if (Object.keys(patch).length) {
         await prisma.helpdeskTicket.update({ where: { id: input.ticketId }, data: patch })
+      }
+      if (solicitanteRetornou) {
+        await this.addEvento(input.ticketId, userId, 'status_alterado', 'RESOLVIDO → EM_ANDAMENTO (solicitante retornou antes de avaliar)')
+        void this.notificarReabertura(input.ticketId, ticket.responsavelId, ticket.empresaId, {
+          motivoHtml: 'O solicitante enviou uma nova mensagem, ao invés de avaliar o atendimento.',
+          actorId: userId,
+        })
       }
     }
 
     // Notifica o outro lado da conversa (sino + e-mail se pública)
-    void this.notifyMensagem(input.ticketId, msg.id, input.interna, userId)
+    void this.notifyMensagem(input.ticketId, msg.id, input.interna, userId, input.numAnexos)
 
     return msg
   }
@@ -1149,19 +1502,21 @@ export class HelpdeskService {
       where: { id: input.id },
       select: {
         id: true, autorId: true, ticketId: true, interna: true,
-        ticket: { select: { status: true } },
+        ticket: { select: { status: true, arquivado: true } },
       },
     })
     if (!msg) throw new Error('Mensagem não encontrada')
     if (msg.autorId !== userId) {
       throw new Error('Só o autor pode editar a mensagem')
     }
-    if (msg.ticket?.status === 'CANCELADO') {
-      throw new Error('Ticket cancelado — edição não permitida')
+    // R5.1 — no estado congelado (concluído/cancelado/arquivado) o histórico de
+    // mensagens fica travado (nem editar, nem excluir).
+    if (msg.ticket && ticketCongelado(msg.ticket.status as HelpdeskStatus, msg.ticket.arquivado)) {
+      throw new Error('Chamado encerrado — não é possível editar mensagens.')
     }
     const atualizada = await prisma.helpdeskMensagem.update({
       where: { id: input.id },
-      data: { conteudo: input.conteudo, editadoEm: new Date() },
+      data: { conteudo: trimConteudoHtml(input.conteudo), editadoEm: new Date() },
     })
     await this.addEvento(
       msg.ticketId,
@@ -1183,15 +1538,16 @@ export class HelpdeskService {
       where: { id: input.id },
       select: {
         id: true, autorId: true, ticketId: true, interna: true,
-        ticket: { select: { status: true } },
+        ticket: { select: { status: true, arquivado: true } },
       },
     })
     if (!msg) throw new Error('Mensagem não encontrada')
     if (msg.autorId !== userId) {
       throw new Error('Só o autor pode excluir a mensagem')
     }
-    if (msg.ticket?.status === 'CANCELADO') {
-      throw new Error('Ticket cancelado — exclusão não permitida')
+    // R5.1 — estado congelado trava o histórico (ver editMensagem).
+    if (msg.ticket && ticketCongelado(msg.ticket.status as HelpdeskStatus, msg.ticket.arquivado)) {
+      throw new Error('Chamado encerrado — não é possível excluir mensagens.')
     }
     // Remove anexos vinculados explicitamente — a FK do schema é SetNull,
     // mas anexo sem mensagem vira órfão na thread. Deletamos junto pra
@@ -1246,7 +1602,7 @@ export class HelpdeskService {
     return { ok: true }
   }
 
-  private async notifyMensagem(ticketId: string, mensagemId: string, interna: boolean, autorId: string) {
+  private async notifyMensagem(ticketId: string, mensagemId: string, interna: boolean, autorId: string, numAnexosOverride?: number) {
     try {
       const t = await prisma.helpdeskTicket.findUnique({
         where: { id: ticketId },
@@ -1261,6 +1617,12 @@ export class HelpdeskService {
       if (!t) return
       const ticketNum = `#HLP${String(t.numero).padStart(4, '0')}`
       const link = `/helpdesk/${ticketId}`
+
+      // Mensagem (autor + conteúdo + nº de anexos) pro corpo do e-mail (R1.1).
+      const msg = interna ? null : await prisma.helpdeskMensagem.findUnique({
+        where: { id: mensagemId },
+        select: { conteudo: true, autor: { select: { name: true } }, _count: { select: { anexos: true } } },
+      })
 
       // Destinatários do sino:
       //  - pública: solicitante + responsável + watchers, exceto o autor
@@ -1283,22 +1645,36 @@ export class HelpdeskService {
         })
       }
 
+      // R1.1 — o corpo do e-mail traz autor + a própria mensagem (com imagens
+      // embutidas) + contador de anexos. Só para mensagem pública.
+      const corpoEmail = (() => {
+        if (interna || !msg) return ''
+        return `Nova resposta no ticket <strong>${escapeHtml(t.titulo)}</strong>:<br><br>` +
+          this.blocoMensagemEmail({
+            autorNome: msg.autor?.name ?? 'Participante',
+            conteudoHtml: msg.conteudo,
+            // Anexos ainda não estão no banco neste ponto (o front os vincula
+            // logo depois via addAnexo), então usamos a contagem informada pelo
+            // front; cai no _count só como fallback.
+            numAnexos: numAnexosOverride ?? msg._count.anexos,
+          })
+      })()
+
       // E-mail apenas em mensagem pública e quando o destinatário é o "outro lado"
       if (!interna && t.solicitante?.email && autorId !== t.solicitanteId) {
         void this.emailService.sendMail({
           to: t.solicitante.email,
-          subject: `HelpDesk ${ticketNum} — nova resposta`,
-          html: this.emailTpl(ticketNum, `Você recebeu uma nova mensagem no ticket <strong>${t.titulo}</strong>.`, link),
+          subject: `HelpDesk ${ticketNum} — Nova resposta`,
+          html: await this.emailTpl(ticketNum, corpoEmail, link),
         })
       }
       // Responsável é avisado sempre que quem escreveu NÃO é ele — cobre o
       // solicitante E um terceiro (ex.: outro operador da TI). #HLP0056.
       if (!interna && t.responsavel?.email && autorId !== t.responsavelId) {
-        const quem = autorId === t.solicitanteId ? 'O solicitante' : 'Um participante'
         void this.emailService.sendMail({
           to: t.responsavel.email,
-          subject: `HelpDesk ${ticketNum} — nova resposta`,
-          html: this.emailTpl(ticketNum, `${quem} respondeu o ticket <strong>${t.titulo}</strong>.`, link),
+          subject: `HelpDesk ${ticketNum} — Nova resposta`,
+          html: await this.emailTpl(ticketNum, corpoEmail, link),
         })
       }
       void mensagemId
@@ -1323,13 +1699,17 @@ export class HelpdeskService {
   async responderCsat(ticketId: string, nota: number, comentario: string | null, userId: string) {
     const ticket = await prisma.helpdeskTicket.findUnique({
       where: { id: ticketId },
-      select: { solicitanteId: true, status: true, csatRespondidoEm: true },
+      select: { solicitanteId: true, status: true, csatNota: true, csatRespondidoEm: true, concluidoEm: true },
     })
     if (!ticket) throw new Error('Ticket não encontrado')
     if (ticket.solicitanteId !== userId) throw new Error('Apenas o solicitante pode responder a avaliação')
     if (ticket.csatRespondidoEm) throw new Error('Avaliação já registrada')
-    if (ticket.status !== 'RESOLVIDO' && ticket.status !== 'CONCLUIDO') {
-      throw new Error('Avaliação só disponível após resolução')
+    // R5.2 — RESOLVIDO sempre; CONCLUÍDO sem nota só dentro da janela configurável.
+    const janela = await this.avaliacaoPosConclusaoDias()
+    if (!this.avaliacaoDisponivel(ticket, janela)) {
+      throw new Error(ticket.status === 'CONCLUIDO'
+        ? `O prazo para avaliar este chamado (${janela} dias após a conclusão) já passou.`
+        : 'Avaliação só disponível após a resolução.')
     }
 
     const updated = await prisma.helpdeskTicket.update({
@@ -1462,14 +1842,14 @@ export class HelpdeskService {
       if (ehSolicitante && t.responsavel?.email) {
         void this.emailService.sendMail({
           to: t.responsavel.email,
-          subject: `HelpDesk ${ticketNum} — solicitante anexou um arquivo`,
-          html: this.emailTpl(ticketNum, corpo, link),
+          subject: `HelpDesk ${ticketNum} — Solicitante anexou um arquivo`,
+          html: await this.emailTpl(ticketNum, corpo, link),
         })
       } else if (!ehSolicitante && t.solicitante?.email) {
         void this.emailService.sendMail({
           to: t.solicitante.email,
-          subject: `HelpDesk ${ticketNum} — novo anexo`,
-          html: this.emailTpl(ticketNum, corpo, link),
+          subject: `HelpDesk ${ticketNum} — Novo anexo`,
+          html: await this.emailTpl(ticketNum, corpo, link),
         })
       }
     } catch (e) {
@@ -1612,9 +1992,9 @@ export class HelpdeskService {
         const emails = users.filter(u => u.isActive && u.email).map(u => u.email!)
         if (emails.length > 0) {
           void this.emailService.sendMail({
-            to: emails,
+            bcc: emails,
             subject: `⚠ SLA estourou — ${ticketNum} (${ticket.prioridade})`,
-            html: this.emailTpl(
+            html: await this.emailTpl(
               ticketNum,
               `O SLA do ticket <strong>${ticket.titulo}</strong> foi <strong>estourado</strong>. ` +
               `Prioridade: <strong>${ticket.prioridade}</strong>. ` +
@@ -1745,11 +2125,37 @@ export class HelpdeskService {
   private static readonly CFG_PREFIX = 'helpdesk.'
   private static readonly CFG_AUTO_FECHAMENTO_DIAS = 'helpdesk.auto_fechamento_dias'
   private static readonly CFG_INBOUND_EMAIL = 'helpdesk.inbound_email'
-  private static readonly CFG_EMAIL_NOTIFICACAO = 'helpdesk.email_notificacao'
-  private static readonly DEFAULT_EMAIL_NOTIFICACAO = 'ti@central-rnc.com.br'
+  // Reusa a chave antiga (back-compat): antes guardava 1 e-mail; agora guarda
+  // um array JSON de e-mails (os "Destinatários" / "Destinatários adicionais").
+  private static readonly CFG_DESTINATARIOS = 'helpdesk.email_notificacao'
+  private static readonly CFG_NOTIFICAR_TODOS_AGENTES = 'helpdesk.notificar_todos_agentes'
+  // R5.2 — janela (dias) em que o solicitante ainda pode avaliar um ticket
+  // CONCLUÍDO sem avaliação (ex.: auto-fechado). Contada a partir de concluidoEm.
+  private static readonly CFG_AVALIACAO_POS_CONCLUSAO_DIAS = 'helpdesk.avaliacao_pos_conclusao_dias'
+  private static readonly DEFAULT_AVALIACAO_POS_CONCLUSAO_DIAS = 25
+  private static readonly DEFAULT_DESTINATARIO = 'ti@central-rnc.com.br'
   // SLA por prioridade — chaves helpdesk.sla.BAIXA / MEDIA / ALTA / URGENTE
 
-  async getConfig() {
+  /**
+   * Lê os destinatários do valor cru do SystemConfig. Back-compat:
+   *   - '' (nunca configurado) → [DEFAULT_DESTINATARIO]
+   *   - '[]' → [] (esvaziado de propósito)
+   *   - '["a@b","c@d"]' → array JSON
+   *   - 'a@b, c@d' → split (formato antigo de e-mail único ou lista por vírgula)
+   */
+  private parseDestinatarios(raw: string | undefined | null): string[] {
+    const t = (raw ?? '').trim()
+    if (!t) return [HelpdeskService.DEFAULT_DESTINATARIO]
+    if (t.startsWith('[')) {
+      try {
+        const arr = JSON.parse(t)
+        if (Array.isArray(arr)) return arr.filter((x): x is string => typeof x === 'string' && !!x.trim()).map(x => x.trim())
+      } catch { /* cai pro split abaixo */ }
+    }
+    return t.split(/[,;\n]/).map(s => s.trim()).filter(Boolean)
+  }
+
+  async getConfig(empresaId?: string | null) {
     const cfgs = await prisma.systemConfig.findMany({
       where: { key: { startsWith: HelpdeskService.CFG_PREFIX } },
     })
@@ -1760,19 +2166,50 @@ export class HelpdeskService {
       ALTA: Number(map.get('helpdesk.sla.ALTA') ?? HELPDESK_SLA_PADRAO_HORAS.ALTA),
       URGENTE: Number(map.get('helpdesk.sla.URGENTE') ?? HELPDESK_SLA_PADRAO_HORAS.URGENTE),
     }
+    // `temAgentes` alimenta o aviso de "ninguém pra notificar/atender" (R1.3).
+    const temAgentes = (await this.listAgentes(empresaId ?? null)).length > 0
     return {
       slaPorPrioridade,
       autoFechamentoDias: Number(map.get(HelpdeskService.CFG_AUTO_FECHAMENTO_DIAS) ?? 3),
+      avaliacaoPosConclusaoDias: Number(map.get(HelpdeskService.CFG_AVALIACAO_POS_CONCLUSAO_DIAS) ?? HelpdeskService.DEFAULT_AVALIACAO_POS_CONCLUSAO_DIAS),
       inboundEmail: map.get(HelpdeskService.CFG_INBOUND_EMAIL) ?? '',
-      emailNotificacao: map.get(HelpdeskService.CFG_EMAIL_NOTIFICACAO) ?? HelpdeskService.DEFAULT_EMAIL_NOTIFICACAO,
+      notificarTodosAgentes: map.get(HelpdeskService.CFG_NOTIFICAR_TODOS_AGENTES) === 'true',
+      destinatarios: this.parseDestinatarios(map.get(HelpdeskService.CFG_DESTINATARIOS)),
+      temAgentes,
     }
+  }
+
+  /** R5.2 — janela (dias) de avaliação pós-conclusão. Leitura barata (1 chave). */
+  private async avaliacaoPosConclusaoDias(): Promise<number> {
+    const cfg = await prisma.systemConfig.findUnique({ where: { key: HelpdeskService.CFG_AVALIACAO_POS_CONCLUSAO_DIAS } }).catch(() => null)
+    const n = Number(cfg?.value ?? HelpdeskService.DEFAULT_AVALIACAO_POS_CONCLUSAO_DIAS)
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : HelpdeskService.DEFAULT_AVALIACAO_POS_CONCLUSAO_DIAS
+  }
+
+  /**
+   * R5.2 — a avaliação (CSAT) ainda está disponível para o solicitante?
+   *   - RESOLVIDO ("Aguardando avaliação") sem resposta → sempre.
+   *   - CONCLUÍDO sem nota registrada (ex.: auto-fechado) → dentro da janela
+   *     configurável contada a partir de concluidoEm.
+   */
+  private avaliacaoDisponivel(t: { status: string; csatNota: number | null; csatRespondidoEm: Date | null; concluidoEm: Date | null }, janelaDias: number): boolean {
+    if (t.csatRespondidoEm) return false
+    if (t.status === 'RESOLVIDO') return true
+    if (t.status === 'CONCLUIDO' && t.csatNota == null) {
+      if (!t.concluidoEm) return false
+      const limite = t.concluidoEm.getTime() + janelaDias * 24 * 60 * 60 * 1000
+      return Date.now() <= limite
+    }
+    return false
   }
 
   async updateConfig(input: {
     slaPorPrioridade?: Partial<Record<HelpdeskPrioridade, number>>
     autoFechamentoDias?: number
+    avaliacaoPosConclusaoDias?: number
     inboundEmail?: string
-    emailNotificacao?: string
+    notificarTodosAgentes?: boolean
+    destinatarios?: string[]
   }) {
     const upserts: Array<{ key: string; value: string; label: string }> = []
     if (input.slaPorPrioridade) {
@@ -1793,6 +2230,13 @@ export class HelpdeskService {
         label: 'Dias para auto-fechar RESOLVIDO sem CSAT',
       })
     }
+    if (typeof input.avaliacaoPosConclusaoDias === 'number' && input.avaliacaoPosConclusaoDias > 0) {
+      upserts.push({
+        key: HelpdeskService.CFG_AVALIACAO_POS_CONCLUSAO_DIAS,
+        value: String(Math.max(1, Math.floor(input.avaliacaoPosConclusaoDias))),
+        label: 'Dias em que ainda se pode avaliar um ticket concluído sem avaliação',
+      })
+    }
     if (input.inboundEmail !== undefined) {
       upserts.push({
         key: HelpdeskService.CFG_INBOUND_EMAIL,
@@ -1800,11 +2244,21 @@ export class HelpdeskService {
         label: 'Endereço inbound para abertura de tickets por e-mail',
       })
     }
-    if (input.emailNotificacao !== undefined) {
+    if (input.notificarTodosAgentes !== undefined) {
       upserts.push({
-        key: HelpdeskService.CFG_EMAIL_NOTIFICACAO,
-        value: String(input.emailNotificacao).trim(),
-        label: 'Email pra receber notificação de tickets sem categoria/área (ex: via FAB)',
+        key: HelpdeskService.CFG_NOTIFICAR_TODOS_AGENTES,
+        value: input.notificarTodosAgentes ? 'true' : 'false',
+        label: 'Notificar todos os agentes do HelpDesk em cada novo ticket',
+      })
+    }
+    if (input.destinatarios !== undefined) {
+      const limpos = Array.from(new Set(
+        input.destinatarios.map(e => e.trim().toLowerCase()).filter(Boolean),
+      ))
+      upserts.push({
+        key: HelpdeskService.CFG_DESTINATARIOS,
+        value: JSON.stringify(limpos),
+        label: 'Destinatários (adicionais) de notificações por e-mail do HelpDesk',
       })
     }
     for (const u of upserts) {
@@ -1815,128 +2269,6 @@ export class HelpdeskService {
       })
     }
     return { ok: true, atualizados: upserts.length }
-  }
-
-  // ── Métricas — dashboard de TI ────────────────────────────────
-
-  async getMetricas(empresaId?: string | null, periodoDias = 30) {
-    const agora = new Date()
-    const inicio = new Date(agora.getTime() - periodoDias * 24 * 60 * 60 * 1000)
-    const baseWhere = {
-      ativo: true,
-      ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
-    }
-
-    const [totalAbertos, totalAtrasados, totalResolvidos, totalConcluidos, totalNoPeriodo] = await Promise.all([
-      prisma.helpdeskTicket.count({ where: { ...baseWhere, status: { in: ['NOVO', 'EM_ANDAMENTO'] }, arquivado: false } }),
-      prisma.helpdeskTicket.count({ where: { ...baseWhere, status: { in: ['NOVO', 'EM_ANDAMENTO'] }, prazoSla: { lt: agora } } }),
-      prisma.helpdeskTicket.count({ where: { ...baseWhere, status: 'RESOLVIDO', resolvidoEm: { gte: inicio } } }),
-      prisma.helpdeskTicket.count({ where: { ...baseWhere, status: 'CONCLUIDO', concluidoEm: { gte: inicio } } }),
-      prisma.helpdeskTicket.count({ where: { ...baseWhere, createdAt: { gte: inicio } } }),
-    ])
-
-    // Concluídos com SLA cumprido (concluiu antes do prazo)
-    const slaCumprido = await prisma.helpdeskTicket.count({
-      where: {
-        ...baseWhere,
-        status: { in: ['RESOLVIDO', 'CONCLUIDO'] },
-        concluidoEm: { gte: inicio },
-        slaEstouradoEm: null,
-      },
-    })
-
-    // CSAT médio últimos 30 dias
-    const csatAgg = await prisma.helpdeskTicket.aggregate({
-      where: {
-        ...baseWhere,
-        csatNota: { not: null },
-        csatRespondidoEm: { gte: inicio },
-      },
-      _avg: { csatNota: true },
-      _count: { csatNota: true },
-    })
-
-    // Tempo médio de 1ª resposta (TFR) e resolução (MTTR), em horas
-    const fechados = await prisma.helpdeskTicket.findMany({
-      where: {
-        ...baseWhere,
-        status: { in: ['RESOLVIDO', 'CONCLUIDO'] },
-        createdAt: { gte: inicio },
-      },
-      select: { createdAt: true, primeiroAtendimentoEm: true, resolvidoEm: true },
-      take: 1000,
-    })
-    let tfrSum = 0, tfrCount = 0, mttrSum = 0, mttrCount = 0
-    for (const t of fechados) {
-      if (t.primeiroAtendimentoEm) {
-        tfrSum += (t.primeiroAtendimentoEm.getTime() - t.createdAt.getTime())
-        tfrCount++
-      }
-      if (t.resolvidoEm) {
-        mttrSum += (t.resolvidoEm.getTime() - t.createdAt.getTime())
-        mttrCount++
-      }
-    }
-    const tfrHoras = tfrCount > 0 ? tfrSum / tfrCount / 3600_000 : null
-    const mttrHoras = mttrCount > 0 ? mttrSum / mttrCount / 3600_000 : null
-
-    // Volume por categoria
-    const porCategoria = await prisma.helpdeskTicket.groupBy({
-      by: ['categoriaId'],
-      where: { ...baseWhere, createdAt: { gte: inicio } },
-      _count: { _all: true },
-      orderBy: { _count: { categoriaId: 'desc' } },
-      take: 10,
-    })
-    const catIds = porCategoria.map(c => c.categoriaId).filter((c): c is string => !!c)
-    const catNames = catIds.length > 0 ? await prisma.helpdeskCategoria.findMany({
-      where: { id: { in: catIds } },
-      select: { id: true, nome: true, cor: true },
-    }) : []
-    const catMap = new Map(catNames.map(c => [c.id, c]))
-
-    // Volume por agente (responsável)
-    const porAgente = await prisma.helpdeskTicket.groupBy({
-      by: ['responsavelId'],
-      where: { ...baseWhere, createdAt: { gte: inicio }, responsavelId: { not: null } },
-      _count: { _all: true },
-      orderBy: { _count: { responsavelId: 'desc' } },
-      take: 10,
-    })
-    const agentIds = porAgente.map(a => a.responsavelId).filter((a): a is string => !!a)
-    const agentNames = agentIds.length > 0 ? await prisma.user.findMany({
-      where: { id: { in: agentIds } },
-      select: { id: true, name: true, image: true },
-    }) : []
-    const agentMap = new Map(agentNames.map(a => [a.id, a]))
-
-    return {
-      periodoDias,
-      kpis: {
-        totalAbertos,
-        totalAtrasados,
-        totalResolvidos,
-        totalConcluidos,
-        totalNoPeriodo,
-        slaCumprimentoPct: totalConcluidos > 0 ? Math.round((slaCumprido / totalConcluidos) * 100) : null,
-        csatMedio: csatAgg._avg.csatNota,
-        csatRespostas: csatAgg._count.csatNota,
-        tfrHoras,
-        mttrHoras,
-      },
-      porCategoria: porCategoria.map(c => ({
-        id: c.categoriaId,
-        nome: c.categoriaId ? catMap.get(c.categoriaId)?.nome ?? 'Sem categoria' : 'Sem categoria',
-        cor: c.categoriaId ? catMap.get(c.categoriaId)?.cor ?? null : null,
-        total: c._count._all,
-      })),
-      porAgente: porAgente.map(a => ({
-        id: a.responsavelId,
-        name: a.responsavelId ? agentMap.get(a.responsavelId)?.name ?? '—' : '—',
-        image: a.responsavelId ? agentMap.get(a.responsavelId)?.image ?? null : null,
-        total: a._count._all,
-      })),
-    }
   }
 
   // ── Dashboard de indicadores + relatórios (painel TI) ─────────
@@ -2151,9 +2483,21 @@ export class HelpdeskService {
       ? await prisma.user.findMany({ where: { id: { in: agenteIds } }, select: { id: true, name: true, image: true } })
       : []
     const agenteMap = new Map(agenteNames.map(a => [a.id, a]))
+    // C9 — CSAT por responsável, sobre a MESMA população do CSAT global (nota
+    // registrada + respondida no período), agrupado por responsável. Anexa média
+    // e nº de avaliações à tabela de desempenho. Responsável sem avaliação no
+    // período aparece com csatMedio null / csatRespostas 0.
+    const csatPorRespRaw = await prisma.helpdeskTicket.groupBy({
+      by: ['responsavelId'],
+      where: { ...baseWhere, csatNota: { not: null }, csatRespondidoEm: { gte: inicio, lte: fim }, responsavelId: { not: null } },
+      _avg: { csatNota: true },
+      _count: { csatNota: true },
+    })
+    const csatRespMap = new Map(csatPorRespRaw.map(c => [c.responsavelId as string, { media: c._avg.csatNota, n: c._count.csatNota }]))
     const porResponsavel = agenteIds.map(id => {
       const s = agStat.get(id)!
       const u = agenteMap.get(id)
+      const csat = csatRespMap.get(id)
       return {
         id,
         name: u?.name ?? '—',
@@ -2161,6 +2505,8 @@ export class HelpdeskService {
         total: s.total,
         mttrHoras: s.mttrCount > 0 ? s.mttrSum / s.mttrCount / 3600_000 : null,
         slaPct: s.slaTotal > 0 ? Math.round((s.slaDentro / s.slaTotal) * 100) : null,
+        csatMedio: csat?.media ?? null,
+        csatRespostas: csat?.n ?? 0,
       }
     }).sort((a, b) => b.total - a.total)
 
@@ -2237,16 +2583,35 @@ export class HelpdeskService {
     })
     if (!ticket) return []
     void callerId
-    // ATRIBUIÇÃO de responsável usa o mesmo critério do listAgentes (isMaster /
-    // sub-perm atuar_agente / área de TI) — DIRETOR/COORDENADOR/empresaMaster veem
-    // tudo mas não tratam tickets, então não entram. Escopado à empresa do ticket
-    // (+ contas globais); sem empresa → default-deny (nunca lista de outro tenant).
+    // ATRIBUIÇÃO de responsável usa a mesma fonte única (ehAgenteHelpdesk):
+    // master/empresa-master, sub-perm atuar_agente ou área de TI. DIRETOR e
+    // COORDENADOR NÃO entram — chefia enxerga a área mas não trata tickets.
+    // Escopado à empresa do ticket (+ contas globais); sem empresa → default-deny.
     return this.listAgentes(ticket.empresaId)
   }
 }
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+/**
+ * Remove espaços e LINHAS EM BRANCO no começo/fim do HTML de uma mensagem
+ * (conteúdo do RichEditor/TipTap). Tira parágrafos vazios das pontas
+ * (`<p></p>`, `<p><br></p>`, `<p>&nbsp;</p>` etc.) e apara o whitespace — sem
+ * mexer no meio do conteúdo. Aplicado ao criar/editar mensagens.
+ */
+function trimConteudoHtml(html: string): string {
+  let s = (html ?? '').trim()
+  const vazioInicio = /^\s*<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*/i
+  const vazioFim = /\s*<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*$/i
+  let mudou = true
+  while (mudou) {
+    mudou = false
+    if (vazioInicio.test(s)) { s = s.replace(vazioInicio, ''); mudou = true }
+    if (vazioFim.test(s)) { s = s.replace(vazioFim, ''); mudou = true }
+  }
+  return s.trim()
 }
 
 /**
@@ -2265,4 +2630,76 @@ function isAreaTi(areaName: string): boolean {
   const tiTokens = new Set(['ti', 'tecnologia', 'suporte', 'helpdesk', 'sistemas', 'informatica'])
   // Match se qualquer palavra da área bate com um token de TI
   return palavras.some((p) => tiTokens.has(p))
+}
+
+/**
+ * FONTE ÚNICA de "quem é agente do HelpDesk". Consumida por `canAtuarAgente`
+ * (permissão de atuar), `listAgentes` (filtro de Responsável) e pelo roteamento
+ * de e-mail (item 1.3). Critérios — qualquer um basta:
+ *   1. master ou empresa-master
+ *   2. sub-permissão `helpdesk.atuar_agente`
+ *   3. lotado numa área de TI/Suporte/Tecnologia
+ *
+ * NÃO inclui os cargos DIRETOR/COORDENADOR: chefia não é agente da TI por si só
+ * (isso era um bug — dava poder de agente a quem não atende). A chefia continua
+ * enxergando a própria área via `resolverEscopoEfetivo`, mas não atua.
+ *
+ * Antes existiam DUAS definições divergentes (`canAtuarAgente` incluía os cargos
+ * e o `isEmpresaMaster`; `listAgentes` não incluía nem os cargos nem o
+ * empresa-master). Agora as duas passam por aqui.
+ */
+function ehAgenteHelpdesk(u: {
+  isMaster?: boolean | null
+  isEmpresaMaster?: boolean | null
+  subPermissions?: unknown
+  areaName?: string | null
+}): boolean {
+  if (u.isMaster || u.isEmpresaMaster) return true
+  const sub = (u.subPermissions ?? {}) as Record<string, unknown>
+  if (sub.atuar_agente === true) return true
+  if (u.areaName && isAreaTi(u.areaName)) return true
+  return false
+}
+
+/**
+ * "Estado congelado" (R5.1): CONCLUÍDO, CANCELADO ou ARQUIVADO. Nesse estado a
+ * edição dos campos de conteúdo e a edição/exclusão de mensagens ficam travadas.
+ * NÃO governa a criação de nova mensagem — essa tem regra própria (permitida em
+ * CONCLUÍDO como gatilho de reabertura; bloqueada em arquivado/cancelado).
+ */
+function ticketCongelado(status: HelpdeskStatus, arquivado: boolean): boolean {
+  return arquivado || helpdeskStatusRank(status) >= helpdeskStatusRank('CONCLUIDO')
+}
+
+/**
+ * Nova mensagem PÚBLICA está bloqueada? Segue o freeze (`ticketCongelado`), com
+ * a única exceção do CONCLUÍDO NÃO-arquivado e AINDA NÃO avaliado — ali a mensagem
+ * é permitida como gatilho de reabertura (5.3). Depois de avaliado, o loop se
+ * fechou: mensagem nova bloqueia (a reabertura vira botão). Notas internas não
+ * passam por aqui (sempre ok). FONTE ÚNICA: `addMensagem` + flag do `getById`.
+ */
+function bloqueiaMensagemPublica(status: HelpdeskStatus, arquivado: boolean, avaliado: boolean): boolean {
+  return ticketCongelado(status, arquivado) && !(status === 'CONCLUIDO' && !arquivado && !avaliado)
+}
+
+/**
+ * O responsável ainda pode ser trocado? Trava no congelamento e a partir de
+ * "Aguardando avaliação" (RESOLVIDO) — evita "roubar" a avaliação. Estado puro:
+ * o papel de agente é composto no front (`podeAtuar && permiteTrocarResponsavel`).
+ */
+function permiteTrocarResponsavel(status: HelpdeskStatus, arquivado: boolean): boolean {
+  return !ticketCongelado(status, arquivado) && helpdeskStatusRank(status) < helpdeskStatusRank('RESOLVIDO')
+}
+
+/**
+ * O SOLICITANTE pode reabrir este chamado? Reabrível pelo ESTADO
+ * (`helpdeskSolicitantePodeReabrir`: encerrado ou arquivado), MENOS: cancelado
+ * (terminal pra ele) e já avaliado (loop fechado — reabrir só cabe antes da nota).
+ * FONTE ÚNICA: guard do `update()` + flag `reaberturaDisponivel` do `getById` — o
+ * front deriva da flag, não recomputa a regra.
+ */
+function podeReabrirSolicitante(status: HelpdeskStatus, arquivado: boolean, avaliado: boolean): boolean {
+  if (status === 'CANCELADO') return false
+  if (avaliado) return false
+  return helpdeskSolicitantePodeReabrir({ status, arquivado })
 }

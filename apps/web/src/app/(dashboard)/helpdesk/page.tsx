@@ -4,9 +4,9 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Plus, Loader2, Search, Filter, AlertTriangle, Clock, MessageSquare,
-  CheckCircle2, ListChecks, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
-  Paperclip, Bot, BarChart3, XCircle, MoreVertical, ExternalLink,
+  Plus, Loader2, Search, AlertTriangle, MessageSquare,
+  CheckCircle2, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
+  Paperclip, Bot, BarChart3, XCircle, MoreVertical, ExternalLink, X, FilterX,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
@@ -18,6 +18,7 @@ import {
   Button, Card, Badge, Input, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -27,11 +28,13 @@ import { useSession } from '@/lib/auth-client'
 import {
   HELPDESK_STATUS, HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE, HELPDESK_PRIORIDADE_LABELS,
   HELPDESK_PRIORIDADE_COLORS,
-  solicitantePodeCancelar,
+  solicitantePodeCancelar, helpdeskPodeArquivar,
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 import { NovoTicketModal } from './_components/novo-ticket-modal'
-import { TicketDetailSheet } from './_components/ticket-detail-sheet'
+import { TicketDetalheCompletoSheet } from './_components/ticket-detalhe-completo-sheet'
+import { HELPDESK_STATUS_COR } from './_lib/status-styles'
+import { UserAvatar } from '@/components/ui/user-avatar'
 
 const MODULO_COLOR = 'var(--mod-ti, #22d3ee)'
 
@@ -44,6 +47,8 @@ interface Ticket {
   tipo: 'INCIDENTE' | 'REQUISICAO' | 'DUVIDA' | 'MELHORIA'
   prazoSla: string | null
   createdAt: string
+  /** Quando o solicitante respondeu o CSAT — usado pra sinalizar avaliação pendente. */
+  csatRespondidoEm?: string | null
   solicitante: { id: string; name: string; image: string | null } | null
   responsavel: { id: string; name: string; image: string | null } | null
   categoria: { id: string; nome: string; cor: string | null } | null
@@ -72,21 +77,10 @@ const COLUNAS: HelpdeskStatus[] = [
   'CANCELADO',
 ]
 
-// Cores semânticas das colunas — cada uma reflete a função do estado:
-//   NOVO         → azul       (entrada, aguardando triagem)
-//   EM_ANDAMENTO → âmbar      (trabalho ativo)
-//   RESOLVIDO    → violeta    (aguardando confirmação/CSAT do solicitante)
-//                  o label visível é 'Aguardando avaliação' (HELPDESK_STATUS_LABELS)
-//   CONCLUIDO    → verde      (sucesso, fechado)
-//   CANCELADO    → vermelho   (anulado)
-const STATUS_COR: Record<HelpdeskStatus, string> = {
-  NOVO: '#3b82f6',                 // blue-500
-  AGUARDANDO_AUDITORIA: '#06b6d4', // cyan-500 (IA respondeu, aguarda revisão)
-  EM_ANDAMENTO: '#f59e0b',         // amber-500
-  RESOLVIDO: '#a855f7',            // purple-500 (= 'Aguardando avaliação' na UI)
-  CONCLUIDO: '#10b981',            // emerald-500
-  CANCELADO: '#ef4444',            // red-500
-}
+// Cor de status: fonte única em _lib/status-styles (hex p/ kanban, barras e a
+// bolinha do badge da lista). O badge com fundo sólido (HELPDESK_STATUS_BADGE)
+// é usado só no detalhe do chamado.
+const STATUS_COR = HELPDESK_STATUS_COR
 
 type ScopeFiltro = 'MEUS' | 'AREA' | 'TODOS'
 const SCOPE_FILTRO_LABEL: Record<ScopeFiltro, string> = { MEUS: 'Meus tickets', AREA: 'Minha área', TODOS: 'Todos' }
@@ -110,11 +104,17 @@ export default function HelpdeskPage() {
   const currentUserId = session?.user?.id ?? null
   // Estados independentes:
   //   - isAgente: tem permissão helpdesk.canRead → vê o módulo (qualquer um que tenha o slug)
-  //   - podeAtuar: É TI/DIRETOR/COORDENADOR ou tem sub-permissão atuar_agente — vê tudo,
-  //     pode arrastar, configurar, etc. É o critério REAL pra distinguir "TI" dos demais.
+  //   - podeAtuar: é agente da TI (master/empresa-master, sub-permissão
+  //     atuar_agente ou área de TI — NÃO os cargos DIRETOR/COORDENADOR). Vê o
+  //     kanban, arrasta, configura. Valor vem do probe do backend (fonte única
+  //     ehAgenteHelpdesk), então não recalcular papel aqui.
   // Colaborador comum: isAgente=true (vê módulo) MAS podeAtuar=false (vê só os próprios).
   const [isAgente, setIsAgente] = useState<boolean | null>(null)
   const [podeAtuar, setPodeAtuar] = useState<boolean | null>(null)
+  // C9 — pode ver as MÉTRICAS COMPLETAS (panel_metricas / master / cargo). Governa
+  // o link de indicadores pra quem não é agente (chefia). O agente também vê o
+  // link, mas cai na visão "minhas avaliações" se não tiver esta permissão.
+  const [podeVerMetricas, setPodeVerMetricas] = useState<boolean | null>(null)
   const [items, setItems] = useState<Ticket[]>([])
   // Arquivados — quadro inferior na visão de lista (#HLP0318). Fica separado
   // de `items` (ativos) pra renderizar os dois quadros: ativos em cima,
@@ -145,6 +145,8 @@ export default function HelpdeskPage() {
   const [novoOpen, setNovoOpen] = useState(false)
   // Ticket aberto no sheet de detalhe (click esquerdo no card do kanban)
   const [openTicketId, setOpenTicketId] = useState<string | null>(null)
+  // Ticket recém-desarquivado: usado pra rolar até ele + destacá-lo na lista de ativos.
+  const [recemDesarquivado, setRecemDesarquivado] = useState<string | null>(null)
 
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem('helpdesk:viewMode', viewMode)
@@ -166,15 +168,17 @@ export default function HelpdeskPage() {
   useEffect(() => {
     let cancelled = false
     async function carregar() {
-      const [acc, atuar, esc] = await Promise.allSettled([
+      const [acc, atuar, esc, metr] = await Promise.allSettled([
         (trpc.helpdesk as any).probeAccess.query(),
         (trpc.helpdesk as any).probeAtuarAgente.query(),
         (trpc.helpdesk as any).meuEscopo.query(),
+        (trpc.helpdesk as any).probeMetricasCompletas.query(),
       ])
       if (cancelled) return
       const agente = acc.status === 'fulfilled'
       setIsAgente(agente)
       setPodeAtuar(atuar.status === 'fulfilled' ? !!(atuar.value as { ok?: boolean })?.ok : false)
+      setPodeVerMetricas(metr.status === 'fulfilled' ? !!metr.value : false)
       setMeuEscopo(esc.status === 'fulfilled'
         ? (esc.value as { scope: 'proprios' | 'area' | 'todos'; temArea: boolean; areaId: string | null })
         : { scope: 'proprios', temArea: false, areaId: null })
@@ -226,6 +230,24 @@ export default function HelpdeskPage() {
   useEffect(() => {
     if (emKanban && filtroStatus) setFiltroStatus('')
   }, [emKanban, filtroStatus])
+
+  // Tickets do PRÓPRIO usuário resolvidos e ainda sem avaliação — o solicitante
+  // precisa avaliar. Filtra por solicitante (a lista geral traz tickets de
+  // terceiros, ao contrário da antiga /helpdesk/meus).
+  const pendentesCsat = items.filter(t =>
+    t.status === 'RESOLVIDO' && !t.csatRespondidoEm && t.solicitante?.id === currentUserId,
+  )
+
+  // C11 — filtros de NARROWING ativos (não conta o escopo/abrangência, que tem
+  // padrão próprio). Alimenta o "x" da busca e o botão "Limpar filtros".
+  const temFiltroAtivo = !!(search || filtroPrioridade || filtroStatus || filtroSolicitante || filtroResponsavel)
+  function limparFiltros() {
+    setSearch('')
+    setFiltroPrioridade('')
+    setFiltroStatus('')
+    setFiltroSolicitante('')
+    setFiltroResponsavel('')
+  }
 
   const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
     // Espera saber se é agente (canRead) e o escopo efetivo (#HLP0139).
@@ -323,6 +345,51 @@ export default function HelpdeskPage() {
       alerts.error('Erro', (e as Error).message)
     }
   }, [fetchData])
+
+  // Desarquivar in-place (da lista normal OU do modo "ver arquivados"). Sai do
+  // modo arquivados e marca o ticket pra rolar/destacar já na lista de ativos.
+  const desarquivar = useCallback(async (t: Ticket) => {
+    try {
+      await (trpc.helpdesk as any).update.mutate({ id: t.id, data: { arquivado: false } })
+      alerts.success('Desarquivado', 'Ticket voltou pra lista ativa.')
+      setRecemDesarquivado(t.id)
+      // Garante a visão em lista (o scroll/destaque até o ticket só existe nela;
+      // no kanban não há "posição" pra rolar).
+      setViewMode('lista')
+      // Vindo do modo "ver arquivados": só sair do modo — a troca de verArquivados
+      // recria o fetchData e o efeito recarrega os ATIVOS (sem refetch dos
+      // arquivados no meio). Na lista normal: recarrega no lugar (silencioso).
+      if (verArquivados) setVerArquivados(false)
+      else fetchData({ silent: true })
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }, [fetchData, verArquivados])
+
+  // Arquivar in-place pelo kebab da lista (só etapas finais — mesma regra do
+  // detalhe/kanban/backend, ver helpdeskPodeArquivar). Confirma antes.
+  const arquivar = useCallback(async (t: Ticket) => {
+    const ok = await alerts.confirm({
+      title: `Arquivar #HLP${String(t.numero).padStart(4, '0')}?`,
+      text: 'O chamado some das listas ativas (kanban e lista), mas continua acessível pelo histórico e pode ser desarquivado a qualquer momento.',
+      confirmText: 'Arquivar',
+      icon: 'warning',
+    })
+    if (!ok) return
+    try {
+      await (trpc.helpdesk as any).update.mutate({ id: t.id, data: { arquivado: true } })
+      alerts.success('Arquivado', 'Ticket movido para os arquivados.')
+      fetchData({ silent: true })
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }, [fetchData])
+
+  // Após desarquivar + recarregar: quando o ticket aparece nos ativos, rola até
+  // ele e mantém o destaque por ~2,5s.
+  useEffect(() => {
+    if (!recemDesarquivado || !items.some(t => t.id === recemDesarquivado)) return
+    const el = document.getElementById(`hlp-row-${recemDesarquivado}`)
+    if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+    const timer = setTimeout(() => setRecemDesarquivado(null), 2500)
+    return () => clearTimeout(timer)
+  }, [recemDesarquivado, items])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -428,10 +495,10 @@ export default function HelpdeskPage() {
             <h1>HelpDesk</h1>
             <p className="text-sm text-muted-foreground">
               {podeAtuar
-                ? 'Atendimento — arraste cards para mudar o status. Filtros por escopo, prioridade e busca.'
-                : isAgente
+                ? 'Atendimento — Arraste cards para mudar o status. Use filtros para achar chamados específicos.'
+                : meuEscopo && meuEscopo.scope !== 'proprios'
                 ? 'Acompanhamento do painel — somente leitura.'
-                : 'Acompanhe seus tickets. Para abrir um novo, clique em "Novo Ticket".'}
+                : 'Acompanhe seus tickets e avalie o atendimento. Para abrir um novo, clique em "Novo Ticket".'}
             </p>
           </div>
         </div>
@@ -479,8 +546,9 @@ export default function HelpdeskPage() {
               {verArquivados ? 'Sair dos arquivados' : 'Arquivados'}
             </Button>
           )}
-          {/* Indicadores (dashboard + relatórios) — só TI (podeAtuar) */}
-          {podeAtuar && (
+          {/* Indicadores (dashboard + relatórios) — agente (visão própria ou
+              completa) ou chefia/painel de métricas (só completa). C9 */}
+          {(podeAtuar || podeVerMetricas) && (
             <Button
               variant="outline"
               size="icon"
@@ -516,22 +584,39 @@ export default function HelpdeskPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={isAgente ? 'Buscar título, descrição, tags...' : 'Buscar nos meus tickets...'}
-            className="h-8 pl-8 text-xs"
+            className="h-8 pl-8 pr-8 text-xs"
           />
+          {/* C11 — limpa só a busca */}
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Limpar busca"
+              aria-label="Limpar busca"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap mr-1">
             {items.length} ticket{items.length === 1 ? '' : 's'}
           </span>
-          {/* Escopo — abrangência (mostra sempre o valor: Meus / Área / Todos) */}
-          {isAgente && (
-            <Select value={scope} onValueChange={v => setScopeManual(v as ScopeFiltro)} disabled={scopeOptions.length <= 1}>
-              <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {scopeOptions.map(o => <SelectItem key={o} value={o}>{SCOPE_FILTRO_LABEL[o]}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          {/* C11 — limpa todos os filtros de narrowing de uma vez; fica entre o
+              contador e os filtros. Só aparece quando há algo pra limpar. Outline
+              (não ghost) pra ter borda visível também no dark. */}
+          {temFiltroAtivo && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={limparFiltros}
+              className="h-8 gap-1.5 px-2 text-xs"
+              title="Limpar todos os filtros"
+            >
+              <FilterX className="h-3.5 w-3.5" /> Limpar filtros
+            </Button>
           )}
           {/* Solicitante — só fora do escopo "meus" e quando há opções. O value
               deriva pra "Todos os solicitantes" sempre que o selecionado não for
@@ -541,7 +626,9 @@ export default function HelpdeskPage() {
               value={filtroSolicitante && solicitanteOptions.some(u => u.id === filtroSolicitante) ? filtroSolicitante : '__all__'}
               onValueChange={v => setFiltroSolicitante(v === '__all__' ? '' : v)}
             >
-              <SelectTrigger className="h-8 text-xs w-[170px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs w-[170px]">
+                <span>{(filtroSolicitante && solicitanteOptions.find(u => u.id === filtroSolicitante)?.name) || 'Solicitante'}</span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os solicitantes</SelectItem>
                 {solicitanteOptions.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
@@ -550,8 +637,10 @@ export default function HelpdeskPage() {
           )}
           {/* Responsável — só agentes */}
           {isAgente && agentes.length > 0 && (
-            <Select value={filtroResponsavel || undefined} onValueChange={v => setFiltroResponsavel(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="h-8 text-xs w-[160px]"><SelectValue placeholder="Responsável" /></SelectTrigger>
+            <Select value={filtroResponsavel || '__all__'} onValueChange={v => setFiltroResponsavel(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="h-8 text-xs w-[160px]">
+                <span>{(filtroResponsavel && agentes.find(a => a.id === filtroResponsavel)?.name) || 'Responsável'}</span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os responsáveis</SelectItem>
                 {agentes.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
@@ -560,8 +649,10 @@ export default function HelpdeskPage() {
           )}
           {/* Status — só na lista (no kanban as colunas já são os status) */}
           {isAgente && !emKanban && (
-            <Select value={filtroStatus || undefined} onValueChange={v => setFiltroStatus(v === '__all__' ? '' : v as HelpdeskStatus)}>
-              <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
+            <Select value={filtroStatus || '__all__'} onValueChange={v => setFiltroStatus(v === '__all__' ? '' : v as HelpdeskStatus)}>
+              <SelectTrigger className="h-8 text-xs w-[150px]">
+                <span>{(filtroStatus && HELPDESK_STATUS_LABELS[filtroStatus]) || 'Status'}</span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os status</SelectItem>
                 {HELPDESK_STATUS.map(s => (
@@ -577,8 +668,10 @@ export default function HelpdeskPage() {
           )}
           {/* Prioridade */}
           {isAgente && (
-            <Select value={filtroPrioridade || undefined} onValueChange={v => setFiltroPrioridade(v === '__all__' ? '' : v as HelpdeskPrioridade)}>
-              <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <Select value={filtroPrioridade || '__all__'} onValueChange={v => setFiltroPrioridade(v === '__all__' ? '' : v as HelpdeskPrioridade)}>
+              <SelectTrigger className="h-8 text-xs w-[150px]">
+                <span>{(filtroPrioridade && HELPDESK_PRIORIDADE_LABELS[filtroPrioridade]) || 'Prioridade'}</span>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as prioridades</SelectItem>
                 {HELPDESK_PRIORIDADE.map(p => (
@@ -589,6 +682,17 @@ export default function HelpdeskPage() {
                     </span>
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          )}
+          {/* Escopo — último da linha. Fica à direita dos demais para que a
+              troca de escopo (que faz o filtro de solicitante aparecer/sumir)
+              não desloque os filtros estáveis, ancorados à direita. */}
+          {isAgente && (
+            <Select value={scope} onValueChange={v => setScopeManual(v as ScopeFiltro)} disabled={scopeOptions.length <= 1}>
+              <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {scopeOptions.map(o => <SelectItem key={o} value={o}>{SCOPE_FILTRO_LABEL[o]}</SelectItem>)}
               </SelectContent>
             </Select>
           )}
@@ -612,6 +716,21 @@ export default function HelpdeskPage() {
         </div>
       )}
 
+      {/* Aviso: chamados do próprio usuário aguardando avaliação (CSAT).
+          Trazido da antiga /helpdesk/meus. O clique no chamado resolvido abre
+          o detalhe pra avaliar. */}
+      {pendentesCsat.length > 0 && (
+        <div className="flex flex-col gap-1 rounded-md border-l-4 border-l-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 px-3 py-2 shrink-0">
+          <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+            <CheckCircle2 className="h-4 w-4" />
+            {pendentesCsat.length} chamado{pendentesCsat.length > 1 ? 's' : ''} aguardando sua avaliação
+          </p>
+          <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+            Abra o chamado resolvido para avaliar o atendimento — leva menos de um minuto.
+          </p>
+        </div>
+      )}
+
       {/* Body */}
       {loading ? (
         <Card className="flex-1 flex items-center justify-center py-16">
@@ -628,12 +747,15 @@ export default function HelpdeskPage() {
             <p className="text-sm">Nenhum ticket encontrado</p>
           </Card>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
+          <div className="nice-scrollbar flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
             <TicketPanel titulo="Ativos" icon={Inbox} tickets={items} vazio="Nenhum ticket ativo no momento."
-              currentUserId={currentUserId} onCancelar={cancelarProprio} />
+              currentUserId={currentUserId} onCancelar={cancelarProprio} onOpen={setOpenTicketId}
+              onArchive={podeAtuar ? arquivar : undefined} highlightId={recemDesarquivado} />
             {arquivados.length > 0 && (
-              // Arquivados não recebem o cancelar: são chamados já encerrados.
-              <TicketPanel titulo="Arquivados" icon={Archive} tickets={arquivados} vazio="Nenhum ticket arquivado." arquivado />
+              // Arquivados não recebem o cancelar (já encerrados), mas podem ser
+              // desarquivados in-place — o ticket sobe pros Ativos e é destacado.
+              <TicketPanel titulo="Arquivados" icon={Archive} tickets={arquivados} vazio="Nenhum ticket arquivado." arquivado
+                onOpen={setOpenTicketId} onUnarchive={podeAtuar ? desarquivar : undefined} />
             )}
           </div>
         )
@@ -644,7 +766,7 @@ export default function HelpdeskPage() {
         </Card>
       ) : (viewMode === 'kanban' && !verArquivados) ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
-          <div className="overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1">
+          <div className="nice-scrollbar overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1">
             <div className="flex gap-3 px-1 h-full" style={{ minWidth: `${COLUNAS.length * 240}px` }}>
               {COLUNAS.map(status => (
                 <KanbanColumn
@@ -654,7 +776,7 @@ export default function HelpdeskPage() {
                   tickets={porStatus.get(status) ?? []}
                   onCardClick={(id) => setOpenTicketId(id)}
                   onCardAuxClick={(id) => window.open(`/helpdesk/${id}`, '_blank', 'noopener,noreferrer')}
-                  podeArquivarLote={!!podeAtuar && (status === 'CANCELADO' || status === 'CONCLUIDO')}
+                  podeArquivarLote={!!podeAtuar && helpdeskPodeArquivar(status)}
                   onArchiveAll={async () => {
                     const labelStatus = HELPDESK_STATUS_LABELS[status]
                     const qtd = porStatus.get(status)?.length ?? 0
@@ -683,32 +805,26 @@ export default function HelpdeskPage() {
           </DragOverlay>
         </DndContext>
       ) : (
-        <Card className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-y-auto divide-y divide-border/60">
-            {items.map(t => (
-              <TicketRow
-                key={t.id}
-                ticket={t}
-                currentUserId={currentUserId}
-                onCancelar={cancelarProprio}
-                // Em modo arquivado, oferece desarquivar in-place (sem entrar no ticket)
-                onUnarchive={verArquivados && podeAtuar ? async () => {
-                  try {
-                    await (trpc.helpdesk as any).update.mutate({ id: t.id, data: { arquivado: false } })
-                    alerts.success('Desarquivado', 'Ticket voltou pra lista ativa.')
-                    fetchData()
-                  } catch (e) { alerts.error('Erro', (e as Error).message) }
-                } : undefined}
-              />
-            ))}
-          </div>
-        </Card>
+        // Modo arquivados — reaproveita o mesmo TicketPanel da lista normal, com
+        // o desarquivar in-place por linha (sem entrar no ticket).
+        <div className="nice-scrollbar flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
+          <TicketPanel
+            titulo="Arquivados"
+            icon={Archive}
+            tickets={items}
+            vazio="Nenhum ticket arquivado."
+            arquivado
+            currentUserId={currentUserId}
+            onOpen={setOpenTicketId}
+            onUnarchive={podeAtuar ? desarquivar : undefined}
+          />
+        </div>
       )}
 
       <NovoTicketModal
         open={novoOpen}
         onOpenChange={setNovoOpen}
-        permitePrioridade={podeAtuar}
+        permitePrioridade={podeAtuar ?? false}
         onCreated={(id) => {
           fetchData()
           // Quem pode atuar vai direto pro detalhe (triagem); demais ficam na lista
@@ -719,10 +835,12 @@ export default function HelpdeskPage() {
       {/* Sheet de detalhe — abre por click esquerdo no card. Mantém o
           kanban visível por baixo. Botão do meio abre o detalhe completo
           em nova aba via SortableCard.onAuxClick. */}
-      <TicketDetailSheet
+      <TicketDetalheCompletoSheet
         ticketId={openTicketId}
         onClose={() => setOpenTicketId(null)}
-        onChange={fetchData}
+        // silent: refetch do board sem o spinner de loading — senão o kanban
+        // atrás do modal "pisca" a cada interação feita no modal.
+        onChange={() => fetchData({ silent: true })}
       />
     </div>
   )
@@ -966,18 +1084,36 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
             apertado e com fontes 9-10px que cansavam a vista. */}
         <div className="flex items-center justify-between gap-2 mt-1 pt-1.5 border-t border-border/40">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            {ticket.responsavel ? (
-              ticket.responsavel.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={resolveAssetUrl(ticket.responsavel.image)} alt={ticket.responsavel.name} className="h-6 w-6 rounded-full object-cover shrink-0" />
-              ) : (
-                <span className="h-6 w-6 rounded-full bg-[#5ea3cb] text-white text-[10px] flex items-center justify-center font-bold shrink-0">
-                  {ticket.responsavel.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                </span>
-              )
-            ) : (
-              <span className="h-6 w-6 rounded-full bg-muted text-muted-foreground text-[10px] flex items-center justify-center font-bold shrink-0">?</span>
-            )}
+            {/* Avatar group horizontal, sobreposto (frente→trás, da direita p/ a
+                esquerda): solicitante ATRÁS à esquerda, peeking — nome em tooltip
+                no hover (que o traz pra frente + zoom); responsável na FRENTE à
+                direita, com o nome ao lado (como antes). O tooltip é portalizado
+                (não é cortado pelo overflow-hidden do card). Sem responsável, só o
+                solicitante aparece. */}
+            <div className="flex items-center shrink-0">
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative z-0 rounded-full ring-2 ring-card transition-transform duration-150 hover:z-20 hover:scale-110">
+                      <UserAvatar user={ticket.solicitante} bg="bg-slate-400" className="h-6 w-6 text-[10px]" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Solicitante: {ticket.solicitante?.name ?? '—'}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {ticket.responsavel && (
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="relative z-10 -ml-2.5 rounded-full ring-2 ring-card transition-transform duration-150 hover:z-20 hover:scale-110">
+                        <UserAvatar user={ticket.responsavel} bg="bg-[#5ea3cb]" className="h-6 w-6 text-[10px]" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Responsável: {ticket.responsavel.name}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
             <span className="text-[12px] text-muted-foreground truncate min-w-0">
               {ticket.responsavel?.name || ticket.solicitante?.name || 'Não atribuído'}
             </span>
@@ -1029,12 +1165,18 @@ function ScoreIaBadge({ ticket }: { ticket: Ticket }) {
   )
 }
 
-function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
+function TicketRow({ ticket, onUnarchive, onArchive, currentUserId, onCancelar, onOpen, highlight }: {
   ticket: Ticket
   onUnarchive?: () => void
+  /** Arquivar pelo kebab — só passado p/ agente e só nas etapas finais. */
+  onArchive?: () => void
   /** Id do usuário logado — habilita o cancelar quando ele é o solicitante (#HLP0172). */
   currentUserId?: string | null
   onCancelar?: (t: Ticket) => void
+  /** Clique esquerdo simples abre o modal de detalhes (como no kanban). */
+  onOpen?: (id: string) => void
+  /** Destaca a linha (ex.: ticket recém-desarquivado). */
+  highlight?: boolean
 }) {
   const ticketNum = `#HLP${String(ticket.numero).padStart(4, '0')}`
   // #HLP0172: regra vem de @saas/types — mesma fonte que o backend impõe e que
@@ -1044,41 +1186,70 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
     solicitanteId: ticket.solicitante?.id,
     userId: currentUserId,
   })
+  // O próprio solicitante precisa avaliar este chamado resolvido? → CTA "Avaliar".
+  const precisaCsat = ticket.status === 'RESOLVIDO' && !ticket.csatRespondidoEm && ticket.solicitante?.id === currentUserId
   return (
-    <div className="relative flex items-center gap-3 px-4 py-3 hover:bg-muted/30 group">
-      {/* Link esticado cobre a linha → clique abre; Ctrl/⌘+clique, botão do meio
-          e botão direito → "abrir em nova aba" nativos (#HLP0139). */}
+    <div
+      id={`hlp-row-${ticket.id}`}
+      className={cn(
+        'relative flex items-center gap-3 px-4 py-3 group transition-colors',
+        highlight
+          ? 'bg-slate-200/70 dark:bg-slate-700/40 ring-1 ring-inset ring-slate-300 dark:ring-slate-600'
+          : precisaCsat
+          ? 'bg-emerald-50/40 dark:bg-emerald-900/10 hover:bg-emerald-50/70 dark:hover:bg-emerald-900/20'
+          : 'hover:bg-muted/30',
+      )}
+    >
+      {/* Link esticado cobre a linha. Clique esquerdo simples → modal de detalhes
+          (como no kanban); Ctrl/⌘+clique, botão do meio e "abrir em nova aba"
+          abrem a PÁGINA COMPLETA em nova aba. target="_blank": as vias de nova
+          aba já vão pro href, e o RouteProgress global (que intercepta <a> no
+          capture) IGNORA âncoras _blank — sem ele, o clique-esquerdo (que
+          abrimos via preventDefault) deixava a barra de progresso presa. */}
       <Link
         href={`/helpdesk/${ticket.id}`}
         aria-label={`Abrir ${ticketNum}`}
+        target="_blank"
+        rel="noopener noreferrer"
         className="absolute inset-0 z-0"
+        onClick={e => {
+          if (!onOpen || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+          e.preventDefault()
+          onOpen(ticket.id)
+        }}
       />
       {/* Barra vertical = cor do STATUS */}
       <div className="w-1 h-12 rounded-full shrink-0" style={{ backgroundColor: STATUS_COR[ticket.status] }} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{ticketNum}</span>
           <Badge variant="outline" className="text-[10px] h-5 gap-1">
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: STATUS_COR[ticket.status] }} />
             {HELPDESK_STATUS_LABELS[ticket.status]}
           </Badge>
+          {precisaCsat && (
+            <Badge className="relative z-10 h-5 gap-1 bg-emerald-600 text-[10px] text-white hover:bg-emerald-700">
+              <CheckCircle2 className="h-3 w-3" /> Avaliar
+            </Badge>
+          )}
           {/* Prioridade — texto ao lado do status; só o valor colorido (como no kanban) */}
           <span className="text-[10px] text-muted-foreground">
             Prioridade: <span className="font-medium uppercase tracking-wider" style={{ color: HELPDESK_PRIORIDADE_COLORS[ticket.prioridade] }}>{HELPDESK_PRIORIDADE_LABELS[ticket.prioridade]}</span>
           </span>
-          {ticket.categoria && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-              {ticket.categoria.cor && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ticket.categoria.cor }} />}
-              {ticket.categoria.nome}
-            </span>
-          )}
         </div>
         <p className="text-sm font-semibold truncate">{ticket.titulo}</p>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
           <span>Solicitante: {ticket.solicitante?.name || '—'}</span>
-          {ticket.responsavel && <span>· Resp: {ticket.responsavel.name}</span>}
+          {ticket.responsavel && <span>· Responsável: {ticket.responsavel.name}</span>}
           {ticket._count.mensagens > 0 && (
             <span>· <MessageSquare className="inline h-3 w-3" /> {ticket._count.mensagens}</span>
+          )}
+          {ticket.categoria && (
+            <span className="inline-flex items-center gap-1">
+              <span>·</span>
+              {ticket.categoria.cor && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ticket.categoria.cor }} />}
+              <span>{ticket.categoria.nome}</span>
+            </span>
           )}
         </div>
       </div>
@@ -1112,9 +1283,9 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem asChild>
-            <Link href={`/helpdesk/${ticket.id}`} className="gap-2">
+            <Link href={`/helpdesk/${ticket.id}`} target="_blank" rel="noopener noreferrer" className="gap-2">
               <ExternalLink className="h-3.5 w-3.5" />
-              Ver detalhes
+              Abrir em nova aba
             </Link>
           </DropdownMenuItem>
           {podeCancelar && (
@@ -1124,6 +1295,15 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
             >
               <XCircle className="h-3.5 w-3.5" />
               Cancelar
+            </DropdownMenuItem>
+          )}
+          {/* Arquivar — só agente (onArchive vem gateado por podeAtuar) e só nas
+              etapas finais (mesma regra do detalhe/backend). Arquivados nunca
+              recebem onArchive, então não reaparece lá. */}
+          {onArchive && !ticket.arquivado && helpdeskPodeArquivar(ticket.status) && (
+            <DropdownMenuItem onClick={() => onArchive()} className="gap-2">
+              <Archive className="h-3.5 w-3.5" />
+              Arquivar
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
@@ -1138,7 +1318,7 @@ function TicketRow({ ticket, onUnarchive, currentUserId, onCancelar }: {
  * "Arquivados" embaixo (variante `arquivado` = header âmbar + linhas suaves),
  * pra que colaboradores como a Erica vejam também os tickets já arquivados.
  */
-function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, currentUserId, onCancelar }: {
+function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, currentUserId, onCancelar, onOpen, onUnarchive, onArchive, highlightId }: {
   titulo: string
   icon: typeof Inbox
   tickets: Ticket[]
@@ -1146,6 +1326,10 @@ function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, cu
   arquivado?: boolean
   currentUserId?: string | null
   onCancelar?: (t: Ticket) => void
+  onOpen?: (id: string) => void
+  onUnarchive?: (t: Ticket) => void
+  onArchive?: (t: Ticket) => void
+  highlightId?: string | null
 }) {
   return (
     <Card className="overflow-hidden flex flex-col shrink-0">
@@ -1167,7 +1351,7 @@ function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, cu
       ) : (
         <div className={cn('divide-y divide-border/60', arquivado && 'opacity-80')}>
           {tickets.map(t => (
-            <TicketRow key={t.id} ticket={t} currentUserId={currentUserId} onCancelar={onCancelar} />
+            <TicketRow key={t.id} ticket={t} currentUserId={currentUserId} onCancelar={onCancelar} onOpen={onOpen} onUnarchive={onUnarchive ? () => onUnarchive(t) : undefined} onArchive={onArchive ? () => onArchive(t) : undefined} highlight={t.id === highlightId} />
           ))}
         </div>
       )}

@@ -24,6 +24,29 @@ services:
     volumes:
       - redis_data:/data
 
+  # Servidor SMTP local que CAPTURA os e-mails em vez de entregar, com interface
+  # web que renderiza o HTML. Existe porque em dev não havia como conferir nem
+  # SE o e-mail certo dispara na ação certa, nem COMO ele fica: sem
+  # RESEND_API_KEY e sem SMTP_HOST, o EmailService só logava
+  # "Nenhum provider disponível" e descartava a mensagem.
+  #
+  # Só para desenvolvimento — nada aqui sai para a internet.
+  # Interface: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: saas-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP — é para cá que o SMTP_HOST/SMTP_PORT do apps/api/.env aponta
+      - "8025:8025"  # interface web
+    environment:
+      MP_MAX_MESSAGES: 500
+      # Guarda em disco pra fila sobreviver a restart do container.
+      MP_DATABASE: /data/mailpit.db
+    volumes:
+      - mailpit_data:/data
+
 volumes:
   postgres_data:
   redis_data:
+  mailpit_data:
