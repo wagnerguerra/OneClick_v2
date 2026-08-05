@@ -12,6 +12,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { renderConflitosHtml, type ConflitoAgenda, type ConflitoModo } from '@/lib/agenda-conflitos'
+import { AreasNotificarPicker, useAreasNotificaveis } from '@/components/orcamento/areas-notificar-picker'
 
 /**
  * FAB ("Fale com a TI") — sempre visível no canto inferior direito.
@@ -630,14 +631,10 @@ function OrcamentoRequestForm({
   const [detalhamento, setDetalhamento] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [criado, setCriado] = useState<{ numero: number; id: string } | null>(null)
-  // Áreas envolvidas — pills (cada área marcada notifica o líder pra detalhar a parte dela).
-  const [areasDisp, setAreasDisp] = useState<Array<{ areaId: string; nome: string }>>([])
+  // Áreas a notificar — pills (cada área marcada notifica o líder pra detalhar a parte dela).
+  // Lista + UI compartilhadas com o cadastro dedicado (fonte: Configurações → "Notificação de áreas").
+  const areasNotificaveis = useAreasNotificaveis()
   const [areasSel, setAreasSel] = useState<string[]>([])
-  useEffect(() => {
-    (trpc.orcamento as any).listAreasSelecionaveis.query()
-      .then((d: Array<{ areaId: string; nome: string }>) => setAreasDisp(d))
-      .catch(() => setAreasDisp([]))
-  }, [])
 
   // Anexos (múltiplos, drag-and-drop) — mesmo padrão do balão de ticket.
   const [anexos, setAnexos] = useState<AnexoPendente[]>([])
@@ -858,32 +855,8 @@ function OrcamentoRequestForm({
           )}
         </div>
 
-        {/* Áreas envolvidas (pills) — marca quem precisa detalhar a parte dela */}
-        {areasDisp.length > 0 && (
-          <div className="space-y-1.5">
-            <label className="text-[13px] font-semibold text-foreground">Áreas envolvidas <span className="text-rose-500">*</span></label>
-            <div className="flex flex-wrap gap-1.5">
-              {areasDisp.map((a) => {
-                const sel = areasSel.includes(a.areaId)
-                return (
-                  <button
-                    key={a.areaId}
-                    type="button"
-                    onClick={() => setAreasSel((s) => (sel ? s.filter((x) => x !== a.areaId) : [...s, a.areaId]))}
-                    className={cn(
-                      'px-2.5 h-7 rounded-full text-xs font-medium border transition-colors',
-                      sel ? 'border-transparent text-white' : 'border-border text-muted-foreground hover:bg-muted',
-                    )}
-                    style={sel ? { background: accent } : undefined}
-                  >
-                    {a.nome}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="text-[11px] text-muted-foreground">Selecione ao menos uma área — cada área marcada notifica o líder responsável para detalhar (e executar) a parte dela. <span className="text-rose-500">Obrigatório.</span></p>
-          </div>
-        )}
+        {/* Áreas a notificar (pills) — marca quem precisa detalhar a parte dela */}
+        <AreasNotificarPicker areas={areasNotificaveis} value={areasSel} onChange={setAreasSel} accent={accent} required />
       </div>
 
       {/* Footer */}
@@ -894,7 +867,7 @@ function OrcamentoRequestForm({
         <Button
           size="sm"
           onClick={handleEnviar}
-          disabled={enviando || detTexto.length < 3 || (!clienteSel && !busca.trim()) || anexos.some(a => a.uploading) || (areasDisp.length > 0 && areasSel.length === 0)}
+          disabled={enviando || detTexto.length < 3 || (!clienteSel && !busca.trim()) || anexos.some(a => a.uploading) || (areasNotificaveis.length > 0 && areasSel.length === 0)}
           className="gap-1.5 text-white"
           style={{ background: accent }}
         >
