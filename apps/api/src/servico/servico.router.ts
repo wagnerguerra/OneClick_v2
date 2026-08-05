@@ -72,6 +72,40 @@ export function createServicoRouter(servicoService: ServicoService) {
       .input(z.object({ paiId: z.string().min(1), filhoIds: z.array(z.string().min(1)) }))
       .mutation(({ input }) => servicoService.setSubservicos(input.paiId, input.filhoIds)),
 
+    // ── Variações do serviço (texto + valor oferecidos no orçamento) ──
+    listVariacoes: readProcedure(MODULE)
+      .input(z.object({ servicoId: z.string().min(1) }))
+      .query(({ input }) => servicoService.listVariacoes(input.servicoId)),
+
+    addVariacao: writeProcedure(MODULE)
+      .input(z.object({
+        servicoId: z.string().min(1),
+        titulo: z.string().min(1).max(200),
+        descricao: z.string().optional().nullable(),
+        valor: z.coerce.number().min(0).optional().nullable(),
+      }))
+      .mutation(({ input }) => servicoService.addVariacao(input.servicoId, input)),
+
+    updateVariacao: writeProcedure(MODULE)
+      .input(z.object({
+        id: z.string().min(1),
+        titulo: z.string().min(1).max(200).optional(),
+        descricao: z.string().optional().nullable(),
+        valor: z.coerce.number().min(0).optional().nullable(),
+      }))
+      .mutation(({ input }) => {
+        const { id, ...data } = input
+        return servicoService.updateVariacao(id, data)
+      }),
+
+    removeVariacao: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string().min(1) }))
+      .mutation(({ input }) => servicoService.removeVariacao(input.id)),
+
+    reordenarVariacoes: writeProcedure(MODULE)
+      .input(z.object({ ids: z.array(z.string().min(1)) }))
+      .mutation(({ input }) => servicoService.reordenarVariacoes(input.ids)),
+
     deleteServico: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => servicoService.deleteServico(input.id)),

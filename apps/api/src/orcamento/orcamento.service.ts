@@ -356,7 +356,15 @@ export class OrcamentoService {
     const orc = await prisma.orcamento.findUnique({
       where: { id },
       include: {
-        itens: { orderBy: { createdAt: 'asc' } },
+        // Subserviço e variação vêm com nome: a tela e a proposta precisam
+        // MOSTRAR o que foi escolhido, e o item guarda só os ids.
+        itens: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            subservico: { select: { id: true, nome: true } },
+            catalogoTexto: { select: { id: true, titulo: true } },
+          },
+        },
         mensagens: { orderBy: { createdAt: 'desc' } },
         arquivos: { orderBy: { createdAt: 'desc' } },
         eventos: { orderBy: { createdAt: 'desc' } },
@@ -854,7 +862,15 @@ export class OrcamentoService {
   async getByToken(token: string) {
     const orc = await prisma.orcamento.findUnique({
       where: { token },
-      include: { itens: { orderBy: { createdAt: 'asc' } } },
+      include: {
+        itens: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            subservico: { select: { id: true, nome: true } },
+            catalogoTexto: { select: { id: true, titulo: true } },
+          },
+        },
+      },
     })
     if (!orc) return null
 
@@ -1039,6 +1055,12 @@ export class OrcamentoService {
     input: {
       clienteId?: string | null; clienteNome?: string | null; detalhamento: string; areaIds?: string[]
       anexos?: Array<{ fileName: string; fileUrl: string; fileSize?: number; mimeType?: string }>
+      // Campos que o balão passa a oferecer, espelhando o formulário do
+      // módulo. Quem não tem cadastro completo simplesmente não os manda.
+      contatos?: string | null; emailsContatos?: string | null
+      tipo?: string | null; responsavelId?: string | null
+      validadeDias?: number | null; formaPagamento?: string | null
+      descontoPct?: number | null; descontoValor?: number | null
     },
     userId?: string,
     empresaId?: string,
@@ -1060,12 +1082,28 @@ export class OrcamentoService {
     }
 
     const orc = await this.create(
-      { clienteId, textoInterno: obs, solicitanteId: userId } as any,
+      {
+        clienteId,
+        textoInterno: obs,
+        solicitanteId: userId,
+        contatos: input.contatos ?? null,
+        emailsContatos: input.emailsContatos ?? null,
+        tipo: input.tipo ?? null,
+        responsavelId: input.responsavelId ?? null,
+        ...(input.validadeDias != null ? { validadeDias: input.validadeDias } : {}),
+        formaPagamento: input.formaPagamento ?? null,
+        descontoPct: input.descontoPct ?? null,
+        descontoValor: input.descontoValor ?? null,
+      } as any,
       userId,
       empresaId,
     )
-    // Solicitação chega sem responsável — fica disponível pro comercial assumir.
-    await prisma.orcamento.update({ where: { id: orc.id }, data: { responsavelId: null } }).catch(() => {})
+    // Sem responsável indicado, a solicitação fica disponível pro comercial
+    // assumir. Com responsável (quem tem cadastro completo pode apontar um), o
+    // campo é respeitado — zerar ali desfaria a escolha.
+    if (!input.responsavelId) {
+      await prisma.orcamento.update({ where: { id: orc.id }, data: { responsavelId: null } }).catch(() => {})
+    }
     await this.addEvento(orc.id, userId, 'created', null, null, 'Solicitação de orçamento (balão Solicitar Novo)')
     // Anexos enviados no balão → vira OrcamentoArquivo.
     if (input.anexos?.length) {
@@ -3108,12 +3146,10 @@ export class OrcamentoService {
       select: { filhoId: true, pai: { select: { nome: true } } },
     }).catch(() => [])
 
-    if (filhos.length === 0) {
-      // Sem filhos, mandar um subserviço é incoerente — provavelmente sobrou
-      // da escolha anterior na tela.
-      if (subservicoId) throw new Error('Este serviço não tem subserviços.')
-      return
-    }
+    // Sem filhos, um subserviço pendurado só pode ter sobrado da escolha
+    // anterior na tela. Ignorar é melhor que recusar: o vínculo some sozinho e
+    // ninguém fica travado por um resíduo.
+    if (filhos.length === 0) return
 
     if (!subservicoId) {
       throw new Error(
@@ -3160,13 +3196,19 @@ export class OrcamentoService {
     if (!item) throw new Error('Item não encontrado')
     await this.assertEditable(item.orcamentoId)
 
-    // Só confere quando a edição mexe em serviço ou subserviço — mudar a
-    // quantidade de um item antigo não pode esbarrar numa regra nova.
-    if (data.catalogoId !== undefined || data.subservicoId !== undefined) {
-      await this.validarSubservico(
-        data.catalogoId !== undefined ? data.catalogoId : item.catalogoId,
-        data.subservicoId !== undefined ? data.subservicoId : item.subservicoId,
-      )
+    // A exigência do subserviço vale na ESCOLHA do serviço, não em toda edição.
+    //
+    // Um item lançado antes de o serviço ganhar subserviços carrega o serviço
+    // mãe e nenhum filho. Como a tela reenvia o serviço junto de qualquer
+    // alteração, conferir sempre bloqueava mexer na quantidade, no valor ou no
+    // desconto de itens antigos — e o desconto é do item, nada tem a ver com
+    // qual subserviço foi escolhido.
+    //
+    // Só confere quando o serviço está de fato TROCANDO. Aí a escolha volta a
+    // fazer sentido, e o campo está na tela para ser preenchido.
+    const trocouServico = data.catalogoId !== undefined && data.catalogoId !== item.catalogoId
+    if (trocouServico) {
+      await this.validarSubservico(data.catalogoId, data.subservicoId ?? null)
     }
     // Mapeia os nomes da API (itemDesconto*) para as colunas do item (desconto*),
     // separando-os dos campos genéricos. Desconto só entra em serviço.

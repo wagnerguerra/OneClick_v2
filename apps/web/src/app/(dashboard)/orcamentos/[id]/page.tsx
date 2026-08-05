@@ -78,7 +78,11 @@ interface OrcamentoItem {
   descontoPct?: number | string | null
   descontoValor?: number | string | null
   catalogoId?: string | null
+  subservicoId?: string | null
   catalogoTextoId?: string | null
+  /** Nomes do que foi escolhido — vêm do servidor só para exibição. */
+  subservico?: { id: string; nome: string } | null
+  catalogoTexto?: { id: string; titulo: string } | null
   situacao?: string
   ordem?: number
 }
@@ -1504,7 +1508,7 @@ export default function OrcamentoDetailPage() {
     setEditDescPct(item.descontoPct != null && Number(item.descontoPct) > 0 ? String(item.descontoPct) : '')
     setEditDescValor(item.descontoValor != null && Number(item.descontoValor) > 0 ? String(item.descontoValor) : '')
     setEditCatalogoId(item.catalogoId ?? '')
-    setEditSubservicoId((item as { subservicoId?: string | null }).subservicoId ?? '')
+    setEditSubservicoId(item.subservicoId ?? '')
     setEditTextoId(item.catalogoTextoId ?? '')
   }
 
@@ -2458,7 +2462,7 @@ export default function OrcamentoDetailPage() {
                             <TableHead className="w-[90px]">Tipo</TableHead>
                             <TableHead>Descrição</TableHead>
                             <TableHead className="w-[65px] text-center">Qtde</TableHead>
-                            <TableHead className="w-[100px] text-right">R$ Unit</TableHead>
+                            <TableHead className="w-[165px] text-right">R$ Unit</TableHead>
                             <TableHead className="w-[110px] text-right">R$ Total</TableHead>
                             <TableHead className="w-[100px] text-right">Ações</TableHead>
                           </TableRow>
@@ -2502,7 +2506,9 @@ export default function OrcamentoDetailPage() {
                                     if (!cat?.subservicos?.length) return null
                                     return (
                                       <Select value={editSubservicoId || undefined} onValueChange={handleSelecionarSubservicoEdit}>
-                                        <SelectTrigger className="h-7 text-[11px] mt-1"><SelectValue placeholder="Subserviço *" /></SelectTrigger>
+                                        {/* Sem asterisco: na edição o subserviço só é exigido se o
+                                            serviço estiver sendo trocado. */}
+                                        <SelectTrigger className="h-7 text-[11px] mt-1"><SelectValue placeholder="Subserviço" /></SelectTrigger>
                                         <SelectContent>
                                           {cat.subservicos.map(sub => (
                                             <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
@@ -2531,17 +2537,36 @@ export default function OrcamentoDetailPage() {
                                   })()}
                                 </TableCell>
                                 <TableCell>
-                                  <Input type="number" value={editQtde} onChange={e => setEditQtde(e.target.value)} className="h-7 w-[55px] text-xs text-center" min="1" />
+                                  <Input type="number" value={editQtde} onChange={e => setEditQtde(e.target.value)} className="h-7 w-[60px] text-xs text-center" min="1" />
                                 </TableCell>
                                 <TableCell>
-                                  <Input type="number" value={editValor} onChange={e => setEditValor(e.target.value)} className="h-7 w-[90px] text-xs text-right" step="0.01" />
-                                  {/* Desconto por item — só serviço (#HLP0302). % e R$ somam. */}
-                                  {editTipo === 'SERVICO' && (
-                                    <div className="mt-1 flex items-center gap-1">
-                                      <Input type="number" value={editDescPct} onChange={e => setEditDescPct(e.target.value)} className="h-6 w-[52px] text-[11px] text-right" step="0.01" min="0" max="100" placeholder="% desc" title="Desconto em %" />
-                                      <Input type="number" value={editDescValor} onChange={e => setEditDescValor(e.target.value)} className="h-6 w-[62px] text-[11px] text-right" step="0.01" min="0" placeholder="R$ desc" title="Desconto em R$" />
+                                  {/* Rótulo em cima, e não dentro do campo: o texto de dentro
+                                      some ao digitar e não cabia na largura da coluna — sobrava
+                                      "% de" e "R$ d". Em cima ele fica, e o campo respira. */}
+                                  <div className="space-y-1">
+                                    <div className="flex flex-col items-end gap-0.5">
+                                      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Valor unit.</span>
+                                      <Input type="number" value={editValor} onChange={e => setEditValor(e.target.value)}
+                                        className="h-7 w-[104px] text-xs text-right" step="0.01" />
                                     </div>
-                                  )}
+                                    {/* Desconto por item — só serviço (#HLP0302). % e R$ somam. */}
+                                    {editTipo === 'SERVICO' && (
+                                      <div className="flex items-end justify-end gap-1.5">
+                                        <div className="flex flex-col items-end gap-0.5">
+                                          <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Desc %</span>
+                                          <Input type="number" value={editDescPct} onChange={e => setEditDescPct(e.target.value)}
+                                            className="h-6 w-[62px] text-[11px] text-right" step="0.01" min="0" max="100"
+                                            placeholder="0" title="Desconto em percentual" />
+                                        </div>
+                                        <div className="flex flex-col items-end gap-0.5">
+                                          <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Desc R$</span>
+                                          <Input type="number" value={editDescValor} onChange={e => setEditDescValor(e.target.value)}
+                                            className="h-6 w-[80px] text-[11px] text-right" step="0.01" min="0"
+                                            placeholder="0,00" title="Desconto em reais" />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-right text-xs font-medium whitespace-nowrap">
                                   {(() => {
@@ -2566,7 +2591,27 @@ export default function OrcamentoDetailPage() {
                               <TableRow key={item.id} className="hover:bg-muted/40">
                                 <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{idx + 1}</TableCell>
                                 <TableCell className="whitespace-nowrap"><TipoBadge tipo={item.tipo} /></TableCell>
-                                <TableCell className="text-sm whitespace-nowrap cursor-pointer" onClick={() => startEditItem(item)}>{item.descricao}</TableCell>
+                                <TableCell className="text-sm cursor-pointer" onClick={() => startEditItem(item)}>
+                                  <div className="whitespace-nowrap">{item.descricao}</div>
+                                  {/* O que foi escolhido dentro do serviço. Em linha
+                                      própria, e não colado na descrição: a descrição é
+                                      editável à mão, e o vínculo continua valendo mesmo
+                                      quando alguém reescreve o texto. */}
+                                  {(item.subservico?.nome || item.catalogoTexto?.titulo) && (
+                                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                                      {item.subservico?.nome && (
+                                        <span className="rounded bg-violet-50 px-1.5 py-0.5 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
+                                          {item.subservico.nome}
+                                        </span>
+                                      )}
+                                      {item.catalogoTexto?.titulo && (
+                                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                                          {item.catalogoTexto.titulo}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </TableCell>
                                 <TableCell className="text-center text-xs whitespace-nowrap">{item.quantidade}</TableCell>
                                 <TableCell className="text-right text-xs whitespace-nowrap">{formatCurrency(item.valorUnitario)}</TableCell>
                                 <TableCell className="text-right text-sm font-medium whitespace-nowrap">

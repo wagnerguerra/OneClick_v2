@@ -6,12 +6,15 @@ import {
   Bug, Lightbulb, MessageSquare, X, Send, Loader2, Check, ExternalLink,
   ImagePlus, Paperclip, Plus, ChevronLeft, LifeBuoy, FileText, Search, Building2,
   CalendarPlus, Clock, Users, Video, Monitor, DoorOpen, MapPin,
+  Maximize2, Minimize2, ArrowLeftToLine, ArrowRightToLine,
 } from 'lucide-react'
 import { Button, cn, RichEditor } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { renderConflitosHtml, type ConflitoAgenda, type ConflitoModo } from '@/lib/agenda-conflitos'
+import { AreasNotificarPicker, useAreasNotificaveis } from '@/components/orcamento/areas-notificar-picker'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 /**
  * FAB ("Fale com a TI") — sempre visível no canto inferior direito.
@@ -51,6 +54,9 @@ interface AgendaTipoOpc {
   salasPermitidas?: string[]
 }
 
+/** Onde o botão flutuante mora — preferência de tela, guardada no navegador. */
+const CHAVE_LADO_FAB = 'oneclick:fab-lado'
+
 export function FloatingFeedbackButton() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -59,6 +65,41 @@ export function FloatingFeedbackButton() {
   // e saída (true→false antes do unmount em 200ms).
   const [entered, setEntered] = useState(false)
   const [mode, setMode] = useState<Mode>('menu')
+  /**
+   * Balão ampliado — vira uma janela central, do tamanho de um modal.
+   *
+   * O balão nasce colado no botão porque o caminho comum é anotar uma linha e
+   * enviar. Preencher um orçamento inteiro em 360px, porém, é sofrimento: o
+   * editor de texto fica com a altura de um campo e a lista de áreas quebra em
+   * três linhas. Ampliar resolve sem tirar de quem só quer o atalho rápido.
+   */
+  const [ampliado, setAmpliado] = useState(false)
+
+  /**
+   * Lado da tela em que o botão mora.
+   *
+   * Fixo na direita, ele cobre o canto de algumas telas — e qual canto atrapalha
+   * depende da página e do tamanho do monitor de cada um. Em vez de adivinhar
+   * uma posição boa para todos, a escolha é de quem usa e fica guardada no
+   * próprio navegador: é preferência de quem está na frente da tela, não do
+   * cadastro da pessoa.
+   */
+  const [lado, setLado] = useState<'direita' | 'esquerda'>('direita')
+
+  useEffect(() => {
+    try {
+      const salvo = localStorage.getItem(CHAVE_LADO_FAB)
+      if (salvo === 'esquerda' || salvo === 'direita') setLado(salvo)
+    } catch { /* navegador sem storage — segue no padrão */ }
+  }, [])
+
+  function trocarLado() {
+    setLado(atual => {
+      const novo = atual === 'direita' ? 'esquerda' : 'direita'
+      try { localStorage.setItem(CHAVE_LADO_FAB, novo) } catch { /* idem */ }
+      return novo
+    })
+  }
   // Direção da transição entre telas: 'fwd' (menu → serviço) entra pela direita,
   // 'back' (serviço → menu) entra pela esquerda. Usado pela animação do corpo.
   const [dir, setDir] = useState<'fwd' | 'back'>('fwd')
@@ -125,6 +166,9 @@ export function FloatingFeedbackButton() {
       const t = setTimeout(() => {
         if (!open) {
           setMode('menu')
+          // Volta ao tamanho de balão: reabrir ampliado surpreenderia quem só
+          // quer o atalho rápido.
+          setAmpliado(false)
           setTexto('')
           setTipo(null)
           setAnexos([])
@@ -309,7 +353,9 @@ export function FloatingFeedbackButton() {
           // pointer-events-auto: Radix Sheet/Dialog aplica pointer-events:
           // none no body quando aberto pra absorver cliques no overlay;
           // sem isso o click no FAB 'atravessa' pro elemento abaixo.
-          'fixed bottom-5 right-5 lg:right-16 z-[60] pointer-events-auto h-12 w-12 rounded-full shadow-lg',
+          'fixed bottom-5 z-[60] pointer-events-auto h-12 w-12 rounded-full shadow-lg',
+          // À esquerda, o afastamento maior desvia da barra lateral recolhida.
+          lado === 'direita' ? 'right-5 lg:right-16' : 'left-5 lg:left-20',
           'flex items-center justify-center text-white',
           'bg-[var(--mod-ti,#22d3ee)] hover:scale-105 active:scale-95',
           'transition-all duration-200 ease-out',
@@ -341,21 +387,37 @@ export function FloatingFeedbackButton() {
             // Popover acompanha o FAB (z-[60] + pointer-events-auto) —
             // fica acima de modais e recebe cliques normalmente.
             // 'evento' tem mais campos (modalidade/sala/garagem) → um pouco mais largo.
-            'fixed bottom-20 right-5 lg:right-16 z-[60] pointer-events-auto max-w-[calc(100vw-2.5rem)]',
-            mode === 'evento' ? 'w-[420px]' : 'w-[360px]',
+            'fixed z-[60] pointer-events-auto',
+            ampliado
+              // Centralizado, do tamanho de um modal. A origem da animação muda
+              // junto, senão a ampliação "salta" do canto.
+              ? 'left-1/2 top-1/2 w-[min(880px,calc(100vw-3rem))] origin-center'
+              : cn(
+                'bottom-20 max-w-[calc(100vw-2.5rem)]',
+                lado === 'direita'
+                  ? 'right-5 lg:right-16 origin-bottom-right'
+                  : 'left-5 lg:left-20 origin-bottom-left',
+                mode === 'evento' ? 'w-[420px]' : 'w-[360px]',
+              ),
             // Cap na altura da viewport (100dvh - folga p/ FAB e topo) + flex-col:
             // em telas baixas o formulário mais alto (orçamento/evento) transborda pra
             // cima e o topo (header + Cliente) fica inacessível sem scroll (HLP0316).
             // O corpo rola internamente; header fica fixo.
-            'flex flex-col max-h-[calc(100dvh-6.5rem)]',
+            ampliado ? 'flex flex-col max-h-[calc(100dvh-4rem)]' : 'flex flex-col max-h-[calc(100dvh-6.5rem)]',
             'rounded-lg border border-border bg-card shadow-2xl overflow-hidden',
-            // Transição manual (origin no canto inferior direito = "sai do botão FAB").
-            'origin-bottom-right transition-all duration-200 ease-out',
+            // Transição manual (origin no canto do FAB quando encolhido).
+            'transition-all duration-200 ease-out',
             entered
-              ? 'opacity-100 scale-100 translate-y-0'
+              ? cn('opacity-100 scale-100', ampliado ? '' : 'translate-y-0')
               : 'opacity-0 scale-95 translate-y-2',
           )}
-          style={{ willChange: 'transform, opacity' }}
+          style={{
+            willChange: 'transform, opacity',
+            // Centragem por style, e não por classe: o `translate-y` da animação
+            // de entrada é uma utilitária da mesma família e as duas brigariam
+            // pela ordem no CSS, não pela ordem que escrevemos aqui.
+            ...(ampliado ? { transform: 'translate(-50%, -50%)' } : {}),
+          }}
         >
           {/* Header */}
           {!(mode === 'ticket' && ticketCriado) && (
@@ -371,7 +433,7 @@ export function FloatingFeedbackButton() {
                   <ChevronLeft className="h-4 w-4" />
                 </button>
               )}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-foreground">
                   {mode === 'menu' ? 'Criar Novo' : mode === 'ticket' ? 'Abrir ticket' : mode === 'evento' ? 'Novo evento' : 'Solicitar orçamento'}
                 </div>
@@ -385,6 +447,33 @@ export function FloatingFeedbackButton() {
                         : 'Enviamos sua solicitação ao comercial'}
                 </div>
               </div>
+              {/* Trocar de lado fica no cabeçalho, e não num menu escondido:
+                  quem descobre que o botão atrapalha está justamente com o
+                  balão aberto na frente do que queria ver. */}
+              <button
+                type="button"
+                onClick={trocarLado}
+                className="h-6 w-6 shrink-0 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                title={lado === 'direita' ? 'Mover o botão para a esquerda' : 'Mover o botão para a direita'}
+                aria-label={lado === 'direita' ? 'Mover o botão para a esquerda' : 'Mover o botão para a direita'}
+              >
+                {lado === 'direita'
+                  ? <ArrowLeftToLine className="h-3.5 w-3.5" />
+                  : <ArrowRightToLine className="h-3.5 w-3.5" />}
+              </button>
+              {/* Ampliar não aparece no menu: ali só há três botões, e uma
+                  janela grande para escolher entre eles seria desproporcional. */}
+              {mode !== 'menu' && (
+                <button
+                  type="button"
+                  onClick={() => setAmpliado(v => !v)}
+                  className="h-6 w-6 shrink-0 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  title={ampliado ? 'Reduzir' : 'Ampliar'}
+                  aria-label={ampliado ? 'Reduzir' : 'Ampliar'}
+                >
+                  {ampliado ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                </button>
+              )}
             </div>
           )}
 
@@ -630,14 +719,30 @@ function OrcamentoRequestForm({
   const [detalhamento, setDetalhamento] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [criado, setCriado] = useState<{ numero: number; id: string } | null>(null)
-  // Áreas envolvidas — pills (cada área marcada notifica o líder pra detalhar a parte dela).
-  const [areasDisp, setAreasDisp] = useState<Array<{ areaId: string; nome: string }>>([])
+  // Áreas a notificar — pills (cada área marcada notifica o líder pra detalhar a parte dela).
+  // Lista + UI compartilhadas com o cadastro dedicado (fonte: Configurações → "Notificação de áreas").
+  const areasNotificaveis = useAreasNotificaveis()
   const [areasSel, setAreasSel] = useState<string[]>([])
-  useEffect(() => {
-    (trpc.orcamento as any).listAreasSelecionaveis.query()
-      .then((d: Array<{ areaId: string; nome: string }>) => setAreasDisp(d))
-      .catch(() => setAreasDisp([]))
-  }, [])
+
+  /**
+   * Mesma regra do formulário do módulo: sem `cadastro_completo` a pessoa vê o
+   * essencial; com ela, os campos comerciais aparecem. A decisão é de quem
+   * configura permissão, e o balão não pode discordar da tela — seria a mesma
+   * pessoa com dois níveis de acesso dependendo de onde clicou.
+   */
+  const { isMaster, permissions } = useUserPermissions()
+  const subPerms = (permissions.find(p => p.moduleSlug === 'orcamentos')?.subPermissions ?? {}) as Record<string, boolean>
+  const cadastroCompleto = isMaster || subPerms.cadastro_completo === true
+
+  // Campos do formulário reduzido (todos veem).
+  const [contatos, setContatos] = useState('')
+  const [emailContato, setEmailContato] = useState('')
+  // Campos comerciais — só com cadastro completo.
+  const [tipo, setTipo] = useState('SERVICO_EXTRA')
+  const [validadeDias, setValidadeDias] = useState('90')
+  const [formaPagamento, setFormaPagamento] = useState('')
+  const [descontoPct, setDescontoPct] = useState('')
+  const [descontoValor, setDescontoValor] = useState('')
 
   // Anexos (múltiplos, drag-and-drop) — mesmo padrão do balão de ticket.
   const [anexos, setAnexos] = useState<AnexoPendente[]>([])
@@ -715,11 +820,22 @@ function OrcamentoRequestForm({
     setEnviando(true)
     try {
       const anexosProntos = anexos.filter(a => !a.uploading && a.fileUrl)
-      const res = await trpc.orcamento.solicitar.mutate({
+      const res = await (trpc.orcamento as any).solicitar.mutate({
         clienteId: clienteSel?.id ?? null,
         clienteNome: clienteSel ? null : nome,
         detalhamento: det,
         areaIds: areasSel,
+        contatos: contatos.trim() || null,
+        emailsContatos: emailContato.trim() || null,
+        // Os comerciais só viajam quando a pessoa pôde preenchê-los; mandar
+        // valores de campo escondido seria decidir por ela.
+        ...(cadastroCompleto ? {
+          tipo,
+          validadeDias: Number(validadeDias) || 90,
+          formaPagamento: formaPagamento.trim() || null,
+          descontoPct: descontoPct.trim() ? Number(descontoPct) : null,
+          descontoValor: descontoValor.trim() ? Number(descontoValor) : null,
+        } : {}),
         anexos: anexosProntos.map(a => ({ fileName: a.fileName, fileUrl: a.fileUrl, fileSize: a.tamanho, mimeType: a.mimeType })),
       }) as { id: string; numero: number }
       setCriado({ numero: res.numero, id: res.id })
@@ -799,6 +915,85 @@ function OrcamentoRequestForm({
           )}
         </div>
 
+        {/* Contato — mesma dupla do formulário do módulo. */}
+        <div className="grid grid-cols-12 gap-2">
+          <div className="col-span-12 sm:col-span-5 space-y-1.5">
+            <label className="text-[13px] font-semibold text-foreground">Contato</label>
+            <input
+              value={contatos} onChange={e => setContatos(e.target.value)}
+              placeholder="Nome do contato"
+              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+            />
+          </div>
+          <div className="col-span-12 sm:col-span-7 space-y-1.5">
+            <label className="text-[13px] font-semibold text-foreground">E-mail do contato</label>
+            <input
+              type="email" value={emailContato} onChange={e => setEmailContato(e.target.value)}
+              placeholder="contato@empresa.com.br"
+              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Campos comerciais — espelham o bloco avançado do módulo, sob a
+            mesma sub-permissão (legado orc_cadastro=1). */}
+        {cadastroCompleto && (
+          <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
+            <div className="grid grid-cols-12 gap-2">
+              <div className="col-span-12 sm:col-span-7 space-y-1.5">
+                <label className="text-[13px] font-semibold text-foreground">Tipo</label>
+                <select
+                  value={tipo} onChange={e => setTipo(e.target.value)}
+                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+                >
+                  <option value="SERVICO_EXTRA">Serviço Extra</option>
+                  <option value="SERVICO_MENSAL">Serviço Mensal</option>
+                </select>
+              </div>
+              <div className="col-span-12 sm:col-span-5 space-y-1.5">
+                <label className="text-[13px] font-semibold text-foreground">Validade</label>
+                <div className="flex">
+                  <input
+                    type="number" min={1} value={validadeDias} onChange={e => setValidadeDias(e.target.value)}
+                    className="h-9 w-full rounded-l-md border border-border bg-background px-3 text-sm"
+                  />
+                  <span className="inline-flex h-9 items-center rounded-r-md border border-l-0 border-border bg-muted px-2 text-xs text-muted-foreground">
+                    dias
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-foreground">Forma de pagamento</label>
+              <input
+                value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)}
+                placeholder="Ex.: 30 dias"
+                className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+              />
+            </div>
+
+            <div className="grid grid-cols-12 gap-2">
+              <div className="col-span-6 space-y-1.5">
+                <label className="text-[13px] font-semibold text-foreground">Desconto %</label>
+                <input
+                  type="number" min={0} max={100} step="0.01" value={descontoPct}
+                  onChange={e => setDescontoPct(e.target.value)} placeholder="0"
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                />
+              </div>
+              <div className="col-span-6 space-y-1.5">
+                <label className="text-[13px] font-semibold text-foreground">Desconto R$</label>
+                <input
+                  type="number" min={0} step="0.01" value={descontoValor}
+                  onChange={e => setDescontoValor(e.target.value)} placeholder="0,00"
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Detalhamento (RichEditor — aceita formatação HTML) */}
         <div className="space-y-1.5">
           <label className="text-[13px] font-semibold text-foreground">Detalhamento</label>
@@ -858,32 +1053,8 @@ function OrcamentoRequestForm({
           )}
         </div>
 
-        {/* Áreas envolvidas (pills) — marca quem precisa detalhar a parte dela */}
-        {areasDisp.length > 0 && (
-          <div className="space-y-1.5">
-            <label className="text-[13px] font-semibold text-foreground">Áreas envolvidas <span className="text-rose-500">*</span></label>
-            <div className="flex flex-wrap gap-1.5">
-              {areasDisp.map((a) => {
-                const sel = areasSel.includes(a.areaId)
-                return (
-                  <button
-                    key={a.areaId}
-                    type="button"
-                    onClick={() => setAreasSel((s) => (sel ? s.filter((x) => x !== a.areaId) : [...s, a.areaId]))}
-                    className={cn(
-                      'px-2.5 h-7 rounded-full text-xs font-medium border transition-colors',
-                      sel ? 'border-transparent text-white' : 'border-border text-muted-foreground hover:bg-muted',
-                    )}
-                    style={sel ? { background: accent } : undefined}
-                  >
-                    {a.nome}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="text-[11px] text-muted-foreground">Selecione ao menos uma área — cada área marcada notifica o líder responsável para detalhar (e executar) a parte dela. <span className="text-rose-500">Obrigatório.</span></p>
-          </div>
-        )}
+        {/* Áreas a notificar (pills) — marca quem precisa detalhar a parte dela */}
+        <AreasNotificarPicker areas={areasNotificaveis} value={areasSel} onChange={setAreasSel} accent={accent} required />
       </div>
 
       {/* Footer */}
@@ -894,7 +1065,7 @@ function OrcamentoRequestForm({
         <Button
           size="sm"
           onClick={handleEnviar}
-          disabled={enviando || detTexto.length < 3 || (!clienteSel && !busca.trim()) || anexos.some(a => a.uploading) || (areasDisp.length > 0 && areasSel.length === 0)}
+          disabled={enviando || detTexto.length < 3 || (!clienteSel && !busca.trim()) || anexos.some(a => a.uploading) || (areasNotificaveis.length > 0 && areasSel.length === 0)}
           className="gap-1.5 text-white"
           style={{ background: accent }}
         >

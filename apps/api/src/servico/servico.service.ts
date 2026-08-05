@@ -554,6 +554,55 @@ export class ServicoService {
     return { ok: true, total: alvos.length }
   }
 
+  // ── Variações ─────────────────────────────────────────────
+  //
+  // A variação é o texto+valor que o usuário escolhe ao lançar o serviço num
+  // orçamento ("Plano Básico", "Plano Completo"). Ela mora na tabela do módulo
+  // de orçamento porque nasceu lá, mas quem a cadastra é quem cadastra o
+  // serviço — daí existir também por aqui, sob a permissão de Serviços.
+
+  async listVariacoes(servicoId: string) {
+    return prisma.orcamentoCatalogoTexto.findMany({
+      where: { catalogoId: servicoId },
+      orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
+    })
+  }
+
+  async addVariacao(servicoId: string, data: { titulo: string; descricao?: string | null; valor?: number | null }) {
+    const servico = await prisma.servico.findUnique({ where: { id: servicoId }, select: { id: true } })
+    if (!servico) throw new Error('Serviço não encontrado.')
+
+    // Entra no fim da lista: quem cadastra está acrescentando, não inserindo.
+    const ordem = await prisma.orcamentoCatalogoTexto.count({ where: { catalogoId: servicoId } })
+
+    return prisma.orcamentoCatalogoTexto.create({
+      data: {
+        catalogoId: servicoId,
+        titulo: data.titulo,
+        descricao: data.descricao || null,
+        valor: data.valor ?? null,
+        ordem,
+      },
+    })
+  }
+
+  async updateVariacao(id: string, data: { titulo?: string; descricao?: string | null; valor?: number | null }) {
+    return prisma.orcamentoCatalogoTexto.update({ where: { id }, data: data as never })
+  }
+
+  async removeVariacao(id: string) {
+    await prisma.orcamentoCatalogoTexto.delete({ where: { id } })
+    return { ok: true }
+  }
+
+  /** Grava a ordem escolhida na tela — a lista é lida por gente, e a ordem vende. */
+  async reordenarVariacoes(ids: string[]) {
+    await prisma.$transaction(
+      ids.map((id, i) => prisma.orcamentoCatalogoTexto.update({ where: { id }, data: { ordem: i } })),
+    )
+    return { ok: true }
+  }
+
   async getServico(id: string) {
     return prisma.servico.findUnique({
       where: { id },
@@ -661,6 +710,10 @@ export class ServicoService {
       /** User fixo quando atribuicaoResponsavel = MANUAL_FIXO. */
       responsavelFixoId: string | null;
       position: Position;
+      /** Subserviços do catálogo comercial — camada opcional do desenho. */
+      subservicos: Array<{ id: string; nome: string }>;
+      /** Variações oferecidas no orçamento — mesma camada. */
+      variacoes: Array<{ id: string; titulo: string; valor: string | null }>;
       etapas: Array<{ id: string; nome: string; ordem: number; passos: Array<{ id: string; nome: string; ordem: number; obrigatorio: boolean }> }>;
     }> = []
     const edges: Array<{
@@ -685,6 +738,13 @@ export class ServicoService {
           acessoriasMaps: {
             where: { ativo: true, servicoId: { not: null } },
             select: { nome: true },
+          },
+          // Camada de catálogo — o desenho pode mostrá-la por cima do fluxo
+          // de execução, sem misturar as duas coisas.
+          subservicos: {
+            orderBy: { ordem: 'asc' },
+            where: { filho: { ativo: true } },
+            select: { filho: { select: { id: true, nome: true } } },
           },
           etapas: {
             orderBy: { ordem: 'asc' },
@@ -728,6 +788,10 @@ export class ServicoService {
         responsavelFixoId: svc.responsavelFixoId,
         categoriaServico: svc.categoriaServico as string,
         acessoriasObrigacoes: Array.from(new Set(svc.acessoriasMaps.map(m => m.nome))).sort(),
+        subservicos: svc.subservicos.map(v => v.filho),
+        // As variações vivem na tabela do orçamento, sem relação Prisma — a
+        // busca é em lote, depois do BFS, para não fazer uma consulta por bloco.
+        variacoes: [],
         position,
         // Remove campos de SLA do payload dos passos — só a soma total importa pro card
         etapas: svc.etapas.map(et => ({
@@ -858,6 +922,22 @@ export class ServicoService {
         if (r && r.length > 0) n.perguntaRotulos = r
       }
     }
+
+    // ── Variações de cada bloco ──────────────────────────────
+    // Uma consulta em lote depois do BFS, e não uma por bloco: são dezenas de
+    // nós num fluxo grande.
+    const variacoes = await prisma.orcamentoCatalogoTexto.findMany({
+      where: { catalogoId: { in: nodes.map(n => n.id) } },
+      orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, catalogoId: true, titulo: true, valor: true },
+    }).catch(() => [])
+    const variacoesPorServico = new Map<string, Array<{ id: string; titulo: string; valor: string | null }>>()
+    for (const v of variacoes) {
+      const arr = variacoesPorServico.get(v.catalogoId) ?? []
+      arr.push({ id: v.id, titulo: v.titulo, valor: v.valor != null ? String(v.valor) : null })
+      variacoesPorServico.set(v.catalogoId, arr)
+    }
+    for (const n of nodes) n.variacoes = variacoesPorServico.get(n.id) ?? []
 
     // Carrega layout persistido — usa originalRootId pra bater com o save side
     // (frontend sempre passa o id do servico atual, sem conhecer o redirect)

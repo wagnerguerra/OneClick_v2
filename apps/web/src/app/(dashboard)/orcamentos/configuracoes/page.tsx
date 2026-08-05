@@ -71,7 +71,7 @@ const TABS: Array<{ key: TabKey; label: string; icon: typeof Clock }> = [
   { key: 'numeracao', label: 'Numeração', icon: Hash },
   { key: 'emails', label: 'Notificações', icon: Mail },
   { key: 'textos', label: 'Textos padrão', icon: FileText },
-  { key: 'areas', label: 'Áreas (detalhamento)', icon: Users },
+  { key: 'areas', label: 'Notificação de áreas', icon: Users },
   { key: 'modelos', label: 'Modelos de proposta (IA)', icon: Sparkles },
   { key: 'ia', label: 'Sugestões da IA', icon: Sparkles },
   { key: 'pesquisa', label: 'Pesquisa de satisfação', icon: Star },
@@ -406,8 +406,10 @@ export default function OrcamentosConfiguracoesPage() {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Aba "Áreas (detalhamento)" — quais áreas ficam disponíveis pra seleção em
-// novos orçamentos, substituto de cada uma, canais de notificação e prazo.
+// Aba "Notificação de áreas" — esta é a ÚNICA fonte da lista "Notificar as
+// seguintes áreas" que aparece ao criar um orçamento (tanto no balão do FAB
+// quanto no cadastro dedicado). Define quais áreas podem ser notificadas, o
+// substituto de cada uma, os canais e o prazo para detalhar.
 // ────────────────────────────────────────────────────────────────────
 interface AreaDisp { id: string; nome: string; leaderId: string | null; leaderNome: string | null }
 interface AreaHabil { areaId: string; nome: string; leaderId: string | null; leaderNome: string | null; substitutoId: string | null }
@@ -461,7 +463,7 @@ function AreasConfigTab() {
         config: { prazoRespostaDias: prazoDias, prazoEmDiasUteis: prazoUteis, canais, avisarComercialAtraso: avisarComercial, areaComercialId: areaComercialId || null },
         areas: [...sel.entries()].map(([areaId, substitutoId]) => ({ areaId, substitutoId })),
       })
-      alerts.success('Configuração salva', 'Áreas e prazos de detalhamento atualizados.')
+      alerts.success('Configuração salva', 'Áreas notificáveis, canais e prazo atualizados.')
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setSaving(false) }
   }
@@ -520,7 +522,12 @@ function AreasConfigTab() {
 
       {/* Lista de áreas habilitáveis */}
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-muted-foreground block">Áreas disponíveis para seleção em novos orçamentos</label>
+        <label className="text-[13px] font-semibold text-foreground block">Áreas que podem ser notificadas na criação de um orçamento:</label>
+        <p className="text-[11px] text-muted-foreground">
+          As áreas marcadas aqui aparecem em <span className="font-medium text-foreground">&ldquo;Notificar as seguintes áreas&rdquo;</span> ao criar um orçamento.
+          Essa função avisa o líder (e o substituto) pelos canais selecionados acima, com o prazo definido para detalhar a parte dela.
+        </p>
+        <p className="text-[11px] text-muted-foreground">Áreas sem líder precisam de um contato indicado (substituto) para receber as notificações.</p>
         <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
           {disp.length === 0 && <p className="text-sm text-muted-foreground italic px-4 py-6 text-center">Nenhuma área cadastrada. Cadastre em Cadastros → Áreas.</p>}
           {disp.map(a => {
@@ -537,7 +544,7 @@ function AreasConfigTab() {
                     <Select value={sel.get(a.id) || 'none'} onValueChange={v => setSubstituto(a.id, v === 'none' ? null : v)}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Substituto / contato" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">{a.leaderNome ? 'Sem substituto' : 'Definir contato…'}</SelectItem>
+                        <SelectItem value="none">{a.leaderNome ? 'Sem substituto' : 'Definir contato substituto…'}</SelectItem>
                         {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -547,7 +554,6 @@ function AreasConfigTab() {
             )
           })}
         </div>
-        <p className="text-[11px] text-muted-foreground">Áreas sem líder precisam de um contato indicado (substituto) para receber as notificações.</p>
       </div>
 
       <div className="flex justify-end pt-2">

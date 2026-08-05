@@ -255,6 +255,16 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         clienteNome: z.string().optional().nullable(),
         detalhamento: z.string().min(3),
         areaIds: z.array(z.string()).optional(),
+        // Espelham o formulário do módulo; opcionais porque quem não tem
+        // cadastro completo não os vê nem os envia.
+        contatos: z.string().optional().nullable(),
+        emailsContatos: z.string().optional().nullable(),
+        tipo: z.string().optional().nullable(),
+        responsavelId: z.string().optional().nullable(),
+        validadeDias: z.coerce.number().min(1).optional().nullable(),
+        formaPagamento: z.string().optional().nullable(),
+        descontoPct: z.coerce.number().min(0).max(100).optional().nullable(),
+        descontoValor: z.coerce.number().min(0).optional().nullable(),
         anexos: z.array(z.object({
           fileName: z.string(),
           fileUrl: z.string(),

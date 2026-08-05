@@ -25,6 +25,7 @@ import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { FormasPagamentoModal } from '@/components/orcamento/formas-pagamento-modal'
+import { AreasNotificarPicker, useAreasNotificaveis } from '@/components/orcamento/areas-notificar-picker'
 import { DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, type DragEndEvent, type DragStartEvent, type DragOverEvent, type DragMoveEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -504,6 +505,10 @@ export default function OrcamentosPage() {
   const [clientes, setClientes] = useState<{ id: string; razaoSocial: string; documento?: string | null }[]>([])
   const [usuarios, setUsuarios] = useState<{ id: string; name: string }[]>([])
   const [creating, setCreating] = useState(false)
+  // Áreas a notificar — lista + pills compartilhadas com o balão do FAB
+  // (fonte única: Configurações → "Notificação de áreas"). Obrigatório quando há áreas.
+  const areasNotificaveis = useAreasNotificaveis()
+  const [areasNotificar, setAreasNotificar] = useState<string[]>([])
   const FORM_INITIAL = {
     clienteId: '',
     contatos: '',
@@ -680,6 +685,9 @@ export default function OrcamentosPage() {
     const emails = (form.emailsContatos || '').split(/[,;]/).map(e => e.trim()).filter(Boolean)
     const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emails.every(e => reEmail.test(e))) { alerts.error('E-mail inválido', 'Informe um e-mail válido para o contato.'); return }
+    if (areasNotificaveis.length > 0 && areasNotificar.length === 0) {
+      alerts.error('Selecione as áreas', 'Marque ao menos uma área para notificar.'); return
+    }
     setCreating(true)
     try {
       const result = await (trpc.orcamento as any).create.mutate({
@@ -694,8 +702,19 @@ export default function OrcamentosPage() {
         descontoValor: form.descontoValor ? Number(form.descontoValor) : undefined,
         textoInterno: form.textoInterno || undefined,
       })
+      // Vincula as áreas marcadas — é isso que dispara sino/e-mail pro líder (e
+      // substituto) com o prazo pra detalhar. Falhar aqui não desfaz o orçamento,
+      // que já existe: avisa e segue, pra dar pra vincular na tela de detalhes.
+      if (areasNotificar.length) {
+        try {
+          await (trpc.orcamento as any).vincularAreas.mutate({ orcamentoId: result.id, areaIds: areasNotificar })
+        } catch (e) {
+          alerts.error('Orçamento criado, mas as áreas não foram notificadas', (e as Error).message)
+        }
+      }
       setCreateOpen(false)
       setForm(FORM_INITIAL)
+      setAreasNotificar([])
       await alerts.success('Orçamento criado', `Orçamento #${result.numero} criado com sucesso.`)
       fetchData()
       router.push(`/orcamentos/${result.id}`)
@@ -1286,6 +1305,9 @@ export default function OrcamentosPage() {
                 placeholder="Texto interno (visível apenas pela equipe)..."
               />
             </div>
+
+            {/* Notificar áreas (pills) — mesma lista e mesmo efeito do balão do FAB */}
+            <AreasNotificarPicker areas={areasNotificaveis} value={areasNotificar} onChange={setAreasNotificar} accent={MODULE_COLOR} required />
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>

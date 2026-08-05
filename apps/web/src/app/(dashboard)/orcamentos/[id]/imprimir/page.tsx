@@ -16,6 +16,9 @@ interface Item {
   valorUnitario: number | string
   descontoPct?: number | string | null
   descontoValor?: number | string | null
+  /** Escolhas feitas dentro do serviço — precisam aparecer na proposta. */
+  subservico?: { id: string; nome: string } | null
+  catalogoTexto?: { id: string; titulo: string } | null
 }
 
 interface Orcamento {
@@ -595,6 +598,16 @@ export default function ImprimirOrcamentoPage() {
                       <td className="tipo">{item.tipoLabel}</td>
                       <td>
                         {item.descricao}
+                        {/* Subserviço e variação em linha própria: quem lê a
+                            proposta precisa saber exatamente o que foi
+                            contratado, e não só o nome do serviço guarda-chuva. */}
+                        {(item.subservico?.nome || item.catalogoTexto?.titulo) && (
+                          <div style={{ marginTop: 2, fontSize: 10.5, color: '#64748b' }}>
+                            {item.subservico?.nome && <span>{item.subservico.nome}</span>}
+                            {item.subservico?.nome && item.catalogoTexto?.titulo && <span> · </span>}
+                            {item.catalogoTexto?.titulo && <span>{item.catalogoTexto.titulo}</span>}
+                          </div>
+                        )}
                         {desc > 0 && (
                           <span style={{ marginLeft: 6, fontSize: 10, color: '#059669' }}>
                             (desconto {Number(item.descontoPct) > 0 ? `${Number(item.descontoPct)}%` : ''}{Number(item.descontoPct) > 0 && Number(item.descontoValor) > 0 ? ' + ' : ''}{Number(item.descontoValor) > 0 ? formatCurrency(Number(item.descontoValor)) : ''})
