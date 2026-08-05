@@ -5,6 +5,7 @@ import { listToolJobsSchema } from '@saas/types'
 import { FerramentasService } from './ferramentas.service'
 import { HtmlPdfService } from './html-pdf.service'
 import { JuntarPdfService } from './juntar-pdf.service'
+import { DividirPdfService } from './dividir-pdf.service'
 import { AssinaturaPdfService } from './assinatura-pdf.service'
 
 // tRPC SÓ-LEITURA do histórico de jobs (+ lixeira/restore). Upload/status/download
@@ -49,6 +50,7 @@ export function createFerramentasRouter(
   htmlPdf?: HtmlPdfService,
   juntarPdf?: JuntarPdfService,
   assinatura?: AssinaturaPdfService,
+  dividir?: DividirPdfService,
 ) {
   const pdf = () => {
     if (!htmlPdf) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
@@ -147,6 +149,26 @@ export function createFerramentasRouter(
           throw new TRPCError({ code: 'BAD_REQUEST', message: `O conjunto passa de ${LIMITE_PDF_MB} MB. Divida em lotes menores.` })
         }
         return merge().juntar(input.arquivos, input.nome ?? 'Documento unificado')
+      }),
+
+    /**
+     * Divide um PDF: as páginas escolhidas num documento só ("extrair"), ou
+     * cada página num arquivo ("soltar").
+     */
+    dividirPdf: readProcedure(SLUG_GERAIS)
+      .input(z.object({
+        nome: z.string().min(1).max(255),
+        base64: z.string().min(1),
+        modo: z.enum(['extrair', 'soltar']),
+        paginas: z.array(z.number().int().min(1)).optional(),
+      }))
+      .mutation(({ input }) => {
+        const mb = input.base64.length / (1024 * 1024)
+        if (mb > LIMITE_PDF_MB) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: `O arquivo passa de ${LIMITE_PDF_MB} MB.` })
+        }
+        if (!dividir) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return dividir.dividir(input)
       }),
 
     htmlParaPdfUnico: readProcedure(SLUG_GERAIS)

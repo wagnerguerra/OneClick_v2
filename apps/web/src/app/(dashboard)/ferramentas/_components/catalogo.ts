@@ -1,4 +1,4 @@
-import { FileText, Combine, PenLine, type LucideIcon } from 'lucide-react'
+import { FileText, Combine, Scissors, PenLine, type LucideIcon } from 'lucide-react'
 
 /**
  * Catálogo das ferramentas de uso geral.
@@ -34,6 +34,14 @@ export const FERRAMENTAS: Ferramenta[] = [
       + 'antes de juntar.',
     icone: Combine,
     cor: '#4f46e5',
+  },
+  {
+    slug: 'dividir-pdf',
+    titulo: 'Dividir PDF',
+    descricao: 'Separa as páginas escolhidas num documento à parte, ou transforma cada página '
+      + 'num arquivo independente.',
+    icone: Scissors,
+    cor: '#d97706',
   },
   {
     slug: 'assinar-pdf',

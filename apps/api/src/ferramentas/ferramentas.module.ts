@@ -7,6 +7,7 @@ import { FerramentasService } from './ferramentas.service'
 import { WebappGatewayService } from './webapp-gateway.service'
 import { HtmlPdfService } from './html-pdf.service'
 import { JuntarPdfService } from './juntar-pdf.service'
+import { DividirPdfService } from './dividir-pdf.service'
 import { AssinaturaPdfService } from './assinatura-pdf.service'
 
 // Módulo das Ferramentas (integração webapp → OneClick).
@@ -15,7 +16,7 @@ import { AssinaturaPdfService } from './assinatura-pdf.service'
   // ContratoModule pelo PdfSignService, que ja faz a assinatura PAdES.
   imports: [AuthModule, ContratoModule],
   controllers: [FerramentasController, ExtratoEditController],
-  providers: [FerramentasService, WebappGatewayService, HtmlPdfService, JuntarPdfService, AssinaturaPdfService],
-  exports: [FerramentasService, HtmlPdfService, JuntarPdfService, AssinaturaPdfService],
+  providers: [FerramentasService, WebappGatewayService, HtmlPdfService, JuntarPdfService, DividirPdfService, AssinaturaPdfService],
+  exports: [FerramentasService, HtmlPdfService, JuntarPdfService, DividirPdfService, AssinaturaPdfService],
 })
 export class FerramentasModule {}

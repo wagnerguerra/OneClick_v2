@@ -8,6 +8,7 @@ import { HtmlPdfService } from '../ferramentas/html-pdf.service'
 import { JuntarPdfService } from '../ferramentas/juntar-pdf.service'
 import { AssinaturaPdfService } from '../ferramentas/assinatura-pdf.service'
 import { createFerramentasRouter } from '../ferramentas/ferramentas.router'
+import { DividirPdfService } from '../ferramentas/dividir-pdf.service'
 import { EmpresaService } from '../empresa/empresa.service'
 import { createEmpresaRouter } from '../empresa/empresa.router'
 import { UserService } from '../user/user.service'
@@ -730,6 +731,7 @@ export class TrpcService {
     @Inject(FerramentasService) private readonly ferramentasService: FerramentasService,
     @Inject(HtmlPdfService) private readonly htmlPdfService: HtmlPdfService,
     @Inject(JuntarPdfService) private readonly juntarPdfService: JuntarPdfService,
+    @Inject(DividirPdfService) private readonly dividirPdfService: DividirPdfService,
     @Inject(AssinaturaPdfService) private readonly assinaturaPdfService: AssinaturaPdfService,
   ) {
     this.appRouter = this.createRouter()
@@ -744,7 +746,7 @@ export class TrpcService {
         return { userId: ctx.userId, tenantId: ctx.tenantId, empresaId: ctx.empresaId, isMaster: ctx.isMaster }
       }),
       area: createAreaRouter(this.areaService),
-      ferramentas: createFerramentasRouter(this.ferramentasService, this.htmlPdfService, this.juntarPdfService, this.assinaturaPdfService),
+      ferramentas: createFerramentasRouter(this.ferramentasService, this.htmlPdfService, this.juntarPdfService, this.assinaturaPdfService, this.dividirPdfService),
       empresa: createEmpresaRouter(this.empresaService),
       user: createUserRouter(this.userService),
       cargo: createCargoRouter(this.cargoService),
