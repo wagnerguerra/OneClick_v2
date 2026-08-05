@@ -561,10 +561,8 @@ export default function ImprimirOrcamentoPage() {
               <p className="label">Forma de Pagamento</p>
               <p className="value">{orc.formaPagamento || `${orc.validadeDias} dias`}</p>
             </div>
-            <div>
-              <p className="label">Responsável Técnico</p>
-              <p className="value">{orc.responsavel?.name || '—'}</p>
-            </div>
+            {/* O responsável técnico é controle interno — quem executa o
+                serviço não é assunto da proposta que o cliente recebe. */}
           </div>
         </div>
 
