@@ -785,6 +785,7 @@ export default function OrcamentoDetailPage() {
   const [editDescValor, setEditDescValor] = useState('')
   const [editCatalogoId, setEditCatalogoId] = useState<string>('')
   const [editTextoId, setEditTextoId] = useState<string>('')
+  const [editSubservicoId, setEditSubservicoId] = useState<string>('')
   // #HLP0302 — "Usar apenas desconto por item" (config). Marcada = geral bloqueado.
   const [apenasDescontoItem, setApenasDescontoItem] = useState(true)
 
@@ -1503,6 +1504,7 @@ export default function OrcamentoDetailPage() {
     setEditDescPct(item.descontoPct != null && Number(item.descontoPct) > 0 ? String(item.descontoPct) : '')
     setEditDescValor(item.descontoValor != null && Number(item.descontoValor) > 0 ? String(item.descontoValor) : '')
     setEditCatalogoId(item.catalogoId ?? '')
+    setEditSubservicoId((item as { subservicoId?: string | null }).subservicoId ?? '')
     setEditTextoId(item.catalogoTextoId ?? '')
   }
 
@@ -1513,14 +1515,29 @@ export default function OrcamentoDetailPage() {
     if (!item) return
     setEditCatalogoId(catalogoId)
     setEditTextoId('')
+    setEditSubservicoId('')
     setEditDescricao(item.nome)
     if (item.valorPadrao != null) setEditValor(String(item.valorPadrao))
+  }
+
+  /** Mesma regra da inclusão: com subserviço, é ele que descreve e precifica. */
+  function handleSelecionarSubservicoEdit(subId: string) {
+    setEditSubservicoId(subId)
+    setEditTextoId('')
+    const pai = catalogo.find(c => c.id === editCatalogoId)
+    const sub = pai?.subservicos?.find(x => x.id === subId)
+    if (!sub) return
+    setEditDescricao(`${pai!.nome} — ${sub.nome}`)
+    if (sub.valorPadrao != null) setEditValor(String(sub.valorPadrao))
   }
 
   // Escolha do texto na EDIÇÃO — mesma regra de captura de valor.
   function handleSelecionarTextoEdit(textoId: string) {
     setEditTextoId(textoId)
-    const item = catalogo.find(c => c.id === editCatalogoId)
+    const pai = catalogo.find(c => c.id === editCatalogoId)
+    const item = editSubservicoId
+      ? pai?.subservicos?.find(x => x.id === editSubservicoId)
+      : pai
     const texto = item?.textos?.find(t => t.id === textoId)
     if (texto && !temValorFixo(item?.valorPadrao) && texto.valor != null) {
       setEditValor(String(texto.valor))
@@ -1542,6 +1559,7 @@ export default function OrcamentoDetailPage() {
           itemDescontoPct: editTipo === 'SERVICO' ? (parseFloat(editDescPct) || null) : null,
           itemDescontoValor: editTipo === 'SERVICO' ? (parseFloat(editDescValor) || null) : null,
           catalogoId: editCatalogoId || null,
+          subservicoId: editSubservicoId || null,
           catalogoTextoId: editTextoId || null,
         },
       })
@@ -2459,7 +2477,7 @@ export default function OrcamentoDetailPage() {
                               <TableRow key={item.id} className="bg-sky-50/50 dark:bg-sky-900/10">
                                 <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
                                 <TableCell>
-                                  <Select value={editTipo} onValueChange={v => { setEditTipo(v); setEditCatalogoId(''); setEditTextoId('') }}>
+                                  <Select value={editTipo} onValueChange={v => { setEditTipo(v); setEditCatalogoId(''); setEditTextoId(''); setEditSubservicoId('') }}>
                                     <SelectTrigger className="h-7 text-[11px] w-[85px]"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="SERVICO">Serviço</SelectItem>
@@ -2481,13 +2499,30 @@ export default function OrcamentoDetailPage() {
                                   />
                                   {(() => {
                                     const cat = catalogo.find(c => c.id === editCatalogoId)
-                                    if (!cat?.textos?.length) return null
+                                    if (!cat?.subservicos?.length) return null
+                                    return (
+                                      <Select value={editSubservicoId || undefined} onValueChange={handleSelecionarSubservicoEdit}>
+                                        <SelectTrigger className="h-7 text-[11px] mt-1"><SelectValue placeholder="Subserviço *" /></SelectTrigger>
+                                        <SelectContent>
+                                          {cat.subservicos.map(sub => (
+                                            <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    )
+                                  })()}
+                                  {(() => {
+                                    const cat = catalogo.find(c => c.id === editCatalogoId)
+                                    const dono = editSubservicoId
+                                      ? cat?.subservicos?.find(x => x.id === editSubservicoId)
+                                      : cat
+                                    if (!dono?.textos?.length) return null
                                     return (
                                       <Select value={editTextoId || '__none__'} onValueChange={v => handleSelecionarTextoEdit(v === '__none__' ? '' : v)}>
                                         <SelectTrigger className="h-7 text-[11px] mt-1"><SelectValue placeholder="Variação" /></SelectTrigger>
                                         <SelectContent>
                                           <SelectItem value="__none__">Nenhuma variação</SelectItem>
-                                          {cat.textos.map(t => (
+                                          {dono.textos.map(t => (
                                             <SelectItem key={t.id} value={t.id}>{t.titulo}</SelectItem>
                                           ))}
                                         </SelectContent>
