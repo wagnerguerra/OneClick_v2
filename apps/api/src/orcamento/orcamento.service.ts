@@ -356,7 +356,15 @@ export class OrcamentoService {
     const orc = await prisma.orcamento.findUnique({
       where: { id },
       include: {
-        itens: { orderBy: { createdAt: 'asc' } },
+        // Subserviço e variação vêm com nome: a tela e a proposta precisam
+        // MOSTRAR o que foi escolhido, e o item guarda só os ids.
+        itens: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            subservico: { select: { id: true, nome: true } },
+            catalogoTexto: { select: { id: true, titulo: true } },
+          },
+        },
         mensagens: { orderBy: { createdAt: 'desc' } },
         arquivos: { orderBy: { createdAt: 'desc' } },
         eventos: { orderBy: { createdAt: 'desc' } },
@@ -854,7 +862,15 @@ export class OrcamentoService {
   async getByToken(token: string) {
     const orc = await prisma.orcamento.findUnique({
       where: { token },
-      include: { itens: { orderBy: { createdAt: 'asc' } } },
+      include: {
+        itens: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            subservico: { select: { id: true, nome: true } },
+            catalogoTexto: { select: { id: true, titulo: true } },
+          },
+        },
+      },
     })
     if (!orc) return null
 

@@ -78,7 +78,11 @@ interface OrcamentoItem {
   descontoPct?: number | string | null
   descontoValor?: number | string | null
   catalogoId?: string | null
+  subservicoId?: string | null
   catalogoTextoId?: string | null
+  /** Nomes do que foi escolhido — vêm do servidor só para exibição. */
+  subservico?: { id: string; nome: string } | null
+  catalogoTexto?: { id: string; titulo: string } | null
   situacao?: string
   ordem?: number
 }
@@ -1504,7 +1508,7 @@ export default function OrcamentoDetailPage() {
     setEditDescPct(item.descontoPct != null && Number(item.descontoPct) > 0 ? String(item.descontoPct) : '')
     setEditDescValor(item.descontoValor != null && Number(item.descontoValor) > 0 ? String(item.descontoValor) : '')
     setEditCatalogoId(item.catalogoId ?? '')
-    setEditSubservicoId((item as { subservicoId?: string | null }).subservicoId ?? '')
+    setEditSubservicoId(item.subservicoId ?? '')
     setEditTextoId(item.catalogoTextoId ?? '')
   }
 
@@ -2587,7 +2591,27 @@ export default function OrcamentoDetailPage() {
                               <TableRow key={item.id} className="hover:bg-muted/40">
                                 <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{idx + 1}</TableCell>
                                 <TableCell className="whitespace-nowrap"><TipoBadge tipo={item.tipo} /></TableCell>
-                                <TableCell className="text-sm whitespace-nowrap cursor-pointer" onClick={() => startEditItem(item)}>{item.descricao}</TableCell>
+                                <TableCell className="text-sm cursor-pointer" onClick={() => startEditItem(item)}>
+                                  <div className="whitespace-nowrap">{item.descricao}</div>
+                                  {/* O que foi escolhido dentro do serviço. Em linha
+                                      própria, e não colado na descrição: a descrição é
+                                      editável à mão, e o vínculo continua valendo mesmo
+                                      quando alguém reescreve o texto. */}
+                                  {(item.subservico?.nome || item.catalogoTexto?.titulo) && (
+                                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                                      {item.subservico?.nome && (
+                                        <span className="rounded bg-violet-50 px-1.5 py-0.5 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
+                                          {item.subservico.nome}
+                                        </span>
+                                      )}
+                                      {item.catalogoTexto?.titulo && (
+                                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                                          {item.catalogoTexto.titulo}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </TableCell>
                                 <TableCell className="text-center text-xs whitespace-nowrap">{item.quantidade}</TableCell>
                                 <TableCell className="text-right text-xs whitespace-nowrap">{formatCurrency(item.valorUnitario)}</TableCell>
                                 <TableCell className="text-right text-sm font-medium whitespace-nowrap">
