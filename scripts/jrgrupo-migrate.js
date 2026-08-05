@@ -18,12 +18,17 @@
  * MySQL 5.0.45 não tem REGEXP_REPLACE nem CTEs — toda normalização acontece aqui em JS.
  *
  * Uso:
- *   node scripts/jrgrupo-migrate.js --fase=areas|cargos|servicos|clientes|contatos|usuarios|all
+ *   node scripts/jrgrupo-migrate.js --fase=all          # gera todos os .sql
  *   node scripts/jrgrupo-migrate.js --fase=usuarios --email-scheme=numerado
+ *   node scripts/jrgrupo-migrate.js --fase=verify       # confere origem × destino
+ *
+ * Fases: empresa | areas | cargos | servicos | clientes | contatos | usuarios | verify | all
  *
  * Aplicar (nesta ordem — há FK entre elas):
- *   areas → cargos → servicos → clientes → contatos → usuarios
- *   docker exec -i saas-postgres psql -U postgres -d saas_erp < scripts/out/jrgrupo-areas.sql
+ *   empresa → areas → cargos → servicos → clientes → contatos → usuarios
+ *   docker exec -i saas-postgres psql -U postgres -d saas_erp < scripts/out/jrgrupo-empresa.sql
+ *
+ * `verify` lê DATABASE_URL do apps/api/.env e sai com código 1 se divergir.
  */
 const fs = require('fs')
 const path = require('path')
@@ -211,9 +216,11 @@ async function faseAreas(conn) {
   const [rows] = await conn.query(
     `SELECT ID, CAD_SET_NOME, CAD_SET_EMAIL, CAD_SET_ATIVO FROM ger_cad_set ORDER BY ID`)
   const lines = cabecalho('JR Grupo — Áreas', 'ger_cad_set')
+  let migrados = 0, semNome = 0
   for (const r of rows) {
     const nome = String(r.CAD_SET_NOME ?? '').trim()
-    if (!nome) continue // `name` é NOT NULL — área sem nome não tem o que migrar
+    if (!nome) { semNome++; continue } // `name` é NOT NULL — área sem nome não tem o que migrar
+    migrados++
     const email = ehEmailDaPlataforma(r.CAD_SET_EMAIL) ? null : r.CAD_SET_EMAIL
     lines.push(
       `INSERT INTO areas (id, name, email, is_active, empresa_id, created_at, updated_at) VALUES (` +
@@ -222,8 +229,8 @@ async function faseAreas(conn) {
       ` is_active = EXCLUDED.is_active, empresa_id = EXCLUDED.empresa_id, updated_at = now();`)
   }
   const f = gravar('jrgrupo-areas.sql', lines)
-  console.log(`  áreas: ${rows.length} lidas → ${f}`)
-  return rows.length
+  console.log(`  áreas: ${rows.length} lidas → ${migrados} migradas${semNome ? ` · ${semNome} sem nome descartadas` : ''} → ${f}`)
+  return migrados
 }
 
 /** ger_cad_car (26) → cargos. Os campos ISO estão vazios no legado; migram como NULL. */
@@ -235,10 +242,11 @@ async function faseCargos(conn) {
             HABILIDADES, EDUCACAO, TREINAMENTOS, EXPERIENCIAS, ATIVO
        FROM ger_cad_car ORDER BY ID`)
   const lines = cabecalho('JR Grupo — Cargos', 'ger_cad_car')
-  let semArea = 0
+  let semArea = 0, migrados = 0, semNome = 0
   for (const r of rows) {
     const nome = String(r.CARGO ?? '').trim()
-    if (!nome) continue
+    if (!nome) { semNome++; continue }
+    migrados++
     const areaId = areasValidas.has(r.SETOR) ? `'jrg-area-${r.SETOR}'` : 'NULL'
     if (areaId === 'NULL') semArea++
     lines.push(
@@ -256,8 +264,10 @@ async function faseCargos(conn) {
       ` educacao = EXCLUDED.educacao, updated_at = now();`)
   }
   const f = gravar('jrgrupo-cargos.sql', lines)
-  console.log(`  cargos: ${rows.length} lidos${semArea ? ` (${semArea} sem área válida → NULL)` : ''} → ${f}`)
-  return rows.length
+  console.log(`  cargos: ${rows.length} lidos → ${migrados} migrados` +
+    `${semNome ? ` · ${semNome} sem nome descartados` : ''}` +
+    `${semArea ? ` · ${semArea} sem área válida (area_id NULL)` : ''} → ${f}`)
+  return migrados
 }
 
 /** cad_ser (265) → servicos. SETOR vira `categoria` (texto livre) via nome da área. */
@@ -267,9 +277,11 @@ async function faseServicos(conn) {
   const [rows] = await conn.query(
     `SELECT ID, SERVICO, OBSERVACOES, SETOR, ATIVO FROM cad_ser ORDER BY ID`)
   const lines = cabecalho('JR Grupo — Serviços', 'cad_ser')
+  let migrados = 0, semNome = 0
   for (const r of rows) {
     const nome = String(r.SERVICO ?? '').trim()
-    if (!nome) continue
+    if (!nome) { semNome++; continue }
+    migrados++
     lines.push(
       `INSERT INTO servicos (id, nome, descricao, categoria, ativo, empresa_id, created_at, updated_at) VALUES (` +
       `'jrg-servico-${r.ID}', ${esc(nome)}, ${esc(r.OBSERVACOES)}, ${esc(nomeArea.get(r.SETOR))},` +
@@ -279,8 +291,8 @@ async function faseServicos(conn) {
       ` updated_at = now();`)
   }
   const f = gravar('jrgrupo-servicos.sql', lines)
-  console.log(`  serviços: ${rows.length} lidos → ${f}`)
-  return rows.length
+  console.log(`  serviços: ${rows.length} lidos → ${migrados} migrados${semNome ? ` · ${semNome} sem nome descartados` : ''} → ${f}`)
+  return migrados
 }
 
 // ── mapas de domínio do legado → enums do v2 ──
@@ -649,6 +661,73 @@ async function faseUsuarios(conn, emailScheme) {
   return elegiveis.length
 }
 
+/**
+ * Confere origem × destino no Postgres já carregado. Sai com código 1 se divergir,
+ * pra poder rodar em sequência depois de aplicar (dev e produção).
+ * Lê DATABASE_URL do apps/api/.env — apontar pro banco que acabou de receber os SQLs.
+ */
+async function faseVerify(conn) {
+  const { Client } = require(path.join(__dirname, '..', 'node_modules', 'pg'))
+  const env = readEnv()
+  const pg = new Client({ connectionString: env.DATABASE_URL })
+  await pg.connect()
+
+  const emp = (await pg.query(
+    `SELECT id FROM empresas WHERE regexp_replace(cnpj, '[^0-9]', '', 'g') = $1`, [EMPRESA_CNPJ])).rows[0]
+  if (!emp) { console.error('  FALHOU: empresa não existe no destino.'); await pg.end(); process.exit(1) }
+
+  const contaPg = async (sql) => Number((await pg.query(sql, [emp.id])).rows[0].n)
+  const contaMy = async (sql) => Number(Object.values((await conn.query(sql))[0][0])[0])
+
+  // Esperados recalculados da origem, com as mesmas regras de descarte das fases.
+  const [clientes] = await conn.query(`SELECT * FROM ger_cad_cli ORDER BY id`)
+  const { manter } = dedupClientes(clientes)
+  const [usuarios] = await conn.query(`SELECT * FROM ger_cad_usu WHERE CAD_USU_ATIVO = '1'`)
+  const usuEsperados = usuarios.filter(u =>
+    String(u.CAD_USU_EMAIL ?? '').trim() !== '' &&
+    String(u.CAD_USU_LOGIN ?? '').trim() !== '' &&
+    !SETORES_EXTERNOS.has(Number(u.CAD_USU_SETOR)) &&
+    !ehEmailDaPlataforma(u.CAD_USU_EMAIL)).length
+
+  const checks = [
+    ['áreas', await contaMy(`SELECT COUNT(*) FROM ger_cad_set WHERE TRIM(COALESCE(CAD_SET_NOME,'')) <> ''`),
+      await contaPg('SELECT count(*) n FROM areas WHERE empresa_id = $1')],
+    ['cargos', await contaMy(`SELECT COUNT(*) FROM ger_cad_car WHERE TRIM(COALESCE(CARGO,'')) <> ''`),
+      await contaPg('SELECT count(*) n FROM cargos WHERE empresa_id = $1')],
+    ['serviços', await contaMy(`SELECT COUNT(*) FROM cad_ser WHERE TRIM(COALESCE(SERVICO,'')) <> ''`),
+      await contaPg('SELECT count(*) n FROM servicos WHERE empresa_id = $1')],
+    ['clientes', manter.length,
+      await contaPg('SELECT count(*) n FROM clientes WHERE empresa_id = $1')],
+    ['usuários', usuEsperados,
+      await contaPg('SELECT count(*) n FROM users WHERE empresa_id = $1')],
+    ['credenciais', usuEsperados,
+      await contaPg('SELECT count(*) n FROM accounts a JOIN users u ON u.id = a.user_id WHERE u.empresa_id = $1')],
+  ]
+
+  let falhou = false
+  for (const [nome, esperado, obtido] of checks) {
+    const ok = esperado === obtido
+    if (!ok) falhou = true
+    console.log(`  ${ok ? 'OK  ' : 'FALHA'} ${nome.padEnd(12)} origem=${esperado}  destino=${obtido}`)
+  }
+
+  // E-mail duplicado quebraria o login de alguém — vale checar sempre.
+  const dupEmail = await contaPg(
+    'SELECT count(*) n FROM (SELECT email FROM users WHERE empresa_id = $1 GROUP BY 1 HAVING count(*) > 1) x')
+  if (dupEmail > 0) { falhou = true; console.log(`  FALHA e-mails duplicados no destino: ${dupEmail}`) }
+  else console.log('  OK   e-mails      sem duplicatas')
+
+  // Cliente sem empresa vazaria pra outro tenant no filtro por empresaId.
+  const orfaos = Number((await pg.query(
+    `SELECT count(*) n FROM clientes WHERE id LIKE 'jrg-cli-%' AND empresa_id IS DISTINCT FROM $1`, [emp.id])).rows[0].n)
+  if (orfaos > 0) { falhou = true; console.log(`  FALHA clientes fora da empresa: ${orfaos}`) }
+  else console.log('  OK   isolamento  todos os clientes na empresa correta')
+
+  await pg.end()
+  if (falhou) process.exit(1)
+  console.log('\n  Conferência OK.')
+}
+
 // ─────────────────────────── main ───────────────────────────
 
 async function main() {
@@ -682,17 +761,22 @@ async function main() {
     clientes: () => faseClientes(conn),
     contatos: () => faseContatos(conn),
     usuarios: () => faseUsuarios(conn, emailScheme),
+    verify: () => faseVerify(conn),
   }
 
-  const aRodar = fase === 'all' ? Object.keys(fases) : [fase]
+  // `all` gera os arquivos; `verify` roda separado, depois de aplicar.
+  const aRodar = fase === 'all' ? Object.keys(fases).filter(f => f !== 'verify') : [fase]
   for (const f of aRodar) {
     if (!fases[f]) throw new Error(`Fase desconhecida: ${f}. Use ${Object.keys(fases).join('|')}|all`)
     await fases[f]()
   }
 
-  console.log('\nAplicar NESTA ORDEM (há FK entre elas):')
-  console.log('  empresa → areas → cargos → servicos → clientes → contatos → usuarios')
-  console.log('  docker exec -i saas-postgres psql -U postgres -d saas_erp < scripts/out/jrgrupo-<fase>.sql')
+  if (fase !== 'verify') {
+    console.log('\nAplicar NESTA ORDEM (há FK entre elas):')
+    console.log('  empresa → areas → cargos → servicos → clientes → contatos → usuarios')
+    console.log('  docker exec -i saas-postgres psql -U postgres -d saas_erp < scripts/out/jrgrupo-<fase>.sql')
+    console.log('\nDepois de aplicar: node scripts/jrgrupo-migrate.js --fase=verify')
+  }
   await conn.end()
 }
 
