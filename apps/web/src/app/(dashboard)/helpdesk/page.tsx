@@ -67,6 +67,10 @@ interface Ticket {
   arquivado?: boolean
 }
 
+// Ordena por data de criação, mais novo primeiro. Usado nas visões de LISTA
+// (ativos, arquivados e o modo "ver arquivados"); o kanban ordena por status.
+const porCriacaoDesc = (ts: Ticket[]) => [...ts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
 // Colunas do kanban — ordem visual horizontal
 const COLUNAS: HelpdeskStatus[] = [
   'NOVO',
@@ -748,13 +752,13 @@ export default function HelpdeskPage() {
           </Card>
         ) : (
           <div className="nice-scrollbar flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
-            <TicketPanel titulo="Ativos" icon={Inbox} tickets={items} vazio="Nenhum ticket ativo no momento."
+            <TicketPanel titulo="Ativos" icon={Inbox} tickets={porCriacaoDesc(items)} vazio="Nenhum ticket ativo no momento."
               currentUserId={currentUserId} onCancelar={cancelarProprio} onOpen={setOpenTicketId}
               onArchive={podeAtuar ? arquivar : undefined} highlightId={recemDesarquivado} />
             {arquivados.length > 0 && (
               // Arquivados não recebem o cancelar (já encerrados), mas podem ser
               // desarquivados in-place — o ticket sobe pros Ativos e é destacado.
-              <TicketPanel titulo="Arquivados" icon={Archive} tickets={arquivados} vazio="Nenhum ticket arquivado." arquivado
+              <TicketPanel titulo="Arquivados" icon={Archive} tickets={porCriacaoDesc(arquivados)} vazio="Nenhum ticket arquivado." arquivado
                 onOpen={setOpenTicketId} onUnarchive={podeAtuar ? desarquivar : undefined} />
             )}
           </div>
@@ -811,7 +815,7 @@ export default function HelpdeskPage() {
           <TicketPanel
             titulo="Arquivados"
             icon={Archive}
-            tickets={items}
+            tickets={porCriacaoDesc(items)}
             vazio="Nenhum ticket arquivado."
             arquivado
             currentUserId={currentUserId}

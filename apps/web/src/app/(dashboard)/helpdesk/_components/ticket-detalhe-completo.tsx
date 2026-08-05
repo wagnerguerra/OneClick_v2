@@ -2256,7 +2256,18 @@ function AnexoLightbox({ anexo, onClose }: { anexo: Anexo | null; onClose: () =>
   // ancorar na caixa do modal em vez da viewport. O portal escapa desse contexto
   // e o lightbox cobre a tela inteira.
   return createPortal(
-    <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8" onClick={onClose}>
+    <div
+      data-sheet-keep-open
+      className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8 pointer-events-auto"
+      onClick={onClose}
+      // Portado pra FORA do Sheet, o lightbox reativa o ponteiro (`pointer-events-auto`),
+      // senão o body (`pointer-events: none` do Radix modal) o deixa inerte — o clique
+      // atravessa pro modal atrás e o "x" não funciona. `data-sheet-keep-open`: o
+      // SheetContent (@saas/ui) ignora interações vindas daqui, então mexer no lightbox
+      // NÃO fecha o modal de detalhes — e, por deixar o Radix "ver" o pointerdown
+      // normalmente (sem stopPropagation), não dessincroniza o detector de clique-fora
+      // (o que causava um clique "perdido" logo após fechar o lightbox por ponteiro).
+    >
       <div className="bg-card rounded-xl border border-border shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border shrink-0">
           <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />

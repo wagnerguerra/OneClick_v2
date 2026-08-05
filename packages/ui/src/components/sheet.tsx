@@ -47,15 +47,15 @@ const SheetContent = React.forwardRef<
       )}
       onPointerDownOutside={e => {
         const target = e.target as HTMLElement
-        if (target?.closest?.('.swal2-container, .swal2-popup')) e.preventDefault()
+        if (target?.closest?.('.swal2-container, .swal2-popup, [data-sheet-keep-open]')) e.preventDefault()
       }}
       onInteractOutside={e => {
         const target = e.target as HTMLElement
-        if (target?.closest?.('.swal2-container, .swal2-popup')) e.preventDefault()
+        if (target?.closest?.('.swal2-container, .swal2-popup, [data-sheet-keep-open]')) e.preventDefault()
       }}
       onFocusOutside={e => {
         const target = e.target as HTMLElement
-        if (target?.closest?.('.swal2-container, .swal2-popup')) e.preventDefault()
+        if (target?.closest?.('.swal2-container, .swal2-popup, [data-sheet-keep-open]')) e.preventDefault()
       }}
       {...props}
     >
