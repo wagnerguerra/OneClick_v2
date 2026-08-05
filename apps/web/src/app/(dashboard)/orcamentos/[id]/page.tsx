@@ -2458,7 +2458,7 @@ export default function OrcamentoDetailPage() {
                             <TableHead className="w-[90px]">Tipo</TableHead>
                             <TableHead>Descrição</TableHead>
                             <TableHead className="w-[65px] text-center">Qtde</TableHead>
-                            <TableHead className="w-[100px] text-right">R$ Unit</TableHead>
+                            <TableHead className="w-[165px] text-right">R$ Unit</TableHead>
                             <TableHead className="w-[110px] text-right">R$ Total</TableHead>
                             <TableHead className="w-[100px] text-right">Ações</TableHead>
                           </TableRow>
@@ -2502,7 +2502,9 @@ export default function OrcamentoDetailPage() {
                                     if (!cat?.subservicos?.length) return null
                                     return (
                                       <Select value={editSubservicoId || undefined} onValueChange={handleSelecionarSubservicoEdit}>
-                                        <SelectTrigger className="h-7 text-[11px] mt-1"><SelectValue placeholder="Subserviço *" /></SelectTrigger>
+                                        {/* Sem asterisco: na edição o subserviço só é exigido se o
+                                            serviço estiver sendo trocado. */}
+                                        <SelectTrigger className="h-7 text-[11px] mt-1"><SelectValue placeholder="Subserviço" /></SelectTrigger>
                                         <SelectContent>
                                           {cat.subservicos.map(sub => (
                                             <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
@@ -2531,17 +2533,36 @@ export default function OrcamentoDetailPage() {
                                   })()}
                                 </TableCell>
                                 <TableCell>
-                                  <Input type="number" value={editQtde} onChange={e => setEditQtde(e.target.value)} className="h-7 w-[55px] text-xs text-center" min="1" />
+                                  <Input type="number" value={editQtde} onChange={e => setEditQtde(e.target.value)} className="h-7 w-[60px] text-xs text-center" min="1" />
                                 </TableCell>
                                 <TableCell>
-                                  <Input type="number" value={editValor} onChange={e => setEditValor(e.target.value)} className="h-7 w-[90px] text-xs text-right" step="0.01" />
-                                  {/* Desconto por item — só serviço (#HLP0302). % e R$ somam. */}
-                                  {editTipo === 'SERVICO' && (
-                                    <div className="mt-1 flex items-center gap-1">
-                                      <Input type="number" value={editDescPct} onChange={e => setEditDescPct(e.target.value)} className="h-6 w-[52px] text-[11px] text-right" step="0.01" min="0" max="100" placeholder="% desc" title="Desconto em %" />
-                                      <Input type="number" value={editDescValor} onChange={e => setEditDescValor(e.target.value)} className="h-6 w-[62px] text-[11px] text-right" step="0.01" min="0" placeholder="R$ desc" title="Desconto em R$" />
+                                  {/* Rótulo em cima, e não dentro do campo: o texto de dentro
+                                      some ao digitar e não cabia na largura da coluna — sobrava
+                                      "% de" e "R$ d". Em cima ele fica, e o campo respira. */}
+                                  <div className="space-y-1">
+                                    <div className="flex flex-col items-end gap-0.5">
+                                      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Valor unit.</span>
+                                      <Input type="number" value={editValor} onChange={e => setEditValor(e.target.value)}
+                                        className="h-7 w-[104px] text-xs text-right" step="0.01" />
                                     </div>
-                                  )}
+                                    {/* Desconto por item — só serviço (#HLP0302). % e R$ somam. */}
+                                    {editTipo === 'SERVICO' && (
+                                      <div className="flex items-end justify-end gap-1.5">
+                                        <div className="flex flex-col items-end gap-0.5">
+                                          <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Desc %</span>
+                                          <Input type="number" value={editDescPct} onChange={e => setEditDescPct(e.target.value)}
+                                            className="h-6 w-[62px] text-[11px] text-right" step="0.01" min="0" max="100"
+                                            placeholder="0" title="Desconto em percentual" />
+                                        </div>
+                                        <div className="flex flex-col items-end gap-0.5">
+                                          <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Desc R$</span>
+                                          <Input type="number" value={editDescValor} onChange={e => setEditDescValor(e.target.value)}
+                                            className="h-6 w-[80px] text-[11px] text-right" step="0.01" min="0"
+                                            placeholder="0,00" title="Desconto em reais" />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-right text-xs font-medium whitespace-nowrap">
                                   {(() => {

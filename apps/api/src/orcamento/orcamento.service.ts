@@ -3108,12 +3108,10 @@ export class OrcamentoService {
       select: { filhoId: true, pai: { select: { nome: true } } },
     }).catch(() => [])
 
-    if (filhos.length === 0) {
-      // Sem filhos, mandar um subserviço é incoerente — provavelmente sobrou
-      // da escolha anterior na tela.
-      if (subservicoId) throw new Error('Este serviço não tem subserviços.')
-      return
-    }
+    // Sem filhos, um subserviço pendurado só pode ter sobrado da escolha
+    // anterior na tela. Ignorar é melhor que recusar: o vínculo some sozinho e
+    // ninguém fica travado por um resíduo.
+    if (filhos.length === 0) return
 
     if (!subservicoId) {
       throw new Error(
@@ -3160,13 +3158,19 @@ export class OrcamentoService {
     if (!item) throw new Error('Item não encontrado')
     await this.assertEditable(item.orcamentoId)
 
-    // Só confere quando a edição mexe em serviço ou subserviço — mudar a
-    // quantidade de um item antigo não pode esbarrar numa regra nova.
-    if (data.catalogoId !== undefined || data.subservicoId !== undefined) {
-      await this.validarSubservico(
-        data.catalogoId !== undefined ? data.catalogoId : item.catalogoId,
-        data.subservicoId !== undefined ? data.subservicoId : item.subservicoId,
-      )
+    // A exigência do subserviço vale na ESCOLHA do serviço, não em toda edição.
+    //
+    // Um item lançado antes de o serviço ganhar subserviços carrega o serviço
+    // mãe e nenhum filho. Como a tela reenvia o serviço junto de qualquer
+    // alteração, conferir sempre bloqueava mexer na quantidade, no valor ou no
+    // desconto de itens antigos — e o desconto é do item, nada tem a ver com
+    // qual subserviço foi escolhido.
+    //
+    // Só confere quando o serviço está de fato TROCANDO. Aí a escolha volta a
+    // fazer sentido, e o campo está na tela para ser preenchido.
+    const trocouServico = data.catalogoId !== undefined && data.catalogoId !== item.catalogoId
+    if (trocouServico) {
+      await this.validarSubservico(data.catalogoId, data.subservicoId ?? null)
     }
     // Mapeia os nomes da API (itemDesconto*) para as colunas do item (desconto*),
     // separando-os dos campos genéricos. Desconto só entra em serviço.
