@@ -39,8 +39,19 @@ export class UserService {
       ...(empresaId ? { empresaId } : {}),
       // Por padrão esconde inativos (soft-deleted). Pra mostrar todos, passar incluirInativos=true.
       ...(incluirInativos ? {} : { isActive: true }),
-      // Non-MASTER users can only see users from their empresa
-      ...(!callerIsMaster && callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
+      // Atravessar tenants é exclusivo do master. Para os demais a empresa é
+      // sempre a própria — e a chave repetida aqui, por vir depois, sobrepõe a
+      // que veio no filtro.
+      //
+      // Sobrepor, porém, não basta: devolver a PRÓPRIA lista para quem pediu a
+      // de outra empresa responde a pergunta errada, e na tela da empresa X
+      // apareceria a equipe da empresa Y. Nesse caso a resposta correta é
+      // vazia.
+      ...(!callerIsMaster && callerEmpresaId
+        ? (empresaId && empresaId !== callerEmpresaId
+            ? { id: { in: [] as string[] } }
+            : { empresaId: callerEmpresaId })
+        : {}),
     }
 
     const orderBy = sortBy ? { [sortBy]: sortDir } : { name: 'asc' as const }

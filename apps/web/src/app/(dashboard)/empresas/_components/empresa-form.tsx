@@ -738,6 +738,9 @@ interface UsuarioDaEmpresa {
   area: { id: string; name: string } | null
 }
 
+/** Teto da paginação do projeto (packages/types/src/pagination.ts). */
+const LIMITE_PAGINA = 100
+
 const ROLE_LABEL: Record<string, string> = {
   COLABORADOR_INTERNO: 'Colaborador interno',
   PRESTADOR_SERVICO: 'Prestador de serviço',
@@ -760,14 +763,22 @@ function UsuariosDaEmpresa({ empresaId, mode }: { empresaId?: string; mode: 'cre
   const [erro, setErro] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
   const [incluirInativos, setIncluirInativos] = useState(false)
+  /** Total no servidor — pode ser maior que o carregado. */
+  const [total, setTotal] = useState(0)
 
   useEffect(() => {
     if (mode !== 'edit' || !empresaId) return
     let cancelado = false
     setCarregando(true)
     setErro(null)
-    ;(trpc.user as any).list.query({ page: 1, limit: 200, empresaId, incluirInativos })
-      .then((r: { data?: UsuarioDaEmpresa[] }) => { if (!cancelado) setUsuarios(r?.data ?? []) })
+    // LIMITE_PAGINA é o teto da paginação do projeto; pedir mais faz a
+    // validação recusar a chamada inteira.
+    ;(trpc.user as any).list.query({ page: 1, limit: LIMITE_PAGINA, empresaId, incluirInativos })
+      .then((r: { data?: UsuarioDaEmpresa[]; total?: number }) => {
+        if (cancelado) return
+        setUsuarios(r?.data ?? [])
+        setTotal(r?.total ?? r?.data?.length ?? 0)
+      })
       // Quem edita empresa pode não ter acesso ao módulo Usuários. Melhor dizer
       // isso do que mostrar uma lista vazia, que parece "não há ninguém".
       .catch((e: Error) => { if (!cancelado) setErro(e.message) })
@@ -816,15 +827,25 @@ function UsuariosDaEmpresa({ empresaId, mode }: { empresaId?: string; mode: 'cre
         </label>
         <span className="text-xs text-muted-foreground tabular-nums">
           {filtrados.length} {filtrados.length === 1 ? 'usuário' : 'usuários'}
+          {total > usuarios.length && ` de ${total}`}
         </span>
       </div>
+
+      {/* A lista traz uma página. Acima disso o número some sem avisar, e
+          alguém concluiria que a empresa tem menos gente do que tem. */}
+      {total > usuarios.length && (
+        <p className="text-xs text-muted-foreground">
+          Mostrando os {usuarios.length} primeiros. Use o módulo Usuários para ver a lista completa.
+        </p>
+      )}
 
       {carregando ? (
         <div className="py-10 text-center"><Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" /></div>
       ) : erro ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          Não foi possível carregar os usuários — verifique se você tem acesso ao módulo Usuários.
-        </p>
+        <div className="py-8 text-center">
+          <p className="text-sm text-muted-foreground">Não foi possível carregar os usuários.</p>
+          <p className="mt-1 text-xs text-muted-foreground/70">{erro}</p>
+        </div>
       ) : filtrados.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground italic">
           {usuarios.length === 0 ? 'Nenhum usuário vinculado a esta empresa.' : 'Nenhum usuário com esse nome ou e-mail.'}
