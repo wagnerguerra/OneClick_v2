@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useForm, Controller, type Control } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createEmpresaSchema, type CreateEmpresaInput } from '@saas/types'
-import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, Building2, Plug } from 'lucide-react'
+import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, Building2, Plug, Users } from 'lucide-react'
 import {
   Button,
   Input,
@@ -33,6 +33,7 @@ const EMPRESA_TABS = [
   { key: 'contato',      label: 'Contato',      icon: Phone },
   { key: 'logo',         label: 'Logomarca',    icon: Upload },
   { key: 'integracoes',  label: 'Integrações',  icon: Plug },
+  { key: 'usuarios',     label: 'Usuários',     icon: Users },
 ] as const
 
 type EmpresaTabKey = typeof EMPRESA_TABS[number]['key']
@@ -714,11 +715,149 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, default
                 </div>
               </div>
             )}
+
+            {/* USUÁRIOS */}
+            {activeTab === 'usuarios' && <UsuariosDaEmpresa empresaId={empresaId} mode={mode} />}
             </div>
           </div>
         </Card>
 
       </form>
     </TooltipProvider>
+  )
+}
+
+/** Uma linha da listagem — só o que identifica e situa a pessoa. */
+interface UsuarioDaEmpresa {
+  id: string
+  name: string
+  email: string
+  role: string
+  profile: string | null
+  isActive: boolean
+  area: { id: string; name: string } | null
+}
+
+const ROLE_LABEL: Record<string, string> = {
+  COLABORADOR_INTERNO: 'Colaborador interno',
+  PRESTADOR_SERVICO: 'Prestador de serviço',
+  COLABORADOR_CLIENTE: 'Colaborador do cliente',
+  GESTOR: 'Gestor',
+  COORDENADOR: 'Coordenador',
+  DIRETOR: 'Diretor',
+}
+
+/**
+ * Usuários vinculados a esta empresa.
+ *
+ * Só consulta: quem cria e edita usuário é o módulo Usuários, que tem as
+ * regras de permissão, senha e perfil. Aqui a pergunta é outra — "quem está
+ * nesta empresa?" —, e responder exigia sair da tela e filtrar em outro lugar.
+ */
+function UsuariosDaEmpresa({ empresaId, mode }: { empresaId?: string; mode: 'create' | 'edit' }) {
+  const [usuarios, setUsuarios] = useState<UsuarioDaEmpresa[]>([])
+  const [carregando, setCarregando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [busca, setBusca] = useState('')
+  const [incluirInativos, setIncluirInativos] = useState(false)
+
+  useEffect(() => {
+    if (mode !== 'edit' || !empresaId) return
+    let cancelado = false
+    setCarregando(true)
+    setErro(null)
+    ;(trpc.user as any).list.query({ page: 1, limit: 200, empresaId, incluirInativos })
+      .then((r: { data?: UsuarioDaEmpresa[] }) => { if (!cancelado) setUsuarios(r?.data ?? []) })
+      // Quem edita empresa pode não ter acesso ao módulo Usuários. Melhor dizer
+      // isso do que mostrar uma lista vazia, que parece "não há ninguém".
+      .catch((e: Error) => { if (!cancelado) setErro(e.message) })
+      .finally(() => { if (!cancelado) setCarregando(false) })
+    return () => { cancelado = true }
+  }, [empresaId, mode, incluirInativos])
+
+  if (mode !== 'edit') {
+    return (
+      <p className="text-sm text-muted-foreground italic py-10 text-center">
+        Salve a empresa primeiro para ver os usuários vinculados a ela.
+      </p>
+    )
+  }
+
+  const filtrados = busca.trim()
+    ? usuarios.filter(u =>
+        u.name.toLowerCase().includes(busca.trim().toLowerCase())
+        || u.email.toLowerCase().includes(busca.trim().toLowerCase()))
+    : usuarios
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h6 className="text-[13px] font-semibold text-foreground">Usuários da empresa</h6>
+          <p className="text-xs text-muted-foreground">
+            Quem está vinculado a esta empresa. O cadastro é feito no módulo Usuários.
+          </p>
+        </div>
+        <Link href="/usuarios" className="text-[13px] font-medium text-emerald-700 hover:underline dark:text-emerald-400">
+          Abrir Usuários
+        </Link>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input value={busca} onChange={e => setBusca(e.target.value)}
+            placeholder="Filtrar por nome ou e-mail..." className="h-9 pl-8 text-sm" />
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-[13px]">
+          <input type="checkbox" checked={incluirInativos} className="h-4 w-4"
+            onChange={e => setIncluirInativos(e.target.checked)} />
+          Mostrar inativos
+        </label>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {filtrados.length} {filtrados.length === 1 ? 'usuário' : 'usuários'}
+        </span>
+      </div>
+
+      {carregando ? (
+        <div className="py-10 text-center"><Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" /></div>
+      ) : erro ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          Não foi possível carregar os usuários — verifique se você tem acesso ao módulo Usuários.
+        </p>
+      ) : filtrados.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground italic">
+          {usuarios.length === 0 ? 'Nenhum usuário vinculado a esta empresa.' : 'Nenhum usuário com esse nome ou e-mail.'}
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border">
+          <table className="w-full table-fixed">
+            <thead>
+              <tr className="bg-muted/40 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <th className="px-3 py-2">Nome</th>
+                <th className="px-3 py-2 w-[30%]">E-mail</th>
+                <th className="px-3 py-2 w-[20%]">Cargo</th>
+                <th className="px-3 py-2 w-[15%]">Área</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {filtrados.map(u => (
+                <tr key={u.id} className="hover:bg-muted/20">
+                  <td className="px-3 py-2 text-[13px] truncate">
+                    <Link href={`/usuarios/${u.id}`} className="hover:underline" title={u.name}>{u.name}</Link>
+                    {!u.isActive && (
+                      <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">inativo</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-[13px] text-muted-foreground truncate" title={u.email}>{u.email}</td>
+                  <td className="px-3 py-2 text-[13px] truncate">{ROLE_LABEL[u.role] ?? u.role}</td>
+                  <td className="px-3 py-2 text-[13px] text-muted-foreground truncate">{u.area?.name ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   )
 }
