@@ -48,7 +48,6 @@ async function main() {
     prisma.orcamentoArquivo.count(),
     prisma.orcamentoEvento.count(),
     prisma.oportunidade.count(),
-    prisma.oportunidadeTarefa.count(),
     prisma.oportunidadeMensagem.count(),
     prisma.oportunidadeArquivo.count(),
     prisma.oportunidadeEvento.count(),
@@ -59,7 +58,7 @@ async function main() {
   ])
   const labs = [
     'orcamentos', 'orcamento_itens', 'orcamento_mensagens', 'orcamento_arquivos', 'orcamento_eventos',
-    'oportunidades', 'oportunidade_tarefas', 'oportunidade_mensagens', 'oportunidade_arquivos', 'oportunidade_eventos',
+    'oportunidades', 'oportunidade_mensagens', 'oportunidade_arquivos', 'oportunidade_eventos',
     'processos', 'processo_eventos', 'processo_respostas_pergunta', 'pesquisas_satisfacao',
   ]
   for (let i = 0; i < labs.length; i++) {

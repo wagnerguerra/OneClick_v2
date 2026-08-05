@@ -113,7 +113,7 @@ interface OportunidadeCard {
   responsavel: { id: string; name: string } | null
   cliente: { id: string; razaoSocial: string; documento: string } | null
   tags: Array<{ tag: { id: string; nome: string; cor: string } }>
-  _count: { tarefas: number; mensagens: number; arquivos: number }
+  _count: { agendaTarefas: number; mensagens: number; arquivos: number }
 }
 
 // Exibição da sala a partir do texto livre. Nome real vem do vínculo; quando só há
@@ -2608,7 +2608,7 @@ export default function AgendaPage() {
 
                           {/* Contadores do card */}
                           <div className="flex items-center gap-3 text-[11px] text-muted-foreground border-t border-violet-500/15 pt-2.5">
-                            <span className="tabular-nums">{op._count?.tarefas ?? 0} tarefa(s)</span>
+                            <span className="tabular-nums">{op._count?.agendaTarefas ?? 0} tarefa(s)</span>
                             <span className="text-muted-foreground/50">·</span>
                             <span className="tabular-nums">{op._count?.mensagens ?? 0} msg</span>
                             <span className="text-muted-foreground/50">·</span>

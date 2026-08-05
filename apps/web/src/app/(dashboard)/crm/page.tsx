@@ -4,10 +4,11 @@ import Link from 'next/link'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Target, Search, Loader2, Plus, MoreVertical, ArrowRight,
-  CheckCircle2, Clock, TrendingUp, Calendar,
-  CheckSquare, MessageSquare, Trash2, Send, X, LayoutGrid, List,
+  Clock, TrendingUp, Calendar,
+  CheckSquare, MessageSquare, Trash2, Send, LayoutGrid, List,
   Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers, Sparkles,
   Flame, Thermometer, Snowflake, Megaphone, RotateCcw,
+  Square, Edit2, AlertCircle, Bell, Mail,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, RichEditor,
@@ -30,6 +31,7 @@ import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { numeroParaMoeda, moedaParaNumero, masks } from '@/lib/masks'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { TarefaModal } from '../agenda/_components/tarefa-modal'
 
 // Temperatura do lead (vinda do funil de captação por IA).
 const TEMP_META: Record<string, { label: string; icon: typeof Flame; cor: string }> = {
@@ -114,11 +116,18 @@ function ConversaIATab({ oportunidadeId }: { oportunidadeId: string }) {
 
 interface Etapa { id: string; nome: string; ordem: number; cor: string; probabilidade: number; ehGanho: boolean; ehPerda: boolean; slaDias: number | null; _count: { oportunidades: number } }
 
-interface Oportunidade { id: string; numero?: number | null; titulo: string; descricao: string | null; valor: number | null; origem: string | null; temperatura?: string | null; score?: number | null; previsaoFechamento: string | null; createdAt: string; updatedAt: string; etapaId: string; clienteId: string | null; responsavelId: string | null; etapa: Etapa; cliente?: { id: string; razaoSocial: string } | null; responsavel?: { id: string; name: string } | null; _count?: { tarefas: number; mensagens: number; arquivos: number; agendaEventos?: number } }
+interface Oportunidade { id: string; numero?: number | null; titulo: string; descricao: string | null; valor: number | null; origem: string | null; temperatura?: string | null; score?: number | null; previsaoFechamento: string | null; createdAt: string; updatedAt: string; etapaId: string; clienteId: string | null; responsavelId: string | null; etapa: Etapa; cliente?: { id: string; razaoSocial: string } | null; responsavel?: { id: string; name: string } | null; _count?: { agendaTarefas?: number; mensagens: number; arquivos: number; agendaEventos?: number } }
 
-interface OportunidadeDetail extends Oportunidade { tarefas: Tarefa[]; mensagens: Mensagem[]; arquivos: Arquivo[]; eventos: Evento[] }
+interface OportunidadeDetail extends Oportunidade { mensagens: Mensagem[]; arquivos: Arquivo[]; eventos: Evento[] }
 
-interface Tarefa { id: string; titulo: string; concluida: boolean; prazo: string | null; responsavel?: { id: string; name: string } | null }
+// Tarefa do CRM = AgendaTarefa vinculada (mesma forma do `agenda.tarefa.list`).
+interface Tarefa {
+  id: string; titulo: string; descricao: string | null; prazo: string; horaPrazo: string | null
+  concluida: boolean; concluidaEm: string | null; prioridade: 'BAIXA' | 'NORMAL' | 'ALTA'
+  criadorId: string; criador?: { id: string; name: string; image: string | null }
+  lembretes?: Array<{ canal: 'POPUP' | 'EMAIL'; minutosAntes: number }>
+  membros?: Array<{ usuarioId: string; name: string; image: string | null; ciente: boolean }>
+}
 
 interface Mensagem { id: string; mensagem: string; createdAt: string; user?: { id: string; name: string; image?: string | null } | null }
 
@@ -166,11 +175,6 @@ function getSlaStatus(updatedAt: string, slaDias: number | null | undefined): { 
   if (dias >= slaDias) return { status: 'expired', dias, limite: slaDias }
   if (dias >= limiteWarning) return { status: 'warning', dias, limite: slaDias }
   return { status: 'ok', dias, limite: slaDias }
-}
-
-function formatDate(d: string | null): string {
-  if (!d) return '--'
-  return new Date(d).toLocaleDateString('pt-BR')
 }
 
 // ============================================================
@@ -240,7 +244,11 @@ export default function CrmPage() {
   const [detail, setDetail] = useState<OportunidadeDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailTab, setDetailTab] = useState<'detalhes' | 'conversa' | 'tarefas' | 'mensagens' | 'arquivos' | 'historico'>('detalhes')
-  const [novaTarefa, setNovaTarefa] = useState('')
+  // Tarefas do card = AgendaTarefa vinculada. Carregadas à parte (agenda.tarefa.list).
+  const [tarefasCrm, setTarefasCrm] = useState<Tarefa[]>([])
+  const [tarefasLoading, setTarefasLoading] = useState(false)
+  const [tarefaModalOpen, setTarefaModalOpen] = useState(false)
+  const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null)
   const [novaMensagem, setNovaMensagem] = useState('')
   const [saving, setSaving] = useState(false)
   const [buscandoCnpj, setBuscandoCnpj] = useState(false)
@@ -670,6 +678,7 @@ export default function CrmPage() {
     try {
       const d = await (trpc.crm as any).getById.query({ id })
       setDetail(d)
+      loadTarefasCrm(id)
     } catch {
       alerts.error('Erro', 'Falha ao carregar oportunidade')
       setDetailOpen(false)
@@ -798,38 +807,46 @@ export default function CrmPage() {
     }
   }
 
-  // ── Tarefas ──
-  const addTarefa = async () => {
-    if (!novaTarefa.trim() || !detail) return
-    setSaving(true)
+  // ── Tarefas (AgendaTarefa vinculada à oportunidade) ──
+  const loadTarefasCrm = useCallback(async (oportunidadeId: string) => {
+    setTarefasLoading(true)
     try {
-      await (trpc.crm as any).addTarefa.mutate({ oportunidadeId: detail.id, titulo: novaTarefa.trim() })
-      const d = await (trpc.crm as any).getById.query({ id: detail.id })
-      setDetail(d)
-      setNovaTarefa('')
-    } catch {
-      alerts.error('Erro', 'Falha ao adicionar tarefa')
+      const r = await (trpc.agenda.tarefa as any).list.query({ oportunidadeId })
+      setTarefasCrm(r as Tarefa[])
+    } catch (e) {
+      console.error('[CRM] load tarefas:', (e as Error).message)
     } finally {
-      setSaving(false)
+      setTarefasLoading(false)
     }
+  }, [])
+
+  // Recarrega a lista do card e atualiza os contadores dos cards do board.
+  const refreshTarefasCrm = () => {
+    if (detail) loadTarefasCrm(detail.id)
+    fetchAll(true)
   }
 
-  const toggleTarefa = async (tarefaId: string) => {
-    if (!detail) return
+  // Alterna a ciência do usuário atual (a tarefa só conclui quando todos os
+  // membros dão ciência — regra no backend). Numa tarefa de dono único, conclui.
+  const toggleTarefa = async (t: Tarefa) => {
     try {
-      await (trpc.crm as any).toggleTarefa.mutate({ id: tarefaId })
-      const d = await (trpc.crm as any).getById.query({ id: detail.id })
-      setDetail(d)
-    } catch { /* ignore */ }
+      await (trpc.agenda.tarefa as any).toggleConcluida.mutate({ id: t.id, concluida: !t.concluida })
+      refreshTarefasCrm()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  const deleteTarefa = async (tarefaId: string) => {
-    if (!detail) return
+  const deleteTarefa = async (t: Tarefa) => {
+    const ok = await alerts.confirm({
+      title: 'Excluir tarefa?',
+      text: `"${t.titulo}" será removida.`,
+      confirmText: 'Excluir',
+      icon: 'warning',
+    })
+    if (!ok) return
     try {
-      await (trpc.crm as any).deleteTarefa.mutate({ id: tarefaId })
-      const d = await (trpc.crm as any).getById.query({ id: detail.id })
-      setDetail(d)
-    } catch { /* ignore */ }
+      await (trpc.agenda.tarefa as any).delete.mutate({ id: t.id })
+      refreshTarefasCrm()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
   // ── Mensagens ──
@@ -1310,7 +1327,7 @@ export default function CrmPage() {
                   ...((detail.origem === 'lead-ia' || detail.temperatura)
                     ? [{ key: 'conversa' as const, label: 'Conversa (IA)', icon: Sparkles }]
                     : []),
-                  { key: 'tarefas' as const, label: `Tarefas (${detail.tarefas.length})`, icon: CheckSquare },
+                  { key: 'tarefas' as const, label: `Tarefas (${tarefasCrm.length})`, icon: CheckSquare },
                   { key: 'mensagens' as const, label: `Anotações (${detail.mensagens.length})`, icon: MessageSquare },
                   { key: 'arquivos' as const, label: `Arquivos (${detail.arquivos.length})`, icon: Paperclip },
                   { key: 'historico' as const, label: 'Historico', icon: History },
@@ -1343,38 +1360,94 @@ export default function CrmPage() {
                 {/* ── Conversa IA Tab ── */}
                 {detailTab === 'conversa' && <ConversaIATab oportunidadeId={detail.id} />}
 
-                {/* ── Tarefas Tab ── */}
+                {/* ── Tarefas Tab (AgendaTarefa vinculada ao card) ── */}
                 {detailTab === 'tarefas' && (
                   <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Adicionar tarefa..."
-                        value={novaTarefa}
-                        onChange={e => setNovaTarefa(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && addTarefa()}
-                        className="h-9 text-sm flex-1"
-                      />
-                      <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={addTarefa} disabled={saving || !novaTarefa.trim()}>
-                        <Plus className="h-4 w-4" />
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-[11px] text-muted-foreground leading-snug">
+                        Tarefas com prazo, lembretes e participantes. Aparecem também na lista de tarefas de cada participante e disparam os lembretes escolhidos.
+                      </p>
+                      <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 shrink-0"
+                        onClick={() => { setTarefaEditando(null); setTarefaModalOpen(true) }}>
+                        <Plus className="h-4 w-4" />Nova tarefa
                       </Button>
                     </div>
-                    {detail.tarefas.length === 0 && (
+                    {tarefasLoading && tarefasCrm.length === 0 ? (
+                      <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                    ) : tarefasCrm.length === 0 ? (
                       <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma tarefa cadastrada</p>
+                    ) : (
+                      <div className="divide-y rounded-md border">
+                        {tarefasCrm.map(t => {
+                          const d = new Date(t.prazo)
+                          const hoje = new Date()
+                          const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+                          const prazoDate = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+                          const diffDias = Math.floor((prazoDate.getTime() - inicioHoje.getTime()) / 86400000)
+                          const atrasada = !t.concluida && diffDias < 0
+                          const hojeFlag = !t.concluida && diffDias === 0
+                          const dataFmt = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+                          const membros = t.membros ?? []
+                          return (
+                            <div key={t.id} className={cn('group/row flex items-start gap-2.5 px-3 py-2.5 hover:bg-muted/30 transition-colors', t.concluida && 'opacity-60')}>
+                              <button type="button" onClick={() => toggleTarefa(t)} className="shrink-0 mt-0.5"
+                                title={t.concluida ? 'Reabrir (retirar ciência)' : 'Concluir (dar ciência)'}>
+                                {t.concluida
+                                  ? <CheckSquare className="h-4 w-4 text-emerald-600" />
+                                  : <Square className="h-4 w-4 text-muted-foreground hover:text-sky-500" />}
+                              </button>
+                              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className={cn('text-sm font-medium leading-snug', t.concluida && 'line-through')}>{t.titulo}</p>
+                                  {t.prioridade === 'ALTA' && (
+                                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20">
+                                      <AlertCircle className="h-2.5 w-2.5 mr-0.5" />Alta
+                                    </Badge>
+                                  )}
+                                  {t.prioridade === 'BAIXA' && <Badge variant="outline" className="text-[10px] h-4 px-1.5">Baixa</Badge>}
+                                </div>
+                                <div className="flex items-center gap-3 mt-1 text-[11px] flex-wrap">
+                                  <span className={cn('inline-flex items-center gap-1 font-medium',
+                                    atrasada && 'text-rose-600 dark:text-rose-400',
+                                    hojeFlag && 'text-amber-600 dark:text-amber-400',
+                                    !atrasada && !hojeFlag && 'text-muted-foreground')}>
+                                    <Calendar className="h-3 w-3" />{dataFmt}{t.horaPrazo && ` · ${t.horaPrazo}`}{atrasada && ` · atrasada ${Math.abs(diffDias)}d`}{hojeFlag && ' · hoje'}
+                                  </span>
+                                  {(t.lembretes?.length ?? 0) > 0 && (
+                                    <span className="inline-flex items-center gap-1 text-muted-foreground" title="Lembretes">
+                                      {t.lembretes!.some(l => l.canal === 'EMAIL') ? <Mail className="h-3 w-3" /> : <Bell className="h-3 w-3" />}
+                                      {t.lembretes!.length}
+                                    </span>
+                                  )}
+                                  {membros.length > 1 && (
+                                    <span className="inline-flex items-center gap-1 text-muted-foreground" title="Participantes">
+                                      <span className="flex -space-x-1.5">
+                                        {membros.slice(0, 4).map(m => (
+                                          <span key={m.usuarioId} title={`${m.name} · ${m.ciente ? 'ciente' : 'pendente'}`}
+                                            className={cn('h-4 w-4 rounded-full ring-1 bg-muted flex items-center justify-center text-[8px] font-bold uppercase overflow-hidden', m.ciente ? 'ring-emerald-500' : 'ring-border opacity-60')}>
+                                            {m.image ? <img src={resolveAssetUrl(m.image)} alt="" className="h-full w-full object-cover" /> : (m.name?.[0] ?? '?')}
+                                          </span>
+                                        ))}
+                                      </span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                <button type="button" onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}
+                                  className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Editar">
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </button>
+                                <button type="button" onClick={() => deleteTarefa(t)}
+                                  className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600" title="Excluir">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
                     )}
-                    <div className="space-y-1">
-                      {detail.tarefas.map(t => (
-                        <div key={t.id} className="flex items-center gap-2 rounded-md border px-3 py-2 group hover:bg-muted/30 transition-colors">
-                          <button onClick={() => toggleTarefa(t.id)} className="shrink-0">
-                            <CheckCircle2 className={cn('h-4 w-4', t.concluida ? 'text-emerald-500' : 'text-muted-foreground/40')} />
-                          </button>
-                          <span className={cn('text-sm flex-1', t.concluida && 'line-through text-muted-foreground')}>{t.titulo}</span>
-                          {t.prazo && <span className="text-[10px] text-muted-foreground">{formatDate(t.prazo)}</span>}
-                          <button onClick={() => deleteTarefa(t.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 )}
 
@@ -1453,6 +1526,17 @@ export default function CrmPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ── Modal de tarefa (AgendaTarefa vinculada ao card) ── */}
+      {detail && (
+        <TarefaModal
+          open={tarefaModalOpen}
+          onOpenChange={setTarefaModalOpen}
+          tarefa={tarefaEditando}
+          oportunidadeId={detail.id}
+          onSaved={refreshTarefasCrm}
+        />
+      )}
 
       {/* ── Gerenciar Tags Modal ── */}
       <Dialog open={tagsModal} onOpenChange={setTagsModal}>
@@ -2128,9 +2212,9 @@ function KanbanCardContent({ op, etapas, onMover, onDelete, diasDesde, showMenu,
           <SlaIndicator op={op} etapas={etapas} declinioDias={declinioDias} />
         </div>
         <div className="flex items-center gap-2">
-          {(op._count?.tarefas ?? 0) > 0 && (
+          {(op._count?.agendaTarefas ?? 0) > 0 && (
             <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Tarefas">
-              <CheckSquare className="h-3 w-3" /> {op._count!.tarefas}
+              <CheckSquare className="h-3 w-3" /> {op._count!.agendaTarefas}
             </span>
           )}
           {(op._count?.mensagens ?? 0) > 0 && (

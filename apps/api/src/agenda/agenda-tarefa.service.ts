@@ -95,8 +95,11 @@ export class AgendaTarefaService {
     dataInicio?: string
     dataFim?: string
     empresaId?: string | null
+    oportunidadeId?: string
   }) {
     const where: Record<string, unknown> = {}
+    // Filtro por oportunidade (aba "Tarefas" do card do CRM).
+    if (filtros.oportunidadeId) where.oportunidadeId = filtros.oportunidadeId
     if (filtros.usuarioId) {
       const memberIds = (await prisma.$queryRawUnsafe<any[]>(
         `SELECT tarefa_id FROM agenda_tarefa_participantes WHERE usuario_id = $1`, filtros.usuarioId,
@@ -128,6 +131,7 @@ export class AgendaTarefaService {
       include: {
         criador: { select: { id: true, name: true, image: true } },
         lembretes: { orderBy: { minutosAntes: 'asc' } },
+        oportunidade: { select: { id: true, titulo: true } },
       },
     })
     const membros = await this.membrosDeTarefas(tarefas.map(t => t.id))
@@ -140,6 +144,7 @@ export class AgendaTarefaService {
       include: {
         criador: { select: { id: true, name: true, image: true } },
         lembretes: { orderBy: { minutosAntes: 'asc' } },
+        oportunidade: { select: { id: true, titulo: true } },
       },
     })
     const membros = (await this.membrosDeTarefas([id])).get(id) ?? []
@@ -155,6 +160,7 @@ export class AgendaTarefaService {
     prioridade?: 'BAIXA' | 'NORMAL' | 'ALTA'
     participantes?: string[]
     empresaId?: string | null
+    oportunidadeId?: string | null
   }, criadorId: string) {
     const t = await prisma.agendaTarefa.create({
       data: {
@@ -165,6 +171,7 @@ export class AgendaTarefaService {
         prioridade: input.prioridade ?? 'NORMAL',
         criadorId,
         empresaId: input.empresaId ?? null,
+        oportunidadeId: input.oportunidadeId ?? null,
       },
     })
     await this.setMembros(t.id, input.participantes ?? [], criadorId)

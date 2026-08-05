@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ListTodo, Plus, X, ExternalLink, Loader2, Check, Clock } from 'lucide-react'
+import { ListTodo, Plus, X, ExternalLink, Loader2, Check, Clock, Briefcase } from 'lucide-react'
 import { Button, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { TarefaModal } from '@/app/(dashboard)/agenda/_components/tarefa-modal'
@@ -16,6 +16,7 @@ interface Tarefa {
   concluida: boolean
   prioridade: 'BAIXA' | 'NORMAL' | 'ALTA'
   lembretes?: Array<{ canal: 'POPUP' | 'EMAIL'; minutosAntes: number }>
+  oportunidade?: { id: string; titulo: string } | null
 }
 
 const PRIO_DOT: Record<string, string> = { ALTA: 'bg-rose-500', NORMAL: 'bg-sky-500', BAIXA: 'bg-slate-400' }
@@ -150,6 +151,17 @@ export function TarefasRail() {
                       )}>
                         <Clock className="h-3 w-3" />{p.atrasada ? `Atrasada · ${p.label}` : p.hojeMesmo ? `Hoje · ${p.label}` : p.label}
                       </span>
+                      {t.oportunidade && (
+                        <Link
+                          href={`/crm?op=${t.oportunidade.id}`}
+                          onClick={e => e.stopPropagation()}
+                          title={`Abrir no CRM: ${t.oportunidade.titulo}`}
+                          className="mt-1 flex w-fit max-w-full items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 transition-colors"
+                        >
+                          <Briefcase className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{t.oportunidade.titulo}</span>
+                        </Link>
+                      )}
                     </div>
                   </div>
                 )

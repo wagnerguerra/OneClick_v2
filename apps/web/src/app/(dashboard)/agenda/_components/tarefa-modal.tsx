@@ -6,7 +6,8 @@ import {
   Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   RichEditor, cn,
 } from '@saas/ui'
-import { Plus, Edit2, Loader2, X, Bell, Mail, CheckSquare, Users } from 'lucide-react'
+import { Plus, Edit2, Loader2, X, Bell, Mail, CheckSquare, Users, Briefcase } from 'lucide-react'
+import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -24,6 +25,7 @@ interface TarefaExistente {
   lembretes?: Array<{ canal: 'POPUP' | 'EMAIL'; minutosAntes: number }>
   criador?: { id: string } | null
   membros?: Array<{ usuarioId: string }>
+  oportunidade?: { id: string; titulo: string } | null
 }
 
 interface Props {
@@ -31,6 +33,8 @@ interface Props {
   onOpenChange: (open: boolean) => void
   tarefa?: TarefaExistente | null
   onSaved: () => void
+  /** Quando presente, a tarefa criada é vinculada a este card do CRM (só na criação). */
+  oportunidadeId?: string | null
 }
 
 function formatarMinutosAntes(min: number): string {
@@ -51,7 +55,7 @@ const PRESETS_LEMBRETE: Array<{ value: string; label: string }> = [
 
 const norm = (s: string) => (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
-export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
+export function TarefaModal({ open, onOpenChange, tarefa, onSaved, oportunidadeId }: Props) {
   const isEdit = !!tarefa
   const [form, setForm] = useState({
     titulo: '',
@@ -112,7 +116,9 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
         await (trpc.agenda.tarefa as any).update.mutate({ id: tarefa.id, data: payload })
         tarefaId = tarefa.id
       } else {
-        const criada = await (trpc.agenda.tarefa as any).create.mutate(payload) as { id: string }
+        const criada = await (trpc.agenda.tarefa as any).create.mutate(
+          oportunidadeId ? { ...payload, oportunidadeId } : payload,
+        ) as { id: string }
         tarefaId = criada.id
       }
       await (trpc.agenda.tarefa.lembrete as any).save.mutate({ tarefaId, lembretes })
@@ -137,6 +143,20 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved }: Props) {
           </DialogDescription>
         </DialogHeaderIcon>
         <DialogBody className="space-y-4">
+          {/* Vínculo com o card do CRM (quando a tarefa nasceu de uma oportunidade) */}
+          {tarefa?.oportunidade && (
+            <Link
+              href={`/crm?op=${tarefa.oportunidade.id}`}
+              title={`Abrir no CRM: ${tarefa.oportunidade.titulo}`}
+              className="flex items-center gap-2 rounded-md border border-violet-500/25 bg-violet-500/10 px-3 py-2 text-[12px] text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 transition-colors"
+            >
+              <Briefcase className="h-4 w-4 shrink-0" />
+              <span className="text-muted-foreground">Vinculada ao CRM:</span>
+              <span className="font-semibold truncate">{tarefa.oportunidade.titulo}</span>
+              <span className="ml-auto text-[11px] font-medium shrink-0">abrir →</span>
+            </Link>
+          )}
+
           {/* Título */}
           <div className="space-y-1.5">
             <Label className="text-[13px] font-semibold">Título *</Label>
