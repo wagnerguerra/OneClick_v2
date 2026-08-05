@@ -1055,6 +1055,12 @@ export class OrcamentoService {
     input: {
       clienteId?: string | null; clienteNome?: string | null; detalhamento: string; areaIds?: string[]
       anexos?: Array<{ fileName: string; fileUrl: string; fileSize?: number; mimeType?: string }>
+      // Campos que o balão passa a oferecer, espelhando o formulário do
+      // módulo. Quem não tem cadastro completo simplesmente não os manda.
+      contatos?: string | null; emailsContatos?: string | null
+      tipo?: string | null; responsavelId?: string | null
+      validadeDias?: number | null; formaPagamento?: string | null
+      descontoPct?: number | null; descontoValor?: number | null
     },
     userId?: string,
     empresaId?: string,
@@ -1076,12 +1082,28 @@ export class OrcamentoService {
     }
 
     const orc = await this.create(
-      { clienteId, textoInterno: obs, solicitanteId: userId } as any,
+      {
+        clienteId,
+        textoInterno: obs,
+        solicitanteId: userId,
+        contatos: input.contatos ?? null,
+        emailsContatos: input.emailsContatos ?? null,
+        tipo: input.tipo ?? null,
+        responsavelId: input.responsavelId ?? null,
+        ...(input.validadeDias != null ? { validadeDias: input.validadeDias } : {}),
+        formaPagamento: input.formaPagamento ?? null,
+        descontoPct: input.descontoPct ?? null,
+        descontoValor: input.descontoValor ?? null,
+      } as any,
       userId,
       empresaId,
     )
-    // Solicitação chega sem responsável — fica disponível pro comercial assumir.
-    await prisma.orcamento.update({ where: { id: orc.id }, data: { responsavelId: null } }).catch(() => {})
+    // Sem responsável indicado, a solicitação fica disponível pro comercial
+    // assumir. Com responsável (quem tem cadastro completo pode apontar um), o
+    // campo é respeitado — zerar ali desfaria a escolha.
+    if (!input.responsavelId) {
+      await prisma.orcamento.update({ where: { id: orc.id }, data: { responsavelId: null } }).catch(() => {})
+    }
     await this.addEvento(orc.id, userId, 'created', null, null, 'Solicitação de orçamento (balão Solicitar Novo)')
     // Anexos enviados no balão → vira OrcamentoArquivo.
     if (input.anexos?.length) {

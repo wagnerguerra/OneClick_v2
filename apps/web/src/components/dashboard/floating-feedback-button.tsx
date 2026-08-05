@@ -14,6 +14,7 @@ import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { renderConflitosHtml, type ConflitoAgenda, type ConflitoModo } from '@/lib/agenda-conflitos'
 import { AreasNotificarPicker, useAreasNotificaveis } from '@/components/orcamento/areas-notificar-picker'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 /**
  * FAB ("Fale com a TI") — sempre visível no canto inferior direito.
@@ -675,6 +676,26 @@ function OrcamentoRequestForm({
   const areasNotificaveis = useAreasNotificaveis()
   const [areasSel, setAreasSel] = useState<string[]>([])
 
+  /**
+   * Mesma regra do formulário do módulo: sem `cadastro_completo` a pessoa vê o
+   * essencial; com ela, os campos comerciais aparecem. A decisão é de quem
+   * configura permissão, e o balão não pode discordar da tela — seria a mesma
+   * pessoa com dois níveis de acesso dependendo de onde clicou.
+   */
+  const { isMaster, permissions } = useUserPermissions()
+  const subPerms = (permissions.find(p => p.moduleSlug === 'orcamentos')?.subPermissions ?? {}) as Record<string, boolean>
+  const cadastroCompleto = isMaster || subPerms.cadastro_completo === true
+
+  // Campos do formulário reduzido (todos veem).
+  const [contatos, setContatos] = useState('')
+  const [emailContato, setEmailContato] = useState('')
+  // Campos comerciais — só com cadastro completo.
+  const [tipo, setTipo] = useState('SERVICO_EXTRA')
+  const [validadeDias, setValidadeDias] = useState('90')
+  const [formaPagamento, setFormaPagamento] = useState('')
+  const [descontoPct, setDescontoPct] = useState('')
+  const [descontoValor, setDescontoValor] = useState('')
+
   // Anexos (múltiplos, drag-and-drop) — mesmo padrão do balão de ticket.
   const [anexos, setAnexos] = useState<AnexoPendente[]>([])
   const [dragOver, setDragOver] = useState(false)
@@ -751,11 +772,22 @@ function OrcamentoRequestForm({
     setEnviando(true)
     try {
       const anexosProntos = anexos.filter(a => !a.uploading && a.fileUrl)
-      const res = await trpc.orcamento.solicitar.mutate({
+      const res = await (trpc.orcamento as any).solicitar.mutate({
         clienteId: clienteSel?.id ?? null,
         clienteNome: clienteSel ? null : nome,
         detalhamento: det,
         areaIds: areasSel,
+        contatos: contatos.trim() || null,
+        emailsContatos: emailContato.trim() || null,
+        // Os comerciais só viajam quando a pessoa pôde preenchê-los; mandar
+        // valores de campo escondido seria decidir por ela.
+        ...(cadastroCompleto ? {
+          tipo,
+          validadeDias: Number(validadeDias) || 90,
+          formaPagamento: formaPagamento.trim() || null,
+          descontoPct: descontoPct.trim() ? Number(descontoPct) : null,
+          descontoValor: descontoValor.trim() ? Number(descontoValor) : null,
+        } : {}),
         anexos: anexosProntos.map(a => ({ fileName: a.fileName, fileUrl: a.fileUrl, fileSize: a.tamanho, mimeType: a.mimeType })),
       }) as { id: string; numero: number }
       setCriado({ numero: res.numero, id: res.id })
@@ -834,6 +866,85 @@ function OrcamentoRequestForm({
             </div>
           )}
         </div>
+
+        {/* Contato — mesma dupla do formulário do módulo. */}
+        <div className="grid grid-cols-12 gap-2">
+          <div className="col-span-12 sm:col-span-5 space-y-1.5">
+            <label className="text-[13px] font-semibold text-foreground">Contato</label>
+            <input
+              value={contatos} onChange={e => setContatos(e.target.value)}
+              placeholder="Nome do contato"
+              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+            />
+          </div>
+          <div className="col-span-12 sm:col-span-7 space-y-1.5">
+            <label className="text-[13px] font-semibold text-foreground">E-mail do contato</label>
+            <input
+              type="email" value={emailContato} onChange={e => setEmailContato(e.target.value)}
+              placeholder="contato@empresa.com.br"
+              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Campos comerciais — espelham o bloco avançado do módulo, sob a
+            mesma sub-permissão (legado orc_cadastro=1). */}
+        {cadastroCompleto && (
+          <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
+            <div className="grid grid-cols-12 gap-2">
+              <div className="col-span-12 sm:col-span-7 space-y-1.5">
+                <label className="text-[13px] font-semibold text-foreground">Tipo</label>
+                <select
+                  value={tipo} onChange={e => setTipo(e.target.value)}
+                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+                >
+                  <option value="SERVICO_EXTRA">Serviço Extra</option>
+                  <option value="SERVICO_MENSAL">Serviço Mensal</option>
+                </select>
+              </div>
+              <div className="col-span-12 sm:col-span-5 space-y-1.5">
+                <label className="text-[13px] font-semibold text-foreground">Validade</label>
+                <div className="flex">
+                  <input
+                    type="number" min={1} value={validadeDias} onChange={e => setValidadeDias(e.target.value)}
+                    className="h-9 w-full rounded-l-md border border-border bg-background px-3 text-sm"
+                  />
+                  <span className="inline-flex h-9 items-center rounded-r-md border border-l-0 border-border bg-muted px-2 text-xs text-muted-foreground">
+                    dias
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-semibold text-foreground">Forma de pagamento</label>
+              <input
+                value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)}
+                placeholder="Ex.: 30 dias"
+                className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+              />
+            </div>
+
+            <div className="grid grid-cols-12 gap-2">
+              <div className="col-span-6 space-y-1.5">
+                <label className="text-[13px] font-semibold text-foreground">Desconto %</label>
+                <input
+                  type="number" min={0} max={100} step="0.01" value={descontoPct}
+                  onChange={e => setDescontoPct(e.target.value)} placeholder="0"
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                />
+              </div>
+              <div className="col-span-6 space-y-1.5">
+                <label className="text-[13px] font-semibold text-foreground">Desconto R$</label>
+                <input
+                  type="number" min={0} step="0.01" value={descontoValor}
+                  onChange={e => setDescontoValor(e.target.value)} placeholder="0,00"
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Detalhamento (RichEditor — aceita formatação HTML) */}
         <div className="space-y-1.5">
