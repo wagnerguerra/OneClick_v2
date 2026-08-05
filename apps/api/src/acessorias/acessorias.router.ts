@@ -107,6 +107,14 @@ export function createAcessoriasRouter(
         empresaId: ctx.empresaId ?? null,
       })),
 
+    /**
+     * Para uma sincronização em andamento — ou encerra a que travou.
+     * Quem decide qual dos dois casos é o serviço, pelo sinal de vida.
+     */
+    cancelarSync: integracaoProc()
+      .input(z.object({ logId: z.string().min(1) }))
+      .mutation(({ input }) => svc.cancelarSync(input.logId)),
+
     // Varre a carteira no Acessórias e GRAVA o resultado — ação sob demanda.
     listObligationsObserved: integracaoProc()
       .query(({ ctx }) => svc.listObligationsObserved(ctx.empresaId ?? null)),

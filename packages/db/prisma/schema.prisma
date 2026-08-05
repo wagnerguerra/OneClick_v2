@@ -4733,6 +4733,14 @@ model AcessoriasSyncLog {
   /// linha do histórico. Limitado no serviço para não crescer sem controle.
   detalhes              Json?
 
+  /// Marcado quando alguém pede para parar. O laço confere entre um cliente e
+  /// o próximo e encerra por conta própria, deixando gravado o que já fez.
+  cancelPedidoEm        DateTime? @map("cancel_pedido_em")
+  /// Sinal de vida do laço. Sem ele não dá para distinguir uma sincronização
+  /// lenta de uma que morreu junto com o processo — as duas ficam "rodando"
+  /// para sempre na tela.
+  heartbeatEm           DateTime? @map("heartbeat_em")
+
   /// Usuário que disparou (null = cron automático).
   triggeredBy           String?   @map("triggered_by")
   empresaId             String?   @map("empresa_id")

@@ -46,6 +46,16 @@ export interface AcessoriasResponse<T = unknown> {
  */
 const CLIENTE_ATIVO_MENSAL = { status: 'ATIVA', situacao: 'MENSAL', deletedAt: null } as const
 
+/**
+ * Silêncio a partir do qual uma sincronização "rodando" é dada como morta.
+ *
+ * O laço bate o ponto a cada cliente, e um cliente leva segundos. Três minutos
+ * é folgado o bastante para não matar quem só está lento (API do Acessórias
+ * devagar, cliente com muitas entregas) e curto o bastante para destravar a
+ * tela no mesmo expediente.
+ */
+const SILENCIO_ATE_MORTA_MS = 3 * 60 * 1000
+
 @Injectable()
 export class AcessoriasService {
   constructor(private readonly regras: RegrasObrigacaoService) {}
@@ -481,15 +491,81 @@ export class AcessoriasService {
   private async marcarProgresso(
     logId: string,
     dados: { atual?: number; total?: number; msg?: string },
-  ) {
-    await prisma.acessoriasSyncLog.update({
+  ): Promise<{ cancelado: boolean }> {
+    // A mesma escrita que grava o andamento bate o ponto e devolve o pedido de
+    // parada. Consultar à parte custaria uma ida ao banco por cliente, e são
+    // centenas — o dado já vem de graça no retorno do update.
+    const linha = await prisma.acessoriasSyncLog.update({
       where: { id: logId },
       data: {
         ...(dados.atual !== undefined ? { progressoAtual: dados.atual } : {}),
         ...(dados.total !== undefined ? { progressoTotal: dados.total } : {}),
         ...(dados.msg !== undefined ? { progressoMsg: dados.msg } : {}),
+        heartbeatEm: new Date(),
       },
+      select: { cancelPedidoEm: true },
     }).catch(() => null)
+
+    return { cancelado: !!linha?.cancelPedidoEm }
+  }
+
+  /**
+   * Pede para uma sincronização parar.
+   *
+   * São dois casos diferentes por baixo, e o usuário não precisa saber qual é:
+   *
+   * 1. **Ainda viva** — o laço está rodando e confere o pedido entre um cliente
+   *    e o próximo. Marca-se o pedido e ele encerra sozinho, gravando o que já
+   *    fez. Pode levar alguns segundos: o cliente em curso termina primeiro.
+   *
+   * 2. **Morta** — o processo caiu no meio (publicação, reinício do servidor) e
+   *    ninguém vai ler o pedido. Ela ficaria "rodando" para sempre, travando a
+   *    tela. Aqui a linha é encerrada na hora.
+   *
+   * O que separa os dois é o sinal de vida: um laço vivo bate o ponto a cada
+   * cliente. Silêncio prolongado significa que não há ninguém do outro lado.
+   */
+  async cancelarSync(logId: string) {
+    const log = await prisma.acessoriasSyncLog.findUnique({
+      where: { id: logId },
+      select: { id: true, status: true, heartbeatEm: true, startedAt: true, progressoAtual: true, progressoTotal: true },
+    })
+    if (!log) throw new Error('Sincronização não encontrada.')
+    if (log.status !== 'running') {
+      return { ok: true, estado: 'ja_encerrada' as const, mensagem: 'Esta sincronização já havia terminado.' }
+    }
+
+    const ultimoSinal = log.heartbeatEm ?? log.startedAt
+    const silencio = Date.now() - ultimoSinal.getTime()
+
+    if (silencio > SILENCIO_ATE_MORTA_MS) {
+      await prisma.acessoriasSyncLog.update({
+        where: { id: logId },
+        data: {
+          status: 'error',
+          finishedAt: new Date(),
+          cancelPedidoEm: new Date(),
+          erroMensagem: 'Interrompida: a sincronização parou de responder e foi encerrada manualmente. '
+            + 'Costuma acontecer quando o servidor é reiniciado no meio do processo.',
+          progressoMsg: `Encerrada sem resposta em ${log.progressoAtual ?? 0} de ${log.progressoTotal ?? '?'}`,
+        },
+      })
+      return {
+        ok: true,
+        estado: 'encerrada' as const,
+        mensagem: 'A sincronização não respondia e foi encerrada. Pode iniciar outra.',
+      }
+    }
+
+    await prisma.acessoriasSyncLog.update({
+      where: { id: logId },
+      data: { cancelPedidoEm: new Date(), progressoMsg: 'Parando…' },
+    })
+    return {
+      ok: true,
+      estado: 'parando' as const,
+      mensagem: 'Pedido de parada enviado. O cliente em andamento termina antes de encerrar.',
+    }
   }
 
   private async executarSyncDeliveries(opts: {
@@ -559,6 +635,7 @@ export class AcessoriasService {
       // na linha do histórico. Limitado para o log não crescer sem controle.
       const detalhes: Array<{ clienteId: string; cliente: string; entregas: number; novas: number; atualizadas: number; erro?: string }> = []
       let indice = 0
+      let cancelada = false
 
       for (const cli of clientes) {
         indice++
@@ -638,10 +715,18 @@ export class AcessoriasService {
           })
         }
         // Atualiza a cada cliente: é o que faz a barra andar de verdade.
-        await this.marcarProgresso(log.id, {
+        const sinal = await this.marcarProgresso(log.id, {
           atual: indice,
           msg: `${indice}/${clientes.length} · ${cli.razaoSocial ?? cnpj}`,
         })
+
+        // Parar entre um cliente e o outro, e não no meio de um: o que já foi
+        // gravado continua valendo, e a próxima rodada retoma de um estado
+        // íntegro em vez de um cliente pela metade.
+        if (sinal.cancelado) {
+          cancelada = true
+          break
+        }
       }
 
       await prisma.acessoriasSyncLog.update({
@@ -649,14 +734,18 @@ export class AcessoriasService {
         data: {
           // Página recusada pela API também deixa a sincronização parcial: sem
           // isso o histórico marcaria "sucesso" sobre um espelho incompleto.
-          status: erros.length > 0 || falhas.length > 0 ? 'partial' : 'success',
+          // Cancelada não é sucesso nem erro: o espelho ficou incompleto de
+          // propósito, e chamar de "parcial" esconderia que alguém mandou parar.
+          status: cancelada ? 'canceled' : (erros.length > 0 || falhas.length > 0 ? 'partial' : 'success'),
           finishedAt: new Date(),
-          progressoAtual: clientes.length,
+          progressoAtual: cancelada ? indice : clientes.length,
           progressoTotal: clientes.length,
-          progressoMsg: [
-            falhas.length > 0 ? `Concluída com ${falhas.length} falha(s)` : 'Concluída',
-            excluidasPorRegra > 0 ? `${excluidasPorRegra} entrega(s) fora por regra` : '',
-          ].filter(Boolean).join(' · '),
+          progressoMsg: cancelada
+            ? `Interrompida em ${indice} de ${clientes.length} cliente(s)`
+            : [
+              falhas.length > 0 ? `Concluída com ${falhas.length} falha(s)` : 'Concluída',
+              excluidasPorRegra > 0 ? `${excluidasPorRegra} entrega(s) fora por regra` : '',
+            ].filter(Boolean).join(' · '),
           detalhes: (falhas.length > 0 ? { ...detalhes, falhas } : detalhes) as never,
           deliveriesNovas: novas,
           deliveriesAtualizadas: atualizadas,

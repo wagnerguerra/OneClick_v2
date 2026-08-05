@@ -16,7 +16,7 @@ import { useRouter } from 'next/navigation'
 import {
   Zap, Loader2, Play, Copy, CheckCircle2, XCircle, Database,
   ChevronRight, ChevronDown, Building2, FileSearch, Link as LinkIcon,
-  History, Search, RefreshCw, AlertCircle, Trash2, Save, Plus, MailWarning, GitCompareArrows,
+  History, Search, RefreshCw, AlertCircle, Trash2, Save, Plus, MailWarning, GitCompareArrows, Square,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn,
@@ -769,7 +769,7 @@ function MappingPanel() {
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableRow><TableCell colSpan={5} className="text-center py-10">
+            <TableRow><TableCell colSpan={6} className="text-center py-10">
               <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
             </TableCell></TableRow>
           ) : linhas.length === 0 ? (
@@ -1349,6 +1349,36 @@ function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
   // Enquanto houver sincronização em andamento, recarrega sozinho a cada 3s —
   // é o que faz a barra de progresso andar sem o usuário clicar em Atualizar.
   const temRodando = logs.some(l => l.status === 'running')
+  const [parando, setParando] = useState<string | null>(null)
+
+  /**
+   * Para a sincronização escolhida.
+   *
+   * O servidor decide se dá para pedir educadamente (o laço está vivo e
+   * encerra sozinho no próximo cliente) ou se precisa encerrar na marra
+   * (o processo morreu e ninguém vai ler o pedido). A tela só repassa a
+   * resposta — a diferença importa para o usuário entender a espera.
+   */
+  const parar = async (logId: string) => {
+    const ok = await alerts.confirm({
+      title: 'Parar a sincronização?',
+      text: 'O que já foi gravado continua valendo. Você pode iniciar outra em seguida.',
+      icon: 'warning',
+      confirmText: 'Parar',
+    })
+    if (!ok) return
+
+    setParando(logId)
+    try {
+      const r = await (trpc.acessorias as any).cancelarSync.mutate({ logId })
+      await fetchLogs(true)
+      await alerts.success('Sincronização', r.mensagem)
+    } catch (e) {
+      await alerts.error('Não foi possível parar', (e as Error).message)
+    } finally {
+      setParando(null)
+    }
+  }
   useEffect(() => {
     if (!temRodando) return
     const t = setInterval(() => { void fetchLogs(true) }, 3000)
@@ -1383,6 +1413,7 @@ function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
             <TableHead className="w-[110px]">Status</TableHead>
             <TableHead className="w-[300px]">Contadores</TableHead>
             <TableHead>Erro / Detalhe</TableHead>
+            <TableHead className="w-[110px]" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -1391,7 +1422,7 @@ function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
               <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
             </TableCell></TableRow>
           ) : logs.length === 0 ? (
-            <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground italic">
+            <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground italic">
               Sem sincronizações registradas ainda.
             </TableCell></TableRow>
           ) : logs.map(log => {
@@ -1401,6 +1432,7 @@ function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
             const statusCls = log.status === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
               : log.status === 'partial' ? 'bg-amber-50 border-amber-300 text-amber-700'
               : log.status === 'error' ? 'bg-rose-50 border-rose-300 text-rose-700'
+              : log.status === 'canceled' ? 'bg-slate-100 border-slate-300 text-slate-600'
               : 'bg-sky-50 border-sky-300 text-sky-700'
             const total = log.progressoTotal ?? 0
             const atual = log.progressoAtual ?? 0
@@ -1432,6 +1464,19 @@ function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
                   {log.status === 'running'
                     ? (log.progressoMsg ?? 'iniciando...')
                     : (log.erroMensagem ?? 'clique para ver o detalhe')}
+                </TableCell>
+                {/* O clique não pode abrir o detalhe junto — parar é a única
+                    ação da linha que muda alguma coisa. */}
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  {log.status === 'running' && (
+                    <Button variant="soft-destructive" size="sm" className="gap-1.5"
+                      disabled={parando === log.id} onClick={() => parar(log.id)}>
+                      {parando === log.id
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <Square className="h-3.5 w-3.5" />}
+                      Parar
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             )
