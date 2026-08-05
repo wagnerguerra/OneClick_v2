@@ -710,6 +710,10 @@ export class ServicoService {
       /** User fixo quando atribuicaoResponsavel = MANUAL_FIXO. */
       responsavelFixoId: string | null;
       position: Position;
+      /** Subserviços do catálogo comercial — camada opcional do desenho. */
+      subservicos: Array<{ id: string; nome: string }>;
+      /** Variações oferecidas no orçamento — mesma camada. */
+      variacoes: Array<{ id: string; titulo: string; valor: string | null }>;
       etapas: Array<{ id: string; nome: string; ordem: number; passos: Array<{ id: string; nome: string; ordem: number; obrigatorio: boolean }> }>;
     }> = []
     const edges: Array<{
@@ -734,6 +738,13 @@ export class ServicoService {
           acessoriasMaps: {
             where: { ativo: true, servicoId: { not: null } },
             select: { nome: true },
+          },
+          // Camada de catálogo — o desenho pode mostrá-la por cima do fluxo
+          // de execução, sem misturar as duas coisas.
+          subservicos: {
+            orderBy: { ordem: 'asc' },
+            where: { filho: { ativo: true } },
+            select: { filho: { select: { id: true, nome: true } } },
           },
           etapas: {
             orderBy: { ordem: 'asc' },
@@ -777,6 +788,10 @@ export class ServicoService {
         responsavelFixoId: svc.responsavelFixoId,
         categoriaServico: svc.categoriaServico as string,
         acessoriasObrigacoes: Array.from(new Set(svc.acessoriasMaps.map(m => m.nome))).sort(),
+        subservicos: svc.subservicos.map(v => v.filho),
+        // As variações vivem na tabela do orçamento, sem relação Prisma — a
+        // busca é em lote, depois do BFS, para não fazer uma consulta por bloco.
+        variacoes: [],
         position,
         // Remove campos de SLA do payload dos passos — só a soma total importa pro card
         etapas: svc.etapas.map(et => ({
@@ -907,6 +922,22 @@ export class ServicoService {
         if (r && r.length > 0) n.perguntaRotulos = r
       }
     }
+
+    // ── Variações de cada bloco ──────────────────────────────
+    // Uma consulta em lote depois do BFS, e não uma por bloco: são dezenas de
+    // nós num fluxo grande.
+    const variacoes = await prisma.orcamentoCatalogoTexto.findMany({
+      where: { catalogoId: { in: nodes.map(n => n.id) } },
+      orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, catalogoId: true, titulo: true, valor: true },
+    }).catch(() => [])
+    const variacoesPorServico = new Map<string, Array<{ id: string; titulo: string; valor: string | null }>>()
+    for (const v of variacoes) {
+      const arr = variacoesPorServico.get(v.catalogoId) ?? []
+      arr.push({ id: v.id, titulo: v.titulo, valor: v.valor != null ? String(v.valor) : null })
+      variacoesPorServico.set(v.catalogoId, arr)
+    }
+    for (const n of nodes) n.variacoes = variacoesPorServico.get(n.id) ?? []
 
     // Carrega layout persistido — usa originalRootId pra bater com o save side
     // (frontend sempre passa o id do servico atual, sem conhecer o redirect)

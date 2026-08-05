@@ -33,6 +33,7 @@ import {
   Calculator, Users, Shield, ClipboardList, Settings,
   Store, Building2, Scale, Monitor, Award,
   GitBranch, FileText, PlayCircle, CheckCircle2, HelpCircle, Box,
+  Network, Layers,
 } from 'lucide-react'
 import { Badge, Button, Input, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -85,6 +86,9 @@ export interface FluxoNode {
   /** Nomes das obrigações Acessórias mapeadas ativas. Renderizados como
    *  chips dentro do bloco quando o serviço é MENSAL. */
   acessoriasObrigacoes?: string[]
+  /** Camada de catálogo — desenhada por cima do fluxo, quando ligada. */
+  subservicos?: Array<{ id: string; nome: string }>
+  variacoes?: Array<{ id: string; titulo: string; valor: string | null }>
   /** Resumo das execuções ativas (em andamento, aguardando, etc) deste bloco.
    *  Backend agrega por servicoId em getFluxo. Renderizado como pill no rodapé
    *  do bloco com cor do "pior caso" (atrasada > vencendo > em dia). */
@@ -1086,7 +1090,36 @@ function EventoNodeComp({ data }: NodeProps) {
 }
 
 // Registro de tipos custom (precisa ser estável)
+/**
+ * Bloco da camada de catálogo — subserviço ou variação.
+ *
+ * Deliberadamente diferente dos blocos de execução: menor, tracejado e sem
+ * alças de conexão. Ele não roda; está ali para mostrar do que o serviço é
+ * feito e como ele é vendido. Confundir os dois faria alguém procurar um
+ * "COMPETE" na fila de execução.
+ */
+function CatalogoNodeComp({ data }: { data: { rotulo: string; detalhe?: string; kind: 'sub' | 'var' } }) {
+  const sub = data.kind === 'sub'
+  return (
+    <div className={cn(
+      'rounded-lg border border-dashed px-2.5 py-1.5 text-[11px] max-w-[190px] bg-background/95',
+      sub ? 'border-violet-400 text-violet-800 dark:text-violet-300'
+          : 'border-amber-400 text-amber-800 dark:text-amber-300',
+    )}>
+      <Handle type="target" position={Position.Left} className="!opacity-0 !pointer-events-none" />
+      <div className="flex items-center gap-1.5">
+        {sub ? <Network className="h-3 w-3 shrink-0" /> : <Layers className="h-3 w-3 shrink-0" />}
+        <span className="truncate font-medium" title={data.rotulo}>{data.rotulo}</span>
+      </div>
+      {data.detalhe && (
+        <div className="mt-0.5 text-[10px] opacity-70 tabular-nums">{data.detalhe}</div>
+      )}
+    </div>
+  )
+}
+
 const nodeTypes = {
+  catalogo: CatalogoNodeComp,
   servico: ServicoNodeComp,
   decisao: DecisaoNodeComp,
   documentacao: DocumentacaoNodeComp,
@@ -1125,6 +1158,13 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
   // Quando ligado, o ReactFlow alinha o drag a uma grade de 16px (mesmo gap
   // do background dots). Quando desligado, posicionamento livre.
   const [snapToGrid, setSnapToGrid] = useState(false)
+  /**
+   * Camada de catálogo por cima do fluxo.
+   *
+   * Desligada por padrão: o fluxo existe para responder "o que roda quando", e
+   * ligar subserviço e variação de saída poluiria justamente essa leitura.
+   */
+  const [mostrarCatalogo, setMostrarCatalogo] = useState(false)
   useEffect(() => {
     setSnapToGrid(localStorage.getItem('oc-fluxo-snap-grid') === '1')
   }, [])
@@ -1823,6 +1863,70 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
     [nodes, expanded, edgeCounts, podeEditar, handleAddFromNode, removeEdgesOfNode],
   )
 
+  /**
+   * Blocos e ligações da camada de catálogo.
+   *
+   * Derivados das posições ATUAIS dos blocos de execução, e não do dagre: são
+   * satélites de um bloco, então acompanham quem arrasta o dono. Também não
+   * entram no layout salvo — não têm posição própria para guardar.
+   */
+  const catalogo = useMemo(() => {
+    if (!mostrarCatalogo) return { nodes: [] as Node[], edges: [] as Edge[] }
+
+    const extraNodes: Node[] = []
+    const extraEdges: Edge[] = []
+    const LARGURA_BLOCO = 260
+    const ALTURA_LINHA = 40
+
+    for (const n of nodes) {
+      const dono = (n.data as ServicoNodeData).node
+      const filhos = [
+        ...(dono.subservicos ?? []).map(sv => ({
+          id: `sub:${sv.id}`, rotulo: sv.nome, detalhe: undefined as string | undefined, kind: 'sub' as const,
+        })),
+        ...(dono.variacoes ?? []).map(v => ({
+          id: `var:${v.id}`,
+          rotulo: v.titulo,
+          detalhe: v.valor != null
+            ? `R$ ${Number(v.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            : undefined,
+          kind: 'var' as const,
+        })),
+      ]
+      if (filhos.length === 0) continue
+
+      filhos.forEach((f, i) => {
+        // Empilhados à direita do dono: o fluxo corre da esquerda para a
+        // direita, então abaixo cruzaria as setas de execução.
+        const idUnico = `${n.id}::${f.id}`
+        extraNodes.push({
+          id: idUnico,
+          type: 'catalogo',
+          position: { x: n.position.x + LARGURA_BLOCO + 60, y: n.position.y + i * ALTURA_LINHA },
+          data: { rotulo: f.rotulo, detalhe: f.detalhe, kind: f.kind },
+          draggable: false,
+          selectable: false,
+          deletable: false,
+        })
+        extraEdges.push({
+          id: `e-${idUnico}`,
+          source: n.id,
+          target: idUnico,
+          animated: false,
+          style: {
+            strokeDasharray: '4 3',
+            stroke: f.kind === 'sub' ? '#a78bfa' : '#fbbf24',
+            strokeWidth: 1.5,
+          },
+          selectable: false,
+          deletable: false,
+        })
+      })
+    }
+
+    return { nodes: extraNodes, edges: extraEdges }
+  }, [mostrarCatalogo, nodes])
+
   if (rawNodes.length === 0) {
     return <p className="text-xs text-muted-foreground text-center py-12">Sem fluxo configurado.</p>
   }
@@ -1847,8 +1951,8 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
       )}
       <ReactFlowProvider>
         <ReactFlow
-          nodes={nodesWithExpanded}
-          edges={edges}
+          nodes={mostrarCatalogo ? [...nodesWithExpanded, ...catalogo.nodes] : nodesWithExpanded}
+          edges={mostrarCatalogo ? [...edges, ...catalogo.edges] : edges}
           onNodesChange={onNodesChange}
           onConnect={onConnect}
           onEdgesDelete={onEdgesDelete}
@@ -2110,6 +2214,24 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
               title={snapToGrid ? 'Alinhamento à grade ativo (clique pra liberar)' : 'Alinhar à grade'}
             >
               <Grid3x3 className="h-3.5 w-3.5" />
+            </Button>
+            {/* Camada de catálogo — o que o serviço contém e como é vendido,
+                por cima do que ele executa. */}
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => setMostrarCatalogo(v => !v)}
+              className={cn(
+                'h-8 w-8 backdrop-blur-sm',
+                mostrarCatalogo
+                  ? 'bg-violet-100 dark:bg-violet-900/40 border-violet-400 text-violet-700 dark:text-violet-300'
+                  : 'bg-white/80 dark:bg-black/40',
+              )}
+              title={mostrarCatalogo
+                ? 'Ocultar subserviços e variações'
+                : 'Mostrar subserviços e variações do catálogo'}
+            >
+              <Layers className="h-3.5 w-3.5" />
             </Button>
             <Button
               size="icon"
