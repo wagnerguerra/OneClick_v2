@@ -6,7 +6,7 @@ import {
   Bug, Lightbulb, MessageSquare, X, Send, Loader2, Check, ExternalLink,
   ImagePlus, Paperclip, Plus, ChevronLeft, LifeBuoy, FileText, Search, Building2,
   CalendarPlus, Clock, Users, Video, Monitor, DoorOpen, MapPin,
-  Maximize2, Minimize2,
+  Maximize2, Minimize2, ArrowLeftToLine, ArrowRightToLine,
 } from 'lucide-react'
 import { Button, cn, RichEditor } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -54,6 +54,9 @@ interface AgendaTipoOpc {
   salasPermitidas?: string[]
 }
 
+/** Onde o botão flutuante mora — preferência de tela, guardada no navegador. */
+const CHAVE_LADO_FAB = 'oneclick:fab-lado'
+
 export function FloatingFeedbackButton() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -71,6 +74,32 @@ export function FloatingFeedbackButton() {
    * três linhas. Ampliar resolve sem tirar de quem só quer o atalho rápido.
    */
   const [ampliado, setAmpliado] = useState(false)
+
+  /**
+   * Lado da tela em que o botão mora.
+   *
+   * Fixo na direita, ele cobre o canto de algumas telas — e qual canto atrapalha
+   * depende da página e do tamanho do monitor de cada um. Em vez de adivinhar
+   * uma posição boa para todos, a escolha é de quem usa e fica guardada no
+   * próprio navegador: é preferência de quem está na frente da tela, não do
+   * cadastro da pessoa.
+   */
+  const [lado, setLado] = useState<'direita' | 'esquerda'>('direita')
+
+  useEffect(() => {
+    try {
+      const salvo = localStorage.getItem(CHAVE_LADO_FAB)
+      if (salvo === 'esquerda' || salvo === 'direita') setLado(salvo)
+    } catch { /* navegador sem storage — segue no padrão */ }
+  }, [])
+
+  function trocarLado() {
+    setLado(atual => {
+      const novo = atual === 'direita' ? 'esquerda' : 'direita'
+      try { localStorage.setItem(CHAVE_LADO_FAB, novo) } catch { /* idem */ }
+      return novo
+    })
+  }
   // Direção da transição entre telas: 'fwd' (menu → serviço) entra pela direita,
   // 'back' (serviço → menu) entra pela esquerda. Usado pela animação do corpo.
   const [dir, setDir] = useState<'fwd' | 'back'>('fwd')
@@ -324,7 +353,9 @@ export function FloatingFeedbackButton() {
           // pointer-events-auto: Radix Sheet/Dialog aplica pointer-events:
           // none no body quando aberto pra absorver cliques no overlay;
           // sem isso o click no FAB 'atravessa' pro elemento abaixo.
-          'fixed bottom-5 right-5 lg:right-16 z-[60] pointer-events-auto h-12 w-12 rounded-full shadow-lg',
+          'fixed bottom-5 z-[60] pointer-events-auto h-12 w-12 rounded-full shadow-lg',
+          // À esquerda, o afastamento maior desvia da barra lateral recolhida.
+          lado === 'direita' ? 'right-5 lg:right-16' : 'left-5 lg:left-20',
           'flex items-center justify-center text-white',
           'bg-[var(--mod-ti,#22d3ee)] hover:scale-105 active:scale-95',
           'transition-all duration-200 ease-out',
@@ -362,7 +393,10 @@ export function FloatingFeedbackButton() {
               // junto, senão a ampliação "salta" do canto.
               ? 'left-1/2 top-1/2 w-[min(880px,calc(100vw-3rem))] origin-center'
               : cn(
-                'bottom-20 right-5 lg:right-16 max-w-[calc(100vw-2.5rem)] origin-bottom-right',
+                'bottom-20 max-w-[calc(100vw-2.5rem)]',
+                lado === 'direita'
+                  ? 'right-5 lg:right-16 origin-bottom-right'
+                  : 'left-5 lg:left-20 origin-bottom-left',
                 mode === 'evento' ? 'w-[420px]' : 'w-[360px]',
               ),
             // Cap na altura da viewport (100dvh - folga p/ FAB e topo) + flex-col:
@@ -413,6 +447,20 @@ export function FloatingFeedbackButton() {
                         : 'Enviamos sua solicitação ao comercial'}
                 </div>
               </div>
+              {/* Trocar de lado fica no cabeçalho, e não num menu escondido:
+                  quem descobre que o botão atrapalha está justamente com o
+                  balão aberto na frente do que queria ver. */}
+              <button
+                type="button"
+                onClick={trocarLado}
+                className="h-6 w-6 shrink-0 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                title={lado === 'direita' ? 'Mover o botão para a esquerda' : 'Mover o botão para a direita'}
+                aria-label={lado === 'direita' ? 'Mover o botão para a esquerda' : 'Mover o botão para a direita'}
+              >
+                {lado === 'direita'
+                  ? <ArrowLeftToLine className="h-3.5 w-3.5" />
+                  : <ArrowRightToLine className="h-3.5 w-3.5" />}
+              </button>
               {/* Ampliar não aparece no menu: ali só há três botões, e uma
                   janela grande para escolher entre eles seria desproporcional. */}
               {mode !== 'menu' && (
