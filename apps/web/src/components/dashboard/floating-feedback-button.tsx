@@ -6,6 +6,7 @@ import {
   Bug, Lightbulb, MessageSquare, X, Send, Loader2, Check, ExternalLink,
   ImagePlus, Paperclip, Plus, ChevronLeft, LifeBuoy, FileText, Search, Building2,
   CalendarPlus, Clock, Users, Video, Monitor, DoorOpen, MapPin,
+  Maximize2, Minimize2,
 } from 'lucide-react'
 import { Button, cn, RichEditor } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -60,6 +61,15 @@ export function FloatingFeedbackButton() {
   // e saída (true→false antes do unmount em 200ms).
   const [entered, setEntered] = useState(false)
   const [mode, setMode] = useState<Mode>('menu')
+  /**
+   * Balão ampliado — vira uma janela central, do tamanho de um modal.
+   *
+   * O balão nasce colado no botão porque o caminho comum é anotar uma linha e
+   * enviar. Preencher um orçamento inteiro em 360px, porém, é sofrimento: o
+   * editor de texto fica com a altura de um campo e a lista de áreas quebra em
+   * três linhas. Ampliar resolve sem tirar de quem só quer o atalho rápido.
+   */
+  const [ampliado, setAmpliado] = useState(false)
   // Direção da transição entre telas: 'fwd' (menu → serviço) entra pela direita,
   // 'back' (serviço → menu) entra pela esquerda. Usado pela animação do corpo.
   const [dir, setDir] = useState<'fwd' | 'back'>('fwd')
@@ -126,6 +136,9 @@ export function FloatingFeedbackButton() {
       const t = setTimeout(() => {
         if (!open) {
           setMode('menu')
+          // Volta ao tamanho de balão: reabrir ampliado surpreenderia quem só
+          // quer o atalho rápido.
+          setAmpliado(false)
           setTexto('')
           setTipo(null)
           setAnexos([])
@@ -342,21 +355,34 @@ export function FloatingFeedbackButton() {
             // Popover acompanha o FAB (z-[60] + pointer-events-auto) —
             // fica acima de modais e recebe cliques normalmente.
             // 'evento' tem mais campos (modalidade/sala/garagem) → um pouco mais largo.
-            'fixed bottom-20 right-5 lg:right-16 z-[60] pointer-events-auto max-w-[calc(100vw-2.5rem)]',
-            mode === 'evento' ? 'w-[420px]' : 'w-[360px]',
+            'fixed z-[60] pointer-events-auto',
+            ampliado
+              // Centralizado, do tamanho de um modal. A origem da animação muda
+              // junto, senão a ampliação "salta" do canto.
+              ? 'left-1/2 top-1/2 w-[min(880px,calc(100vw-3rem))] origin-center'
+              : cn(
+                'bottom-20 right-5 lg:right-16 max-w-[calc(100vw-2.5rem)] origin-bottom-right',
+                mode === 'evento' ? 'w-[420px]' : 'w-[360px]',
+              ),
             // Cap na altura da viewport (100dvh - folga p/ FAB e topo) + flex-col:
             // em telas baixas o formulário mais alto (orçamento/evento) transborda pra
             // cima e o topo (header + Cliente) fica inacessível sem scroll (HLP0316).
             // O corpo rola internamente; header fica fixo.
-            'flex flex-col max-h-[calc(100dvh-6.5rem)]',
+            ampliado ? 'flex flex-col max-h-[calc(100dvh-4rem)]' : 'flex flex-col max-h-[calc(100dvh-6.5rem)]',
             'rounded-lg border border-border bg-card shadow-2xl overflow-hidden',
-            // Transição manual (origin no canto inferior direito = "sai do botão FAB").
-            'origin-bottom-right transition-all duration-200 ease-out',
+            // Transição manual (origin no canto do FAB quando encolhido).
+            'transition-all duration-200 ease-out',
             entered
-              ? 'opacity-100 scale-100 translate-y-0'
+              ? cn('opacity-100 scale-100', ampliado ? '' : 'translate-y-0')
               : 'opacity-0 scale-95 translate-y-2',
           )}
-          style={{ willChange: 'transform, opacity' }}
+          style={{
+            willChange: 'transform, opacity',
+            // Centragem por style, e não por classe: o `translate-y` da animação
+            // de entrada é uma utilitária da mesma família e as duas brigariam
+            // pela ordem no CSS, não pela ordem que escrevemos aqui.
+            ...(ampliado ? { transform: 'translate(-50%, -50%)' } : {}),
+          }}
         >
           {/* Header */}
           {!(mode === 'ticket' && ticketCriado) && (
@@ -372,7 +398,7 @@ export function FloatingFeedbackButton() {
                   <ChevronLeft className="h-4 w-4" />
                 </button>
               )}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-foreground">
                   {mode === 'menu' ? 'Criar Novo' : mode === 'ticket' ? 'Abrir ticket' : mode === 'evento' ? 'Novo evento' : 'Solicitar orçamento'}
                 </div>
@@ -386,6 +412,19 @@ export function FloatingFeedbackButton() {
                         : 'Enviamos sua solicitação ao comercial'}
                 </div>
               </div>
+              {/* Ampliar não aparece no menu: ali só há três botões, e uma
+                  janela grande para escolher entre eles seria desproporcional. */}
+              {mode !== 'menu' && (
+                <button
+                  type="button"
+                  onClick={() => setAmpliado(v => !v)}
+                  className="h-6 w-6 shrink-0 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  title={ampliado ? 'Reduzir' : 'Ampliar'}
+                  aria-label={ampliado ? 'Reduzir' : 'Ampliar'}
+                >
+                  {ampliado ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                </button>
+              )}
             </div>
           )}
 
