@@ -307,7 +307,19 @@ export default function ServicoDetailPage() {
   const id = params.id
 
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'visao' | 'etapas' | 'fluxo' | 'encadeamento' | 'subservicos' | 'texto' | 'notificacoes'>('visao')
+  const [activeTab, setActiveTab] = useState<'visao' | 'etapas' | 'fluxo' | 'encadeamento' | 'subservicos' | 'variacoes' | 'texto' | 'notificacoes'>('visao')
+
+  /**
+   * Variações — o texto e o valor que o usuário escolhe ao lançar este serviço
+   * num orçamento ("Plano Básico", "Plano Completo").
+   */
+  const [variacoes, setVariacoes] = useState<Array<{ id: string; titulo: string; descricao: string | null; valor: string | number | null }>>([])
+  const [varModalOpen, setVarModalOpen] = useState(false)
+  const [varEditando, setVarEditando] = useState<string | null>(null)
+  const [varTitulo, setVarTitulo] = useState('')
+  const [varDescricao, setVarDescricao] = useState('')
+  const [varValor, setVarValor] = useState('')
+  const [varSalvando, setVarSalvando] = useState(false)
   /** Ids dos serviços que são subserviços deste. */
   const [subservicos, setSubservicos] = useState<string[]>([])
   const [subOriginais, setSubOriginais] = useState<string[]>([])
@@ -562,6 +574,63 @@ export default function ServicoDetailPage() {
     }
   }
 
+  const fetchVariacoes = useCallback(async () => {
+    try {
+      const r = await (trpc.servico as any).listVariacoes.query({ servicoId: id })
+      setVariacoes(r || [])
+    } catch { setVariacoes([]) }
+  }, [id])
+
+  function abrirNovaVariacao() {
+    setVarEditando(null); setVarTitulo(''); setVarDescricao(''); setVarValor('')
+    setVarModalOpen(true)
+  }
+
+  function abrirEditarVariacao(v: { id: string; titulo: string; descricao: string | null; valor: string | number | null }) {
+    setVarEditando(v.id)
+    setVarTitulo(v.titulo)
+    setVarDescricao(v.descricao ?? '')
+    setVarValor(v.valor != null ? String(v.valor) : '')
+    setVarModalOpen(true)
+  }
+
+  async function salvarVariacao() {
+    if (!varTitulo.trim()) { await alerts.warning('Variação', 'Informe o título.'); return }
+    setVarSalvando(true)
+    try {
+      // Valor em branco não é zero: é "usa o valor do serviço". Zerar aqui
+      // faria a variação sobrescrever o preço com R$ 0,00.
+      const valor = varValor.trim() === '' ? null : Number(varValor)
+      if (varEditando) {
+        await (trpc.servico as any).updateVariacao.mutate({ id: varEditando, titulo: varTitulo, descricao: varDescricao || null, valor })
+      } else {
+        await (trpc.servico as any).addVariacao.mutate({ servicoId: id, titulo: varTitulo, descricao: varDescricao || null, valor })
+      }
+      setVarModalOpen(false)
+      await fetchVariacoes()
+    } catch (e) {
+      await alerts.error('Não foi possível salvar', (e as Error).message)
+    } finally {
+      setVarSalvando(false)
+    }
+  }
+
+  async function excluirVariacao(v: { id: string; titulo: string }) {
+    const ok = await alerts.confirm({
+      title: 'Excluir a variação?',
+      text: `"${v.titulo}" deixa de ser oferecida ao lançar este serviço num orçamento. Itens já lançados com ela não mudam.`,
+      icon: 'warning',
+      confirmText: 'Excluir',
+    })
+    if (!ok) return
+    try {
+      await (trpc.servico as any).removeVariacao.mutate({ id: v.id })
+      await fetchVariacoes()
+    } catch (e) {
+      await alerts.error('Não foi possível excluir', (e as Error).message)
+    }
+  }
+
   const fetchTodosServicos = useCallback(async () => {
     try {
       const result = await (trpc.servico as any).listServicos.query() as Array<{ id: string; nome: string }>
@@ -618,7 +687,7 @@ export default function ServicoDetailPage() {
     }
   }, [id])
 
-  useEffect(() => { fetchServico(); fetchEncadeamentos(); fetchTodosServicos(); fetchAreas(); fetchTodosGrupos(); fetchResponsaveisAtribuiveis(); fetchUsuariosForSelect() }, [fetchServico, fetchEncadeamentos, fetchTodosServicos, fetchAreas, fetchTodosGrupos, fetchResponsaveisAtribuiveis, fetchUsuariosForSelect])
+  useEffect(() => { fetchServico(); fetchEncadeamentos(); fetchTodosServicos(); fetchAreas(); fetchTodosGrupos(); fetchResponsaveisAtribuiveis(); fetchUsuariosForSelect(); fetchVariacoes() }, [fetchServico, fetchEncadeamentos, fetchTodosServicos, fetchAreas, fetchTodosGrupos, fetchResponsaveisAtribuiveis, fetchUsuariosForSelect, fetchVariacoes])
 
   useEffect(() => {
     // Lazy-load Fluxo ao abrir a aba
@@ -1166,6 +1235,12 @@ export default function ServicoDetailPage() {
                 <Network className="h-3.5 w-3.5" /> Subserviços
                 {subservicos.length > 0 && (
                   <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{subservicos.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="variacoes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
+                <Layers className="h-3.5 w-3.5" /> Variações
+                {variacoes.length > 0 && (
+                  <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{variacoes.length}</Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger value="texto" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
@@ -2582,6 +2657,63 @@ export default function ServicoDetailPage() {
           </Card>
         </TabsContent>
 
+        {/* ── TAB: Variações ── */}
+        <TabsContent value="variacoes" className="mt-4">
+          <Card>
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold">Variações</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Título, descrição e valor oferecidos ao lançar este serviço num orçamento —
+                    &quot;Plano Básico&quot;, &quot;Plano Completo&quot;. Sem variação, o serviço entra com o
+                    texto e o valor padrão dele.
+                  </p>
+                </div>
+                <Button onClick={abrirNovaVariacao} size="sm" className="gap-1.5 shrink-0" style={{ backgroundColor: MODULE_COLOR }}>
+                  <Plus className="h-3.5 w-3.5" /> Nova variação
+                </Button>
+              </div>
+
+              {variacoes.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic py-8 text-center">
+                  Nenhuma variação cadastrada.
+                </p>
+              ) : (
+                <div className="rounded-lg border border-border divide-y divide-border/60">
+                  {variacoes.map(v => (
+                    <div key={v.id} className="flex items-start gap-3 px-3 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-medium truncate">{v.titulo}</span>
+                          {v.valor != null && (
+                            <Badge variant="secondary" className="text-[10px] tabular-nums shrink-0">
+                              R$ {Number(v.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </Badge>
+                          )}
+                        </div>
+                        {/* line-clamp achata o HTML de propósito: aqui é prévia. */}
+                        {v.descricao && (
+                          <div className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5"
+                            dangerouslySetInnerHTML={{ __html: v.descricao }} />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button variant="soft-info" size="icon-sm" onClick={() => abrirEditarVariacao(v)}>
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="soft-destructive" size="icon-sm" onClick={() => excluirVariacao(v)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* ── TAB: Texto padrão ── */}
         <TabsContent value="texto" className="mt-4">
           <Card>
@@ -2678,6 +2810,53 @@ export default function ServicoDetailPage() {
             <Button onClick={salvarEncadeamento} disabled={encSaving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
               {encSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingEnc ? 'Salvar' : 'Adicionar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal da variação */}
+      <Dialog open={varModalOpen} onOpenChange={o => { if (!o && !varSalvando) setVarModalOpen(false) }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeaderIcon icon={Layers} color={varEditando ? 'sky' : 'emerald'}>
+            <DialogTitle>{varEditando ? 'Editar variação' : 'Nova variação'}</DialogTitle>
+            <DialogDescription>
+              O que aparece para quem lança este serviço num orçamento.
+            </DialogDescription>
+          </DialogHeaderIcon>
+
+          <DialogBody className="space-y-4">
+            <div className="grid grid-cols-12 gap-3">
+              <div className="col-span-12 sm:col-span-8 space-y-1.5">
+                <Label className="text-[13px] font-semibold">Título *</Label>
+                <Input value={varTitulo} onChange={e => setVarTitulo(e.target.value)}
+                  placeholder="Ex.: Plano Básico" className="h-9 text-sm" />
+              </div>
+              <div className="col-span-12 sm:col-span-4 space-y-1.5">
+                <Label className="text-[13px] font-semibold">Valor R$</Label>
+                <Input type="number" step="0.01" min="0" value={varValor}
+                  onChange={e => setVarValor(e.target.value)}
+                  placeholder="usa o do serviço" className="h-9 text-sm" />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Descrição</Label>
+              <RichEditor value={varDescricao} onChange={setVarDescricao} />
+              <p className="text-[11px] text-muted-foreground">
+                Vira o texto do item na proposta enviada ao cliente.
+              </p>
+            </div>
+          </DialogBody>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setVarModalOpen(false)} disabled={varSalvando}>
+              Cancelar
+            </Button>
+            <Button onClick={salvarVariacao} disabled={varSalvando} size="sm" className="gap-1.5"
+              style={{ backgroundColor: MODULE_COLOR }}>
+              {varSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>

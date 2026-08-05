@@ -554,6 +554,55 @@ export class ServicoService {
     return { ok: true, total: alvos.length }
   }
 
+  // ── Variações ─────────────────────────────────────────────
+  //
+  // A variação é o texto+valor que o usuário escolhe ao lançar o serviço num
+  // orçamento ("Plano Básico", "Plano Completo"). Ela mora na tabela do módulo
+  // de orçamento porque nasceu lá, mas quem a cadastra é quem cadastra o
+  // serviço — daí existir também por aqui, sob a permissão de Serviços.
+
+  async listVariacoes(servicoId: string) {
+    return prisma.orcamentoCatalogoTexto.findMany({
+      where: { catalogoId: servicoId },
+      orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
+    })
+  }
+
+  async addVariacao(servicoId: string, data: { titulo: string; descricao?: string | null; valor?: number | null }) {
+    const servico = await prisma.servico.findUnique({ where: { id: servicoId }, select: { id: true } })
+    if (!servico) throw new Error('Serviço não encontrado.')
+
+    // Entra no fim da lista: quem cadastra está acrescentando, não inserindo.
+    const ordem = await prisma.orcamentoCatalogoTexto.count({ where: { catalogoId: servicoId } })
+
+    return prisma.orcamentoCatalogoTexto.create({
+      data: {
+        catalogoId: servicoId,
+        titulo: data.titulo,
+        descricao: data.descricao || null,
+        valor: data.valor ?? null,
+        ordem,
+      },
+    })
+  }
+
+  async updateVariacao(id: string, data: { titulo?: string; descricao?: string | null; valor?: number | null }) {
+    return prisma.orcamentoCatalogoTexto.update({ where: { id }, data: data as never })
+  }
+
+  async removeVariacao(id: string) {
+    await prisma.orcamentoCatalogoTexto.delete({ where: { id } })
+    return { ok: true }
+  }
+
+  /** Grava a ordem escolhida na tela — a lista é lida por gente, e a ordem vende. */
+  async reordenarVariacoes(ids: string[]) {
+    await prisma.$transaction(
+      ids.map((id, i) => prisma.orcamentoCatalogoTexto.update({ where: { id }, data: { ordem: i } })),
+    )
+    return { ok: true }
+  }
+
   async getServico(id: string) {
     return prisma.servico.findUnique({
       where: { id },
