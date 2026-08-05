@@ -13,7 +13,7 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   Workflow, Loader2, ArrowLeft, Save, Plus, Trash2, Edit, AlertCircle,
   Play, Pause, FileText, Layers, GitBranch, History, ListChecks,
-  GripVertical, Tag, Clock, ArrowRight, X, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check,
+  GripVertical, Tag, Clock, ArrowRight, X, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check, Search,
   Bell, Mail, UserCog, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database,
   StickyNote, Link as LinkIcon, Paperclip,
 } from 'lucide-react'
@@ -23,6 +23,7 @@ import {
   Tabs, TabsTrigger, TabsContent, SlidingTabsList,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
+  Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
   RichEditor, Checkbox,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -320,6 +321,7 @@ export default function ServicoDetailPage() {
   const [varDescricao, setVarDescricao] = useState('')
   const [varValor, setVarValor] = useState('')
   const [varSalvando, setVarSalvando] = useState(false)
+  const [varBusca, setVarBusca] = useState('')
   /** Ids dos serviços que são subserviços deste. */
   const [subservicos, setSubservicos] = useState<string[]>([])
   const [subOriginais, setSubOriginais] = useState<string[]>([])
@@ -614,6 +616,10 @@ export default function ServicoDetailPage() {
       setVarSalvando(false)
     }
   }
+
+  const variacoesFiltradas = varBusca.trim()
+    ? variacoes.filter(v => v.titulo.toLowerCase().includes(varBusca.trim().toLowerCase()))
+    : variacoes
 
   async function excluirVariacao(v: { id: string; titulo: string }) {
     const ok = await alerts.confirm({
@@ -2680,35 +2686,59 @@ export default function ServicoDetailPage() {
                   Nenhuma variação cadastrada.
                 </p>
               ) : (
-                <div className="rounded-lg border border-border divide-y divide-border/60">
-                  {variacoes.map(v => (
-                    <div key={v.id} className="flex items-start gap-3 px-3 py-2.5">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-medium truncate">{v.titulo}</span>
-                          {v.valor != null && (
-                            <Badge variant="secondary" className="text-[10px] tabular-nums shrink-0">
-                              R$ {Number(v.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </Badge>
-                          )}
-                        </div>
-                        {/* line-clamp achata o HTML de propósito: aqui é prévia. */}
-                        {v.descricao && (
-                          <div className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5"
-                            dangerouslySetInnerHTML={{ __html: v.descricao }} />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button variant="soft-info" size="icon-sm" onClick={() => abrirEditarVariacao(v)}>
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="soft-destructive" size="icon-sm" onClick={() => excluirVariacao(v)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                <>
+                  {/* A busca só aparece quando há o que procurar — um campo de
+                      filtro sobre três linhas é ruído. */}
+                  {variacoes.length > 5 && (
+                    <div className="relative max-w-sm">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input value={varBusca} onChange={e => setVarBusca(e.target.value)}
+                        placeholder="Filtrar por título..." className="h-9 pl-8 text-sm" />
                     </div>
-                  ))}
-                </div>
+                  )}
+
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <Table className="table-fixed">
+                      <TableHeader>
+                        <TableRow className="bg-muted/40">
+                          <TableHead className="text-xs font-semibold uppercase tracking-wider">Título</TableHead>
+                          <TableHead className="w-[140px] text-right text-xs font-semibold uppercase tracking-wider">Valor</TableHead>
+                          <TableHead className="w-[90px]" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {variacoesFiltradas.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center py-8 text-sm text-muted-foreground italic">
+                              Nenhuma variação com esse título.
+                            </TableCell>
+                          </TableRow>
+                        ) : variacoesFiltradas.map(v => (
+                          <TableRow key={v.id} className="cursor-pointer" onClick={() => abrirEditarVariacao(v)}>
+                            <TableCell className="text-[13px] truncate" title={v.titulo}>{v.titulo}</TableCell>
+                            <TableCell className="text-[13px] text-right tabular-nums">
+                              {v.valor != null
+                                ? `R$ ${Number(v.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                : <span className="text-muted-foreground">usa o do serviço</span>}
+                            </TableCell>
+                            {/* O clique da linha abre a edição — o da coluna de
+                                ações não pode abrir junto. */}
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              <div className="flex items-center gap-1 justify-end">
+                                <Button variant="soft-info" size="icon-sm" onClick={() => abrirEditarVariacao(v)}>
+                                  <Edit className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button variant="soft-destructive" size="icon-sm" onClick={() => excluirVariacao(v)}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
