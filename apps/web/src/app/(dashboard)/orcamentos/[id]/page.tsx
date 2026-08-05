@@ -768,10 +768,12 @@ export default function OrcamentoDetailPage() {
   const [itemDescValor, setItemDescValor] = useState('')
   const [itemCatalogoId, setItemCatalogoId] = useState<string>('')
   const [itemTextoId, setItemTextoId] = useState<string>('')
+  /** Subserviço escolhido dentro do serviço — obrigatório quando ele tem subserviços. */
+  const [itemSubservicoId, setItemSubservicoId] = useState<string>('')
   const [addingItem, setAddingItem] = useState(false)
 
   // Catalogo (servicos disponiveis para orcamento)
-  const [catalogo, setCatalogo] = useState<Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null; textoPadrao: string | null; textos?: CatalogoTexto[] }>>([])
+  const [catalogo, setCatalogo] = useState<Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null; textoPadrao: string | null; textos?: CatalogoTexto[]; subservicos?: Array<{ id: string; nome: string; valorPadrao: number | string | null; textoPadrao: string | null; textos?: CatalogoTexto[] }> }>>([])
 
   // Inline edit
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
@@ -1402,6 +1404,7 @@ export default function OrcamentoDetailPage() {
         itemDescontoPct: itemTipo === 'SERVICO' ? (parseFloat(itemDescPct) || undefined) : undefined,
         itemDescontoValor: itemTipo === 'SERVICO' ? (parseFloat(itemDescValor) || undefined) : undefined,
         catalogoId: itemCatalogoId || undefined,
+        subservicoId: itemSubservicoId || undefined,
         catalogoTextoId: itemTextoId || undefined,
       })
       setItemTipo('')
@@ -1411,6 +1414,8 @@ export default function OrcamentoDetailPage() {
       setItemDescPct('')
       setItemDescValor('')
       setItemCatalogoId('')
+    setItemSubservicoId('')
+      setItemSubservicoId('')
       setItemTextoId('')
       fetchOrc(true)
     } catch (e) { alerts.error('Erro', (e as Error).message) }
@@ -1426,6 +1431,17 @@ export default function OrcamentoDetailPage() {
     setItemValor('')
   }
 
+  /**
+   * Falta escolher o subserviço obrigatório.
+   *
+   * A regra é a mesma do servidor — repetida aqui só para o botão explicar
+   * antes de o usuário clicar, em vez de devolver erro depois.
+   */
+  const faltaSubservico = (() => {
+    const cat = catalogo.find(c => c.id === itemCatalogoId)
+    return !!cat?.subservicos?.length && !itemSubservicoId
+  })()
+
   // Helper de "captura de valor": o valor FIXO do serviço (valorPadrao) prevalece.
   // Só quando o serviço NÃO tem valor fixo (null/0) é que o valor do texto escolhido
   // é capturado para o valorUnitário do item.
@@ -1439,15 +1455,37 @@ export default function OrcamentoDetailPage() {
     if (!item) return
     setItemCatalogoId(catalogoId)
     setItemTextoId('')
+    setItemSubservicoId('')
     setItemDescricao(item.nome)
     if (item.valorPadrao != null) setItemValor(String(item.valorPadrao))
+  }
+
+  /**
+   * Escolha do subserviço.
+   *
+   * Quando há subserviço, é ELE que descreve e precifica o item — o serviço
+   * mãe vira só o agrupador. Por isso a descrição e o valor passam a vir do
+   * filho, e a variação recomeça: as variações são dele, não do pai.
+   */
+  function handleSelecionarSubservico(subId: string) {
+    setItemSubservicoId(subId)
+    setItemTextoId('')
+    const pai = catalogo.find(c => c.id === itemCatalogoId)
+    const sub = pai?.subservicos?.find(x => x.id === subId)
+    if (!sub) return
+    setItemDescricao(`${pai!.nome} — ${sub.nome}`)
+    if (sub.valorPadrao != null) setItemValor(String(sub.valorPadrao))
   }
 
   // Escolha do texto do registro (no formulário de inclusão). Captura o valor do
   // texto SOMENTE se o serviço não tem valor fixo (regra confirmada).
   function handleSelecionarTexto(textoId: string) {
     setItemTextoId(textoId)
-    const item = catalogo.find(c => c.id === itemCatalogoId)
+    const pai = catalogo.find(c => c.id === itemCatalogoId)
+    // Com subserviço escolhido, é ele quem manda no texto e no valor.
+    const item = itemSubservicoId
+      ? pai?.subservicos?.find(x => x.id === itemSubservicoId)
+      : pai
     const texto = item?.textos?.find(t => t.id === textoId)
     if (texto && !temValorFixo(item?.valorPadrao) && texto.valor != null) {
       setItemValor(String(texto.valor))
@@ -2324,7 +2362,31 @@ export default function OrcamentoDetailPage() {
                             </div>
                             {(() => {
                               const cat = catalogo.find(c => c.id === itemCatalogoId)
-                              if (!cat?.textos?.length) return null
+                              if (!cat?.subservicos?.length) return null
+                              return (
+                                <div className="space-y-1.5 min-w-[180px]">
+                                  {/* Sem "Nenhum": o serviço foi decomposto justamente
+                                      para não entrar genérico no orçamento. */}
+                                  <Label className="text-[13px] font-semibold text-foreground">Subserviço *</Label>
+                                  <Select value={itemSubservicoId || undefined} onValueChange={handleSelecionarSubservico}>
+                                    <SelectTrigger className="h-9 w-[220px] text-sm"><SelectValue placeholder="Escolha o subserviço" /></SelectTrigger>
+                                    <SelectContent>
+                                      {cat.subservicos.map(sub => (
+                                        <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )
+                            })()}
+                            {(() => {
+                              const cat = catalogo.find(c => c.id === itemCatalogoId)
+                              // Escolhido o subserviço, as variações são DELE — as do
+                              // pai descreveriam outro serviço.
+                              const dono = itemSubservicoId
+                                ? cat?.subservicos?.find(x => x.id === itemSubservicoId)
+                                : cat
+                              if (!dono?.textos?.length) return null
                               return (
                                 <div className="space-y-1.5 min-w-[180px]">
                                   <Label className="text-[13px] font-semibold text-foreground">Variação</Label>
@@ -2332,7 +2394,7 @@ export default function OrcamentoDetailPage() {
                                     <SelectTrigger className="h-9 w-[200px] text-sm"><SelectValue placeholder="Selecione a variação" /></SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="__none__">Nenhuma</SelectItem>
-                                      {cat.textos.map(t => (
+                                      {dono.textos.map(t => (
                                         <SelectItem key={t.id} value={t.id}>{t.titulo}</SelectItem>
                                       ))}
                                     </SelectContent>
@@ -2361,7 +2423,10 @@ export default function OrcamentoDetailPage() {
                                 </div>
                               </>
                             )}
-                            <Button variant="success" size="sm" onClick={handleAddItem} disabled={addingItem || !itemTipo || !itemDescricao.trim()} className="gap-1.5 h-9">
+                            <Button variant="success" size="sm" onClick={handleAddItem}
+                              disabled={addingItem || !itemTipo || !itemDescricao.trim() || faltaSubservico}
+                              title={faltaSubservico ? 'Escolha o subserviço antes de incluir.' : undefined}
+                              className="gap-1.5 h-9">
                               {addingItem ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                               Incluir Item
                             </Button>

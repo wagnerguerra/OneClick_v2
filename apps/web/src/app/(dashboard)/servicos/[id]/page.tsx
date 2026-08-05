@@ -17,6 +17,7 @@ import {
   Bell, Mail, UserCog, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database,
   StickyNote, Link as LinkIcon, Paperclip,
 } from 'lucide-react'
+import Link from 'next/link'
 import {
   Button, Card, CardHeader, CardContent, Badge, Label, Input, cn,
   Tabs, TabsTrigger, TabsContent, SlidingTabsList,
@@ -306,7 +307,14 @@ export default function ServicoDetailPage() {
   const id = params.id
 
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'visao' | 'etapas' | 'fluxo' | 'encadeamento' | 'texto' | 'notificacoes'>('visao')
+  const [activeTab, setActiveTab] = useState<'visao' | 'etapas' | 'fluxo' | 'encadeamento' | 'subservicos' | 'texto' | 'notificacoes'>('visao')
+  /** Ids dos serviços que são subserviços deste. */
+  const [subservicos, setSubservicos] = useState<string[]>([])
+  const [subOriginais, setSubOriginais] = useState<string[]>([])
+  const [buscaSub, setBuscaSub] = useState('')
+  /** Serviços dos quais ESTE é subserviço — só leitura, para dar o contexto. */
+  const [ehSubservicoDe, setEhSubservicoDe] = useState<Array<{ id: string; nome: string }>>([])
+  const [salvandoSub, setSalvandoSub] = useState(false)
   // Pill ativa dentro da aba Visão geral
   const [visaoPill, setVisaoPill] = useState<'identificacao' | 'descricao' | 'comercial' | 'atribuicao' | 'avancado' | 'vencimentosMensais'>('identificacao')
 
@@ -451,6 +459,10 @@ export default function ServicoDetailPage() {
       setEhServicoInterno((s as any).ehServicoInterno === true)
       setEhObrigacaoAcessoria((s as any).ehObrigacaoAcessoria === true)
       setServicoPaiId(s.servicoPaiId ?? '')
+      const filhos = ((s as any).subservicos ?? []).map((v: { filho: { id: string } }) => v.filho.id)
+      setSubservicos(filhos)
+      setSubOriginais(filhos)
+      setEhSubservicoDe(((s as any).eSubservicoDe ?? []).map((v: { pai: { id: string; nome: string } }) => v.pai))
       setSegmentoSlug(s.segmentoSlug ?? null)
       setTextoPadrao(s.textoPadrao ?? '')
       setGruposIds(((s.grupos ?? []) as Array<{ grupo: { id: string } }>).map(g => g.grupo.id))
@@ -532,6 +544,23 @@ export default function ServicoDetailPage() {
       setTodosGrupos(result || [])
     } catch { setTodosGrupos([]) }
   }, [])
+
+  /** Só habilita Salvar quando o conjunto mudou de verdade. */
+  const mudouSub = subservicos.length !== subOriginais.length
+    || subservicos.some(x => !subOriginais.includes(x))
+
+  async function salvarSubservicos() {
+    setSalvandoSub(true)
+    try {
+      await (trpc.servico as any).setSubservicos.mutate({ paiId: id, filhoIds: subservicos })
+      setSubOriginais(subservicos)
+      alerts.success('Subserviços', 'Vínculos salvos.')
+    } catch (e) {
+      await alerts.error('Não foi possível salvar', (e as Error).message)
+    } finally {
+      setSalvandoSub(false)
+    }
+  }
 
   const fetchTodosServicos = useCallback(async () => {
     try {
@@ -1131,6 +1160,12 @@ export default function ServicoDetailPage() {
                 <History className="h-3.5 w-3.5" /> Sucessores
                 {encadeamentos.length > 0 && (
                   <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{encadeamentos.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="subservicos" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
+                <Network className="h-3.5 w-3.5" /> Subserviços
+                {subservicos.length > 0 && (
+                  <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{subservicos.length}</Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger value="texto" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
@@ -2460,6 +2495,88 @@ export default function ServicoDetailPage() {
                     </div>
                   ))}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── TAB: Subserviços ── */}
+        <TabsContent value="subservicos" className="mt-4">
+          <Card>
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold">Subserviços</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Serviços que fazem parte deste. Cada um continua valendo sozinho — entra
+                    direto num orçamento e tem as próprias variações.
+                  </p>
+                </div>
+                <Button onClick={salvarSubservicos} disabled={salvandoSub || !mudouSub} size="sm"
+                  className="gap-1.5 shrink-0" style={{ backgroundColor: MODULE_COLOR }}>
+                  {salvandoSub ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Salvar
+                </Button>
+              </div>
+
+              {/* A consequência precisa estar à vista de quem vincula: é uma
+                  regra que passa a valer na tela de orçamento de outra pessoa. */}
+              {subservicos.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-[12px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
+                  Com subserviços vinculados, o orçamento passa a <b>exigir a escolha de um deles</b>
+                  {' '}quando este serviço for lançado — ele não entra mais genérico.
+                </div>
+              )}
+
+              {ehSubservicoDe.length > 0 && (
+                <p className="text-[12px] text-muted-foreground">
+                  Este serviço é subserviço de{' '}
+                  {ehSubservicoDe.map((p, i) => (
+                    <span key={p.id}>
+                      {i > 0 && ', '}
+                      <Link href={`/servicos/${p.id}`} className="text-sky-600 hover:underline">{p.nome}</Link>
+                    </span>
+                  ))}
+                  . Por isso ele não pode ter subserviços próprios — o catálogo trabalha com dois níveis.
+                </p>
+              )}
+
+              {ehSubservicoDe.length === 0 && (
+                <>
+                  <Input value={buscaSub} onChange={e => setBuscaSub(e.target.value)}
+                    placeholder="Buscar serviço para vincular..." className="h-9 text-sm" />
+
+                  {subservicos.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {subservicos.map(sid => {
+                        const sv = todosServicos.find(x => x.id === sid)
+                        return (
+                          <Badge key={sid} variant="secondary" className="gap-1 text-[11px] py-1">
+                            {sv?.nome ?? sid}
+                            <button type="button" onClick={() => setSubservicos(l => l.filter(x => x !== sid))}
+                              className="hover:text-destructive"><X className="h-3 w-3" /></button>
+                          </Badge>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  <div className="nice-scrollbar max-h-[320px] overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
+                    {todosServicos
+                      .filter(sv => sv.id !== id && (!buscaSub || sv.nome.toLowerCase().includes(buscaSub.toLowerCase())))
+                      .slice(0, 300)
+                      .map(sv => {
+                        const marcado = subservicos.includes(sv.id)
+                        return (
+                          <label key={sv.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-muted/30">
+                            <input type="checkbox" checked={marcado} className="h-4 w-4"
+                              onChange={() => setSubservicos(l => marcado ? l.filter(x => x !== sv.id) : [...l, sv.id])} />
+                            <span className="flex-1 text-[13px] truncate">{sv.nome}</span>
+                          </label>
+                        )
+                      })}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

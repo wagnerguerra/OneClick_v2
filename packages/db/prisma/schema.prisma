@@ -3840,6 +3840,9 @@ model OrcamentoItem {
   descontoPct   Decimal? @map("desconto_pct") @db.Decimal(5, 2)
   descontoValor Decimal? @map("desconto_valor") @db.Decimal(12, 2)
   catalogoId    String?  @map("catalogo_id")
+  // Subserviço escolhido dentro do serviço acima. Quando preenchido, é ELE que
+  // manda no texto e no valor — o serviço mãe vira só o agrupador.
+  subservicoId  String?  @map("subservico_id")
   // Texto escolhido do catálogo — vira o "texto padrão" exibido para este item
   catalogoTextoId String? @map("catalogo_texto_id")
   situacao      String   @default("A_FAZER") // A_FAZER | FAZENDO | PENDENTE | CONCLUIDO (legado crp_orcamentos.com_orc_ser.situacao)
@@ -3847,8 +3850,12 @@ model OrcamentoItem {
 
   orcamento Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
   catalogoTexto OrcamentoCatalogoTexto? @relation(fields: [catalogoTextoId], references: [id], onDelete: SetNull)
+  // SetNull, e não Cascade: apagar um serviço do catálogo não pode levar junto
+  // o item de um orçamento já enviado ao cliente.
+  subservico Servico? @relation("ItemSubservico", fields: [subservicoId], references: [id], onDelete: SetNull)
 
   @@index([orcamentoId])
+  @@index([subservicoId])
   @@map("orcamento_itens")
 }
 
@@ -4274,12 +4281,47 @@ model Servico {
   servicoPai   Servico?  @relation("ServicoFluxoItens", fields: [servicoPaiId], references: [id], onDelete: Cascade)
   itensDeFluxo Servico[] @relation("ServicoFluxoItens")
 
+  // Subserviços — o serviço visto como pai e como filho no catálogo comercial.
+  // Ver ServicoSubservico para o porquê de não ser o servicoPaiId acima.
+  subservicos ServicoSubservico[] @relation("SubservicoPai")
+  eSubservicoDe ServicoSubservico[] @relation("SubservicoFilho")
+
+  // Itens de orçamento que escolheram este serviço como subserviço.
+  itensComoSubservico OrcamentoItem[] @relation("ItemSubservico")
+
   @@index([categoria])
   @@index([categoriaServico])
   @@index([servicoPaiId])
   @@index([ehObrigacaoAcessoria])
   @@index([ehServicoInterno])
   @@map("servicos")
+}
+
+/// Subserviço: um serviço aparece como filho de outro no catálogo comercial.
+///
+/// "Serviço Extra Legalização" tem COMPETE, INVEST, Renovação como filhos —
+/// e COMPETE continua sendo um serviço inteiro, que pode entrar sozinho num
+/// orçamento e ter as próprias variações.
+///
+/// Tabela à parte, e NÃO o `Servico.servicoPaiId`: aquele campo já significa
+/// outra coisa (item interno do fluxo de trabalho), apaga o filho junto com o
+/// pai e admite um pai só. Aqui é o contrário nos três pontos — o filho
+/// sobrevive ao pai, pode ter vários pais, e o vínculo é comercial.
+model ServicoSubservico {
+  paiId     String   @map("pai_id")
+  filhoId   String   @map("filho_id")
+  /// Ordem de exibição sob o pai. O catálogo é lido por gente, e a ordem
+  /// alfabética raramente é a ordem em que se vende.
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Cascade nos dois lados apaga o VÍNCULO, nunca o outro serviço.
+  pai   Servico @relation("SubservicoPai", fields: [paiId], references: [id], onDelete: Cascade)
+  filho Servico @relation("SubservicoFilho", fields: [filhoId], references: [id], onDelete: Cascade)
+
+  @@id([paiId, filhoId])
+  @@index([filhoId])
+  @@map("servico_subservicos")
 }
 
 model ServicoEtapa {

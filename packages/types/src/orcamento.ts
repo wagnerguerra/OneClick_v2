@@ -66,6 +66,8 @@ export const createOrcamentoItemSchema = z.object({
   itemDescontoPct: z.coerce.number().min(0).max(100).optional().nullable(),
   itemDescontoValor: z.coerce.number().min(0).optional().nullable(),
   catalogoId: z.string().optional().nullable(),
+  /** Subserviço escolhido dentro do serviço acima — obrigatório quando ele tem subserviços. */
+  subservicoId: z.string().optional().nullable(),
   catalogoTextoId: z.string().optional().nullable(),
   situacao: itemSituacaoSchema.optional(),
 })
@@ -81,6 +83,7 @@ export const updateOrcamentoItemSchema = z.object({
   // Vínculo com item do catálogo — permite trocar o serviço na edição
   // usando a mesma busca da inclusão (#HLP0088).
   catalogoId: z.string().optional().nullable(),
+  subservicoId: z.string().optional().nullable(),
   catalogoTextoId: z.string().optional().nullable(),
 })
 

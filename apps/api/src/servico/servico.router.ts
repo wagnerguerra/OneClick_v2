@@ -67,6 +67,11 @@ export function createServicoRouter(servicoService: ServicoService) {
       .input(z.object({ id: z.string(), data: updateServicoSchema }))
       .mutation(({ input }) => servicoService.updateServico(input.id, input.data)),
 
+    /** Define, de uma vez, quais serviços são subserviços deste. */
+    setSubservicos: writeProcedure(MODULE)
+      .input(z.object({ paiId: z.string().min(1), filhoIds: z.array(z.string().min(1)) }))
+      .mutation(({ input }) => servicoService.setSubservicos(input.paiId, input.filhoIds)),
+
     deleteServico: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => servicoService.deleteServico(input.id)),

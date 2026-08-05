@@ -3088,8 +3088,46 @@ export class OrcamentoService {
 
   // ── Itens ─────────────────────────────────────────────────
 
+  /**
+   * Confere a escolha do subserviço.
+   *
+   * A regra é do negócio: um serviço que foi decomposto em subserviços não
+   * deve entrar genérico num orçamento — se "Extra Legalização" virou COMPETE,
+   * INVEST e Renovação, cobrar "Extra Legalização" sem dizer qual não informa
+   * o cliente nem a execução.
+   *
+   * Vale só para quem TEM subserviços: nada muda para o resto do catálogo, e
+   * itens antigos continuam válidos porque a checagem é na escrita, não na
+   * leitura.
+   */
+  private async validarSubservico(catalogoId?: string | null, subservicoId?: string | null) {
+    if (!catalogoId) return
+
+    const filhos = await prisma.servicoSubservico.findMany({
+      where: { paiId: catalogoId },
+      select: { filhoId: true, pai: { select: { nome: true } } },
+    }).catch(() => [])
+
+    if (filhos.length === 0) {
+      // Sem filhos, mandar um subserviço é incoerente — provavelmente sobrou
+      // da escolha anterior na tela.
+      if (subservicoId) throw new Error('Este serviço não tem subserviços.')
+      return
+    }
+
+    if (!subservicoId) {
+      throw new Error(
+        `"${filhos[0]!.pai.nome}" tem subserviços. Escolha qual deles entra no orçamento.`,
+      )
+    }
+    if (!filhos.some(f => f.filhoId === subservicoId)) {
+      throw new Error('O subserviço escolhido não pertence a este serviço.')
+    }
+  }
+
   async addItem(input: CreateOrcamentoItemInput) {
     await this.assertEditable(input.orcamentoId)
+    await this.validarSubservico(input.catalogoId, input.subservicoId)
     // Desconto por item só vale para serviço (#HLP0302, decisão de negócio):
     // TAXA/DESPESA nunca recebem desconto, então zeramos por segurança mesmo que
     // o cliente mande algo.
@@ -3104,6 +3142,7 @@ export class OrcamentoService {
         descontoPct: ehServico ? (input.itemDescontoPct ?? null) : null,
         descontoValor: ehServico ? (input.itemDescontoValor ?? null) : null,
         catalogoId: input.catalogoId || null,
+        subservicoId: input.subservicoId || null,
         catalogoTextoId: input.catalogoTextoId || null,
         situacao: input.situacao || 'A_FAZER',
       },
@@ -3114,9 +3153,21 @@ export class OrcamentoService {
   }
 
   async updateItem(id: string, data: UpdateOrcamentoItemInput) {
-    const item = await prisma.orcamentoItem.findUnique({ where: { id }, select: { orcamentoId: true, tipo: true } })
+    const item = await prisma.orcamentoItem.findUnique({
+      where: { id },
+      select: { orcamentoId: true, tipo: true, catalogoId: true, subservicoId: true },
+    })
     if (!item) throw new Error('Item não encontrado')
     await this.assertEditable(item.orcamentoId)
+
+    // Só confere quando a edição mexe em serviço ou subserviço — mudar a
+    // quantidade de um item antigo não pode esbarrar numa regra nova.
+    if (data.catalogoId !== undefined || data.subservicoId !== undefined) {
+      await this.validarSubservico(
+        data.catalogoId !== undefined ? data.catalogoId : item.catalogoId,
+        data.subservicoId !== undefined ? data.subservicoId : item.subservicoId,
+      )
+    }
     // Mapeia os nomes da API (itemDesconto*) para as colunas do item (desconto*),
     // separando-os dos campos genéricos. Desconto só entra em serviço.
     const { itemDescontoPct, itemDescontoValor, ...rest } = data
@@ -3542,11 +3593,27 @@ export class OrcamentoService {
     const items = [...servicosAsCatalogo, ...catalogosNormalizados]
     const ids = items.map(i => i.id)
 
+    // Subserviços de cada serviço — é o que permite a tela oferecer
+    // "Extra Legalização → COMPETE" sem uma segunda ida ao servidor a cada
+    // serviço escolhido.
+    const vinculos = ids.length > 0
+      ? await prisma.servicoSubservico.findMany({
+          where: { paiId: { in: ids }, filho: { ativo: true, ehServicoInterno: false } },
+          orderBy: { ordem: 'asc' },
+          select: { paiId: true, filho: { select: { id: true, nome: true, valorPadrao: true, textoPadrao: true } } },
+        }).catch(() => [])
+      : []
+
+    // O subserviço pode estar fora da lista principal (marcado como não
+    // disponível para orçamento avulso, por exemplo) e ainda assim precisa das
+    // próprias variações quando escolhido sob o pai.
+    const idsComTextos = [...new Set([...ids, ...vinculos.map(v => v.filho.id)])]
+
     // Textos do registro de TODOS os itens (Serviço/Taxa/Despesa) — referência
     // "soft" por catalogoId (sem FK); valem para qualquer tipo.
-    const textosRows = ids.length > 0
+    const textosRows = idsComTextos.length > 0
       ? await prisma.orcamentoCatalogoTexto.findMany({
-          where: { catalogoId: { in: ids } },
+          where: { catalogoId: { in: idsComTextos } },
           orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
         }).catch(() => [])
       : []
@@ -3568,7 +3635,24 @@ export class OrcamentoService {
       usoMap = new Map(usos.map(u => [u.catalogoId!, u._count]))
     }
 
-    return items.map(i => ({ ...i, textos: textosMap.get(i.id) ?? [], usoCount: usoMap.get(i.id) || 0 }))
+    const subsMap = new Map<string, Array<{ id: string; nome: string; valorPadrao: unknown; textoPadrao: string | null }>>()
+    for (const v of vinculos) {
+      const arr = subsMap.get(v.paiId) ?? []
+      arr.push(v.filho)
+      subsMap.set(v.paiId, arr)
+    }
+
+    return items.map(i => ({
+      ...i,
+      textos: textosMap.get(i.id) ?? [],
+      // As variações do subserviço vêm juntas: quem escolhe COMPETE precisa
+      // ver as variações DE COMPETE, não as do serviço mãe.
+      subservicos: (subsMap.get(i.id) ?? []).map(sub => ({
+        ...sub,
+        textos: textosMap.get(sub.id) ?? [],
+      })),
+      usoCount: usoMap.get(i.id) || 0,
+    }))
   }
 
   async createCatalogo(data: { nome: string; tipo: string; valorPadrao?: number; textoPadrao?: string; disponivelOrcamento?: boolean }, empresaId?: string) {
