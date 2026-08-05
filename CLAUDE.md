@@ -10,6 +10,7 @@ Pagamento recorrente via Stripe. Reconstrução modernizada do legado **OneClick
 - `docs/ENV.md` — variáveis de ambiente completas + integrações externas
 - `docs/error-registry.md` — registry de erros + gate obrigatório de entrega
 - `docs/PADRAO_MODULOS.md`, `docs/PADRAO_MASCARAS.md`, `docs/PADRAO_KANBAN_DND.md` — padrões específicos
+- `docs/PADRAO_ESTADOS_E_PERMISSOES.md` — estado derivado no backend (flags no payload), permissão de campo (`hasSubPermission`), propagação por SSE
 
 ---
 
@@ -148,6 +149,9 @@ src/[modulo]/
   [modulo].service.ts
   dto/  (create | update | list)
 ```
+
+### Estados & permissões — ver `docs/PADRAO_ESTADOS_E_PERMISSOES.md`
+Estado/valor **derivado** (lógico/matemático **ou** de permissão) mora no backend e vira **flag/valor no payload**; o front **compõe**, sem reimplementar a regra (evita drift). Cobre o princípio geral (ex.: `avaliacaoDisponivel`, `congelado`, `totalGeral`), a **permissão de campo com `hasSubPermission`**, e a **propagação por SSE** (mudança de permissão reflete **sem reload**). Ao notar um lugar que se beneficiaria desses padrões, **proponha o encaixe sob confirmação** — nunca aplique direto.
 
 ### Coluna "Ações" em tabelas
 Sempre dropdown `⋮` (`MoreVertical`) — nunca botões inline.

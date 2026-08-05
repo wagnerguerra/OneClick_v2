@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import {
   Headphones, Loader2, MessageSquare, Lock, Send, Paperclip, Clock,
@@ -1068,8 +1069,9 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
 
             {/* R5.2 — concluído SEM avaliação e FORA da janela: o card de avaliar
                 não aparece (avaliacaoDisponivel=false); um aviso passivo explica
-                que o prazo passou. Não conflita com o card de avaliação registrada
-                (concluidoSemAvaliacao exige csat não respondido). */}
+                que o prazo passou. Visível a TODOS que abrem o ticket. Não
+                conflita com o card de avaliação registrada (concluidoSemAvaliacao
+                exige csat não respondido). */}
             {ticket.concluidoSemAvaliacao && !podeAvaliar && (
               <Card className="border-l-4 border-l-slate-300 dark:border-l-slate-600 bg-muted/30">
                 <CardContent className="p-3 flex items-start gap-2 text-[12px] text-muted-foreground">
@@ -1515,12 +1517,21 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
 
           {/* Sidebar — propriedades editáveis */}
           <aside className="space-y-3 min-w-0">
-            {/* Informes do ticket — acima do card de Status */}
-            {podeAvaliar && !isSolicitante && ticket.solicitante && (
+            {/* Aguardando avaliação (RESOLVIDO) ou concluído ainda na janela —
+                mirror da ação do solicitante, só para quem NÃO é o solicitante
+                (ele tem o card de avaliar no conteúdo principal). O aviso de
+                "prazo encerrado" fica no conteúdo principal, para todos. */}
+            {!isSolicitante && ticket.solicitante && podeAvaliar && (
               <Card className="border-l-4 border-l-amber-400 bg-amber-50/40 dark:bg-amber-900/20">
                 <CardContent className="p-3 flex items-start gap-2 text-[12px] text-muted-foreground">
                   <Clock className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                  <span>Aguardando a avaliação de <span className="font-medium text-foreground">{ticket.solicitante.name}</span> para concluir o ticket (auto-fecha em 3 dias úteis sem registrar nota).</span>
+                  {estaResolvido ? (
+                    <span>Aguardando a avaliação de <span className="font-medium text-foreground">{ticket.solicitante.name}</span> para concluir o ticket (auto-fecha em 3 dias úteis sem registrar nota).</span>
+                  ) : ticket.avaliacaoPosConclusaoDias ? (
+                    <span><span className="font-medium text-foreground">{ticket.solicitante.name}</span> tem até {ticket.avaliacaoPosConclusaoDias} dias após a conclusão do ticket para avaliar o atendimento.</span>
+                  ) : (
+                    <span><span className="font-medium text-foreground">{ticket.solicitante.name}</span> ainda pode avaliar o atendimento após a conclusão do ticket.</span>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -2239,8 +2250,12 @@ function AnexoLightbox({ anexo, onClose }: { anexo: Anexo | null; onClose: () =>
     window.addEventListener('keydown', h, true)
     return () => window.removeEventListener('keydown', h, true)
   }, [anexo, onClose])
-  if (!anexo) return null
-  return (
+  if (!anexo || typeof document === 'undefined') return null
+  // Portal para o body: o overlay é `fixed`, mas dentro do modal lateral (Sheet)
+  // o ancestral tem `transform` (animação de slide), o que faria o `fixed` se
+  // ancorar na caixa do modal em vez da viewport. O portal escapa desse contexto
+  // e o lightbox cobre a tela inteira.
+  return createPortal(
     <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8" onClick={onClose}>
       <div className="bg-card rounded-xl border border-border shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border shrink-0">
@@ -2251,7 +2266,8 @@ function AnexoLightbox({ anexo, onClose }: { anexo: Anexo | null; onClose: () =>
         </div>
         <div className="flex-1 overflow-auto p-3 min-h-[300px]"><AnexoPreview anexo={anexo} /></div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

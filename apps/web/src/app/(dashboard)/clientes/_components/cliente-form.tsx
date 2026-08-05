@@ -506,37 +506,47 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   Criado em: {defaultValues.createdAt ? new Date(defaultValues.createdAt).toLocaleDateString('pt-BR') + ', ' + new Date(defaultValues.createdAt).toLocaleTimeString('pt-BR') : '—'}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-2.5">
-                  <Controller control={control} name="situacao" render={({ field }) => (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button type="button" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80 ring-1 ring-black/5 dark:ring-white/10"
-                          style={{ backgroundColor: SITUACAO_COLORS[field.value as keyof typeof SITUACAO_COLORS]?.bg || 'var(--color-muted)', color: SITUACAO_COLORS[field.value as keyof typeof SITUACAO_COLORS]?.color || 'var(--color-foreground)' }}>
-                          <ShoppingCart className="h-3 w-3" />
-                          {SITUACAO_LABELS[field.value as keyof typeof SITUACAO_LABELS] || field.value}
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        {Object.entries(SITUACAO_LABELS).map(([v, l]) => (
-                          <DropdownMenuItem key={v} onClick={() => salvarCampoDoCabecalho('situacao', v, field.onChange)} className={field.value === v ? 'font-bold' : ''}>{l}</DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )} />
-                  <Controller control={control} name="status" render={({ field }) => (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button type="button" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80 ring-1 ring-black/5 dark:ring-white/10"
-                          style={{ backgroundColor: STATUS_COLORS[field.value as keyof typeof STATUS_COLORS]?.bg || 'var(--color-muted)', color: STATUS_COLORS[field.value as keyof typeof STATUS_COLORS]?.color || 'var(--color-foreground)' }}>
-                          {STATUS_LABELS[field.value as keyof typeof STATUS_LABELS] || field.value}
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                          <DropdownMenuItem key={v} onClick={() => salvarCampoDoCabecalho('status', v, field.onChange)} className={field.value === v ? 'font-bold' : ''}>{l}</DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )} />
+                  <Controller control={control} name="situacao" render={({ field }) => {
+                    const style = { backgroundColor: SITUACAO_COLORS[field.value as keyof typeof SITUACAO_COLORS]?.bg || 'var(--color-muted)', color: SITUACAO_COLORS[field.value as keyof typeof SITUACAO_COLORS]?.color || 'var(--color-foreground)' }
+                    const conteudo = <><ShoppingCart className="h-3 w-3" />{SITUACAO_LABELS[field.value as keyof typeof SITUACAO_LABELS] || field.value}</>
+                    // Sem "Gerenciar aba comercial": o atalho vira badge de LEITURA
+                    // (a situação é informação que todos veem; só o EDITAR é gateado).
+                    if (!canManageCommercial) return (
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-black/5 dark:ring-white/10" style={style} title={'Editar a situação requer a permissão "Gerenciar aba comercial"'}>{conteudo}</span>
+                    )
+                    return (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button type="button" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80 ring-1 ring-black/5 dark:ring-white/10" style={style}>{conteudo}</button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          {Object.entries(SITUACAO_LABELS).map(([v, l]) => (
+                            <DropdownMenuItem key={v} onClick={() => salvarCampoDoCabecalho('situacao', v, field.onChange)} className={field.value === v ? 'font-bold' : ''}>{l}</DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )
+                  }} />
+                  <Controller control={control} name="status" render={({ field }) => {
+                    const style = { backgroundColor: STATUS_COLORS[field.value as keyof typeof STATUS_COLORS]?.bg || 'var(--color-muted)', color: STATUS_COLORS[field.value as keyof typeof STATUS_COLORS]?.color || 'var(--color-foreground)' }
+                    const conteudo = STATUS_LABELS[field.value as keyof typeof STATUS_LABELS] || field.value
+                    // Sem "Editar detalhes": badge de LEITURA (todos veem o status).
+                    if (!canEditDetails) return (
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-black/5 dark:ring-white/10" style={style} title={'Editar o status requer a permissão "Editar detalhes do cliente"'}>{conteudo}</span>
+                    )
+                    return (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button type="button" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80 ring-1 ring-black/5 dark:ring-white/10" style={style}>{conteudo}</button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                            <DropdownMenuItem key={v} onClick={() => salvarCampoDoCabecalho('status', v, field.onChange)} className={field.value === v ? 'font-bold' : ''}>{l}</DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )
+                  }} />
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 px-3 py-1 text-xs font-medium">
                     <Handshake className="h-3 w-3" />
                     {watchedValues.tipoCliente || 'A DEFINIR'}
@@ -631,7 +641,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   watchedValues={watchedValues} tipoDocumento={tipoDocumento}
                   buscarCnpj={buscarCnpj} buscarCep={buscarCep}
                   consultarCartaoCnpj={consultarCartaoCnpj} cnpjCard={cnpjCard} cnpjCardLoading={cnpjCardLoading} setCnpjCard={setCnpjCard}
-                  opcoesOrigem={opcoesOrigem} opcoesGrupo={opcoesGrupo} canEdit={canEditDetails}
+                  canEdit={canEditDetails}
                 />
               </TabsContent>
 
@@ -799,7 +809,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
 /* ================================================================== */
 /* DetalhesCard — pills laterais (padrão igual ComercialCard)         */
 /* ================================================================== */
-function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard, opcoesOrigem, opcoesGrupo, canEdit }: {
+function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -814,8 +824,6 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   cnpjCard: CnpjCardData | null
   cnpjCardLoading: boolean
   setCnpjCard: (v: CnpjCardData | null) => void
-  opcoesOrigem: Array<{ id: string; valor: string }>
-  opcoesGrupo: Array<{ id: string; valor: string }>
   canEdit: boolean
 }) {
   const [activeTab, setActiveTab] = useState('dados')
@@ -864,7 +872,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
         </div>
 
         {/* Conteúdo — fieldset desabilita TODOS os campos quando sem permissão 'edit_details' */}
-        <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0">
+        <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0 [&:disabled_*]:pointer-events-none">
         <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
           {/* ---- SUB-TAB: DADOS GERAIS (tela única — igual ao v1) ---- */}
@@ -936,46 +944,24 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                   {errors.razaoSocial && <p className="text-xs text-destructive">{errors.razaoSocial.message}</p>}
                 </div>
 
-                {/* Linha 2: Nome Fantasia (9) + Situação (3). "Regime" foi removido —
-                    era o mesmo campo (regime) do "Regime" na aba Fiscal. */}
+                {/* Linha 2: Nome Fantasia (9) + Status (3). Situação, Origem e Grupo
+                    Empresarial foram movidos para a aba Comercial (HLP0269/0333) —
+                    eram os mesmos campos nas duas abas e editar um refletia no outro.
+                    "Regime" (→ Fiscal) e "Data de Início" (= Data Entrada, → Comercial)
+                    já haviam saído pelo mesmo motivo. O Status fica aqui (Dados
+                    Gerais) pois é regido por "Editar detalhes", não pela aba Comercial. */}
                 <div className="col-span-12 md:col-span-9 space-y-1.5">
                   <Label>Nome Fantasia</Label>
                   <Input placeholder="Nome Fantasia" {...register('nomeFantasia')} />
                 </div>
                 <div className="col-span-12 md:col-span-3 space-y-1.5">
-                  <Label>Situação<RequiredMark /></Label>
-                  <Controller control={control} name="situacao" render={({ field }) => (
+                  <Label>Status</Label>
+                  <Controller control={control} name="status" render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{Object.entries(SITUACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+                      <SelectContent>{Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
                     </Select>
                   )} />
-                </div>
-
-                {/* Linha 3: Origem (4) + Grupo (8). "Data de Início" foi removido —
-                    era o mesmo campo (dataEntrada) do "Data Entrada" na aba Comercial. */}
-                <div className="col-span-12 md:col-span-4 space-y-1.5">
-                  <Label>Origem</Label>
-                  <Controller control={control} name="origem" render={({ field }) => (
-                    <Select value={field.value || ''} onValueChange={field.onChange}>
-                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>{opcoesOrigem.map((o) => <SelectItem key={o.id} value={o.valor}>{o.valor}</SelectItem>)}</SelectContent>
-                    </Select>
-                  )} />
-                </div>
-                <div className="col-span-12 md:col-span-8 space-y-1.5">
-                  <Label>Grupo Empresarial</Label>
-                  <Controller control={control} name="grupo" render={({ field }) => {
-                    const opts = opcoesGrupo.map((o) => o.valor)
-                    const cur = field.value || ''
-                    const merged = cur && !opts.includes(cur) ? [cur, ...opts] : opts
-                    return (
-                      <Select value={cur} onValueChange={field.onChange}>
-                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>{merged.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
-                      </Select>
-                    )
-                  }} />
                 </div>
 
                 {/* Inscrição Estadual/Municipal migradas para a aba Fiscal → Registro de Inscrições. */}
@@ -1556,7 +1542,7 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
         </div>
 
         {/* Conteúdo — read-only sem permissão 'manage_commercial' (mantém as pills) */}
-        <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0">
+        <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0 [&:disabled_*]:pointer-events-none">
         <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {activeTab === 'cadastros' && (
             <div className="-m-5">
@@ -2629,7 +2615,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
         </div>
 
         {/* Conteúdo — read-only sem permissão 'manage_fiscal' (mantém as pills) */}
-        <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0">
+        <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0 [&:disabled_*]:pointer-events-none">
         <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {activeTab === 'dados' && (
             <div className="-m-5">

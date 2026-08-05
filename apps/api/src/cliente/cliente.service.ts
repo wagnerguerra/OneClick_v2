@@ -468,7 +468,7 @@ export class ClienteService {
   // ============================================================
   // Atualizar
   // ============================================================
-  async update(id: string, input: UpdateClienteInput, userId?: string, isMaster?: boolean, empresaId?: string) {
+  async update(id: string, input: UpdateClienteInput, userId?: string, isMaster?: boolean, empresaId?: string, podeComercial?: boolean) {
     return prisma.$transaction(async (tx) => {
       const before = await tx.cliente.findUniqueOrThrow({ where: { id } })
       if (!isMaster && empresaId && before.empresaId !== empresaId) {
@@ -492,6 +492,18 @@ export class ClienteService {
           }
         } else {
           data[key] = typeof value === 'string' && value === '' ? null : value
+        }
+      }
+      // Campos comerciais só MUDAM com a sub "manage_commercial" (mesma regra da
+      // aba Comercial). `podeComercial === false` só chega de request de usuário
+      // sem a permissão; chamadas internas (sync, integração) não passam a flag
+      // (undefined) e seguem livres. Só barra quando o VALOR realmente muda, para
+      // não travar o save do resto do cadastro de quem tem só "edit_details".
+      if (podeComercial === false) {
+        for (const campo of ['situacao', 'origem', 'grupo'] as const) {
+          if (campo in data && data[campo] !== (before as Record<string, unknown>)[campo]) {
+            throw new Error('Sem permissão para alterar dados comerciais do cliente (situação, origem ou grupo empresarial).')
+          }
         }
       }
       const newVersion = before.version + 1
