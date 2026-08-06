@@ -567,6 +567,21 @@ function MappingPanel() {
 
   useEffect(() => { void fetchAll() }, [fetchAll])
 
+  /**
+   * Recarrega SÓ os vínculos, sem acender o carregando.
+   *
+   * O `fetchAll` troca a tabela inteira por um spinner e refaz três consultas —
+   * é o que fazia a tela piscar a cada vínculo criado ou removido, com a lista
+   * saltando de volta para o topo. Aqui o servidor confirma em segundo plano o
+   * que a tela já mostrou.
+   */
+  const recarregarMapas = useCallback(async () => {
+    try {
+      const r = await (trpc as any).acessorias.listObligationMaps.query()
+      setGrupos((r as ObligationGroup[]) || [])
+    } catch { /* a tela ja tem o estado otimista; o proximo carregamento concilia */ }
+  }, [])
+
   /** Title-case do nome da obrigação pra usar como sugestão de nome de serviço.
    *  Ex: "DARF - DCTFWEB INSS-IRRF" → "Darf - Dctfweb Inss-Irrf" (usuário ajusta). */
   function sugestaoNomeServico(obrigacao: string): string {
@@ -630,29 +645,59 @@ function MappingPanel() {
     }
   }
 
+  /**
+   * Vincula uma obrigação do Acessórias a uma do OneClick.
+   *
+   * A etiqueta aparece ANTES da resposta do servidor, com um id provisório: são
+   * dezenas de vínculos numa sessão de mapeamento, e esperar meio segundo a
+   * cada um — com a tabela piscando e voltando ao topo — torna o trabalho
+   * penoso. Se o servidor recusar, a etiqueta é desfeita e o erro aparece.
+   */
   async function addServicoToObligation(nome: string, servicoId: string) {
+    const servico = servicos.find(sv => sv.id === servicoId)
+    const provisorio = `tmp-${servicoId}-${nome}`
+
+    setGrupos(gs => gs.map(g => g.nome !== nome ? g : {
+      ...g,
+      servicos: [...g.servicos, {
+        id: provisorio, mapId: provisorio, servicoId,
+        servicoNome: servico?.nome ?? '...', ativo: true,
+      }],
+    }))
+
     try {
       await (trpc as any).acessorias.addObligationServico.mutate({ nome, servicoId })
-      void fetchAll()
+      // Concilia em segundo plano: o mapId de verdade vem daqui, e sem ele o
+      // botão de remover apontaria para um registro que não existe.
+      void recarregarMapas()
     } catch (e) {
+      setGrupos(gs => gs.map(g => g.nome !== nome ? g : {
+        ...g, servicos: g.servicos.filter(sv => sv.mapId !== provisorio),
+      }))
       alerts.error('Erro', (e as Error).message)
     }
   }
 
   async function removeMapping(mapId: string) {
+    const antes = grupos
+    setGrupos(gs => gs.map(g => ({ ...g, servicos: g.servicos.filter(sv => sv.mapId !== mapId) })))
     try {
       await (trpc as any).acessorias.removeObligationServico.mutate({ mapId })
-      void fetchAll()
+      void recarregarMapas()
     } catch (e) {
+      setGrupos(antes)
       alerts.error('Erro', (e as Error).message)
     }
   }
 
   async function toggleIgnored(nome: string, ignored: boolean) {
+    const antes = grupos
+    setGrupos(gs => gs.map(g => g.nome === nome ? { ...g, ignorada: ignored } : g))
     try {
       await (trpc as any).acessorias.setObligationIgnored.mutate({ nome, ignored })
-      void fetchAll()
+      void recarregarMapas()
     } catch (e) {
+      setGrupos(antes)
       alerts.error('Erro', (e as Error).message)
     }
   }
