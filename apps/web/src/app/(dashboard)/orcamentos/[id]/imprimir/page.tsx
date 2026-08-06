@@ -88,24 +88,23 @@ export default function ImprimirOrcamentoPage() {
     })()
   }, [id])
 
-  // Define o titulo do documento — usado pelo browser como nome sugerido
-  // ao "Imprimir em PDF" / "Salvar como PDF". Formato:
-  //   OneClick Orçamentos - #0000 - CNPJ - RAZAO SOCIAL CLIENTE
-  // Caracteres invalidos em filename (/ \ : * ? " < > |) sao removidos pelo
-  // browser automaticamente; aqui so substituo barra de CNPJ por traco pra
-  // ficar mais legivel.
+  // Define o título do documento — usado pelo browser como nome sugerido ao
+  // "Imprimir em PDF" / "Salvar como PDF". Formato (HLP0159, alinhado com a
+  // Giovana):
+  //   PROP #0000 - NOME DA EMPRESA - 0001-79 (Primeiro Item)
+  // Empresa em caixa alta; CNPJ só os 6 dígitos finais com traço; o 1º item
+  // do orçamento entre parênteses (omitido se não houver). Caracteres inválidos
+  // em filename (/ \ : * ? " < > |) são removidos pelo browser.
   useEffect(() => {
     if (!orc) return
     const numero = String(orc.numero).padStart(4, '0')
-    const cnpjLimpo = (orc.cliente?.documento || '').toUpperCase().replace(/[^0-9A-Z]/g, '') // preserva letras
-    const cnpjFormatado = cnpjLimpo.length === 14
-      ? `${cnpjLimpo.slice(0,2)}.${cnpjLimpo.slice(2,5)}.${cnpjLimpo.slice(5,8)}-${cnpjLimpo.slice(8,12)}-${cnpjLimpo.slice(12,14)}`
-      : cnpjLimpo.length === 11
-      ? `${cnpjLimpo.slice(0,3)}.${cnpjLimpo.slice(3,6)}.${cnpjLimpo.slice(6,9)}-${cnpjLimpo.slice(9,11)}`
-      : cnpjLimpo || 'sem-doc'
-    const cliente = (orc.cliente?.razaoSocial || 'Cliente').toUpperCase()
+    const empresa = (orc.cliente?.razaoSocial || 'Cliente').toUpperCase()
+    // Últimos 6 dígitos do documento, com traço antes dos 2 finais (CNPJ → "0001-79").
+    const docLimpo = (orc.cliente?.documento || '').toUpperCase().replace(/[^0-9A-Z]/g, '') // preserva letras
+    const docFinal = docLimpo.length >= 6 ? `${docLimpo.slice(-6, -2)}-${docLimpo.slice(-2)}` : (docLimpo || 'sem-doc')
+    const primeiroItem = (orc.itens?.[0]?.descricao || '').trim()
     const tituloAnterior = document.title
-    document.title = `OneClick Orçamentos - #${numero} - ${cnpjFormatado} - ${cliente}`
+    document.title = `PROP #${numero} - ${empresa} - ${docFinal}${primeiroItem ? ` (${primeiroItem})` : ''}`
     return () => { document.title = tituloAnterior }
   }, [orc])
 
