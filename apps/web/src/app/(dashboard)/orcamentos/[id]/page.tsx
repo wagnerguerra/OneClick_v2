@@ -806,12 +806,12 @@ export default function OrcamentoDetailPage() {
   // Servico template vinculado — quando orcamento for APROVADO, sistema cria
   // automaticamente uma execucao para o responsavel executar o checklist.
   const [formServicoId, setFormServicoId] = useState('')
-  const [servicosDisponiveis, setServicosDisponiveis] = useState<Array<{ id: string; nome: string; categoria: string | null }>>([])
+  const [servicosDisponiveis, setServicosDisponiveis] = useState<Array<{ id: string; nome: string; area: { name: string } | null }>>([])
   useEffect(() => {
     (async () => {
       try {
         const list = await (trpc.servico as any).listServicos.query()
-        setServicosDisponiveis((list || []).map((s: any) => ({ id: s.id, nome: s.nome, categoria: s.categoria ?? null })))
+        setServicosDisponiveis((list || []).map((s: any) => ({ id: s.id, nome: s.nome, area: s.area ?? null })))
       } catch { /* sem permissao no modulo */ }
     })()
   }, [])

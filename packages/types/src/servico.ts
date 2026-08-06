@@ -76,7 +76,9 @@ export const createServicoSchema = z.object({
   nome: z.string().min(1, 'Nome e obrigatorio'),
   descricao: z.string().optional().nullable(),
   slaHoras: z.coerce.number().min(0).optional().nullable(),
-  categoria: z.string().optional().nullable(),
+  /** Área do serviço (id de Area). Antes era `categoria` (nome livre). Única — a
+   *  multiplicidade de execução fica em atribuicaoAreas ("Setores"). */
+  areaId: z.string().optional().nullable(),
   prioridadePadrao: prioridadeServicoSchema.optional(),
   /** Tipo do bloco — default ATIVIDADE; DECISAO usa losango no fluxograma */
   tipo: z.enum(SERVICO_TIPO).optional(),

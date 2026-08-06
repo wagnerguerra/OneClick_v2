@@ -101,10 +101,11 @@ export class BeneficioFiscalService {
         disponivelOrcamento: true,
         ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
       },
-      select: { id: true, nome: true, valorPadrao: true, categoria: true },
+      select: { id: true, nome: true, valorPadrao: true, area: { select: { name: true } } },
       orderBy: { nome: 'asc' },
     })
-    return rows.map(r => ({ ...r, valorPadrao: r.valorPadrao != null ? Number(r.valorPadrao) : null }))
+    // Expõe a relação `area { name }` crua (sem alias `categoria`).
+    return rows.map(r => ({ id: r.id, nome: r.nome, area: r.area ?? null, valorPadrao: r.valorPadrao != null ? Number(r.valorPadrao) : null }))
   }
 
   async createCatalogo(input: CatalogoInput, _empresaId?: string | null) {
@@ -278,7 +279,7 @@ export class BeneficioFiscalService {
     }
     const servico = await prisma.servico.findUnique({
       where: { id: v.servicoId },
-      select: { id: true, nome: true, valorPadrao: true, categoria: true, recorrenteMensal: true },
+      select: { id: true, nome: true, valorPadrao: true, area: { select: { name: true } }, recorrenteMensal: true },
     })
     if (!servico) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Serviço do benefício não encontrado.' })
 
@@ -297,7 +298,7 @@ export class BeneficioFiscalService {
       {
         clienteId: v.clienteId,
         tipo: servico.recorrenteMensal ? 'SERVICO_MENSAL' : 'SERVICO_EXTRA',
-        area: servico.categoria ?? null,
+        area: servico.area?.name ?? null,
         observacoes,
       },
       userId,

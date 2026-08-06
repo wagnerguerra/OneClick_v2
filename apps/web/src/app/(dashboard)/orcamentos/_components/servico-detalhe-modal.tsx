@@ -29,7 +29,7 @@ export function ServicoDetalheModal({ servicoId, open, onClose }: Props) {
   const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
 
   const [nome, setNome] = useState('')
-  const [categoria, setCategoria] = useState('')
+  const [areaId, setAreaId] = useState('') // id da área (era `categoria`, nome)
   const [categoriaServico, setCategoriaServico] = useState<'EXTRA' | 'MENSAL' | 'FLUXO'>('EXTRA')
   const [prioridade, setPrioridade] = useState('MEDIA')
   const [valorPadrao, setValorPadrao] = useState('') // reais
@@ -44,7 +44,7 @@ export function ServicoDetalheModal({ servicoId, open, onClose }: Props) {
       .getServico.query({ id: servicoId })
       .then(s => {
         setNome((s.nome as string) ?? '')
-        setCategoria((s.categoria as string) ?? '')
+        setAreaId((s.areaId as string) ?? '')
         setCategoriaServico(((s.categoriaServico as 'EXTRA' | 'MENSAL' | 'FLUXO') ?? (s.recorrenteMensal ? 'MENSAL' : 'EXTRA')))
         setPrioridade((s.prioridadePadrao as string) ?? 'MEDIA')
         setValorPadrao(s.valorPadrao != null ? String(Number(s.valorPadrao)) : '')
@@ -65,7 +65,7 @@ export function ServicoDetalheModal({ servicoId, open, onClose }: Props) {
           data: {
             nome: nome.trim(),
             descricao: descricao || null,
-            categoria: categoria || null,
+            areaId: areaId || null,
             categoriaServico,
             recorrenteMensal: categoriaServico === 'MENSAL',
             prioridadePadrao: prioridade,
@@ -103,12 +103,11 @@ export function ServicoDetalheModal({ servicoId, open, onClose }: Props) {
                 </div>
                 <div className="col-span-12 sm:col-span-6 space-y-1.5">
                   <Label className="text-[13px] font-semibold">Área</Label>
-                  <Select value={categoria || '__none__'} onValueChange={v => setCategoria(v === '__none__' ? '' : v)}>
+                  <Select value={areaId || '__none__'} onValueChange={v => setAreaId(v === '__none__' ? '' : v)}>
                     <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">Nenhuma</SelectItem>
-                      {areas.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
-                      {categoria && !areas.some(a => a.name === categoria) && <SelectItem value={categoria}>{categoria}</SelectItem>}
+                      {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

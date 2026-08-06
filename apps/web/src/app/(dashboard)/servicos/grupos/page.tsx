@@ -34,7 +34,7 @@ const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // Emerald (Cadastros)
 interface ServicoLite {
   id: string
   nome: string
-  categoria: string | null
+  area: { name: string } | null
   tipo?: string
   categoriaServico?: 'MENSAL' | 'EXTRA' | 'FLUXO'
   slaHoras?: number | null
@@ -489,7 +489,7 @@ export default function GruposPage() {
                             )}
                           >
                             <span className="truncate flex-1">{s.nome}</span>
-                            {s.categoria && <Badge variant="outline" className="text-[9px] h-4 px-1 shrink-0">{s.categoria}</Badge>}
+                            {s.area?.name && <Badge variant="outline" className="text-[9px] h-4 px-1 shrink-0">{s.area.name}</Badge>}
                             {selected && (
                               <span className="text-[10px] font-medium shrink-0">✓ no grupo</span>
                             )}
@@ -542,7 +542,7 @@ function SortableGrupoItem({ servico, ordem, onRemove }: { servico: ServicoLite;
       </button>
       <span className="text-[10px] font-bold text-muted-foreground tabular-nums w-5 shrink-0">{ordem}.</span>
       <span className="flex-1 truncate">{servico.nome}</span>
-      {servico.categoria && <Badge variant="outline" className="text-[9px] h-4 px-1 shrink-0">{servico.categoria}</Badge>}
+      {servico.area?.name && <Badge variant="outline" className="text-[9px] h-4 px-1 shrink-0">{servico.area.name}</Badge>}
       <button
         type="button"
         onClick={onRemove}

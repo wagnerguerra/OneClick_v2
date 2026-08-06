@@ -359,7 +359,8 @@ export default function ServicoDetailPage() {
   // Form fields (Visão geral)
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
-  const [categoria, setCategoria] = useState('')
+  // Área do serviço — agora por ID (era `categoria`, nome livre).
+  const [areaId, setAreaId] = useState('')
   const [prioridade, setPrioridade] = useState<'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'>('MEDIA')
   const [valorPadrao, setValorPadrao] = useState('')
   const [disponivelOrcamento, setDisponivelOrcamento] = useState(true)
@@ -392,6 +393,8 @@ export default function ServicoDetailPage() {
   const [saving, setSaving] = useState(false)
 
   const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
+  // Nome da área selecionada (resolve o id para exibição).
+  const areaNome = areas.find(a => a.id === areaId)?.name ?? ''
 
   // Etapas
   const [etapas, setEtapas] = useState<Etapa[]>([])
@@ -461,7 +464,7 @@ export default function ServicoDetailPage() {
       }
       setNome(s.nome)
       setDescricao(s.descricao || '')
-      setCategoria(s.categoria || '')
+      setAreaId(s.areaId || '')
       setPrioridade((s.prioridadePadrao as typeof prioridade) || 'MEDIA')
       // valorPadrao no banco é decimal em reais; aqui guardamos centavos como string
       setValorPadrao(s.valorPadrao != null ? String(Math.round(Number(s.valorPadrao) * 100)) : '')
@@ -726,7 +729,7 @@ export default function ServicoDetailPage() {
         data: {
           nome,
           descricao: descricao || null,
-          categoria: categoria || null,
+          areaId: areaId || null,
           prioridadePadrao: prioridade,
           valorPadrao: valorPadrao ? parseInt(valorPadrao, 10) / 100 : null,
           // Interno, Acessória e Fluxo forçam fora-do-catálogo; nas demais respeitam o toggle.
@@ -1155,7 +1158,7 @@ export default function ServicoDetailPage() {
                   {/* Linha única: área + segmento + badges (SLA / Previsão / Prioridade / etc) */}
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mt-2">
                     <span className="text-sm text-muted-foreground">
-                      {categoria || 'Sem área'}
+                      {areaNome || 'Sem área'}
                       {segmentoSlug && ` · ${segmentoSlug}`}
                       {categoriaServico === 'FLUXO' && ' · Item de fluxo'}
                     </span>
@@ -1326,11 +1329,11 @@ export default function ServicoDetailPage() {
                         </div>
                         <div className="col-span-12 md:col-span-4 space-y-1.5">
                           <Label className="text-xs font-medium">Área</Label>
-                          <Select value={categoria || '__none__'} onValueChange={v => setCategoria(v === '__none__' ? '' : v)}>
+                          <Select value={areaId || '__none__'} onValueChange={v => setAreaId(v === '__none__' ? '' : v)}>
                             <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione uma área" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="__none__">— Sem área —</SelectItem>
-                              {areas.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
+                              {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                             </SelectContent>
                           </Select>
                         </div>
@@ -1729,12 +1732,12 @@ export default function ServicoDetailPage() {
                         <p className="text-[11px] text-muted-foreground">
                           {atribuicaoResponsavel === 'ORCAMENTO' && 'Cascata por área: Legalização → execução vai para o painel de todos os usuários do setor (primeiro a iniciar um passo reivindica). Fiscal/Contábil/Trabalhista → responsável da área no cadastro do cliente. Outras áreas → responsável do orçamento.'}
                           {atribuicaoResponsavel === 'CLIENTE_AREA' && (
-                            <>Busca o responsável vinculado à área <strong>{categoria || '(defina a área na pill Identificação)'}</strong> no cadastro do cliente. Fallback automático para o substituto.</>
+                            <>Busca o responsável vinculado à área <strong>{areaNome || '(defina a área na pill Identificação)'}</strong> no cadastro do cliente. Fallback automático para o substituto.</>
                           )}
                           {atribuicaoResponsavel === 'MANUAL_FIXO' && 'Toda execução é atribuída ao mesmo usuário, independente de orçamento/cliente.'}
                           {atribuicaoResponsavel === 'HERDA_PREDECESSOR' && 'Mantém o responsável do passo anterior na cadeia. Útil para itens internos de fluxo.'}
                         </p>
-                        {atribuicaoResponsavel === 'CLIENTE_AREA' && !categoria && (
+                        {atribuicaoResponsavel === 'CLIENTE_AREA' && !areaId && (
                           <div className="text-[11px] rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-amber-900">
                             ⚠ O campo <strong>Área</strong> está vazio — o engine não conseguirá fazer o match. Preencha em Identificação antes de salvar.
                           </div>

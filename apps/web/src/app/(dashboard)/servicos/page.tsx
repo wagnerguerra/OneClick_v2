@@ -81,7 +81,8 @@ interface Servico {
   nome: string
   descricao: string | null
   slaHoras: number | null
-  categoria: string | null
+  areaId: string | null
+  area: { name: string } | null
   etapas: Etapa[]
   segmentoSlug?: string | null
   recorrenteMensal?: boolean
@@ -235,7 +236,7 @@ export default function ServicosPage() {
   const [formTipo, setFormTipo] = useState<'ATIVIDADE' | 'DECISAO'>('ATIVIDADE')
   const [formNome, setFormNome] = useState('')
   const [formDescricao, setFormDescricao] = useState('')
-  const [formCategoria, setFormCategoria] = useState('')
+  const [formAreaId, setFormAreaId] = useState('')
   const [formPrioridade, setFormPrioridade] = useState<'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'>('MEDIA')
   const [formValorPadrao, setFormValorPadrao] = useState('')
   const [formDisponivelOrcamento, setFormDisponivelOrcamento] = useState(true)
@@ -339,14 +340,14 @@ export default function ServicosPage() {
           // Busca em TODAS as colunas visíveis: Nome, Área, Tipo, Grupo, Execuções.
           const hay = [
             s.nome,
-            s.categoria ?? '',
+            s.area?.name ?? '',
             tipoLabel(s),
             (s.grupos ?? []).map(g => g.grupo.nome).join(' '),
             String(s._count?.execucoes ?? 0),
           ].join(' ').toLowerCase()
           if (!hay.includes(debouncedSearch.toLowerCase())) return false
         }
-        if (areaFilter && s.categoria !== areaFilter) return false
+        if (areaFilter && s.areaId !== areaFilter) return false
         if (cadeiaFilter) {
           const ori = s._count?.encadeamentosOrigem ?? 0
           const dest = s._count?.encadeamentosDestino ?? 0
@@ -371,7 +372,7 @@ export default function ServicosPage() {
       const sorted = [...filtered].sort((a, b) => {
         if (sort.column === 'execucoes') return ((a._count?.execucoes ?? 0) - (b._count?.execucoes ?? 0)) * dir
         let av: string, bv: string
-        if (sort.column === 'categoria') { av = a.categoria ?? ''; bv = b.categoria ?? '' }
+        if (sort.column === 'categoria') { av = a.area?.name ?? ''; bv = b.area?.name ?? '' }
         else if (sort.column === 'tipo') { av = tipoLabel(a); bv = tipoLabel(b) }
         else if (sort.column === 'grupo') { av = a.grupos?.[0]?.grupo.nome ?? ''; bv = b.grupos?.[0]?.grupo.nome ?? '' }
         else { av = a.nome; bv = b.nome }
@@ -425,7 +426,7 @@ export default function ServicosPage() {
     setFormTipo('ATIVIDADE')
     setFormNome('')
     setFormDescricao('')
-    setFormCategoria('')
+    setFormAreaId('')
     setFormPrioridade('MEDIA')
     setFormValorPadrao('')
     setFormDisponivelOrcamento(true)
@@ -616,7 +617,7 @@ export default function ServicosPage() {
           data: {
             nome: formNome,
             descricao: formDescricao || null,
-            categoria: formCategoria || null,
+            areaId: formAreaId || null,
             prioridadePadrao: formPrioridade,
             valorPadrao: formValorPadrao ? parseInt(formValorPadrao, 10) / 100 : null,
             // Interno, Fluxo e Obrigação Acessória bloqueiam catálogo independentemente do toggle.
@@ -684,7 +685,7 @@ export default function ServicosPage() {
         const created = await (trpc.servico as any).createServico.mutate({
           nome: formNome,
           descricao: formDescricao || undefined,
-          categoria: formCategoria || undefined,
+          areaId: formAreaId || undefined,
           prioridadePadrao: formPrioridade,
           tipo: formTipo,
           valorPadrao: formValorPadrao ? parseInt(formValorPadrao, 10) / 100 : undefined,
@@ -1154,7 +1155,7 @@ export default function ServicosPage() {
                         <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Filtrar por área" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__all__">Todas as áreas</SelectItem>
-                          {areas.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
+                          {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1376,8 +1377,8 @@ export default function ServicosPage() {
                       />
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      {s.categoria
-                        ? <Badge variant="secondary" className="text-[10px]">{s.categoria}</Badge>
+                      {s.area?.name
+                        ? <Badge variant="secondary" className="text-[10px]">{s.area.name}</Badge>
                         : <span className="text-xs text-muted-foreground italic">—</span>}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
@@ -1660,13 +1661,13 @@ export default function ServicosPage() {
               </div>
               <div className="col-span-12 sm:col-span-6 space-y-1.5">
                 <Label className="text-xs font-medium">Área</Label>
-                <Select value={formCategoria || '__none__'} onValueChange={v => setFormCategoria(v === '__none__' ? '' : v)}>
+                <Select value={formAreaId || '__none__'} onValueChange={v => setFormAreaId(v === '__none__' ? '' : v)}>
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="Selecione uma área" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">— Sem área —</SelectItem>
-                    {areas.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
+                    {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

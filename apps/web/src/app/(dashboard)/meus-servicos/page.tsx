@@ -39,7 +39,7 @@ interface ExecucaoMinha {
   responsavelId: string | null
   responsavelUsuario?: { id: string; name: string; image: string | null } | null
   servico: {
-    id: string; nome: string; categoria: string | null; slaHoras: number | null
+    id: string; nome: string; area: { name: string } | null; slaHoras: number | null
     // Campos extras quando o serviço é PERGUNTA (status = AGUARDANDO_RESPOSTA)
     tipo?: string
     perguntaTexto?: string | null
@@ -305,7 +305,7 @@ function ResponsavelEditor({
 
 // Combobox filtravel para selecionar template de Servico — busca por nome ou categoria.
 function ServicoCombobox({ servicos, value, onSelect, placeholder }: {
-  servicos: Array<{ id: string; nome: string; categoria: string | null }>
+  servicos: Array<{ id: string; nome: string; area: { name: string } | null }>
   value: string
   onSelect: (id: string) => void
   placeholder?: string
@@ -318,7 +318,7 @@ function ServicoCombobox({ servicos, value, onSelect, placeholder }: {
   const filtered = q
     ? servicos.filter(s =>
         s.nome.toLowerCase().includes(q) ||
-        (s.categoria?.toLowerCase().includes(q) ?? false))
+        (s.area?.name?.toLowerCase().includes(q) ?? false))
     : servicos
 
   useEffect(() => {
@@ -342,8 +342,8 @@ function ServicoCombobox({ servicos, value, onSelect, placeholder }: {
         {selected ? (
           <span className="flex flex-col items-start min-w-0 flex-1 truncate">
             <span className="truncate text-sm font-medium leading-tight">{selected.nome}</span>
-            {selected.categoria && (
-              <span className="text-[10px] text-muted-foreground leading-tight">{selected.categoria}</span>
+            {selected.area?.name && (
+              <span className="text-[10px] text-muted-foreground leading-tight">{selected.area.name}</span>
             )}
           </span>
         ) : (
@@ -376,8 +376,8 @@ function ServicoCombobox({ servicos, value, onSelect, placeholder }: {
                 onClick={() => { onSelect(s.id); setOpen(false); setQuery('') }}
               >
                 <span className="text-sm font-medium leading-tight truncate">{s.nome}</span>
-                {s.categoria && (
-                  <span className="text-[10px] text-muted-foreground leading-tight">{s.categoria}</span>
+                {s.area?.name && (
+                  <span className="text-[10px] text-muted-foreground leading-tight">{s.area.name}</span>
                 )}
               </button>
             ))}
@@ -564,7 +564,7 @@ export default function MeusServicosPage() {
   const [novoPrioridade, setNovoPrioridade] = useState<PrioridadeServico>('MEDIA')
   const [novoObservacoes, setNovoObservacoes] = useState('')
   const [novoSalvando, setNovoSalvando] = useState(false)
-  const [servicosTpl, setServicosTpl] = useState<Array<{ id: string; nome: string; categoria: string | null; prioridadePadrao: PrioridadeServico }>>([])
+  const [servicosTpl, setServicosTpl] = useState<Array<{ id: string; nome: string; area: { name: string } | null; prioridadePadrao: PrioridadeServico }>>([])
   const [clientesOpts, setClientesOpts] = useState<Array<{ id: string; razaoSocial: string; documento?: string | null }>>([])
 
   async function abrirNovoServico() {
@@ -922,9 +922,9 @@ export default function MeusServicosPage() {
                                 </p>
                               )}
                               <div className="flex flex-wrap items-center gap-1.5">
-                                {exec.servico.categoria && (
+                                {exec.servico.area?.name && (
                                   <span className="inline-flex items-center rounded-sm px-1.5 py-0 text-[9px] font-medium bg-muted text-muted-foreground uppercase tracking-wider">
-                                    {exec.servico.categoria}
+                                    {exec.servico.area.name}
                                   </span>
                                 )}
                                 <span
@@ -1190,9 +1190,9 @@ export default function MeusServicosPage() {
                   <div className="flex-1 min-w-0 grid grid-cols-12 gap-2 items-center">
                     <div className="col-span-12 sm:col-span-5 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        {exec.servico.categoria && (
+                        {exec.servico.area?.name && (
                           <Badge variant="secondary" className="text-[9px] uppercase tracking-wider px-1.5 py-0 h-4">
-                            {exec.servico.categoria}
+                            {exec.servico.area.name}
                           </Badge>
                         )}
                         <span
