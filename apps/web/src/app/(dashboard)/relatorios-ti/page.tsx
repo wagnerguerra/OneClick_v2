@@ -16,6 +16,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useUrlPdf } from '../ferramentas/_components/baixar'
 import { ImportarModal } from './_components/importar-modal'
 
@@ -33,6 +34,8 @@ interface RelatorioResumo {
 }
 
 interface RelatorioCompleto extends RelatorioResumo {
+  /** Já entrou num consolidado enviado — a partir daí só se substitui. */
+  enviado?: boolean
   conteudoHtml?: string | null
   arquivoNome?: string | null
   arquivoMime?: string | null
@@ -82,6 +85,8 @@ export default function RelatoriosTiPage() {
   const { isMaster, permissions } = useUserPermissions()
   const subPerms = (permissions.find(p => p.moduleSlug === 'relatorios-ti')?.subPermissions ?? {}) as Record<string, boolean>
 
+  const { profile } = useCurrentUserProfile()
+  const meuId = profile?.id
   const [souLider, setSouLider] = useState(false)
   const podePostar = isMaster || souLider || subPerms.postar === true
   // Liderar a área já libera tudo — a sub-permissão é para quem NÃO lidera e
@@ -204,6 +209,18 @@ export default function RelatoriosTiPage() {
       setEnviando(false)
     }
   }
+
+  /**
+   * Quem pode mexer neste relatório.
+   *
+   * Cada um cuida do próprio — colaborador não apaga o relatório do colega. A
+   * liderança administra os dos outros, mas o envio congela para todo mundo:
+   * o que já circulou fora do sistema não some de dentro dele. Corrigir depois
+   * disso é substituir, e a cópia entregue continua guardada.
+   */
+  function meu(r: RelatorioCompleto) { return !!meuId && r.autor.id === meuId }
+  function podeEditar(r: RelatorioCompleto) { return isMaster || souLider || (podePostar && meu(r)) }
+  function podeExcluir(r: RelatorioCompleto) { return podeEditar(r) && !r.enviado }
 
   // ── Novidades (curadoria) ──
   const podeCurar = isMaster || souLider || subPerms.curar_novidades === true
@@ -713,6 +730,11 @@ export default function RelatoriosTiPage() {
                     <p key={e.id} className="text-[11px] text-emerald-900 dark:text-emerald-300">
                       <Send className="mr-1 inline h-3 w-3" />
                       Enviado {new Date(e.enviadoEm).toLocaleString('pt-BR')} · {e.destinatarios.length} destinatário(s)
+                      {' · '}
+                      <a href={`${getApiUrl()}/api/relatorios-ti/envio/${e.id}`} target="_blank" rel="noreferrer"
+                        className="underline underline-offset-2">
+                        ver a cópia enviada
+                      </a>
                     </p>
                   ))}
                 </div>
@@ -750,6 +772,12 @@ export default function RelatoriosTiPage() {
                           {r.autor.name} · {new Date(r.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </span>
+                      {r.enviado && (
+                        <span title="Já enviado à diretoria"
+                          className="shrink-0 rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-semibold uppercase text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                          enviado
+                        </span>
+                      )}
                       {r.formato === 'ANEXO' && <Paperclip className="h-3 w-3 shrink-0 text-muted-foreground" />}
                     </div>
                   </button>
@@ -787,17 +815,29 @@ export default function RelatoriosTiPage() {
                         <Megaphone className="h-3.5 w-3.5" /> Virar novidade
                       </Button>
                     )}
-                    {podePostar && (
-                      <>
-                        <Button variant="soft-info" size="icon-sm" onClick={() => abrirEdicao(selecionado)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="soft-destructive" size="icon-sm" onClick={() => remover(selecionado)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </>
+                    {podeEditar(selecionado) && (
+                      <Button variant="soft-info" size="sm" className="gap-1.5"
+                        onClick={() => abrirEdicao(selecionado)}
+                        title={selecionado.enviado
+                          ? 'Já foi à diretoria — a correção substitui o conteúdo, e a cópia enviada continua guardada.'
+                          : 'Editar'}>
+                        <Pencil className="h-3.5 w-3.5" />
+                        {selecionado.enviado ? 'Substituir' : 'Editar'}
+                      </Button>
+                    )}
+                    {podeExcluir(selecionado) && (
+                      <Button variant="soft-destructive" size="icon-sm" onClick={() => remover(selecionado)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     )}
                   </div>
+
+                  {selecionado.enviado && (
+                    <p className="border-b border-amber-200 bg-amber-50/70 px-4 py-1.5 text-[11.5px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
+                      Este relatório já foi à diretoria. Dá para substituir o conteúdo, mas não excluir —
+                      a cópia enviada fica guardada como foi entregue.
+                    </p>
+                  )}
 
                   {selecionado.formato === 'ESCRITO' ? (
                     <div className="nice-scrollbar flex-1 overflow-y-auto px-5 py-4">

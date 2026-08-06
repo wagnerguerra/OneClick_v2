@@ -18,17 +18,36 @@ export class RelatorioTiController {
     private readonly authService: AuthService,
   ) {}
 
-  @Get('arquivo/:id')
-  async arquivo(@Param('id') id: string, @Req() req: Request, @Res() res: Response) {
+  /** O PDF exato que foi enviado à diretoria — a cópia preservada. */
+  @Get('envio/:id')
+  async envio(@Param('id') id: string, @Req() req: Request, @Res() res: Response) {
+    const userId = await this.exigirSessao(req)
+    try {
+      const arq = await this.service.pdfDoEnvio(id, userId)
+      res.setHeader('Content-Type', arq.mime)
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(arq.nome)}"`)
+      res.end(arq.conteudo)
+    } catch (e) {
+      res.status(404).json({ message: (e as Error).message })
+    }
+  }
+
+  /** Sessão obrigatória — o módulo não serve arquivo para quem não está logado. */
+  private async exigirSessao(req: Request): Promise<string> {
     const headers = new Headers()
     for (const [k, v] of Object.entries(req.headers)) {
       if (v) headers.set(k, Array.isArray(v) ? v.join(', ') : v)
     }
     const sessao = await this.authService.auth.api.getSession({ headers }).catch(() => null)
     if (!sessao?.user?.id) throw new UnauthorizedException('Sessão inválida — faça login.')
+    return sessao.user.id
+  }
 
+  @Get('arquivo/:id')
+  async arquivo(@Param('id') id: string, @Req() req: Request, @Res() res: Response) {
+    const userId = await this.exigirSessao(req)
     try {
-      const arq = await this.service.arquivo(id, sessao.user.id)
+      const arq = await this.service.arquivo(id, userId)
       res.setHeader('Content-Type', arq.mime)
       // `inline`: HTML e PDF abrem na aba, que é o caminho comum de quem só
       // quer ler. Salvar continua sendo um clique no visualizador.

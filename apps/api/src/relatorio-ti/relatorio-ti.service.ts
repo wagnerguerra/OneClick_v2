@@ -152,11 +152,25 @@ export class RelatorioTiService {
   }
 
   async dia(data: string, empresaId?: string | null) {
-    return prisma.relatorioDiario.findMany({
-      where: { empresaId: empresaId ?? null, data: new Date(`${data}T00:00:00.000Z`) },
-      orderBy: { criadoEm: 'asc' },
-      include: { autor: { select: { id: true, name: true, image: true } } },
-    })
+    const dia = new Date(`${data}T00:00:00.000Z`)
+
+    const [lista, envios] = await Promise.all([
+      prisma.relatorioDiario.findMany({
+        where: { empresaId: empresaId ?? null, data: dia },
+        orderBy: { criadoEm: 'asc' },
+        include: { autor: { select: { id: true, name: true, image: true } } },
+      }),
+      prisma.relatorioEnvio.findMany({
+        where: { empresaId: empresaId ?? null, data: dia },
+        select: { relatorioIds: true },
+      }),
+    ])
+
+    // `enviado` é por RELATÓRIO, não por dia: um dia pode ter sido enviado
+    // antes de alguém postar o seu, e o que chegou depois continua livre para
+    // editar e excluir. A tela usa isto para saber o que ainda pode mudar.
+    const jaForam = new Set(envios.flatMap(e => e.relatorioIds))
+    return lista.map(r => ({ ...r, enviado: jaForam.has(r.id) }))
   }
 
   // ── Escrita ───────────────────────────────────────────────
@@ -188,6 +202,21 @@ export class RelatorioTiService {
   async atualizar(input: AtualizarRelatorioInput, userId: string, podeTudo: boolean) {
     const atual = await this.meuOuDoLider(input.id, userId, podeTudo)
 
+    // Enviado, a edição vira SUBSTITUIÇÃO: o conteúdo pode ser corrigido, mas o
+    // dia não muda de lugar. Mover a data faria o relatório sumir do dia que a
+    // diretoria recebeu, e o consolidado guardado passaria a citar um documento
+    // que não está mais ali.
+    const enviado = await this.foiEnviado(input.id)
+    if (enviado && input.data !== undefined) {
+      const mesmoDia = await prisma.relatorioDiario.findUnique({
+        where: { id: input.id }, select: { data: true },
+      })
+      const novoDia = new Date(`${input.data}T00:00:00.000Z`).getTime()
+      if (mesmoDia && mesmoDia.data.getTime() !== novoDia) {
+        throw new Error('Este relatório já foi enviado — o conteúdo pode ser substituído, mas o dia não muda.')
+      }
+    }
+
     // Trocar de formato apaga o que sobrou do anterior: um relatório escrito
     // que virou anexo não pode continuar carregando o texto antigo.
     const trocouFormato = input.formato !== undefined && input.formato !== atual.formato
@@ -215,6 +244,16 @@ export class RelatorioTiService {
 
   async remover(id: string, userId: string, podeTudo: boolean) {
     const atual = await this.meuOuDoLider(id, userId, podeTudo)
+
+    // Depois de enviado não se apaga — nem o autor, nem quem lidera. O que
+    // circulou fora do sistema não pode sumir de dentro dele; para corrigir
+    // existe a substituição, que preserva a cópia entregue.
+    if (await this.foiEnviado(id)) {
+      throw new Error(
+        'Este relatório já foi enviado à diretoria e não pode ser excluído. '
+        + 'Use a substituição — a cópia enviada continua guardada.',
+      )
+    }
     if (atual.arquivoPath) {
       await fs.unlink(path.join(ARQUIVOS_ROOT, atual.arquivoPath)).catch(() => undefined)
     }
@@ -359,7 +398,7 @@ export class RelatorioTiService {
       throw new Error('O servidor de e-mail recusou o envio. Confira as configurações de e-mail.')
     }
 
-    await prisma.relatorioEnvio.create({
+    const envio = await prisma.relatorioEnvio.create({
       data: {
         empresaId: empresaId ?? null,
         data: new Date(`${input.data}T00:00:00.000Z`),
@@ -371,7 +410,52 @@ export class RelatorioTiService {
       },
     })
 
+    // Guarda o PDF EXATO que a diretoria recebeu.
+    //
+    // É o que faz a substituição de um relatório ser segura: o autor corrige o
+    // dele, e o documento que já circulou continua recuperável, palavra por
+    // palavra. Regerar o consolidado depois traria o texto novo — e não é isso
+    // que a diretoria leu.
+    try {
+      const pasta = path.join(ARQUIVOS_ROOT, 'envios')
+      await fs.mkdir(pasta, { recursive: true })
+      const nomeEmDisco = `${envio.id}.pdf`
+      await fs.writeFile(path.join(pasta, nomeEmDisco), Buffer.from(pdf.base64, 'base64'), { mode: 0o600 })
+      await prisma.relatorioEnvio.update({ where: { id: envio.id }, data: { pdfPath: nomeEmDisco } })
+    } catch {
+      // Falhar aqui não desfaz um e-mail já entregue: o envio fica registrado
+      // sem a cópia, e a tela avisa que ela não está guardada.
+    }
+
     return { ok: true, destinatarios, naoIncluidos: pdf.naoIncluidos }
+  }
+
+  /**
+   * O PDF exato que a diretoria recebeu.
+   *
+   * Guardado no envio, e não regerado: regerar traria o texto de hoje, e o que
+   * se quer aqui é o documento que circulou.
+   */
+  async pdfDoEnvio(envioId: string, userId: string) {
+    const envio = await prisma.relatorioEnvio.findUnique({
+      where: { id: envioId },
+      select: { empresaId: true, pdfPath: true, pdfNome: true },
+    })
+    if (!envio?.pdfPath) {
+      throw new Error('A cópia deste envio não foi guardada. Envios anteriores a esta versão não a têm.')
+    }
+
+    const u = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isMaster: true, empresaId: true, activeEmpresaId: true },
+    })
+    const daPessoa = u?.activeEmpresaId ?? u?.empresaId ?? null
+    if (!u?.isMaster && envio.empresaId && envio.empresaId !== daPessoa) {
+      throw new Error('Este envio é de outra empresa.')
+    }
+
+    const conteudo = await fs.readFile(path.join(ARQUIVOS_ROOT, 'envios', envio.pdfPath))
+    return { conteudo, nome: envio.pdfNome, mime: 'application/pdf' }
   }
 
   /** Envios já feitos num dia. */
@@ -600,12 +684,27 @@ export class RelatorioTiService {
   private async meuOuDoLider(id: string, userId: string, podeTudo: boolean) {
     const atual = await prisma.relatorioDiario.findUnique({
       where: { id },
-      select: { id: true, autorId: true, formato: true, arquivoPath: true },
+      select: { id: true, autorId: true, formato: true, arquivoPath: true, empresaId: true },
     })
     if (!atual) throw new Error('Relatório não encontrado.')
     if (atual.autorId !== userId && !podeTudo) {
-      throw new Error('Este relatório é de outra pessoa.')
+      throw new Error('Este relatório é de outra pessoa. Cada um edita e exclui apenas o próprio.')
     }
     return atual
+  }
+
+  /**
+   * O relatório já foi para a diretoria?
+   *
+   * A pergunta é sobre ESTE relatório, e não sobre o dia: um dia pode ter sido
+   * enviado antes de alguém postar o seu, e o que chegou depois ainda é livre.
+   * Por isso o envio guarda a lista do que entrou no PDF.
+   */
+  async foiEnviado(id: string): Promise<boolean> {
+    const envio = await prisma.relatorioEnvio.findFirst({
+      where: { relatorioIds: { has: id } },
+      select: { id: true },
+    }).catch(() => null)
+    return !!envio
   }
 }
