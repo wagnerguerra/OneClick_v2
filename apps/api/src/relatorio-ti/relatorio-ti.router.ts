@@ -1,8 +1,9 @@
 import { z } from 'zod'
-import { router, readProcedure, writeSubOrLiderProcedure } from '../trpc/trpc.service'
+import { router, readProcedure, protectedProcedure, writeSubOrLiderProcedure } from '../trpc/trpc.service'
 import {
   criarRelatorioSchema, atualizarRelatorioSchema,
   listarRelatoriosMesSchema, listarRelatoriosDiaSchema,
+  publicarNovidadeSchema, atualizarNovidadeSchema,
 } from '@saas/types'
 import { RelatorioTiService } from './relatorio-ti.service'
 
@@ -75,6 +76,35 @@ export function createRelatorioTiRouter(service: RelatorioTiService) {
         mensagem: z.string().max(4000).optional(),
       }))
       .mutation(({ input, ctx }) => service.enviarDiretoria(input, ctx.userId, ctx.empresaId)),
+
+    // ── Novidades ──
+    //
+    // A leitura pública é `protectedProcedure`, e NÃO gateada pelo módulo: o
+    // widget do painel inicial é para todo mundo, e exigir o módulo esconderia
+    // as novidades justamente de quem elas informam.
+    novidadesPublicas: protectedProcedure
+      .input(z.object({ limite: z.coerce.number().int().min(1).max(50).optional() }).optional())
+      .query(({ input, ctx }) => service.novidadesPublicas(ctx.empresaId, input?.limite ?? 30)),
+
+    /** Tudo, inclusive despublicadas — só para quem cura. */
+    novidades: readProcedure(MODULE)
+      .query(({ ctx }) => service.novidades(ctx.empresaId)),
+
+    publicarNovidade: writeSubOrLiderProcedure(MODULE, 'curar_novidades', 'Publicar novidades no painel')
+      .input(publicarNovidadeSchema)
+      .mutation(({ input, ctx }) => service.publicarNovidade(input, ctx.userId, ctx.empresaId)),
+
+    atualizarNovidade: writeSubOrLiderProcedure(MODULE, 'curar_novidades', 'Editar novidades do painel')
+      .input(atualizarNovidadeSchema)
+      .mutation(({ input }) => service.atualizarNovidade(input)),
+
+    despublicarNovidade: writeSubOrLiderProcedure(MODULE, 'curar_novidades', 'Despublicar novidades')
+      .input(z.object({ id: z.string().min(1) }))
+      .mutation(({ input }) => service.despublicarNovidade(input.id)),
+
+    removerNovidade: writeSubOrLiderProcedure(MODULE, 'curar_novidades', 'Excluir novidades')
+      .input(z.object({ id: z.string().min(1) }))
+      .mutation(({ input }) => service.removerNovidade(input.id)),
 
     // ── Configuração ──
     salvarConfig: writeSubOrLiderProcedure(MODULE, 'gerenciar_config', 'Configurar os relatorios da TI')

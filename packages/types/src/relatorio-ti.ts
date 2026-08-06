@@ -40,6 +40,33 @@ export const listarRelatoriosMesSchema = z.object({
 
 export const listarRelatoriosDiaSchema = z.object({ data: diaSchema })
 
+/**
+ * Novidade publicada no painel inicial.
+ *
+ * Nasce de um relatório mas é texto PRÓPRIO: o que se escreve para a diretoria
+ * não é o que se escreve para quem só quer saber o que mudou no sistema.
+ */
+export const novidadeTipoSchema = z.enum(['NOVO', 'MELHORIA', 'CORRECAO'])
+export type NovidadeTipo = z.infer<typeof novidadeTipoSchema>
+
+export const publicarNovidadeSchema = z.object({
+  /** Relatório de origem — some se ele for apagado, a novidade fica. */
+  relatorioId: z.string().optional().nullable(),
+  titulo: z.string().min(1).max(160),
+  descricao: z.string().max(4000).optional().nullable(),
+  tipo: novidadeTipoSchema.default('NOVO'),
+  /** Slug do módulo a que se refere — dá o link no widget. */
+  moduloSlug: z.string().max(60).optional().nullable(),
+})
+
+export const atualizarNovidadeSchema = publicarNovidadeSchema.partial().extend({
+  id: z.string().min(1),
+  ativo: z.boolean().optional(),
+})
+
+export type PublicarNovidadeInput = z.infer<typeof publicarNovidadeSchema>
+export type AtualizarNovidadeInput = z.infer<typeof atualizarNovidadeSchema>
+
 export type CriarRelatorioInput = z.infer<typeof criarRelatorioSchema>
 export type AtualizarRelatorioInput = z.infer<typeof atualizarRelatorioSchema>
 export type ListarRelatoriosMesInput = z.infer<typeof listarRelatoriosMesSchema>

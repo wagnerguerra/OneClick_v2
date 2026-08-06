@@ -412,6 +412,71 @@ export class RelatorioTiService {
     return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] ?? c))
   }
 
+  // ── Novidades do painel inicial ───────────────────────────
+
+  /**
+   * As novidades que o painel inicial mostra a TODO MUNDO.
+   *
+   * Só as publicadas, e sem nada do relatório de origem: quem lê o widget não
+   * tem o módulo, e o relatório interno não deve vazar por tabela vizinha.
+   */
+  async novidadesPublicas(empresaId?: string | null, limite = 30) {
+    return prisma.novidade.findMany({
+      where: { empresaId: empresaId ?? null, ativo: true },
+      orderBy: [{ publicadoEm: 'desc' }, { ordem: 'asc' }],
+      take: limite,
+      select: { id: true, titulo: true, descricao: true, tipo: true, moduloSlug: true, publicadoEm: true },
+    })
+  }
+
+  /** Tudo, inclusive o que foi despublicado — a tela de curadoria precisa ver. */
+  async novidades(empresaId?: string | null) {
+    return prisma.novidade.findMany({
+      where: { empresaId: empresaId ?? null },
+      orderBy: [{ publicadoEm: 'desc' }],
+      include: { relatorio: { select: { id: true, titulo: true, data: true } } },
+    })
+  }
+
+  async publicarNovidade(
+    input: { relatorioId?: string | null; titulo: string; descricao?: string | null; tipo?: string; moduloSlug?: string | null },
+    userId: string,
+    empresaId?: string | null,
+  ) {
+    return prisma.novidade.create({
+      data: {
+        empresaId: empresaId ?? null,
+        relatorioId: input.relatorioId || null,
+        titulo: input.titulo,
+        descricao: input.descricao || null,
+        tipo: input.tipo || 'NOVO',
+        moduloSlug: input.moduloSlug || null,
+        publicadoPorId: userId,
+      },
+    })
+  }
+
+  async atualizarNovidade(input: { id: string } & Record<string, unknown>) {
+    const { id, ...resto } = input
+    return prisma.novidade.update({ where: { id }, data: resto as never })
+  }
+
+  /**
+   * Tirar do ar sem apagar.
+   *
+   * Despublicar é o caminho normal: a novidade já foi lida, e o histórico da
+   * curadoria conta o que foi comunicado e quando.
+   */
+  async despublicarNovidade(id: string) {
+    await prisma.novidade.update({ where: { id }, data: { ativo: false } })
+    return { ok: true }
+  }
+
+  async removerNovidade(id: string) {
+    await prisma.novidade.delete({ where: { id } })
+    return { ok: true }
+  }
+
   // ── Apoio ─────────────────────────────────────────────────
 
   private validar(input: { formato: string; conteudoHtml?: string | null; arquivoBase64?: string | null }) {

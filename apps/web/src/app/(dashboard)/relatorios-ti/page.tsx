@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   NotebookPen, Plus, ChevronLeft, ChevronRight, Loader2, Paperclip,
-  FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings,
+  FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings, Megaphone, EyeOff,
 } from 'lucide-react'
 import {
   Button, Card, Input, Label, cn,
@@ -181,6 +181,83 @@ export default function RelatoriosTiPage() {
       await alerts.error('Não foi possível enviar', (e as Error).message)
     } finally {
       setEnviando(false)
+    }
+  }
+
+  // ── Novidades (curadoria) ──
+  const podeCurar = isMaster || souLider || subPerms.curar_novidades === true
+
+  const [novidadesOpen, setNovidadesOpen] = useState(false)
+  const [novidades, setNovidades] = useState<Array<{
+    id: string; titulo: string; descricao: string | null; tipo: string
+    moduloSlug: string | null; ativo: boolean; publicadoEm: string
+  }>>([])
+  const [novModal, setNovModal] = useState<{ id?: string; relatorioId?: string } | null>(null)
+  const [novTitulo, setNovTitulo] = useState('')
+  const [novDescricao, setNovDescricao] = useState('')
+  const [novTipo, setNovTipo] = useState('NOVO')
+  const [novModulo, setNovModulo] = useState('')
+  const [salvandoNov, setSalvandoNov] = useState(false)
+
+  const carregarNovidades = useCallback(async () => {
+    try {
+      setNovidades(await (trpc.relatorioTi as any).novidades.query() ?? [])
+    } catch { setNovidades([]) }
+  }, [])
+
+  /**
+   * Abre a curadoria apontando para o relatorio de origem.
+   *
+   * O titulo entra sugerido, mas o texto e para ser reescrito: o que se escreve
+   * para a diretoria nao e o que se escreve para quem so quer saber o que mudou
+   * no sistema.
+   */
+  function curar(r: RelatorioCompleto) {
+    setNovModal({ relatorioId: r.id })
+    setNovTitulo(r.titulo)
+    setNovDescricao('')
+    setNovTipo('NOVO')
+    setNovModulo('')
+  }
+
+  function editarNovidade(n: { id: string; titulo: string; descricao: string | null; tipo: string; moduloSlug: string | null }) {
+    setNovModal({ id: n.id })
+    setNovTitulo(n.titulo)
+    setNovDescricao(n.descricao ?? '')
+    setNovTipo(n.tipo)
+    setNovModulo(n.moduloSlug ?? '')
+  }
+
+  async function salvarNovidade() {
+    if (!novTitulo.trim()) { await alerts.warning('Novidade', 'Informe o titulo.'); return }
+    setSalvandoNov(true)
+    try {
+      const base = {
+        titulo: novTitulo.trim(),
+        descricao: novDescricao.trim() || null,
+        tipo: novTipo,
+        moduloSlug: novModulo.trim().replace(/^[/]/, '') || null,
+      }
+      if (novModal?.id) {
+        await (trpc.relatorioTi as any).atualizarNovidade.mutate({ id: novModal.id, ...base })
+      } else {
+        await (trpc.relatorioTi as any).publicarNovidade.mutate({ relatorioId: novModal?.relatorioId ?? null, ...base })
+      }
+      setNovModal(null)
+      await carregarNovidades()
+    } catch (e) {
+      await alerts.error('Nao foi possivel salvar', (e as Error).message)
+    } finally {
+      setSalvandoNov(false)
+    }
+  }
+
+  async function despublicar(id: string) {
+    try {
+      await (trpc.relatorioTi as any).despublicarNovidade.mutate({ id })
+      await carregarNovidades()
+    } catch (e) {
+      await alerts.error('Nao foi possivel despublicar', (e as Error).message)
     }
   }
 
@@ -369,6 +446,12 @@ export default function RelatoriosTiPage() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {podeCurar && (
+            <Button variant="outline" size="sm" className="gap-1.5"
+              onClick={() => { setNovidadesOpen(true); void carregarNovidades() }}>
+              <Megaphone className="h-4 w-4" /> Novidades
+            </Button>
+          )}
           {podeConfigurar && (
             <Button variant="outline" size="icon-sm" title="Configurar equipe e destinatários"
               onClick={abrirConfig}>
@@ -541,6 +624,13 @@ export default function RelatoriosTiPage() {
                       </a>
                     </Button>
                   )}
+                  {podeCurar && (
+                    <Button variant="outline" size="sm" className="gap-1.5"
+                      title="Publicar uma novidade a partir deste relatório"
+                      onClick={() => curar(r)}>
+                      <Megaphone className="h-3.5 w-3.5" /> Virar novidade
+                    </Button>
+                  )}
                   {podePostar && (
                     <>
                       <Button variant="soft-info" size="icon-sm" onClick={() => abrirEdicao(r)}>
@@ -677,6 +767,127 @@ export default function RelatoriosTiPage() {
             <Button variant="success" size="sm" className="gap-1.5" onClick={salvar} disabled={salvando}>
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {editando ? 'Salvar' : 'Publicar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Novidades publicadas ── */}
+      <Dialog open={novidadesOpen} onOpenChange={o => { if (!o) setNovidadesOpen(false) }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeaderIcon icon={Megaphone} color="cyan">
+            <DialogTitle>Novidades do painel</DialogTitle>
+            <DialogDescription>
+              O que os usuários veem no painel inicial. Sai do relatório, mas o texto é seu.
+            </DialogDescription>
+          </DialogHeaderIcon>
+
+          <DialogBody className="nice-scrollbar max-h-[65vh] space-y-2 overflow-y-auto">
+            {novidades.length === 0 ? (
+              <p className="py-10 text-center text-sm italic text-muted-foreground">
+                Nada publicado ainda. Abra um relatório e use &quot;Virar novidade&quot;.
+              </p>
+            ) : novidades.map(n => (
+              <div key={n.id} className={cn(
+                'flex items-start gap-3 rounded-lg border border-border px-3 py-2',
+                !n.ativo && 'opacity-55',
+              )}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                      {n.tipo === 'MELHORIA' ? 'Melhoria' : n.tipo === 'CORRECAO' ? 'Correção' : 'Novo'}
+                    </span>
+                    {n.moduloSlug && (
+                      <span className="text-[11px] text-muted-foreground">/{n.moduloSlug}</span>
+                    )}
+                    {!n.ativo && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">despublicada</span>
+                    )}
+                    <span className="ml-auto text-[11px] text-muted-foreground">
+                      {new Date(n.publicadoEm).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-[13px] font-medium">{n.titulo}</p>
+                  {n.descricao && (
+                    <p className="line-clamp-2 text-[11.5px] text-muted-foreground">{n.descricao}</p>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button variant="soft-info" size="icon-sm" onClick={() => editarNovidade(n)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  {n.ativo && (
+                    <Button variant="outline" size="icon-sm" title="Tirar do painel"
+                      onClick={() => despublicar(n.id)}>
+                      <EyeOff className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </DialogBody>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setNovidadesOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Publicar / editar novidade ── */}
+      <Dialog open={!!novModal} onOpenChange={o => { if (!o && !salvandoNov) setNovModal(null) }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeaderIcon icon={Megaphone} color={novModal?.id ? 'sky' : 'emerald'}>
+            <DialogTitle>{novModal?.id ? 'Editar novidade' : 'Publicar novidade'}</DialogTitle>
+            <DialogDescription>
+              Escreva para quem usa o sistema — não para a diretoria.
+            </DialogDescription>
+          </DialogHeaderIcon>
+
+          <DialogBody className="space-y-4">
+            <div className="grid grid-cols-12 gap-3">
+              <div className="col-span-12 space-y-1.5 sm:col-span-4">
+                <Label className="text-[13px] font-semibold">Natureza</Label>
+                <select value={novTipo} onChange={e => setNovTipo(e.target.value)}
+                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
+                  <option value="NOVO">Novo</option>
+                  <option value="MELHORIA">Melhoria</option>
+                  <option value="CORRECAO">Correção</option>
+                </select>
+              </div>
+              <div className="col-span-12 space-y-1.5 sm:col-span-8">
+                <Label className="text-[13px] font-semibold">Módulo (opcional)</Label>
+                <Input value={novModulo} onChange={e => setNovModulo(e.target.value)}
+                  placeholder="ex.: ferramentas-gerais" className="h-9 text-sm" />
+                <p className="text-[11px] text-muted-foreground">
+                  Com módulo, a novidade vira link — ler &quot;agora dá para dividir PDF&quot; e não
+                  saber onde seria meio caminho.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Título *</Label>
+              <Input value={novTitulo} onChange={e => setNovTitulo(e.target.value)}
+                placeholder="Ex.: Agora dá para dividir um PDF" className="h-9 text-sm" />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Descrição</Label>
+              <textarea value={novDescricao} onChange={e => setNovDescricao(e.target.value)}
+                rows={4} placeholder="Uma ou duas frases, em linguagem de quem usa."
+                className="nice-scrollbar w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+              {/* Texto puro, e não editor rico: o widget é uma lista compacta, e
+                  formatação ali viraria ruído. */}
+            </div>
+          </DialogBody>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setNovModal(null)} disabled={salvandoNov}>
+              Cancelar
+            </Button>
+            <Button variant="success" size="sm" className="gap-1.5" onClick={salvarNovidade} disabled={salvandoNov}>
+              {salvandoNov ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />}
+              {novModal?.id ? 'Salvar' : 'Publicar'}
             </Button>
           </DialogFooter>
         </DialogContent>
