@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   NotebookPen, Plus, ChevronLeft, ChevronRight, Loader2, Paperclip,
-  FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings, Megaphone, EyeOff, FolderUp,
+  FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings, Megaphone, EyeOff, FolderUp, X,
 } from 'lucide-react'
 import {
   Button, Card, Input, Label, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Sheet, SheetContent, SheetTitle, SheetDescription,
   RichEditor, RichContent,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -627,28 +628,34 @@ export default function RelatoriosTiPage() {
           Duas colunas porque a leitura aqui é comparativa: abre-se o dia para
           percorrer o que a equipe entregou, e voltar à lista a cada relatório
           quebraria justamente esse percurso. */}
-      <Dialog open={!!diaAberto} onOpenChange={o => { if (!o) setDiaAberto(null) }}>
-        <DialogContent className="h-[88vh] max-w-[min(1240px,95vw)] gap-0 p-0">
-          <div className="flex items-center gap-3 border-b border-border px-5 py-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-              style={{ backgroundColor: 'color-mix(in srgb, var(--mod-ti, #22d3ee) 18%, transparent)' }}>
-              <NotebookPen className="h-4 w-4" style={{ color: MODULE_COLOR }} />
-            </span>
+      <Sheet open={!!diaAberto} onOpenChange={o => { if (!o) setDiaAberto(null) }}>
+        <SheetContent side="right" size="xl" hideClose
+          className="flex w-[80vw] max-w-[1280px] flex-col overflow-hidden p-0">
+          <SheetTitle className="sr-only">Relatórios do dia</SheetTitle>
+          <SheetDescription className="sr-only">
+            Lista dos relatórios do dia, com a prévia do escolhido ao lado.
+          </SheetDescription>
+
+          {/* Faixa em gradiente da cor do módulo, como no detalhe do helpdesk —
+              é o que diz, de relance, em que assunto a pessoa entrou. */}
+          <div className="flex items-start gap-3 px-6 py-4 text-white"
+            style={{ background: `linear-gradient(120deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 55%, #6366f1))` }}>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="truncate text-[15px] capitalize">
+              <p className="text-[11px] uppercase tracking-[.14em] opacity-80">Relatórios da TI</p>
+              <h2 className="truncate text-xl font-bold capitalize">
                 {diaAberto && new Date(`${diaAberto}T12:00:00`).toLocaleDateString('pt-BR', {
                   weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
                 })}
-              </DialogTitle>
-              <DialogDescription className="text-[12px]">
+              </h2>
+              <p className="text-[12.5px] opacity-90">
                 {doDia.length === 0 ? 'Nenhum relatório neste dia.'
                   : `${doDia.length} ${doDia.length === 1 ? 'relatório' : 'relatórios'}`}
-              </DialogDescription>
+              </p>
             </div>
 
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
               {podePostar && diaAberto && (
-                <Button variant="success" size="sm" className="gap-1.5"
+                <Button variant="secondary" size="sm" className="gap-1.5"
                   onClick={() => { setDiaAberto(null); abrirNovo(diaAberto) }}>
                   <Plus className="h-4 w-4" /> Postar
                 </Button>
@@ -668,12 +675,20 @@ export default function RelatoriosTiPage() {
                 )
               )}
               {podeEnviar && doDia.length > 0 && (
-                <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}
+                <Button variant="secondary" size="sm" className="gap-1.5"
                   onClick={enviar} disabled={enviando}>
                   {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Enviar à diretoria
                 </Button>
               )}
+              <button
+                type="button"
+                onClick={() => setDiaAberto(null)}
+                aria-label="Fechar"
+                className="rounded-md p-1.5 text-white/90 transition-colors hover:bg-white/20"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </div>
 
@@ -800,8 +815,8 @@ export default function RelatoriosTiPage() {
               )}
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* ── Postar / editar ── */}
       <Dialog open={modalOpen} onOpenChange={o => { if (!o && !salvando) setModalOpen(false) }}>
