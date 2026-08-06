@@ -412,6 +412,66 @@ export class RelatorioTiService {
     return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] ?? c))
   }
 
+  // ── Importação do que já existe ───────────────────────────
+
+  /**
+   * Traz para dentro os relatórios que já circulavam por pasta.
+   *
+   * Publica em nome de OUTRA pessoa — por isso é ação de quem administra o
+   * módulo, e não da rotina de postar. O autor vem escolhido da tela, que
+   * casou o prefixo do arquivo com o cadastro e deixou o humano conferir.
+   *
+   * Repetido é PULADO, não duplicado: importar a mesma pasta duas vezes é o
+   * erro mais provável de quem está trazendo meses de histórico.
+   */
+  async importar(
+    itens: Array<{
+      data: string
+      titulo: string
+      autorId: string
+      formato: 'ANEXO' | 'ESCRITO'
+      conteudoHtml?: string | null
+      arquivoNome?: string | null
+      arquivoBase64?: string | null
+      arquivoMime?: string | null
+    }>,
+    empresaId?: string | null,
+  ) {
+    let importados = 0
+    let repetidos = 0
+    const falhas: string[] = []
+
+    for (const item of itens) {
+      try {
+        const data = new Date(`${item.data}T00:00:00.000Z`)
+        const jaExiste = await prisma.relatorioDiario.findFirst({
+          where: { empresaId: empresaId ?? null, autorId: item.autorId, data, titulo: item.titulo },
+          select: { id: true },
+        })
+        if (jaExiste) { repetidos++; continue }
+
+        const criado = await prisma.relatorioDiario.create({
+          data: {
+            empresaId: empresaId ?? null,
+            autorId: item.autorId,
+            data,
+            titulo: item.titulo,
+            formato: item.formato,
+            conteudoHtml: item.formato === 'ESCRITO' ? (item.conteudoHtml || '') : null,
+          },
+        })
+        if (item.formato === 'ANEXO') await this.guardarArquivo(criado.id, item)
+        importados++
+      } catch (e) {
+        // Um arquivo problemático não pode derrubar a importação inteira — o
+        // nome no erro é o que evita a caça ao culpado depois.
+        falhas.push(`${item.titulo}: ${(e as Error).message}`)
+      }
+    }
+
+    return { importados, repetidos, falhas }
+  }
+
   // ── Novidades do painel inicial ───────────────────────────
 
   /**

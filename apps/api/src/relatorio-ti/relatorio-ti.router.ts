@@ -77,6 +77,27 @@ export function createRelatorioTiRouter(service: RelatorioTiService) {
       }))
       .mutation(({ input, ctx }) => service.enviarDiretoria(input, ctx.userId, ctx.empresaId)),
 
+    /**
+     * Importa em lote o histórico que já existia em pasta.
+     *
+     * Sob `gerenciar_config`, e não `postar`: publicar em nome de outra pessoa
+     * é ato administrativo, não a rotina de quem escreve o próprio relatório.
+     */
+    importar: writeSubOrLiderProcedure(MODULE, 'gerenciar_config', 'Importar relatorios em lote')
+      .input(z.object({
+        itens: z.array(z.object({
+          data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          titulo: z.string().min(1).max(200),
+          autorId: z.string().min(1),
+          formato: z.enum(['ANEXO', 'ESCRITO']),
+          conteudoHtml: z.string().optional().nullable(),
+          arquivoNome: z.string().max(255).optional().nullable(),
+          arquivoBase64: z.string().optional().nullable(),
+          arquivoMime: z.string().max(120).optional().nullable(),
+        })).min(1).max(60),
+      }))
+      .mutation(({ input, ctx }) => service.importar(input.itens, ctx.empresaId)),
+
     // ── Novidades ──
     //
     // A leitura pública é `protectedProcedure`, e NÃO gateada pelo módulo: o

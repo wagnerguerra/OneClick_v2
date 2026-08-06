@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   NotebookPen, Plus, ChevronLeft, ChevronRight, Loader2, Paperclip,
-  FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings, Megaphone, EyeOff,
+  FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings, Megaphone, EyeOff, FolderUp,
 } from 'lucide-react'
 import {
   Button, Card, Input, Label, cn,
@@ -16,6 +16,7 @@ import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useUrlPdf } from '../ferramentas/_components/baixar'
+import { ImportarModal } from './_components/importar-modal'
 
 const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
 
@@ -261,6 +262,17 @@ export default function RelatoriosTiPage() {
     }
   }
 
+  // ── Importação do histórico ──
+  const [importarOpen, setImportarOpen] = useState(false)
+  const [pessoasImport, setPessoasImport] = useState<Array<{ id: string; name: string }>>([])
+
+  async function abrirImportar() {
+    try {
+      setPessoasImport(await (trpc.user as any).listForSelect.query() ?? [])
+    } catch { setPessoasImport([]) }
+    setImportarOpen(true)
+  }
+
   // ── Configuração ──
   const [configOpen, setConfigOpen] = useState(false)
   const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
@@ -450,6 +462,13 @@ export default function RelatoriosTiPage() {
             <Button variant="outline" size="sm" className="gap-1.5"
               onClick={() => { setNovidadesOpen(true); void carregarNovidades() }}>
               <Megaphone className="h-4 w-4" /> Novidades
+            </Button>
+          )}
+          {podeConfigurar && (
+            <Button variant="outline" size="sm" className="gap-1.5"
+              title="Trazer para o sistema os relatórios que já existiam em pasta"
+              onClick={abrirImportar}>
+              <FolderUp className="h-4 w-4" /> Importar
             </Button>
           )}
           {podeConfigurar && (
@@ -892,6 +911,14 @@ export default function RelatoriosTiPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {importarOpen && (
+        <ImportarModal
+          pessoas={pessoasImport}
+          onClose={() => setImportarOpen(false)}
+          onPronto={() => { void carregarMes() }}
+        />
+      )}
 
       {/* ── Configuração ── */}
       <Dialog open={configOpen} onOpenChange={o => { if (!o && !salvandoCfg) setConfigOpen(false) }}>
