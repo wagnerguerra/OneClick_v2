@@ -56,6 +56,26 @@ export function createRelatorioTiRouter(service: RelatorioTiService) {
         return service.remover(input.id, ctx.userId, lider || (ctx.isMaster ?? false))
       }),
 
+    /** Envios já feitos num dia — o painel mostra quem mandou e quando. */
+    enviosDoDia: readProcedure(MODULE)
+      .input(listarRelatoriosDiaSchema)
+      .query(({ input, ctx }) => service.enviosDoDia(input.data, ctx.empresaId)),
+
+    // ── Consolidar e enviar (liderança) ──
+    consolidarDia: writeSubOrLiderProcedure(MODULE, 'gerar_pdf', 'Consolidar o dia num PDF')
+      .input(listarRelatoriosDiaSchema)
+      .mutation(({ input, ctx }) => service.consolidarDia(input.data, ctx.empresaId)),
+
+    enviarDiretoria: writeSubOrLiderProcedure(MODULE, 'enviar_diretoria', 'Enviar o consolidado a diretoria')
+      .input(z.object({
+        data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        /** Em branco, usa os destinatários da configuração. */
+        destinatarios: z.array(z.string().email()).optional(),
+        assunto: z.string().max(200).optional(),
+        mensagem: z.string().max(4000).optional(),
+      }))
+      .mutation(({ input, ctx }) => service.enviarDiretoria(input, ctx.userId, ctx.empresaId)),
+
     // ── Configuração ──
     salvarConfig: writeSubOrLiderProcedure(MODULE, 'gerenciar_config', 'Configurar os relatorios da TI')
       .input(z.object({

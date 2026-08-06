@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   NotebookPen, Plus, ChevronLeft, ChevronRight, Loader2, Paperclip,
-  FileText, Download, Trash2, Pencil, Send, AlertCircle,
+  FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings,
 } from 'lucide-react'
 import {
   Button, Card, Input, Label, cn,
@@ -15,6 +15,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { useUrlPdf } from '../ferramentas/_components/baixar'
 
 const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
 
@@ -69,6 +70,11 @@ export default function RelatoriosTiPage() {
 
   const [souLider, setSouLider] = useState(false)
   const podePostar = isMaster || souLider || subPerms.postar === true
+  // Liderar a área já libera tudo — a sub-permissão é para quem NÃO lidera e
+  // mesmo assim precisa da ação.
+  const podeGerarPdf = isMaster || souLider || subPerms.gerar_pdf === true
+  const podeEnviar = isMaster || souLider || subPerms.enviar_diretoria === true
+  const podeConfigurar = isMaster || souLider || subPerms.gerenciar_config === true
 
   const hoje = useMemo(() => new Date(), [])
   const [cursor, setCursor] = useState(() => new Date(hoje.getFullYear(), hoje.getMonth(), 1))
@@ -80,6 +86,12 @@ export default function RelatoriosTiPage() {
   const [diaAberto, setDiaAberto] = useState<string | null>(null)
   const [doDia, setDoDia] = useState<RelatorioCompleto[]>([])
   const [carregandoDia, setCarregandoDia] = useState(false)
+
+  /** PDF consolidado do dia, quando gerado — vira link de download de verdade. */
+  const [pdfDoDia, setPdfDoDia] = useState<{ nome: string; base64: string; naoIncluidos: string[] } | null>(null)
+  const urlPdfDoDia = useUrlPdf(pdfDoDia)
+  const [gerando, setGerando] = useState(false)
+  const [enviando, setEnviando] = useState(false)
 
   const carregarMes = useCallback(async () => {
     setCarregando(true)
@@ -102,6 +114,14 @@ export default function RelatoriosTiPage() {
     ;(trpc.relatorioTi as any).souLider.query().then((v: boolean) => setSouLider(!!v)).catch(() => {})
   }, [])
 
+  const [enviosDoDia, setEnviosDoDia] = useState<Array<{ id: string; assunto: string; enviadoEm: string; destinatarios: string[] }>>([])
+
+  const carregarEnvios = useCallback(async (data: string) => {
+    try {
+      setEnviosDoDia(await (trpc.relatorioTi as any).enviosDoDia.query({ data }) ?? [])
+    } catch { setEnviosDoDia([]) }
+  }, [])
+
   const carregarDia = useCallback(async (data: string) => {
     setCarregandoDia(true)
     try {
@@ -115,7 +135,98 @@ export default function RelatoriosTiPage() {
 
   function abrirDia(data: string) {
     setDiaAberto(data)
+    // O PDF é do dia anterior — deixar na tela levaria alguém a enviar o
+    // consolidado errado.
+    setPdfDoDia(null)
     void carregarDia(data)
+    void carregarEnvios(data)
+  }
+
+  async function gerarPdf() {
+    if (!diaAberto) return
+    setGerando(true)
+    try {
+      const r = await (trpc.relatorioTi as any).consolidarDia.mutate({ data: diaAberto })
+      setPdfDoDia(r)
+      if (r.naoIncluidos?.length) {
+        await alerts.warning(
+          'Alguns ficaram de fora',
+          `O PDF não absorve estes formatos:\n\n${r.naoIncluidos.join('\n')}`,
+        )
+      }
+    } catch (e) {
+      await alerts.error('Não foi possível gerar', (e as Error).message)
+    } finally {
+      setGerando(false)
+    }
+  }
+
+  async function enviar() {
+    if (!diaAberto) return
+    const ok = await alerts.confirm({
+      title: 'Enviar à diretoria?',
+      text: 'O consolidado do dia vai por e-mail para os destinatários configurados.',
+      icon: 'question',
+      confirmText: 'Enviar',
+    })
+    if (!ok) return
+
+    setEnviando(true)
+    try {
+      const r = await (trpc.relatorioTi as any).enviarDiretoria.mutate({ data: diaAberto })
+      await alerts.success('Enviado', `Consolidado enviado para ${r.destinatarios.length} destinatário(s).`)
+      await carregarMes()
+      await carregarEnvios(diaAberto)
+    } catch (e) {
+      await alerts.error('Não foi possível enviar', (e as Error).message)
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  // ── Configuração ──
+  const [configOpen, setConfigOpen] = useState(false)
+  const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
+  const [usuarios, setUsuarios] = useState<Array<{ id: string; name: string; email: string }>>([])
+  const [cfgAreaId, setCfgAreaId] = useState('')
+  const [cfgDestIds, setCfgDestIds] = useState<string[]>([])
+  const [cfgEmails, setCfgEmails] = useState('')
+  const [cfgAssunto, setCfgAssunto] = useState('')
+  const [salvandoCfg, setSalvandoCfg] = useState(false)
+
+  async function abrirConfig() {
+    setConfigOpen(true)
+    try {
+      const [cfg, as, us] = await Promise.all([
+        (trpc.relatorioTi as any).config.query(),
+        (trpc.area as any).listForSelect.query(),
+        (trpc.user as any).listForSelect.query(),
+      ])
+      setAreas(as ?? [])
+      setUsuarios(us ?? [])
+      setCfgAreaId(cfg?.areaId ?? '')
+      setCfgDestIds(cfg?.destinatariosIds ?? [])
+      setCfgEmails((cfg?.destinatariosEmails ?? []).join(', '))
+      setCfgAssunto(cfg?.assuntoPadrao ?? '')
+    } catch { /* a tela abre vazia e a pessoa preenche */ }
+  }
+
+  async function salvarConfig() {
+    setSalvandoCfg(true)
+    try {
+      await (trpc.relatorioTi as any).salvarConfig.mutate({
+        areaId: cfgAreaId || null,
+        destinatariosIds: cfgDestIds,
+        destinatariosEmails: cfgEmails.split(/[,;\s]+/).map(e => e.trim()).filter(Boolean),
+        assuntoPadrao: cfgAssunto.trim() || null,
+      })
+      setConfigOpen(false)
+      await carregarMes()
+    } catch (e) {
+      await alerts.error('Não foi possível salvar', (e as Error).message)
+    } finally {
+      setSalvandoCfg(false)
+    }
   }
 
   // Índices por dia — o calendário desenha 42 células e não pode varrer a
@@ -258,6 +369,12 @@ export default function RelatoriosTiPage() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {podeConfigurar && (
+            <Button variant="outline" size="icon-sm" title="Configurar equipe e destinatários"
+              onClick={abrirConfig}>
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
           {podePostar && (
             <Button variant="success" size="sm" className="gap-1.5" onClick={() => abrirNovo()}>
               <Plus className="h-4 w-4" /> Postar relatório
@@ -382,6 +499,20 @@ export default function RelatoriosTiPage() {
           </DialogHeaderIcon>
 
           <DialogBody className="nice-scrollbar max-h-[65vh] space-y-3 overflow-y-auto">
+            {/* Histórico de envio no topo: é a primeira coisa que se quer saber
+                ao abrir um dia antigo — "isto já foi repassado?". */}
+            {enviosDoDia.length > 0 && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                {enviosDoDia.map(e => (
+                  <p key={e.id} className="text-[12px] text-emerald-900 dark:text-emerald-300">
+                    <Send className="mr-1 inline h-3 w-3" />
+                    Enviado em {new Date(e.enviadoEm).toLocaleString('pt-BR')} para{' '}
+                    {e.destinatarios.length} destinatário(s).
+                  </p>
+                ))}
+              </div>
+            )}
+
             {carregandoDia ? (
               <div className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></div>
             ) : doDia.length === 0 ? (
@@ -437,13 +568,38 @@ export default function RelatoriosTiPage() {
             ))}
           </DialogBody>
 
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2">
             {podePostar && diaAberto && (
               <Button variant="success" size="sm" className="gap-1.5"
                 onClick={() => { setDiaAberto(null); abrirNovo(diaAberto) }}>
                 <Plus className="h-4 w-4" /> Postar neste dia
               </Button>
             )}
+
+            {podeGerarPdf && doDia.length > 0 && (
+              pdfDoDia ? (
+                // Link de verdade: download disparado por código o navegador barra.
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <a href={urlPdfDoDia} download={pdfDoDia.nome}>
+                    <Download className="h-4 w-4" /> Baixar o PDF
+                  </a>
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={gerarPdf} disabled={gerando}>
+                  {gerando ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                  Gerar PDF do dia
+                </Button>
+              )
+            )}
+
+            {podeEnviar && doDia.length > 0 && (
+              <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}
+                onClick={enviar} disabled={enviando}>
+                {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Enviar à diretoria
+              </Button>
+            )}
+
             <Button variant="outline" size="sm" onClick={() => setDiaAberto(null)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
@@ -521,6 +677,76 @@ export default function RelatoriosTiPage() {
             <Button variant="success" size="sm" className="gap-1.5" onClick={salvar} disabled={salvando}>
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {editando ? 'Salvar' : 'Publicar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Configuração ── */}
+      <Dialog open={configOpen} onOpenChange={o => { if (!o && !salvandoCfg) setConfigOpen(false) }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeaderIcon icon={Settings} color="slate">
+            <DialogTitle>Configurar</DialogTitle>
+            <DialogDescription>
+              De qual área é a equipe e para quem o consolidado é enviado.
+            </DialogDescription>
+          </DialogHeaderIcon>
+
+          <DialogBody className="nice-scrollbar max-h-[65vh] space-y-4 overflow-y-auto">
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Área da equipe</Label>
+              <select value={cfgAreaId} onChange={e => setCfgAreaId(e.target.value)}
+                className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
+                <option value="">— nenhuma —</option>
+                {areas.map(ar => <option key={ar.id} value={ar.id}>{ar.name}</option>)}
+              </select>
+              <p className="text-[11px] text-muted-foreground">
+                Quem está nesta área é cobrado pelo relatório diário, e quem a lidera comanda o
+                painel — sem precisar de permissão marcada.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Diretoria (usuários)</Label>
+              <div className="nice-scrollbar max-h-[180px] divide-y divide-border/60 overflow-y-auto rounded-lg border border-border">
+                {usuarios.map(u => {
+                  const marcado = cfgDestIds.includes(u.id)
+                  return (
+                    <label key={u.id} className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 hover:bg-muted/30">
+                      <input type="checkbox" checked={marcado} className="h-4 w-4"
+                        onChange={() => setCfgDestIds(l => marcado ? l.filter(x => x !== u.id) : [...l, u.id])} />
+                      <span className="flex-1 truncate text-[13px]">{u.name}</span>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">{u.email}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Outros e-mails</Label>
+              <Input value={cfgEmails} onChange={e => setCfgEmails(e.target.value)}
+                placeholder="para quem não é usuário do sistema, separado por vírgula"
+                className="h-9 text-sm" />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Assunto padrão</Label>
+              <Input value={cfgAssunto} onChange={e => setCfgAssunto(e.target.value)}
+                placeholder="Relatórios da TI — {data}" className="h-9 text-sm" />
+              <p className="text-[11px] text-muted-foreground">
+                <code className="rounded bg-muted px-1">{'{data}'}</code> é trocado pela data do dia enviado.
+              </p>
+            </div>
+          </DialogBody>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setConfigOpen(false)} disabled={salvandoCfg}>
+              Cancelar
+            </Button>
+            <Button variant="success" size="sm" className="gap-1.5" onClick={salvarConfig} disabled={salvandoCfg}>
+              {salvandoCfg && <Loader2 className="h-4 w-4 animate-spin" />}
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>

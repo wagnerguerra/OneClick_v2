@@ -1,8 +1,11 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Inject } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import type { CriarRelatorioInput, AtualizarRelatorioInput } from '@saas/types'
+import { HtmlPdfService } from '../ferramentas/html-pdf.service'
+import { JuntarPdfService } from '../ferramentas/juntar-pdf.service'
+import { EmailService } from '../common/email.service'
 
 /**
  * Relatórios diários da equipe.
@@ -29,8 +32,16 @@ const LIMITE_MB = 20
 /** Cargos que lideram o próprio setor — mesma lista do módulo de benefícios. */
 const ROLES_LIDER_SETOR = ['GESTOR', 'COORDENADOR', 'DIRETOR']
 
+/** Extensões que o consolidado consegue absorver como texto. */
+const EXTENSOES_HTML = ['.html', '.htm']
+
 @Injectable()
 export class RelatorioTiService {
+  constructor(
+    @Inject(HtmlPdfService) private readonly htmlPdf: HtmlPdfService,
+    @Inject(JuntarPdfService) private readonly juntarPdf: JuntarPdfService,
+    @Inject(EmailService) private readonly email: EmailService,
+  ) {}
   /**
    * Áreas que a pessoa lidera.
    *
@@ -223,6 +234,182 @@ export class RelatorioTiService {
       nome: r.arquivoNome || 'relatorio',
       mime: r.arquivoMime || 'application/octet-stream',
     }
+  }
+
+  // ── Consolidar e enviar ───────────────────────────────────
+
+  /**
+   * O dia inteiro num PDF só.
+   *
+   * Reaproveita as duas ferramentas que já existem, em vez de escrever mais uma
+   * geração de PDF: o `consolidar` transforma tudo o que é TEXTO num documento
+   * único (com quebra de página entre os relatórios), e o `juntar` costura nele
+   * os anexos que já chegaram em PDF.
+   *
+   * O que não é nem um nem outro — um Word, por exemplo — fica de fora e volta
+   * em `naoIncluidos`. Converter mal seria pior do que dizer.
+   */
+  async consolidarDia(data: string, empresaId?: string | null) {
+    const doDia = await this.dia(data, empresaId)
+    if (doDia.length === 0) throw new Error('Não há relatórios neste dia.')
+
+    const dataBr = this.formatarData(data)
+    const textos: Array<{ nome: string; conteudo: string }> = []
+    const pdfs: Array<{ nome: string; base64: string }> = []
+    const naoIncluidos: string[] = []
+
+    for (const r of doDia) {
+      if (r.formato === 'ESCRITO') {
+        textos.push({ nome: r.titulo, conteudo: this.folha(r.autor.name, r.titulo, r.conteudoHtml ?? '') })
+        continue
+      }
+
+      const ext = path.extname(r.arquivoNome || '').toLowerCase()
+      const conteudo = r.arquivoPath
+        ? await fs.readFile(path.join(ARQUIVOS_ROOT, r.arquivoPath)).catch(() => null)
+        : null
+      if (!conteudo) { naoIncluidos.push(`${r.autor.name} — arquivo não encontrado`); continue }
+
+      if (EXTENSOES_HTML.includes(ext)) {
+        textos.push({ nome: r.titulo, conteudo: this.folha(r.autor.name, r.titulo, conteudo.toString('utf8')) })
+      } else if (ext === '.pdf') {
+        pdfs.push({ nome: r.arquivoNome || `${r.autor.name}.pdf`, base64: conteudo.toString('base64') })
+      } else {
+        naoIncluidos.push(`${r.autor.name} — ${r.arquivoNome} (${ext || 'sem extensão'})`)
+      }
+    }
+
+    if (textos.length === 0 && pdfs.length === 0) {
+      throw new Error('Nenhum relatório deste dia pôde entrar no PDF.')
+    }
+
+    const nomeSaida = `relatorios-ti-${data}`
+    const partes: Array<{ nome: string; base64: string }> = []
+
+    if (textos.length > 0) {
+      // Capa antes de tudo: quem abre o PDF precisa saber de que dia ele é e
+      // de quem são as folhas, sem ter de procurar.
+      const capa = { nome: 'Capa', conteudo: this.capa(dataBr, doDia.map(r => r.autor.name)) }
+      const pdf = await this.htmlPdf.consolidar([capa, ...textos], nomeSaida)
+      partes.push({ nome: pdf.nome, base64: pdf.base64 })
+    }
+    for (const p of pdfs) partes.push(p)
+
+    const final = partes.length === 1 ? partes[0]! : await this.juntarPdf.juntar(partes, nomeSaida)
+
+    return {
+      nome: `${nomeSaida}.pdf`,
+      base64: final.base64,
+      naoIncluidos,
+      relatorioIds: doDia.map(r => r.id),
+    }
+  }
+
+  /**
+   * Manda o consolidado para a diretoria e registra o envio.
+   *
+   * O registro é o que deixa o painel dizer "enviado por Fulano às 18h02" — sem
+   * ele, reenviar vira dúvida e ninguém sabe se o dia já foi repassado.
+   */
+  async enviarDiretoria(
+    input: { data: string; destinatarios?: string[]; assunto?: string; mensagem?: string },
+    userId: string,
+    empresaId?: string | null,
+  ) {
+    const cfg = await this.getConfig(empresaId)
+    const dataBr = this.formatarData(input.data)
+
+    const destinatarios = input.destinatarios?.length
+      ? input.destinatarios
+      : await this.destinatariosPadrao(cfg)
+    if (destinatarios.length === 0) {
+      throw new Error('Nenhum destinatário. Configure a diretoria antes de enviar.')
+    }
+
+    const pdf = await this.consolidarDia(input.data, empresaId)
+    const assunto = (input.assunto || cfg.assuntoPadrao || 'Relatórios da TI — {data}')
+      .replace('{data}', dataBr)
+
+    const enviado = await this.email.sendMail({
+      to: destinatarios,
+      subject: assunto,
+      html: this.corpoEmail(dataBr, input.mensagem, pdf.naoIncluidos),
+      attachments: [{ filename: pdf.nome, content: Buffer.from(pdf.base64, 'base64') }],
+    })
+    if (!enviado) {
+      throw new Error('O servidor de e-mail recusou o envio. Confira as configurações de e-mail.')
+    }
+
+    await prisma.relatorioEnvio.create({
+      data: {
+        empresaId: empresaId ?? null,
+        data: new Date(`${input.data}T00:00:00.000Z`),
+        assunto,
+        pdfNome: pdf.nome,
+        destinatarios,
+        relatorioIds: pdf.relatorioIds,
+        enviadoPorId: userId,
+      },
+    })
+
+    return { ok: true, destinatarios, naoIncluidos: pdf.naoIncluidos }
+  }
+
+  /** Envios já feitos num dia. */
+  async enviosDoDia(data: string, empresaId?: string | null) {
+    return prisma.relatorioEnvio.findMany({
+      where: { empresaId: empresaId ?? null, data: new Date(`${data}T00:00:00.000Z`) },
+      orderBy: { enviadoEm: 'desc' },
+    })
+  }
+
+  /** E-mails da configuração: usuários escolhidos + endereços avulsos. */
+  private async destinatariosPadrao(cfg: { destinatariosIds: string[]; destinatariosEmails: string[] }) {
+    const users = cfg.destinatariosIds.length > 0
+      ? await prisma.user.findMany({
+        where: { id: { in: cfg.destinatariosIds }, isActive: true },
+        select: { email: true },
+      }).catch(() => [])
+      : []
+    return [...new Set([...users.map(u => u.email), ...cfg.destinatariosEmails].filter(Boolean))]
+  }
+
+  private formatarData(data: string) {
+    const [ano, mes, dia] = data.split('-')
+    return `${dia}/${mes}/${ano}`
+  }
+
+  /** Cabeçalho de cada relatório dentro do consolidado — diz de quem é a folha. */
+  private folha(autor: string, titulo: string, corpo: string) {
+    return '<div style="font-family:Inter,system-ui,sans-serif">'
+      + '<div style="border-bottom:2px solid #22d3ee;padding-bottom:6px;margin-bottom:14px">'
+      + `<div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b">${this.escapar(autor)}</div>`
+      + `<div style="font-size:17px;font-weight:700;color:#0f172a">${this.escapar(titulo)}</div>`
+      + '</div>' + corpo + '</div>'
+  }
+
+  private capa(dataBr: string, autores: string[]) {
+    const nomes = [...new Set(autores)].map(n => this.escapar(n)).join('<br>')
+    return '<div style="font-family:Inter,system-ui,sans-serif;padding:60px 0;text-align:center">'
+      + '<div style="font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:#64748b">Relatórios da TI</div>'
+      + `<div style="font-size:34px;font-weight:800;color:#0f172a;margin:8px 0 26px">${dataBr}</div>`
+      + `<div style="font-size:13px;color:#334155;line-height:2">${nomes}</div></div>`
+  }
+
+  private corpoEmail(dataBr: string, mensagem?: string, naoIncluidos: string[] = []) {
+    const fora = naoIncluidos.length > 0
+      ? `<p style="color:#92400e;font-size:12.5px">Não entraram no PDF (formato não suportado):<br>${naoIncluidos.map(n => this.escapar(n)).join('<br>')}</p>`
+      : ''
+    return '<div style="font-family:Inter,system-ui,sans-serif;font-size:14px;color:#1a1a1a;line-height:1.6">'
+      + `<p>Segue em anexo o consolidado dos relatórios da TI de <b>${dataBr}</b>.</p>`
+      + (mensagem ? `<div style="margin:14px 0">${mensagem}</div>` : '')
+      + fora
+      + '<p style="color:#64748b;font-size:12px;margin-top:22px">Enviado pelo OneClick.</p></div>'
+  }
+
+  /** O nome vem do cadastro, mas cabeçalho de PDF não é lugar de confiar em texto alheio. */
+  private escapar(t: string) {
+    return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] ?? c))
   }
 
   // ── Apoio ─────────────────────────────────────────────────
