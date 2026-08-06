@@ -56,6 +56,7 @@ Lista canônica dos módulos do SaaS ERP/CRM, agrupados por bloco. Referenciada 
 - Gestão de Ativos
 - HelpDesk
 - Projetos
+- Relatórios da TI
 
 ## QUALIDADE
 - Painel da Qualidade

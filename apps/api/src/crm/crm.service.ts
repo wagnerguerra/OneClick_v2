@@ -113,7 +113,7 @@ export class CrmService {
         where,
         include: {
           etapa: { select: { id: true, nome: true, cor: true, probabilidade: true, ehGanho: true, ehPerda: true } },
-          _count: { select: { tarefas: true, mensagens: true, arquivos: true, agendaEventos: true } },
+          _count: { select: { agendaTarefas: { where: { isActive: true } }, mensagens: true, arquivos: true, agendaEventos: true } },
         },
         orderBy: { updatedAt: 'desc' },
         skip: ((input.page || 1) - 1) * (input.limit || 50),
@@ -183,7 +183,7 @@ export class CrmService {
       include: {
         etapa: { select: { id: true, nome: true, cor: true, probabilidade: true, ehGanho: true, ehPerda: true } },
         tags: { include: { tag: true } },
-        _count: { select: { tarefas: true, mensagens: true, arquivos: true, agendaEventos: true } },
+        _count: { select: { agendaTarefas: { where: { isActive: true } }, mensagens: true, arquivos: true, agendaEventos: true } },
       },
       orderBy: [{ ordem: 'asc' }, { updatedAt: 'desc' }],
     }).then(async (ops) => {
@@ -255,7 +255,6 @@ export class CrmService {
       include: {
         etapa: true,
         tags: { include: { tag: true } },
-        tarefas: { orderBy: { createdAt: 'desc' } },
         mensagens: { orderBy: { createdAt: 'desc' } },
         arquivos: { orderBy: { createdAt: 'desc' } },
         eventos: { orderBy: { createdAt: 'desc' }, take: 50 },
@@ -676,29 +675,10 @@ export class CrmService {
   }
 
   // ── Tarefas ───────────────────────────────────────────────
-
-  async addTarefa(oportunidadeId: string, titulo: string, responsavelId?: string, prazo?: string, userId?: string) {
-    const tarefa = await prisma.oportunidadeTarefa.create({
-      data: { oportunidadeId, titulo, responsavelId: responsavelId || null, prazo: prazo ? new Date(prazo) : null },
-    })
-    this.addEvento(oportunidadeId, userId, 'tarefa', `Tarefa adicionada: "${titulo}"`)
-    return tarefa
-  }
-
-  async toggleTarefa(id: string, userId?: string) {
-    const tarefa = await prisma.oportunidadeTarefa.findUnique({ where: { id } })
-    if (!tarefa) throw new Error('Tarefa nao encontrada')
-    const result = await prisma.oportunidadeTarefa.update({ where: { id }, data: { concluida: !tarefa.concluida } })
-    this.addEvento(tarefa.oportunidadeId, userId, 'tarefa', `Tarefa "${tarefa.titulo}" ${result.concluida ? 'concluida' : 'reaberta'}`)
-    return result
-  }
-
-  async deleteTarefa(id: string, userId?: string) {
-    const tarefa = await prisma.oportunidadeTarefa.findUnique({ where: { id } })
-    const result = await prisma.oportunidadeTarefa.delete({ where: { id } })
-    if (tarefa) this.addEvento(tarefa.oportunidadeId, userId, 'tarefa', `Tarefa removida: "${tarefa.titulo}"`)
-    return result
-  }
+  // As tarefas do CRM viraram AgendaTarefa com `oportunidadeId` (ver a relation
+  // OportunidadeAgendaTarefas). Criação/edição/conclusão/lembretes passam pelo
+  // router da agenda (`trpc.agenda.tarefa.*`), e a listagem por card usa
+  // `agenda.tarefa.list({ oportunidadeId })`. Não há mais métodos de tarefa aqui.
 
   // ── Mensagens ─────────────────────────────────────────────
 

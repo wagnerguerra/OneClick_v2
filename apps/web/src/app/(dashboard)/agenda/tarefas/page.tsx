@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   ListTodo, Plus, Search, Loader2, CheckSquare, Square, Edit2, Trash2,
-  Calendar, AlertCircle, ArrowLeft,
+  Calendar, AlertCircle, ArrowLeft, Briefcase,
 } from 'lucide-react'
 import {
   Button, Input, Card, Badge, cn,
@@ -28,6 +28,7 @@ interface Tarefa {
   criador?: { id: string; name: string; image: string | null }
   lembretes?: Array<{ canal: 'POPUP' | 'EMAIL'; minutosAntes: number }>
   membros?: Array<{ usuarioId: string; name: string; image: string | null; ciente: boolean }>
+  oportunidade?: { id: string; titulo: string } | null
 }
 
 type Filtro = 'todas' | 'pendentes' | 'hoje' | 'atrasadas' | 'concluidas'
@@ -290,6 +291,17 @@ export default function TarefasPage() {
                           </span>
                           <span className={cn(cientes === membros.length ? 'text-emerald-600 dark:text-emerald-400 font-medium' : '')}>{cientes}/{membros.length} cientes</span>
                         </span>
+                      )}
+                      {t.oportunidade && (
+                        <Link
+                          href={`/crm?op=${t.oportunidade.id}`}
+                          onClick={e => e.stopPropagation()}
+                          title={`Abrir no CRM: ${t.oportunidade.titulo}`}
+                          className="inline-flex items-center gap-1 max-w-[220px] rounded-full bg-violet-500/10 px-2 py-0.5 font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 transition-colors"
+                        >
+                          <Briefcase className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{t.oportunidade.titulo}</span>
+                        </Link>
                       )}
                     </div>
                   </div>

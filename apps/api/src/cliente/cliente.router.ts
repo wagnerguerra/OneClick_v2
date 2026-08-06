@@ -51,8 +51,8 @@ export function createClienteRouter(
     // Lista filiais (CNPJ ordem != 0001) de uma matriz, dado o documento dela.
     // Usado pelo modal de filiais na listagem de clientes.
     listFiliais: readProcedure(MODULE)
-      .input(z.object({ documento: z.string() }))
-      .query(({ input, ctx }) => clienteService.listFiliais(input.documento, ctx.isMaster, ctx.empresaId)),
+      .input(z.object({ documento: z.string(), status: z.string().optional() }))
+      .query(({ input, ctx }) => clienteService.listFiliais(input.documento, ctx.isMaster, ctx.empresaId, input.status)),
 
     // Demais CNPJs da mesma raiz (matriz + filiais), exceto o atual — seletor do header.
     listMesmaRaiz: readProcedure(MODULE)

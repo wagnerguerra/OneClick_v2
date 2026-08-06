@@ -113,7 +113,7 @@ interface OportunidadeCard {
   responsavel: { id: string; name: string } | null
   cliente: { id: string; razaoSocial: string; documento: string } | null
   tags: Array<{ tag: { id: string; nome: string; cor: string } }>
-  _count: { tarefas: number; mensagens: number; arquivos: number }
+  _count: { agendaTarefas: number; mensagens: number; arquivos: number }
 }
 
 // Exibição da sala a partir do texto livre. Nome real vem do vínculo; quando só há
@@ -2608,7 +2608,7 @@ export default function AgendaPage() {
 
                           {/* Contadores do card */}
                           <div className="flex items-center gap-3 text-[11px] text-muted-foreground border-t border-violet-500/15 pt-2.5">
-                            <span className="tabular-nums">{op._count?.tarefas ?? 0} tarefa(s)</span>
+                            <span className="tabular-nums">{op._count?.agendaTarefas ?? 0} tarefa(s)</span>
                             <span className="text-muted-foreground/50">·</span>
                             <span className="tabular-nums">{op._count?.mensagens ?? 0} msg</span>
                             <span className="text-muted-foreground/50">·</span>
@@ -3168,7 +3168,7 @@ export default function AgendaPage() {
                           </button>
                           {partSearchOpen && (
                             <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md">
-                              <div className="p-1.5 border-b bg-popover sticky top-0">
+                              <div className="p-1.5 border-b bg-popover sticky top-0 space-y-1.5">
                                 <Input
                                   autoFocus
                                   value={partSearchQuery}
@@ -3176,6 +3176,39 @@ export default function AgendaPage() {
                                   placeholder="Buscar usuário..."
                                   className="h-7 text-xs"
                                 />
+                                {/* Convocar o escritório inteiro um a um são
+                                    dezenas de cliques. O botão respeita a busca:
+                                    filtrar e adicionar todos é como se convida
+                                    um grupo sem ter uma lista pronta de grupos. */}
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    disabled={partFiltered.length === 0}
+                                    onClick={() => {
+                                      setForm(f => ({
+                                        ...f,
+                                        participanteIds: [...new Set([...f.participanteIds, ...partFiltered.map(u => u.id)])],
+                                      }))
+                                      setPartSearchOpen(false)
+                                      setPartSearchQuery('')
+                                    }}
+                                    className="flex-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent"
+                                  >
+                                    {partSearchQuery.trim()
+                                      ? `Adicionar os ${partFiltered.length} encontrados`
+                                      : `Adicionar todos (${partFiltered.length})`}
+                                  </button>
+                                  {form.participanteIds.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setForm(f => ({ ...f, participanteIds: [] }))}
+                                      className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-destructive"
+                                      title="Remover todos os participantes já escolhidos"
+                                    >
+                                      Limpar
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               <div className="max-h-56 overflow-y-auto py-1">
                                 {partFiltered.length === 0 ? (

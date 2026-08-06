@@ -1,7 +1,7 @@
 'use client'
 
 import { ComponentType } from 'react'
-import { Mail, Shield, FileLock, ListChecks, Landmark, Calendar, Phone, FileText } from 'lucide-react'
+import { Mail, Shield, FileLock, ListChecks, Landmark, Calendar, Phone, FileText, Megaphone } from 'lucide-react'
 import { CaixaPostalWidget } from './caixa-postal-widget'
 import { CndFederaisWidget } from './cnd-federais-widget'
 import { CertificadosWidget } from './certificados-widget'
@@ -10,6 +10,7 @@ import { CndMunicipalWidget } from './cnd-municipal-widget'
 import { CalendarioWidget } from './calendario-widget'
 import { RamaisWidget } from './ramais-widget'
 import { OrcamentosWidget } from './orcamentos-widget'
+import { NovidadesWidget } from './novidades-widget'
 
 export type WidgetColor = 'sky' | 'indigo' | 'fuchsia' | 'violet' | 'emerald' | 'amber'
 
@@ -96,6 +97,18 @@ export const WIDGET_REGISTRY: Record<string, WidgetDef> = {
     // (controle por usuários ou áreas). Endpoint backend é protectedProcedure.
     groupHref: '/colaboradores', // Cor visual do bloco Cadastros
   },
+  'novidades': {
+    id: 'novidades',
+    label: 'Novidades do sistema',
+    icon: Megaphone,
+    color: 'sky',
+    Component: NovidadesWidget,
+    defaultLayout: { w: 4, h: 8, minW: 1, minH: 1 },
+    // Sem requiresModule: as novidades são PARA todo mundo. Exigir o módulo de
+    // relatórios esconderia o aviso justamente de quem ele informa. O endpoint
+    // é protectedProcedure e devolve só o que foi publicado.
+    groupHref: '/relatorios-ti', // cor visual do bloco TI
+  },
   'orcamentos': {
     id: 'orcamentos',
     label: 'Orçamentos',
@@ -130,4 +143,5 @@ export const DEFAULT_LAYOUT: Array<{ i: string; x: number; y: number; w: number;
   { i: 'servicos-andamento',    x: 6, y: 4,  w: 6,  h: 4 },
   { i: 'cnd-municipal',         x: 0, y: 8,  w: 12, h: 8 },
   { i: 'calendario',            x: 0, y: 16, w: 12, h: 10 },
+  { i: 'novidades',             x: 0, y: 26, w: 4,  h: 8 },
 ]

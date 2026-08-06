@@ -13,7 +13,7 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   Workflow, Loader2, ArrowLeft, Save, Plus, Trash2, Edit, AlertCircle,
   Play, Pause, FileText, Layers, GitBranch, History, ListChecks,
-  GripVertical, Tag, Clock, ArrowRight, X, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check, Search,
+  GripVertical, Tag, Clock, ArrowRight, X, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check, Search, Users,
   Bell, Mail, UserCog, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database,
   StickyNote, Link as LinkIcon, Paperclip,
 } from 'lucide-react'
@@ -330,7 +330,7 @@ export default function ServicoDetailPage() {
   const [ehSubservicoDe, setEhSubservicoDe] = useState<Array<{ id: string; nome: string }>>([])
   const [salvandoSub, setSalvandoSub] = useState(false)
   // Pill ativa dentro da aba Visão geral
-  const [visaoPill, setVisaoPill] = useState<'identificacao' | 'descricao' | 'comercial' | 'atribuicao' | 'avancado' | 'vencimentosMensais'>('identificacao')
+  const [visaoPill, setVisaoPill] = useState<'identificacao' | 'descricao' | 'comercial' | 'responsaveis' | 'avancado' | 'vencimentosMensais'>('identificacao')
 
   // Overrides de vencimento por mês (Fase B Acessórias) — map mes 1-12 → valor encoded
   const [vencimentosMensais, setVencimentosMensais] = useState<Record<number, number>>({})
@@ -1283,7 +1283,11 @@ export default function ServicoDetailPage() {
                     { id: 'identificacao' as const, label: 'Identificação', icon: FileText },
                     { id: 'descricao'     as const, label: 'Descrição',     icon: AlignLeft },
                     { id: 'comercial'     as const, label: 'Comercial',     icon: CircleDollarSign },
-                    // Pill "Atribuição" foi consolidada na Identificação (modelo multi-valor).
+                    // Atribuição saiu da Identificação e voltou a ter pill própria:
+                    // ela tem regra de desempate, quatro fontes e um aviso de
+                    // "sem fonte definida" — dentro do bloco de identificação
+                    // roubava a atenção de quem só queria trocar o nome.
+                    { id: 'responsaveis' as const, label: 'Responsáveis',   icon: Users },
                     // O bloco PERGUNTA continua usando atribuicaoResponsavel internamente.
                     { id: 'avancado'     as const, label: 'Avançado',       icon: Settings },
                     { id: 'vencimentosMensais' as const, label: 'Vencim. por mês', icon: CalendarDays },
@@ -1328,7 +1332,7 @@ export default function ServicoDetailPage() {
                           <Input value={nome} onChange={e => setNome(e.target.value)} className="h-9 text-sm" />
                         </div>
                         <div className="col-span-12 md:col-span-4 space-y-1.5">
-                          <Label className="text-xs font-medium">Área</Label>
+                          <Label className="text-xs font-medium">Área principal</Label>
                           <Select value={areaId || '__none__'} onValueChange={v => setAreaId(v === '__none__' ? '' : v)}>
                             <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione uma área" /></SelectTrigger>
                             <SelectContent>
@@ -1351,6 +1355,105 @@ export default function ServicoDetailPage() {
                         </div>
                       </div>
 
+
+                      {/* Tipo de cadastro */}
+                      <div className="space-y-1.5">
+                        <Label className="text-[13px] font-semibold">Tipo de cadastro</Label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                          {([
+                            { v: 'MENSAL' as const, key: 'MENSAL',     label: 'Serviço Recorrente',     desc: 'Serviço que precisa ser executado com uma determinada recorrência', tone: 'sky',    Icon: Repeat },
+                            { v: 'EXTRA'  as const, key: 'EXTRA',      label: 'Serviço Extraordinário', desc: 'Pontual — cobrança por execução',                                    tone: 'amber',  Icon: Zap },
+                            { v: 'FLUXO'  as const, key: 'FLUXO',      label: 'Parte do Fluxo',         desc: 'Item interno de outro serviço',                                      tone: 'violet', Icon: Network },
+                            { v: 'EXTRA'  as const, key: 'INTERNO',    label: 'Serviço Interno',        desc: 'Serviço de execução interna',                                        tone: 'slate',  Icon: Lock },
+                            { v: 'MENSAL' as const, key: 'ACESSORIA',  label: 'Obrigação Acessória',  desc: 'Obrigações que são entregues com uma certa recorrência',             tone: 'rose',   Icon: ShieldCheck },
+                          ]).map(opt => {
+                            const active = opt.key === 'INTERNO'
+                              ? ehServicoInterno
+                              : opt.key === 'ACESSORIA'
+                                ? ehObrigacaoAcessoria
+                                : !ehServicoInterno && !ehObrigacaoAcessoria && categoriaServico === opt.v
+                            const palette = {
+                              sky:    { border: 'border-sky-500',    bg: 'bg-sky-50/60 dark:bg-sky-950/30',     hover: 'hover:border-sky-300',    icon: 'text-sky-600    dark:text-sky-300' },
+                              amber:  { border: 'border-amber-500',  bg: 'bg-amber-50/60 dark:bg-amber-950/30', hover: 'hover:border-amber-300',  icon: 'text-amber-600  dark:text-amber-300' },
+                              violet: { border: 'border-violet-500', bg: 'bg-violet-50/60 dark:bg-violet-950/30', hover: 'hover:border-violet-300', icon: 'text-violet-600 dark:text-violet-300' },
+                              slate:  { border: 'border-slate-500',  bg: 'bg-slate-50/60 dark:bg-slate-900/30', hover: 'hover:border-slate-300',  icon: 'text-slate-600  dark:text-slate-300' },
+                              rose:   { border: 'border-rose-500',   bg: 'bg-rose-50/60 dark:bg-rose-950/30',   hover: 'hover:border-rose-300',   icon: 'text-rose-600   dark:text-rose-300' },
+                            }[opt.tone]
+                            const Icon = opt.Icon
+                            return (
+                              <button
+                                key={opt.key}
+                                type="button"
+                                onClick={() => {
+                                  if (opt.key === 'INTERNO') {
+                                    setEhServicoInterno(true)
+                                    setEhObrigacaoAcessoria(false)
+                                    setCategoriaServico('EXTRA')
+                                    setDisponivelOrcamento(false)
+                                    setServicoPaiId('')
+                                  } else if (opt.key === 'ACESSORIA') {
+                                    setEhObrigacaoAcessoria(true)
+                                    setEhServicoInterno(false)
+                                    setCategoriaServico('MENSAL')
+                                    setDisponivelOrcamento(false)
+                                    setServicoPaiId('')
+                                  } else {
+                                    setEhServicoInterno(false)
+                                    setEhObrigacaoAcessoria(false)
+                                    setCategoriaServico(opt.v)
+                                  }
+                                }}
+                                className={cn(
+                                  'flex items-center gap-3 rounded-md border-2 p-2.5 text-left transition-colors',
+                                  active ? `${palette.border} ${palette.bg}` : `border-border/50 ${palette.hover}`,
+                                )}
+                              >
+                                <Icon className={cn('h-8 w-8 shrink-0', active ? palette.icon : 'text-muted-foreground')} strokeWidth={1.75} />
+                                <div className="flex flex-col items-start gap-0.5 min-w-0">
+                                  <span className="text-[12px] font-semibold">{opt.label}</span>
+                                  <span className="text-[10px] text-muted-foreground leading-tight">{opt.desc}</span>
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {categoriaServico === 'FLUXO' && (
+                          <div className="pt-2">
+                            <Label className="text-[13px] font-semibold mb-1.5 block">
+                              Pertence ao serviço <span className="text-red-500">*</span>
+                            </Label>
+                            <Select value={servicoPaiId || '__none__'} onValueChange={v => setServicoPaiId(v === '__none__' ? '' : v)}>
+                              <SelectTrigger className="h-9 text-sm">
+                                <SelectValue placeholder="Selecione o serviço dono do fluxo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">— nenhum —</SelectItem>
+                                {todosServicos
+                                  .filter(t => t.id !== id)
+                                  .map(t => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              Itens de Fluxo não aparecem na listagem principal nem em orçamentos — eles ficam como nós dentro do fluxo do serviço-pai.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── PILL: Responsáveis ───────────────────── */}
+                {visaoPill === 'responsaveis' && (
+                  <div className="space-y-4" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+                    <div className="flex items-center justify-between border-b border-border pb-2 -mx-5 px-5">
+                      <h4 className="text-[13px] font-semibold text-foreground">Responsáveis</h4>
+                      <Button onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5"
+                        style={{ backgroundColor: MODULE_COLOR }}>
+                        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        Salvar
+                      </Button>
+                    </div>
                       {/* ── Atribuição de responsáveis (multi-valor) ── */}
                       <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-4">
                         <div className="flex items-start justify-between gap-2">
@@ -1481,91 +1584,6 @@ export default function ServicoDetailPage() {
                           </label>
                         </div>
                       </div>
-
-                      {/* Tipo de cadastro */}
-                      <div className="space-y-1.5">
-                        <Label className="text-[13px] font-semibold">Tipo de cadastro</Label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                          {([
-                            { v: 'MENSAL' as const, key: 'MENSAL',     label: 'Serviço Recorrente',     desc: 'Serviço que precisa ser executado com uma determinada recorrência', tone: 'sky',    Icon: Repeat },
-                            { v: 'EXTRA'  as const, key: 'EXTRA',      label: 'Serviço Extraordinário', desc: 'Pontual — cobrança por execução',                                    tone: 'amber',  Icon: Zap },
-                            { v: 'FLUXO'  as const, key: 'FLUXO',      label: 'Parte do Fluxo',         desc: 'Item interno de outro serviço',                                      tone: 'violet', Icon: Network },
-                            { v: 'EXTRA'  as const, key: 'INTERNO',    label: 'Serviço Interno',        desc: 'Serviço de execução interna',                                        tone: 'slate',  Icon: Lock },
-                            { v: 'MENSAL' as const, key: 'ACESSORIA',  label: 'Obrigação Acessória',  desc: 'Obrigações que são entregues com uma certa recorrência',             tone: 'rose',   Icon: ShieldCheck },
-                          ]).map(opt => {
-                            const active = opt.key === 'INTERNO'
-                              ? ehServicoInterno
-                              : opt.key === 'ACESSORIA'
-                                ? ehObrigacaoAcessoria
-                                : !ehServicoInterno && !ehObrigacaoAcessoria && categoriaServico === opt.v
-                            const palette = {
-                              sky:    { border: 'border-sky-500',    bg: 'bg-sky-50/60 dark:bg-sky-950/30',     hover: 'hover:border-sky-300',    icon: 'text-sky-600    dark:text-sky-300' },
-                              amber:  { border: 'border-amber-500',  bg: 'bg-amber-50/60 dark:bg-amber-950/30', hover: 'hover:border-amber-300',  icon: 'text-amber-600  dark:text-amber-300' },
-                              violet: { border: 'border-violet-500', bg: 'bg-violet-50/60 dark:bg-violet-950/30', hover: 'hover:border-violet-300', icon: 'text-violet-600 dark:text-violet-300' },
-                              slate:  { border: 'border-slate-500',  bg: 'bg-slate-50/60 dark:bg-slate-900/30', hover: 'hover:border-slate-300',  icon: 'text-slate-600  dark:text-slate-300' },
-                              rose:   { border: 'border-rose-500',   bg: 'bg-rose-50/60 dark:bg-rose-950/30',   hover: 'hover:border-rose-300',   icon: 'text-rose-600   dark:text-rose-300' },
-                            }[opt.tone]
-                            const Icon = opt.Icon
-                            return (
-                              <button
-                                key={opt.key}
-                                type="button"
-                                onClick={() => {
-                                  if (opt.key === 'INTERNO') {
-                                    setEhServicoInterno(true)
-                                    setEhObrigacaoAcessoria(false)
-                                    setCategoriaServico('EXTRA')
-                                    setDisponivelOrcamento(false)
-                                    setServicoPaiId('')
-                                  } else if (opt.key === 'ACESSORIA') {
-                                    setEhObrigacaoAcessoria(true)
-                                    setEhServicoInterno(false)
-                                    setCategoriaServico('MENSAL')
-                                    setDisponivelOrcamento(false)
-                                    setServicoPaiId('')
-                                  } else {
-                                    setEhServicoInterno(false)
-                                    setEhObrigacaoAcessoria(false)
-                                    setCategoriaServico(opt.v)
-                                  }
-                                }}
-                                className={cn(
-                                  'flex items-center gap-3 rounded-md border-2 p-2.5 text-left transition-colors',
-                                  active ? `${palette.border} ${palette.bg}` : `border-border/50 ${palette.hover}`,
-                                )}
-                              >
-                                <Icon className={cn('h-8 w-8 shrink-0', active ? palette.icon : 'text-muted-foreground')} strokeWidth={1.75} />
-                                <div className="flex flex-col items-start gap-0.5 min-w-0">
-                                  <span className="text-[12px] font-semibold">{opt.label}</span>
-                                  <span className="text-[10px] text-muted-foreground leading-tight">{opt.desc}</span>
-                                </div>
-                              </button>
-                            )
-                          })}
-                        </div>
-                        {categoriaServico === 'FLUXO' && (
-                          <div className="pt-2">
-                            <Label className="text-[13px] font-semibold mb-1.5 block">
-                              Pertence ao serviço <span className="text-red-500">*</span>
-                            </Label>
-                            <Select value={servicoPaiId || '__none__'} onValueChange={v => setServicoPaiId(v === '__none__' ? '' : v)}>
-                              <SelectTrigger className="h-9 text-sm">
-                                <SelectValue placeholder="Selecione o serviço dono do fluxo" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">— nenhum —</SelectItem>
-                                {todosServicos
-                                  .filter(t => t.id !== id)
-                                  .map(t => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                            <p className="text-[10px] text-muted-foreground mt-1">
-                              Itens de Fluxo não aparecem na listagem principal nem em orçamentos — eles ficam como nós dentro do fluxo do serviço-pai.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
                   </div>
                 )}
 
@@ -1707,74 +1725,6 @@ export default function ServicoDetailPage() {
                     </div>
                   </div>
                 )}
-
-                {/* ── PILL: Atribuição ─────────────────────── */}
-                {visaoPill === 'atribuicao' && (
-                  <div>
-                    <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
-                      <h4 className="text-[13px] font-semibold text-foreground">Atribuição de responsável</h4>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Define quem recebe a execução quando o serviço é disparado (orçamento, recorrência mensal, encadeamento ou processo).
-                      </p>
-                    </div>
-                    <div className="p-5 grid grid-cols-12 gap-3">
-                      <div className="col-span-12 md:col-span-6 space-y-1.5">
-                        <Label className="text-xs font-medium">Estratégia</Label>
-                        <Select value={atribuicaoResponsavel} onValueChange={v => setAtribuicaoResponsavel(v as typeof atribuicaoResponsavel)}>
-                          <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ORCAMENTO">Do orçamento</SelectItem>
-                            <SelectItem value="CLIENTE_AREA">Do cliente (responsável da área)</SelectItem>
-                            <SelectItem value="MANUAL_FIXO">Manual fixo</SelectItem>
-                            <SelectItem value="HERDA_PREDECESSOR">Herda do passo anterior</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-[11px] text-muted-foreground">
-                          {atribuicaoResponsavel === 'ORCAMENTO' && 'Cascata por área: Legalização → execução vai para o painel de todos os usuários do setor (primeiro a iniciar um passo reivindica). Fiscal/Contábil/Trabalhista → responsável da área no cadastro do cliente. Outras áreas → responsável do orçamento.'}
-                          {atribuicaoResponsavel === 'CLIENTE_AREA' && (
-                            <>Busca o responsável vinculado à área <strong>{areaNome || '(defina a área na pill Identificação)'}</strong> no cadastro do cliente. Fallback automático para o substituto.</>
-                          )}
-                          {atribuicaoResponsavel === 'MANUAL_FIXO' && 'Toda execução é atribuída ao mesmo usuário, independente de orçamento/cliente.'}
-                          {atribuicaoResponsavel === 'HERDA_PREDECESSOR' && 'Mantém o responsável do passo anterior na cadeia. Útil para itens internos de fluxo.'}
-                        </p>
-                        {atribuicaoResponsavel === 'CLIENTE_AREA' && !areaId && (
-                          <div className="text-[11px] rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-amber-900">
-                            ⚠ O campo <strong>Área</strong> está vazio — o engine não conseguirá fazer o match. Preencha em Identificação antes de salvar.
-                          </div>
-                        )}
-                      </div>
-                      <div className="col-span-12 md:col-span-6 space-y-1.5">
-                        {atribuicaoResponsavel === 'MANUAL_FIXO' ? (
-                          <>
-                            <Label className="text-xs font-medium">Usuário responsável *</Label>
-                            <Select value={responsavelFixoId || '__none__'} onValueChange={v => setResponsavelFixoId(v === '__none__' ? '' : v)}>
-                              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione um usuário" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">— Selecione —</SelectItem>
-                                {responsaveisAtribuiveis.map(u => (
-                                  <SelectItem key={u.id} value={u.id}>
-                                    {u.name}{u.email && ` (${u.email})`}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {!responsavelFixoId && (
-                              <p className="text-[11px] text-amber-700">Sem usuário selecionado — execuções ficarão sem responsável.</p>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <Label className="text-xs font-medium text-muted-foreground">Override em runtime</Label>
-                            <div className="h-9 px-3 flex items-center text-[12px] bg-muted/20 border border-dashed rounded-md text-muted-foreground">
-                              Gestor sempre pode reatribuir manualmente após criada
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* ── PILL: Avançado ──────────────────────────── */}
                 {visaoPill === 'avancado' && (
                   <div>

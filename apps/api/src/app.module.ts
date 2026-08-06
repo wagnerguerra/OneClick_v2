@@ -20,6 +20,7 @@ import { BiModule } from './bi/bi.module'
 import { FolhaModule } from './folha/folha.module'
 import { FolhaBiModule } from './folha-bi/folha-bi.module'
 import { HelpdeskModule } from './helpdesk/helpdesk.module'
+import { RelatorioTiModule } from './relatorio-ti/relatorio-ti.module'
 import { DriveSyncModule } from './drive-sync/drive-sync.module'
 import { LauncherModule } from './launcher/launcher.module'
 import { ChatDesktopModule } from './chat-desktop/chat-desktop.module'
@@ -63,6 +64,7 @@ import { CusteioModule } from './custeio/custeio.module'
     FolhaModule,
     FolhaBiModule,
     HelpdeskModule,
+    RelatorioTiModule,
     DriveSyncModule,
     LauncherModule,
     ChatDesktopModule,

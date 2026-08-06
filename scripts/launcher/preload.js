@@ -47,6 +47,16 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('bi-sync-event', handler)
   },
 
+  // Folha Sync — executa o ETL da folha (importar_empresa.py) local, faz stream do
+  // progresso e (modo empresa) sobe os envelopes usando o cookie da sessao (main process).
+  folhaSyncRun: (payload) => ipcRenderer.invoke('folha-sync-run', payload),
+  folhaSyncRunNow: () => ipcRenderer.invoke('folha-sync-run-now'),
+  onFolhaSyncEvent: (callback) => {
+    const handler = (_event, data) => callback(data)
+    ipcRenderer.on('folha-sync-event', handler)
+    return () => ipcRenderer.removeListener('folha-sync-event', handler)
+  },
+
   // Contratos Sync — Launcher escuta SSE da VPS, executa sci_metrics.py local
   // e devolve via callback. Reusa o cookie do BI Sync (mesma sessão).
   contratoSyncStreamStart: (baseUrl) => ipcRenderer.invoke('contrato-sync-stream-start', baseUrl),

@@ -170,11 +170,60 @@ function truncate(s: string | null, max: number) {
   return s.length > max ? s.slice(0, max) + '...' : s
 }
 
-/** Rótulo textual do "Tipo" do serviço — usado na busca e na ordenação da coluna. */
+/**
+ * Os cinco tipos de cadastro, como o formulário os apresenta.
+ *
+ * Interno e Obrigação Acessória são categorias VIRTUAIS: por baixo continuam
+ * sendo EXTRA e MENSAL, com uma marcação própria. A coluna precisa mostrá-las
+ * mesmo assim — dois serviços "Extra" na lista podem ser coisas bem diferentes.
+ *
+ * A ordem do teste importa: fluxo é estrutural e vem primeiro; depois as duas
+ * marcações; a cobrança é o que sobra.
+ */
+function tipoDoServico(s: Servico): {
+  curto: string
+  completo: string
+  classe: string
+  Icone: typeof Network
+} {
+  if (s.categoriaServico === 'FLUXO') {
+    return {
+      curto: 'Fluxo', completo: 'Parte do Fluxo — item interno de outro serviço',
+      classe: 'bg-violet-50 dark:bg-violet-900/20 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300',
+      Icone: Network,
+    }
+  }
+  if (s.ehObrigacaoAcessoria) {
+    return {
+      curto: 'Acessória', completo: 'Obrigação Acessória — entregue com uma certa recorrência',
+      classe: 'bg-rose-50 dark:bg-rose-900/20 border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300',
+      Icone: ShieldCheck,
+    }
+  }
+  if (s.ehServicoInterno) {
+    return {
+      curto: 'Interno', completo: 'Serviço Interno — de execução interna, fora do catálogo comercial',
+      classe: 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300',
+      Icone: Lock,
+    }
+  }
+  if (s.categoriaServico === 'MENSAL' || s.recorrenteMensal) {
+    return {
+      curto: 'Recorrente', completo: 'Serviço Recorrente — executado com uma determinada recorrência',
+      classe: 'bg-sky-50 dark:bg-sky-900/20 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300',
+      Icone: Repeat,
+    }
+  }
+  return {
+    curto: 'Extraordinário', completo: 'Serviço Extraordinário — pontual, cobrança por execução',
+    classe: 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300',
+    Icone: Zap,
+  }
+}
+
+/** Rótulo textual do "Tipo" — usado na busca e na ordenação da coluna. */
 function tipoLabel(s: Servico): string {
-  if (s.categoriaServico === 'FLUXO') return 'Fluxo'
-  if (s.categoriaServico === 'MENSAL' || s.recorrenteMensal) return 'Mensal'
-  return 'Extra'
+  return tipoDoServico(s).curto
 }
 
 // ============================================================
@@ -1264,19 +1313,14 @@ export default function ServicosPage() {
                       </div>
                       <div className="mt-2 flex items-center justify-between gap-1.5 flex-wrap">
                         <Badge variant="secondary" className="text-[10px]">{s._count?.execucoes ?? 0} execuções</Badge>
-                        {s.categoriaServico === 'FLUXO' ? (
-                          <Badge variant="outline" className="text-[10px] bg-violet-50 dark:bg-violet-900/20 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300" title={s.servicoPai ? `Item interno de "${s.servicoPai.nome}"` : 'Item de fluxo'}>
-                            <Network className="h-2.5 w-2.5 mr-1" />Fluxo
-                          </Badge>
-                        ) : s.categoriaServico === 'MENSAL' || s.recorrenteMensal ? (
-                          <Badge variant="outline" className="text-[10px] bg-sky-50 dark:bg-sky-900/20 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300" title="Cobrança mensal recorrente — entra em contratos">
-                            <ToggleRight className="h-2.5 w-2.5 mr-1" />Mensal
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300" title="Cobrança pontual — uma cobrança por execução">
-                            <ToggleLeft className="h-2.5 w-2.5 mr-1" />Extra
-                          </Badge>
-                        )}
+                        {(() => {
+                          const t = tipoDoServico(s)
+                          return (
+                            <Badge variant="outline" className={`text-[10px] ${t.classe}`} title={t.completo}>
+                              <t.Icone className="h-2.5 w-2.5 mr-1" />{t.curto}
+                            </Badge>
+                          )
+                        })()}
                         {s.segmentoSlug && SEGMENTO_META[s.segmentoSlug as SegmentoSlug] && (
                           <Badge
                             variant="outline"
@@ -1382,19 +1426,18 @@ export default function ServicosPage() {
                         : <span className="text-xs text-muted-foreground italic">—</span>}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      {s.categoriaServico === 'FLUXO' ? (
-                        <Badge variant="outline" className="text-[10px] h-5 bg-violet-50 dark:bg-violet-900/20 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300" title={s.servicoPai ? `Item interno de "${s.servicoPai.nome}"` : 'Item de fluxo'}>
-                          <Network className="h-2.5 w-2.5 mr-0.5" /> Fluxo{s.servicoPai ? ` · ${s.servicoPai.nome}` : ''}
-                        </Badge>
-                      ) : s.categoriaServico === 'MENSAL' || s.recorrenteMensal ? (
-                        <Badge variant="outline" className="text-[10px] h-5 bg-sky-50 dark:bg-sky-900/20 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300" title="Cobrança mensal recorrente — entra em contratos">
-                          <ToggleRight className="h-2.5 w-2.5 mr-0.5" /> Mensal
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[10px] h-5 bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300" title="Cobrança pontual — uma cobrança por execução">
-                          <ToggleLeft className="h-2.5 w-2.5 mr-0.5" /> Extra
-                        </Badge>
-                      )}
+                      {(() => {
+                        const t = tipoDoServico(s)
+                        const dono = s.categoriaServico === 'FLUXO' && s.servicoPai ? ` · ${s.servicoPai.nome}` : ''
+                        return (
+                          <Badge variant="outline" className={`text-[10px] h-5 ${t.classe}`}
+                            title={s.servicoPai && s.categoriaServico === 'FLUXO'
+                              ? `Item interno de "${s.servicoPai.nome}"`
+                              : t.completo}>
+                            <t.Icone className="h-2.5 w-2.5 mr-0.5" /> {t.curto}{dono}
+                          </Badge>
+                        )
+                      })()}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {s.grupos && s.grupos.length > 0 ? (

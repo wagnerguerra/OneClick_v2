@@ -1,0 +1,187 @@
+<title>Resumo do dia — OneClick v2 · {{DATA_BR}}</title>
+<style>
+  :root {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+    /* dots por bloco (cores dos módulos) */
+    --cadastros:#10b981; --comercial:#fb7185; --corporativo:#8b5cf6; --administrativo:#64748b;
+    --legalizacao:#0ea5e9; --trabalhista:#f97316; --fiscal:#6366f1; --contabil:#14b8a6;
+    --ti:#3b82f6; --qualidade:#f59e0b; --configuracoes:#64748b; --processos:#a855f7;
+    --faq:#22c55e; --perfil:#ec4899; --dashboard:#0ea5e9; --agenda:#8b5cf6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+      --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+      --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+    --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+    --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  header { animation: rise .5s ease-out both; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: .13em; font-size: 11px; font-weight: 700;
+    color: var(--accent-deep); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px); line-height: 1.08; margin: 0 0 8px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+  .stat {
+    flex: 1 1 150px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat .n { font-size: 24px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  main { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+    animation: rise .5s ease-out both;
+  }
+  .card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .card-head h2 { font-size: 16px; margin: 0; letter-spacing: -.01em; font-weight: 700; }
+  .card-head .tag {
+    margin-left: auto; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+  }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  li { display: flex; gap: 10px; font-size: 14.5px; }
+  li::before {
+    content: ""; margin-top: 9px; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted); flex: none; opacity: .55;
+  }
+  li b { font-weight: 650; }
+  .hash {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 5px;
+    background: var(--chip-bg); color: var(--chip-ink); margin-left: 4px; vertical-align: baseline;
+  }
+
+  .note {
+    margin-top: 22px; border: 1px dashed var(--border); border-radius: 12px;
+    padding: 14px 18px; font-size: 13.5px; color: var(--muted); background: transparent;
+  }
+  .note b { color: var(--ink); }
+  footer { margin-top: 34px; text-align: center; color: var(--muted); font-size: 12px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Resumo do dia · sessão de desenvolvimento</p>
+    <h1>O que fizemos hoje no OneClick v2</h1>
+    <p class="sub">5 de agosto de 2026 — visão geral, sem entrar no detalhe.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n">20</div><div class="l">alterações</div></div>
+    <div class="stat"><div class="n">7</div><div class="l">áreas do sistema</div></div>
+    <div class="stat"><div class="n">1</div><div class="l">mudança estrutural</div></div>
+    <div class="stat"><div class="n">4</div><div class="l">correções</div></div>
+  </div>
+
+  <main>
+    <section class="card" style="animation-delay:.05s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Catálogo de serviços — o nível que faltava</h2><span class="tag">Cadastros · estrutural</span></div>
+      <ul>
+        <li><span><b>Serviços agora têm subserviços.</b> Antes o catálogo só tinha dois andares: o serviço e suas variações de texto e preço. Faltava o meio. &quot;Serviço Extra — Área Legalização&quot; precisa conter COMPETE, INVEST e Renovação, e cada um deles continua valendo sozinho: entra direto num orçamento e tem as próprias variações. Um mesmo subserviço pode pertencer a mais de um serviço, sem cadastro repetido. <span class="hash mono">50de45f2</span></span></li>
+        <li><span><b>No orçamento, o serviço decomposto não entra mais genérico.</b> Escolher &quot;Extra Legalização&quot; passa a exigir qual subserviço — foi para isso que ele foi dividido. O subserviço manda na descrição, no valor e nas variações oferecidas. Orçamentos antigos continuam válidos. <span class="hash mono">074605ec</span></span></li>
+        <li><span><b>As variações passaram a ser cadastradas na própria tela do serviço.</b> Antes era preciso sair para outro módulo, com outra permissão, para completar o cadastro do serviço recém-criado. Agora é tudo num lugar só, em tabela com título, valor e filtro. <span class="hash mono">8f23ff54</span> <span class="hash mono">e69a8595</span></span></li>
+        <li><span><b>O desenho do fluxo ganhou uma camada opcional</b> mostrando subserviços e variações. Fica desligada por padrão: o fluxo responde &quot;o que roda quando&quot;, e esses dois não executam — misturá-los faria alguém procurá-los na fila de trabalho. Um botão liga e desliga. <span class="hash mono">13cb812e</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.10s">
+      <div class="card-head"><span class="dot" style="background:var(--comercial)"></span><h2>Orçamentos</h2><span class="tag">Comercial · melhoria e correção</span></div>
+      <ul>
+        <li><span><b>O responsável técnico saiu da proposta impressa.</b> Quem executa o serviço é controle interno, e não assunto da proposta que o cliente recebe. <span class="hash mono">9a930e5c</span></span></li>
+        <li><span><b>Subserviço e variação aparecem no item e na proposta.</b> O sistema guardava as duas escolhas, mas não as mostrava — a variação não aparecia em lugar nenhum. Agora vêm como etiquetas na lista e como linha própria na proposta, para o cliente saber exatamente o que foi contratado. <span class="hash mono">4cfaca97</span></span></li>
+        <li><span><b>Correção: dar desconto num item antigo deixou de ser bloqueado.</b> Itens lançados antes de o serviço ganhar subserviços travavam em qualquer edição, inclusive no desconto. A exigência passou a valer só quando o serviço está sendo trocado de fato. <span class="hash mono">d626fbd2</span></span></li>
+        <li><span><b>&quot;Notificar as seguintes áreas&quot; chegou à tela de criação</b> — trabalho de um colega, publicado hoje. É o mesmo seletor do atalho rápido, com a mesma lista de áreas. <span class="hash mono">85b8b6cf</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.15s">
+      <div class="card-head"><span class="dot" style="background:var(--processos)"></span><h2>Ferramentas</h2><span class="tag">Processos · novo</span></div>
+      <ul>
+        <li><span><b>Dividir PDF</b> — o caminho inverso do Juntar, com os dois usos na mesma tela: separar as páginas escolhidas num documento à parte (tirar o anexo de um processo) ou soltar cada página num arquivo (lote de guias, uma por cliente). As páginas aparecem como miniaturas e se escolhe clicando; quem preferir digitar usa a escrita de impressora (&quot;1-3, 7, 12&quot;). Com vários pedaços, sai também um arquivo compactado com tudo. <span class="hash mono">756e3bac</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.20s">
+      <div class="card-head"><span class="dot" style="background:var(--fiscal)"></span><h2>Acessórias</h2><span class="tag">Fiscal · melhoria</span></div>
+      <ul>
+        <li><span><b>Agora dá para parar uma sincronização em andamento.</b> Antes, iniciada, ela só terminava sozinha — e pior: uma que morresse junto com o servidor (numa publicação, por exemplo) ficava marcada como &quot;rodando&quot; para sempre, sem ninguém para encerrá-la. O botão Parar cobre os dois casos: se o processo está vivo, ele encerra sozinho entre um cliente e o próximo, preservando o que já gravou; se morreu, a linha é encerrada na hora, dizendo que parou de responder. <span class="hash mono">246aa41c</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.25s">
+      <div class="card-head"><span class="dot" style="background:var(--ti)"></span><h2>Atalho rápido (o botão flutuante)</h2><span class="tag">TI · melhoria</span></div>
+      <ul>
+        <li><span><b>O botão pode ir para a esquerda — e voltar.</b> Os usuários relatavam que ele cobre informações em algumas telas, e qual canto atrapalha depende da página e do monitor de cada um. Em vez de escolher uma posição para todos, a decisão é de quem usa, e fica guardada naquele navegador. <span class="hash mono">9058fc9e</span></span></li>
+        <li><span><b>O balão pode ser ampliado</b> para o tamanho de uma janela normal. Preencher um orçamento inteiro num balão estreito era sofrido: o editor de texto ficava com a altura de um campo. <span class="hash mono">f24c4e6b</span></span></li>
+        <li><span><b>O balão passou a ter os mesmos campos da tela de orçamento</b>, obedecendo à mesma permissão. Quem não tem cadastro completo vê o essencial; quem tem, vê também tipo, validade, forma de pagamento e descontos. Antes a mesma pessoa tinha dois níveis de acesso dependendo de onde clicava. <span class="hash mono">dce96d99</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.30s">
+      <div class="card-head"><span class="dot" style="background:var(--agenda)"></span><h2>Empresas e Agenda</h2><span class="tag">melhoria e correção</span></div>
+      <ul>
+        <li><span><b>O cadastro da empresa mostra quem está vinculado a ela.</b> Saber isso exigia sair da tela, abrir Usuários e filtrar. A pergunta nasce ali, e agora a resposta está ali: nome, e-mail, cargo e área, com filtro e opção de ver os inativos. O cadastro em si continua no módulo Usuários. <span class="hash mono">92dc8823</span> <span class="hash mono">4feaf9b7</span></span></li>
+        <li><span><b>Na agenda, dá para convidar todos de uma vez.</b> Convocar o escritório inteiro exigia clicar em cada pessoa. O botão respeita a busca: filtrando por parte de um nome, ele adiciona só os encontrados — funciona como convidar um grupo sem termos uma lista de grupos cadastrada. <span class="hash mono">afe304a2</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.35s">
+      <div class="card-head"><span class="dot" style="background:var(--configuracoes)"></span><h2>Migração de cliente</h2><span class="tag">Configurações · em andamento</span></div>
+      <ul>
+        <li><span><b>Avançou o migrador do JR Grupo</b>, que traz os dados do sistema antigo para o OneClick v2. Trabalho de um colega, com o registro do processo documentado junto. <span class="hash mono">f7c852f2</span> <span class="hash mono">77789325</span></span></li>
+      </ul>
+    </section>
+  </main>
+
+  <div class="note">
+    <b>Além do código:</b> a mudança do catálogo de serviços exigiu duas definições da diretoria antes de
+    começar — se um subserviço pode pertencer a mais de um serviço (pode) e se escolhê-lo é obrigatório
+    quando existe (é). Vale registrar também uma correção nossa: ao entregar os subserviços, afirmamos que
+    nada quebraria em orçamentos antigos — e quebrou. Itens já lançados travaram na hora de receber
+    desconto. O caso foi relatado por um usuário e corrigido no mesmo dia.
+  </div>
+  <div class="note" style="margin-top:10px">
+    <b>Situação:</b> a maior parte do dia já está em produção, publicada ao longo da tarde. Aguardam a
+    próxima publicação as últimas alterações do atalho rápido e da agenda. Duas entregas do dia pedem um
+    ajuste no banco de dados junto da publicação: os subserviços e a parada de sincronização.
+  </div>
+
+  <footer>Resumo gerado ao fim da sessão · OneClick v2</footer>
+</div>

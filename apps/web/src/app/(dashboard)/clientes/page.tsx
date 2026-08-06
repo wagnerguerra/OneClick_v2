@@ -102,17 +102,6 @@ export default function ClientesPage() {
   const [filiais, setFiliais] = useState<Filial[]>([])
   const [filiaisLoading, setFiliaisLoading] = useState(false)
 
-  useEffect(() => {
-    if (!filiaisModal) { setFiliais([]); return }
-    let cancelled = false
-    setFiliaisLoading(true)
-    ;(trpc.cliente as any).listFiliais.query({ documento: filiaisModal.documento })
-      .then((r: Filial[]) => { if (!cancelled) setFiliais(r) })
-      .catch(() => { if (!cancelled) setFiliais([]) })
-      .finally(() => { if (!cancelled) setFiliaisLoading(false) })
-    return () => { cancelled = true }
-  }, [filiaisModal])
-
   // Gerenciador de opcoes (Atividade, Origem)
   const [opcoesModal, setOpcoesModal] = useState(false)
   const [opcoesTab, setOpcoesTab] = useState<'ATIVIDADE' | 'ORIGEM' | 'GRUPO' | 'BENEFICIO'>('ATIVIDADE')
@@ -204,6 +193,19 @@ export default function ClientesPage() {
   const [filterBeneficio, setFilterBeneficio] = useState('')
   const [debouncedNumero, setDebouncedNumero] = useState('')
   const [filterOptions, setFilterOptions] = useState<{ grupos: string[]; cidades: string[]; estados: string[]; tipos: string[]; atividades: string[]; beneficios: string[]; areas: string[] }>({ grupos: [], cidades: [], estados: [], tipos: [], atividades: [], beneficios: [], areas: [] })
+
+  useEffect(() => {
+    if (!filiaisModal) { setFiliais([]); return }
+    let cancelled = false
+    setFiliaisLoading(true)
+    // Vai o mesmo filtro Ativo/Inativo da lista: o modal mostra as filiais que o
+    // selo contou, nem uma a mais.
+    ;(trpc.cliente as any).listFiliais.query({ documento: filiaisModal.documento, status: filterStatus || undefined })
+      .then((r: Filial[]) => { if (!cancelled) setFiliais(r) })
+      .catch(() => { if (!cancelled) setFiliais([]) })
+      .finally(() => { if (!cancelled) setFiliaisLoading(false) })
+    return () => { cancelled = true }
+  }, [filiaisModal, filterStatus])
 
   // Filtro persistente: somente mensais
   const [onlyMensal, setOnlyMensal] = useState(() => {

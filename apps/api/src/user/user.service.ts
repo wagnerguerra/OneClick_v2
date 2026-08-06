@@ -517,11 +517,19 @@ export class UserService {
     })
   }
 
-  async listForSelect(callerIsMaster: boolean, callerEmpresaId?: string) {
+  /**
+   * Usuários para preencher um select.
+   *
+   * Filtra pela empresa ATIVA mesmo para o master. Ele enxerga todas as
+   * empresas, mas um seletor que mistura as equipes de duas delas oferece
+   * escolhas erradas — e o nome repetido não diz de qual tenant é. Para navegar
+   * entre elas existe o seletor de empresa no cabeçalho.
+   */
+  async listForSelect(_callerIsMaster: boolean, callerEmpresaId?: string) {
     const users = await prisma.user.findMany({
       where: {
         isActive: true,
-        ...(!callerIsMaster && callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
+        ...(callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
       },
       select: {
         id: true, name: true, email: true, role: true,

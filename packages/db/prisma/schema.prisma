@@ -248,6 +248,8 @@ model User {
   tenant                 Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   empresa                Empresa?                @relation(fields: [empresaId], references: [id], onDelete: SetNull)
   area                   Area?                   @relation("UserArea", fields: [areaId], references: [id], onDelete: SetNull)
+  relatoriosDiarios      RelatorioDiario[]       @relation("RelatorioAutor")
+  manifestacoes          Manifestacao[]          @relation("ManifestacaoAutor")
   acessoriasColaborador  AcessoriasColaborador[] @relation("AcessoriasColaboradorUser")
   cargo                  Cargo?                  @relation(fields: [cargoId], references: [id], onDelete: SetNull)
   sessions               Session[]
@@ -428,6 +430,7 @@ model Area {
   servicosArea       Servico[]               @relation("ServicoArea")
 
   @@map("areas")
+  manifestacoes Manifestacao[]
 }
 
 // ============================================================
@@ -854,6 +857,7 @@ model Cliente {
   beneficiosFiscais    BeneficioFiscalCliente[]
 
   @@map("clientes")
+  manifestacoes Manifestacao[]
 }
 
 // Drive Sync — rastreia cada arquivo já processado (dedup por file_id + sha256)
@@ -3297,6 +3301,12 @@ model AgendaTarefa {
   criador        User      @relation("TarefaCriador", fields: [criadorId], references: [id])
   empresaId      String?   @map("empresa_id")
 
+  // Vínculo opcional com um card do CRM (Oportunidade). Quando presente, a tarefa
+  // é criada/gerida a partir da oportunidade, mas vive na lista de tarefas do
+  // usuário como qualquer outra. SetNull: excluir a oportunidade só desvincula.
+  oportunidadeId String?       @map("oportunidade_id")
+  oportunidade   Oportunidade? @relation("OportunidadeAgendaTarefas", fields: [oportunidadeId], references: [id], onDelete: SetNull)
+
   lembretes      AgendaTarefaLembrete[]
   participantes  AgendaTarefaParticipante[]
 
@@ -3306,6 +3316,7 @@ model AgendaTarefa {
   @@index([criadorId, concluida, prazo])
   @@index([prazo])
   @@index([empresaId])
+  @@index([oportunidadeId])
   @@map("agenda_tarefas")
 }
 
@@ -3492,7 +3503,6 @@ model Oportunidade {
 
   etapa     CrmEtapa               @relation(fields: [etapaId], references: [id])
   tags      OportunidadeTag[]
-  tarefas   OportunidadeTarefa[]
   mensagens OportunidadeMensagem[]
   arquivos  OportunidadeArquivo[]
   eventos   OportunidadeEvento[]
@@ -3501,6 +3511,9 @@ model Oportunidade {
   agendaEventos AgendaEvento[] @relation("OportunidadeAgendaEventos")
   // Vínculos N:N com eventos da agenda (vários cards por evento) — ver AgendaEventoOportunidade.
   agendaVinculos AgendaEventoOportunidade[]
+  // Tarefas da agenda vinculadas a esta oportunidade (a "tarefa do CRM" é uma
+  // AgendaTarefa com oportunidadeId preenchido) — ver AgendaTarefa.
+  agendaTarefas AgendaTarefa[] @relation("OportunidadeAgendaTarefas")
 
   @@index([etapaId])
   @@index([clienteId])
@@ -3679,20 +3692,11 @@ model BeneficioCartaoAvulso {
   @@map("beneficio_cartao_avulso")
 }
 
-model OportunidadeTarefa {
-  id             String    @id @default(cuid())
-  oportunidadeId String    @map("oportunidade_id")
-  titulo         String
-  concluida      Boolean   @default(false)
-  responsavelId  String?   @map("responsavel_id")
-  prazo          DateTime?
-  createdAt      DateTime  @default(now()) @map("created_at")
-
-  oportunidade Oportunidade @relation(fields: [oportunidadeId], references: [id], onDelete: Cascade)
-
-  @@index([oportunidadeId])
-  @@map("oportunidade_tarefas")
-}
+// NOTA: o antigo model `OportunidadeTarefa` (tabela `oportunidade_tarefas`) foi
+// aposentado — a "tarefa do CRM" passou a ser uma `AgendaTarefa` com
+// `oportunidadeId` preenchido (ver a relation `OportunidadeAgendaTarefas`). A
+// migração `20260805_agenda_tarefa_oportunidade` migra os dados legados e dropa a
+// tabela antiga.
 
 model OportunidadeMensagem {
   id             String   @id @default(cuid())
@@ -7412,4 +7416,230 @@ model AssinaturaPdfHistorico {
   @@index([empresaId, usuarioId, criadoEm])
   @@index([hashOriginal])
   @@map("assinatura_pdf_historico")
+}
+
+/// Relatório diário de um colaborador da equipe.
+///
+/// `data` é o DIA a que o relatório se refere, e não o instante em que foi
+/// postado: lançar hoje o relatório de ontem é rotina, e o calendário precisa
+/// colocá-lo no dia certo.
+model RelatorioDiario {
+  id           String   @id @default(cuid())
+  empresaId    String?  @map("empresa_id")
+  autorId      String   @map("autor_id")
+  data         DateTime @db.Date
+  titulo       String
+  /// ANEXO | ESCRITO
+  formato      String
+  /// Preenchido quando escrito no painel.
+  conteudoHtml String?  @map("conteudo_html") @db.Text
+  /// Preenchido quando anexado — nome do arquivo dentro de uploads/relatorios-ti.
+  arquivoPath  String?  @map("arquivo_path")
+  arquivoNome  String?  @map("arquivo_nome")
+  arquivoMime  String?  @map("arquivo_mime")
+  arquivoBytes Int?     @map("arquivo_bytes")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  autor     User       @relation("RelatorioAutor", fields: [autorId], references: [id], onDelete: Cascade)
+  novidades Novidade[]
+
+  @@index([empresaId, data])
+  @@index([autorId, data])
+  @@map("relatorios_diarios")
+}
+
+/// Registro de cada envio do consolidado à diretoria.
+///
+/// Existe para o painel poder dizer "enviado por Fulano às 18h02" — sem isso,
+/// reenviar vira dúvida e ninguém sabe se o dia já foi repassado.
+model RelatorioEnvio {
+  id            String   @id @default(cuid())
+  empresaId     String?  @map("empresa_id")
+  data          DateTime @db.Date
+  assunto       String
+  pdfNome       String   @map("pdf_nome")
+  pdfPath       String?  @map("pdf_path")
+  destinatarios String[]
+  /// Quais relatórios entraram naquele PDF — o dia pode ganhar mais depois.
+  relatorioIds  String[] @map("relatorio_ids")
+  enviadoPorId  String?  @map("enviado_por_id")
+  enviadoEm     DateTime @default(now()) @map("enviado_em")
+
+  @@index([empresaId, data])
+  @@map("relatorios_envios")
+}
+
+/// Novidade publicada no painel inicial, curada a partir de um relatório.
+///
+/// O texto NASCE do relatório mas é editável: o que se escreve para a diretoria
+/// não é o que se escreve para quem só quer saber o que mudou no sistema.
+model Novidade {
+  id             String    @id @default(cuid())
+  empresaId      String?   @map("empresa_id")
+  relatorioId    String?   @map("relatorio_id")
+  titulo         String
+  descricao      String?   @db.Text
+  /// NOVO | MELHORIA | CORRECAO
+  tipo           String    @default("NOVO")
+  /// Módulo a que se refere — dá o ícone e o link no widget.
+  moduloSlug     String?   @map("modulo_slug")
+  ordem          Int       @default(0)
+  ativo          Boolean   @default(true)
+  publicadoEm    DateTime  @default(now()) @map("publicado_em")
+  publicadoPorId String?   @map("publicado_por_id")
+
+  // SetNull: apagar o relatório de origem não pode apagar a novidade, que já
+  // foi lida por todo mundo no painel.
+  relatorio RelatorioDiario? @relation(fields: [relatorioId], references: [id], onDelete: SetNull)
+
+  @@index([empresaId, ativo, publicadoEm])
+  @@map("novidades")
+}
+
+/// Configuração do módulo — uma linha por empresa.
+model RelatorioTiConfig {
+  id                    String   @id @default(cuid())
+  empresaId             String?  @unique @map("empresa_id")
+  /// Área cuja equipe posta os relatórios. Em branco, ninguém é cobrado.
+  areaId                String?  @map("area_id")
+  /// Ids de usuário que recebem o consolidado (mesmo desenho do disparo da agenda).
+  destinatariosIds      String[] @map("destinatarios_ids")
+  /// E-mails avulsos, para quem não é usuário do sistema.
+  destinatariosEmails   String[] @map("destinatarios_emails")
+  assuntoPadrao         String?  @map("assunto_padrao")
+  atualizadoEm          DateTime @updatedAt @map("atualizado_em")
+
+  @@map("relatorios_ti_config")
+}
+
+/// Manifestação da Qualidade — elogio, reclamação ou sugestão.
+///
+/// Os três são a mesma coisa por baixo: alguém relata, a Qualidade tria, trata
+/// e encerra. Mudam os campos e o fluxo, não a estrutura — daí uma tabela só,
+/// com `tipo`. No menu são três módulos, com três permissões: quem vê elogio
+/// não vê reclamação.
+model Manifestacao {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  /// Código que a pessoa leva embora: ELO-7K3M-92QF. É por ele que se
+  /// acompanha a tratativa sem se identificar.
+  protocolo String  @unique
+
+  /// ELOGIO | RECLAMACAO | SUGESTAO
+  tipo   String
+  /// INTERNA | CLIENTE — de que lado partiu.
+  origem String  @default("INTERNA")
+  /// Anônima NÃO guarda autor. Sem exceção: é o que a palavra promete.
+  anonima Boolean @default(false)
+
+  /// NULL quando anônima.
+  autorId String? @map("autor_id")
+
+  // ── Quando parte do cliente ──
+  clienteId          String? @map("cliente_id")
+  informanteNome     String? @map("informante_nome")
+  informanteEmail    String? @map("informante_email")
+  informanteTelefone String? @map("informante_telefone")
+  /// TELEFONE | EMAIL | WHATSAPP | PRESENCIAL | SITE | OUTRO
+  canal              String?
+
+  // ── Conteúdo ──
+  /// Área reclamada, elogiada ou sugerida.
+  areaId       String?   @map("area_id")
+  /// Colaboradores elogiados — IDs, e não nomes soltos como no legado.
+  elogiadosIds String[]  @map("elogiados_ids")
+  titulo       String?
+  descricao    String    @db.Text
+  dataOcorrido DateTime? @map("data_ocorrido") @db.Date
+
+  // ── Situação ──
+  /// Valores variam por tipo — ver docs do módulo.
+  status       String    @default("RECEBIDA")
+  /// Reclamação: registro + dias do parâmetro. Vira farol na listagem.
+  prazoRetorno DateTime? @map("prazo_retorno")
+  /// Sugestão: aparece no mural para todos.
+  publica      Boolean   @default(false)
+
+  // ── Tratativa ──
+  /// Retorno imediato dado ao cliente (reclamação, status 1 → 2).
+  retornoCliente   String?   @db.Text @map("retorno_cliente")
+  retornoEm        DateTime? @map("retorno_em")
+  retornoPorId     String?   @map("retorno_por_id")
+  /// Procedente? NULL = ainda não analisada.
+  procede          Boolean?
+  causaDescricao   String?   @db.Text @map("causa_descricao")
+  /// Por que NÃO procede.
+  justificativa    String?   @db.Text
+  /// Posição final entregue a quem reclamou.
+  retornoFinal     String?   @db.Text @map("retorno_final")
+  /// Resposta da Qualidade (elogio e sugestão usam este).
+  resposta         String?   @db.Text
+  respondidoEm     DateTime? @map("respondido_em")
+  respondidoPorId  String?   @map("respondido_por_id")
+  encerradoEm      DateTime? @map("encerrado_em")
+  encerradoPorId   String?   @map("encerrado_por_id")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  autor     User?      @relation("ManifestacaoAutor", fields: [autorId], references: [id], onDelete: SetNull)
+  cliente   Cliente?   @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  area      Area?      @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  mensagens ManifestacaoMensagem[]
+  arquivos  ManifestacaoArquivo[]
+  logs      ManifestacaoLog[]
+
+  @@index([empresaId, tipo, status])
+  @@index([empresaId, tipo, criadoEm])
+  @@index([autorId])
+  @@map("manifestacoes")
+}
+
+/// Conversa da tratativa.
+model ManifestacaoMensagem {
+  id             String   @id @default(cuid())
+  manifestacaoId String   @map("manifestacao_id")
+  autorId        String?  @map("autor_id")
+  texto          String   @db.Text
+  /// Nota interna não aparece na consulta pública por protocolo.
+  interna        Boolean  @default(true)
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  manifestacao Manifestacao @relation(fields: [manifestacaoId], references: [id], onDelete: Cascade)
+
+  @@index([manifestacaoId])
+  @@map("manifestacao_mensagens")
+}
+
+model ManifestacaoArquivo {
+  id             String   @id @default(cuid())
+  manifestacaoId String   @map("manifestacao_id")
+  autorId        String?  @map("autor_id")
+  nome           String
+  /// Nome do arquivo dentro de uploads/manifestacoes.
+  arquivoPath    String   @map("arquivo_path")
+  mime           String?
+  bytes          Int?
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  manifestacao Manifestacao @relation(fields: [manifestacaoId], references: [id], onDelete: Cascade)
+
+  @@index([manifestacaoId])
+  @@map("manifestacao_arquivos")
+}
+
+/// Trilha do que aconteceu — exigência de auditoria, e o v1 já tinha.
+model ManifestacaoLog {
+  id             String   @id @default(cuid())
+  manifestacaoId String   @map("manifestacao_id")
+  usuarioId      String?  @map("usuario_id")
+  evento         String
+  detalhe        String?  @db.Text
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  manifestacao Manifestacao @relation(fields: [manifestacaoId], references: [id], onDelete: Cascade)
+
+  @@index([manifestacaoId])
+  @@map("manifestacao_logs")
 }

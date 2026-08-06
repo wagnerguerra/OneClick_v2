@@ -174,6 +174,19 @@ function loadSettings() {
     activeProjectKey: 'core',
     autoStart: false,
     autoStartServices: false,
+    // Config da sincronizacao da FOLHA (ETL importar_empresa.py rodando na LAN)
+    folha: {
+      etlDir: '',        // caminho do repo Folhas_Pagamento
+      python: 'python',  // comando python
+      dbUrl: '',         // SUPABASE_DB_URL (folha_dash central)
+      syncUrl: '',       // FOLHA_BI_SYNC_URL (upload por token no modo Todas/scheduler)
+      syncToken: '',     // FOLHA_SYNC_TOKEN (headless)
+      sciPassword: '',   // SCI_PASSWORD (Firebird)
+      sciHost: '',       // SCI_HOST (opcional; usa default do conexao_bi se vazio)
+      schedEnabled: false, // scheduler mensal ligado?
+      schedDia: 10,      // dia do mes p/ rodar --todas --anterior
+      ultimaRef: null,   // marcador AAAAMM do ultimo mes rodado pelo scheduler (catch-up)
+    },
   };
   try {
     const filePath = getSettingsPath();
@@ -193,11 +206,19 @@ function normalizeSettings(settings, defaults = null) {
     activeProjectKey: 'core',
     autoStart: false,
     autoStartServices: false,
+    folha: {
+      etlDir: '', python: 'python', dbUrl: '', syncUrl: '', syncToken: '',
+      sciPassword: '', sciHost: '', schedEnabled: false, schedDia: 10, ultimaRef: null,
+    },
   };
   const merged = { ...base, ...(settings || {}) };
   merged.projectDirs = {
     ...(base.projectDirs || {}),
     ...((settings && settings.projectDirs) || {}),
+  };
+  merged.folha = {
+    ...(base.folha || {}),
+    ...((settings && settings.folha) || {}),
   };
   if (settings && settings.projectDir && !settings.projectDirs?.core) merged.projectDirs.core = settings.projectDir;
   if (settings && settings.appProjectDir && !settings.projectDirs?.app) merged.projectDirs.app = settings.appProjectDir;
@@ -2950,6 +2971,137 @@ function registerIpcHandlers() {
       return { sucesso: false, erro: e.message }
     }
   })
+
+  // ════════════════════════════════════════════════════════
+  // Folha Sync: roda o ETL da folha (importar_empresa.py) na LAN.
+  //  - modo 'empresa' (manual): build folha_dash + emite envelopes; upload AQUI no
+  //    main com o COOKIE da sessao (biSyncCookies) -> /api/folha-bi-sync/upload.
+  //  - modo 'todas' (scheduler / "rodar agora"): headless por TOKEN; o proprio
+  //    importar_empresa faz o upload (FOLHA_BI_SYNC_URL + FOLHA_SYNC_TOKEN).
+  // ════════════════════════════════════════════════════════
+  function folhaEmit(ev) { try { if (mainWindow) mainWindow.webContents.send('folha-sync-event', ev) } catch {} }
+
+  function folhaEnvBase(cfg) {
+    const env = {
+      ...process.env,
+      PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1',
+      ...(cfg.dbUrl ? { SUPABASE_DB_URL: cfg.dbUrl } : {}),
+      ...(cfg.sciPassword ? { SCI_PASSWORD: cfg.sciPassword } : {}),
+      ...(cfg.sciHost ? { SCI_HOST: cfg.sciHost } : {}),
+    }
+    // base = SEM upload por token (o modo empresa sobe por cookie; so folhaRunTodas re-adiciona).
+    // Evita double-upload caso o host tenha FOLHA_BI_SYNC_URL no ambiente global.
+    delete env.FOLHA_BI_SYNC_URL
+    delete env.FOLHA_SYNC_TOKEN
+    return env
+  }
+
+  function folhaRunStreaming(cfg, args, env) {
+    return new Promise((resolve) => {
+      const p = spawn(cfg.python || 'python', args, { cwd: cfg.etlDir, env, windowsHide: true })
+      const pump = (buf, err) => String(buf).split(/\r?\n/).forEach(l => { if (l.trim()) folhaEmit({ type: 'log', line: l.trim(), err }) })
+      p.stdout.on('data', d => pump(d, false))
+      p.stderr.on('data', d => pump(d, true))
+      p.on('error', e => resolve({ code: -1, erro: e.message }))
+      p.on('close', code => resolve({ code }))
+    })
+  }
+
+  async function folhaUploadEnvelope(baseUrl, envelope) {
+    const cookieStr = biSyncCookies.get(baseUrl) || ''
+    if (!cookieStr) throw new Error('Sem sessao — faca login antes de sincronizar a folha')
+    const resp = await fetch(`${baseUrl}/api/folha-bi-sync/upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json', 'Origin': baseUrl,
+        'User-Agent': 'OneClick-Launcher/1.0', Cookie: cookieStr,
+      },
+      body: JSON.stringify(envelope),
+    })
+    return { ok: resp.ok, status: resp.status }
+  }
+
+  async function folhaRunTodas(cfg, { refs, baseUrl, anterior } = {}) {
+    const syncUrl = cfg.syncUrl || (baseUrl ? `${baseUrl}/api/folha-bi-sync/upload` : '')
+    if (!syncUrl || !cfg.syncToken) {
+      folhaEmit({ type: 'fim', code: -1, erro: 'FOLHA_BI_SYNC_URL/FOLHA_SYNC_TOKEN nao configurados (Configuracoes > Folha)' })
+      return { ok: false }
+    }
+    const env = { ...folhaEnvBase(cfg), FOLHA_BI_SYNC_URL: syncUrl, FOLHA_SYNC_TOKEN: cfg.syncToken }
+    const args = ['importar_empresa.py', '--todas', ...(anterior ? ['--anterior'] : (Array.isArray(refs) ? refs.map(String) : []))]
+    folhaEmit({ type: 'inicio', mode: 'todas', anterior: !!anterior, refs })
+    const r = await folhaRunStreaming(cfg, args, env)
+    folhaEmit({ type: 'fim', code: r.code, erro: r.erro })
+    return { ok: r.code === 0 }
+  }
+
+  let folhaBusy = false
+  ipcMain.handle('folha-sync-run', async (_e, payload) => {
+    if (folhaBusy) return { ok: false, erro: 'Sincronizacao ja em andamento' }
+    const cfg = loadSettings().folha || {}
+    const { mode, codEmp, refs, baseUrl } = payload || {}
+    if (!cfg.etlDir || !fs.existsSync(cfg.etlDir)) return { ok: false, erro: 'Caminho do ETL da folha nao configurado (Configuracoes > Folha)' }
+    if (mode === 'empresa' && (!codEmp || !Array.isArray(refs) || refs.length === 0)) return { ok: false, erro: 'Informe a empresa e ao menos uma competencia' }
+    folhaBusy = true
+    try {
+      const env = folhaEnvBase(cfg)
+      if (mode === 'empresa') {
+        folhaEmit({ type: 'inicio', mode, codEmp, refs })
+        const build = await folhaRunStreaming(cfg, ['importar_empresa.py', String(codEmp), ...refs.map(String)], env)
+        if (build.code !== 0) { folhaEmit({ type: 'fim', code: build.code, erro: build.erro || 'ETL falhou' }); return { ok: false } }
+        let enviados = 0
+        for (const ref of refs) {
+          const em = spawnSync(cfg.python || 'python', ['oneclick_upload.py', '--emit', String(codEmp), String(ref)],
+            { cwd: cfg.etlDir, encoding: 'utf8', env, timeout: 120000, windowsHide: true })
+          const out = (em.stdout || '').trim()
+          if (!out) { folhaEmit({ type: 'log', line: `ref ${ref}: sem folha (nada a enviar)` }); continue }
+          let envelope
+          try { envelope = JSON.parse(out) } catch (e) { folhaEmit({ type: 'log', line: `ref ${ref}: envelope invalido (${e.message})`, err: true }); continue }
+          try {
+            const up = await folhaUploadEnvelope(baseUrl, envelope)
+            folhaEmit({ type: 'upload', ref, ok: up.ok, status: up.status })
+            if (up.ok) enviados++
+          } catch (e) { folhaEmit({ type: 'log', line: `ref ${ref}: upload falhou — ${e.message}`, err: true }) }
+        }
+        folhaEmit({ type: 'fim', code: 0, enviados })
+        return { ok: true, enviados }
+      }
+      return await folhaRunTodas(cfg, { refs, baseUrl })
+    } catch (e) {
+      folhaEmit({ type: 'fim', code: -1, erro: e.message }); return { ok: false, erro: e.message }
+    } finally { folhaBusy = false }
+  })
+
+  ipcMain.handle('folha-sync-run-now', async () => {
+    if (folhaBusy) return { ok: false, erro: 'Sincronizacao ja em andamento' }
+    folhaBusy = true
+    try { return await folhaRunTodas(loadSettings().folha || {}, { anterior: true }) }
+    finally { folhaBusy = false }
+  })
+
+  // Scheduler mensal (dia N): roda --todas --anterior por token, com catch-up.
+  function folhaRefAnterior() {
+    const d = new Date(); const y = d.getFullYear(); const m = d.getMonth() + 1
+    return m === 1 ? (y - 1) * 100 + 12 : y * 100 + (m - 1)
+  }
+  async function folhaSchedulerTick() {
+    try {
+      const cfg = loadSettings().folha || {}
+      if (!cfg.schedEnabled) return
+      const now = new Date()
+      const dia = Number(cfg.schedDia) || 10
+      if (now.getDate() < dia) return
+      const alvo = folhaRefAnterior()
+      if (cfg.ultimaRef === alvo) return
+      if (folhaBusy) return
+      folhaBusy = true
+      folhaEmit({ type: 'log', line: `[scheduler] folha --todas --anterior (ref ${alvo})` })
+      try { await folhaRunTodas(cfg, { anterior: true }) } finally { folhaBusy = false }
+      const s = loadSettings(); s.folha = { ...(s.folha || {}), ultimaRef: alvo }; saveSettings(s)
+    } catch (e) { folhaEmit({ type: 'log', line: `[scheduler] erro: ${e.message}`, err: true }) }
+  }
+  setInterval(folhaSchedulerTick, 60 * 60 * 1000) // checa de hora em hora
+  setTimeout(folhaSchedulerTick, 30 * 1000)       // catch-up logo apos subir
 
   ipcMain.handle('open-external', (_e, url) => shell.openExternal(url));
 

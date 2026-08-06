@@ -43,7 +43,6 @@ async function main() {
     const oppEventos     = await tx.oportunidadeEvento.deleteMany({})
     const oppMensagens   = await tx.oportunidadeMensagem.deleteMany({})
     const oppArquivos    = await tx.oportunidadeArquivo.deleteMany({})
-    const oppTarefas     = await tx.oportunidadeTarefa.deleteMany({})
     const oppTagsJoin    = await tx.oportunidadeTag.deleteMany({})
     const oportunidades  = await tx.oportunidade.deleteMany({})
 
@@ -70,7 +69,6 @@ async function main() {
       oppEventos: oppEventos.count,
       oppMensagens: oppMensagens.count,
       oppArquivos: oppArquivos.count,
-      oppTarefas: oppTarefas.count,
       oppTagsJoin: oppTagsJoin.count,
       oportunidades: oportunidades.count,
       procRespostas: procRespostas.count,

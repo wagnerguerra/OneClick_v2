@@ -121,10 +121,18 @@ export class AreaService {
     })
   }
 
-  async listForSelect(isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+  /**
+   * Áreas para preencher um select.
+   *
+   * Diferente do `list` do módulo, aqui a empresa ATIVA vale também para o
+   * master: um seletor que mistura as áreas de duas empresas mostra "Comercial"
+   * duas vezes, sem dizer de qual tenant é cada uma. Trocar de empresa é pelo
+   * seletor do cabeçalho.
+   */
+  async listForSelect(_isMaster: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, (db) =>
       db.area.findMany({
-        where: { isActive: true, ...empresaFilter(isMaster, empresaId) },
+        where: { isActive: true, ...(empresaId ? { empresaId } : {}) },
         select: { id: true, name: true, code: true },
         orderBy: { name: 'asc' },
       }),

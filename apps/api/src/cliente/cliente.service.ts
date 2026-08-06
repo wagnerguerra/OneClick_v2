@@ -225,16 +225,27 @@ export class ClienteService {
     if (cnpjBases.length > 0) {
       // Filial = CNPJ (14) que NÃO é matriz. Híbrido: eh_matriz=false OU
       // (eh_matriz IS NULL E ordem != '0001'). Para NULL é idêntico ao antigo.
+      //
+      // O selo conta as MESMAS filiais que a lista mostraria: se a listagem
+      // esconde cliente inativo, contá-lo aqui faz o selo dizer "5 filiais"
+      // numa matriz que tem 4 — e o usuário abre o modal para procurar a quinta.
+      const params: unknown[] = [cnpjBases]
+      let filtroEmpresa = ''
+      if (!isMaster) { params.push(empresaId ?? ''); filtroEmpresa = `AND c.empresa_id = $${params.length}` }
+      let filtroStatus = `AND c.status::text <> 'INATIVA'`
+      if (status) { params.push(status); filtroStatus = `AND c.status::text = $${params.length}` }
       const rows = await prisma.$queryRawUnsafe<Array<{ base: string; count: bigint }>>(
-        `SELECT substring(documento, 1, 8) AS base, COUNT(*)::bigint AS count
-         FROM clientes
-         WHERE deleted_at IS NULL
-           AND tipo_documento = 'CNPJ'
-           AND length(documento) = 14
-           AND substring(documento, 1, 8) = ANY($1::text[])
-           AND (eh_matriz = false OR (eh_matriz IS NULL AND substring(documento, 9, 4) <> '0001'))
+        `SELECT substring(c.documento, 1, 8) AS base, COUNT(*)::bigint AS count
+         FROM clientes c
+         WHERE c.deleted_at IS NULL
+           AND c.tipo_documento = 'CNPJ'
+           AND length(c.documento) = 14
+           AND substring(c.documento, 1, 8) = ANY($1::text[])
+           AND (c.eh_matriz = false OR (c.eh_matriz IS NULL AND substring(c.documento, 9, 4) <> '0001'))
+           ${filtroStatus}
+           ${filtroEmpresa}
          GROUP BY base`,
-        cnpjBases,
+        ...params,
       )
       for (const r of rows) filiaisCountMap.set(r.base, Number(r.count))
     }
@@ -286,11 +297,19 @@ export class ClienteService {
    * o CNPJ dela. Filial pela regra híbrida: eh_matriz=false OU (nulo E ordem
    * != '0001'). Ordena pela ordem (posições 9-12) como texto — no alfanumérico a
    * ordenação numérica não faz sentido.
+   *
+   * O `status` é o mesmo filtro Ativo/Inativo da listagem, e chega aqui para que o
+   * modal mostre exatamente as filiais que o selo contou. Vazio = oculta as
+   * inativas, como na lista.
    */
-  async listFiliais(documentoMatriz: string, isMaster?: boolean, empresaId?: string) {
+  async listFiliais(documentoMatriz: string, isMaster?: boolean, empresaId?: string, status?: string) {
     const doc = limparCnpj(documentoMatriz) // preserva letras do CNPJ alfanumérico
     if (doc.length !== 14) return []
-    const base = doc.slice(0, 8)
+    const params: unknown[] = [doc.slice(0, 8)]
+    let filtroEmpresa = ''
+    if (!isMaster) { params.push(empresaId ?? ''); filtroEmpresa = `AND c.empresa_id = $${params.length}` }
+    let filtroStatus = `AND c.status::text <> 'INATIVA'`
+    if (status) { params.push(status); filtroStatus = `AND c.status::text = $${params.length}` }
     return prisma.$queryRawUnsafe<Array<{
       id: string; documento: string; razaoSocial: string; nomeFantasia: string | null
       cidade: string | null; uf: string | null; status: string; situacao: string
@@ -304,10 +323,10 @@ export class ClienteService {
          AND length(c.documento) = 14
          AND substring(c.documento, 1, 8) = $1
          AND (c.eh_matriz = false OR (c.eh_matriz IS NULL AND substring(c.documento, 9, 4) <> '0001'))
-         ${isMaster ? '' : 'AND c.empresa_id = $2'}
+         ${filtroStatus}
+         ${filtroEmpresa}
        ORDER BY substring(c.documento, 9, 4)`,
-      base,
-      ...(isMaster ? [] : [empresaId]),
+      ...params,
     )
   }
 

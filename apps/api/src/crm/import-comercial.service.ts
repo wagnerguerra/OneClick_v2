@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { randomUUID } from 'crypto'
 
 /**
  * Importacao de dados Comerciais do banco SERPRO2 (MySQL db_intranet).
@@ -249,12 +250,43 @@ export class ImportComercialService {
         this.idMap.oportunidades.set(row.id, created.id)
         count++
 
-        // Tarefas
-        const [tarefas] = await conn.query('SELECT * FROM oportunidade_tarefas WHERE oportunidade_id = ?', [row.id])
-        for (const t of tarefas) {
-          await prisma.oportunidadeTarefa.create({
-            data: { oportunidadeId: created.id, titulo: t.titulo, concluida: !!t.concluida, prazo: t.vencimento || null },
-          }).catch(() => {})
+        // Tarefas (legado) -> AgendaTarefa vinculada à oportunidade. O criador é o
+        // responsável da oportunidade (mesma regra da migração); no import legado
+        // ele não é mapeado (fica null), então caímos no master da empresa
+        // (fallback: 1º usuário dela). Sem nenhum usuário, pula as tarefas.
+        let criadorId: string | null = created.responsavelId ?? null
+        if (!criadorId && empresaId) {
+          const u = await prisma.user.findFirst({
+            where: { empresaId },
+            orderBy: [{ isEmpresaMaster: 'desc' }, { createdAt: 'asc' }],
+            select: { id: true },
+          }).catch(() => null)
+          criadorId = u?.id ?? null
+        }
+        if (criadorId) {
+          const [tarefas] = await conn.query('SELECT * FROM oportunidade_tarefas WHERE oportunidade_id = ?', [row.id])
+          for (const t of tarefas) {
+            try {
+              const quando = t.vencimento || row.criado_em || new Date()
+              const at = await prisma.agendaTarefa.create({
+                data: {
+                  titulo: t.titulo || 'Sem titulo',
+                  prazo: new Date(quando),
+                  concluida: !!t.concluida,
+                  concluidaEm: t.concluida ? new Date(quando) : null,
+                  criadorId,
+                  empresaId,
+                  oportunidadeId: created.id,
+                },
+              })
+              // Criador como membro (paridade com o service; ciência coerente com `concluida`).
+              await prisma.$executeRawUnsafe(
+                `INSERT INTO agenda_tarefa_participantes (id, tarefa_id, usuario_id, ciente_em)
+                 VALUES ($1,$2,$3,$4) ON CONFLICT (tarefa_id, usuario_id) DO NOTHING`,
+                randomUUID(), at.id, criadorId, t.concluida ? new Date(quando) : null,
+              )
+            } catch { /* ignore */ }
+          }
         }
 
         // Mensagens

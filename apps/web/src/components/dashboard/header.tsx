@@ -6,6 +6,7 @@ import { Menu, Sun, Moon, Building2 } from 'lucide-react'
 import { useSession } from '@/lib/auth-client'
 import { useTheme } from '@/hooks/use-theme'
 import { useEmpresaAtiva } from '@/hooks/use-empresa-ativa'
+import { TenantSwitcher } from './tenant-switcher'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { Button } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -106,6 +107,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
             </span>
           )}
         </Link>
+
+        {/* Só o master vê: diz qual tenant está carregada e deixa trocar. */}
+        <TenantSwitcher />
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">

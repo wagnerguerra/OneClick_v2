@@ -1499,6 +1499,11 @@
           <span class="nav-label">VPS Sync</span>
           <span class="nav-badge off" id="navBiSyncBadge">offline</span>
         </button>
+        <button class="nav-item" data-page="folha-sync" data-label="Folha">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></span>
+          <span class="nav-label">Folha</span>
+          <span class="nav-badge off" id="navFolhaSyncBadge">—</span>
+        </button>
         <button class="nav-item" data-page="deploy" data-label="Deploy">
           <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l-2 0"/><path d="M19 12l2 0"/><path d="M12 5l0-2"/><path d="M12 19l0 2"/><path d="M7.05 7.05l-1.41-1.41"/><path d="M16.95 16.95l1.41 1.41"/><path d="M16.95 7.05l1.41-1.41"/><path d="M7.05 16.95l-1.41 1.41"/><circle cx="12" cy="12" r="4"/></svg></span>
           <span class="nav-label">Deploy</span>
@@ -2134,6 +2139,61 @@
         </div>
       </div>
 
+      <!-- ═══ Page: Folha Sync ═══ -->
+      <div class="page" id="page-folha-sync">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Sincronizar Folha</div>
+            <div class="page-subtitle">Extrai a folha do SCI (Firebird, LAN) e popula o OneClick — por empresa (manual) ou todas (mensal)</div>
+          </div>
+        </div>
+
+        <div class="card" id="folhaSyncLoginNote" style="padding:12px 16px;margin-bottom:12px;">
+          <span style="font-size:12px;color:var(--text-muted);">Faça login na aba <b>VPS Sync</b> — a folha reutiliza a mesma sessão para subir os dados.</span>
+        </div>
+
+        <div class="card" id="folhaSyncFormCard" style="padding:16px;display:none;">
+          <div style="font-weight:600;font-size:13px;margin-bottom:10px;">Atualizar uma empresa</div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;align-items:end;">
+            <div style="position:relative;">
+              <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;justify-content:space-between;">
+                <span>Empresa</span>
+                <button type="button" onclick="folhaSyncLoadEmpresas()" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:0;font-size:11px;text-transform:none;letter-spacing:0;">Atualizar</button>
+              </label>
+              <input id="folhaSyncEmpresaInput" type="text" autocomplete="off" placeholder="Buscar por nome ou código..."
+                     oninput="folhaSyncFiltrarEmpresas()" onblur="setTimeout(function(){var d=document.getElementById('folhaSyncEmpresaDropdown'); if(d) d.style.display='none'},200)"
+                     style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;" />
+              <input id="folhaSyncEmpresa" type="hidden" value="" />
+              <div id="folhaSyncEmpresaDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;max-height:260px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;margin-top:2px;box-shadow:0 4px 16px rgba(0,0,0,0.2);"></div>
+            </div>
+            <div><label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Mês início</label><select id="folhaMesInicio" style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;"></select></div>
+            <div><label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Ano início</label><select id="folhaAnoInicio" style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;"></select></div>
+            <div><label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Mês fim</label><select id="folhaMesFim" style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;"></select></div>
+            <div><label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Ano fim</label><select id="folhaAnoFim" style="width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;"></select></div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+            <button onclick="folhaSyncStart()" id="folhaSyncStartBtn" style="background:var(--accent,#3b82f6);color:white;border:none;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Sincronizar empresa</button>
+            <span id="folhaSyncProgress" style="font-size:12px;color:var(--text-muted);"></span>
+          </div>
+        </div>
+
+        <div class="card" id="folhaSyncTodasCard" style="padding:16px;margin-top:12px;">
+          <div style="font-weight:600;font-size:13px;margin-bottom:10px;">Todas as empresas (mensal)</div>
+          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+            <button onclick="folhaSyncRunNow()" id="folhaSyncRunNowBtn" style="background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border);padding:8px 16px;border-radius:6px;font-size:13px;cursor:pointer;">Rodar agora (mês anterior)</button>
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="folhaSchedEnabled" onchange="folhaSyncSaveSched()"/> Agendar automático</label>
+            <label style="font-size:12px;display:flex;align-items:center;gap:6px;">Dia <input type="number" id="folhaSchedDia" min="1" max="28" value="10" onchange="folhaSyncSaveSched()" style="width:56px;padding:4px 6px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;"/></label>
+            <span id="folhaSchedInfo" style="font-size:11px;color:var(--text-muted);"></span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:8px;">Roda <code>importar_empresa --todas --anterior</code> por token (headless). Requer caminho do ETL, token e URL configurados nas Configurações.</div>
+        </div>
+
+        <div class="card" id="folhaSyncLogCard" style="padding:0;margin-top:12px;overflow:hidden;">
+          <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:12px;">Log da sincronização</div>
+          <div id="folhaSyncLog" style="max-height:340px;overflow-y:auto;padding:8px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:11px;line-height:1.5;color:var(--text-muted);"><div style="padding:8px 0;">(sem eventos ainda)</div></div>
+        </div>
+      </div>
+
       <!-- ═══ Page: Settings ═══ -->
       <div class="page" id="page-settings">
         <div class="page-header">
@@ -2155,6 +2215,9 @@
           </button>
           <button class="settings-tab" type="button" data-settings-tab="connections" role="tab" aria-selected="false">
             <span class="settings-tab-icon">&#128279;</span> Conexões
+          </button>
+          <button class="settings-tab" type="button" data-settings-tab="folha" role="tab" aria-selected="false">
+            <span class="settings-tab-icon">&#128188;</span> Folha
           </button>
         </div>
 
@@ -2341,6 +2404,91 @@
 
         </div>
 
+        <div class="settings-tab-panel" data-settings-panel="folha">
+
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <span style="color:var(--sky);font-size:18px;">&#128188;</span> Sincronização da Folha
+          </div>
+          <div class="settings-hint" style="margin-bottom:12px;">Onde está o ETL da folha e para onde os dados vão. Usado pela aba <b>Folha</b> (manual) e pela rotina mensal.</div>
+
+          <div class="settings-row">
+            <label class="settings-label">Caminho do ETL (repo Folhas_Pagamento)</label>
+            <div class="settings-input-group">
+              <input type="text" class="settings-input" id="folhaCfgEtlDir" placeholder="Ex: E:\Projetos\Folhas_Pagamento" />
+              <button class="btn btn-sm" onclick="folhaCfgBrowse('folhaCfgEtlDir')">Procurar...</button>
+            </div>
+            <div class="settings-hint">Pasta com o importar_empresa.py / oneclick_upload.py.</div>
+          </div>
+
+          <div class="settings-row">
+            <label class="settings-label">Comando Python</label>
+            <div class="settings-input-group">
+              <input type="text" class="settings-input" id="folhaCfgPython" placeholder="python" />
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <label class="settings-label">Banco folha_dash (SUPABASE_DB_URL)</label>
+            <div class="settings-input-group">
+              <input type="text" class="settings-input" id="folhaCfgDbUrl" placeholder="postgres://folha:...@127.0.0.1:5433/folha_dash_db" />
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <label class="settings-label">Senha do SCI (Firebird)</label>
+            <div class="settings-input-group">
+              <input type="password" class="settings-input" id="folhaCfgSciPassword" placeholder="senha do usuario read-only do SCI" />
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <label class="settings-label">SCI Host (opcional)</label>
+            <div class="settings-input-group">
+              <input type="text" class="settings-input" id="folhaCfgSciHost" placeholder="(vazio = padrao/tunel do conexao_bi)" />
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <span style="color:var(--sky);font-size:18px;">&#128228;</span> Envio automático (rotina "Todas" / mensal)
+          </div>
+          <div class="settings-hint" style="margin-bottom:12px;">Usados só pela opção "Rodar agora (todas)" e pela rotina mensal. O envio manual por empresa usa a sua sessão (login na aba VPS Sync).</div>
+
+          <div class="settings-row">
+            <label class="settings-label">URL de upload</label>
+            <div class="settings-input-group">
+              <input type="text" class="settings-input" id="folhaCfgSyncUrl" placeholder="http://localhost:4000/api/folha-bi-sync/upload" />
+            </div>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Token de serviço</label>
+            <div class="settings-input-group">
+              <input type="text" class="settings-input" id="folhaCfgSyncToken" placeholder="dev-folha-sync-token-2026" />
+            </div>
+          </div>
+
+          <div class="settings-row" style="display:flex;align-items:center;gap:14px;margin-top:6px;">
+            <label class="toggle-switch"><input type="checkbox" id="folhaCfgSchedEnabled"><span class="slider"></span></label>
+            <div>
+              <div class="settings-label" style="margin-bottom:0;">Agendar sincronização mensal</div>
+              <div class="settings-hint" style="margin-top:2px;">Roda "Todas as empresas (mês anterior)" automaticamente no dia escolhido.</div>
+            </div>
+          </div>
+          <div class="settings-row" style="margin-top:10px;display:flex;align-items:center;gap:8px;">
+            <label class="settings-label" style="margin:0;">Dia do mês</label>
+            <input type="number" class="settings-input" id="folhaCfgSchedDia" min="1" max="28" value="10" style="width:80px;" />
+          </div>
+        </div>
+
+        <div style="margin-top:8px;display:flex;gap:10px;align-items:center;">
+          <button class="btn btn-green" onclick="folhaCfgSave()">&#128190; Salvar configuração da folha</button>
+          <span id="folhaCfgStatus" style="font-size:12px;"></span>
+        </div>
+
+        </div>
+
         <div class="settings-tab-panel" data-settings-panel="diagnostics">
 
         <!-- Portas de referência -->
@@ -2438,6 +2586,9 @@
           // Já logado — re-fetch lista de clientes (pega novos ID SCI cadastrados no app)
           if (typeof biSyncLoadClientes === 'function') biSyncLoadClientes()
         }
+        if (target === 'folha-sync' && typeof folhaSyncOnOpen === 'function') {
+          folhaSyncOnOpen()
+        }
         if (target === 'settings' && typeof refreshDiagnostics === 'function') {
           refreshDiagnostics();
         }
@@ -2457,6 +2608,9 @@
         });
         if (target === 'diagnostics' && typeof refreshDiagnostics === 'function') {
           refreshDiagnostics();
+        }
+        if (target === 'folha' && typeof loadFolhaConfigForm === 'function') {
+          loadFolhaConfigForm();
         }
       });
     });
@@ -2996,7 +3150,43 @@
       setVal('settingSciUser', sci.user);
       setVal('settingSciPassword', sci.password);
 
+      if (typeof loadFolhaConfigForm === 'function') loadFolhaConfigForm();
       if (typeof refreshDiagnostics === 'function') refreshDiagnostics();
+    }
+
+    // ── Config da Folha (aba Configurações > Folha) ──
+    async function folhaCfgBrowse(inputId) {
+      try { const r = await api.browseFolder(); if (r && !r.canceled && r.path) document.getElementById(inputId).value = r.path } catch {}
+    }
+    async function loadFolhaConfigForm() {
+      try {
+        const s = await api.getSettings(); const f = (s && s.folha) || {}
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v) }
+        set('folhaCfgEtlDir', f.etlDir); set('folhaCfgPython', f.python || 'python')
+        set('folhaCfgDbUrl', f.dbUrl); set('folhaCfgSciPassword', f.sciPassword)
+        set('folhaCfgSciHost', f.sciHost); set('folhaCfgSyncUrl', f.syncUrl); set('folhaCfgSyncToken', f.syncToken)
+        const sched = document.getElementById('folhaCfgSchedEnabled'); if (sched) sched.checked = !!f.schedEnabled
+        set('folhaCfgSchedDia', f.schedDia || 10)
+      } catch {}
+    }
+    async function folhaCfgSave() {
+      const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : '' }
+      const folha = {
+        etlDir: val('folhaCfgEtlDir'), python: val('folhaCfgPython') || 'python',
+        dbUrl: val('folhaCfgDbUrl'),
+        sciPassword: (document.getElementById('folhaCfgSciPassword') || {}).value || '',
+        sciHost: val('folhaCfgSciHost'), syncUrl: val('folhaCfgSyncUrl'), syncToken: val('folhaCfgSyncToken'),
+        schedEnabled: !!(document.getElementById('folhaCfgSchedEnabled') || {}).checked,
+        schedDia: Number(val('folhaCfgSchedDia')) || 10,
+      }
+      const st = document.getElementById('folhaCfgStatus')
+      try {
+        const cur = await api.getSettings()
+        if (cur && cur.folha && cur.folha.ultimaRef != null) folha.ultimaRef = cur.folha.ultimaRef // preserva marcador do scheduler
+        const r = await api.saveSettings({ folha })
+        if (r && r.ok) { if (st) { st.textContent = 'Salvo ✓'; st.style.color = '#16a34a' }; if (typeof showToast === 'function') showToast('Folha', 'Configuração salva') }
+        else if (st) { st.textContent = (r && r.error) || 'Falha ao salvar'; st.style.color = '#ef4444' }
+      } catch (e) { if (st) { st.textContent = e.message; st.style.color = '#ef4444' } }
     }
 
     async function saveAllSettings() {
@@ -3793,6 +3983,141 @@
       const dataIni = `${ano}-${String(mes).padStart(2, '0')}-01`
       const dataFim = `${ano}-${String(mes).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
       return { dataIni, dataFim }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Folha Sync — reutiliza o login/cookie da aba VPS Sync (biSync).
+    // ═══════════════════════════════════════════════════════════
+    const folhaSync = { empresas: [], busy: false, bound: false }
+
+    function folhaSyncBaseUrl() {
+      return (typeof biSync !== 'undefined' && biSync.baseUrl) ? biSync.baseUrl : ''
+    }
+
+    function folhaSyncLog(msg, level = 'info') {
+      const box = document.getElementById('folhaSyncLog'); if (!box) return
+      if (!box.dataset.started) { box.innerHTML = ''; box.dataset.started = '1' }
+      const color = level === 'error' ? '#ef4444' : level === 'ok' ? '#22c55e' : 'var(--text-muted)'
+      const el = document.createElement('div')
+      el.style.cssText = 'padding:2px 0;color:' + color + ';'
+      el.textContent = msg
+      box.appendChild(el)
+      box.scrollTop = box.scrollHeight
+    }
+
+    function folhaSyncPopulateMesesAnos() {
+      const now = new Date(); const anoAtual = now.getFullYear()
+      for (const id of ['folhaMesInicio', 'folhaMesFim']) {
+        const sel = document.getElementById(id); if (!sel || sel.options.length) continue
+        for (let m = 1; m <= 12; m++) { const o = document.createElement('option'); o.value = String(m); o.textContent = String(m).padStart(2, '0'); sel.appendChild(o) }
+      }
+      for (const id of ['folhaAnoInicio', 'folhaAnoFim']) {
+        const sel = document.getElementById(id); if (!sel || sel.options.length) continue
+        for (let y = anoAtual; y >= anoAtual - 3; y--) { const o = document.createElement('option'); o.value = String(y); o.textContent = String(y); sel.appendChild(o) }
+      }
+      const prevM = now.getMonth() === 0 ? 12 : now.getMonth()
+      const prevY = now.getMonth() === 0 ? anoAtual - 1 : anoAtual
+      document.getElementById('folhaMesInicio').value = String(prevM)
+      document.getElementById('folhaMesFim').value = String(prevM)
+      document.getElementById('folhaAnoInicio').value = String(prevY)
+      document.getElementById('folhaAnoFim').value = String(prevY)
+    }
+
+    async function folhaSyncLoadEmpresas() {
+      const baseUrl = folhaSyncBaseUrl()
+      if (!baseUrl) { folhaSyncLog('Faça login na aba VPS Sync primeiro', 'error'); return }
+      try {
+        const r = await window.api.biSyncRequest({ baseUrl, path: '/api/folha-bi-sync/empresas' })
+        if (!r.ok) { folhaSyncLog('Empresas: HTTP ' + r.status, 'error'); return }
+        folhaSync.empresas = (r.data && r.data.empresas) || []
+        folhaSyncLog(folhaSync.empresas.length + ' empresa(s) carregada(s)', 'ok')
+      } catch (e) { folhaSyncLog('Erro ao carregar empresas: ' + e.message, 'error') }
+    }
+
+    function folhaSyncFiltrarEmpresas() {
+      const q = (document.getElementById('folhaSyncEmpresaInput').value || '').toLowerCase().trim()
+      const dd = document.getElementById('folhaSyncEmpresaDropdown')
+      const items = folhaSync.empresas.filter(e =>
+        !q || String(e.codEmp).includes(q) || (e.razao || '').toLowerCase().includes(q) || (e.cnpj || '').includes(q)).slice(0, 50)
+      if (!items.length) { dd.style.display = 'none'; return }
+      dd.innerHTML = items.map(e =>
+        '<div onmousedown="folhaSyncSelectEmpresa(' + e.codEmp + ')" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);">' + e.codEmp + ' — ' + (e.razao || '') + '</div>').join('')
+      dd.style.display = 'block'
+    }
+    function folhaSyncSelectEmpresa(codEmp) {
+      const e = folhaSync.empresas.find(x => x.codEmp === codEmp)
+      document.getElementById('folhaSyncEmpresa').value = String(codEmp)
+      document.getElementById('folhaSyncEmpresaInput').value = e ? (e.codEmp + ' — ' + e.razao) : String(codEmp)
+      document.getElementById('folhaSyncEmpresaDropdown').style.display = 'none'
+    }
+
+    function folhaSyncBindEvents() {
+      if (folhaSync.bound) return
+      folhaSync.bound = true
+      window.api.onFolhaSyncEvent((ev) => {
+        if (!ev) return
+        if (ev.type === 'log') folhaSyncLog(ev.line, ev.err ? 'error' : 'info')
+        else if (ev.type === 'inicio') folhaSyncLog('▶ início (' + ev.mode + ')', 'info')
+        else if (ev.type === 'upload') folhaSyncLog('↑ ref ' + ev.ref + ': ' + (ev.ok ? 'enviado' : 'HTTP ' + ev.status), ev.ok ? 'ok' : 'error')
+        else if (ev.type === 'fim') {
+          folhaSync.busy = false
+          const btn = document.getElementById('folhaSyncStartBtn'); if (btn) btn.disabled = false
+          folhaSyncLog(ev.code === 0 ? ('✓ concluído' + (ev.enviados != null ? ' — ' + ev.enviados + ' enviado(s)' : '')) : ('✗ falhou (code ' + ev.code + ') ' + (ev.erro || '')), ev.code === 0 ? 'ok' : 'error')
+        }
+      })
+    }
+
+    async function folhaSyncStart() {
+      if (folhaSync.busy) return
+      const baseUrl = folhaSyncBaseUrl()
+      if (!baseUrl) { alert('Faça login na aba VPS Sync primeiro'); return }
+      const codEmp = Number(document.getElementById('folhaSyncEmpresa').value)
+      if (!codEmp) { alert('Selecione uma empresa'); return }
+      const ai = Number(document.getElementById('folhaAnoInicio').value), mi = Number(document.getElementById('folhaMesInicio').value)
+      const af = Number(document.getElementById('folhaAnoFim').value), mf = Number(document.getElementById('folhaMesFim').value)
+      if (af * 100 + mf < ai * 100 + mi) { alert('Período "fim" deve ser >= "início"'); return }
+      const refs = biSyncRange(ai, mi, af, mf).map(r => r.ref)
+      folhaSync.busy = true
+      document.getElementById('folhaSyncStartBtn').disabled = true
+      folhaSyncLog('Sincronizando empresa ' + codEmp + ' — ' + refs.length + ' competência(s)…', 'info')
+      const r = await window.api.folhaSyncRun({ mode: 'empresa', codEmp, refs, baseUrl })
+      if (r && !r.ok && r.erro) { folhaSyncLog(r.erro, 'error'); folhaSync.busy = false; document.getElementById('folhaSyncStartBtn').disabled = false }
+    }
+
+    async function folhaSyncRunNow() {
+      if (folhaSync.busy) return
+      if (!confirm('Rodar a sincronização de TODAS as empresas (mês anterior) agora?')) return
+      folhaSync.busy = true
+      folhaSyncLog('Rodando todas as empresas (mês anterior)…', 'info')
+      const r = await window.api.folhaSyncRunNow()
+      if (r && !r.ok && r.erro) { folhaSyncLog(r.erro, 'error'); folhaSync.busy = false }
+    }
+
+    async function folhaSyncSaveSched() {
+      const enabled = document.getElementById('folhaSchedEnabled').checked
+      const dia = Number(document.getElementById('folhaSchedDia').value) || 10
+      try {
+        const s = await window.api.getSettings()
+        const folha = { ...((s && s.folha) || {}), schedEnabled: enabled, schedDia: dia }
+        await window.api.saveSettings({ folha })
+        document.getElementById('folhaSchedInfo').textContent = enabled ? ('agendado p/ o dia ' + dia) : 'agendamento desligado'
+      } catch (e) { folhaSyncLog('Erro ao salvar agendamento: ' + e.message, 'error') }
+    }
+
+    async function folhaSyncOnOpen() {
+      folhaSyncBindEvents()
+      folhaSyncPopulateMesesAnos()
+      const logged = !!folhaSyncBaseUrl()
+      document.getElementById('folhaSyncLoginNote').style.display = logged ? 'none' : 'block'
+      document.getElementById('folhaSyncFormCard').style.display = logged ? 'block' : 'none'
+      try {
+        const s = await window.api.getSettings()
+        const f = (s && s.folha) || {}
+        document.getElementById('folhaSchedEnabled').checked = !!f.schedEnabled
+        document.getElementById('folhaSchedDia').value = f.schedDia || 10
+        document.getElementById('folhaSchedInfo').textContent = f.schedEnabled ? ('agendado p/ o dia ' + (f.schedDia || 10) + (f.ultimaRef ? ' · último: ' + f.ultimaRef : '')) : 'agendamento desligado'
+      } catch {}
+      if (logged) folhaSyncLoadEmpresas()
     }
 
     async function biSyncStart() {
