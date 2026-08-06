@@ -1,9 +1,10 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { BarChart3, Database, RefreshCw, Table2, LayoutGrid, Landmark, PiggyBank, Receipt, Settings2, X, Plus, Trash2, ChevronUp, ChevronDown, Pencil, Coins, FileSpreadsheet } from 'lucide-react'
-import { Card, cn } from '@saas/ui'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { BarChart3, Database, Loader2, RefreshCw, Table2, LayoutGrid, Landmark, PiggyBank, Receipt, Settings2, X, Plus, Trash2, ChevronUp, ChevronDown, Pencil, Coins, FileSpreadsheet } from 'lucide-react'
+import { Button, Card, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { alerts } from '@/lib/alerts'
 
 const MODULE_COLOR = 'var(--mod-trabalhista, #8b5cf6)'
 const MESES = ['', 'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -28,91 +29,147 @@ interface CacheRow {
   clienteRealId?: string | null; clienteRazao?: string | null   // ponte de Cliente (resolvida no backend)
   clienteGrupo?: string | null   // grupo empresarial (Cliente.grupo)
 }
-// chave de agrupamento do seletor: Cliente real (se vinculado) ou o placeholder da ETL
-const vinc = (r: CacheRow) => r.clienteRealId || r.clienteId
+interface ClienteLite {
+  id: string; code: number; razaoSocial: string
+  documento: string | null; idSistema: string | null; grupo: string | null
+}
+interface Job {
+  id: string; clienteId: string; ref: number; status: string
+  criadoEm: string; concluidoEm: string | null
+  totalLinhas: number | null; erro: string | null; log: string | null
+}
+const EM_ANDAMENTO = (j: Job) => j.status === 'PENDENTE' || j.status === 'EXECUTANDO'
+const soDigitos = (doc: string | null | undefined) => (doc || '').replace(/\D/g, '')
 
 export default function FolhaBiPage() {
   const [rows, setRows] = useState<CacheRow[]>([])
+  const [clientes, setClientes] = useState<ClienteLite[]>([])
+  const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
+  const [erroClientes, setErroClientes] = useState<string | null>(null)
   const [snap, setSnap] = useState<any>(null)
   const [loadingSnap, setLoadingSnap] = useState(false)
   const [view, setView] = useState<'resumo' | 'matriz' | 'inss' | 'fgts' | 'irrf' | 'provisoes'>('resumo')
   const [configOpen, setConfigOpen] = useState(false)
   const [groupingNonce, setGroupingNonce] = useState(0)
 
-  // seletores do topo
-  const [emp, setEmp] = useState('')     // empresa (Cliente real ou placeholder da ETL)
-  const [filial, setFilial] = useState('')   // CNPJ (quando a empresa tem mais de uma filial)
-  const [ano, setAno] = useState(0)
+  // seletores do topo — na ordem CLIENTE, MES, ANO
+  const [clienteId, setClienteId] = useState('')
+  const [busca, setBusca] = useState('')
+  const [filial, setFilial] = useState('')   // CNPJ (quando o cliente tem mais de uma filial)
   const [mes, setMes] = useState(0)
+  const [ano, setAno] = useState(0)
+  const [pedindo, setPedindo] = useState(false)
 
   const fetchList = useCallback(async () => {
     setLoading(true)
     try { setRows((await trpc.folhaBi.list.query()) as CacheRow[]) } catch { /* */ } finally { setLoading(false) }
   }, [])
-  useEffect(() => { fetchList() }, [fetchList])
 
-  // Empresas do seletor: agrupadas pelo Cliente real (se vinculado) ou pelo placeholder da ETL,
-  // e organizadas por GRUPO EMPRESARIAL (Cliente.grupo) via optgroup.
-  const empresas = useMemo(() => {
-    const m = new Map<string, { key: string; razao: string; vinculado: boolean; grupo: string | null; cnpjs: Set<string> }>()
-    for (const r of rows) {
-      const k = vinc(r)
-      let e = m.get(k)
-      if (!e) { e = { key: k, razao: r.clienteRazao || r.razao || k, vinculado: !!r.clienteRealId, grupo: r.clienteGrupo || null, cnpjs: new Set() }; m.set(k, e) }
-      e.cnpjs.add(r.cnpj)
-    }
-    return [...m.values()].sort((a, b) => (a.grupo || '￿').localeCompare(b.grupo || '￿', 'pt-BR') || a.razao.localeCompare(b.razao, 'pt-BR'))
-  }, [rows])
-  // grupos empresariais -> empresas (p/ optgroup)
-  const grupos = useMemo(() => {
-    const g = new Map<string, typeof empresas>()
-    for (const e of empresas) { const k = e.grupo || ''; if (!g.has(k)) g.set(k, []); g.get(k)!.push(e) }
-    return [...g.entries()]
-  }, [empresas])
+  const fetchClientes = useCallback(async () => {
+    try {
+      setClientes((await (trpc.folhaBi as any).clientes.query()) as ClienteLite[])
+      setErroClientes(null)
+    } catch (e) { setErroClientes((e as Error).message) }
+  }, [])
 
-  const empresaSel = empresas.find((e) => e.key === emp)
-  const filiais = useMemo(() => (empresaSel ? [...empresaSel.cnpjs].sort() : []), [empresaSel])
-  const filEff = filiais.length ? (filiais.includes(filial) ? filial : filiais[0]) : ''   // CNPJ efetivo
+  const fetchJobs = useCallback(async () => {
+    try { setJobs((await (trpc.folhaBi as any).jobs.query({})) as Job[]) } catch { /* */ }
+  }, [])
+
+  useEffect(() => { void fetchList(); void fetchClientes(); void fetchJobs() }, [fetchList, fetchClientes, fetchJobs])
+
+  // Competencia inicial = mes anterior (a folha do mes corrente ainda esta aberta).
+  // Fica no efeito, e nao no useState, para servidor e navegador renderizarem igual.
+  useEffect(() => {
+    if (mes) return
+    const d = new Date()
+    const m = d.getMonth()   // 0-11 -> ja e o mes anterior em base 1
+    setMes(m === 0 ? 12 : m)
+    setAno(m === 0 ? d.getFullYear() - 1 : d.getFullYear())
+  }, [mes])
 
   const anos = useMemo(() => {
-    const s = new Set<number>()
-    for (const r of rows) if (vinc(r) === emp && r.cnpj === filEff) s.add(Math.floor(r.ref / 100))
-    return [...s].sort((a, b) => b - a)
-  }, [rows, emp, filEff])
+    const atual = new Date().getFullYear()
+    return [atual, atual - 1, atual - 2, atual - 3, atual - 4]
+  }, [])
 
-  const meses = useMemo(() => {
-    const s = new Set<number>()
-    for (const r of rows) if (vinc(r) === emp && r.cnpj === filEff && Math.floor(r.ref / 100) === ano) s.add(r.ref % 100)
-    return [...s].sort((a, b) => a - b) // 01..12, 13o por ultimo
-  }, [rows, emp, filEff, ano])
+  // Clientes filtrados pela busca (razao, numero ou ID SCI), agrupados por grupo empresarial.
+  const clientesFiltrados = useMemo(() => {
+    const t = busca.trim().toLowerCase()
+    if (!t) return clientes
+    return clientes.filter((c) =>
+      c.razaoSocial.toLowerCase().includes(t) || String(c.code).includes(t) || (c.idSistema || '').includes(t))
+  }, [clientes, busca])
+  const gruposCli = useMemo(() => {
+    const g = new Map<string, ClienteLite[]>()
+    for (const c of clientesFiltrados) { const k = c.grupo || ''; if (!g.has(k)) g.set(k, []); g.get(k)!.push(c) }
+    return [...g.entries()].sort((a, b) => (a[0] || '￿').localeCompare(b[0] || '￿', 'pt-BR'))
+  }, [clientesFiltrados])
 
-  // Cascata de defaults: garante empresa/ano/mes validos conforme a selecao muda.
+  const clienteSel = clientes.find((c) => c.id === clienteId) ?? null
   useEffect(() => {
-    if (rows.length && !empresas.some((e) => e.key === emp)) setEmp(empresas[0]?.key ?? '')
-  }, [rows, empresas, emp])
-  useEffect(() => {
-    if (emp && !anos.includes(ano)) setAno(anos[0] ?? 0)
-  }, [emp, anos, ano])
-  useEffect(() => {
-    if (emp && ano && !meses.includes(mes)) {
-      const mensais = meses.filter((m) => m !== 13)
-      setMes(mensais.length ? Math.max(...mensais) : (meses[meses.length - 1] ?? 0))
-    }
-  }, [emp, ano, meses, mes])
+    if (clientes.length && !clientes.some((c) => c.id === clienteId)) setClienteId(clientes[0]!.id)
+  }, [clientes, clienteId])
 
-  // Linha do cache resolvida pela selecao (empresa + filial + competencia).
+  // Linhas do cache que pertencem ao cliente selecionado. A ponte vem pronta do
+  // backend (clienteRealId); o CNPJ do cadastro cobre a carga antiga sem ponte.
+  const linhasDoCliente = useMemo(() => {
+    if (!clienteSel) return []
+    const doc = soDigitos(clienteSel.documento)
+    return rows.filter((r) => r.clienteRealId === clienteSel.id || (!!doc && soDigitos(r.cnpj) === doc))
+  }, [rows, clienteSel])
+
+  const filiais = useMemo(() => [...new Set(linhasDoCliente.map((r) => r.cnpj))].sort(), [linhasDoCliente])
+  const filEff = filiais.length ? (filiais.includes(filial) ? filial : filiais[0]!) : ''
+
+  const refSel = ano * 100 + mes
   const row = useMemo(
-    () => rows.find((r) => vinc(r) === emp && r.cnpj === filEff && r.ref === ano * 100 + mes) ?? null,
-    [rows, emp, filEff, ano, mes],
+    () => linhasDoCliente.find((r) => r.cnpj === filEff && r.ref === refSel) ?? null,
+    [linhasDoCliente, filEff, refSel],
   )
+  // Competencias que ja existem no OneClick — marcam o seletor de mes com um ponto.
+  const mesesComDados = useMemo(
+    () => new Set(linhasDoCliente.filter((r) => Math.floor(r.ref / 100) === ano).map((r) => r.ref % 100)),
+    [linhasDoCliente, ano],
+  )
+
+  // ===== Sincronizacao pelo Service Manager =====
+  const jobDaSelecao = jobs.find((j) => j.clienteId === clienteId && j.ref === refSel) ?? null
+  const jobAtivo = jobDaSelecao && EM_ANDAMENTO(jobDaSelecao) ? jobDaSelecao : null
+  const temAlgumAtivo = jobs.some(EM_ANDAMENTO)
+
+  const sincronizar = async () => {
+    if (!clienteId || !mes || !ano) return
+    setPedindo(true)
+    try {
+      await (trpc.folhaBi as any).sincronizar.mutate({ clienteId, ref: refSel })
+      await fetchJobs()
+    } catch (e) {
+      alerts.error('Não foi possível pedir a sincronização', (e as Error).message)
+    } finally { setPedindo(false) }
+  }
+
+  // Enquanto ha pedido em andamento, acompanha de perto; quando o ultimo termina,
+  // recarrega o cache — e o momento em que os dados novos aparecem na tela.
+  const ativosAntes = useRef(0)
+  useEffect(() => {
+    const ativos = jobs.filter(EM_ANDAMENTO).length
+    if (ativosAntes.current > 0 && ativos === 0) void fetchList()
+    ativosAntes.current = ativos
+  }, [jobs, fetchList])
+  useEffect(() => {
+    if (!temAlgumAtivo) return
+    const t = setInterval(() => { void fetchJobs() }, 5000)
+    return () => clearInterval(t)
+  }, [temAlgumAtivo, fetchJobs])
 
   useEffect(() => {
     let vivo = true
     if (!row) { setSnap(null); return }
     setLoadingSnap(true); setSnap(null)
     trpc.folhaBi.snapshot.query({ clienteId: row.clienteId, cnpj: row.cnpj, ref: row.ref, fonte: row.fonte })
-      .then((data) => { if (vivo) setSnap((data as any)?.payload ?? null) })
+      .then((data: unknown) => { if (vivo) setSnap((data as any)?.payload ?? null) })
       .catch(() => { if (vivo) setSnap(null) })
       .finally(() => { if (vivo) setLoadingSnap(false) })
     return () => { vivo = false }
@@ -123,44 +180,69 @@ export default function FolhaBiPage() {
   const matriz = snap?.matriz ?? null
 
   return (
-    <div className="space-y-4">
-      {/* Barra de seletores no topo */}
-      <div className="flex flex-wrap items-end gap-x-3 gap-y-2 rounded-xl border border-border bg-card/40 px-3 py-2.5">
-        <div className="mr-1 flex items-center gap-2 self-center">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg"
-            style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 15%, transparent)` }}>
-            <BarChart3 className="h-5 w-5" style={{ color: MODULE_COLOR }} />
+    <div className="flex flex-col gap-5">
+      {/* Header padrao do modulo */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
+            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
+            <BarChart3 className="h-6 w-6" />
           </div>
-          <span className="text-sm font-semibold text-foreground">Espelho da Folha</span>
+          <div>
+            <h1>Espelho da Folha</h1>
+            <p className="text-sm text-muted-foreground">Confira a folha do SCI por cliente e competência</p>
+          </div>
         </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => { void fetchList(); void fetchJobs() }}
+            title="Recarregar o que já está no OneClick">
+            <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} /> Atualizar
+          </Button>
+          <Button size="sm" variant="success" onClick={sincronizar}
+            disabled={!clienteId || !mes || !ano || pedindo || !!jobAtivo}
+            title="Pede ao Service Manager que busque esta competência no SCI">
+            {jobAtivo || pedindo
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sincronizando…</>
+              : <><RefreshCw className="h-3.5 w-3.5" /> Sincronizar</>}
+          </Button>
+        </div>
+      </div>
 
-        <Select label="Empresa" value={emp} onChange={setEmp} className="min-w-[220px] max-w-[340px]">
-          {empresas.length === 0 && <option value="">—</option>}
-          {grupos.map(([g, es]) => (
+      {/* Seletores: CLIENTE, MES, ANO */}
+      <Card className="flex flex-wrap items-end gap-x-3 gap-y-2 p-3">
+        <Selecao label="Cliente" value={clienteId} onChange={setClienteId} className="min-w-[260px] max-w-[420px]">
+          {clientesFiltrados.length === 0 && <option value="">—</option>}
+          {gruposCli.map(([g, cs]) => (
             g
-              ? <optgroup key={g} label={g}>{es.map((e) => <option key={e.key} value={e.key}>{e.vinculado ? '✓ ' : ''}{e.razao}</option>)}</optgroup>
-              : <Fragment key="__semgrupo">{es.map((e) => <option key={e.key} value={e.key}>{e.vinculado ? '✓ ' : ''}{e.razao}</option>)}</Fragment>
+              ? <optgroup key={g} label={g}>{cs.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.razaoSocial}</option>)}</optgroup>
+              : <Fragment key="__semgrupo">{cs.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.razaoSocial}</option>)}</Fragment>
           ))}
-        </Select>
+        </Selecao>
+
+        <Selecao label="Mês" value={String(mes)} onChange={(v) => setMes(Number(v))} className="min-w-[150px]">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((m) => (
+            <option key={m} value={m}>{mesesComDados.has(m) ? '• ' : ''}{labelMes(m)}</option>
+          ))}
+        </Selecao>
+
+        <Selecao label="Ano" value={String(ano)} onChange={(v) => setAno(Number(v))}>
+          {anos.map((a) => <option key={a} value={a}>{a}</option>)}
+        </Selecao>
 
         {filiais.length > 1 && (
-          <Select label="Filial" value={filEff} onChange={setFilial} className="min-w-[160px]">
+          <Selecao label="Filial" value={filEff} onChange={setFilial} className="min-w-[160px]">
             {filiais.map((c) => <option key={c} value={c}>{c}</option>)}
-          </Select>
+          </Selecao>
         )}
 
-        <Select label="Ano" value={String(ano)} onChange={(v) => setAno(Number(v))}>
-          {anos.length === 0 && <option value="0">—</option>}
-          {anos.map((a) => <option key={a} value={a}>{a}</option>)}
-        </Select>
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Buscar cliente</span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Razão, nº ou ID SCI"
+            className="h-9 w-48 rounded-lg border border-border bg-background px-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-border" />
+        </label>
 
-        <Select label="Mes" value={String(mes)} onChange={(v) => setMes(Number(v))}>
-          {meses.length === 0 && <option value="0">—</option>}
-          {meses.map((m) => <option key={m} value={m}>{labelMes(m)}</option>)}
-        </Select>
-
-        <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Relatorio</span>
+        <div className="ml-auto flex flex-col gap-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Relatório</span>
           <div className="flex gap-1 rounded-lg bg-muted/40 p-1">
             <Pill active={view === 'resumo'} onClick={() => setView('resumo')} icon={LayoutGrid} label="Resumo" />
             <Pill active={view === 'matriz'} onClick={() => setView('matriz')} icon={Table2} label="Verbas" />
@@ -170,31 +252,61 @@ export default function FolhaBiPage() {
             <Pill active={view === 'provisoes'} onClick={() => setView('provisoes')} icon={Coins} label="Provisões" />
           </div>
         </div>
+      </Card>
 
-        <button onClick={fetchList} title="Recarregar lista do cache"
-          className="ml-auto flex h-9 items-center gap-1.5 self-end rounded-lg border border-border px-3 text-sm text-foreground hover:bg-muted/40">
-          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Atualizar
-        </button>
-      </div>
+      {erroClientes && (
+        <Card className="border-dashed p-4 text-sm text-amber-600 dark:text-amber-400">
+          Não foi possível carregar os clientes: {erroClientes}
+        </Card>
+      )}
 
-      {!loading && rows.length === 0 && (
+      {clientes.length === 0 && !erroClientes && !loading && (
         <Card className="border-dashed p-6">
           <div className="flex items-start gap-3">
             <Database className="mt-0.5 h-5 w-5 shrink-0" style={{ color: MODULE_COLOR }} />
             <div className="space-y-1">
-              <p className="font-medium text-foreground">Nenhum dado no cache ainda</p>
-              <p className="text-sm text-muted-foreground">A ETL alimenta via <code>POST /api/folha-bi-sync/upload</code>.</p>
+              <p className="font-medium text-foreground">Nenhum cliente elegível</p>
+              <p className="text-sm text-muted-foreground">
+                A lista traz os clientes <b>mensais</b> com <b>ID SCI</b> preenchido no cadastro. Sem o ID SCI não há
+                como localizar a empresa no Firebird.
+              </p>
             </div>
           </div>
         </Card>
       )}
 
-      {rows.length > 0 && (
+      {/* Estado do pedido desta competencia */}
+      {jobDaSelecao && (
+        <Card className={cn('p-3 text-sm', jobDaSelecao.status === 'ERRO' && 'border-rose-500/40')}>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {jobAtivo
+              ? <><Loader2 className="h-4 w-4 shrink-0 animate-spin" style={{ color: MODULE_COLOR }} />
+                  <span className="text-foreground">
+                    {jobDaSelecao.status === 'PENDENTE'
+                      ? 'Pedido na fila — aguardando o Service Manager que roda perto do SCI.'
+                      : 'O Service Manager está consultando o SCI…'}
+                  </span></>
+              : jobDaSelecao.status === 'CONCLUIDO'
+                ? <span className="text-foreground">
+                    Sincronizado {jobDaSelecao.concluidoEm ? new Date(jobDaSelecao.concluidoEm).toLocaleString('pt-BR') : ''}
+                    {jobDaSelecao.totalLinhas != null ? ` · ${jobDaSelecao.totalLinhas} linha(s)` : ''}
+                  </span>
+                : <span className="text-rose-500">Falhou: {jobDaSelecao.erro || 'erro não informado'}</span>}
+          </div>
+          {jobDaSelecao.log && (
+            <pre className="nice-scrollbar mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-[11px] text-muted-foreground">
+              {jobDaSelecao.log}
+            </pre>
+          )}
+        </Card>
+      )}
+
+      {clientes.length > 0 && (
         <div className="min-w-0 space-y-3">
           {row && (
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <h2 className="text-base font-semibold text-foreground">
-                {empresaSel?.razao ?? snap?.razao ?? emp}
+                {clienteSel?.razaoSocial ?? snap?.razao ?? ''}
                 <span className="ml-1.5 text-sm font-normal text-muted-foreground">— {fmtComp(row.ref)}</span>
               </h2>
               <span className="text-xs text-muted-foreground">
@@ -207,7 +319,16 @@ export default function FolhaBiPage() {
             </div>
           )}
 
-          {!row && <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Selecione empresa, ano e mes acima.</Card>}
+          {!row && !jobAtivo && (
+            <Card className="flex h-40 flex-col items-center justify-center gap-2 text-center">
+              <p className="text-sm text-muted-foreground">
+                {clienteSel?.razaoSocial ?? 'Este cliente'} nao tem a competencia {String(mes).padStart(2, '0')}/{ano} no OneClick.
+              </p>
+              <Button size="sm" variant="success" onClick={sincronizar} disabled={pedindo || !!jobAtivo}>
+                <RefreshCw className="h-3.5 w-3.5" /> Buscar no SCI
+              </Button>
+            </Card>
+          )}
           {row && loadingSnap && <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Carregando…</Card>}
 
           {row && !loadingSnap && snap && view === 'resumo' && (
@@ -1903,7 +2024,7 @@ function Resumo({ empresa, refNum }: { empresa: number; refNum: number }) {
   )
 }
 
-function Select({ label, value, onChange, className, children }: {
+function Selecao({ label, value, onChange, className, children }: {
   label: string; value: string; onChange: (v: string) => void; className?: string; children: ReactNode
 }) {
   return (

@@ -2470,6 +2470,14 @@
           </div>
 
           <div class="settings-row" style="display:flex;align-items:center;gap:14px;margin-top:6px;">
+            <label class="toggle-switch"><input type="checkbox" id="folhaCfgFilaEnabled"><span class="slider"></span></label>
+            <div>
+              <div class="settings-label" style="margin-bottom:0;">Atender pedidos do m&oacute;dulo /folha-bi</div>
+              <div class="settings-hint" style="margin-top:2px;">Verifica a cada 20s se algu&eacute;m clicou em "Sincronizar" na tela e executa o ETL aqui, perto do SCI. Desligue se este Service Manager n&atilde;o deve rodar a folha.</div>
+            </div>
+          </div>
+
+          <div class="settings-row" style="display:flex;align-items:center;gap:14px;margin-top:6px;">
             <label class="toggle-switch"><input type="checkbox" id="folhaCfgSchedEnabled"><span class="slider"></span></label>
             <div>
               <div class="settings-label" style="margin-bottom:0;">Agendar sincronização mensal</div>
@@ -3166,6 +3174,8 @@
         set('folhaCfgDbUrl', f.dbUrl); set('folhaCfgSciPassword', f.sciPassword)
         set('folhaCfgSciHost', f.sciHost); set('folhaCfgSyncUrl', f.syncUrl); set('folhaCfgSyncToken', f.syncToken)
         const sched = document.getElementById('folhaCfgSchedEnabled'); if (sched) sched.checked = !!f.schedEnabled
+        // fila liga por padrao: quem configurou a folha quer atender a tela
+        const fila = document.getElementById('folhaCfgFilaEnabled'); if (fila) fila.checked = f.filaEnabled !== false
         set('folhaCfgSchedDia', f.schedDia || 10)
       } catch {}
     }
@@ -3177,6 +3187,7 @@
         sciPassword: (document.getElementById('folhaCfgSciPassword') || {}).value || '',
         sciHost: val('folhaCfgSciHost'), syncUrl: val('folhaCfgSyncUrl'), syncToken: val('folhaCfgSyncToken'),
         schedEnabled: !!(document.getElementById('folhaCfgSchedEnabled') || {}).checked,
+        filaEnabled: !!(document.getElementById('folhaCfgFilaEnabled') || {}).checked,
         schedDia: Number(val('folhaCfgSchedDia')) || 10,
       }
       const st = document.getElementById('folhaCfgStatus')

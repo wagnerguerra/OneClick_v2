@@ -184,6 +184,7 @@ function loadSettings() {
       sciPassword: '',   // SCI_PASSWORD (Firebird)
       sciHost: '',       // SCI_HOST (opcional; usa default do conexao_bi se vazio)
       schedEnabled: false, // scheduler mensal ligado?
+      filaEnabled: true, // atende os pedidos feitos na tela /folha-bi
       schedDia: 10,      // dia do mes p/ rodar --todas --anterior
       ultimaRef: null,   // marcador AAAAMM do ultimo mes rodado pelo scheduler (catch-up)
     },
@@ -208,7 +209,7 @@ function normalizeSettings(settings, defaults = null) {
     autoStartServices: false,
     folha: {
       etlDir: '', python: 'python', dbUrl: '', syncUrl: '', syncToken: '',
-      sciPassword: '', sciHost: '', schedEnabled: false, schedDia: 10, ultimaRef: null,
+      sciPassword: '', sciHost: '', schedEnabled: false, filaEnabled: true, schedDia: 10, ultimaRef: null,
     },
   };
   const merged = { ...base, ...(settings || {}) };
@@ -2996,10 +2997,14 @@ function registerIpcHandlers() {
     return env
   }
 
-  function folhaRunStreaming(cfg, args, env) {
+  function folhaRunStreaming(cfg, args, env, onLine) {
     return new Promise((resolve) => {
       const p = spawn(cfg.python || 'python', args, { cwd: cfg.etlDir, env, windowsHide: true })
-      const pump = (buf, err) => String(buf).split(/\r?\n/).forEach(l => { if (l.trim()) folhaEmit({ type: 'log', line: l.trim(), err }) })
+      const pump = (buf, err) => String(buf).split(/\r?\n/).forEach(l => {
+        if (!l.trim()) return
+        folhaEmit({ type: 'log', line: l.trim(), err })
+        if (onLine) { try { onLine(l.trim(), err) } catch {} }
+      })
       p.stdout.on('data', d => pump(d, false))
       p.stderr.on('data', d => pump(d, true))
       p.on('error', e => resolve({ code: -1, erro: e.message }))
@@ -3078,6 +3083,132 @@ function registerIpcHandlers() {
     try { return await folhaRunTodas(loadSettings().folha || {}, { anterior: true }) }
     finally { folhaBusy = false }
   })
+
+  // ════════════════════════════════════════════════════════
+  // Fila de pedidos vindos da tela (/folha-bi)
+  // ════════════════════════════════════════════════════════
+  // O botao "Sincronizar" do modulo nao alcanca esta maquina: a API roda na VPS e
+  // o SCI (Firebird) so existe aqui na LAN. Entao o pedido fica gravado na API e e
+  // o Service Manager quem vem busca-lo — este laco. Sem fila, so restaria expor o
+  // SCI para fora ou depender de alguem clicar no lugar certo.
+
+  /**
+   * Base da API para a fila: a URL de upload configurada ou, na falta dela, a
+   * base em que o operador ja fez login na aba VPS Sync.
+   */
+  function folhaApiBase(cfg) {
+    const u = cfg.syncUrl || ''
+    const i = u.indexOf('/api/folha-bi-sync')
+    if (i > 0) return u.slice(0, i)
+    const logada = [...biSyncCookies.keys()][0]
+    return logada || ''
+  }
+
+  /**
+   * Credencial da fila: token de servico quando existe, senao o cookie da sessao
+   * da aba VPS Sync.
+   *
+   * Sem esse desvio, atender a tela exigiria configurar o FOLHA_SYNC_TOKEN na API
+   * e aqui — e ate la todo pedido feito no modulo ficaria parado na fila sem
+   * ninguem explicar por que.
+   */
+  function folhaAuthHeaders(cfg, base) {
+    if (cfg.syncToken) return { Authorization: `Bearer ${cfg.syncToken}` }
+    const cookieStr = biSyncCookies.get(base) || ''
+    return cookieStr ? { Cookie: cookieStr, Origin: base, 'User-Agent': 'OneClick-Launcher/1.0' } : null
+  }
+
+  async function folhaJobReportar(base, auth, jobId, dados) {
+    try {
+      await fetch(`${base}/api/folha-bi-sync/jobs/${jobId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...auth },
+        body: JSON.stringify(dados),
+      })
+    } catch { /* rede caiu; o job volta pra fila pelo heartbeat vencido */ }
+  }
+
+  async function folhaExecutarJob(cfg, base, auth, job) {
+    const linhas = []
+    const guardar = (l) => { linhas.push(l); if (linhas.length > 200) linhas.shift() }
+    const log = () => linhas.join('\n')
+
+    folhaEmit({ type: 'inicio', mode: 'fila', codEmp: job.idSci, refs: [job.ref] })
+    // Sinal de vida enquanto o ETL roda: um job silencioso por 15 min volta pra
+    // fila, e uma folha grande demora mais que isso.
+    const pulso = setInterval(() => folhaJobReportar(base, auth, job.id, { log: log() }), 60 * 1000)
+    try {
+      const env = folhaEnvBase(cfg)
+      const build = await folhaRunStreaming(cfg, ['importar_empresa.py', String(job.idSci), String(job.ref)], env, guardar)
+      if (build.code !== 0) {
+        await folhaJobReportar(base, auth, job.id, { status: 'ERRO', log: log(), erro: build.erro || `ETL saiu com codigo ${build.code}` })
+        folhaEmit({ type: 'fim', code: build.code, erro: build.erro || 'ETL falhou' })
+        return
+      }
+
+      const em = spawnSync(cfg.python || 'python', ['oneclick_upload.py', '--emit', String(job.idSci), String(job.ref)],
+        { cwd: cfg.etlDir, encoding: 'utf8', env, timeout: 120000, windowsHide: true })
+      const out = (em.stdout || '').trim()
+      if (!out) {
+        guardar(`ref ${job.ref}: sem folha (nada a enviar)`)
+        await folhaJobReportar(base, auth, job.id, { status: 'CONCLUIDO', log: log(), totalLinhas: 0 })
+        folhaEmit({ type: 'fim', code: 0, enviados: 0 })
+        return
+      }
+      let envelope
+      try { envelope = JSON.parse(out) } catch (e) {
+        await folhaJobReportar(base, auth, job.id, { status: 'ERRO', log: log(), erro: `envelope invalido: ${e.message}` })
+        folhaEmit({ type: 'fim', code: -1, erro: 'envelope invalido' })
+        return
+      }
+
+      // Upload por TOKEN: aqui nao ha operador logado (a fila roda sozinha).
+      const resp = await fetch(`${base}/api/folha-bi-sync/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...auth },
+        body: JSON.stringify(envelope),
+      })
+      if (!resp.ok) {
+        await folhaJobReportar(base, auth, job.id, { status: 'ERRO', log: log(), erro: `upload recusado (HTTP ${resp.status})` })
+        folhaEmit({ type: 'fim', code: -1, erro: `upload HTTP ${resp.status}` })
+        return
+      }
+      const total = Number(envelope.totalLinhas) || 0
+      guardar(`ref ${job.ref}: enviado (${total} linha(s))`)
+      await folhaJobReportar(base, auth, job.id, { status: 'CONCLUIDO', log: log(), totalLinhas: total })
+      folhaEmit({ type: 'fim', code: 0, enviados: 1 })
+    } catch (e) {
+      await folhaJobReportar(base, auth, job.id, { status: 'ERRO', log: log(), erro: e.message })
+      folhaEmit({ type: 'fim', code: -1, erro: e.message })
+    } finally {
+      clearInterval(pulso)
+    }
+  }
+
+  async function folhaFilaTick() {
+    try {
+      const cfg = loadSettings().folha || {}
+      if (cfg.filaEnabled === false) return          // desligavel nas Configuracoes
+      if (folhaBusy) return
+      const base = folhaApiBase(cfg)
+      if (!base) return
+      const auth = folhaAuthHeaders(cfg, base)
+      // Sem ETL ou sem credencial este Service Manager nao atende a folha — fica
+      // quieto para nao tomar o job de quem consegue executar.
+      if (!auth) return
+      if (!cfg.etlDir || !fs.existsSync(cfg.etlDir)) return
+
+      const r = await fetch(`${base}/api/folha-bi-sync/jobs/proximo`, { headers: { ...auth } })
+      if (!r.ok) return
+      const data = await r.json()
+      if (!data || !data.job) return
+
+      folhaBusy = true
+      try { await folhaExecutarJob(cfg, base, auth, data.job) } finally { folhaBusy = false }
+    } catch { /* silencioso: e um laco de fundo, nao um clique do usuario */ }
+  }
+  setInterval(folhaFilaTick, 20 * 1000)   // a tela espera resposta; 20s e o limite do aceitavel
+  setTimeout(folhaFilaTick, 15 * 1000)
 
   // Scheduler mensal (dia N): roda --todas --anterior por token, com catch-up.
   function folhaRefAnterior() {

@@ -837,6 +837,7 @@ model Cliente {
   historicos           ClienteHistorico[]
   servicosContratados  ClienteAreaContratada[]
   folhaFiliais         FolhaFilial[]
+  folhaBiSyncJobs      FolhaBiSyncJob[]
   folhaEventoContas    FolhaEventoConta[]
   folhaImportacoes     FolhaImportacao[]
   contratos            Contrato[]
@@ -1454,6 +1455,45 @@ model FolhaBiCache {
   @@unique([clienteId, cnpj, ref, fonte])
   @@index([clienteId])
   @@map("folha_bi_cache")
+}
+
+/// Pedido de sincronizacao da folha, da tela para o Service Manager.
+///
+/// A API roda na VPS e o SCI (Firebird) so existe na LAN do escritorio — nao ha
+/// rota de uma para o outro. Entao o pedido nao "chama" o Service Manager: fica
+/// aqui como registro, e o Service Manager, que roda dentro da LAN, busca o que
+/// esta PENDENTE, consulta o SCI e devolve o resultado pelo upload de sempre.
+///
+/// Ficar em tabela tambem e o que da historico: quem pediu, quando, quanto
+/// demorou e o erro quando falha — em vez de um spinner que some ao recarregar.
+model FolhaBiSyncJob {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  /// Cliente do OneClick. O vinculo e por ID; o idSci e copia do momento do pedido.
+  clienteId String  @map("cliente_id")
+  /// Cliente.idSistema (BDCODEMP do SCI) quando o pedido foi criado.
+  idSci     String  @map("id_sci")
+  /// Competencia AAAAMM (13o = AAAA13).
+  ref       Int
+
+  /// PENDENTE | EXECUTANDO | CONCLUIDO | ERRO | CANCELADO
+  status          String    @default("PENDENTE")
+  solicitadoPorId String?   @map("solicitado_por_id")
+  iniciadoEm      DateTime? @map("iniciado_em")
+  concluidoEm     DateTime? @map("concluido_em")
+  /// Ultimo sinal de vida do Service Manager — job sem sinal ha muito tempo esta morto.
+  heartbeatEm     DateTime? @map("heartbeat_em")
+  totalLinhas     Int?      @map("total_linhas")
+  erro            String?   @db.Text
+  /// Ultimas linhas do ETL, para a tela mostrar o que aconteceu.
+  log             String?   @db.Text
+  criadoEm        DateTime  @default(now()) @map("criado_em")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([status, criadoEm])
+  @@index([clienteId, ref])
+  @@map("folha_bi_sync_jobs")
 }
 
 // BI — KPI Contas Ignoradas por cliente

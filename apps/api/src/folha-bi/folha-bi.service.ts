@@ -87,6 +87,123 @@ export class FolhaBiService {
        order by coalesce(c1.razao_social, c2.razao_social, fbc.payload->>'razao') asc nulls last, fbc.cnpj asc, fbc.ref desc`
   }
 
+  // ===== Clientes elegiveis + fila de sincronizacao =====
+
+  /**
+   * Clientes que podem ter a folha sincronizada: MENSAIS do tenant, ativos e com
+   * ID SCI preenchido.
+   *
+   * Sem o ID SCI nao ha como buscar a folha — e o codigo da empresa no Firebird.
+   * Cliente sem ele nao entra na lista em vez de aparecer e falhar no clique.
+   */
+  async clientesElegiveis(isMaster?: boolean, empresaId?: string) {
+    return prisma.cliente.findMany({
+      where: {
+        deletedAt: null,
+        situacao: 'MENSAL',
+        status: { not: 'INATIVA' },
+        idSistema: { not: null },
+        NOT: { idSistema: '' },
+        ...(isMaster ? {} : { empresaId: empresaId ?? '' }),
+      },
+      select: { id: true, code: true, razaoSocial: true, documento: true, idSistema: true, grupo: true },
+      orderBy: { razaoSocial: 'asc' },
+    })
+  }
+
+  /**
+   * Registra o pedido de sincronizacao. Nao dispara nada: quem executa e o Service
+   * Manager, que roda na LAN do SCI e busca os pendentes.
+   *
+   * Um pedido ainda na fila para o mesmo cliente e competencia e reaproveitado —
+   * clicar duas vezes no botao nao vira duas execucoes do ETL.
+   */
+  async solicitarSync(clienteId: string, ref: number, userId?: string, isMaster?: boolean, empresaId?: string) {
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: clienteId, deletedAt: null, ...(isMaster ? {} : { empresaId: empresaId ?? '' }) },
+      select: { id: true, empresaId: true, idSistema: true, razaoSocial: true },
+    })
+    if (!cliente) throw new Error('Cliente nao encontrado neste tenant.')
+    if (!cliente.idSistema) throw new Error(`${cliente.razaoSocial} esta sem ID SCI — preencha no cadastro do cliente.`)
+
+    const emAndamento = await prisma.folhaBiSyncJob.findFirst({
+      where: { clienteId, ref, status: { in: ['PENDENTE', 'EXECUTANDO'] } },
+      orderBy: { criadoEm: 'desc' },
+    })
+    if (emAndamento) return emAndamento
+
+    return prisma.folhaBiSyncJob.create({
+      data: {
+        clienteId, ref, idSci: cliente.idSistema,
+        empresaId: cliente.empresaId, solicitadoPorId: userId,
+      },
+    })
+  }
+
+  /** Pedidos de um cliente (ou os ultimos do tenant) — historico e status na tela. */
+  async jobs(clienteId?: string, isMaster?: boolean, empresaId?: string) {
+    return prisma.folhaBiSyncJob.findMany({
+      where: {
+        ...(clienteId ? { clienteId } : {}),
+        ...(isMaster ? {} : { cliente: { empresaId: empresaId ?? '' } }),
+      },
+      select: {
+        id: true, clienteId: true, ref: true, status: true, criadoEm: true,
+        iniciadoEm: true, concluidoEm: true, totalLinhas: true, erro: true, log: true,
+        cliente: { select: { razaoSocial: true } },
+      },
+      orderBy: { criadoEm: 'desc' },
+      take: 20,
+    })
+  }
+
+  /**
+   * Entrega o proximo pedido ao Service Manager, marcando-o como EXECUTANDO na
+   * mesma operacao — dois Service Managers na rede nao pegam o mesmo job.
+   *
+   * Job EXECUTANDO sem sinal de vida ha mais de 15 minutos volta para a fila: e o
+   * caso do Service Manager fechado no meio do ETL, que senao travaria a
+   * competencia para sempre.
+   */
+  async proximoJob() {
+    const limite = new Date(Date.now() - 15 * 60 * 1000)
+    await prisma.folhaBiSyncJob.updateMany({
+      where: { status: 'EXECUTANDO', OR: [{ heartbeatEm: { lt: limite } }, { heartbeatEm: null, iniciadoEm: { lt: limite } }] },
+      data: { status: 'PENDENTE', iniciadoEm: null, heartbeatEm: null },
+    })
+
+    const candidato = await prisma.folhaBiSyncJob.findFirst({
+      where: { status: 'PENDENTE' },
+      orderBy: { criadoEm: 'asc' },
+      select: { id: true, clienteId: true, idSci: true, ref: true },
+    })
+    if (!candidato) return { job: null }
+
+    const tomado = await prisma.folhaBiSyncJob.updateMany({
+      where: { id: candidato.id, status: 'PENDENTE' },
+      data: { status: 'EXECUTANDO', iniciadoEm: new Date(), heartbeatEm: new Date() },
+    })
+    if (tomado.count === 0) return { job: null } // outro Service Manager chegou antes
+    return { job: candidato }
+  }
+
+  /** Progresso/desfecho reportado pelo Service Manager. */
+  async atualizarJob(id: string, dados: { status?: string; log?: string; erro?: string; totalLinhas?: number }) {
+    const encerrado = dados.status === 'CONCLUIDO' || dados.status === 'ERRO'
+    await prisma.folhaBiSyncJob.update({
+      where: { id },
+      data: {
+        ...(dados.status ? { status: dados.status } : {}),
+        ...(dados.log !== undefined ? { log: dados.log.slice(-4000) } : {}),
+        ...(dados.erro !== undefined ? { erro: dados.erro.slice(0, 2000) } : {}),
+        ...(dados.totalLinhas !== undefined ? { totalLinhas: dados.totalLinhas } : {}),
+        heartbeatEm: new Date(),
+        ...(encerrado ? { concluidoEm: new Date() } : {}),
+      },
+    })
+    return { ok: true }
+  }
+
   // Snapshot (payload apurado) de uma competencia.
   async snapshot(clienteId: string, cnpj: string, ref: number, fonte = 'python-etl') {
     return prisma.folhaBiCache.findUnique({

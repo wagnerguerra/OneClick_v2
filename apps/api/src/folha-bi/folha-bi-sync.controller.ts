@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Get, Headers, Post, Query, Req, UnauthorizedException,
+  Body, Controller, Get, Headers, Param, Post, Query, Req, UnauthorizedException,
 } from '@nestjs/common'
 import type { Request } from 'express'
 import { folhaBiUploadSchema } from '@saas/types'
@@ -57,6 +57,31 @@ export class FolhaBiSyncController {
   ) {
     await this.assertAuthOrToken(auth, req)
     return this.service.status(clienteId)
+  }
+
+  /**
+   * Proximo pedido de sincronizacao da fila, ja marcado como EXECUTANDO.
+   *
+   * E o Service Manager quem PUXA: a API esta na VPS e o SCI so existe na LAN, sem
+   * rota de uma para o outro. O botao da tela grava o pedido; quem roda perto do
+   * Firebird vem busca-lo aqui.
+   */
+  @Get('jobs/proximo')
+  async proximoJob(@Headers('authorization') auth: string, @Req() req: Request) {
+    await this.assertAuthOrToken(auth, req)
+    return this.service.proximoJob()
+  }
+
+  /** Progresso/desfecho de um pedido, reportado pelo Service Manager. */
+  @Post('jobs/:id')
+  async atualizarJob(
+    @Headers('authorization') auth: string,
+    @Param('id') id: string,
+    @Body() body: { status?: string; log?: string; erro?: string; totalLinhas?: number },
+    @Req() req: Request,
+  ) {
+    await this.assertAuthOrToken(auth, req)
+    return this.service.atualizarJob(id, body ?? {})
   }
 
   /**

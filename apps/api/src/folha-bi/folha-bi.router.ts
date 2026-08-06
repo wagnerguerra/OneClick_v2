@@ -1,6 +1,8 @@
 import { z } from 'zod'
-import { router, protectedProcedure } from '../trpc/trpc.service'
+import { router, protectedProcedure, readProcedure, writeProcedure } from '../trpc/trpc.service'
 import { FolhaBiService } from './folha-bi.service'
+
+const MODULE = 'folha-bi'
 
 export function createFolhaBiRouter(folhaBiService: FolhaBiService) {
   return router({
@@ -21,6 +23,23 @@ export function createFolhaBiRouter(folhaBiService: FolhaBiService) {
         fonte: z.string().default('python-etl'),
       }))
       .query(({ input }) => folhaBiService.snapshot(input.clienteId, input.cnpj, input.ref, input.fonte)),
+
+    // ===== Clientes elegiveis + fila de sincronizacao =====
+
+    // Clientes MENSAIS do tenant com ID SCI preenchido — alimenta o seletor.
+    clientes: readProcedure(MODULE)
+      .query(({ ctx }) => folhaBiService.clientesElegiveis(ctx.isMaster, ctx.empresaId)),
+
+    // Historico/estado dos pedidos de sincronizacao.
+    jobs: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string().optional() }).optional())
+      .query(({ input, ctx }) => folhaBiService.jobs(input?.clienteId, ctx.isMaster, ctx.empresaId)),
+
+    // Pede a sincronizacao de uma competencia. Quem executa e o Service Manager.
+    sincronizar: writeProcedure(MODULE)
+      .input(z.object({ clienteId: z.string(), ref: z.number().int() }))
+      .mutation(({ input, ctx }) =>
+        folhaBiService.solicitarSync(input.clienteId, input.ref, ctx.userId, ctx.isMaster, ctx.empresaId)),
 
     // ===== Config de agrupamento de verbas (folha_dash, ao vivo) =====
     classif: protectedProcedure.query(() => folhaBiService.classifSnapshot()),
