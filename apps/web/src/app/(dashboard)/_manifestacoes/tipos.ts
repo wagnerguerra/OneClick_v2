@@ -23,6 +23,8 @@ export interface Config {
   pedeElogiados?: boolean
   /** Oferece o mural público (só Sugestões). */
   temMural?: boolean
+  /** Tem o fluxo de retorno → análise → encerramento (só Reclamações). */
+  temFluxo?: boolean
   /** Origem que vem marcada por padrão no formulário. */
   origemPadrao: 'INTERNA' | 'CLIENTE'
   /** Texto do aviso de anonimato, específico do módulo. */
@@ -39,6 +41,8 @@ export interface Linha {
   anonima: boolean
   publica: boolean
   criadoEm: string
+  prazoRetorno: string | null
+  procede: boolean | null
   autor: { id: string; name: string; image?: string | null } | null
   cliente: { id: string; razaoSocial: string } | null
   area: { id: string; name: string } | null

@@ -191,6 +191,11 @@ export class ManifestacaoService {
         descricao: input.descricao,
         dataOcorrido: input.dataOcorrido ? new Date(`${input.dataOcorrido}T00:00:00.000Z`) : null,
         status: STATUS_INICIAL[tipo],
+        // Só reclamação tem prazo: é a única que carrega compromisso de
+        // retorno ao cliente.
+        prazoRetorno: tipo === 'RECLAMACAO'
+          ? new Date(Date.now() + (await this.diasParaRetorno()) * 24 * 60 * 60 * 1000)
+          : null,
         publica: tipo === 'SUGESTAO' ? input.publica : false,
       },
     })
@@ -254,6 +259,172 @@ export class ManifestacaoService {
     const atual = await this.exigir(id, tipo, empresaId)
     await prisma.manifestacao.delete({ where: { id: atual.id } })
     return { ok: true }
+  }
+
+  // ── Fluxo da reclamação ───────────────────────────────────
+  //
+  // Os cinco estados do v1, preservados porque são exigência típica de
+  // auditoria: separar o RETORNO IMEDIATO ao cliente da ANÁLISE de procedência
+  // é o que prova que a empresa respondeu rápido e apurou depois. Um fluxo de
+  // "aberta/encerrada" perderia essa distinção.
+
+  /**
+   * Prazo para o primeiro retorno ao cliente.
+   *
+   * Vem de configuração, e não fixo no código, porque é compromisso de
+   * atendimento e muda sem programador — no v1 era `sgq_par.REC_DIA_RETORNO`.
+   */
+  private async diasParaRetorno(): Promise<number> {
+    const linha = await prisma.systemConfig.findFirst({
+      where: { key: 'RECLAMACAO_DIAS_RETORNO' }, select: { value: true },
+    }).catch(() => null)
+    const n = Number(linha?.value)
+    return Number.isFinite(n) && n > 0 ? n : 5
+  }
+
+  /** Retorno imediato ao cliente — primeiro degrau do fluxo. */
+  async darRetorno(
+    input: { id: string; texto: string },
+    userId: string,
+    empresaId?: string | null,
+  ) {
+    const atual = await this.exigir(input.id, 'RECLAMACAO', empresaId)
+    await prisma.manifestacao.update({
+      where: { id: atual.id },
+      data: {
+        retornoCliente: input.texto,
+        retornoEm: new Date(),
+        retornoPorId: userId,
+        status: 'AGUARDANDO_ANALISE',
+      },
+    })
+    await this.registrarLog(atual.id, userId, 'Retorno dado ao cliente')
+    return { ok: true }
+  }
+
+  /**
+   * Análise de procedência.
+   *
+   * Procedente segue para a avaliação de eficácia — é o ponto em que o v1 abria
+   * uma Não Conformidade automaticamente. O módulo de NC ainda não existe no
+   * v2; o gancho fica registrado no log para não se perder.
+   *
+   * Não procedente encerra, mas exigindo as duas peças que a auditoria cobra:
+   * por que não procede, e o que foi devolvido a quem reclamou.
+   */
+  async analisarProcedencia(
+    input: {
+      id: string
+      procede: boolean
+      causaDescricao?: string | null
+      justificativa?: string | null
+      retornoFinal?: string | null
+    },
+    userId: string,
+    empresaId?: string | null,
+  ) {
+    const atual = await this.exigir(input.id, 'RECLAMACAO', empresaId)
+
+    if (!input.procede) {
+      if (!input.justificativa?.trim() || !input.retornoFinal?.trim()) {
+        throw new Error(
+          'Para julgar improcedente é preciso escrever a justificativa e o retorno final ao cliente.',
+        )
+      }
+      await prisma.manifestacao.update({
+        where: { id: atual.id },
+        data: {
+          procede: false,
+          justificativa: input.justificativa,
+          retornoFinal: input.retornoFinal,
+          status: 'NAO_PROCEDENTE',
+          encerradoEm: new Date(),
+          encerradoPorId: userId,
+        },
+      })
+      await this.registrarLog(atual.id, userId, 'Julgada não procedente')
+      return { ok: true, abriuNaoConformidade: false }
+    }
+
+    if (!input.causaDescricao?.trim()) {
+      throw new Error('Descreva a causa antes de julgar procedente.')
+    }
+
+    await prisma.manifestacao.update({
+      where: { id: atual.id },
+      data: {
+        procede: true,
+        causaDescricao: input.causaDescricao,
+        status: 'REGISTRAR_EFICACIA',
+      },
+    })
+    await this.registrarLog(
+      atual.id, userId, 'Julgada procedente',
+      'Cabe abertura de Não Conformidade — o módulo ainda não existe no sistema.',
+    )
+    return { ok: true, abriuNaoConformidade: false }
+  }
+
+  /** Encerramento, depois da eficácia avaliada. */
+  async finalizarReclamacao(
+    input: { id: string; retornoFinal: string },
+    userId: string,
+    empresaId?: string | null,
+  ) {
+    const atual = await this.exigir(input.id, 'RECLAMACAO', empresaId)
+    if (!input.retornoFinal.trim()) {
+      throw new Error('Escreva a posição final entregue a quem reclamou.')
+    }
+    await prisma.manifestacao.update({
+      where: { id: atual.id },
+      data: {
+        retornoFinal: input.retornoFinal,
+        status: 'FINALIZADA',
+        encerradoEm: new Date(),
+        encerradoPorId: userId,
+      },
+    })
+    await this.registrarLog(atual.id, userId, 'Reclamação finalizada')
+    return { ok: true }
+  }
+
+  /**
+   * Indicadores do ano — a leitura que o v1 tinha em `adm/indicadores.asp`.
+   *
+   * Contagens simples, feitas no banco: trazer as reclamações todas para somar
+   * em memória custaria caro num ano cheio, e a resposta é um punhado de
+   * números.
+   */
+  async indicadores(ano: number, empresaId?: string | null) {
+    const inicio = new Date(Date.UTC(ano, 0, 1))
+    const fim = new Date(Date.UTC(ano + 1, 0, 1))
+    const base = { tipo: 'RECLAMACAO', empresaId: empresaId ?? null, criadoEm: { gte: inicio, lt: fim } }
+
+    const [porStatus, porArea, porOrigem, porCanal, total, procedentes, improcedentes] = await Promise.all([
+      prisma.manifestacao.groupBy({ by: ['status'], where: base, _count: true }),
+      prisma.manifestacao.groupBy({ by: ['areaId'], where: base, _count: true }),
+      prisma.manifestacao.groupBy({ by: ['origem'], where: base, _count: true }),
+      prisma.manifestacao.groupBy({ by: ['canal'], where: base, _count: true }),
+      prisma.manifestacao.count({ where: base }),
+      prisma.manifestacao.count({ where: { ...base, procede: true } }),
+      prisma.manifestacao.count({ where: { ...base, procede: false } }),
+    ])
+
+    const areas = await prisma.area.findMany({
+      where: { id: { in: porArea.map(a => a.areaId).filter(Boolean) as string[] } },
+      select: { id: true, name: true },
+    })
+    const nomeArea = new Map(areas.map(a => [a.id, a.name]))
+
+    return {
+      total,
+      procedentes,
+      improcedentes,
+      porStatus: porStatus.map(s => ({ chave: s.status, total: s._count })),
+      porArea: porArea.map(a => ({ chave: a.areaId ? (nomeArea.get(a.areaId) ?? '—') : 'Sem área', total: a._count })),
+      porOrigem: porOrigem.map(o => ({ chave: o.origem, total: o._count })),
+      porCanal: porCanal.map(c => ({ chave: c.canal ?? 'Não informado', total: c._count })),
+    }
   }
 
   // ── Conversa ──────────────────────────────────────────────

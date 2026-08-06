@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import {
   router, readProcedure, writeProcedure, deleteProcedure,
-  writeSubProcedure, protectedProcedure, hasSubPermission,
+  readSubProcedure, writeSubProcedure, protectedProcedure, hasSubPermission,
 } from '../trpc/trpc.service'
 import {
   criarManifestacaoSchema, atualizarManifestacaoSchema,
@@ -72,6 +72,33 @@ export function createManifestacaoRouter(
     excluir: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.excluir(input.id, tipo, ctx.empresaId)),
+
+    // ── Fluxo, só para Reclamações ──
+    ...(tipo === 'RECLAMACAO'
+      ? {
+        darRetorno: writeSubProcedure(MODULE, 'tratar', 'Dar retorno ao cliente')
+          .input(z.object({ id: z.string().min(1), texto: z.string().min(1).max(4000) }))
+          .mutation(({ input, ctx }) => service.darRetorno(input, ctx.userId, ctx.empresaId)),
+
+        analisarProcedencia: writeSubProcedure(MODULE, 'tratar', 'Analisar procedencia')
+          .input(z.object({
+            id: z.string().min(1),
+            procede: z.boolean(),
+            causaDescricao: z.string().max(4000).optional().nullable(),
+            justificativa: z.string().max(4000).optional().nullable(),
+            retornoFinal: z.string().max(4000).optional().nullable(),
+          }))
+          .mutation(({ input, ctx }) => service.analisarProcedencia(input, ctx.userId, ctx.empresaId)),
+
+        finalizar: writeSubProcedure(MODULE, 'tratar', 'Finalizar reclamacao')
+          .input(z.object({ id: z.string().min(1), retornoFinal: z.string().min(1).max(4000) }))
+          .mutation(({ input, ctx }) => service.finalizarReclamacao(input, ctx.userId, ctx.empresaId)),
+
+        indicadores: readSubProcedure(MODULE, 'indicadores', 'Acessar os indicadores')
+          .input(z.object({ ano: z.coerce.number().int().min(2000).max(2100) }))
+          .query(({ input, ctx }) => service.indicadores(input.ano, ctx.empresaId)),
+      }
+      : {}),
 
     ...(tipo === 'SUGESTAO'
       ? {

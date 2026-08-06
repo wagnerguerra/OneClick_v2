@@ -38,6 +38,13 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
   const [novaMsg, setNovaMsg] = useState('')
   const [msgInterna, setMsgInterna] = useState(true)
 
+  // Campos do fluxo da reclamação — um por passo.
+  const [textoFluxo, setTextoFluxo] = useState('')
+  const [procede, setProcede] = useState<boolean | null>(null)
+  const [causa, setCausa] = useState('')
+  const [justificativa, setJustificativa] = useState('')
+  const [retornoFinal, setRetornoFinal] = useState('')
+
   const carregar = useCallback(async () => {
     setCarregando(true)
     try {
@@ -219,7 +226,161 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
               </div>
             </div>
 
-            {podeTratar && (
+            {/* ── Fluxo da reclamação ──
+                Um passo por vez, e só o passo da vez: mostrar os três juntos
+                convidaria a pular a apuração e ir direto ao encerramento. */}
+            {config.temFluxo && podeTratar && m.status === 'AGUARDANDO_RETORNO' && (
+              <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50/60 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
+                <p className="text-[13px] font-semibold text-amber-900 dark:text-amber-300">
+                  1. Retorno imediato ao cliente
+                  {m.prazoRetorno && (
+                    <span className="ml-2 font-normal">
+                      — prazo {new Date(m.prazoRetorno).toLocaleDateString('pt-BR')}
+                    </span>
+                  )}
+                </p>
+                <p className="text-[11.5px] text-amber-800/80 dark:text-amber-400/80">
+                  O que foi dito a quem reclamou agora, antes de apurar.
+                </p>
+                <textarea value={textoFluxo} onChange={e => setTextoFluxo(e.target.value)} rows={3}
+                  className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                <div className="flex justify-end">
+                  <Button variant="success" size="sm" disabled={salvando || !textoFluxo.trim()}
+                    onClick={async () => {
+                      setSalvando(true)
+                      try {
+                        await api.darRetorno.mutate({ id, texto: textoFluxo })
+                        setTextoFluxo(''); await carregar(); onMudou()
+                      } catch (e) { await alerts.error('Erro', (e as Error).message) }
+                      finally { setSalvando(false) }
+                    }}>
+                    Registrar o retorno
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {config.temFluxo && podeTratar && m.status === 'AGUARDANDO_ANALISE' && (
+              <div className="space-y-3 rounded-lg border border-sky-300 bg-sky-50/60 p-3 dark:border-sky-900/50 dark:bg-sky-950/20">
+                <p className="text-[13px] font-semibold text-sky-900 dark:text-sky-300">
+                  2. A reclamação procede?
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {([
+                    { v: true, t: 'Procede', d: 'Segue para a avaliação de eficácia.' },
+                    { v: false, t: 'Não procede', d: 'Encerra, com justificativa e retorno final.' },
+                  ]).map(o => (
+                    <button key={String(o.v)} type="button" onClick={() => setProcede(o.v)}
+                      className={cn('rounded-lg border px-3 py-2 text-left transition-colors',
+                        procede === o.v ? 'border-sky-500 bg-background' : 'border-border hover:bg-background/60')}>
+                      <span className="block text-[13px] font-semibold">{o.t}</span>
+                      <span className="block text-[11px] text-muted-foreground">{o.d}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {procede === true && (
+                  <div className="space-y-1.5">
+                    <p className="text-[12px] font-semibold">Causa</p>
+                    <textarea value={causa} onChange={e => setCausa(e.target.value)} rows={3}
+                      placeholder="O que levou a isso acontecer."
+                      className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                  </div>
+                )}
+
+                {procede === false && (
+                  <>
+                    <div className="space-y-1.5">
+                      <p className="text-[12px] font-semibold">Justificativa</p>
+                      <textarea value={justificativa} onChange={e => setJustificativa(e.target.value)} rows={3}
+                        placeholder="Por que a reclamação não procede."
+                        className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="text-[12px] font-semibold">Retorno final</p>
+                      <textarea value={retornoFinal} onChange={e => setRetornoFinal(e.target.value)} rows={3}
+                        placeholder="O que foi devolvido a quem reclamou."
+                        className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                    </div>
+                  </>
+                )}
+
+                {procede !== null && (
+                  <div className="flex justify-end">
+                    <Button variant="success" size="sm" disabled={salvando}
+                      onClick={async () => {
+                        setSalvando(true)
+                        try {
+                          await api.analisarProcedencia.mutate({
+                            id, procede,
+                            causaDescricao: causa || null,
+                            justificativa: justificativa || null,
+                            retornoFinal: retornoFinal || null,
+                          })
+                          await carregar(); onMudou()
+                        } catch (e) { await alerts.error('Erro', (e as Error).message) }
+                        finally { setSalvando(false) }
+                      }}>
+                      {salvando && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                      Registrar a análise
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {config.temFluxo && podeTratar && m.status === 'REGISTRAR_EFICACIA' && (
+              <div className="space-y-2 rounded-lg border border-indigo-300 bg-indigo-50/60 p-3 dark:border-indigo-900/50 dark:bg-indigo-950/20">
+                <p className="text-[13px] font-semibold text-indigo-900 dark:text-indigo-300">
+                  3. Encerrar
+                </p>
+                <p className="text-[11.5px] text-indigo-800/80 dark:text-indigo-400/80">
+                  A causa foi tratada. Escreva a posição final entregue a quem reclamou.
+                </p>
+                <textarea value={retornoFinal} onChange={e => setRetornoFinal(e.target.value)} rows={3}
+                  className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                <div className="flex justify-end">
+                  <Button variant="success" size="sm" disabled={salvando || !retornoFinal.trim()}
+                    onClick={async () => {
+                      setSalvando(true)
+                      try {
+                        await api.finalizar.mutate({ id, retornoFinal })
+                        await carregar(); onMudou()
+                      } catch (e) { await alerts.error('Erro', (e as Error).message) }
+                      finally { setSalvando(false) }
+                    }}>
+                    Finalizar
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* O que já foi decidido no fluxo fica à vista, para a auditoria
+                ler sem abrir o histórico. */}
+            {(m.retornoCliente || m.justificativa || m.retornoFinal) && (
+              <div className="space-y-2 rounded-lg border border-border p-3">
+                {m.retornoCliente && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Retorno imediato</p>
+                    <p className="whitespace-pre-wrap text-[13px]">{m.retornoCliente}</p>
+                  </div>
+                )}
+                {m.justificativa && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Justificativa</p>
+                    <p className="whitespace-pre-wrap text-[13px]">{m.justificativa}</p>
+                  </div>
+                )}
+                {m.retornoFinal && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Retorno final</p>
+                    <p className="whitespace-pre-wrap text-[13px]">{m.retornoFinal}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!config.temFluxo && podeTratar && (
               <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
                 <p className="text-[13px] font-semibold">Responder</p>
                 <RichEditor value={resposta} onChange={setResposta}

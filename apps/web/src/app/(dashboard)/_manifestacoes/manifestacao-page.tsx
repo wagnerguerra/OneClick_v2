@@ -180,6 +180,12 @@ export function ManifestacaoPage({ config }: { config: Config }) {
                   </TableCell>
                   <TableCell className="text-[12px] tabular-nums text-muted-foreground">
                     {new Date(l.criadoEm).toLocaleDateString('pt-BR')}
+                    {/* Farol do prazo, como no v1: só enquanto o retorno ao
+                        cliente está pendente. Depois disso a data já cumpriu o
+                        papel e vira ruído. */}
+                    {config.temFluxo && l.prazoRetorno && l.status === 'AGUARDANDO_RETORNO' && (
+                      <Farol prazo={l.prazoRetorno} />
+                    )}
                   </TableCell>
                 </TableRow>
               )
@@ -220,6 +226,35 @@ export function ManifestacaoPage({ config }: { config: Config }) {
 
       <ProtocoloEntregue protocolo={protocoloNovo} onClose={() => setProtocoloNovo(null)} />
     </div>
+  )
+}
+
+/**
+ * Farol do prazo de retorno.
+ *
+ * Vermelho quando já venceu, âmbar no dia ou no seguinte, verde no resto. O v1
+ * fazia o mesmo — é o que faz alguém olhar a lista e saber onde agir primeiro,
+ * sem comparar datas de cabeça.
+ */
+function Farol({ prazo }: { prazo: string }) {
+  const dia = 24 * 60 * 60 * 1000
+  const so = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const faltam = Math.round((so(new Date(prazo)) - so(new Date())) / dia)
+
+  const cor = faltam < 0
+    ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
+    : faltam <= 1
+      ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+      : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+
+  const texto = faltam < 0
+    ? `venceu há ${Math.abs(faltam)}d`
+    : faltam === 0 ? 'vence hoje' : `faltam ${faltam}d`
+
+  return (
+    <span className={cn('mt-0.5 block w-fit rounded px-1.5 py-0.5 text-[10px] font-semibold', cor)}>
+      {texto}
+    </span>
   )
 }
 
