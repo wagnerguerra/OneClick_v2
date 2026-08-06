@@ -16,6 +16,7 @@ interface Filial {
   razaoSocial: string
   nomeFantasia: string | null
   ehMatriz: boolean | null
+  status: string | null
 }
 
 function ehMatriz(f: Filial) {
@@ -36,6 +37,9 @@ export function CnpjFilialSelect({ clienteId, documento, tipoDocumento }: {
 
   useEffect(() => {
     if (tipoDocumento !== 'CNPJ' || !documento || !clienteId) return
+    // Aqui NÃO se filtra por status: com a listagem escondendo filial inativa,
+    // este seletor é o caminho de volta para ela. Some da lista, mas continua
+    // alcançável a partir das irmãs — marcada como inativa.
     ;(trpc.cliente as { listMesmaRaiz: { query: (i: { clienteId: string; documento: string }) => Promise<Filial[]> } })
       .listMesmaRaiz.query({ clienteId, documento })
       .then((d) => setFiliais(d || []))
@@ -74,6 +78,7 @@ export function CnpjFilialSelect({ clienteId, documento, tipoDocumento }: {
               <div className="flex items-center gap-1.5 font-mono text-xs">
                 <span>{masks.cnpj(f.documento)}</span>
                 {ehMatriz(f) && <span className="rounded border border-current px-1 text-[9px] font-semibold uppercase tracking-wide opacity-70">matriz</span>}
+                {f.status === 'INATIVA' && <span className="rounded border border-current px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">inativa</span>}
               </div>
               <div className="truncate text-[11px] opacity-70">{f.nomeFantasia || f.razaoSocial}</div>
             </div>
