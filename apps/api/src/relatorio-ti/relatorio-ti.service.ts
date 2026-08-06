@@ -121,8 +121,15 @@ export class RelatorioTiService {
    * — buscar dia a dia seriam trinta idas ao banco para desenhar uma tela só.
    */
   async mes(ano: number, mes: number, empresaId?: string | null) {
-    const inicio = new Date(Date.UTC(ano, mes - 1, 1))
-    const fim = new Date(Date.UTC(ano, mes, 1))
+    // A grade do calendário mostra o rabo do mês anterior e o começo do
+    // seguinte. Buscar só o mês deixava esses dias sempre vazios, como se
+    // ninguém tivesse postado — e o dia 31 de julho aparece na primeira linha
+    // de agosto.
+    const primeiro = new Date(Date.UTC(ano, mes - 1, 1))
+    const inicio = new Date(primeiro)
+    inicio.setUTCDate(1 - primeiro.getUTCDay())
+    const fim = new Date(inicio)
+    fim.setUTCDate(inicio.getUTCDate() + 42)
 
     const [relatorios, envios, equipe] = await Promise.all([
       prisma.relatorioDiario.findMany({
@@ -221,12 +228,24 @@ export class RelatorioTiService {
    * O controller é quem confere a sessão; aqui só se resolve o caminho — e o
    * caminho vem do banco, nunca do que o usuário digitou.
    */
-  async arquivo(id: string, empresaId?: string | null) {
-    const r = await prisma.relatorioDiario.findFirst({
-      where: { id, empresaId: empresaId ?? null },
-      select: { arquivoPath: true, arquivoNome: true, arquivoMime: true },
+  async arquivo(id: string, userId: string) {
+    const r = await prisma.relatorioDiario.findUnique({
+      where: { id },
+      select: { empresaId: true, arquivoPath: true, arquivoNome: true, arquivoMime: true },
     })
     if (!r?.arquivoPath) throw new Error('Este relatório não tem arquivo anexado.')
+
+    // A empresa do PEDIDO é resolvida a partir de quem pede, e não recebida de
+    // fora: aqui não há contexto tRPC, e filtrar por um empresaId ausente
+    // buscava por `empresaId: null` — nenhum relatório real bate com isso, e o
+    // download respondia "não tem arquivo" para todos.
+    const u = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isMaster: true, empresaId: true, activeEmpresaId: true },
+    })
+    const daPessoa = u?.activeEmpresaId ?? u?.empresaId ?? null
+    const permitido = !!u?.isMaster || !r.empresaId || r.empresaId === daPessoa
+    if (!permitido) throw new Error('Este relatório é de outra empresa.')
 
     const conteudo = await fs.readFile(path.join(ARQUIVOS_ROOT, r.arquivoPath))
     return {

@@ -28,7 +28,7 @@ export class RelatorioTiController {
     if (!sessao?.user?.id) throw new UnauthorizedException('Sessão inválida — faça login.')
 
     try {
-      const arq = await this.service.arquivo(id)
+      const arq = await this.service.arquivo(id, sessao.user.id)
       res.setHeader('Content-Type', arq.mime)
       // `inline`: HTML e PDF abrem na aba, que é o caminho comum de quem só
       // quer ler. Salvar continua sendo um clique no visualizador.

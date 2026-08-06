@@ -54,6 +54,18 @@ function chaveDoRegistro(iso: string): string {
   return iso.slice(0, 10)
 }
 
+/**
+ * O navegador consegue mostrar este anexo numa moldura?
+ *
+ * HTML e PDF sim; Word e afins, não — para esses a tela oferece o download, em
+ * vez de exibir uma moldura em branco que parece defeito.
+ */
+function previsualizavel(r: { arquivoNome?: string | null; arquivoMime?: string | null }): boolean {
+  const nome = (r.arquivoNome ?? '').toLowerCase()
+  const mime = (r.arquivoMime ?? '').toLowerCase()
+  return /\.(html?|pdf)$/.test(nome) || mime.includes('html') || mime.includes('pdf')
+}
+
 function iniciais(nome: string) {
   return (nome || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
 }
@@ -87,6 +99,8 @@ export default function RelatoriosTiPage() {
   const [diaAberto, setDiaAberto] = useState<string | null>(null)
   const [doDia, setDoDia] = useState<RelatorioCompleto[]>([])
   const [carregandoDia, setCarregandoDia] = useState(false)
+  /** Relatório aberto na coluna da direita. */
+  const [selecionado, setSelecionado] = useState<RelatorioCompleto | null>(null)
 
   /** PDF consolidado do dia, quando gerado — vira link de download de verdade. */
   const [pdfDoDia, setPdfDoDia] = useState<{ nome: string; base64: string; naoIncluidos: string[] } | null>(null)
@@ -126,9 +140,14 @@ export default function RelatoriosTiPage() {
   const carregarDia = useCallback(async (data: string) => {
     setCarregandoDia(true)
     try {
-      setDoDia(await (trpc.relatorioTi as any).dia.query({ data }) ?? [])
+      const lista = await (trpc.relatorioTi as any).dia.query({ data }) ?? []
+      setDoDia(lista)
+      // Já abre o primeiro: o painel da direita vazio numa tela cheia parece
+      // defeito, e quem abre o dia quer ler alguma coisa.
+      setSelecionado(lista[0] ?? null)
     } catch {
       setDoDia([])
+      setSelecionado(null)
     } finally {
       setCarregandoDia(false)
     }
@@ -546,37 +565,55 @@ export default function RelatoriosTiPage() {
                 type="button"
                 onClick={() => abrirDia(k)}
                 className={cn(
-                  'min-h-[92px] border-b border-r border-border/50 p-1.5 text-left transition-colors hover:bg-muted/30',
-                  !doMes && 'bg-muted/20 opacity-50',
+                  'group flex min-h-[124px] flex-col gap-1 border-b border-r border-border/50 p-2 text-left transition-colors',
+                  doMes ? 'hover:bg-muted/40' : 'bg-muted/20 hover:bg-muted/30',
+                  // Dia de outro mês fica apagado, mas NÃO invisível: o 31 de
+                  // julho aparece na primeira linha de agosto, e esconder o que
+                  // foi postado nele seria mentir sobre o histórico.
+                  !doMes && 'text-muted-foreground/70',
                 )}
               >
                 <div className="flex items-center justify-between">
                   <span className={cn(
-                    'inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] tabular-nums',
-                    ehHoje ? 'font-bold text-white' : 'text-muted-foreground',
+                    'inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[12px] tabular-nums',
+                    ehHoje ? 'font-bold text-white' : doMes ? 'font-medium text-foreground' : 'text-muted-foreground',
                   )} style={ehHoje ? { backgroundColor: MODULE_COLOR } : undefined}>
                     {d.getDate()}
                   </span>
-                  {/* Selo de enviado: é o que responde "o dia já foi repassado?" */}
-                  {envio && (
-                    <span title={`Enviado à diretoria em ${new Date(envio.enviadoEm).toLocaleString('pt-BR')}`}>
-                      <Send className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-                    </span>
-                  )}
+                  <span className="flex items-center gap-1">
+                    {/* Selo de enviado: responde "o dia já foi repassado?". */}
+                    {envio && (
+                      <span title={`Enviado à diretoria em ${new Date(envio.enviadoEm).toLocaleString('pt-BR')}`}
+                        className="inline-flex items-center rounded-full bg-emerald-100 p-1 dark:bg-emerald-900/40">
+                        <Send className="h-2.5 w-2.5 text-emerald-700 dark:text-emerald-400" />
+                      </span>
+                    )}
+                    {itens.length > 0 && (
+                      <span className="rounded-full bg-muted px-1.5 text-[10px] font-semibold tabular-nums text-muted-foreground">
+                        {itens.length}
+                      </span>
+                    )}
+                  </span>
                 </div>
 
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {itens.slice(0, 4).map(r => (
+                {/* Uma linha por relatório, com avatar e título: dá para saber o
+                    que tem no dia sem abri-lo. Só os avatares diziam quem, mas
+                    não o quê. */}
+                <div className="flex flex-col gap-0.5">
+                  {itens.slice(0, 3).map(r => (
                     <span key={r.id} title={`${r.autor.name} — ${r.titulo}`}
-                      className="inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-[8px] font-bold">
-                      {r.autor.image
-                        // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={resolveAssetUrl(r.autor.image)} alt={r.autor.name} className="h-full w-full object-cover" />
-                        : iniciais(r.autor.name)}
+                      className="flex items-center gap-1 rounded px-1 py-0.5 text-[10.5px] hover:bg-background">
+                      <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-[7px] font-bold">
+                        {r.autor.image
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={resolveAssetUrl(r.autor.image)} alt={r.autor.name} className="h-full w-full object-cover" />
+                          : iniciais(r.autor.name)}
+                      </span>
+                      <span className="truncate">{r.autor.name.split(' ')[0]}</span>
                     </span>
                   ))}
-                  {itens.length > 4 && (
-                    <span className="text-[10px] text-muted-foreground">+{itens.length - 4}</span>
+                  {itens.length > 3 && (
+                    <span className="px-1 text-[10px] text-muted-foreground">+{itens.length - 3} outros</span>
                   )}
                 </div>
               </button>
@@ -586,131 +623,183 @@ export default function RelatoriosTiPage() {
       </Card>
 
       {/* ── Dia aberto ── */}
+      {/* ── Dia aberto: lista à esquerda, prévia à direita ──
+          Duas colunas porque a leitura aqui é comparativa: abre-se o dia para
+          percorrer o que a equipe entregou, e voltar à lista a cada relatório
+          quebraria justamente esse percurso. */}
       <Dialog open={!!diaAberto} onOpenChange={o => { if (!o) setDiaAberto(null) }}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeaderIcon icon={NotebookPen} color="cyan">
-            <DialogTitle>
-              {diaAberto && new Date(`${diaAberto}T12:00:00`).toLocaleDateString('pt-BR', {
-                weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
-              })}
-            </DialogTitle>
-            <DialogDescription>
-              {doDia.length === 0 ? 'Nenhum relatório neste dia.'
-                : `${doDia.length} ${doDia.length === 1 ? 'relatório' : 'relatórios'}`}
-            </DialogDescription>
-          </DialogHeaderIcon>
+        <DialogContent className="h-[88vh] max-w-[min(1240px,95vw)] gap-0 p-0">
+          <div className="flex items-center gap-3 border-b border-border px-5 py-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+              style={{ backgroundColor: 'color-mix(in srgb, var(--mod-ti, #22d3ee) 18%, transparent)' }}>
+              <NotebookPen className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="truncate text-[15px] capitalize">
+                {diaAberto && new Date(`${diaAberto}T12:00:00`).toLocaleDateString('pt-BR', {
+                  weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
+                })}
+              </DialogTitle>
+              <DialogDescription className="text-[12px]">
+                {doDia.length === 0 ? 'Nenhum relatório neste dia.'
+                  : `${doDia.length} ${doDia.length === 1 ? 'relatório' : 'relatórios'}`}
+              </DialogDescription>
+            </div>
 
-          <DialogBody className="nice-scrollbar max-h-[65vh] space-y-3 overflow-y-auto">
-            {/* Histórico de envio no topo: é a primeira coisa que se quer saber
-                ao abrir um dia antigo — "isto já foi repassado?". */}
-            {enviosDoDia.length > 0 && (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 dark:border-emerald-900/50 dark:bg-emerald-950/20">
-                {enviosDoDia.map(e => (
-                  <p key={e.id} className="text-[12px] text-emerald-900 dark:text-emerald-300">
-                    <Send className="mr-1 inline h-3 w-3" />
-                    Enviado em {new Date(e.enviadoEm).toLocaleString('pt-BR')} para{' '}
-                    {e.destinatarios.length} destinatário(s).
-                  </p>
-                ))}
-              </div>
-            )}
-
-            {carregandoDia ? (
-              <div className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></div>
-            ) : doDia.length === 0 ? (
-              <p className="py-10 text-center text-sm italic text-muted-foreground">
-                Ninguém postou neste dia.
-              </p>
-            ) : doDia.map(r => (
-              <div key={r.id} className="rounded-lg border border-border">
-                <div className="flex items-center gap-2.5 border-b border-border/60 bg-muted/20 px-3 py-2">
-                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-[10px] font-bold">
-                    {r.autor.image
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={resolveAssetUrl(r.autor.image)} alt={r.autor.name} className="h-full w-full object-cover" />
-                      : iniciais(r.autor.name)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold">{r.titulo}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {r.autor.name} · {new Date(r.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                  {r.formato === 'ANEXO' && (
-                    <Button asChild variant="outline" size="sm" className="gap-1.5">
-                      <a href={`${getApiUrl()}/api/relatorios-ti/arquivo/${r.id}`} target="_blank" rel="noreferrer">
-                        <Download className="h-3.5 w-3.5" /> Abrir
-                      </a>
-                    </Button>
-                  )}
-                  {podeCurar && (
-                    <Button variant="outline" size="sm" className="gap-1.5"
-                      title="Publicar uma novidade a partir deste relatório"
-                      onClick={() => curar(r)}>
-                      <Megaphone className="h-3.5 w-3.5" /> Virar novidade
-                    </Button>
-                  )}
-                  {podePostar && (
-                    <>
-                      <Button variant="soft-info" size="icon-sm" onClick={() => abrirEdicao(r)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="soft-destructive" size="icon-sm" onClick={() => remover(r)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-
-                {r.formato === 'ESCRITO' ? (
-                  <div className="px-3 py-2">
-                    <RichContent html={r.conteudoHtml ?? ''} />
-                  </div>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              {podePostar && diaAberto && (
+                <Button variant="success" size="sm" className="gap-1.5"
+                  onClick={() => { setDiaAberto(null); abrirNovo(diaAberto) }}>
+                  <Plus className="h-4 w-4" /> Postar
+                </Button>
+              )}
+              {podeGerarPdf && doDia.length > 0 && (
+                pdfDoDia ? (
+                  <Button asChild variant="outline" size="sm" className="gap-1.5">
+                    <a href={urlPdfDoDia} download={pdfDoDia.nome}>
+                      <Download className="h-4 w-4" /> Baixar o PDF
+                    </a>
+                  </Button>
                 ) : (
-                  <p className="flex items-center gap-1.5 px-3 py-2 text-[12px] text-muted-foreground">
-                    <Paperclip className="h-3.5 w-3.5" />
-                    {r.arquivoNome}
-                    {r.arquivoBytes ? ` · ${(r.arquivoBytes / 1024).toFixed(0)} KB` : ''}
-                  </p>
-                )}
-              </div>
-            ))}
-          </DialogBody>
-
-          <DialogFooter className="flex-wrap gap-2">
-            {podePostar && diaAberto && (
-              <Button variant="success" size="sm" className="gap-1.5"
-                onClick={() => { setDiaAberto(null); abrirNovo(diaAberto) }}>
-                <Plus className="h-4 w-4" /> Postar neste dia
-              </Button>
-            )}
-
-            {podeGerarPdf && doDia.length > 0 && (
-              pdfDoDia ? (
-                // Link de verdade: download disparado por código o navegador barra.
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <a href={urlPdfDoDia} download={pdfDoDia.nome}>
-                    <Download className="h-4 w-4" /> Baixar o PDF
-                  </a>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={gerarPdf} disabled={gerando}>
+                    {gerando ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                    Gerar PDF
+                  </Button>
+                )
+              )}
+              {podeEnviar && doDia.length > 0 && (
+                <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}
+                  onClick={enviar} disabled={enviando}>
+                  {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Enviar à diretoria
                 </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-1">
+            {/* Coluna da esquerda — quem entregou o quê */}
+            <div className="nice-scrollbar w-[330px] shrink-0 space-y-1.5 overflow-y-auto border-r border-border bg-muted/20 p-2.5">
+              {enviosDoDia.length > 0 && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-2.5 py-1.5 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                  {enviosDoDia.map(e => (
+                    <p key={e.id} className="text-[11px] text-emerald-900 dark:text-emerald-300">
+                      <Send className="mr-1 inline h-3 w-3" />
+                      Enviado {new Date(e.enviadoEm).toLocaleString('pt-BR')} · {e.destinatarios.length} destinatário(s)
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {carregandoDia ? (
+                <div className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></div>
+              ) : doDia.length === 0 ? (
+                <p className="py-10 text-center text-sm italic text-muted-foreground">
+                  Ninguém postou neste dia.
+                </p>
+              ) : doDia.map(r => {
+                const ativo = selecionado?.id === r.id
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setSelecionado(r)}
+                    className={cn(
+                      'w-full rounded-lg border px-2.5 py-2 text-left transition-colors',
+                      ativo ? 'border-transparent bg-background shadow-sm' : 'border-border/60 hover:bg-background/70',
+                    )}
+                    style={ativo ? { boxShadow: `0 0 0 2px ${MODULE_COLOR}` } : undefined}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-[10px] font-bold">
+                        {r.autor.image
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={resolveAssetUrl(r.autor.image)} alt={r.autor.name} className="h-full w-full object-cover" />
+                          : iniciais(r.autor.name)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium">{r.titulo}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          {r.autor.name} · {new Date(r.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </span>
+                      {r.formato === 'ANEXO' && <Paperclip className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Coluna da direita — o conteúdo do escolhido */}
+            <div className="flex min-w-0 flex-1 flex-col">
+              {!selecionado ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
+                  <NotebookPen className="h-8 w-8 opacity-40" />
+                  <p className="text-sm">Escolha um relatório à esquerda para ler aqui.</p>
+                </div>
               ) : (
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={gerarPdf} disabled={gerando}>
-                  {gerando ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-                  Gerar PDF do dia
-                </Button>
-              )
-            )}
+                <>
+                  <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold">{selecionado.titulo}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {selecionado.autor.name}
+                        {selecionado.arquivoNome ? ` · ${selecionado.arquivoNome}` : ''}
+                        {selecionado.arquivoBytes ? ` · ${(selecionado.arquivoBytes / 1024).toFixed(0)} KB` : ''}
+                      </p>
+                    </div>
+                    {selecionado.formato === 'ANEXO' && (
+                      <Button asChild variant="outline" size="sm" className="gap-1.5">
+                        <a href={`${getApiUrl()}/api/relatorios-ti/arquivo/${selecionado.id}`} target="_blank" rel="noreferrer">
+                          <Download className="h-3.5 w-3.5" /> Nova aba
+                        </a>
+                      </Button>
+                    )}
+                    {podeCurar && (
+                      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => curar(selecionado)}>
+                        <Megaphone className="h-3.5 w-3.5" /> Virar novidade
+                      </Button>
+                    )}
+                    {podePostar && (
+                      <>
+                        <Button variant="soft-info" size="icon-sm" onClick={() => abrirEdicao(selecionado)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="soft-destructive" size="icon-sm" onClick={() => remover(selecionado)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
 
-            {podeEnviar && doDia.length > 0 && (
-              <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}
-                onClick={enviar} disabled={enviando}>
-                {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Enviar à diretoria
-              </Button>
-            )}
-
-            <Button variant="outline" size="sm" onClick={() => setDiaAberto(null)}>Fechar</Button>
-          </DialogFooter>
+                  {selecionado.formato === 'ESCRITO' ? (
+                    <div className="nice-scrollbar flex-1 overflow-y-auto px-5 py-4">
+                      <RichContent html={selecionado.conteudoHtml ?? ''} />
+                    </div>
+                  ) : previsualizavel(selecionado) ? (
+                    /* O anexo é servido pela rota que confere a sessão, então a
+                       prévia usa o próprio visualizador do navegador. */
+                    <iframe
+                      key={selecionado.id}
+                      src={`${getApiUrl()}/api/relatorios-ti/arquivo/${selecionado.id}`}
+                      title={selecionado.titulo}
+                      className="flex-1 border-0 bg-white"
+                    />
+                  ) : (
+                    <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
+                      <Paperclip className="h-8 w-8 opacity-40" />
+                      <p className="text-sm">Este formato não abre aqui dentro.</p>
+                      <Button asChild variant="outline" size="sm" className="gap-1.5">
+                        <a href={`${getApiUrl()}/api/relatorios-ti/arquivo/${selecionado.id}`} target="_blank" rel="noreferrer">
+                          <Download className="h-3.5 w-3.5" /> Baixar
+                        </a>
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
