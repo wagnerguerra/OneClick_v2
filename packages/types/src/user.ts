@@ -64,7 +64,7 @@ export const MODULE_SLUGS = [
   // Contábil
   'bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos',
   // TI
-  'ativos', 'helpdesk', 'projetos',
+  'ativos', 'helpdesk', 'projetos', 'relatorios-ti',
   // Ferramentas (utilitarios de uso geral, item proprio no menu)
   'ferramentas-gerais',
   // Qualidade
@@ -126,6 +126,7 @@ export const MODULE_LABELS: Record<string, string> = {
   'tratamento-lancamentos': 'Tratamento de Lançamentos',
   // TI
   ativos: 'Gestão de Ativos', helpdesk: 'HelpDesk', projetos: 'Projetos',
+  'relatorios-ti': 'Relatórios da TI',
   // Qualidade
   qualidade: 'Painel da Qualidade', aquisicoes: 'Aquisições',
   'analise-contexto': 'Análise de Contexto', capacitacoes: 'Capacitações',
@@ -147,7 +148,7 @@ export const MODULE_GROUPS = {
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento', 'folha-bi'],
   'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal', 'reforma-tributaria', 'ferramentas-fiscal'],
   'Contábil': ['bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos'],
-  'TI': ['ativos', 'helpdesk', 'projetos'],
+  'TI': ['ativos', 'helpdesk', 'projetos', 'relatorios-ti'],
   'Ferramentas': ['ferramentas-gerais'],
   'Qualidade': ['qualidade', 'aquisicoes', 'analise-contexto', 'capacitacoes', 'documentos-internos', 'documentos-externos', 'tabelas-registros', 'elogios', 'melhorias', 'nao-conformidades', 'reclamacoes', 'reunioes', 'sugestoes'],
   'Configurações': ['configuracoes', 'metricas', 'backup-restore'],
@@ -433,6 +434,23 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'gerir_modelos_proposta', label: 'Gerir a biblioteca de modelos de proposta (referência da IA)', group: 'Configurações' },
     { key: 'gerir_pesquisas', label: 'Gerir a pesquisa de satisfação (cadastro/versões)', group: 'Configurações' },
   ],
+  'relatorios-ti': [
+    // Ler é de todos que têm o módulo — o painel existe para a equipe
+    // acompanhar o histórico. As sub-permissões cobrem só o que MUDA algo.
+    //
+    // Quem lidera a área não precisa de nenhuma delas: o backend libera o
+    // líder por `writeSubOrLiderProcedure`, então a caixa marcada aqui é para
+    // quem NÃO lidera e mesmo assim precisa da ação.
+    { key: 'postar', label: 'Publicar o próprio relatório', group: 'Rotina' },
+    { key: 'gerar_pdf', label: 'Consolidar o dia num PDF', group: 'Liderança' },
+    { key: 'enviar_diretoria', label: 'Enviar o consolidado à diretoria', group: 'Liderança' },
+    { key: 'curar_novidades', label: 'Publicar novidades no painel inicial', group: 'Liderança' },
+    {
+      key: 'gerenciar_config', label: 'Configurar equipe e destinatários', group: 'Liderança',
+      observacao: 'Define de qual área é a equipe e para quem o consolidado é enviado.',
+    },
+  ],
+
   helpdesk: [
     // Escopo de listagem — escolha única (#HLP0139). proprios ⊂ area ⊂ todos.
     // Primeiro bloco da lista.

@@ -248,6 +248,7 @@ model User {
   tenant                 Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   empresa                Empresa?                @relation(fields: [empresaId], references: [id], onDelete: SetNull)
   area                   Area?                   @relation("UserArea", fields: [areaId], references: [id], onDelete: SetNull)
+  relatoriosDiarios      RelatorioDiario[]       @relation("RelatorioAutor")
   acessoriasColaborador  AcessoriasColaborador[] @relation("AcessoriasColaboradorUser")
   cargo                  Cargo?                  @relation(fields: [cargoId], references: [id], onDelete: SetNull)
   sessions               Session[]
@@ -7398,4 +7399,99 @@ model AssinaturaPdfHistorico {
   @@index([empresaId, usuarioId, criadoEm])
   @@index([hashOriginal])
   @@map("assinatura_pdf_historico")
+}
+
+/// Relatório diário de um colaborador da equipe.
+///
+/// `data` é o DIA a que o relatório se refere, e não o instante em que foi
+/// postado: lançar hoje o relatório de ontem é rotina, e o calendário precisa
+/// colocá-lo no dia certo.
+model RelatorioDiario {
+  id           String   @id @default(cuid())
+  empresaId    String?  @map("empresa_id")
+  autorId      String   @map("autor_id")
+  data         DateTime @db.Date
+  titulo       String
+  /// ANEXO | ESCRITO
+  formato      String
+  /// Preenchido quando escrito no painel.
+  conteudoHtml String?  @map("conteudo_html") @db.Text
+  /// Preenchido quando anexado — nome do arquivo dentro de uploads/relatorios-ti.
+  arquivoPath  String?  @map("arquivo_path")
+  arquivoNome  String?  @map("arquivo_nome")
+  arquivoMime  String?  @map("arquivo_mime")
+  arquivoBytes Int?     @map("arquivo_bytes")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  autor     User       @relation("RelatorioAutor", fields: [autorId], references: [id], onDelete: Cascade)
+  novidades Novidade[]
+
+  @@index([empresaId, data])
+  @@index([autorId, data])
+  @@map("relatorios_diarios")
+}
+
+/// Registro de cada envio do consolidado à diretoria.
+///
+/// Existe para o painel poder dizer "enviado por Fulano às 18h02" — sem isso,
+/// reenviar vira dúvida e ninguém sabe se o dia já foi repassado.
+model RelatorioEnvio {
+  id            String   @id @default(cuid())
+  empresaId     String?  @map("empresa_id")
+  data          DateTime @db.Date
+  assunto       String
+  pdfNome       String   @map("pdf_nome")
+  pdfPath       String?  @map("pdf_path")
+  destinatarios String[]
+  /// Quais relatórios entraram naquele PDF — o dia pode ganhar mais depois.
+  relatorioIds  String[] @map("relatorio_ids")
+  enviadoPorId  String?  @map("enviado_por_id")
+  enviadoEm     DateTime @default(now()) @map("enviado_em")
+
+  @@index([empresaId, data])
+  @@map("relatorios_envios")
+}
+
+/// Novidade publicada no painel inicial, curada a partir de um relatório.
+///
+/// O texto NASCE do relatório mas é editável: o que se escreve para a diretoria
+/// não é o que se escreve para quem só quer saber o que mudou no sistema.
+model Novidade {
+  id             String    @id @default(cuid())
+  empresaId      String?   @map("empresa_id")
+  relatorioId    String?   @map("relatorio_id")
+  titulo         String
+  descricao      String?   @db.Text
+  /// NOVO | MELHORIA | CORRECAO
+  tipo           String    @default("NOVO")
+  /// Módulo a que se refere — dá o ícone e o link no widget.
+  moduloSlug     String?   @map("modulo_slug")
+  ordem          Int       @default(0)
+  ativo          Boolean   @default(true)
+  publicadoEm    DateTime  @default(now()) @map("publicado_em")
+  publicadoPorId String?   @map("publicado_por_id")
+
+  // SetNull: apagar o relatório de origem não pode apagar a novidade, que já
+  // foi lida por todo mundo no painel.
+  relatorio RelatorioDiario? @relation(fields: [relatorioId], references: [id], onDelete: SetNull)
+
+  @@index([empresaId, ativo, publicadoEm])
+  @@map("novidades")
+}
+
+/// Configuração do módulo — uma linha por empresa.
+model RelatorioTiConfig {
+  id                    String   @id @default(cuid())
+  empresaId             String?  @unique @map("empresa_id")
+  /// Área cuja equipe posta os relatórios. Em branco, ninguém é cobrado.
+  areaId                String?  @map("area_id")
+  /// Ids de usuário que recebem o consolidado (mesmo desenho do disparo da agenda).
+  destinatariosIds      String[] @map("destinatarios_ids")
+  /// E-mails avulsos, para quem não é usuário do sistema.
+  destinatariosEmails   String[] @map("destinatarios_emails")
+  assuntoPadrao         String?  @map("assunto_padrao")
+  atualizadoEm          DateTime @updatedAt @map("atualizado_em")
+
+  @@map("relatorios_ti_config")
 }

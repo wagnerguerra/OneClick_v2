@@ -25,6 +25,7 @@ import {
   Receipt,
   Scale,
   FolderKanban,
+  NotebookPen,
   UsersRound,
   BarChart3,
   ShoppingCart,
@@ -267,6 +268,7 @@ export const navigation: NavGroup[] = [
       { label: 'Gestão de Ativos', href: '/ativos', icon: Database },
       { label: 'HelpDesk', href: '/helpdesk', icon: Headphones },
       { label: 'Projetos', href: '/projetos', icon: FolderKanban },
+      { label: 'Relatórios da TI', href: '/relatorios-ti', icon: NotebookPen },
     ],
   },
   {
