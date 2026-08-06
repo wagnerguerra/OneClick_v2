@@ -299,6 +299,7 @@ model User {
   danfeLotes             DanfeLote[]             @relation("DanfeLoteUploader")
 
   @@map("users")
+  reformaSimulacoes ReformaTributariaSimulacao[]
 }
 
 model Session {
@@ -838,6 +839,7 @@ model Cliente {
   servicosContratados  ClienteAreaContratada[]
   folhaFiliais         FolhaFilial[]
   folhaBiSyncJobs      FolhaBiSyncJob[]
+  reformaSimulacoes    ReformaTributariaSimulacao[]
   folhaEventoContas    FolhaEventoConta[]
   folhaImportacoes     FolhaImportacao[]
   contratos            Contrato[]
@@ -1494,6 +1496,98 @@ model FolhaBiSyncJob {
   @@index([status, criadoEm])
   @@index([clienteId, ref])
   @@map("folha_bi_sync_jobs")
+}
+
+// ============================================================
+// Tabelas que o codigo consulta por SQL cru
+// ============================================================
+// Estes tres modelos NAO sao usados pelo Prisma Client: `qa.service` e
+// `reforma-tributaria.service` leem e escrevem por `$queryRaw`. Eles existem
+// aqui por um motivo operacional, nao de acesso a dados.
+//
+// O deploy roda `prisma db push --accept-data-loss`. Toda tabela que existe no
+// banco e NAO existe no schema e tratada como estranha e DERRUBADA. Em 06/08/26
+// foi exatamente o que aconteceu: qa_itens (48 linhas) e
+// reforma_tributaria_premissas (19 linhas) foram apagadas em producao e
+// recuperadas do backup das 03:15.
+//
+// Declarar aqui e o que faz o Prisma reconhece-las como suas e deixa-las em paz.
+// Os campos espelham o DDL real (packages/db/prisma/sql/add_qa_itens.sql e
+// add_reforma_tributaria.sql) — divergir de um tipo aqui faz o proximo db push
+// ALTERAR a coluna no banco.
+
+/// Itens de QA (auditoria de codigo). Numeracao propria, visivel na tela.
+model QaItem {
+  id          String    @id
+  numero      Int       @default(autoincrement())
+  modulo      String
+  severidade  String    @default("MEDIA")
+  titulo      String
+  descricao   String?
+  arquivo     String?
+  fixProposto String?   @map("fix_proposto")
+  status      String    @default("PENDENTE")
+  notas       String?
+  origem      String?
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  resolvidoEm DateTime? @map("resolvido_em") @db.Timestamptz(6)
+
+  @@index([modulo])
+  @@index([status])
+  @@map("qa_itens")
+}
+
+/// Premissas do comparativo IBS/CBS, por ano/setor/CNAE.
+model ReformaTributariaPremissa {
+  id                           String   @id
+  empresaId                    String?  @map("empresa_id")
+  nome                         String
+  ano                          Int      @default(2027)
+  setor                        String?
+  cnaePrefix                   String?  @map("cnae_prefix")
+  aliquotaCbs                  Decimal  @default(0.088) @map("aliquota_cbs") @db.Decimal(7, 6)
+  aliquotaIbs                  Decimal  @default(0.177) @map("aliquota_ibs") @db.Decimal(7, 6)
+  aliquotaSimplesIbsCbs        Decimal  @default(0.04) @map("aliquota_simples_ibs_cbs") @db.Decimal(7, 6)
+  percentualVendasB2b          Decimal  @default(0.55) @map("percentual_vendas_b2b") @db.Decimal(7, 6)
+  percentualComprasCreditaveis Decimal  @default(0.35) @map("percentual_compras_creditaveis") @db.Decimal(7, 6)
+  pesoCreditoCliente           Decimal  @default(0.35) @map("peso_credito_cliente") @db.Decimal(7, 6)
+  reducaoSetorial              Decimal  @default(0) @map("reducao_setorial") @db.Decimal(7, 6)
+  observacoes                  String?
+  ativo                        Boolean  @default(true)
+  createdAt                    DateTime @default(now()) @map("created_at")
+  updatedAt                    DateTime @default(now()) @map("updated_at")
+
+  @@index([ano, setor])
+  // Nome fixado: e o mesmo do add_reforma_tributaria.sql. Sem isto o db push
+  // renomeia para o padrao do Prisma e o SQL cirurgico recria o antigo no deploy
+  // seguinte — dois indices identicos, um novo a cada ciclo.
+  @@index([empresaId, ativo], map: "reforma_tributaria_premissas_empresa_ativo_idx")
+  @@map("reforma_tributaria_premissas")
+}
+
+/// Historico de simulacoes e pareceres do comparativo IBS/CBS.
+model ReformaTributariaSimulacao {
+  id              String   @id
+  empresaId       String?  @map("empresa_id")
+  clienteId       String   @map("cliente_id")
+  userId          String?  @map("user_id")
+  premissas       Json
+  diagnostico     Json
+  cenarios        Json
+  recomendacao    String
+  resumo          Json
+  parecer         String
+  qualidadeScore  Int      @default(0) @map("qualidade_score")
+  faturamento12m  Decimal  @default(0) @map("faturamento_12m") @db.Decimal(14, 2)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([clienteId, createdAt(sort: Desc)], map: "reforma_tributaria_simulacoes_cliente_created_idx")
+  @@index([empresaId, createdAt(sort: Desc)], map: "reforma_tributaria_simulacoes_empresa_created_idx")
+  @@map("reforma_tributaria_simulacoes")
 }
 
 // BI — KPI Contas Ignoradas por cliente
