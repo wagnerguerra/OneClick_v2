@@ -158,6 +158,8 @@ import { ProjetoService } from '../projeto/projeto.service'
 import { createProjetoRouter } from '../projeto/projeto.router'
 import { RelatorioTiService } from '../relatorio-ti/relatorio-ti.service'
 import { createRelatorioTiRouter } from '../relatorio-ti/relatorio-ti.router'
+import { ManifestacaoService } from '../manifestacao/manifestacao.service'
+import { createManifestacaoRouter } from '../manifestacao/manifestacao.router'
 import { MinhasObrigacoesService } from '../minhas-obrigacoes/minhas-obrigacoes.service'
 import { AtivoService } from '../ativo/ativo.service'
 import { createAtivoRouter } from '../ativo/ativo.router'
@@ -719,6 +721,7 @@ export class TrpcService {
     @Inject(MinhasObrigacoesService) private readonly minhasObrigacoesService: MinhasObrigacoesService,
     @Inject(AtivoService) private readonly ativoService: AtivoService,
     @Inject(RelatorioTiService) private readonly relatorioTiService: RelatorioTiService,
+    @Inject(ManifestacaoService) private readonly manifestacaoService: ManifestacaoService,
     @Inject(ClientErrorService) private readonly clientErrorService: ClientErrorService,
     @Inject(ThemeService) private readonly themeService: ThemeService,
     @Inject(DanfeService) private readonly danfeService: DanfeService,
@@ -818,6 +821,11 @@ export class TrpcService {
       grupoObrigacao: createGrupoObrigacaoRouter(this.grupoObrigacaoService),
       projetos: createProjetoRouter(this.projetoService),
       relatorioTi: createRelatorioTiRouter(this.relatorioTiService),
+      // Um router por módulo sobre a mesma engrenagem — o tipo é fixado aqui,
+      // e não vem do cliente.
+      elogio: createManifestacaoRouter(this.manifestacaoService, 'ELOGIO', 'elogios'),
+      reclamacao: createManifestacaoRouter(this.manifestacaoService, 'RECLAMACAO', 'reclamacoes'),
+      sugestao: createManifestacaoRouter(this.manifestacaoService, 'SUGESTAO', 'sugestoes'),
       minhasObrigacoes: createMinhasObrigacoesRouter(this.minhasObrigacoesService),
     })
   }

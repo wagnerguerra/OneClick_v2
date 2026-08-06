@@ -434,6 +434,28 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'gerir_modelos_proposta', label: 'Gerir a biblioteca de modelos de proposta (referência da IA)', group: 'Configurações' },
     { key: 'gerir_pesquisas', label: 'Gerir a pesquisa de satisfação (cadastro/versões)', group: 'Configurações' },
   ],
+  // Os três módulos de manifestação compartilham a mesma engrenagem, então
+  // compartilham também o desenho das permissões: registrar é de todos, tratar
+  // é da Qualidade, e ver o dos outros é escolha explícita.
+  elogios: [
+    { key: 'registrar', label: 'Registrar elogios', group: 'Rotina' },
+    { key: 'ver_todos', label: 'Ver os elogios de todos', group: 'Rotina', observacao: 'Sem isto, vê apenas os que registrou.' },
+    { key: 'tratar', label: 'Responder e encerrar', group: 'Qualidade' },
+    { key: 'revelar_anonima', label: 'Ver dados de quem registrou', group: 'Qualidade', observacao: '* Anônimas não guardam autor — nem esta permissão as revela.' },
+  ],
+  reclamacoes: [
+    { key: 'registrar', label: 'Registrar reclamações', group: 'Rotina' },
+    { key: 'ver_todos', label: 'Ver as reclamações de todos', group: 'Rotina', observacao: 'Sem isto, vê apenas as que registrou.' },
+    { key: 'tratar', label: 'Dar retorno, analisar procedência e encerrar', group: 'Qualidade' },
+    { key: 'indicadores', label: 'Acessar os indicadores', group: 'Qualidade' },
+  ],
+  sugestoes: [
+    { key: 'registrar', label: 'Registrar sugestões', group: 'Rotina' },
+    { key: 'ver_todos', label: 'Ver as sugestões de todos', group: 'Rotina', observacao: 'Sem isto, vê as próprias e as publicadas no mural.' },
+    { key: 'tratar', label: 'Responder e encerrar', group: 'Qualidade' },
+    { key: 'publicar', label: 'Publicar no mural', group: 'Qualidade' },
+  ],
+
   'relatorios-ti': [
     // Ler é de todos que têm o módulo — o painel existe para a equipe
     // acompanhar o histórico. As sub-permissões cobrem só o que MUDA algo.
