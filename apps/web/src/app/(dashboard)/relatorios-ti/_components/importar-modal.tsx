@@ -253,6 +253,15 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
             />
           </div>
 
+          {/* Diz de onde vem a lista de autores: sem isso, quem não acha o
+              colega procura o defeito no importador em vez da configuração. */}
+          {achados.length > 0 && (
+            <p className="text-[11.5px] text-muted-foreground">
+              Autores oferecidos: <b>{pessoas.length}</b> pessoa(s) da equipe configurada.
+              Falta alguém? Ajuste a área da equipe na engrenagem do módulo.
+            </p>
+          )}
+
           {semAutor > 0 && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />

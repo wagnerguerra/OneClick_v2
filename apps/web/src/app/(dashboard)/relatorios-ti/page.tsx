@@ -286,9 +286,21 @@ export default function RelatoriosTiPage() {
   const [importarOpen, setImportarOpen] = useState(false)
   const [pessoasImport, setPessoasImport] = useState<Array<{ id: string; name: string }>>([])
 
+  /**
+   * Abre a importação com a EQUIPE, e não com o tenant inteiro.
+   *
+   * O relatório é da rotina da área: oferecer os 200 usuários da empresa faz o
+   * select rolar sem fim e ainda estraga o reconhecimento automático — com
+   * muita gente, "BRUNO" acha mais de um candidato e o sistema desiste de
+   * escolher. Sem área configurada, cai na lista completa, senão não haveria
+   * ninguém para escolher.
+   */
   async function abrirImportar() {
     try {
-      setPessoasImport(await (trpc.user as any).listForSelect.query() ?? [])
+      const time = await (trpc.relatorioTi as any).equipe.query() ?? []
+      setPessoasImport(time.length > 0
+        ? time
+        : await (trpc.user as any).listForSelect.query() ?? [])
     } catch { setPessoasImport([]) }
     setImportarOpen(true)
   }
