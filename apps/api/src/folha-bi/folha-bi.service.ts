@@ -34,6 +34,16 @@ export class FolhaBiService {
     })
   }
 
+  // Empresas conhecidas pelo ETL (folha_dash.dim_empresa) — seletor do launcher
+  // (Service Manager). Distinto de /api/bi-sync/clientes (clientes do OneClick).
+  async empresas() {
+    const empresas = await fq<{ codEmp: number; cnpj: string; razao: string; ultRef: number | null }>(
+      `select cod_emp as "codEmp", cnpj, razao, ult_ref as "ultRef"
+         from folha_dash.dim_empresa order by razao`,
+    )
+    return { total: empresas.length, empresas }
+  }
+
   // Competencias em cache de um cliente (verificacao/status).
   async status(clienteId: string) {
     const rows = await prisma.folhaBiCache.findMany({
