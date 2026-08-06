@@ -454,14 +454,20 @@ export function createAgendaRouter(
           dataInicio: z.string().optional(),      // yyyy-MM-dd
           dataFim: z.string().optional(),
           todasDoTenant: z.boolean().optional(),  // se true e for master, traz de todos
+          oportunidadeId: z.string().optional(),  // aba "Tarefas" do card do CRM: todas as tarefas do card
         }).optional())
         .query(({ input, ctx }) => tarefaService.list({
-          usuarioId: input?.todasDoTenant && ctx.isMaster ? undefined : (input?.usuarioId ?? ctx.userId),
+          // Ao filtrar por oportunidade, mostra TODAS as tarefas do card (sem
+          // restringir por membro) — é a visão do card, não a lista pessoal.
+          usuarioId: input?.oportunidadeId
+            ? undefined
+            : (input?.todasDoTenant && ctx.isMaster ? undefined : (input?.usuarioId ?? ctx.userId)),
           apenasAbertas: input?.apenasAbertas,
           apenasConcluidas: input?.apenasConcluidas,
           dataInicio: input?.dataInicio,
           dataFim: input?.dataFim,
           empresaId: ctx.empresaId,
+          oportunidadeId: input?.oportunidadeId,
         })),
       getById: readProcedure(MODULE)
         .input(z.object({ id: z.string() }))
@@ -474,6 +480,7 @@ export function createAgendaRouter(
           horaPrazo: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
           prioridade: z.enum(['BAIXA', 'NORMAL', 'ALTA']).optional(),
           participantes: z.array(z.string()).optional(),              // ids de usuários (membros)
+          oportunidadeId: z.string().nullable().optional(),           // vínculo com card do CRM
         }))
         .mutation(({ input, ctx }) => tarefaService.create({ ...input, empresaId: ctx.empresaId }, ctx.userId)),
       update: writeProcedure(MODULE)

@@ -68,22 +68,8 @@ export function createCrmRouter(crmService: CrmService, importComercialService?:
       .mutation(({ input, ctx }) => crmService.delete(input.id, ctx.userId)),
 
     // ── Tarefas ────────────────────────────────────────────
-    addTarefa: writeProcedure(MODULE)
-      .input(z.object({
-        oportunidadeId: z.string(),
-        titulo: z.string().min(1),
-        responsavelId: z.string().optional(),
-        prazo: z.string().optional(),
-      }))
-      .mutation(({ input, ctx }) => crmService.addTarefa(input.oportunidadeId, input.titulo, input.responsavelId, input.prazo, ctx.userId)),
-
-    toggleTarefa: writeProcedure(MODULE)
-      .input(z.object({ id: z.string() }))
-      .mutation(({ input, ctx }) => crmService.toggleTarefa(input.id, ctx.userId)),
-
-    deleteTarefa: deleteProcedure(MODULE)
-      .input(z.object({ id: z.string() }))
-      .mutation(({ input, ctx }) => crmService.deleteTarefa(input.id, ctx.userId)),
+    // Migraram para AgendaTarefa vinculada à oportunidade — usar `trpc.agenda.tarefa.*`
+    // (create/update/toggleConcluida/delete/lembrete) e `agenda.tarefa.list({ oportunidadeId })`.
 
     // ── Mensagens ──────────────────────────────────────────
     addMensagem: writeProcedure(MODULE)

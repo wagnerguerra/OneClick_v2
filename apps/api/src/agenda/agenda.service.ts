@@ -670,7 +670,7 @@ export class AgendaService {
             contatoEmail: true,
             etapa: { select: { id: true, nome: true, cor: true } },
             tags: { select: { tag: { select: { id: true, nome: true, cor: true } } } },
-            _count: { select: { tarefas: true, mensagens: true, arquivos: true } },
+            _count: { select: { agendaTarefas: { where: { isActive: true } }, mensagens: true, arquivos: true } },
           },
         },
       },
@@ -726,7 +726,7 @@ export class AgendaService {
         contatoEmail: true,
         etapa: { select: { id: true, nome: true, cor: true } },
         tags: { select: { tag: { select: { id: true, nome: true, cor: true } } } },
-        _count: { select: { tarefas: true, mensagens: true, arquivos: true } },
+        _count: { select: { agendaTarefas: { where: { isActive: true } }, mensagens: true, arquivos: true } },
       },
     })
     // numero via raw (client pode estar stale)

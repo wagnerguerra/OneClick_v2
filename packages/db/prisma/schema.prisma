@@ -3297,6 +3297,12 @@ model AgendaTarefa {
   criador        User      @relation("TarefaCriador", fields: [criadorId], references: [id])
   empresaId      String?   @map("empresa_id")
 
+  // Vínculo opcional com um card do CRM (Oportunidade). Quando presente, a tarefa
+  // é criada/gerida a partir da oportunidade, mas vive na lista de tarefas do
+  // usuário como qualquer outra. SetNull: excluir a oportunidade só desvincula.
+  oportunidadeId String?       @map("oportunidade_id")
+  oportunidade   Oportunidade? @relation("OportunidadeAgendaTarefas", fields: [oportunidadeId], references: [id], onDelete: SetNull)
+
   lembretes      AgendaTarefaLembrete[]
   participantes  AgendaTarefaParticipante[]
 
@@ -3306,6 +3312,7 @@ model AgendaTarefa {
   @@index([criadorId, concluida, prazo])
   @@index([prazo])
   @@index([empresaId])
+  @@index([oportunidadeId])
   @@map("agenda_tarefas")
 }
 
@@ -3492,7 +3499,6 @@ model Oportunidade {
 
   etapa     CrmEtapa               @relation(fields: [etapaId], references: [id])
   tags      OportunidadeTag[]
-  tarefas   OportunidadeTarefa[]
   mensagens OportunidadeMensagem[]
   arquivos  OportunidadeArquivo[]
   eventos   OportunidadeEvento[]
@@ -3501,6 +3507,9 @@ model Oportunidade {
   agendaEventos AgendaEvento[] @relation("OportunidadeAgendaEventos")
   // Vínculos N:N com eventos da agenda (vários cards por evento) — ver AgendaEventoOportunidade.
   agendaVinculos AgendaEventoOportunidade[]
+  // Tarefas da agenda vinculadas a esta oportunidade (a "tarefa do CRM" é uma
+  // AgendaTarefa com oportunidadeId preenchido) — ver AgendaTarefa.
+  agendaTarefas AgendaTarefa[] @relation("OportunidadeAgendaTarefas")
 
   @@index([etapaId])
   @@index([clienteId])
@@ -3679,20 +3688,11 @@ model BeneficioCartaoAvulso {
   @@map("beneficio_cartao_avulso")
 }
 
-model OportunidadeTarefa {
-  id             String    @id @default(cuid())
-  oportunidadeId String    @map("oportunidade_id")
-  titulo         String
-  concluida      Boolean   @default(false)
-  responsavelId  String?   @map("responsavel_id")
-  prazo          DateTime?
-  createdAt      DateTime  @default(now()) @map("created_at")
-
-  oportunidade Oportunidade @relation(fields: [oportunidadeId], references: [id], onDelete: Cascade)
-
-  @@index([oportunidadeId])
-  @@map("oportunidade_tarefas")
-}
+// NOTA: o antigo model `OportunidadeTarefa` (tabela `oportunidade_tarefas`) foi
+// aposentado — a "tarefa do CRM" passou a ser uma `AgendaTarefa` com
+// `oportunidadeId` preenchido (ver a relation `OportunidadeAgendaTarefas`). A
+// migração `20260805_agenda_tarefa_oportunidade` migra os dados legados e dropa a
+// tabela antiga.
 
 model OportunidadeMensagem {
   id             String   @id @default(cuid())
