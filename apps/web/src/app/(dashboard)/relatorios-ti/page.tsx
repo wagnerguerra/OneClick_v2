@@ -832,13 +832,9 @@ export default function RelatoriosTiPage() {
                     )}
                   </div>
 
-                  {selecionado.enviado && (
-                    <p className="border-b border-amber-200 bg-amber-50/70 px-4 py-1.5 text-[11.5px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
-                      Este relatório já foi à diretoria. Dá para substituir o conteúdo, mas não excluir —
-                      a cópia enviada fica guardada como foi entregue.
-                    </p>
-                  )}
-
+                  {/* Sem tarja de aviso aqui: a etiqueta "enviado" na lista, o
+                      botão "Substituir" e a ausência do excluir já dizem a regra
+                      — repeti-la em texto só roubava altura da leitura. */}
                   {selecionado.formato === 'ESCRITO' ? (
                     <div className="nice-scrollbar flex-1 overflow-y-auto px-5 py-4">
                       <RichContent html={selecionado.conteudoHtml ?? ''} />
