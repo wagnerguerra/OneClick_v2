@@ -411,56 +411,52 @@ export class UserService {
   }
 
   /**
-   * Estado agregado por modulo para um conjunto de usuarios: quantos ja tem
-   * cada nivel. E o que permite a tela mostrar o meio-termo ("14 dos 40") em vez
-   * de fingir que a selecao inteira esta marcada ou desmarcada.
+   * Quantos, dentro da selecao, TEM ACESSO a cada modulo.
+   *
+   * Acesso e um estado so — existir a linha. O detalhe fino vive nas
+   * sub-permissoes de cada modulo, que sao especificas demais para uma acao em
+   * massa e continuam no cadastro individual.
+   *
+   * A contagem e o que permite a tela mostrar o meio-termo ("14 dos 40") em vez
+   * de fingir que a selecao inteira esta ligada ou desligada.
    */
   async matrizPermissoes(userIds: string[]) {
     if (userIds.length === 0) return { total: 0, modulos: [] }
-    // groupBy nao soma boolean, entao a contagem por nivel sai de uma consulta
-    // unica, somada em memoria.
-    const cruas = await prisma.userPermission.findMany({
-      where: { userId: { in: userIds } },
-      select: { moduleSlug: true, canRead: true, canWrite: true, canDelete: true },
+    const linhas = await prisma.userPermission.groupBy({
+      by: ['moduleSlug'],
+      where: { userId: { in: userIds }, canRead: true },
+      _count: { _all: true },
     })
-    const mapa = new Map<string, { ler: number; escrever: number; excluir: number }>()
-    for (const l of cruas) {
-      const m = mapa.get(l.moduleSlug) ?? { ler: 0, escrever: 0, excluir: 0 }
-      if (l.canRead) m.ler++
-      if (l.canWrite) m.escrever++
-      if (l.canDelete) m.excluir++
-      mapa.set(l.moduleSlug, m)
-    }
     return {
       total: userIds.length,
-      modulos: [...mapa.entries()].map(([moduleSlug, c]) => ({ moduleSlug, ...c })),
+      modulos: linhas.map(l => ({ moduleSlug: l.moduleSlug, comAcesso: l._count._all })),
     }
   }
 
   /**
-   * Aplica alteracoes de permissao a varios usuarios de uma vez.
+   * Concede ou retira o ACESSO a modulos, para varios usuarios de uma vez.
    *
    * Regras que fazem esta operacao ser segura:
    * - so os modulos TOCADOS mudam. O que nao veio no pedido fica como esta —
-   *   senao aplicar "libere Fiscal" apagaria todo o resto de quem foi marcado;
-   * - `subPermissions` do registro existente e PRESERVADO. Elas guardam ajuste
-   *   fino feito na mao (ex.: "orcamento completo"), e uma acao em massa que as
-   *   zerasse destruiria configuracao sem ninguem perceber;
-   * - master nunca e alvo;
-   * - nivel todo falso REMOVE a linha — "sem acesso" e ausencia de registro, e
-   *   deixar a linha zerada faria o modulo parecer concedido nas listagens.
+   *   senao "libere Fiscal" apagaria todo o resto do acesso de quem foi
+   *   selecionado;
+   * - conceder a quem JA TEM nao mexe na linha. E ai que moram as
+   *   sub-permissoes ajustadas na mao ("orcamento completo", "ver todos os
+   *   clientes"); reescrever a linha as zeraria sem ninguem perceber;
+   * - retirar apaga a linha, que e como o cadastro individual representa "sem
+   *   acesso" — linha zerada faria o modulo parecer concedido nas listagens;
+   * - master nunca e alvo, e o alcance respeita a empresa carregada.
    */
   async aplicarPermissoesEmMassa(
     userIds: string[],
-    alteracoes: Array<{ moduleSlug: string; canRead: boolean; canWrite: boolean; canDelete: boolean }>,
+    alteracoes: Array<{ moduleSlug: string; conceder: boolean }>,
     callerIsMaster: boolean,
     callerEmpresaId?: string,
   ) {
     if (userIds.length === 0 || alteracoes.length === 0) {
-      return { usuarios: 0, concedidos: 0, revogados: 0, ajustados: 0 }
+      return { usuarios: 0, concedidos: 0, retirados: 0, jaTinham: 0 }
     }
 
-    // Recorte de seguranca: so alcanca quem o solicitante ja poderia editar.
     const alvos = await prisma.user.findMany({
       where: {
         id: { in: userIds },
@@ -472,53 +468,57 @@ export class UserService {
     })
     void callerIsMaster
     const ids = alvos.map(a => a.id)
-    if (ids.length === 0) return { usuarios: 0, concedidos: 0, revogados: 0, ajustados: 0 }
+    if (ids.length === 0) return { usuarios: 0, concedidos: 0, retirados: 0, jaTinham: 0 }
 
     const slugs = alteracoes.map(a => a.moduleSlug)
-    const atuais = await prisma.userPermission.findMany({
+    const existentes = await prisma.userPermission.findMany({
       where: { userId: { in: ids }, moduleSlug: { in: slugs } },
-      select: { userId: true, moduleSlug: true, canRead: true, canWrite: true, canDelete: true },
+      select: { userId: true, moduleSlug: true, canRead: true },
     })
-    const atual = new Map(atuais.map(a => [`${a.userId}|${a.moduleSlug}`, a]))
+    const tem = new Set(existentes.filter(e => e.canRead).map(e => `${e.userId}|${e.moduleSlug}`))
 
-    let concedidos = 0, revogados = 0, ajustados = 0
-    const tocados = new Set<string>()
+    const conceder = alteracoes.filter(a => a.conceder).map(a => a.moduleSlug)
+    const retirar = alteracoes.filter(a => !a.conceder).map(a => a.moduleSlug)
 
+    const novos: Array<{ userId: string; moduleSlug: string }> = []
+    let jaTinham = 0
+    for (const id of ids) {
+      for (const slug of conceder) {
+        if (tem.has(`${id}|${slug}`)) { jaTinham++; continue }
+        novos.push({ userId: id, moduleSlug: slug })
+      }
+    }
+
+    let retirados = 0
     await prisma.$transaction(async (tx) => {
-      for (const id of ids) {
-        for (const alt of alteracoes) {
-          const chave = `${id}|${alt.moduleSlug}`
-          const antes = atual.get(chave)
-          const semAcesso = !alt.canRead && !alt.canWrite && !alt.canDelete
-
-          if (semAcesso) {
-            if (antes) { await tx.userPermission.delete({ where: { userId_moduleSlug: { userId: id, moduleSlug: alt.moduleSlug } } }); revogados++; tocados.add(id) }
-            continue
-          }
-          if (!antes) {
-            await tx.userPermission.create({
-              data: { userId: id, moduleSlug: alt.moduleSlug, canRead: alt.canRead, canWrite: alt.canWrite, canDelete: alt.canDelete },
-            })
-            concedidos++; tocados.add(id)
-            continue
-          }
-          if (antes.canRead !== alt.canRead || antes.canWrite !== alt.canWrite || antes.canDelete !== alt.canDelete) {
-            // update NAO menciona subPermissions — o ajuste fino sobrevive.
-            await tx.userPermission.update({
-              where: { userId_moduleSlug: { userId: id, moduleSlug: alt.moduleSlug } },
-              data: { canRead: alt.canRead, canWrite: alt.canWrite, canDelete: alt.canDelete },
-            })
-            ajustados++; tocados.add(id)
-          }
-        }
+      if (novos.length > 0) {
+        // skipDuplicates cobre a linha que exista com canRead=false: ela e
+        // atualizada logo abaixo em vez de estourar a chave unica.
+        await tx.userPermission.createMany({
+          data: novos.map(n => ({ ...n, canRead: true, canWrite: true, canDelete: true })),
+          skipDuplicates: true,
+        })
+        await tx.userPermission.updateMany({
+          where: { userId: { in: ids }, moduleSlug: { in: conceder }, canRead: false },
+          data: { canRead: true, canWrite: true, canDelete: true },
+        })
+      }
+      if (retirar.length > 0) {
+        const r = await tx.userPermission.deleteMany({
+          where: { userId: { in: ids }, moduleSlug: { in: retirar } },
+        })
+        retirados = r.count
       }
     }, { timeout: 60_000 })
 
-    // Cada usuario afetado recebe o aviso: sidebar e permissoes se refazem sem
-    // que ninguem precise sair e entrar de novo.
+    // Quem foi afetado recebe o aviso: barra lateral e permissoes se refazem sem
+    // que a pessoa precise sair e entrar de novo.
+    const tocados = new Set<string>()
+    for (const n of novos) tocados.add(n.userId)
+    if (retirados > 0) for (const id of ids) tocados.add(id)
     for (const id of tocados) this.notifyPermissionsChanged(id)
 
-    return { usuarios: tocados.size, concedidos, revogados, ajustados }
+    return { usuarios: tocados.size, concedidos: novos.length, retirados, jaTinham }
   }
 
   async updatePermissions(userId: string, permissions: Array<{ moduleSlug: string; canRead: boolean; canWrite: boolean; canDelete: boolean; subPermissions?: Record<string, boolean | string> }>) {

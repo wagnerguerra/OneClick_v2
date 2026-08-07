@@ -39,14 +39,12 @@ interface Alvo {
   areaId: string | null; areaNome: string | null
   cargoId: string | null; cargoNome: string | null
 }
-type Nivel = 'canRead' | 'canWrite' | 'canDelete'
-const NIVEIS: Array<{ chave: Nivel; curto: string; titulo: string }> = [
-  { chave: 'canRead', curto: 'Ver', titulo: 'Visualizar' },
-  { chave: 'canWrite', curto: 'Editar', titulo: 'Criar e editar' },
-  { chave: 'canDelete', curto: 'Excluir', titulo: 'Excluir' },
-]
-
-/** Estado de um nível na seleção: ninguém, parte ou todos. */
+/**
+ * Acesso é um estado só: tem ou não tem — o mesmo interruptor do cadastro
+ * individual. Ver/editar/excluir não descrevem este sistema; o que gradua o
+ * acesso são as SUB-PERMISSÕES de cada módulo, específicas demais para uma ação
+ * em massa (elas continuam no cadastro individual, e esta tela não as toca).
+ */
 type Tri = 'nenhum' | 'parcial' | 'todos'
 
 /**
@@ -68,12 +66,14 @@ export default function PermissoesEmMassaPage() {
   const [filtroArea, setFiltroArea] = useState('')
   const [filtroCargo, setFiltroCargo] = useState('')
 
-  const [matriz, setMatriz] = useState<Record<string, { ler: number; escrever: number; excluir: number }>>({})
+  const [matriz, setMatriz] = useState<Record<string, number>>({})   // slug → quantos têm acesso
   const [carregandoMatriz, setCarregandoMatriz] = useState(false)
-  // Alterações pendentes: módulo → níveis. Só o que está aqui será gravado.
-  const [pendentes, setPendentes] = useState<Record<string, Record<Nivel, boolean>>>({})
+  // Alterações pendentes: módulo → conceder/retirar. Só o que está aqui é gravado.
+  const [pendentes, setPendentes] = useState<Record<string, boolean>>({})
   const [salvando, setSalvando] = useState(false)
-  const [abertos, setAbertos] = useState<Set<string>>(new Set(Object.keys(MODULE_GROUPS)))
+  // Nasce colapsado: onze blocos abertos sao ~90 linhas e o alvo fica longe da
+  // vista. Abre-se o bloco em que se vai mexer.
+  const [abertos, setAbertos] = useState<Set<string>>(new Set())
   const cores = useModuleColors()
   const corDe = (bloco: string) => cores[COR_DO_BLOCO[bloco] ?? ''] ?? 'var(--muted-foreground)'
 
@@ -94,10 +94,10 @@ export default function PermissoesEmMassaPage() {
     setCarregandoMatriz(true)
     try {
       const r = await (trpc.user as any).matrizPermissoes.query({ userIds: ids }) as {
-        modulos: Array<{ moduleSlug: string; ler: number; escrever: number; excluir: number }>
+        modulos: Array<{ moduleSlug: string; comAcesso: number }>
       }
-      const m: Record<string, { ler: number; escrever: number; excluir: number }> = {}
-      for (const x of r.modulos) m[x.moduleSlug] = { ler: x.ler, escrever: x.escrever, excluir: x.excluir }
+      const m: Record<string, number> = {}
+      for (const x of r.modulos) m[x.moduleSlug] = x.comAcesso
       setMatriz(m)
     } catch { setMatriz({}) } finally { setCarregandoMatriz(false) }
   }, [ids])
@@ -121,63 +121,31 @@ export default function PermissoesEmMassaPage() {
   const limparSelecao = () => setSelecionados(new Set())
 
   // ── estado de cada módulo na seleção ──
-  const estado = useCallback((slug: string, nivel: Nivel): Tri => {
+  const estado = useCallback((slug: string): Tri => {
     const pend = pendentes[slug]
-    if (pend) return pend[nivel] ? 'todos' : 'nenhum'
-    const m = matriz[slug]
-    if (!m || ids.length === 0) return 'nenhum'
-    const n = nivel === 'canRead' ? m.ler : nivel === 'canWrite' ? m.escrever : m.excluir
-    return n === 0 ? 'nenhum' : n === ids.length ? 'todos' : 'parcial'
+    if (pend !== undefined) return pend ? 'todos' : 'nenhum'
+    const n = matriz[slug] ?? 0
+    if (ids.length === 0 || n === 0) return 'nenhum'
+    return n === ids.length ? 'todos' : 'parcial'
   }, [pendentes, matriz, ids.length])
 
   /**
-   * Marcar um nível liga os anteriores: não existe "editar sem ver". Deixar as
-   * três caixas soltas produziria permissão que o backend ignora e a tela
-   * mostraria como concedida.
+   * Clicar alterna. Partindo de "parte", CONCEDE: quem já tem não perde nada, e
+   * o caminho contrário — tirar de todo mundo porque parte tinha — apagaria
+   * acesso sem ninguém pedir.
    */
-  const alternarModulo = (slug: string, nivel: Nivel) => {
-    setPendentes(p => {
-      const atualTri = estado(slug, nivel)
-      const ligar = atualTri !== 'todos'
-      const base: Record<Nivel, boolean> = p[slug] ?? {
-        canRead: estado(slug, 'canRead') !== 'nenhum',
-        canWrite: estado(slug, 'canWrite') !== 'nenhum',
-        canDelete: estado(slug, 'canDelete') !== 'nenhum',
-      }
-      const novo = { ...base, [nivel]: ligar }
-      if (ligar) {
-        if (nivel === 'canDelete') { novo.canWrite = true; novo.canRead = true }
-        if (nivel === 'canWrite') novo.canRead = true
-      } else {
-        if (nivel === 'canRead') { novo.canWrite = false; novo.canDelete = false }
-        if (nivel === 'canWrite') novo.canDelete = false
-      }
-      return { ...p, [slug]: novo }
-    })
+  const alternarModulo = (slug: string) => {
+    const atual = estado(slug)
+    setPendentes(p => ({ ...p, [slug]: atual !== 'todos' }))
   }
 
-  /** Marca/desmarca um bloco inteiro no nível escolhido. */
-  const alternarBloco = (bloco: string, nivel: Nivel, ligar: boolean) => {
-    const mods = (MODULE_GROUPS as Record<string, readonly string[]>)[bloco] ?? []
+  /** Libera ou retira um bloco inteiro para a seleção. */
+  const alternarBloco = (bloco: string, conceder: boolean) => {
+    const mods = ((MODULE_GROUPS as Record<string, readonly string[]>)[bloco] ?? [])
+      .filter(m => !(PLATFORM_ADMIN_MODULES as readonly string[]).includes(m))
     setPendentes(p => {
       const out = { ...p }
-      for (const slug of mods) {
-        if ((PLATFORM_ADMIN_MODULES as readonly string[]).includes(slug)) continue
-        const base: Record<Nivel, boolean> = out[slug] ?? {
-          canRead: estado(slug, 'canRead') !== 'nenhum',
-          canWrite: estado(slug, 'canWrite') !== 'nenhum',
-          canDelete: estado(slug, 'canDelete') !== 'nenhum',
-        }
-        const novo = { ...base, [nivel]: ligar }
-        if (ligar) {
-          if (nivel === 'canDelete') { novo.canWrite = true; novo.canRead = true }
-          if (nivel === 'canWrite') novo.canRead = true
-        } else {
-          if (nivel === 'canRead') { novo.canWrite = false; novo.canDelete = false }
-          if (nivel === 'canWrite') novo.canDelete = false
-        }
-        out[slug] = novo
-      }
+      for (const slug of mods) out[slug] = conceder
       return out
     })
   }
@@ -186,8 +154,8 @@ export default function PermissoesEmMassaPage() {
 
   const aplicar = async () => {
     if (ids.length === 0 || qtdPendentes === 0) return
-    const alteracoes = Object.entries(pendentes).map(([moduleSlug, n]) => ({ moduleSlug, ...n }))
-    const liberados = alteracoes.filter(a => a.canRead).length
+    const alteracoes = Object.entries(pendentes).map(([moduleSlug, conceder]) => ({ moduleSlug, conceder }))
+    const liberados = alteracoes.filter(a => a.conceder).length
     const retirados = alteracoes.length - liberados
     const ok = await alerts.confirm({
       title: 'Aplicar permissões?',
@@ -200,11 +168,12 @@ export default function PermissoesEmMassaPage() {
     setSalvando(true)
     try {
       const r = await (trpc.user as any).aplicarPermissoesEmMassa.mutate({ userIds: ids, alteracoes }) as {
-        usuarios: number; concedidos: number; revogados: number; ajustados: number
+        usuarios: number; concedidos: number; retirados: number; jaTinham: number
       }
       await alerts.success(
         'Permissões aplicadas',
-        `${r.usuarios} usuário(s) alterado(s) · ${r.concedidos} concedida(s), ${r.ajustados} ajustada(s), ${r.revogados} removida(s).`,
+        `${r.concedidos} acesso(s) concedido(s) e ${r.retirados} retirado(s), em ${r.usuarios} usuário(s).`
+        + (r.jaTinham > 0 ? ` ${r.jaTinham} já tinham — intocados, com as sub-permissões preservadas.` : ''),
       )
       setPendentes({})
       await carregarMatriz()
@@ -306,6 +275,10 @@ export default function PermissoesEmMassaPage() {
           <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
             <span className="text-sm font-semibold text-foreground">Menu do sistema</span>
             {carregandoMatriz && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+            <button onClick={() => setAbertos(a => a.size === 0 ? new Set(Object.keys(MODULE_GROUPS)) : new Set())}
+              className="rounded border border-border px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted">
+              {abertos.size === 0 ? 'Expandir tudo' : 'Recolher tudo'}
+            </button>
             <span className="ml-auto text-[11px] text-muted-foreground">
               {ids.length === 0
                 ? 'Selecione quem recebe para ver o que já está liberado'
@@ -332,17 +305,15 @@ export default function PermissoesEmMassaPage() {
                       <span className="font-normal text-muted-foreground">({lista.length})</span>
                     </button>
                     <div className="ml-auto flex gap-1">
-                      {NIVEIS.map(n => (
-                        <button key={n.chave} onClick={() => alternarBloco(bloco, n.chave, true)}
-                          title={`${n.titulo} em todo o bloco ${bloco}`}
-                          className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted">
-                          + {n.curto}
-                        </button>
-                      ))}
-                      <button onClick={() => alternarBloco(bloco, 'canRead', false)}
+                      <button onClick={() => alternarBloco(bloco, true)} disabled={ids.length === 0}
+                        title={`Liberar o bloco ${bloco} inteiro`}
+                        className="rounded border border-border px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted disabled:opacity-40">
+                        Liberar tudo
+                      </button>
+                      <button onClick={() => alternarBloco(bloco, false)} disabled={ids.length === 0}
                         title={`Retirar o bloco ${bloco} inteiro`}
-                        className="rounded border border-border px-1.5 py-0.5 text-[10px] text-rose-500 hover:bg-muted">
-                        − tudo
+                        className="rounded border border-border px-2 py-0.5 text-[10px] text-rose-500 hover:bg-muted disabled:opacity-40">
+                        Retirar tudo
                       </button>
                     </div>
                   </div>
@@ -360,30 +331,45 @@ export default function PermissoesEmMassaPage() {
                                 })()}
                                 {MODULE_LABELS[slug] ?? slug}
                               </span>
-                              {pendentes[slug] && (
-                                <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
-                                  alterado
+                              {/* `!== undefined` e nao `pendentes[slug]`: retirar grava `false`,
+                                  e a checagem por verdadeiro esconderia justo a mudanca destrutiva. */}
+                              {pendentes[slug] !== undefined && (
+                                <span className={cn(
+                                  'ml-2 rounded px-1.5 py-0.5 text-[10px]',
+                                  pendentes[slug]
+                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                    : 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+                                )}>
+                                  {pendentes[slug] ? 'liberar' : 'retirar'}
                                 </span>
                               )}
                             </td>
-                            {NIVEIS.map(n => {
-                              const tri = estado(slug, n.chave)
-                              return (
-                                <td key={n.chave} className="w-24 px-2 py-1.5 text-center">
-                                  <button onClick={() => alternarModulo(slug, n.chave)} disabled={ids.length === 0}
-                                    title={n.titulo}
-                                    className={cn(
-                                      'w-full rounded-md border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-40',
-                                      tri === 'todos' && 'border-transparent text-white',
-                                      tri === 'parcial' && 'border-dashed border-amber-500 text-amber-600 dark:text-amber-400',
-                                      tri === 'nenhum' && 'border-border text-muted-foreground hover:bg-muted/60',
+                            <td className="w-40 px-3 py-1.5 text-right">
+                              {(() => {
+                                const tri = estado(slug)
+                                const n = matriz[slug] ?? 0
+                                return (
+                                  <span className="inline-flex items-center gap-2">
+                                    {tri === 'parcial' && (
+                                      <span className="text-[10px] text-amber-600 dark:text-amber-400">{n} de {ids.length}</span>
                                     )}
-                                    style={tri === 'todos' ? { backgroundColor: MODULE_COLOR } : undefined}>
-                                    {tri === 'parcial' ? 'parte' : n.curto}
-                                  </button>
-                                </td>
-                              )
-                            })}
+                                    <button type="button" onClick={() => alternarModulo(slug)} disabled={ids.length === 0}
+                                      title={tri === 'todos' ? 'Retirar acesso' : 'Liberar acesso'}
+                                      className={cn(
+                                        'relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-40',
+                                        tri === 'nenhum' && 'bg-muted-foreground/20',
+                                        tri === 'parcial' && 'bg-amber-500/50',
+                                      )}
+                                      style={tri === 'todos' ? { backgroundColor: corDe(bloco) } : undefined}>
+                                      <span className={cn(
+                                        'pointer-events-none mt-0.5 inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+                                        tri === 'todos' ? 'ml-0.5 translate-x-4' : tri === 'parcial' ? 'translate-x-2' : 'translate-x-0.5',
+                                      )} />
+                                    </button>
+                                  </span>
+                                )
+                              })()}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

@@ -204,11 +204,11 @@ export function createUserRouter(userService: UserService) {
     aplicarPermissoesEmMassa: writeProcedure(MODULE)
       .input(z.object({
         userIds: z.array(z.string()).min(1),
+        // Acesso e um estado so: tem ou nao tem. O ajuste fino de cada modulo
+        // fica nas sub-permissoes, no cadastro individual.
         alteracoes: z.array(z.object({
           moduleSlug: z.string(),
-          canRead: z.boolean(),
-          canWrite: z.boolean(),
-          canDelete: z.boolean(),
+          conceder: z.boolean(),
         })).min(1),
       }))
       .mutation(({ input, ctx }) =>
