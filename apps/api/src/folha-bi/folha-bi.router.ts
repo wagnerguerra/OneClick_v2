@@ -35,11 +35,19 @@ export function createFolhaBiRouter(folhaBiService: FolhaBiService) {
       .input(z.object({ clienteId: z.string().optional() }).optional())
       .query(({ input, ctx }) => folhaBiService.jobs(input?.clienteId, ctx.isMaster, ctx.empresaId)),
 
-    // Pede a sincronizacao de uma competencia. Quem executa e o Service Manager.
+    // Pede a sincronizacao de um intervalo de competencias (AAAAMM, 13o = mes 13).
+    // Vira um pedido por competencia; quem executa e o Service Manager.
     sincronizar: writeProcedure(MODULE)
-      .input(z.object({ clienteId: z.string(), ref: z.number().int() }))
+      .input(z.object({
+        clienteId: z.string(),
+        refInicio: z.number().int().min(190001),
+        refFim: z.number().int().min(190001),
+      }).refine(v => v.refFim >= v.refInicio, {
+        message: 'A competencia final nao pode ser anterior a inicial.',
+        path: ['refFim'],
+      }))
       .mutation(({ input, ctx }) =>
-        folhaBiService.solicitarSync(input.clienteId, input.ref, ctx.userId, ctx.isMaster, ctx.empresaId)),
+        folhaBiService.solicitarSync(input.clienteId, input.refInicio, input.refFim, ctx.userId, ctx.isMaster, ctx.empresaId)),
 
     // ===== Config de agrupamento de verbas (folha_dash, ao vivo) =====
     classif: protectedProcedure.query(() => folhaBiService.classifSnapshot()),

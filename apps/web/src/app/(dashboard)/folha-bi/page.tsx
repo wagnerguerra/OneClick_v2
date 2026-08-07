@@ -2,7 +2,11 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BarChart3, Database, Loader2, RefreshCw, Table2, LayoutGrid, Landmark, PiggyBank, Receipt, Settings2, X, Plus, Trash2, ChevronUp, ChevronDown, Pencil, Coins, FileSpreadsheet } from 'lucide-react'
-import { Button, Card, cn } from '@saas/ui'
+import {
+  Button, Card, cn,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+} from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -129,16 +133,62 @@ export default function FolhaBiPage() {
   )
 
   // ===== Sincronizacao pelo Service Manager =====
+  // O intervalo e do PEDIDO, nao da visualizacao: a tela mostra uma competencia
+  // por vez, mas buscar no SCI mes a mes seria um clique por mes.
+  const [sincAberto, setSincAberto] = useState(false)
+  const [mesIni, setMesIni] = useState(0)
+  const [anoIni, setAnoIni] = useState(0)
+  const [mesFim, setMesFim] = useState(0)
+  const [anoFim, setAnoFim] = useState(0)
+
+  const abrirSinc = () => {
+    // Comeca no que esta selecionado — o caso comum e sincronizar so aquele mes.
+    setMesIni(mes); setAnoIni(ano); setMesFim(mes); setAnoFim(ano)
+    setSincAberto(true)
+  }
+
+  const refIni = anoIni * 100 + mesIni
+  const refFim = anoFim * 100 + mesFim
+  const intervaloInvalido = refFim < refIni
+  // Mesma contagem do backend: o 13o vem depois do 12, entao um intervalo que
+  // cruza a virada do ano leva o 13o daquele ano junto.
+  const competencias = useMemo(() => {
+    if (!refIni || !refFim || intervaloInvalido) return []
+    const out: number[] = []
+    let a = Math.floor(refIni / 100), m = refIni % 100
+    while (a * 100 + m <= refFim && out.length <= 40) {
+      out.push(a * 100 + m)
+      m += 1
+      if (m > 13) { m = 1; a += 1 }
+    }
+    return out
+  }, [refIni, refFim, intervaloInvalido])
+  const excedeLimite = competencias.length > 36
+
   const jobDaSelecao = jobs.find((j) => j.clienteId === clienteId && j.ref === refSel) ?? null
+  // Resumo do ultimo lote pedido para este cliente (todas as competencias que
+  // vieram no mesmo pedido continuam sendo jobs independentes).
+  const lote = useMemo(() => {
+    const meus = jobs.filter((j) => j.clienteId === clienteId)
+    return {
+      total: meus.length,
+      ativos: meus.filter(EM_ANDAMENTO).length,
+      concluidos: meus.filter((j) => j.status === 'CONCLUIDO').length,
+      comErro: meus.filter((j) => j.status === 'ERRO').length,
+    }
+  }, [jobs, clienteId])
   const jobAtivo = jobDaSelecao && EM_ANDAMENTO(jobDaSelecao) ? jobDaSelecao : null
   const temAlgumAtivo = jobs.some(EM_ANDAMENTO)
 
   const sincronizar = async () => {
-    if (!clienteId || !mes || !ano) return
+    if (!clienteId || intervaloInvalido || competencias.length === 0 || excedeLimite) return
     setPedindo(true)
     try {
-      await (trpc.folhaBi as any).sincronizar.mutate({ clienteId, ref: refSel })
+      const r = await (trpc.folhaBi as any).sincronizar.mutate({ clienteId, refInicio: refIni, refFim })
+      setSincAberto(false)
       await fetchJobs()
+      const criados = (r as { criados?: number })?.criados ?? competencias.length
+      if (criados === 0) void alerts.toast('Essas competências já estavam na fila')
     } catch (e) {
       alerts.error('Não foi possível pedir a sincronização', (e as Error).message)
     } finally { setPedindo(false) }
@@ -192,10 +242,10 @@ export default function FolhaBiPage() {
             title="Recarregar o que já está no OneClick">
             <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} /> Atualizar
           </Button>
-          <Button size="sm" variant="success" onClick={sincronizar}
-            disabled={!clienteId || !mes || !ano || pedindo || !!jobAtivo}
-            title="Pede ao Service Manager que busque esta competência no SCI">
-            {jobAtivo || pedindo
+          <Button size="sm" variant="success" onClick={abrirSinc}
+            disabled={!clienteId || !mes || !ano || pedindo || temAlgumAtivo}
+            title="Pede ao Service Manager que busque as competências no SCI">
+            {temAlgumAtivo || pedindo
               ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sincronizando…</>
               : <><RefreshCw className="h-3.5 w-3.5" /> Sincronizar</>}
           </Button>
@@ -268,6 +318,20 @@ export default function FolhaBiPage() {
         </Card>
       )}
 
+      {/* Andamento do lote: sem isto, pedir 12 meses so mostraria o mes aberto. */}
+      {lote.total > 1 && (
+        <Card className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-sm">
+          <Loader2 className={cn('h-4 w-4 shrink-0', lote.ativos > 0 && 'animate-spin')} style={{ color: MODULE_COLOR }} />
+          <span className="text-foreground">
+            {lote.concluidos} de {lote.total} competências sincronizadas
+            {lote.comErro > 0 && <span className="text-rose-500"> · {lote.comErro} com erro</span>}
+          </span>
+          <span className="text-muted-foreground">
+            {lote.ativos > 0 ? `${lote.ativos} na fila` : 'lote encerrado'}
+          </span>
+        </Card>
+      )}
+
       {/* Estado do pedido desta competencia */}
       {jobDaSelecao && (
         <Card className={cn('p-3 text-sm', jobDaSelecao.status === 'ERRO' && 'border-rose-500/40')}>
@@ -317,7 +381,7 @@ export default function FolhaBiPage() {
               <p className="text-sm text-muted-foreground">
                 {clienteSel?.razaoSocial ?? 'Este cliente'} nao tem a competencia {String(mes).padStart(2, '0')}/{ano} no OneClick.
               </p>
-              <Button size="sm" variant="success" onClick={sincronizar} disabled={pedindo || !!jobAtivo}>
+              <Button size="sm" variant="success" onClick={abrirSinc} disabled={pedindo || temAlgumAtivo}>
                 <RefreshCw className="h-3.5 w-3.5" /> Buscar no SCI
               </Button>
             </Card>
@@ -384,6 +448,63 @@ export default function FolhaBiPage() {
           )}
         </div>
       )}
+
+      {/* Intervalo a buscar no SCI */}
+      <Dialog open={sincAberto} onOpenChange={setSincAberto}>
+        <DialogContent className="max-w-lg">
+          <DialogHeaderIcon icon={RefreshCw} color="emerald">
+            <DialogTitle className="text-[15px]">Sincronizar competências</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              {clienteSel?.razaoSocial ?? ''}
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Selecao label="Mês inicial" value={String(mesIni)} onChange={(v) => setMesIni(Number(v))}>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((m) => <option key={m} value={m}>{labelMes(m)}</option>)}
+              </Selecao>
+              <Selecao label="Ano inicial" value={String(anoIni)} onChange={(v) => setAnoIni(Number(v))}>
+                {anos.map((a) => <option key={a} value={a}>{a}</option>)}
+              </Selecao>
+              <Selecao label="Mês final" value={String(mesFim)} onChange={(v) => setMesFim(Number(v))}>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((m) => <option key={m} value={m}>{labelMes(m)}</option>)}
+              </Selecao>
+              <Selecao label="Ano final" value={String(anoFim)} onChange={(v) => setAnoFim(Number(v))}>
+                {anos.map((a) => <option key={a} value={a}>{a}</option>)}
+              </Selecao>
+            </div>
+
+            {intervaloInvalido ? (
+              <p className="text-sm text-rose-500">
+                A competência final ({String(mesFim).padStart(2, '0')}/{anoFim}) é anterior à inicial
+                ({String(mesIni).padStart(2, '0')}/{anoIni}).
+              </p>
+            ) : excedeLimite ? (
+              <p className="text-sm text-rose-500">
+                {competencias.length} competências é demais de uma vez — o limite é 36. Cada uma é uma
+                extração no SCI.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {competencias.length === 1
+                  ? 'Uma competência será buscada no SCI.'
+                  : <>
+                      <b className="text-foreground">{competencias.length} competências</b> serão buscadas,
+                      uma de cada vez — {fmtComp(competencias[0]!)} até {fmtComp(competencias[competencias.length - 1]!)}.
+                      Um mês que falhe não leva os outros junto.
+                    </>}
+              </p>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" type="button" onClick={() => setSincAberto(false)}>Cancelar</Button>
+            <Button variant="success" size="sm" type="button" onClick={sincronizar}
+              disabled={pedindo || intervaloInvalido || excedeLimite || competencias.length === 0}>
+              {pedindo ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enviando…</> : <><RefreshCw className="h-3.5 w-3.5" /> Buscar no SCI</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {configOpen && <ConfigAgrupamento onClose={() => setConfigOpen(false)} onChanged={() => setGroupingNonce((n) => n + 1)} />}
     </div>

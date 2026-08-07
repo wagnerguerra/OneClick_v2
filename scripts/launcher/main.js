@@ -3090,6 +3090,9 @@ function registerIpcHandlers() {
   // o Service Manager quem vem busca-lo — este laco. Sem fila, so restaria expor o
   // SCI para fora ou depender de alguem clicar no lugar certo.
 
+  /** Teto de jobs por rodada — evita que uma fila enorme prenda o laco para sempre. */
+  const LIMITE_JOBS_POR_RODADA = 40
+
   /**
    * Base da API para a fila: a URL de upload configurada ou, na falta dela, a
    * base em que o operador ja fez login na aba VPS Sync.
@@ -3196,13 +3199,19 @@ function registerIpcHandlers() {
       if (!auth) return
       if (!cfg.etlDir || !fs.existsSync(cfg.etlDir)) return
 
-      const r = await fetch(`${base}/api/folha-bi-sync/jobs/proximo`, { headers: { ...auth } })
-      if (!r.ok) return
-      const data = await r.json()
-      if (!data || !data.job) return
-
+      // ESVAZIA a fila num tick so. Um pedido de intervalo vira um job por
+      // competencia; esperar 20s entre cada um faria um ano de folha levar 5
+      // minutos so de espera ociosa, com a tela parada olhando.
       folhaBusy = true
-      try { await folhaExecutarJob(cfg, base, auth, data.job) } finally { folhaBusy = false }
+      try {
+        for (let i = 0; i < LIMITE_JOBS_POR_RODADA; i++) {
+          const r = await fetch(`${base}/api/folha-bi-sync/jobs/proximo`, { headers: { ...auth } })
+          if (!r.ok) return
+          const data = await r.json()
+          if (!data || !data.job) return          // fila vazia: volta a dormir
+          await folhaExecutarJob(cfg, base, auth, data.job)
+        }
+      } finally { folhaBusy = false }
     } catch { /* silencioso: e um laco de fundo, nao um clique do usuario */ }
   }
   setInterval(folhaFilaTick, 20 * 1000)   // a tela espera resposta; 20s e o limite do aceitavel
