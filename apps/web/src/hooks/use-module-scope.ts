@@ -26,7 +26,6 @@ const ROUTE_PREFIXES: Array<[string, string]> = [
   ['/usuarios', 'cadastros'],
   ['/areas', 'cadastros'],
   ['/cargos', 'cadastros'],
-  ['/obrigacoes', 'cadastros'],
   ['/servicos', 'cadastros'],
 
   // Comercial

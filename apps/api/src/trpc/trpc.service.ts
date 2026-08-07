@@ -148,8 +148,6 @@ import { createAcessoriasRouter } from '../acessorias/acessorias.router'
 import { RecorrenciaScheduler } from '../notificacao/recorrencia.scheduler'
 import { NotificacaoService } from '../notificacao/notificacao.service'
 import { createNotificacaoRouter } from '../notificacao/notificacao.router'
-import { ObrigacaoService } from '../obrigacao/obrigacao.service'
-import { createObrigacaoRouter } from '../obrigacao/obrigacao.router'
 import { FeriadoService } from '../feriado/feriado.service'
 import { createFeriadoRouter } from '../feriado/feriado.router'
 import { ClienteObrigacaoService } from '../cliente-obrigacao/cliente-obrigacao.service'
@@ -714,7 +712,6 @@ export class TrpcService {
     @Inject(IndicadoresAcessoriasService) private readonly indicadoresAcessoriasService: IndicadoresAcessoriasService,
     @Inject(RecorrenciaScheduler) private readonly recorrenciaScheduler: RecorrenciaScheduler,
     @Inject(NotificacaoService) private readonly notificacaoServiceTrpc: NotificacaoService,
-    @Inject(ObrigacaoService) private readonly obrigacaoService: ObrigacaoService,
     @Inject(FeriadoService) private readonly feriadoService: FeriadoService,
     @Inject(ClienteObrigacaoService) private readonly clienteObrigacaoService: ClienteObrigacaoService,
     @Inject(ProjetoService) private readonly projetoService: ProjetoService,
@@ -816,7 +813,6 @@ export class TrpcService {
       acessorias: createAcessoriasRouter(this.acessoriasService, this.divergenciaAcessoriasService, this.painelEntregasService, this.regrasObrigacaoService,
         this.vinculosAcessoriasService, this.indicadoresAcessoriasService),
       notificacao: createNotificacaoRouter(this.recorrenciaScheduler, this.notificacaoServiceTrpc),
-      obrigacao: createObrigacaoRouter(this.obrigacaoService),
       feriado: createFeriadoRouter(this.feriadoService),
       clienteObrigacao: createClienteObrigacaoRouter(this.clienteObrigacaoService),
       projetos: createProjetoRouter(this.projetoService),
