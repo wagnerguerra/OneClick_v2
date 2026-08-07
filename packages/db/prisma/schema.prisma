@@ -5003,15 +5003,27 @@ model AcessoriasSyncLog {
 /// (ex: "Constituição de Cliente Mensal" contém vários serviços top-level
 /// que devem ser executados juntos para um cliente). Relação M→N: um
 /// serviço pode estar em vários grupos via ServicoGrupoItem.
+/// Escopo de um ServicoGrupo — restringe quais serviços podem entrar e onde o
+/// grupo é oferecido. GERAL = qualquer serviço; OBRIGACOES = só obrigações
+/// acessórias (aplicáveis em lote a um cliente); ORCAMENTO = só serviços
+/// disponíveis para orçamento (aplicáveis em lote nos itens do orçamento).
+enum GrupoTipo {
+  GERAL
+  OBRIGACOES
+  ORCAMENTO
+}
+
 model ServicoGrupo {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   nome      String
-  descricao String?  @db.Text
+  descricao String?   @db.Text
+  /// Escopo do grupo — ver GrupoTipo.
+  tipo      GrupoTipo @default(GERAL)
   /// Cor hex pra identificação visual (chip/badge no UI).
   cor       String?
-  ordem     Int      @default(0)
-  ativo     Boolean  @default(true)
-  empresaId String?  @map("empresa_id")
+  ordem     Int       @default(0)
+  ativo     Boolean   @default(true)
+  empresaId String?   @map("empresa_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

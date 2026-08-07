@@ -20,7 +20,9 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { GRUPO_TIPO, GRUPO_TIPO_LABELS, GRUPO_TIPO_HINTS, type GrupoTipo } from '@saas/types'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
@@ -37,6 +39,8 @@ interface ServicoLite {
   area: { name: string } | null
   tipo?: string
   categoriaServico?: 'MENSAL' | 'EXTRA' | 'FLUXO'
+  ehObrigacaoAcessoria?: boolean
+  disponivelOrcamento?: boolean
   slaHoras?: number | null
   ativo?: boolean
 }
@@ -50,6 +54,7 @@ interface Grupo {
   id: string
   nome: string
   descricao: string | null
+  tipo: GrupoTipo
   cor: string | null
   ordem: number
   ativo: boolean
@@ -70,6 +75,7 @@ export default function GruposPage() {
   const [editing, setEditing] = useState<Grupo | null>(null)
   const [formNome, setFormNome] = useState('')
   const [formDescricao, setFormDescricao] = useState('')
+  const [formTipo, setFormTipo] = useState<GrupoTipo>('GERAL')
   const [formCor, setFormCor] = useState(PALETA_PADRAO[0])
   const [formServicoIds, setFormServicoIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
@@ -106,6 +112,7 @@ export default function GruposPage() {
     setEditing(null)
     setFormNome('')
     setFormDescricao('')
+    setFormTipo('GERAL')
     setFormCor(PALETA_PADRAO[Math.floor(Math.random() * PALETA_PADRAO.length)])
     setFormServicoIds([])
     setPickerSearch('')
@@ -116,10 +123,27 @@ export default function GruposPage() {
     setEditing(g)
     setFormNome(g.nome)
     setFormDescricao(g.descricao || '')
+    setFormTipo(g.tipo)
     setFormCor(g.cor || PALETA_PADRAO[0])
     setFormServicoIds(g.itens.map(i => i.servico.id))
     setPickerSearch('')
     setModalOpen(true)
+  }
+
+  // Um serviço só pode entrar num grupo se casar com o tipo do grupo.
+  function servicoCasaTipo(s: ServicoLite, tipo: GrupoTipo): boolean {
+    if (tipo === 'OBRIGACOES') return s.ehObrigacaoAcessoria === true
+    if (tipo === 'ORCAMENTO') return s.disponivelOrcamento === true
+    return true // GERAL
+  }
+
+  // Ao trocar o tipo, remove da seleção os serviços que não casam mais.
+  function trocarTipo(t: GrupoTipo) {
+    setFormTipo(t)
+    setFormServicoIds(prev => prev.filter(sid => {
+      const s = todosServicos.find(x => x.id === sid)
+      return !s || servicoCasaTipo(s, t)
+    }))
   }
 
   async function handleSave() {
@@ -134,6 +158,7 @@ export default function GruposPage() {
           id: editing.id,
           nome: formNome.trim(),
           descricao: formDescricao.trim() || null,
+          tipo: formTipo,
           cor: formCor,
         })
         await (trpc.servico as any).setGrupoServicos.mutate({
@@ -145,6 +170,7 @@ export default function GruposPage() {
         await (trpc.servico as any).createGrupo.mutate({
           nome: formNome.trim(),
           descricao: formDescricao.trim() || null,
+          tipo: formTipo,
           cor: formCor,
           servicoIds: formServicoIds,
         })
@@ -205,6 +231,7 @@ export default function GruposPage() {
 
   // Catálogo no picker, filtrado por busca
   const servicosCatalogoFiltrado = todosServicos
+    .filter(s => servicoCasaTipo(s, formTipo))
     .filter(s => !pickerSearch || s.nome.toLowerCase().includes(pickerSearch.toLowerCase()))
 
   // Versão "ordenada" da lista de serviços no grupo (preserva a ordem do form)
@@ -321,7 +348,12 @@ export default function GruposPage() {
                     style={{ backgroundColor: g.cor || '#94a3b8', boxShadow: `0 0 0 1px ${g.cor || '#94a3b8'}33` }}
                   />
                 </TableCell>
-                <TableCell className="text-sm font-medium whitespace-nowrap">{g.nome}</TableCell>
+                <TableCell className="text-sm font-medium whitespace-nowrap">
+                  {g.nome}
+                  {g.tipo !== 'GERAL' && (
+                    <Badge variant="outline" className="ml-1.5 text-[9px] h-4 px-1 align-middle">{GRUPO_TIPO_LABELS[g.tipo]}</Badge>
+                  )}
+                </TableCell>
                 <TableCell className="text-xs text-muted-foreground max-w-[280px] truncate">
                   {g.descricao || <span className="italic">—</span>}
                 </TableCell>
@@ -414,6 +446,17 @@ export default function GruposPage() {
                   ))}
                 </div>
               </div>
+            </div>
+            {/* Tipo de grupo — restringe quais serviços entram e onde o grupo é usado */}
+            <div className="space-y-1.5 shrink-0">
+              <Label className="text-[13px] font-semibold">Tipo de grupo</Label>
+              <Select value={formTipo} onValueChange={v => trocarTipo(v as GrupoTipo)}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {GRUPO_TIPO.map(t => <SelectItem key={t} value={t}>{GRUPO_TIPO_LABELS[t]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">{GRUPO_TIPO_HINTS[formTipo]}</p>
             </div>
             {/* Descrição */}
             <div className="space-y-1.5 shrink-0">
