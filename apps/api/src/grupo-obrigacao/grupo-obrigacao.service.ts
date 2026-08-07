@@ -34,7 +34,7 @@ export class GrupoObrigacaoService {
       include: {
         itens: {
           orderBy: { ordem: 'asc' },
-          include: { servico: { select: { id: true, nome: true, categoria: true } } },
+          include: { servico: { select: { id: true, nome: true, categoriaObrigacao: true } } },
         },
         _count: { select: { clienteObrigacoes: true } },
       },
@@ -48,7 +48,7 @@ export class GrupoObrigacaoService {
       include: {
         itens: {
           orderBy: { ordem: 'asc' },
-          include: { servico: { select: { id: true, nome: true, categoria: true } } },
+          include: { servico: { select: { id: true, nome: true, categoriaObrigacao: true } } },
         },
       },
     })
@@ -121,12 +121,12 @@ export class GrupoObrigacaoService {
   // ── Cliente ↔ Obrigação ────────────────────────────────────
 
   async listObrigacoesDoCliente(clienteId: string) {
-    return prisma.clienteObrigacao.findMany({
+    const rows = await prisma.clienteObrigacao.findMany({
       where: { clienteId },
       include: {
         servico: {
           select: {
-            id: true, nome: true, categoria: true,
+            id: true, nome: true, categoriaObrigacao: true,
             recorrencia: {
               select: {
                 frequencia: true, ancoragem: true, valorAncoragem: true,
@@ -139,6 +139,8 @@ export class GrupoObrigacaoService {
       },
       orderBy: [{ ativo: 'desc' }, { servico: { nome: 'asc' } }],
     })
+    // `servico.categoria` = NOME da área (derivado da relação; coluna removida).
+    return rows.map(o => ({ ...o, servico: { ...o.servico, categoria: o.servico.categoriaObrigacao ?? null } }))
   }
 
   async addObrigacaoCliente(input: { clienteId: string; servicoId: string; observacao?: string | null }, empresaId?: string) {
@@ -260,7 +262,7 @@ export class GrupoObrigacaoService {
     const grupos = await prisma.grupoObrigacao.findMany({
       where: { ativo: true },
       include: {
-        itens: { include: { servico: { select: { nome: true, categoria: true } } } },
+        itens: { include: { servico: { select: { nome: true, categoriaObrigacao: true } } } },
       },
     })
 
@@ -318,7 +320,7 @@ export class GrupoObrigacaoService {
       include: {
         servico: {
           select: {
-            id: true, nome: true, categoria: true,
+            id: true, nome: true, categoriaObrigacao: true,
             recorrencia: true,
           },
         },
@@ -363,7 +365,7 @@ export class GrupoObrigacaoService {
         eventos.push({
           obrigacaoId: v.servico.id,
           nome: v.servico.nome,
-          categoria: v.servico.categoria,
+          categoria: v.servico.categoriaObrigacao ?? null,
           frequencia: r.frequencia,
           data: d.toISOString(),
         })
@@ -385,7 +387,7 @@ export class GrupoObrigacaoService {
     const vinculos = await prisma.clienteObrigacao.findMany({
       where: { ativo: true },
       include: {
-        servico: { select: { nome: true, categoria: true, recorrencia: true } },
+        servico: { select: { nome: true, categoriaObrigacao: true, recorrencia: true } },
         cliente: { select: { razaoSocial: true } },
       },
     })
@@ -415,7 +417,7 @@ export class GrupoObrigacaoService {
         extrasNaoUteis,
       )
       if (datas.some((d) => ymd(d) === alvo)) {
-        out.push({ clienteNome: v.cliente.razaoSocial, obrigacaoNome: v.servico.nome, categoria: v.servico.categoria })
+        out.push({ clienteNome: v.cliente.razaoSocial, obrigacaoNome: v.servico.nome, categoria: v.servico.categoriaObrigacao ?? null })
       }
     }
     out.sort((a, b) => (a.categoria ?? '').localeCompare(b.categoria ?? '') || a.clienteNome.localeCompare(b.clienteNome))

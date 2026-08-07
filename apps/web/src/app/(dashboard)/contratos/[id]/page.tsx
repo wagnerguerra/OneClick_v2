@@ -87,7 +87,7 @@ interface Contrato {
   template: { id: string; nome: string }
   orcamento: { id: string; numero: number } | null
   snapshots: Snapshot[]
-  servicos: Array<{ id: string; nomeServico: string; categoria: string | null; servico: { id: string; nome: string } }>
+  servicos: Array<{ id: string; nomeServico: string; areaNome: string | null; servico: { id: string; nome: string } }>
   assinaturas: Assinatura[]
   eventos: Evento[]
 }
@@ -607,8 +607,8 @@ export default function ContratoDetailPage() {
                 <div className="divide-y divide-border/60">
                   {contrato.servicos.map(s => (
                     <div key={s.id} className="px-4 py-2.5 flex items-center gap-2">
-                      {s.categoria && (
-                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{s.categoria}</Badge>
+                      {s.areaNome && (
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{s.areaNome}</Badge>
                       )}
                       <span className="text-sm">{s.nomeServico}</span>
                     </div>

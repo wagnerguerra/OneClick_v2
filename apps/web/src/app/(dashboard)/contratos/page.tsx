@@ -67,7 +67,7 @@ export default function ContratosPage() {
   const [salvando, setSalvando] = useState(false)
   const [clientesOpts, setClientesOpts] = useState<Array<{ id: string; razaoSocial: string; documento?: string | null }>>([])
   const [templatesOpts, setTemplatesOpts] = useState<Array<{ id: string; nome: string; regimeTributario: string | null }>>([])
-  const [servicosOpts, setServicosOpts] = useState<Array<{ id: string; nome: string; categoria: string | null }>>([])
+  const [servicosOpts, setServicosOpts] = useState<Array<{ id: string; nome: string; area: { name: string } | null }>>([])
   const [orcamentosCliente, setOrcamentosCliente] = useState<Array<{ id: string; numero: number; status: string; totalGeral: any }>>([])
 
   const fetchData = useCallback(async () => {
@@ -329,7 +329,7 @@ export default function ContratosPage() {
                       className="h-3.5 w-3.5 rounded border-input accent-rose-600"
                     />
                     <span className="text-xs">
-                      {s.categoria && <span className="text-muted-foreground">[{s.categoria}] </span>}
+                      {s.area?.name && <span className="text-muted-foreground">[{s.area.name}] </span>}
                       {s.nome}
                     </span>
                   </label>

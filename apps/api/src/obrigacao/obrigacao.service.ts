@@ -23,7 +23,7 @@ export class ObrigacaoService {
       ehObrigacaoAcessoria: true,
     }
     if (filtro?.ativo !== undefined) where.ativo = filtro.ativo
-    if (filtro?.categoria) where.categoria = filtro.categoria
+    if (filtro?.categoria) where.categoriaObrigacao = filtro.categoria
     if (filtro?.search) {
       where.OR = [
         { nome: { contains: filtro.search, mode: 'insensitive' } },
@@ -37,7 +37,7 @@ export class ObrigacaoService {
         recorrencia: true,
         _count: { select: { execucoes: true } },
       },
-      orderBy: [{ categoria: 'asc' }, { nome: 'asc' }],
+      orderBy: [{ categoriaObrigacao: 'asc' }, { nome: 'asc' }],
     })
 
     // Filtro de frequência aplicado pós-query porque está em ServicoRecorrencia.
@@ -75,7 +75,7 @@ export class ObrigacaoService {
         id: o.id,
         nome: o.nome,
         descricao: o.descricao,
-        categoria: o.categoria,
+        categoria: o.categoriaObrigacao,
         ativo: o.ativo,
         prioridadePadrao: o.prioridadePadrao,
         fonteUrl: o.fonteUrl,
@@ -110,7 +110,7 @@ export class ObrigacaoService {
         data: {
           nome: input.nome,
           descricao: input.descricao ?? null,
-          categoria: input.categoria,
+          categoriaObrigacao: input.categoria,
           categoriaServico: 'MENSAL',
           ehObrigacaoAcessoria: true,
           atribuicaoResponsavel: 'CLIENTE_AREA',
@@ -189,7 +189,7 @@ export class ObrigacaoService {
         eventos.push({
           obrigacaoId: o.id,
           nome: o.nome,
-          categoria: o.categoria,
+          categoria: o.categoriaObrigacao,
           frequencia: r.frequencia,
           data: d.toISOString(),
         })
@@ -324,7 +324,7 @@ export class ObrigacaoService {
       const linha: LinhaAuditoria = {
         obrigacaoId: o.id,
         nome: o.nome,
-        categoria: o.categoria,
+        categoria: o.categoriaObrigacao,
         ajusteAtual,
         amostras: 0,
         relevantes: 0,
@@ -471,7 +471,7 @@ export class ObrigacaoService {
   async getStats() {
     const todas = await prisma.servico.findMany({
       where: { empresaId: null, ehObrigacaoAcessoria: true },
-      select: { categoria: true, ativo: true },
+      select: { categoriaObrigacao: true, ativo: true },
     })
     const stats = {
       total: todas.length,
@@ -479,7 +479,7 @@ export class ObrigacaoService {
       porCategoria: { Fiscal: 0, Trabalhista: 0, Contábil: 0 } as Record<string, number>,
     }
     for (const o of todas) {
-      if (o.categoria) stats.porCategoria[o.categoria] = (stats.porCategoria[o.categoria] ?? 0) + 1
+      if (o.categoriaObrigacao) stats.porCategoria[o.categoriaObrigacao] = (stats.porCategoria[o.categoriaObrigacao] ?? 0) + 1
     }
     return stats
   }

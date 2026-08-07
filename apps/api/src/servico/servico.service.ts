@@ -61,7 +61,7 @@ export class ServicoService {
         responsavelId: true, clienteId: true, orcamentoId: true,
         servico: {
           select: {
-            categoria: true,
+            areaId: true,
             atribuicaoColaboradores: true,
             atribuicaoAreas: true,
             atribuicaoUsaOrcamento: true,
@@ -131,13 +131,13 @@ export class ServicoService {
       }
 
       // 8. Flag atribuicaoUsaClienteArea — user é responsável do cliente na
-      //    área do serviço (ClienteAreaContratada bate por categoria)
-      if (exec.servico.atribuicaoUsaClienteArea && exec.servico.categoria) {
+      //    área do serviço (ClienteAreaContratada bate pela área do serviço)
+      if (exec.servico.atribuicaoUsaClienteArea && exec.servico.areaId) {
         const vinculo = await prisma.clienteAreaContratada.findFirst({
           where: {
             clienteId: exec.clienteId,
             responsavelId: userId,
-            area: { name: { equals: exec.servico.categoria, mode: 'insensitive' } },
+            areaId: exec.servico.areaId,
           },
           select: { id: true },
         })
@@ -232,22 +232,11 @@ export class ServicoService {
       const exec = await prisma.servicoExecucao.findUnique({
         where: { id: opts.execId },
         select: {
-          empresaId: true,
-          servico: { select: { categoria: true } },
+          servico: { select: { area: { select: { id: true, name: true, isActive: true } } } },
         },
       })
-      const categoria = exec?.servico?.categoria?.trim()
-      if (categoria) {
-        const area = await prisma.area.findFirst({
-          where: {
-            isActive: true,
-            name: { equals: categoria, mode: 'insensitive' },
-            ...(exec?.empresaId ? { OR: [{ empresaId: exec.empresaId }, { empresaId: null }] } : {}),
-          },
-          select: { id: true, name: true },
-        })
-        if (area) areaFiltro = area
-      }
+      const area = exec?.servico?.area
+      if (area?.isActive) areaFiltro = { id: area.id, name: area.name }
     }
 
     const where: any = { isActive: true }
@@ -463,9 +452,12 @@ export class ServicoService {
           ? { ehServicoInterno: true }
           : {}),
     }
-    return prisma.servico.findMany({
+    const rows = await prisma.servico.findMany({
       where,
       include: {
+        // Área do serviço — para achatar `categoria` (nome) no retorno (compat de UI)
+        // e expor `areaId` (escalar do include) para o formulário de edição.
+        area: { select: { name: true } },
         etapas: { orderBy: { ordem: 'asc' }, include: { passos: { orderBy: { ordem: 'asc' } } } },
         // Quando carrega FLUXO, traz infos do pai pra UI conseguir agrupar.
         servicoPai: { select: { id: true, nome: true } },
@@ -498,6 +490,9 @@ export class ServicoService {
       },
       orderBy: { nome: 'asc' },
     })
+    // Expõe a relação `area { name }` crua + o escalar `areaId` (para edição).
+    // O front lê `s.area?.name` direto — sem alias `categoria`.
+    return rows
   }
 
   /**
@@ -689,7 +684,7 @@ export class ServicoService {
     const visitedNodes = new Set<string>()
     const visitedEdges = new Set<string>()
     const nodes: Array<{
-      id: string; nome: string; categoria: string | null; prioridade: string;
+      id: string; nome: string; areaId: string | null; area: { name: string } | null; prioridade: string;
       slaHoras: number | null; slaMinutos: number | null;
       ativo: boolean; recorrenteMensal: boolean;
       tipo: string; // ATIVIDADE | DECISAO | INICIO | FIM | PERGUNTA
@@ -728,7 +723,7 @@ export class ServicoService {
       const svc = await prisma.servico.findUnique({
         where: { id },
         select: {
-          id: true, nome: true, categoria: true,
+          id: true, nome: true, areaId: true, area: { select: { name: true } },
           prioridadePadrao: true, slaHoras: true, ativo: true, recorrenteMensal: true,
           tipo: true, categoriaServico: true,
           perguntaTexto: true, perguntaOpcoes: true, perguntaMulti: true,
@@ -773,7 +768,10 @@ export class ServicoService {
       nodes.push({
         id: svc.id,
         nome: svc.nome,
-        categoria: svc.categoria,
+        // `areaId` p/ edição (atribuição CLIENTE_AREA da PERGUNTA); `area { name }`
+        // (relação crua) para exibição/cor.
+        areaId: svc.areaId ?? null,
+        area: svc.area ? { name: svc.area.name } : null,
         prioridade: svc.prioridadePadrao as string,
         slaHoras: svc.slaHoras,
         slaMinutos: totalMinutos > 0 ? totalMinutos : null,
@@ -1060,7 +1058,7 @@ export class ServicoService {
         nome: input.nome,
         descricao: input.descricao || null,
         slaHoras: null,
-        categoria: input.categoria || null,
+        areaId: input.areaId || null,
         prioridadePadrao: (input.prioridadePadrao as any) ?? 'MEDIA',
         tipo: (input.tipo as any) ?? 'ATIVIDADE',
         categoriaServico: categoria,
@@ -2550,7 +2548,7 @@ export class ServicoService {
    */
   private async resolverCandidatos(
     servico: {
-      id: string; categoria: string | null;
+      id: string; areaId: string | null;
       atribuicaoColaboradores: string[];
       atribuicaoAreas: string[];
       atribuicaoUsaOrcamento: boolean;
@@ -2583,11 +2581,11 @@ export class ServicoService {
     }
 
     // 4) Responsável do cliente na área do serviço (ClienteAreaContratada)
-    if (servico.atribuicaoUsaClienteArea && servico.categoria) {
+    if (servico.atribuicaoUsaClienteArea && servico.areaId) {
       const vinculo = await prisma.clienteAreaContratada.findFirst({
         where: {
           clienteId: ctx.clienteId,
-          area: { name: { equals: servico.categoria, mode: 'insensitive' } },
+          areaId: servico.areaId,
         },
         select: { responsavelId: true, substitutoId: true },
       })
@@ -3903,8 +3901,9 @@ export class ServicoService {
     const agora = new Date()
 
     // Carrega user com info de role/profile pra decidir scope + área (id + nome).
-    // areaId entra nas regras novas de atribuição multi-valor; areaName mantém
-    // o claim-first legado (que continua valendo para serviços sem config nova).
+    // areaId do caller alimenta o claim-first pela Área do serviço (regra 6) e
+    // pelos Setores (regra 8). areaName cobre as OBRIGAÇÕES acessórias, que não
+    // têm Area própria — a categoria delas casa por nome (regra 6).
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -4029,14 +4028,18 @@ export class ServicoService {
         // 5. Execucoes vindas de orcamento sob responsabilidade do user
         orClauses.push({ orcamentoId: { in: orcamentoIds } })
       }
-      if (callerAreaName) {
-        // 6. Claim-first do setor (LEGADO): execuções sem responsável cuja
-        //    categoria do serviço bate com a área do user. Coberto pela regra
-        //    8 abaixo para serviços migrados; mantido como fallback para
-        //    serviços ainda sem `atribuicaoAreas` set.
+      if (callerAreaId || callerAreaName) {
+        // 6. Claim-first pela ÁREA do serviço: execuções sem responsável cujo
+        //    serviço pertence à área do user. Serviços comuns casam por
+        //    Servico.areaId; obrigações acessórias (sem Area própria) casam a
+        //    categoria pelo NOME da área do user. Complementa a regra 8
+        //    (Setores/atribuicaoAreas), que é outro campo.
+        const areaOr: any[] = []
+        if (callerAreaId) areaOr.push({ areaId: callerAreaId })
+        if (callerAreaName) areaOr.push({ categoriaObrigacao: { equals: callerAreaName, mode: 'insensitive' } })
         orClauses.push({
           responsavelId: null,
-          servico: { categoria: { equals: callerAreaName, mode: 'insensitive' } },
+          servico: { OR: areaOr },
         })
       }
 
@@ -4063,16 +4066,15 @@ export class ServicoService {
         })
       }
       // 10. Flag atribuicaoUsaClienteArea + par (cliente, área) bate com
-      //     o vínculo do user e a categoria do serviço.
+      //     o vínculo do user e a área do serviço.
       for (const par of areasResponsavel) {
-        const areaName = par.area?.name
-        if (!areaName) continue
+        if (!par.areaId) continue
         orClauses.push({
           responsavelId: null,
           clienteId: par.clienteId,
           servico: {
             atribuicaoUsaClienteArea: true,
-            categoria: { equals: areaName, mode: 'insensitive' },
+            areaId: par.areaId,
           },
         })
       }
@@ -4094,7 +4096,7 @@ export class ServicoService {
       include: {
         servico: {
           select: {
-            id: true, nome: true, slaHoras: true, categoria: true,
+            id: true, nome: true, slaHoras: true, area: { select: { name: true } },
             // Inclui campos da pergunta — o frontend renderiza card especial
             // quando a execução é AGUARDANDO_RESPOSTA (PERGUNTA).
             tipo: true, perguntaTexto: true, perguntaOpcoes: true, perguntaMulti: true,
@@ -4183,7 +4185,7 @@ export class ServicoService {
       id: string
       servicoNome: string
       clienteNome: string
-      categoria: string | null
+      area: { name: string } | null
       prazoLimite: Date | null
       iniciadoEm: Date
       status: string
@@ -4224,7 +4226,7 @@ export class ServicoService {
         id: e.id,
         servicoNome: e.servico?.nome ?? 'Serviço',
         clienteNome: e.cliente?.razaoSocial ?? '—',
-        categoria: e.servico?.categoria ?? null,
+        area: e.servico?.area ? { name: e.servico.area.name } : null,
         prazoLimite: prazo,
         iniciadoEm: e.iniciadoEm,
         status: e.status,
@@ -4517,7 +4519,7 @@ export class ServicoService {
           include: {
             servico: {
               select: {
-                id: true, nome: true, categoria: true, tipo: true,
+                id: true, nome: true, area: { select: { name: true } }, tipo: true,
                 categoriaServico: true, slaHoras: true, ativo: true,
               },
             },
@@ -4537,7 +4539,7 @@ export class ServicoService {
           include: {
             servico: {
               select: {
-                id: true, nome: true, categoria: true, tipo: true,
+                id: true, nome: true, area: { select: { name: true } }, tipo: true,
                 categoriaServico: true, slaHoras: true, prioridadePadrao: true, ativo: true,
               },
             },

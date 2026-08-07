@@ -94,7 +94,7 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
 
   const [nome, setNome] = useState('')
   const [tipoKey, setTipoKey] = useState<TipoKey>('EXTRA')
-  const [categoria, setCategoria] = useState('') // nome da área
+  const [areaId, setAreaId] = useState('') // id da área
   const [prioridade, setPrioridade] = useState<PrioridadeVal>('MEDIA')
   const [valorCents, setValorCents] = useState(0)
   const [descricao, setDescricao] = useState('')
@@ -121,7 +121,7 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
 
   function reset() {
     setStep(0); setSaving(false)
-    setNome(''); setTipoKey('EXTRA'); setCategoria(''); setPrioridade('MEDIA')
+    setNome(''); setTipoKey('EXTRA'); setAreaId(''); setPrioridade('MEDIA')
     setValorCents(0); setDescricao(''); setTextoPadrao('')
     setModeloId(''); setCloning(false)
   }
@@ -159,7 +159,7 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
     try {
       const created = await (trpc.servico as any).createServico.mutate({
         nome: nome.trim(),
-        categoria: categoria || undefined,
+        areaId: areaId || undefined,
         prioridadePadrao: prioridade,
         valorPadrao: isComercial && valorCents ? valorCents / 100 : undefined,
         descricao: descricao || undefined,
@@ -281,13 +281,13 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
             {currentKey === 'area' && (
               <div className="space-y-2">
                 <Label className="text-[13px] font-semibold">Qual a área responsável?</Label>
-                <Select value={categoria || '__none__'} onValueChange={v => setCategoria(v === '__none__' ? '' : v)}>
+                <Select value={areaId || '__none__'} onValueChange={v => setAreaId(v === '__none__' ? '' : v)}>
                   <SelectTrigger className="h-10 text-sm">
                     <SelectValue placeholder="Selecione uma área" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">— Sem área —</SelectItem>
-                    {areas.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
+                    {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
@@ -362,7 +362,7 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
                   {[
                     ['Nome', nome || '—'],
                     ['Tipo', TIPO_OPCOES.find(o => o.key === tipoKey)?.label ?? '—'],
-                    ['Área', categoria || 'Sem área'],
+                    ['Área', areas.find(a => a.id === areaId)?.name || 'Sem área'],
                     ['Prioridade', PRIORIDADES.find(p => p.v === prioridade)?.label ?? '—'],
                     ...(isComercial ? [['Valor padrão', valorCents ? `R$ ${formatBRLFromCents(valorCents)}` : '—'] as [string, string]] : []),
                     ['Descrição', descricao || '—'],

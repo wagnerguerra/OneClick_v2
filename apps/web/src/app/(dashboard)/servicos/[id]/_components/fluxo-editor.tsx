@@ -56,7 +56,10 @@ function formatNodeSla(slaMinutos: number | null | undefined, slaHoras: number |
 export interface FluxoNode {
   id: string
   nome: string
-  categoria: string | null
+  /** Id da área (para editar a atribuição CLIENTE_AREA). */
+  areaId: string | null
+  /** Relação da área — só nome, para exibição/cor. */
+  area: { name: string } | null
   prioridade: string
   slaHoras: number | null
   /** SLA total em minutos — soma exata dos passos. Fonte de verdade pro display. */
@@ -533,7 +536,7 @@ function ServicoNodeComp({ data }: NodeProps) {
   const ref = useRef<HTMLDivElement>(null)
   void rootId
 
-  const pal = areaPalette(n.categoria)
+  const pal = areaPalette(n.area?.name)
   const fill = !n.ativo
     ? '#f3f4f6'
     : isAncestral
@@ -585,7 +588,7 @@ function ServicoNodeComp({ data }: NodeProps) {
       {/* Wrapper interno com overflow:hidden — clipa header amber/marca d'água
           dentro do border-radius do bloco sem cortar os botões +/- externos. */}
       <div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none">
-        <NodeWatermark tipo={n.tipo} categoria={n.categoria} color={borderColor} ancestral={isAncestral} size={64} />
+        <NodeWatermark tipo={n.tipo} categoria={n.area?.name} color={borderColor} ancestral={isAncestral} size={64} />
       </div>
       <div className="relative z-10 h-full flex flex-col gap-0.5 rounded-lg overflow-hidden">
         {/* Header de pergunta — só quando este bloco é sucessor de um PERGUNTA.
@@ -627,7 +630,7 @@ function ServicoNodeComp({ data }: NodeProps) {
           </span>
         </div>
         <div className="text-[10px] truncate px-3" style={{ color: textColor, opacity: 0.75 }}>
-          {n.categoria || 'Sem área'}
+          {n.area?.name || 'Sem área'}
           {(() => {
             const sla = formatNodeSla(n.slaMinutos, n.slaHoras)
             return sla && ` · SLA ${sla}`
@@ -963,7 +966,7 @@ function DocumentacaoNodeComp({ data }: NodeProps) {
   const isAncestral = n.position === 'ANCESTRAL'
   // Documentação também segue a área (forma de documento distingue o tipo).
   // Sem área, usa o azul legado como fallback semântico.
-  const palBase = n.categoria ? areaPalette(n.categoria) : { fillLight: '#eff6ff', fillRoot: '#dbeafe', border: '#3b82f6', borderRoot: '#1d4ed8', text: '#1d4ed8', textRoot: '#1e3a8a' }
+  const palBase = n.area?.name ? areaPalette(n.area.name) : { fillLight: '#eff6ff', fillRoot: '#dbeafe', border: '#3b82f6', borderRoot: '#1d4ed8', text: '#1d4ed8', textRoot: '#1e3a8a' }
   const borderColor = !n.ativo ? '#9ca3af' : isAncestral ? '#9ca3af' : isRoot ? palBase.borderRoot : palBase.border
   const fill = !n.ativo ? '#f3f4f6' : isAncestral ? '#f9fafb' : isRoot ? palBase.fillRoot : palBase.fillLight
   const textColor = !n.ativo ? '#6b7280' : isAncestral ? '#6b7280' : isRoot ? palBase.textRoot : palBase.text
@@ -1005,9 +1008,9 @@ function DocumentacaoNodeComp({ data }: NodeProps) {
           <div className="text-[12px] font-bold truncate" style={{ color: textColor }}>
             {n.nome}
           </div>
-          {n.categoria && (
+          {n.area?.name && (
             <div className="text-[10px] truncate" style={{ color: textColor, opacity: 0.6 }}>
-              {n.categoria}
+              {n.area.name}
             </div>
           )}
         </div>
@@ -1179,7 +1182,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
   const [paletteSearch, setPaletteSearch] = useState('')
   // Catálogo completo de serviços (carregado on-demand quando palette abre)
   const [todosServicos, setTodosServicos] = useState<Array<{
-    id: string; nome: string; categoria: string | null; tipo?: string; ehObrigacaoAcessoria?: boolean
+    id: string; nome: string; area: { name: string } | null; tipo?: string; ehObrigacaoAcessoria?: boolean
   }>>([])
   const [loadingTodos, setLoadingTodos] = useState(false)
   // Bloco origem selecionado pra conectar quando adicionar serviço da palette
@@ -1695,7 +1698,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
     if (!paletteOpen || todosServicos.length > 0 || loadingTodos) return
     setLoadingTodos(true)
     ;(trpc.servico as any).listServicos.query()
-      .then((data: Array<{ id: string; nome: string; categoria: string | null; tipo?: string; ehObrigacaoAcessoria?: boolean }>) => {
+      .then((data: Array<{ id: string; nome: string; area: { name: string } | null; tipo?: string; ehObrigacaoAcessoria?: boolean }>) => {
         setTodosServicos(data || [])
       })
       .catch(() => setTodosServicos([]))
@@ -1795,7 +1798,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
       // Catálogo do fluxo é só de serviços — obrigações acessórias têm engine própria
       .filter(s => !s.ehObrigacaoAcessoria)
       .filter(s => !noFluxo.has(s.id))
-      .filter(s => !q || s.nome.toLowerCase().includes(q) || (s.categoria?.toLowerCase().includes(q) ?? false))
+      .filter(s => !q || s.nome.toLowerCase().includes(q) || (s.area?.name?.toLowerCase().includes(q) ?? false))
       .slice(0, 100)
   }, [todosServicos, rawNodes, paletteSearch])
 
@@ -2170,8 +2173,8 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                           <span className="text-[12px] font-medium truncate flex-1">{s.nome}</span>
                           <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 text-emerald-600 shrink-0" />
                         </div>
-                        {s.categoria && (
-                          <div className="text-[10px] text-muted-foreground ml-3 truncate">{s.categoria}</div>
+                        {s.area?.name && (
+                          <div className="text-[10px] text-muted-foreground ml-3 truncate">{s.area.name}</div>
                         )}
                       </button>
                     ))}
@@ -2964,7 +2967,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
       : 'ORCAMENTO',
   )
   const [pergRespFixoId, setPergRespFixoId] = useState<string>(node.responsavelFixoId ?? '')
-  const [pergArea, setPergArea] = useState<string>(node.categoria ?? '')
+  const [pergArea, setPergArea] = useState<string>(node.areaId ?? '') // id da área
   // Carrega listas pra os selects (só quando o popover é de PERGUNTA)
   const [pergUsuarios, setPergUsuarios] = useState<Array<{ id: string; name: string; email: string }>>([])
   const [pergAreas, setPergAreas] = useState<Array<{ id: string; name: string }>>([])
@@ -2998,9 +3001,9 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
           perguntaOpcoes: pergOpcoes,
           perguntaMulti: pergMulti,
           atribuicaoResponsavel: pergAtribuicao,
-          // MANUAL_FIXO: user fixo; CLIENTE_AREA: nome da área em `categoria`
+          // MANUAL_FIXO: user fixo; CLIENTE_AREA: id da área em `areaId`
           responsavelFixoId: pergAtribuicao === 'MANUAL_FIXO' ? pergRespFixoId : null,
-          categoria: pergAtribuicao === 'CLIENTE_AREA' ? pergArea : null,
+          areaId: pergAtribuicao === 'CLIENTE_AREA' ? (pergArea || null) : null,
         },
       })
       await alerts.success('Salvo', 'Bloco pergunta atualizado.')
@@ -3033,7 +3036,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
             <span className="text-sm font-semibold truncate text-emerald-900">{node.nome}</span>
           </div>
           <div className="flex items-center gap-2 text-[10px] text-emerald-700 mt-0.5">
-            {node.categoria && <span>{node.categoria}</span>}
+            {node.area?.name && <span>{node.area.name}</span>}
             {(() => {
               const sla = formatNodeSla(node.slaMinutos, node.slaHoras)
               return sla && <span>· SLA {sla}</span>
@@ -3213,7 +3216,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
                   >
                     <option value="">— Selecione a área —</option>
                     {pergAreas.map(a => (
-                      <option key={a.id} value={a.name}>{a.name}</option>
+                      <option key={a.id} value={a.id}>{a.name}</option>
                     ))}
                   </select>
                   <p className="text-[9.5px] text-muted-foreground italic">

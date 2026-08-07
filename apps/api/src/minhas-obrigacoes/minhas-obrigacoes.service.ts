@@ -38,7 +38,10 @@ export class MinhasObrigacoesService {
       where: { responsavelId: userId, contratado: true },
       select: { clienteId: true, areaId: true, area: { select: { name: true } } },
     })
-    const responsabilidadesArea = new Map<string, Set<string>>() // clienteId → Set<areaNome>
+    // Obrigações acessórias não têm Area própria (registros globais); a
+    // "categoria" delas (Fiscal/Trabalhista/Contábil) é casada por NOME com a
+    // área contratada do cliente. Mantém-se name-based de propósito.
+    const responsabilidadesArea = new Map<string, Set<string>>() // clienteId → Set<areaNome-lower>
     for (const r of areasResponsavel) {
       const set = responsabilidadesArea.get(r.clienteId) ?? new Set<string>()
       set.add(r.area.name.toLowerCase())
@@ -74,7 +77,7 @@ export class MinhasObrigacoesService {
         ],
       },
       include: {
-        servico: { select: { id: true, nome: true, categoria: true, ehObrigacaoAcessoria: true, mininome: true } },
+        servico: { select: { id: true, nome: true, categoriaObrigacao: true, ehObrigacaoAcessoria: true, mininome: true } },
         cliente: { select: { id: true, razaoSocial: true, tributacao: true } },
       },
       orderBy: [{ prazoLimite: 'asc' }, { acessoriasPrazo: 'asc' }],
@@ -99,7 +102,7 @@ export class MinhasObrigacoesService {
       // Obrigação acessória: confere se a área do serviço bate com uma das
       // áreas do usuário no cliente
       if (e.servico.ehObrigacaoAcessoria) {
-        const cat = e.servico.categoria?.toLowerCase()
+        const cat = e.servico.categoriaObrigacao?.toLowerCase()
         if (!cat) return false
         const areas = responsabilidadesArea.get(e.clienteId)
         return areas ? areas.has(cat) : false
@@ -112,7 +115,9 @@ export class MinhasObrigacoesService {
       const prazo = e.prazoLimite ?? e.acessoriasPrazo ?? null
       const atrasada = !!(prazo && e.status === 'EM_ANDAMENTO' && prazo.getTime() < agora.getTime())
       const responsavel = e.responsavelId ? mapaResponsaveis.get(e.responsavelId) ?? null : null
-      return { ...e, prazoEfetivo: prazo, atrasada, responsavel }
+      // `categoria` = categoria da obrigação (enum) — a UI filtra e exibe por ele.
+      const servico = { ...e.servico, categoria: e.servico.categoriaObrigacao ?? null }
+      return { ...e, servico, prazoEfetivo: prazo, atrasada, responsavel }
     })
 
     // Filtros pós-query (em memória) — texto + status
@@ -144,7 +149,7 @@ export class MinhasObrigacoesService {
       where: { id: input.execucaoId },
       select: {
         id: true, status: true, clienteId: true, responsavelId: true,
-        servico: { select: { categoria: true, ehObrigacaoAcessoria: true } },
+        servico: { select: { categoriaObrigacao: true, ehObrigacaoAcessoria: true } },
       },
     })
     if (!exec) throw new Error('Execução não encontrada.')
@@ -152,13 +157,13 @@ export class MinhasObrigacoesService {
 
     // Validação de autorização (mesma lógica de listMinhas)
     let autorizado = exec.responsavelId === userId
-    if (!autorizado && exec.servico.ehObrigacaoAcessoria && exec.servico.categoria) {
+    if (!autorizado && exec.servico.ehObrigacaoAcessoria && exec.servico.categoriaObrigacao) {
       const cac = await prisma.clienteAreaContratada.findFirst({
         where: {
           clienteId: exec.clienteId,
           responsavelId: userId,
           contratado: true,
-          area: { name: { equals: exec.servico.categoria, mode: 'insensitive' } },
+          area: { name: { equals: exec.servico.categoriaObrigacao, mode: 'insensitive' } },
         },
         select: { id: true },
       })
@@ -203,20 +208,20 @@ export class MinhasObrigacoesService {
       where: { id: execucaoId },
       select: {
         clienteId: true, responsavelId: true,
-        servico: { select: { categoria: true, ehObrigacaoAcessoria: true } },
+        servico: { select: { categoriaObrigacao: true, ehObrigacaoAcessoria: true } },
       },
     })
     if (!exec) throw new Error('Execução não encontrada.')
 
     // Autorização: responsavelId direto OU área contratada
     let autorizado = exec.responsavelId === userId
-    if (!autorizado && exec.servico.ehObrigacaoAcessoria && exec.servico.categoria) {
+    if (!autorizado && exec.servico.ehObrigacaoAcessoria && exec.servico.categoriaObrigacao) {
       const cac = await prisma.clienteAreaContratada.findFirst({
         where: {
           clienteId: exec.clienteId,
           responsavelId: userId,
           contratado: true,
-          area: { name: { equals: exec.servico.categoria, mode: 'insensitive' } },
+          area: { name: { equals: exec.servico.categoriaObrigacao, mode: 'insensitive' } },
         },
         select: { id: true },
       })

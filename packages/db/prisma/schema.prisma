@@ -428,6 +428,7 @@ model Area {
   helpdeskTickets    HelpdeskTicket[]
   ativos             Ativo[]                 @relation("AtivoArea")
   acessoriasDptos    AcessoriasDepartamento[] @relation("AcessoriasDepartamentoArea")
+  servicosArea       Servico[]               @relation("ServicoArea")
 
   @@map("areas")
   manifestacoes Manifestacao[]
@@ -4299,8 +4300,16 @@ model Servico {
   slaHoras            Int?              @map("sla_horas")
   ativo               Boolean           @default(true)
   empresaId           String?           @map("empresa_id")
-  // Categoria livre para agrupamento (ex: "Fiscal", "Trabalhista", "Contabil")
-  categoria           String?
+  // Área do serviço (FK para Area). Antes era `categoria` — texto livre com o
+  // NOME da área, casado por nome em vários pontos e frágil a rename. Migrado
+  // para ID. A multiplicidade de responsabilidade de execução fica em
+  // `atribuicaoAreas` ("Setores"), não aqui: a área do serviço é UMA.
+  areaId              String?           @map("area_id")
+  // Categoria da OBRIGAÇÃO ACESSÓRIA (Fiscal/Trabalhista/Contábil) — enum fixo,
+  // só faz sentido quando ehObrigacaoAcessoria=true. Herdou o papel que o antigo
+  // `categoria` tinha para as obrigações (registros GLOBAIS, sem Area própria);
+  // separado da Área do serviço de propósito. Ver OBRIGACAO_CATEGORIAS.
+  categoriaObrigacao  String?           @map("categoria_obrigacao")
   // Prioridade padrao — copiada para a execucao na criacao
   prioridadePadrao    PrioridadeServico @default(MEDIA) @map("prioridade_padrao")
   // Catalogo: valor padrao quando esse servico e adicionado como item de orcamento.
@@ -4472,6 +4481,9 @@ model Servico {
   // a regra padrão de ServicoRecorrencia naquele mês específico.
   vencimentosMensais   ServicoVencimentoMensal[]
 
+  // Área do serviço (FK) — substitui o antigo campo texto `categoria`.
+  area         Area?     @relation("ServicoArea", fields: [areaId], references: [id], onDelete: SetNull)
+
   // Self-relation: filhos = itens de fluxo deste serviço top-level
   servicoPai   Servico?  @relation("ServicoFluxoItens", fields: [servicoPaiId], references: [id], onDelete: Cascade)
   itensDeFluxo Servico[] @relation("ServicoFluxoItens")
@@ -4484,7 +4496,7 @@ model Servico {
   // Itens de orçamento que escolheram este serviço como subserviço.
   itensComoSubservico OrcamentoItem[] @relation("ItemSubservico")
 
-  @@index([categoria])
+  @@index([areaId])
   @@index([categoriaServico])
   @@index([servicoPaiId])
   @@index([ehObrigacaoAcessoria])
@@ -5951,7 +5963,9 @@ model ContratoServico {
   servicoId   String  @map("servico_id")
   // Snapshot do nome no momento da emissão (caso o Servico seja renomeado depois)
   nomeServico String  @map("nome_servico")
-  categoria   String?
+  // Snapshot do NOME DA ÁREA do serviço na emissão. Renomeado de `categoria`
+  // (que confundia com a categoria de cláusula, ClausulaCategoria).
+  areaNome    String? @map("area_nome")
   ordem       Int     @default(0)
 
   contrato Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)

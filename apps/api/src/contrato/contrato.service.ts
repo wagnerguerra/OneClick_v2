@@ -319,7 +319,7 @@ export class ContratoService {
         template: true,
         orcamento: { select: { id: true, numero: true, totalGeral: true } },
         snapshots: { orderBy: { ordem: 'asc' } },
-        servicos: { include: { servico: { select: { id: true, nome: true, categoria: true } } } },
+        servicos: { include: { servico: { select: { id: true, nome: true } } } },
         assinaturas: { orderBy: { assinadoEm: 'desc' } },
         eventos: { orderBy: { createdAt: 'desc' } },
       },
@@ -418,13 +418,17 @@ export class ContratoService {
     }
 
     // 3. Snapshot dos serviços (nome) para audit trail
-    let servicosData: Array<{ servicoId: string; nomeServico: string; categoria: string | null; ordem: number }> = []
+    let servicosData: Array<{ servicoId: string; nomeServico: string; areaNome: string | null; ordem: number }> = []
     if (input.servicoIds && input.servicoIds.length > 0) {
-      const servicos = await (prisma as any).servico.findMany({ where: { id: { in: input.servicoIds } } })
+      const servicos = await (prisma as any).servico.findMany({
+        where: { id: { in: input.servicoIds } },
+        include: { area: { select: { name: true } } },
+      })
       servicosData = servicos.map((s: any, i: number) => ({
         servicoId: s.id,
         nomeServico: s.nome,
-        categoria: s.categoria || null,
+        // Snapshot do NOME da área do serviço no momento da emissão.
+        areaNome: s.area?.name || null,
         ordem: i,
       }))
     }

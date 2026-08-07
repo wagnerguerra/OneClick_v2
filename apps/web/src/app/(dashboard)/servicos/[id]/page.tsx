@@ -13,8 +13,8 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   Workflow, Loader2, ArrowLeft, Save, Plus, Trash2, Edit, AlertCircle,
   Play, Pause, FileText, Layers, GitBranch, History, ListChecks,
-  GripVertical, Tag, Clock, ArrowRight, X, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check, Search, Users,
-  Bell, Mail, UserCog, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database,
+  GripVertical, Clock, X, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check, Search, Users,
+  Bell, Mail, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database,
   StickyNote, Link as LinkIcon, Paperclip,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -208,32 +208,6 @@ function calcServicoMinutos(etapas: Etapa[]): number {
   return etapas.reduce((sum, et) => sum + calcEtapaMinutos(et), 0)
 }
 
-/** Retorna true se `candidate` está na cadeia de descendentes de `target`
- *  (i.e. depende, direta ou indiretamente, de `target`). Usado pra evitar
- *  ciclos no picker de dependências. */
-function isDescendantOf(candidateId: string, targetId: string, byId: Map<string, Passo>): boolean {
-  const seen = new Set<string>()
-  let cur: string | null = byId.get(candidateId)?.dependeDoPassoId ?? null
-  while (cur && !seen.has(cur)) {
-    if (cur === targetId) return true
-    seen.add(cur)
-    cur = byId.get(cur)?.dependeDoPassoId ?? null
-  }
-  return false
-}
-
-/** Index global de todos os passos persistidos do template, com sua etapa-pai
- *  pra renderizar como "Passo X · Etapa Y" no select. */
-function buildPassoIndex(etapas: Etapa[]): Map<string, { passo: Passo; etapaNome: string }> {
-  const m = new Map<string, { passo: Passo; etapaNome: string }>()
-  for (const et of etapas) {
-    for (const p of et.passos) {
-      if (p.id) m.set(p.id, { passo: p, etapaNome: et.nome })
-    }
-  }
-  return m
-}
-
 /** Calcula o "trilho" (depth da cadeia de dependência) de cada passo na etapa.
  *  Passos sem dependência ficam no trilho 0; quem depende de um L0 vira L1, etc.
  *  Passos no mesmo trilho são paralelos. Drafts ficam no trilho 0. */
@@ -359,7 +333,8 @@ export default function ServicoDetailPage() {
   // Form fields (Visão geral)
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
-  const [categoria, setCategoria] = useState('')
+  // Área do serviço — agora por ID (era `categoria`, nome livre).
+  const [areaId, setAreaId] = useState('')
   const [prioridade, setPrioridade] = useState<'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'>('MEDIA')
   const [valorPadrao, setValorPadrao] = useState('')
   const [disponivelOrcamento, setDisponivelOrcamento] = useState(true)
@@ -377,7 +352,6 @@ export default function ServicoDetailPage() {
   // Atribuição legado (mantido só pra blocos PERGUNTA com estratégia explícita)
   const [atribuicaoResponsavel, setAtribuicaoResponsavel] = useState<'ORCAMENTO' | 'CLIENTE_AREA' | 'MANUAL_FIXO' | 'HERDA_PREDECESSOR'>('ORCAMENTO')
   const [responsavelFixoId, setResponsavelFixoId] = useState<string>('')
-  const [responsaveisAtribuiveis, setResponsaveisAtribuiveis] = useState<Array<{ id: string; name: string; email: string | null }>>([])
 
   // Atribuição multi-valor (novo modelo — fonte da verdade). União das 4 fontes
   // resolve os candidatos quando a execução é criada. 1 candidato → responsavelId
@@ -392,6 +366,8 @@ export default function ServicoDetailPage() {
   const [saving, setSaving] = useState(false)
 
   const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
+  // Nome da área selecionada (resolve o id para exibição).
+  const areaNome = areas.find(a => a.id === areaId)?.name ?? ''
 
   // Etapas
   const [etapas, setEtapas] = useState<Etapa[]>([])
@@ -461,7 +437,7 @@ export default function ServicoDetailPage() {
       }
       setNome(s.nome)
       setDescricao(s.descricao || '')
-      setCategoria(s.categoria || '')
+      setAreaId(s.areaId || '')
       setPrioridade((s.prioridadePadrao as typeof prioridade) || 'MEDIA')
       // valorPadrao no banco é decimal em reais; aqui guardamos centavos como string
       setValorPadrao(s.valorPadrao != null ? String(Math.round(Number(s.valorPadrao) * 100)) : '')
@@ -667,18 +643,6 @@ export default function ServicoDetailPage() {
     }
   }, [])
 
-  /** Lista de usuários atribuíveis (todos os colaboradores acessíveis ao gestor).
-   *  Reusa o endpoint já existente que filtra por permissão de hierarquia. */
-  const fetchResponsaveisAtribuiveis = useCallback(async () => {
-    try {
-      const result = await (trpc.servico as any).listResponsaveisAtribuiveis.query() as Array<{ id: string; name: string; email: string | null }>
-      setResponsaveisAtribuiveis(result || [])
-    } catch (e) {
-      console.warn('[ServicoDetail] Falha ao carregar responsáveis:', (e as Error).message)
-      setResponsaveisAtribuiveis([])
-    }
-  }, [])
-
   const fetchFluxo = useCallback(async (opts?: { silent?: boolean }) => {
     // silent=true → refetch sem mostrar spinner (usado após add/remove de bloco
     // pra não tirar o canvas da tela e dar a impressão de page reload)
@@ -693,7 +657,7 @@ export default function ServicoDetailPage() {
     }
   }, [id])
 
-  useEffect(() => { fetchServico(); fetchEncadeamentos(); fetchTodosServicos(); fetchAreas(); fetchTodosGrupos(); fetchResponsaveisAtribuiveis(); fetchUsuariosForSelect(); fetchVariacoes() }, [fetchServico, fetchEncadeamentos, fetchTodosServicos, fetchAreas, fetchTodosGrupos, fetchResponsaveisAtribuiveis, fetchUsuariosForSelect, fetchVariacoes])
+  useEffect(() => { fetchServico(); fetchEncadeamentos(); fetchTodosServicos(); fetchAreas(); fetchTodosGrupos(); fetchUsuariosForSelect(); fetchVariacoes() }, [fetchServico, fetchEncadeamentos, fetchTodosServicos, fetchAreas, fetchTodosGrupos, fetchUsuariosForSelect, fetchVariacoes])
 
   useEffect(() => {
     // Lazy-load Fluxo ao abrir a aba
@@ -726,7 +690,7 @@ export default function ServicoDetailPage() {
         data: {
           nome,
           descricao: descricao || null,
-          categoria: categoria || null,
+          areaId: areaId || null,
           prioridadePadrao: prioridade,
           valorPadrao: valorPadrao ? parseInt(valorPadrao, 10) / 100 : null,
           // Interno, Acessória e Fluxo forçam fora-do-catálogo; nas demais respeitam o toggle.
@@ -1155,7 +1119,7 @@ export default function ServicoDetailPage() {
                   {/* Linha única: área + segmento + badges (SLA / Previsão / Prioridade / etc) */}
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mt-2">
                     <span className="text-sm text-muted-foreground">
-                      {categoria || 'Sem área'}
+                      {areaNome || 'Sem área'}
                       {segmentoSlug && ` · ${segmentoSlug}`}
                       {categoriaServico === 'FLUXO' && ' · Item de fluxo'}
                     </span>
@@ -1313,7 +1277,7 @@ export default function ServicoDetailPage() {
               {/* Conteúdo da pill */}
               <div
                 key={visaoPill}
-                className="flex-1 overflow-y-auto flex flex-col"
+                className="flex-1 min-w-0 overflow-y-auto flex flex-col"
                 style={{ animation: 'fadeSlideIn 0.25s ease-out' }}
               >
                 {/* ── PILL: Identificação ───────────────────── */}
@@ -1330,11 +1294,11 @@ export default function ServicoDetailPage() {
                         </div>
                         <div className="col-span-12 md:col-span-4 space-y-1.5">
                           <Label className="text-xs font-medium">Área principal</Label>
-                          <Select value={categoria || '__none__'} onValueChange={v => setCategoria(v === '__none__' ? '' : v)}>
+                          <Select value={areaId || '__none__'} onValueChange={v => setAreaId(v === '__none__' ? '' : v)}>
                             <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione uma área" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="__none__">— Sem área —</SelectItem>
-                              {areas.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
+                              {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                             </SelectContent>
                           </Select>
                         </div>
@@ -1442,7 +1406,7 @@ export default function ServicoDetailPage() {
 
                 {/* ── PILL: Responsáveis ───────────────────── */}
                 {visaoPill === 'responsaveis' && (
-                  <div className="space-y-4" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+                  <div className="space-y-4 px-5 py-4" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
                     <div className="flex items-center justify-between border-b border-border pb-2 -mx-5 px-5">
                       <h4 className="text-[13px] font-semibold text-foreground">Responsáveis</h4>
                       <Button onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5"

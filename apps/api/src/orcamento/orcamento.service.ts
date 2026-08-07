@@ -223,20 +223,17 @@ export class OrcamentoService {
         //
         // O catálogo de itens é unificado: `OrcamentoItem.catalogoId` guarda um
         // Servico.id quando tipo='SERVICO' e um ServicoCatalogo.id para
-        // TAXA/DESPESA. Só os Servico carregam área — em `categoria`, que é o
-        // campo rotulado "Área" no cadastro e guarda o NOME dela (mesma regra de
-        // derivarAreasDosOrcamentosEmLote). Resolvemos primeiro quais serviços
-        // são da minha área.
+        // TAXA/DESPESA. Só os Servico carregam área. Um serviço é "da minha área"
+        // quando ela é a ÁREA dele (Servico.areaId) OU está entre os SETORES
+        // (atribuicaoAreas) — mesma união de derivarAreasDosOrcamentosEmLote.
         const u = await prisma.user.findUnique({
           where: { id: userId },
           select: { areaId: true },
         }).catch(() => null)
-        const minhaArea = u?.areaId
-          ? await prisma.area.findUnique({ where: { id: u.areaId }, select: { name: true } }).catch(() => null)
-          : null
-        const servicosDaArea = minhaArea?.name
+        const minhaAreaId = u?.areaId ?? null
+        const servicosDaArea = minhaAreaId
           ? await prisma.servico.findMany({
-              where: { categoria: { equals: minhaArea.name, mode: 'insensitive' } },
+              where: { OR: [{ areaId: minhaAreaId }, { atribuicaoAreas: { has: minhaAreaId } }] },
               select: { id: true },
             }).catch(() => [] as { id: string }[])
           : []
@@ -468,11 +465,11 @@ export class OrcamentoService {
    * item é do tipo SERVICO e um ServicoCatalogo.id para TAXA/DESPESA. Só Servico
    * carrega área, então os ids que não casarem simplesmente não contribuem.
    *
-   * A área do serviço é `Servico.categoria` — o campo rotulado "Área" no cadastro
-   * (aba Identificação) e exibido na coluna ÁREA da lista de serviços. Ele guarda
-   * o NOME da área, não o id. Não confundir com `atribuicaoAreas` ("Setores"),
-   * que define quem assume a execução: ler aquele campo fazia orçamentos com
-   * serviço de área definida aparecerem sem área nenhuma.
+   * A área de cada serviço é a UNIÃO da ÁREA do serviço (`Servico.areaId`, o campo
+   * rotulado "Área" no cadastro) com os SETORES (`atribuicaoAreas` — as áreas da
+   * responsabilidade de execução). Antes só a Área contava; passar a somar os
+   * Setores é o pedido do HLP0281 (a multiplicidade fica nos Setores, já que a
+   * Área do serviço é uma só). Ambos são ids de Area.
    *
    * Trabalha em lote (3 consultas no total, independente de quantos orçamentos)
    * porque a listagem chama com a página inteira — um por um seria N+1. O detalhe
@@ -487,38 +484,39 @@ export class OrcamentoService {
     )]
     if (todosIds.length === 0) return vazio
 
+    // A área do orçamento é a UNIÃO, por serviço, da ÁREA do serviço (Servico.areaId)
+    // com os SETORES (atribuicaoAreas — ids de área da responsabilidade de execução).
+    // Ambos são ids de Area; um serviço pode contribuir com mais de uma área.
     const servicos = await prisma.servico.findMany({
       where: { id: { in: todosIds } },
-      select: { id: true, categoria: true },
-    }).catch(() => [] as Array<{ id: string; categoria: string | null }>)
+      select: { id: true, areaId: true, atribuicaoAreas: true },
+    }).catch(() => [] as Array<{ id: string; areaId: string | null; atribuicaoAreas: string[] }>)
     // Ids que não casaram são ServicoCatalogo (Taxa/Despesa) — não têm área.
-    const categoriaPorServico = new Map(servicos.map(s => [s.id, s.categoria]))
+    const areaIdsPorServico = new Map<string, string[]>()
+    const todasAreaIds = new Set<string>()
+    for (const s of servicos) {
+      const ids = [...(s.areaId ? [s.areaId] : []), ...s.atribuicaoAreas]
+      areaIdsPorServico.set(s.id, ids)
+      ids.forEach(id => todasAreaIds.add(id))
+    }
+    if (todasAreaIds.size === 0) return vazio
 
-    if (servicos.every(s => !s.categoria)) return vazio
-
-    // `categoria` guarda o NOME da área. Resolvemos para o registro de Area pra
-    // devolver id + nome; o casamento é por nome normalizado porque o campo é
-    // texto livre de origem e pode ter sobrado caixa/espaço diferente de dados
-    // antigos. Áreas são poucas, então trazer todas sai mais barato que montar
-    // um filtro insensível a caixa.
     const areas = await prisma.area.findMany({
+      where: { id: { in: [...todasAreaIds] } },
       select: { id: true, name: true },
-      orderBy: { name: 'asc' },
     }).catch(() => [] as Array<{ id: string; name: string }>)
-    const chave = (s: string) => s.trim().toLowerCase()
-    const areaPorNome = new Map(areas.map(a => [chave(a.name), a]))
+    const areaById = new Map(areas.map(a => [a.id, a]))
 
     const resultado = new Map<string, Array<{ id: string; nome: string }>>()
     for (const orc of orcamentos) {
       const encontradas = new Map<string, { id: string; nome: string }>()
       for (const ref of [...orc.catalogoIds, orc.servicoId]) {
         if (!ref) continue
-        const categoria = categoriaPorServico.get(ref)
-        if (!categoria) continue
-        const area = areaPorNome.get(chave(categoria))
-        // Categoria que não corresponde a nenhuma Área cadastrada é resquício de
-        // texto livre — ignorada, pra não inventar área que não existe.
-        if (area) encontradas.set(area.id, { id: area.id, nome: area.name })
+        for (const aid of areaIdsPorServico.get(ref) ?? []) {
+          const area = areaById.get(aid)
+          // Área referenciada que não existe mais (removida) — ignorada.
+          if (area) encontradas.set(area.id, { id: area.id, nome: area.name })
+        }
       }
       resultado.set(
         orc.id,
@@ -3604,7 +3602,7 @@ export class OrcamentoService {
         // Bloqueia serviços marcados como internos — eles têm execução exclusivamente
         // interna e não devem aparecer no catálogo de itens do orçamento.
         where: { ...baseWhere, ...ativo, ...disponivel, ehServicoInterno: false },
-        select: { id: true, nome: true, valorPadrao: true, textoPadrao: true, ativo: true, disponivelOrcamento: true, empresaId: true, categoria: true, recorrenteMensal: true },
+        select: { id: true, nome: true, valorPadrao: true, textoPadrao: true, ativo: true, disponivelOrcamento: true, empresaId: true, area: { select: { name: true } }, recorrenteMensal: true },
         orderBy: { nome: 'asc' },
       }),
       prisma.servicoCatalogo.findMany({
@@ -3627,10 +3625,11 @@ export class OrcamentoService {
       ativo: s.ativo,
       disponivelOrcamento: s.disponivelOrcamento,
       empresaId: s.empresaId,
-      categoria: s.categoria,
+      // Relação `area { name }` crua (Taxa/Despesa não têm área → null).
+      area: s.area ?? null,
       createdAt: null as Date | null,
     }))
-    const catalogosNormalizados = catalogos.map(c => ({ ...c, categoria: null as string | null }))
+    const catalogosNormalizados = catalogos.map(c => ({ ...c, area: null as { name: string } | null }))
 
     const items = [...servicosAsCatalogo, ...catalogosNormalizados]
     const ids = items.map(i => i.id)

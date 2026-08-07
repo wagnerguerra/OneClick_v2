@@ -230,7 +230,7 @@ export class DashboardCalendarioService {
         acessoriasPrazo: true,
         responsavelId: true,
         clienteId: true,
-        servico: { select: { nome: true, mininome: true, categoria: true, ehObrigacaoAcessoria: true } },
+        servico: { select: { nome: true, mininome: true, ehObrigacaoAcessoria: true } },
         cliente: { select: { razaoSocial: true } },
       },
       orderBy: [{ prazoLimite: 'asc' }, { acessoriasPrazo: 'asc' }],
