@@ -3149,11 +3149,11 @@ export class OrcamentoService {
     // ninguém fica travado por um resíduo.
     if (filhos.length === 0) return
 
-    if (!subservicoId) {
-      throw new Error(
-        `"${filhos[0]!.pai.nome}" tem subserviços. Escolha qual deles entra no orçamento.`,
-      )
-    }
+    // Escolher o subserviço é OPCIONAL. Um serviço com filhos pode ser vendido
+    // como um todo — exigir a escolha travava orçamento que antes passava, e a
+    // decisão de detalhar ou não é de quem vende.
+    if (!subservicoId) return
+
     if (!filhos.some(f => f.filhoId === subservicoId)) {
       throw new Error('O subserviço escolhido não pertence a este serviço.')
     }
