@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BarChart3, Database, Loader2, RefreshCw, Table2, LayoutGrid, Landmark, PiggyBank, Receipt, Settings2, X, Plus, Trash2, ChevronUp, ChevronDown, Pencil, Coins, FileSpreadsheet } from 'lucide-react'
 import { Button, Card, cn } from '@saas/ui'
+import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -55,7 +56,6 @@ export default function FolhaBiPage() {
 
   // seletores do topo — na ordem CLIENTE, MES, ANO
   const [clienteId, setClienteId] = useState('')
-  const [busca, setBusca] = useState('')
   const [filial, setFilial] = useState('')   // CNPJ (quando o cliente tem mais de uma filial)
   const [mes, setMes] = useState(0)
   const [ano, setAno] = useState(0)
@@ -94,18 +94,12 @@ export default function FolhaBiPage() {
     return [atual, atual - 1, atual - 2, atual - 3, atual - 4]
   }, [])
 
-  // Clientes filtrados pela busca (razao, numero ou ID SCI), agrupados por grupo empresarial.
-  const clientesFiltrados = useMemo(() => {
-    const t = busca.trim().toLowerCase()
-    if (!t) return clientes
-    return clientes.filter((c) =>
-      c.razaoSocial.toLowerCase().includes(t) || String(c.code).includes(t) || (c.idSistema || '').includes(t))
-  }, [clientes, busca])
-  const gruposCli = useMemo(() => {
-    const g = new Map<string, ClienteLite[]>()
-    for (const c of clientesFiltrados) { const k = c.grupo || ''; if (!g.has(k)) g.set(k, []); g.get(k)!.push(c) }
-    return [...g.entries()].sort((a, b) => (a[0] || '￿').localeCompare(b[0] || '￿', 'pt-BR'))
-  }, [clientesFiltrados])
+  // O numero do cliente entra na propria razao social: o combobox filtra por
+  // razao e por documento, entao digitar "1102" ou o CNPJ acha do mesmo jeito.
+  const opcoesCliente = useMemo(
+    () => clientes.map((c) => ({ id: c.id, razaoSocial: `${c.code} · ${c.razaoSocial}`, documento: c.documento })),
+    [clientes],
+  )
 
   const clienteSel = clientes.find((c) => c.id === clienteId) ?? null
   useEffect(() => {
@@ -208,48 +202,47 @@ export default function FolhaBiPage() {
         </div>
       </div>
 
-      {/* Seletores: CLIENTE, MES, ANO */}
-      <Card className="flex flex-wrap items-end gap-x-3 gap-y-2 p-3">
-        <Selecao label="Cliente" value={clienteId} onChange={setClienteId} className="min-w-[260px] max-w-[420px]">
-          {clientesFiltrados.length === 0 && <option value="">—</option>}
-          {gruposCli.map(([g, cs]) => (
-            g
-              ? <optgroup key={g} label={g}>{cs.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.razaoSocial}</option>)}</optgroup>
-              : <Fragment key="__semgrupo">{cs.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.razaoSocial}</option>)}</Fragment>
-          ))}
-        </Selecao>
+      {/* Seletores numa linha so: CLIENTE, MES, ANO.
+          O `Card` ja e flex-col; por isso a linha vive num filho com flex-row —
+          `flex-wrap` sozinho nao vence a direcao do pai e os campos empilhavam. */}
+      <Card className="p-3">
+        <div className="flex flex-row flex-wrap items-end gap-x-3 gap-y-2">
+          <div className="flex min-w-[280px] flex-1 flex-col gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Cliente</span>
+            <ClienteCombobox
+              clientes={opcoesCliente}
+              value={clienteId}
+              onSelect={setClienteId}
+              placeholder="Selecione o cliente"
+            />
+          </div>
 
-        <Selecao label="Mês" value={String(mes)} onChange={(v) => setMes(Number(v))} className="min-w-[150px]">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((m) => (
-            <option key={m} value={m}>{mesesComDados.has(m) ? '• ' : ''}{labelMes(m)}</option>
-          ))}
-        </Selecao>
-
-        <Selecao label="Ano" value={String(ano)} onChange={(v) => setAno(Number(v))}>
-          {anos.map((a) => <option key={a} value={a}>{a}</option>)}
-        </Selecao>
-
-        {filiais.length > 1 && (
-          <Selecao label="Filial" value={filEff} onChange={setFilial} className="min-w-[160px]">
-            {filiais.map((c) => <option key={c} value={c}>{c}</option>)}
+          <Selecao label="Mês" value={String(mes)} onChange={(v) => setMes(Number(v))} className="min-w-[150px]">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((m) => (
+              <option key={m} value={m}>{mesesComDados.has(m) ? '• ' : ''}{labelMes(m)}</option>
+            ))}
           </Selecao>
-        )}
 
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Buscar cliente</span>
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Razão, nº ou ID SCI"
-            className="h-9 w-48 rounded-lg border border-border bg-background px-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-border" />
-        </label>
+          <Selecao label="Ano" value={String(ano)} onChange={(v) => setAno(Number(v))}>
+            {anos.map((a) => <option key={a} value={a}>{a}</option>)}
+          </Selecao>
 
-        <div className="ml-auto flex flex-col gap-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Relatório</span>
-          <div className="flex gap-1 rounded-lg bg-muted/40 p-1">
-            <Pill active={view === 'resumo'} onClick={() => setView('resumo')} icon={LayoutGrid} label="Resumo" />
-            <Pill active={view === 'matriz'} onClick={() => setView('matriz')} icon={Table2} label="Verbas" />
-            <Pill active={view === 'inss'} onClick={() => setView('inss')} icon={Landmark} label="INSS" />
-            <Pill active={view === 'fgts'} onClick={() => setView('fgts')} icon={PiggyBank} label="FGTS" />
-            <Pill active={view === 'irrf'} onClick={() => setView('irrf')} icon={Receipt} label="IRRF" />
-            <Pill active={view === 'provisoes'} onClick={() => setView('provisoes')} icon={Coins} label="Provisões" />
+          {filiais.length > 1 && (
+            <Selecao label="Filial" value={filEff} onChange={setFilial} className="min-w-[160px]">
+              {filiais.map((c) => <option key={c} value={c}>{c}</option>)}
+            </Selecao>
+          )}
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Relatório</span>
+            <div className="flex gap-1 rounded-lg bg-muted/40 p-1">
+              <Pill active={view === 'resumo'} onClick={() => setView('resumo')} icon={LayoutGrid} label="Resumo" />
+              <Pill active={view === 'matriz'} onClick={() => setView('matriz')} icon={Table2} label="Verbas" />
+              <Pill active={view === 'inss'} onClick={() => setView('inss')} icon={Landmark} label="INSS" />
+              <Pill active={view === 'fgts'} onClick={() => setView('fgts')} icon={PiggyBank} label="FGTS" />
+              <Pill active={view === 'irrf'} onClick={() => setView('irrf')} icon={Receipt} label="IRRF" />
+              <Pill active={view === 'provisoes'} onClick={() => setView('provisoes')} icon={Coins} label="Provisões" />
+            </div>
           </div>
         </div>
       </Card>
