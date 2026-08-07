@@ -23,7 +23,7 @@ export class ClienteObrigacaoService {
       include: {
         servico: {
           select: {
-            id: true, nome: true, categoriaObrigacao: true,
+            id: true, nome: true, area: { select: { name: true } },
             recorrencia: {
               select: {
                 frequencia: true, ancoragem: true, valorAncoragem: true,
@@ -35,8 +35,8 @@ export class ClienteObrigacaoService {
       },
       orderBy: [{ ativo: 'desc' }, { servico: { nome: 'asc' } }],
     })
-    // `servico.categoria` = NOME da área (derivado da relação; coluna removida).
-    return rows.map(o => ({ ...o, servico: { ...o.servico, categoria: o.servico.categoriaObrigacao ?? null } }))
+    // `servico.categoria` = NOME da área (derivado da relação area{name}).
+    return rows.map(o => ({ ...o, servico: { ...o.servico, categoria: o.servico.area?.name ?? null } }))
   }
 
   async addObrigacaoCliente(input: { clienteId: string; servicoId: string; observacao?: string | null }, empresaId?: string) {
@@ -165,7 +165,7 @@ export class ClienteObrigacaoService {
       include: {
         servico: {
           select: {
-            id: true, nome: true, categoriaObrigacao: true,
+            id: true, nome: true, area: { select: { name: true } },
             recorrencia: true,
           },
         },
@@ -210,7 +210,7 @@ export class ClienteObrigacaoService {
         eventos.push({
           obrigacaoId: v.servico.id,
           nome: v.servico.nome,
-          categoria: v.servico.categoriaObrigacao ?? null,
+          categoria: v.servico.area?.name ?? null,
           frequencia: r.frequencia,
           data: d.toISOString(),
         })
@@ -232,7 +232,7 @@ export class ClienteObrigacaoService {
     const vinculos = await prisma.clienteObrigacao.findMany({
       where: { ativo: true },
       include: {
-        servico: { select: { nome: true, categoriaObrigacao: true, recorrencia: true } },
+        servico: { select: { nome: true, area: { select: { name: true } }, recorrencia: true } },
         cliente: { select: { razaoSocial: true } },
       },
     })
@@ -262,7 +262,7 @@ export class ClienteObrigacaoService {
         extrasNaoUteis,
       )
       if (datas.some((d) => ymd(d) === alvo)) {
-        out.push({ clienteNome: v.cliente.razaoSocial, obrigacaoNome: v.servico.nome, categoria: v.servico.categoriaObrigacao ?? null })
+        out.push({ clienteNome: v.cliente.razaoSocial, obrigacaoNome: v.servico.nome, categoria: v.servico.area?.name ?? null })
       }
     }
     out.sort((a, b) => (a.categoria ?? '').localeCompare(b.categoria ?? '') || a.clienteNome.localeCompare(b.clienteNome))

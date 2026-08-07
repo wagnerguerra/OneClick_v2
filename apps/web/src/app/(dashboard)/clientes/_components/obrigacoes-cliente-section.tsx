@@ -515,7 +515,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                 />
               </TableHead>
               <TableHead className="w-auto whitespace-nowrap">Obrigação</TableHead>
-              <TableHead className="hidden sm:table-cell w-[110px] whitespace-nowrap">Categoria</TableHead>
+              <TableHead className="hidden sm:table-cell w-[110px] whitespace-nowrap">Área</TableHead>
               <TableHead className="hidden sm:table-cell w-[80px] text-center whitespace-nowrap">Status</TableHead>
               <TableHead className="w-[70px] text-right whitespace-nowrap">Ações</TableHead>
             </TableRow>

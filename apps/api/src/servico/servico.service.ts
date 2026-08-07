@@ -1128,11 +1128,24 @@ export class ServicoService {
    *  Movido do ex-módulo `obrigacao`; usado pela integração do Acessórias. */
   async createObrigacaoAcessoria(input: CreateObrigacaoInput, empresaId?: string) {
     return prisma.$transaction(async (tx) => {
+      // Resolve a Área real pelo nome (input.categoria = Fiscal/Trabalhista/Contábil),
+      // preferindo a área da empresa sobre a global. Antes gravava categoria_obrigacao
+      // (coluna-ponte removida na F2.5).
+      const area = input.categoria
+        ? await tx.area.findFirst({
+            where: {
+              name: { equals: input.categoria, mode: 'insensitive' },
+              OR: [{ empresaId: empresaId ?? null }, { empresaId: null }],
+            },
+            orderBy: { empresaId: { sort: 'asc', nulls: 'last' } },
+            select: { id: true },
+          })
+        : null
       const servico = await tx.servico.create({
         data: {
           nome: input.nome,
           descricao: input.descricao ?? null,
-          categoriaObrigacao: input.categoria,
+          areaId: area?.id ?? null,
           categoriaServico: 'MENSAL',
           ehObrigacaoAcessoria: true,
           atribuicaoResponsavel: 'CLIENTE_AREA',
@@ -3962,7 +3975,6 @@ export class ServicoService {
     })
     if (!user) return []
     const callerAreaId = user.areaId ?? null
-    const callerAreaName = user.area?.name ?? null
 
     // Carrega config de dias de exibicao de concluidas (master configura em /servicos/configuracoes)
     const cfg = await this.getMeusServicosConfig()
@@ -4076,18 +4088,15 @@ export class ServicoService {
         // 5. Execucoes vindas de orcamento sob responsabilidade do user
         orClauses.push({ orcamentoId: { in: orcamentoIds } })
       }
-      if (callerAreaId || callerAreaName) {
+      if (callerAreaId) {
         // 6. Claim-first pela ÁREA do serviço: execuções sem responsável cujo
-        //    serviço pertence à área do user. Serviços comuns casam por
-        //    Servico.areaId; obrigações acessórias (sem Area própria) casam a
-        //    categoria pelo NOME da área do user. Complementa a regra 8
-        //    (Setores/atribuicaoAreas), que é outro campo.
-        const areaOr: any[] = []
-        if (callerAreaId) areaOr.push({ areaId: callerAreaId })
-        if (callerAreaName) areaOr.push({ categoriaObrigacao: { equals: callerAreaName, mode: 'insensitive' } })
+        //    serviço pertence à área do user. Serviços e obrigações acessórias
+        //    casam por Servico.areaId (as obrigações passaram a ter Area própria
+        //    na F2.5 — o fallback por nome via categoria_obrigacao foi removido).
+        //    Complementa a regra 8 (Setores/atribuicaoAreas), que é outro campo.
         orClauses.push({
           responsavelId: null,
-          servico: { OR: areaOr },
+          servico: { areaId: callerAreaId },
         })
       }
 
