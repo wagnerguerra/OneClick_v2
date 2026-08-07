@@ -39,7 +39,7 @@ export function createServicoRouter(servicoService: ServicoService) {
       .query(({ ctx }) => servicoService.listObrigacoesAcessorias(ctx.empresaId)),
     createObrigacaoAcessoria: writeProcedure(MODULE)
       .input(createObrigacaoSchema)
-      .mutation(({ input }) => servicoService.createObrigacaoAcessoria(input)),
+      .mutation(({ input, ctx }) => servicoService.createObrigacaoAcessoria(input, ctx.empresaId)),
 
     getServico: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))

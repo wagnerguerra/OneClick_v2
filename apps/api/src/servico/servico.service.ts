@@ -1126,7 +1126,7 @@ export class ServicoService {
 
   /** Cria uma obrigação acessória (Servico marcado) + recorrência opcional.
    *  Movido do ex-módulo `obrigacao`; usado pela integração do Acessórias. */
-  async createObrigacaoAcessoria(input: CreateObrigacaoInput) {
+  async createObrigacaoAcessoria(input: CreateObrigacaoInput, empresaId?: string) {
     return prisma.$transaction(async (tx) => {
       const servico = await tx.servico.create({
         data: {
@@ -1138,7 +1138,7 @@ export class ServicoService {
           atribuicaoResponsavel: 'CLIENTE_AREA',
           fonteUrl: input.fonteUrl ?? null,
           documentacaoUrl: input.documentacaoUrl ?? null,
-          empresaId: null,
+          empresaId: empresaId ?? null,
         },
       })
       if (input.recorrencia) {
