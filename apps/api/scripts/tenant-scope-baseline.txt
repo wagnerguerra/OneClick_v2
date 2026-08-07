@@ -93,7 +93,6 @@ apps/api/src/drive-sync/drive-sync.router.ts::prisma.danfe.findMany
 apps/api/src/drive-sync/drive-sync.router.ts::prisma.notaServicoImportada.findMany
 apps/api/src/drive-sync/drive-sync.service.ts::prisma.cliente.findMany
 apps/api/src/drive-sync/drive-sync.service.ts::prisma.cliente.findMany
-apps/api/src/grupo-obrigacao/grupo-obrigacao.service.ts::prisma.grupoObrigacao.findMany
 apps/api/src/helpdesk/helpdesk.service.ts::prisma.helpdeskTicket.count
 apps/api/src/helpdesk/helpdesk.service.ts::prisma.helpdeskTicket.count
 apps/api/src/helpdesk/helpdesk.service.ts::prisma.helpdeskTicket.findMany
