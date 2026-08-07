@@ -64,15 +64,13 @@ export function createGrupoObrigacaoRouter(svc: GrupoObrigacaoService) {
       .input(z.object({ ids: z.array(z.string()).min(1) }))
       .mutation(({ input }) => svc.bulkRemoveObrigacaoCliente(input.ids)),
 
-    // ── Aplicar template ──────────────────────────────────
+    // ── Aplicar grupo (ServicoGrupo tipo=OBRIGACOES) ──────
     aplicarTemplate: writeProcedure(MODULE_CLIENTES)
       .input(aplicarTemplateSchema)
       .mutation(({ input, ctx }) => svc.aplicarTemplate(input, ctx.empresaId)),
 
-    // ── Recomendação automática ───────────────────────────
-    recomendarParaCliente: readProcedure(MODULE_CLIENTES)
-      .input(z.object({ clienteId: z.string() }))
-      .query(({ input }) => svc.recomendarParaCliente(input.clienteId)),
+    // recomendarParaCliente removido na unificação dos grupos — ver comentário
+    // em grupo-obrigacao.service.ts (o ServicoGrupo não tem tributação/CNAE).
 
     // ── Calendário de vencimentos do cliente ──────────────
     calendarioDoCliente: readProcedure(MODULE_CLIENTES)

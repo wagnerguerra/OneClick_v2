@@ -34,7 +34,6 @@ interface Grupo {
   cor: string | null
   ativo: boolean
   itens: GrupoItem[]
-  _count: { clienteObrigacoes: number }
 }
 interface Obrigacao {
   id: string
@@ -258,20 +257,19 @@ export function GruposObrigacaoSection() {
                 <TableHead className="hidden sm:table-cell w-[150px] whitespace-nowrap">Tributação</TableHead>
                 <TableHead className="hidden md:table-cell w-[100px] whitespace-nowrap">Área</TableHead>
                 <TableHead className="hidden lg:table-cell w-[90px] text-center whitespace-nowrap">Obrigações</TableHead>
-                <TableHead className="hidden lg:table-cell w-[90px] text-center whitespace-nowrap">Aplicados</TableHead>
                 <TableHead className="hidden sm:table-cell w-[80px] text-center whitespace-nowrap">Status</TableHead>
                 <TableHead className="w-[70px] text-right whitespace-nowrap">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-10">
+                <TableRow><TableCell colSpan={7} className="text-center py-10">
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin text-orange-500" /> Carregando...
                   </div>
                 </TableCell></TableRow>
               ) : !items.length ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
                   Nenhum template encontrado
                 </TableCell></TableRow>
               ) : items.map((g) => (
@@ -299,7 +297,6 @@ export function GruposObrigacaoSection() {
                     {g.area ?? '—'}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-center text-xs tabular-nums">{g.itens.length}</TableCell>
-                  <TableCell className="hidden lg:table-cell text-center text-xs tabular-nums text-muted-foreground">{g._count.clienteObrigacoes}</TableCell>
                   <TableCell className="hidden sm:table-cell text-center">
                     <Badge variant="outline" className={cn('h-5 text-[10px]', g.ativo ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'text-muted-foreground')}>
                       {g.ativo ? 'Ativo' : 'Inativo'}

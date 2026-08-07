@@ -36,7 +36,6 @@ export class GrupoObrigacaoService {
           orderBy: { ordem: 'asc' },
           include: { servico: { select: { id: true, nome: true, categoriaObrigacao: true } } },
         },
-        _count: { select: { clienteObrigacoes: true } },
       },
       orderBy: [{ tributacao: 'asc' }, { nome: 'asc' }],
     })
@@ -135,7 +134,6 @@ export class GrupoObrigacaoService {
             },
           },
         },
-        template: { select: { id: true, nome: true, cor: true } },
       },
       orderBy: [{ ativo: 'desc' }, { servico: { nome: 'asc' } }],
     })
@@ -176,66 +174,54 @@ export class GrupoObrigacaoService {
   }
 
   /**
-   * Aplica um template (GrupoObrigacao) em um cliente — cria ClienteObrigacao
-   * em lote para todos os serviços do template.
+   * Aplica um grupo de obrigações (ServicoGrupo tipo=OBRIGACOES) em um cliente —
+   * cria ClienteObrigacao em lote para todos os serviços do grupo.
    *
    * Comportamento:
-   *  - `manterExistentes=true` (default) — upsert: cria os faltantes, mantém
-   *    os já cadastrados (mesmo se não vieram deste template originalmente).
-   *  - `manterExistentes=false` — primeiro remove vínculos `vindoDeTemplateId=grupoId`
-   *    (limpa estado anterior do mesmo template) e depois aplica de novo.
-   *    NÃO toca em vínculos manuais (vindoDeTemplateId=null) nem em vínculos
-   *    de outros templates.
+   *  - `manterExistentes=true` (default) — cria só as obrigações que faltam. O que
+   *    o cliente já tem fica intacto (ativo ou inativo — não reativa).
+   *  - `manterExistentes=false` (substituir) — limpa TODAS as obrigações atuais
+   *    do cliente (inclusive as manuais) e aplica o grupo do zero. Como o vínculo
+   *    de origem por-template foi removido na unificação dos grupos, o "substituir"
+   *    passou a ser um wipe total — o front avisa disso antes de confirmar.
    */
   async aplicarTemplate(input: { clienteId: string; grupoId: string; manterExistentes: boolean }, empresaId?: string) {
-    const grupo = await prisma.grupoObrigacao.findUnique({
+    const grupo = await prisma.servicoGrupo.findUnique({
       where: { id: input.grupoId },
       include: { itens: { select: { servicoId: true } } },
     })
-    if (!grupo) throw new Error('Template de obrigações não encontrado.')
-    if (grupo.itens.length === 0) throw new Error('Template vazio — adicione obrigações antes de aplicar.')
+    if (!grupo) throw new Error('Grupo de obrigações não encontrado.')
+    if (grupo.tipo !== 'OBRIGACOES') throw new Error('Só grupos do tipo "Obrigações acessórias" podem ser aplicados no cliente.')
+    if (grupo.itens.length === 0) throw new Error('Grupo vazio — adicione obrigações antes de aplicar.')
 
     return prisma.$transaction(async (tx) => {
       let removidas = 0
       if (!input.manterExistentes) {
         const del = await tx.clienteObrigacao.deleteMany({
-          where: { clienteId: input.clienteId, vindoDeTemplateId: input.grupoId },
+          where: { clienteId: input.clienteId },
         })
         removidas = del.count
       }
 
       let criadas = 0
-      let reativadas = 0
       for (const item of grupo.itens) {
         const existing = await tx.clienteObrigacao.findUnique({
           where: { clienteId_servicoId: { clienteId: input.clienteId, servicoId: item.servicoId } },
         })
-        if (existing) {
-          if (!existing.ativo) {
-            await tx.clienteObrigacao.update({
-              where: { id: existing.id },
-              data: { ativo: true, vindoDeTemplateId: existing.vindoDeTemplateId ?? input.grupoId },
-            })
-            reativadas++
-          }
-          // Já ativo: mantém como está (não sobrescreve template de origem)
-        } else {
-          await tx.clienteObrigacao.create({
-            data: {
-              clienteId: input.clienteId,
-              servicoId: item.servicoId,
-              vindoDeTemplateId: input.grupoId,
-              empresaId: empresaId ?? null,
-            },
-          })
-          criadas++
-        }
+        if (existing) continue // já existe: mantém como está (não reativa inativos)
+        await tx.clienteObrigacao.create({
+          data: {
+            clienteId: input.clienteId,
+            servicoId: item.servicoId,
+            empresaId: empresaId ?? null,
+          },
+        })
+        criadas++
       }
       return {
         grupoNome: grupo.nome,
         totalItensTemplate: grupo.itens.length,
         criadas,
-        reativadas,
         removidas,
       }
     })
@@ -252,60 +238,21 @@ export class GrupoObrigacaoService {
    *
    * Retorna o template com maior score (mínimo 30), null se nada bater bem.
    */
-  async recomendarParaCliente(clienteId: string) {
-    const cliente = await prisma.cliente.findUnique({
-      where: { id: clienteId },
-      select: { tributacao: true, cnaePrincipal: true },
-    })
-    if (!cliente) return null
-
-    const grupos = await prisma.grupoObrigacao.findMany({
-      where: { ativo: true },
-      include: {
-        itens: { include: { servico: { select: { nome: true, categoriaObrigacao: true } } } },
-      },
-    })
-
-    type Resultado = { grupo: typeof grupos[number]; score: number; razoes: string[] }
-    const cnaePrefix = (cliente.cnaePrincipal ?? '').replace(/\D/g, '')
-    const scoreds: Resultado[] = []
-
-    for (const g of grupos) {
-      let score = 0
-      const razoes: string[] = []
-
-      if (g.tributacao && cliente.tributacao && g.tributacao === cliente.tributacao) {
-        score += 50
-        razoes.push(`Tributação ${g.tributacao}`)
-      } else if (!g.tributacao) {
-        score += 10
-        razoes.push('Genérico para qualquer regime')
-      }
-
-      if (cnaePrefix && g.cnaesAplicaveis.length > 0) {
-        const matched = g.cnaesAplicaveis.find((p) => cnaePrefix.startsWith(p))
-        if (matched) {
-          score += 30
-          razoes.push(`CNAE compatível (${matched})`)
-        }
-      } else if (g.cnaesAplicaveis.length === 0) {
-        score += 5
-      }
-
-      if (score > 0) scoreds.push({ grupo: g, score, razoes })
-    }
-
-    scoreds.sort((a, b) => b.score - a.score)
-    const topo = scoreds[0]
-    if (!topo || topo.score < 30) return null
-
-    // Inclui top 3 com menor score pra UI mostrar alternativas
-    return {
-      recomendado: { grupo: topo.grupo, score: topo.score, razoes: topo.razoes },
-      alternativas: scoreds.slice(1, 4).map((s) => ({ grupo: s.grupo, score: s.score, razoes: s.razoes })),
-      cliente,
-    }
-  }
+  // ── Recomendação automática de grupo (REMOVIDA na unificação dos grupos) ──
+  //
+  // Existia aqui um `recomendarParaCliente(clienteId)` que pontuava os templates
+  // GrupoObrigacao contra o cliente (tributação + prefixo de CNAE) e devolvia a
+  // melhor sugestão pro banner "Sugestão: <template> — X% match" na tela do cliente.
+  //
+  // Foi removido porque os templates viraram ServicoGrupo(tipo=OBRIGACOES), que é
+  // um agrupamento genérico e NÃO carrega `tributacao`/`cnaesAplicaveis`. Aplicar
+  // grupo passou a ser 100% manual (o usuário escolhe o grupo).
+  //
+  // Se um dia quisermos ressuscitar a recomendação para os grupos: portar
+  // `tributacao TaxRegime?` + `cnaesAplicaveis String[]` (e talvez segmentoSlug/area)
+  // para ServicoGrupo, preencher esses campos nos grupos OBRIGACOES, e reintroduzir
+  // o scoring aqui lendo servicoGrupo em vez de grupoObrigacao. O banner no front
+  // (obrigacoes-cliente-section.tsx) tem um comentário-espelho apontando pra cá.
 
   /**
    * Calendário do ano só com as obrigações ATIVAS deste cliente. Expande as

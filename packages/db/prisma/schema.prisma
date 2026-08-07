@@ -6563,8 +6563,6 @@ model GrupoObrigacao {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   itens             GrupoObrigacaoItem[]
-  // Clientes que receberam ClienteObrigacao oriundas deste template (rastreio)
-  clienteObrigacoes ClienteObrigacao[]
 
   @@index([tributacao])
   @@index([empresaId])
@@ -6595,16 +6593,12 @@ model GrupoObrigacaoItem {
 
 /**
  * Vínculo Cliente ↔ Servico (obrigação). Cada cliente tem sua lista própria.
- * Originado de template (`vindoDeTemplateId`) ou cadastro manual (null).
+ * Alimentado por "Aplicar grupo" (ServicoGrupo tipo=OBRIGACOES) ou cadastro manual.
  */
 model ClienteObrigacao {
   id                       String            @id @default(cuid())
   clienteId                String            @map("cliente_id")
   servicoId                String            @map("servico_id")
-  /**
-   * Quando o vínculo veio de um template, aponta pra ele (rastreabilidade).
-   */
-  vindoDeTemplateId        String?           @map("vindo_de_template_id")
   ativo                    Boolean           @default(true)
   observacao               String?           @db.Text
   /**
@@ -6619,12 +6613,10 @@ model ClienteObrigacao {
 
   cliente  Cliente         @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   servico  Servico         @relation(fields: [servicoId], references: [id], onDelete: Cascade)
-  template GrupoObrigacao? @relation(fields: [vindoDeTemplateId], references: [id], onDelete: SetNull)
 
   @@unique([clienteId, servicoId])
   @@index([servicoId])
   @@index([empresaId])
-  @@index([vindoDeTemplateId])
   @@map("cliente_obrigacoes")
 }
 

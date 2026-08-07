@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Plus, Trash2, Loader2, MoreVertical, ListChecks, Sparkles, Power, PowerOff, Users,
-  Pencil, Search, X, Wand2, Filter, List, LayoutGrid,
+  Plus, Trash2, Loader2, MoreVertical, ListChecks, Check, Power, PowerOff, Users,
+  Pencil, Search, X, ListPlus, Filter, List, LayoutGrid,
 } from 'lucide-react'
 import { CalendarioObrigacoesCliente } from './calendario-obrigacoes-cliente'
 import {
@@ -26,7 +26,6 @@ interface ClienteObrigacao {
   ativo: boolean
   observacao: string | null
   ajusteVencimentoOverride: 'MANTER' | 'ANTECIPAR' | 'POSTERGAR' | null
-  vindoDeTemplateId: string | null
   servico: {
     id: string
     nome: string
@@ -39,18 +38,17 @@ interface ClienteObrigacao {
       ajusteVencimento: string
     } | null
   }
-  template: { id: string; nome: string; cor: string | null } | null
 }
 
+// ServicoGrupo(tipo=OBRIGACOES) — a fonte dos grupos aplicáveis ao cliente.
 interface Grupo {
   id: string
   nome: string
   descricao: string | null
-  tributacao: string | null
-  area: string | null
   cor: string | null
+  tipo: string
   ativo: boolean
-  itens: Array<{ servico: { id: string; nome: string; categoria: string | null } }>
+  itens: Array<{ servico: { id: string; nome: string } }>
 }
 
 interface Obrigacao { id: string; nome: string; categoria: string | null }
@@ -86,17 +84,14 @@ function iniciais(nome: string): string {
   return (partes[0]![0]! + partes[partes.length - 1]![0]!).toUpperCase()
 }
 
-interface Recomendacao {
-  recomendado: { grupo: Grupo; score: number; razoes: string[] }
-  alternativas: Array<{ grupo: Grupo; score: number; razoes: string[] }>
-  cliente: { tributacao: string | null; cnaePrincipal: string | null }
-}
+// Recomendação automática por tributação/CNAE foi removida na unificação dos
+// grupos (o ServicoGrupo não carrega esses campos). Ver comentário-espelho em
+// grupo-obrigacao.service.ts para como revisitar a ideia no futuro.
 
 export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
   const { canManageResponsible } = useClientesPerms()
   const [items, setItems] = useState<ClienteObrigacao[]>([])
   const [loading, setLoading] = useState(true)
-  const [recomendacao, setRecomendacao] = useState<Recomendacao | null>(null)
   const [areasResponsaveis, setAreasResponsaveis] = useState<AreaResponsavel[]>([])
   const [usuariosArea, setUsuariosArea] = useState<Array<{ id: string; name: string; areaId: string | null }>>([])
   const [editArea, setEditArea] = useState<string | null>(null)
@@ -106,7 +101,6 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState<'TODAS' | string>('TODAS')
-  const [filtroOrigem, setFiltroOrigem] = useState<'TODAS' | 'MANUAL' | string>('TODAS')
   const [filtroStatus, setFiltroStatus] = useState<'TODOS' | 'ATIVAS' | 'INATIVAS'>('TODOS')
   const [view, setView] = useState<'tabela' | 'calendario'>('tabela')
 
@@ -132,13 +126,11 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [res, rec, servicos] = await Promise.all([
+      const [res, servicos] = await Promise.all([
         (trpc as any).grupoObrigacao.listDoCliente.query({ clienteId }),
-        (trpc as any).grupoObrigacao.recomendarParaCliente.query({ clienteId }).catch(() => null),
         (trpc as any).cliente.servicosListar.query({ clienteId }).catch(() => null),
       ])
       setItems(res as ClienteObrigacao[])
-      setRecomendacao(rec as Recomendacao | null)
       // servicosListar devolve { areas: [...], usuarios: [...] } — filtra só contratadas
       const areasList = (servicos?.areas ?? []) as AreaResponsavel[]
       setAreasResponsaveis(areasList.filter((a) => a.contratado))
@@ -163,38 +155,31 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
     } catch (e: any) { alerts.error('Erro', e?.message ?? 'Não foi possível salvar o responsável.') }
   }
 
-  async function aplicarRecomendado() {
-    if (!recomendacao) return
-    setAplicando(true)
-    try {
-      const res = await (trpc as any).grupoObrigacao.aplicarTemplate.mutate({
-        clienteId,
-        grupoId: recomendacao.recomendado.grupo.id,
-        manterExistentes: true,
-      })
-      await alerts.success(
-        'Template aplicado',
-        `${res.criadas} criada(s) · ${res.reativadas} reativada(s).`,
-      )
-      fetchData()
-    } catch (e: any) {
-      alerts.error('Erro', e?.message ?? 'Falha ao aplicar template recomendado.')
-    } finally { setAplicando(false) }
-  }
-
-  async function abrirTemplate() {
+  async function abrirGrupo() {
+    setGrupoSelecionado(null) // sempre abre sem seleção (o manterExistentes é preservado de propósito)
     setLoadingGrupos(true)
     setTemplateDialogOpen(true)
     try {
-      const res = await (trpc as any).grupoObrigacao.list.query({ ativo: true })
-      setGrupos(res as Grupo[])
+      // Só grupos do tipo OBRIGACOES podem ser aplicados no cliente.
+      const res = await (trpc as any).servico.listGrupos.query()
+      setGrupos((res as Grupo[]).filter((g) => g.tipo === 'OBRIGACOES'))
     } catch (e: any) {
-      alerts.error('Erro', e?.message ?? 'Falha ao carregar templates.')
+      alerts.error('Erro', e?.message ?? 'Falha ao carregar grupos.')
     } finally { setLoadingGrupos(false) }
   }
 
-  async function aplicarTemplate() {
+  async function aplicarGrupo() {
     if (!grupoSelecionado) return
+    // "Substituir" agora é um wipe TOTAL das obrigações do cliente (inclusive as
+    // manuais) — o vínculo de origem por-template não existe mais. Confirma forte.
+    if (!manterExistentes) {
+      const ok = await alerts.confirm({
+        title: 'Substituir todas as obrigações?',
+        text: 'Isto REMOVE todas as obrigações atuais do cliente — inclusive as adicionadas manualmente — antes de aplicar o grupo. Não dá pra desfazer.',
+        confirmText: 'Substituir tudo', icon: 'warning',
+      })
+      if (!ok) return
+    }
     setAplicando(true)
     try {
       const res = await (trpc as any).grupoObrigacao.aplicarTemplate.mutate({
@@ -203,14 +188,14 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
         manterExistentes,
       })
       await alerts.success(
-        'Template aplicado',
-        `${res.criadas} criada(s) · ${res.reativadas} reativada(s)${res.removidas ? ` · ${res.removidas} removida(s)` : ''}.`,
+        'Grupo aplicado',
+        `${res.criadas} criada(s)${res.removidas ? ` · ${res.removidas} removida(s)` : ''}.`,
       )
       setTemplateDialogOpen(false)
       setGrupoSelecionado(null)
       fetchData()
     } catch (e: any) {
-      alerts.error('Erro', e?.message ?? 'Falha ao aplicar template.')
+      alerts.error('Erro', e?.message ?? 'Falha ao aplicar grupo.')
     } finally { setAplicando(false) }
   }
 
@@ -221,8 +206,8 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
     setObrObservacao('')
     setObrSearch('')
     try {
-      const res = await (trpc as any).obrigacao.list.query({})
-      setObrigacoes((res as any[]).map((o) => ({ id: o.id, nome: o.nome, categoria: o.categoria })))
+      const res = await (trpc as any).servico.listObrigacoesAcessorias.query()
+      setObrigacoes((res as any[]).map((o) => ({ id: o.id, nome: o.nome, categoria: o.categoria ?? null })))
     } catch (e: any) {
       alerts.error('Erro', e?.message ?? 'Falha ao carregar obrigações.')
     } finally { setLoadingObr(false) }
@@ -287,10 +272,6 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
     if (filtroStatus === 'ATIVAS' && !i.ativo) return false
     if (filtroStatus === 'INATIVAS' && i.ativo) return false
     if (filtroCategoria !== 'TODAS' && i.servico.categoria !== filtroCategoria) return false
-    if (filtroOrigem !== 'TODAS') {
-      if (filtroOrigem === 'MANUAL' && i.template) return false
-      if (filtroOrigem !== 'MANUAL' && i.template?.id !== filtroOrigem) return false
-    }
     if (debouncedSearch) {
       const q = debouncedSearch.toLowerCase()
       const nome = i.servico.nome.toLowerCase()
@@ -300,18 +281,8 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
     return true
   })
 
-  // Lista de templates únicos presentes na lista (pro filtro de origem)
-  const templatesPresentes = Array.from(
-    new Map(
-      items
-        .filter((i) => i.template)
-        .map((i) => [i.template!.id, i.template!]),
-    ).values(),
-  )
-
   const filtrosAtivos =
     (filtroCategoria !== 'TODAS' ? 1 : 0) +
-    (filtroOrigem !== 'TODAS' ? 1 : 0) +
     (filtroStatus !== 'TODOS' ? 1 : 0) +
     (debouncedSearch ? 1 : 0)
 
@@ -320,57 +291,10 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
     ? obrigacoes.filter((o) => o.nome.toLowerCase().includes(obrSearch.toLowerCase()))
     : obrigacoes
 
-  // Mostra banner só quando há recomendação E o template recomendado ainda
-  // NÃO está aplicado no cliente (pra evitar sugerir o que já foi feito).
-  const recomendadoJaAplicado = recomendacao
-    ? items.some((i) => i.template?.id === recomendacao.recomendado.grupo.id && i.ativo)
-    : false
-
   return (
     <div className="space-y-4">
-      {/* Banner de recomendação automática */}
-      {recomendacao && !recomendadoJaAplicado && (
-        <div
-          className="rounded-lg border-l-4 border-l-orange-400 bg-orange-50/60 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/40 p-3"
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className="h-9 w-9 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center shrink-0"
-            >
-              <Sparkles className="h-4 w-4 text-orange-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-orange-900 dark:text-orange-200 flex items-center gap-2 flex-wrap">
-                <span>Sugestão: <span className="font-bold">{recomendacao.recomendado.grupo.nome}</span></span>
-                <Badge variant="outline" className="h-4 text-[10px] bg-white border-orange-200 text-orange-700">
-                  {recomendacao.recomendado.score}% match
-                </Badge>
-              </div>
-              <p className="text-[11px] text-orange-800/80 dark:text-orange-300/80 mt-0.5">
-                {recomendacao.recomendado.razoes.join(' · ')}
-                {recomendacao.recomendado.grupo.itens.length > 0 && (
-                  <> · {recomendacao.recomendado.grupo.itens.length} obrigações</>
-                )}
-              </p>
-              {!recomendacao.cliente.cnaePrincipal && (
-                <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1 italic">
-                  ⚠ Cliente sem CNAE preenchido — sugestão baseada só na tributação. Enriquecer CNAE pra melhorar precisão.
-                </p>
-              )}
-            </div>
-            <Button
-              size="sm"
-              onClick={aplicarRecomendado}
-              disabled={aplicando}
-              style={{ backgroundColor: '#f97316', color: 'white' }}
-              className="shrink-0"
-            >
-              {aplicando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              Aplicar agora
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Banner de recomendação automática removido na unificação dos grupos —
+          ver comentário em grupo-obrigacao.service.ts para revisitar a ideia. */}
 
       {/* Painel de responsáveis por área (do ClienteAreaContratada) */}
       {areasResponsaveis.length > 0 && (
@@ -500,10 +424,10 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                 <LayoutGrid className="h-3.5 w-3.5" />Calendário
               </button>
             </div>
-            <Button variant="outline" size="sm" onClick={abrirTemplate}>
-              <Wand2 className="h-4 w-4 text-orange-500" />Aplicar template
+            <Button type="button" variant="outline" size="sm" onClick={abrirGrupo}>
+              <ListPlus className="h-4 w-4 text-orange-500" />Aplicar grupo
             </Button>
-            <Button size="sm" onClick={abrirAdicionar} style={{ backgroundColor: MODULE_COLOR, color: 'white' }}>
+            <Button type="button" size="sm" onClick={abrirAdicionar} style={{ backgroundColor: MODULE_COLOR, color: 'white' }}>
               <Plus className="h-4 w-4" />Adicionar individual
             </Button>
           </div>
@@ -532,16 +456,6 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                 <SelectItem value="Contábil">Contábil</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filtroOrigem} onValueChange={setFiltroOrigem}>
-              <SelectTrigger className="h-8 w-[160px] text-xs bg-card"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="TODAS">Todas as origens</SelectItem>
-                <SelectItem value="MANUAL">Manual (sem template)</SelectItem>
-                {templatesPresentes.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as any)}>
               <SelectTrigger className="h-8 w-[120px] text-xs bg-card"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -552,11 +466,11 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
             </Select>
             {filtrosAtivos > 0 && (
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   setFiltroCategoria('TODAS')
-                  setFiltroOrigem('TODAS')
                   setFiltroStatus('TODOS')
                   setSearch('')
                 }}
@@ -583,8 +497,8 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               {selected.size} obrigação(ões) selecionada(s)
             </span>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Limpar</Button>
-              <Button variant="destructive" size="sm" onClick={bulkRemove}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Limpar</Button>
+              <Button type="button" variant="destructive" size="sm" onClick={bulkRemove}>
                 <Trash2 className="h-3.5 w-3.5" />Desvincular
               </Button>
             </div>
@@ -602,29 +516,28 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               </TableHead>
               <TableHead className="w-auto whitespace-nowrap">Obrigação</TableHead>
               <TableHead className="hidden sm:table-cell w-[110px] whitespace-nowrap">Categoria</TableHead>
-              <TableHead className="hidden md:table-cell w-[170px] whitespace-nowrap">Origem</TableHead>
               <TableHead className="hidden sm:table-cell w-[80px] text-center whitespace-nowrap">Status</TableHead>
               <TableHead className="w-[70px] text-right whitespace-nowrap">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-10">
+              <TableRow><TableCell colSpan={5} className="text-center py-10">
                 <div className="flex items-center justify-center gap-2 text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin text-emerald-500" /> Carregando...
                 </div>
               </TableCell></TableRow>
             ) : !items.length ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+              <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
                 <ListChecks className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
                 <p>Nenhuma obrigação vinculada ainda.</p>
                 <p className="text-xs mt-1">
-                  Clique em <strong>Aplicar template</strong> pra herdar de um regime padrão,
+                  Clique em <strong>Aplicar grupo</strong> pra herdar de um grupo de obrigações,
                   ou <strong>Adicionar individual</strong> pra cadastrar caso a caso.
                 </p>
               </TableCell></TableRow>
             ) : !itemsFiltrados.length ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+              <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
                 <Filter className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
                 <p>Nenhuma obrigação corresponde aos filtros aplicados.</p>
               </TableCell></TableRow>
@@ -657,16 +570,6 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell className="hidden md:table-cell truncate text-xs text-muted-foreground" title={i.template?.nome ?? 'Manual'}>
-                  {i.template ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: i.template.cor ?? '#10b981' }} />
-                      <span className="truncate">{i.template.nome}</span>
-                    </div>
-                  ) : (
-                    <span className="italic">Manual</span>
-                  )}
-                </TableCell>
                 <TableCell className="hidden sm:table-cell text-center whitespace-nowrap">
                   <Badge variant="outline" className={cn('h-5 text-[10px]', i.ativo ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'text-muted-foreground')}>
                     {i.ativo ? 'Ativa' : 'Inativa'}
@@ -676,7 +579,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                   <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon-sm"><MoreVertical className="h-3.5 w-3.5" /></Button>
+                        <Button type="button" variant="ghost" size="icon-sm"><MoreVertical className="h-3.5 w-3.5" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
                         <DropdownMenuItem onClick={() => toggleAtivo(i)}>
@@ -703,13 +606,13 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
         )}
       </Card>
 
-      {/* Dialog: Aplicar template */}
+      {/* Dialog: Aplicar grupo */}
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
         <DialogContent className="sm:max-w-[640px] max-h-[90vh] flex flex-col">
-          <DialogHeaderIcon icon={Wand2} color="orange">
-            <DialogTitle>Aplicar template</DialogTitle>
+          <DialogHeaderIcon icon={ListPlus} color="orange">
+            <DialogTitle>Aplicar grupo</DialogTitle>
             <DialogDescription className="text-xs">
-              Vincula em lote todas as obrigações do template selecionado a este cliente.
+              Vincula em lote todas as obrigações do grupo selecionado a este cliente.
             </DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="space-y-3 overflow-auto">
@@ -719,7 +622,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               </div>
             ) : grupos.length === 0 ? (
               <div className="text-center text-sm text-muted-foreground py-10">
-                Nenhum template cadastrado. Cadastre em /configuracoes → Templates de Obrigações.
+                Nenhum grupo de obrigações cadastrado. Crie em /servicos/grupos (tipo "Obrigações acessórias").
               </div>
             ) : (
               <div className="space-y-2">
@@ -732,7 +635,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                       onClick={() => setGrupoSelecionado(g.id)}
                       className={cn(
                         'w-full text-left rounded-md border p-3 transition-all',
-                        ativo ? 'border-orange-400 bg-orange-50' : 'hover:bg-muted/40',
+                        ativo ? 'border-orange-400 bg-orange-50 dark:border-orange-500/60 dark:bg-orange-950/30' : 'hover:bg-muted/40',
                       )}
                     >
                       <div className="flex items-start gap-2.5">
@@ -740,16 +643,13 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-sm">{g.nome}</span>
-                            {g.tributacao && (
-                              <Badge variant="outline" className="h-4 text-[10px] font-normal">{g.tributacao}</Badge>
-                            )}
                             <span className="text-[10px] text-muted-foreground">{g.itens.length} obrigações</span>
                           </div>
                           {g.descricao && (
                             <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{g.descricao}</p>
                           )}
                         </div>
-                        {ativo && <Sparkles className="h-4 w-4 text-orange-500 shrink-0" />}
+                        {ativo && <Check className="h-4 w-4 text-orange-500 shrink-0" />}
                       </div>
                     </button>
                   )
@@ -760,27 +660,28 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               <label className="flex items-start gap-2 text-xs cursor-pointer">
                 <Checkbox checked={manterExistentes} onCheckedChange={(v) => setManterExistentes(!!v)} className="mt-0.5" />
                 <div>
-                  <span className="font-medium">Manter vínculos já existentes</span>
+                  <span className="font-medium">Manter obrigações já existentes</span>
                   <p className="text-muted-foreground mt-0.5">
                     {manterExistentes
-                      ? 'Adiciona só os que faltam. Vínculos anteriores ficam intactos.'
-                      : 'Remove vínculos anteriores deste mesmo template antes de aplicar (zera estado deste template, mantém vínculos manuais e de outros templates).'}
+                      ? 'Ativado: adiciona só as que faltam. O que o cliente já tem fica intacto.'
+                      : 'Desativado: remove TODAS as obrigações atuais do cliente (inclusive as manuais) antes de aplicar o grupo.'}
                   </p>
                 </div>
               </label>
             </div>
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setTemplateDialogOpen(false)}>
               <X className="h-4 w-4" />Cancelar
             </Button>
             <Button
-              onClick={aplicarTemplate}
+              type="button"
+              onClick={aplicarGrupo}
               disabled={!grupoSelecionado || aplicando}
               style={{ backgroundColor: '#f97316', color: 'white' }}
             >
-              {aplicando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-              Aplicar template
+              {aplicando ? <Loader2 className="h-4 w-4 animate-spin" /> : <ListPlus className="h-4 w-4" />}
+              Aplicar grupo
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -848,10 +749,11 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
             </div>
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setAddDialogOpen(false)}>
               <X className="h-4 w-4" />Cancelar
             </Button>
             <Button
+              type="button"
               onClick={adicionarObrigacao}
               disabled={!obrSelecionada || adicionando}
               style={{ backgroundColor: MODULE_COLOR, color: 'white' }}
