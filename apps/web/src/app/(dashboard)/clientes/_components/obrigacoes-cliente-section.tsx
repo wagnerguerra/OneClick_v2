@@ -266,6 +266,12 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
 
   const totalAtivas = items.filter((i) => i.ativo).length
 
+  // Áreas realmente presentes nas obrigações do cliente — alimenta o filtro
+  // (antes eram 3 áreas fixas chumbadas; agora reflete as áreas de fato).
+  const areasPresentes = Array.from(
+    new Set(items.map((i) => i.servico.categoria).filter((c): c is string => !!c)),
+  ).sort((a, b) => a.localeCompare(b))
+
   // Filtragem em memória — universo total ≤ ~30 obrigações por cliente,
   // não compensa server-side. Aplica busca + categoria + origem + status.
   const itemsFiltrados = items.filter((i) => {
@@ -451,9 +457,9 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="TODAS">Todas as áreas</SelectItem>
-                <SelectItem value="Fiscal">Fiscal</SelectItem>
-                <SelectItem value="Trabalhista">Trabalhista</SelectItem>
-                <SelectItem value="Contábil">Contábil</SelectItem>
+                {areasPresentes.map((a) => (
+                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as any)}>
