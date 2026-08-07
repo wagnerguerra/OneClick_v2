@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  FileText, Loader2, Plus, Trash2, Pencil, Check, X,
+  FileText, Loader2, Plus, ListPlus, Trash2, Pencil, Check, X,
   Upload, DollarSign, Send, Printer, Copy as CopyIcon, ExternalLink,
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
   Package, History, Type, ChevronDown, ThumbsUp, ThumbsDown, CheckCircle2,
@@ -776,6 +776,13 @@ export default function OrcamentoDetailPage() {
   const [itemSubservicoId, setItemSubservicoId] = useState<string>('')
   const [addingItem, setAddingItem] = useState(false)
 
+  // Aplicar grupo de serviços (ServicoGrupo tipo=ORCAMENTO) em lote
+  const [grupoDialogOpen, setGrupoDialogOpen] = useState(false)
+  const [gruposOrc, setGruposOrc] = useState<Array<{ id: string; nome: string; descricao: string | null; cor: string | null; tipo: string; itens: Array<{ servico: { id: string; nome: string } }> }>>([])
+  const [loadingGruposOrc, setLoadingGruposOrc] = useState(false)
+  const [grupoOrcSelecionado, setGrupoOrcSelecionado] = useState<string | null>(null)
+  const [aplicandoGrupoOrc, setAplicandoGrupoOrc] = useState(false)
+
   // Catalogo (servicos disponiveis para orcamento)
   const [catalogo, setCatalogo] = useState<Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null; textoPadrao: string | null; textos?: CatalogoTexto[]; subservicos?: Array<{ id: string; nome: string; valorPadrao: number | string | null; textoPadrao: string | null; textos?: CatalogoTexto[] }> }>>([])
 
@@ -1425,6 +1432,36 @@ export default function OrcamentoDetailPage() {
       fetchOrc(true)
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setAddingItem(false) }
+  }
+
+  async function abrirGrupoOrc() {
+    setGrupoOrcSelecionado(null) // sempre abre sem seleção
+    setLoadingGruposOrc(true)
+    setGrupoDialogOpen(true)
+    try {
+      // Só grupos do tipo ORCAMENTO podem ser aplicados no orçamento.
+      const res = await (trpc as any).servico.listGrupos.query()
+      setGruposOrc((res as typeof gruposOrc).filter(g => g.tipo === 'ORCAMENTO'))
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message ?? 'Falha ao carregar grupos.')
+    } finally { setLoadingGruposOrc(false) }
+  }
+
+  async function aplicarGrupoOrc() {
+    if (!grupoOrcSelecionado) return
+    setAplicandoGrupoOrc(true)
+    try {
+      const res = await (trpc.orcamento as any).aplicarGrupo.mutate({ orcamentoId: id, grupoId: grupoOrcSelecionado })
+      await alerts.success(
+        'Grupo aplicado',
+        `${res.criadas} item(ns) adicionado(s)${res.pulados ? ` · ${res.pulados} pulado(s) (já presente ou indisponível)` : ''}.`,
+      )
+      setGrupoDialogOpen(false)
+      setGrupoOrcSelecionado(null)
+      fetchOrc(true)
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message ?? 'Falha ao aplicar grupo.')
+    } finally { setAplicandoGrupoOrc(false) }
   }
 
   // Ao trocar o tipo, limpa a descricao escolhida (lista do catalogo muda)
@@ -2357,11 +2394,18 @@ export default function OrcamentoDetailPage() {
                             <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{orc.itens.length}</Badge>
                           )}
                         </h4>
-                        {canManageCatalogo && (
-                          <Button variant="outline" size="xs" className="gap-1" onClick={() => router.push('/orcamentos/parametros')} title="Cadastrar/editar itens do catálogo">
-                            <Plus className="h-3.5 w-3.5" /> Catálogo
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {canManageItens && (
+                            <Button type="button" variant="outline" size="xs" className="gap-1" onClick={abrirGrupoOrc} title="Adicionar em lote os serviços de um grupo de orçamento">
+                              <ListPlus className="h-3.5 w-3.5 text-emerald-600" /> Aplicar grupo
+                            </Button>
+                          )}
+                          {canManageCatalogo && (
+                            <Button variant="outline" size="xs" className="gap-1" onClick={() => router.push('/orcamentos/parametros')} title="Cadastrar/editar itens do catálogo">
+                              <Plus className="h-3.5 w-3.5" /> Catálogo
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       {canManageItens && (
                         <div className="border-b border-border/40 bg-muted/20 px-4 py-3">
@@ -3141,6 +3185,75 @@ export default function OrcamentoDetailPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Modal: aplicar grupo de serviços (ServicoGrupo tipo=ORCAMENTO) */}
+      <Dialog open={grupoDialogOpen} onOpenChange={setGrupoDialogOpen}>
+        <DialogContent className="sm:max-w-[640px] max-h-[90vh] flex flex-col">
+          <DialogHeaderIcon icon={ListPlus} color="emerald">
+            <DialogTitle>Aplicar grupo</DialogTitle>
+            <DialogDescription className="text-xs">
+              Adiciona em lote todos os serviços do grupo selecionado como itens deste orçamento.
+              Serviço já presente ou indisponível é ignorado.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-3 overflow-auto">
+            {loadingGruposOrc ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
+              </div>
+            ) : gruposOrc.length === 0 ? (
+              <div className="text-center text-sm text-muted-foreground py-10">
+                Nenhum grupo de orçamento cadastrado. Crie em /servicos/grupos (tipo "Itens de orçamento").
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {gruposOrc.map((g) => {
+                  const ativo = grupoOrcSelecionado === g.id
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => setGrupoOrcSelecionado(g.id)}
+                      className={cn(
+                        'w-full text-left rounded-md border p-3 transition-all',
+                        ativo ? 'border-emerald-400 bg-emerald-50 dark:border-emerald-500/60 dark:bg-emerald-950/30' : 'hover:bg-muted/40',
+                      )}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div className="inline-block w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: g.cor ?? '#10b981' }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm">{g.nome}</span>
+                            <span className="text-[10px] text-muted-foreground">{g.itens.length} serviços</span>
+                          </div>
+                          {g.descricao && (
+                            <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{g.descricao}</p>
+                          )}
+                        </div>
+                        {ativo && <Check className="h-4 w-4 text-emerald-500 shrink-0" />}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setGrupoDialogOpen(false)}>
+              <X className="h-4 w-4" />Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={aplicarGrupoOrc}
+              disabled={!grupoOrcSelecionado || aplicandoGrupoOrc}
+              variant="success"
+            >
+              {aplicandoGrupoOrc ? <Loader2 className="h-4 w-4 animate-spin" /> : <ListPlus className="h-4 w-4" />}
+              Aplicar grupo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: enviar pesquisa de satisfação ao cliente */}
       <Dialog open={pesquisaEnviarModal} onOpenChange={setPesquisaEnviarModal}>
