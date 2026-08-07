@@ -252,7 +252,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
   async function bulkRemove() {
     const ok = await alerts.confirm({
       title: `Desvincular ${selected.size} obrigação(ões)?`,
-      text: 'O vínculo será removido. Os templates de origem ficam disponíveis pra reaplicar.',
+      text: 'O vínculo será removido. Você pode reaplicar um grupo de obrigações depois, se precisar.',
       confirmText: 'Desvincular', icon: 'warning',
     })
     if (!ok) return
