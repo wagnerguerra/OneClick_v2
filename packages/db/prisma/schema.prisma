@@ -840,6 +840,7 @@ model Cliente {
   folhaFiliais         FolhaFilial[]
   folhaBiSyncJobs      FolhaBiSyncJob[]
   reformaSimulacoes    ReformaTributariaSimulacao[]
+  reformaCreditoOverrides ReformaCreditoOverride[]
   folhaEventoContas    FolhaEventoConta[]
   folhaImportacoes     FolhaImportacao[]
   contratos            Contrato[]
@@ -1588,6 +1589,62 @@ model ReformaTributariaSimulacao {
   @@index([clienteId, createdAt(sort: Desc)], map: "reforma_tributaria_simulacoes_cliente_created_idx")
   @@index([empresaId, createdAt(sort: Desc)], map: "reforma_tributaria_simulacoes_empresa_created_idx")
   @@map("reforma_tributaria_simulacoes")
+}
+
+/// Tokens OAuth do Google Agenda, um por usuario.
+///
+/// Sem modelo, cada deploy com mudanca de schema apagava a tabela e todo mundo
+/// perdia a conexao com o Google sem aviso — o pior tipo de perda, porque nao
+/// da erro: a agenda simplesmente para de sincronizar.
+///
+/// `userId` e unico mas NAO tem FK no banco (a tabela nasceu em runtime, dentro
+/// do callback do OAuth). Declarar uma relacao aqui criaria a constraint que nao
+/// existe hoje — por isso fica como coluna simples.
+model GoogleCalendarToken {
+  id           String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  userId       String    @unique @map("user_id")
+  accessToken  String    @map("access_token")
+  refreshToken String?   @map("refresh_token")
+  expiresAt    DateTime? @map("expires_at") @db.Timestamp(6)
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  @@map("google_calendar_tokens")
+}
+
+/// "Chips" de acao rapida do assistente de IA do orcamento, editaveis nas
+/// Configuracoes. empresa_id nulo = sugestao global.
+model OrcamentoIaSugestao {
+  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  label     String
+  prompt    String
+  ordem     Int      @default(0)
+  empresaId String?  @map("empresa_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@index([empresaId, ordem], map: "orcamento_ia_sugestao_emp_idx")
+  @@map("orcamento_ia_sugestao")
+}
+
+/// Reclassificacao manual de conta (CREDITAVEL | NAO_CREDITAVEL | REVISAR) na
+/// Reforma Tributaria. Vence a heuristica e persiste — e o trabalho manual do
+/// usuario que ia embora junto com a tabela a cada deploy.
+model ReformaCreditoOverride {
+  id        String   @id
+  empresaId String?  @map("empresa_id")
+  clienteId String   @map("cliente_id")
+  conta     String
+  categoria String
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, conta])
+  @@index([clienteId], map: "reforma_credito_overrides_cliente_idx")
+  @@map("reforma_credito_overrides")
 }
 
 // BI — KPI Contas Ignoradas por cliente
