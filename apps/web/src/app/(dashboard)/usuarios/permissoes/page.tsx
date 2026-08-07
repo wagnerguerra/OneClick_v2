@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ShieldCheck, Loader2, Search, Users, ChevronDown, ChevronRight, Save, RotateCcw,
-  Circle,
+  Circle, Wrench, type LucideIcon,
 } from 'lucide-react'
 import { Button, Card, Input, Badge, Checkbox, cn } from '@saas/ui'
 import { MODULE_GROUPS, MODULE_LABELS, PLATFORM_ADMIN_MODULES } from '@saas/types'
@@ -31,7 +31,14 @@ const COR_DO_BLOCO: Record<string, string> = {
  * exatamente para isto. Montar um mapa próprio aqui garantiria divergência:
  * módulo novo entraria no menu com um ícone e apareceria nesta tela com outro
  * — ou sem nenhum.
+ *
+ * Ferramentas é a exceção: na barra lateral ela não é um bloco, e sim um item
+ * solto na régua da esquerda — então não está em `GROUP_ICONS`. O ícone aqui é
+ * o mesmo de lá, a chave inglesa.
  */
+const ICONE_EXTRA_DO_BLOCO: Record<string, LucideIcon> = { 'Ferramentas': Wrench }
+const iconeDoBloco = (bloco: string): LucideIcon | undefined =>
+  GROUP_ICONS[bloco] ?? ICONE_EXTRA_DO_BLOCO[bloco]
 
 
 interface Alvo {
@@ -300,7 +307,7 @@ export default function PermissoesEmMassaPage() {
                     <button onClick={() => setAbertos(s => { const n = new Set(s); n.has(bloco) ? n.delete(bloco) : n.add(bloco); return n })}
                       className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
                       {aberto ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                      {(() => { const I = GROUP_ICONS[bloco]; return I ? <I className="h-4 w-4" style={{ color: corDe(bloco) }} /> : null })()}
+                      {(() => { const I = iconeDoBloco(bloco); return I ? <I className="h-4 w-4" style={{ color: corDe(bloco) }} /> : null })()}
                       {bloco}
                       <span className="font-normal text-muted-foreground">({lista.length})</span>
                     </button>
