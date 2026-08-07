@@ -1,8 +1,10 @@
 import { z } from 'zod'
 
 /**
- * Categorias visíveis em /obrigacoes (mesmas que `Servico.categoria`).
- * Mantido como tupla pra permitir filtro via z.enum sem perder o type.
+ * Paleta de cor/sigla das áreas fiscais clássicas (Fiscal/Trabalhista/Contábil).
+ * NÃO é a lista de áreas do sistema — é só um mapa de cores conhecido; áreas fora
+ * dele caem num fallback neutro no front. A área real de uma obrigação é a relação
+ * Servico.areaId → Area (a coluna-ponte categoria_obrigacao foi removida na F2.5).
  */
 export const OBRIGACAO_CATEGORIAS = ['Fiscal', 'Trabalhista', 'Contábil'] as const
 export type ObrigacaoCategoria = (typeof OBRIGACAO_CATEGORIAS)[number]
@@ -13,18 +15,12 @@ export const OBRIGACAO_CATEGORIA_CORES: Record<ObrigacaoCategoria, { bg: string;
   Contábil:    { bg: 'bg-violet-50',  text: 'text-violet-700',  border: 'border-violet-200' },
 }
 
-export const listObrigacoesSchema = z.object({
-  categoria: z.enum(OBRIGACAO_CATEGORIAS).optional(),
-  frequencia: z.enum(['DIARIA', 'SEMANAL', 'MENSAL', 'TRIMESTRAL', 'SEMESTRAL', 'ANUAL']).optional(),
-  search: z.string().optional(),
-  ativo: z.boolean().optional(),
-}).optional()
-export type ListObrigacoesInput = z.infer<typeof listObrigacoesSchema>
-
 export const createObrigacaoSchema = z.object({
   nome: z.string().min(2),
   descricao: z.string().optional().nullable(),
-  categoria: z.enum(OBRIGACAO_CATEGORIAS),
+  // Área real da obrigação (Servico.areaId). Por ID — o front escolhe da lista de
+  // áreas do sistema. Opcional: obrigação pode nascer sem área e ser ajustada depois.
+  areaId: z.string().min(1).optional().nullable(),
   fonteUrl: z.string().url().optional().nullable(),
   documentacaoUrl: z.string().url().optional().nullable(),
   // Recorrência inicial — opcional; usuário ajusta depois em /servicos/[id]

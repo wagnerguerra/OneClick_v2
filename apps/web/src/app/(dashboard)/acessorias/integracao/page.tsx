@@ -527,8 +527,10 @@ function MappingPanel() {
   const [createOpen, setCreateOpen] = useState(false)
   const [createForObrigation, setCreateForObrigation] = useState<string>('')
   const [createNome, setCreateNome] = useState('')
-  const [createArea, setCreateArea] = useState('')
+  const [createAreaId, setCreateAreaId] = useState<string>('')
   const [createSaving, setCreateSaving] = useState(false)
+  // Áreas reais do sistema — pra escolher a área da obrigação por ID (não mais 3 fixas).
+  const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
 
   // Modal de limpeza de vínculos em lote
   const [limpezaOpen, setLimpezaOpen] = useState(false)
@@ -567,6 +569,13 @@ function MappingPanel() {
 
   useEffect(() => { void fetchAll() }, [fetchAll])
 
+  // Carrega as áreas do sistema pro seletor de área da obrigação (por ID).
+  useEffect(() => {
+    (trpc as any).area.listForSelect.query()
+      .then((r: Array<{ id: string; name: string }>) => setAreas(r ?? []))
+      .catch(() => { /* silencioso — o select só fica vazio */ })
+  }, [])
+
   /**
    * Recarrega SÓ os vínculos, sem acender o carregando.
    *
@@ -595,14 +604,15 @@ function MappingPanel() {
   function abrirCriacao(obrigacao: string, departamento?: string | null) {
     setCreateForObrigation(obrigacao)
     setCreateNome(sugestaoNomeServico(obrigacao))
-    // Aproveita o departamento que veio do Acessórias como palpite da categoria
-    // — o usuário confirma, mas na maioria das vezes já vem certo.
+    // Aproveita o departamento do Acessórias como palpite da área — casa o nome
+    // provável com uma área real carregada (o usuário confirma/troca). Por ID.
     const d = String(departamento ?? '').toLowerCase()
-    setCreateArea(
-      d.includes('pessoal') || d.includes('trabalh') ? 'Trabalhista'
-        : d.includes('cont') ? 'Contábil'
-        : 'Fiscal',
-    )
+    const nomePalpite =
+      d.includes('pessoal') || d.includes('trabalh') ? 'trabalhista'
+        : d.includes('cont') ? 'contábil'
+        : 'fiscal'
+    const areaPalpite = areas.find((a) => a.name.toLowerCase() === nomePalpite)
+    setCreateAreaId(areaPalpite?.id ?? '')
     setCreateOpen(true)
   }
 
@@ -615,7 +625,7 @@ function MappingPanel() {
       //    serviço mensal comum e ia parar na lista comercial).
       const created = await (trpc as any).servico.createObrigacaoAcessoria.mutate({
         nome: createNome.trim(),
-        categoria: createArea || 'Fiscal',
+        areaId: createAreaId || null,
       }) as { id: string; nome: string }
       // 2. Vincula a obrigação do Acessórias à recém-criada.
       await (trpc as any).acessorias.addObligationServico.mutate({
@@ -1085,17 +1095,15 @@ function MappingPanel() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Categoria *</Label>
-              {/* A obrigação acessória aceita exatamente estas três — não são as
-                  áreas do sistema. Oferecer as áreas fazia o cadastro ser
-                  recusado por valor inválido. */}
-              <Select value={createArea || 'Fiscal'} onValueChange={setCreateArea}>
+              {/* Área real do sistema (por ID). A obrigação nasce com Servico.areaId. */}
+              <Select value={createAreaId || undefined} onValueChange={setCreateAreaId}>
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione a área" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Fiscal">Fiscal</SelectItem>
-                  <SelectItem value="Trabalhista">Trabalhista</SelectItem>
-                  <SelectItem value="Contábil">Contábil</SelectItem>
+                  {areas.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground">

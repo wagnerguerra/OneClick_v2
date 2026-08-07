@@ -1128,24 +1128,13 @@ export class ServicoService {
    *  Movido do ex-módulo `obrigacao`; usado pela integração do Acessórias. */
   async createObrigacaoAcessoria(input: CreateObrigacaoInput, empresaId?: string) {
     return prisma.$transaction(async (tx) => {
-      // Resolve a Área real pelo nome (input.categoria = Fiscal/Trabalhista/Contábil),
-      // preferindo a área da empresa sobre a global. Antes gravava categoria_obrigacao
-      // (coluna-ponte removida na F2.5).
-      const area = input.categoria
-        ? await tx.area.findFirst({
-            where: {
-              name: { equals: input.categoria, mode: 'insensitive' },
-              OR: [{ empresaId: empresaId ?? null }, { empresaId: null }],
-            },
-            orderBy: { empresaId: { sort: 'asc', nulls: 'last' } },
-            select: { id: true },
-          })
-        : null
+      // Área real por ID (Servico.areaId) — o front escolhe da lista de áreas.
+      // Antes gravava categoria_obrigacao (coluna-ponte removida na F2.5).
       const servico = await tx.servico.create({
         data: {
           nome: input.nome,
           descricao: input.descricao ?? null,
-          areaId: area?.id ?? null,
+          areaId: input.areaId ?? null,
           categoriaServico: 'MENSAL',
           ehObrigacaoAcessoria: true,
           atribuicaoResponsavel: 'CLIENTE_AREA',
