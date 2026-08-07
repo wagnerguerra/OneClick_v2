@@ -1,121 +1,19 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
-import type {
-  CreateGrupoObrigacaoInput,
-  ListGruposObrigacaoInput,
-} from '@saas/types'
 import { RecorrenciaScheduler } from '../notificacao/recorrencia.scheduler'
 
+/**
+ * Vínculo Cliente ↔ Obrigação: lista por cliente, aplicação de grupo, calendário
+ * e disparo diário da agenda. Antes era `grupo-obrigacao` e também fazia o CRUD dos
+ * templates GrupoObrigacao — esse sistema foi unificado no ServicoGrupo (Frente 3),
+ * então o módulo passou a cuidar só do que é do cliente.
+ */
 @Injectable()
-export class GrupoObrigacaoService {
+export class ClienteObrigacaoService {
   constructor(
     @Inject(forwardRef(() => RecorrenciaScheduler))
     private readonly recorrenciaScheduler: RecorrenciaScheduler,
   ) {}
-
-  // ── Grupos (templates) ────────────────────────────────────
-
-  async listGrupos(input: ListGruposObrigacaoInput, empresaId?: string) {
-    const where: any = {
-      OR: [{ empresaId: null }, ...(empresaId ? [{ empresaId }] : [])],
-    }
-    if (input?.tributacao) where.tributacao = input.tributacao
-    if (input?.ativo !== undefined) where.ativo = input.ativo
-    if (input?.search) {
-      where.AND = [{
-        OR: [
-          { nome: { contains: input.search, mode: 'insensitive' } },
-          { descricao: { contains: input.search, mode: 'insensitive' } },
-        ],
-      }]
-    }
-    return prisma.grupoObrigacao.findMany({
-      where,
-      include: {
-        itens: {
-          orderBy: { ordem: 'asc' },
-          include: { servico: { select: { id: true, nome: true, categoriaObrigacao: true } } },
-        },
-      },
-      orderBy: [{ tributacao: 'asc' }, { nome: 'asc' }],
-    })
-  }
-
-  async getGrupo(id: string) {
-    return prisma.grupoObrigacao.findUnique({
-      where: { id },
-      include: {
-        itens: {
-          orderBy: { ordem: 'asc' },
-          include: { servico: { select: { id: true, nome: true, categoriaObrigacao: true } } },
-        },
-      },
-    })
-  }
-
-  async createGrupo(input: CreateGrupoObrigacaoInput, empresaId?: string) {
-    return prisma.$transaction(async (tx) => {
-      const grupo = await tx.grupoObrigacao.create({
-        data: {
-          nome: input.nome,
-          slug: input.slug,
-          descricao: input.descricao ?? null,
-          tributacao: input.tributacao ?? null,
-          segmentoSlug: input.segmentoSlug ?? null,
-          area: input.area ?? null,
-          cor: input.cor ?? '#10b981',
-          ativo: input.ativo,
-          cnaesAplicaveis: input.cnaesAplicaveis,
-          empresaId: empresaId ?? null,
-        },
-      })
-      if (input.servicoIds.length > 0) {
-        await tx.grupoObrigacaoItem.createMany({
-          data: input.servicoIds.map((servicoId, i) => ({
-            grupoId: grupo.id,
-            servicoId,
-            ordem: i,
-          })),
-        })
-      }
-      return grupo
-    })
-  }
-
-  async updateGrupo(id: string, data: Partial<CreateGrupoObrigacaoInput>) {
-    return prisma.$transaction(async (tx) => {
-      const updateData: any = {}
-      if (data.nome !== undefined) updateData.nome = data.nome
-      if (data.slug !== undefined) updateData.slug = data.slug
-      if (data.descricao !== undefined) updateData.descricao = data.descricao
-      if (data.tributacao !== undefined) updateData.tributacao = data.tributacao
-      if (data.segmentoSlug !== undefined) updateData.segmentoSlug = data.segmentoSlug
-      if (data.area !== undefined) updateData.area = data.area
-      if (data.cor !== undefined) updateData.cor = data.cor
-      if (data.ativo !== undefined) updateData.ativo = data.ativo
-      if (data.cnaesAplicaveis !== undefined) updateData.cnaesAplicaveis = data.cnaesAplicaveis
-      const grupo = await tx.grupoObrigacao.update({ where: { id }, data: updateData })
-
-      if (data.servicoIds !== undefined) {
-        // Reseta todos os vínculos — mais simples que diff
-        await tx.grupoObrigacaoItem.deleteMany({ where: { grupoId: id } })
-        if (data.servicoIds.length > 0) {
-          await tx.grupoObrigacaoItem.createMany({
-            data: data.servicoIds.map((sid, i) => ({ grupoId: id, servicoId: sid, ordem: i })),
-          })
-        }
-      }
-      return grupo
-    })
-  }
-
-  async deleteGrupo(id: string) {
-    return prisma.grupoObrigacao.delete({ where: { id } })
-  }
-
-  async bulkDeleteGrupos(ids: string[]) {
-    return prisma.grupoObrigacao.deleteMany({ where: { id: { in: ids } } })
-  }
 
   // ── Cliente ↔ Obrigação ────────────────────────────────────
 
@@ -185,7 +83,7 @@ export class GrupoObrigacaoService {
    *    de origem por-template foi removido na unificação dos grupos, o "substituir"
    *    passou a ser um wipe total — o front avisa disso antes de confirmar.
    */
-  async aplicarTemplate(input: { clienteId: string; grupoId: string; manterExistentes: boolean }, empresaId?: string) {
+  async aplicarGrupo(input: { clienteId: string; grupoId: string; manterExistentes: boolean }, empresaId?: string) {
     const grupo = await prisma.servicoGrupo.findUnique({
       where: { id: input.grupoId },
       include: { itens: { select: { servicoId: true } } },
@@ -369,21 +267,5 @@ export class GrupoObrigacaoService {
     }
     out.sort((a, b) => (a.categoria ?? '').localeCompare(b.categoria ?? '') || a.clienteNome.localeCompare(b.clienteNome))
     return out
-  }
-
-  /** Stats pro header da página: total grupos, ativos, por regime. */
-  async getStats() {
-    const todos = await prisma.grupoObrigacao.findMany({
-      select: { tributacao: true, ativo: true },
-    })
-    const stats = {
-      total: todos.length,
-      ativos: todos.filter((g) => g.ativo).length,
-      porTributacao: { SIMPLES_NACIONAL: 0, LUCRO_PRESUMIDO: 0, LUCRO_REAL: 0, MEI: 0, IMUNE: 0, ISENTA: 0 } as Record<string, number>,
-    }
-    for (const g of todos) {
-      if (g.tributacao) stats.porTributacao[g.tributacao] = (stats.porTributacao[g.tributacao] ?? 0) + 1
-    }
-    return stats
   }
 }

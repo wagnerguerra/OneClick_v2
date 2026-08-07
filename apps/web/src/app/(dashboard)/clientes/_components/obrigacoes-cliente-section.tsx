@@ -86,7 +86,7 @@ function iniciais(nome: string): string {
 
 // Recomendação automática por tributação/CNAE foi removida na unificação dos
 // grupos (o ServicoGrupo não carrega esses campos). Ver comentário-espelho em
-// grupo-obrigacao.service.ts para como revisitar a ideia no futuro.
+// cliente-obrigacao.service.ts para como revisitar a ideia no futuro.
 
 export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
   const { canManageResponsible } = useClientesPerms()
@@ -127,7 +127,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
     setLoading(true)
     try {
       const [res, servicos] = await Promise.all([
-        (trpc as any).grupoObrigacao.listDoCliente.query({ clienteId }),
+        (trpc as any).clienteObrigacao.listDoCliente.query({ clienteId }),
         (trpc as any).cliente.servicosListar.query({ clienteId }).catch(() => null),
       ])
       setItems(res as ClienteObrigacao[])
@@ -182,7 +182,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
     }
     setAplicando(true)
     try {
-      const res = await (trpc as any).grupoObrigacao.aplicarTemplate.mutate({
+      const res = await (trpc as any).clienteObrigacao.aplicarGrupo.mutate({
         clienteId,
         grupoId: grupoSelecionado,
         manterExistentes,
@@ -217,7 +217,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
     if (!obrSelecionada) return
     setAdicionando(true)
     try {
-      await (trpc as any).grupoObrigacao.addAoCliente.mutate({
+      await (trpc as any).clienteObrigacao.addAoCliente.mutate({
         clienteId,
         servicoId: obrSelecionada,
         observacao: obrObservacao.trim() || null,
@@ -232,7 +232,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
 
   async function toggleAtivo(item: ClienteObrigacao) {
     try {
-      await (trpc as any).grupoObrigacao.updateDoCliente.mutate({
+      await (trpc as any).clienteObrigacao.updateDoCliente.mutate({
         id: item.id,
         data: { ativo: !item.ativo },
       })
@@ -243,7 +243,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
   async function remover(item: ClienteObrigacao) {
     if (!await alerts.confirmDelete(item.servico.nome)) return
     try {
-      await (trpc as any).grupoObrigacao.removeDoCliente.mutate({ id: item.id })
+      await (trpc as any).clienteObrigacao.removeDoCliente.mutate({ id: item.id })
       await alerts.success('Removida', `"${item.servico.nome}" foi desvinculada.`)
       fetchData()
     } catch (e: any) { alerts.error('Erro', e?.message ?? 'Falha ao remover.') }
@@ -257,7 +257,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
     })
     if (!ok) return
     try {
-      await (trpc as any).grupoObrigacao.bulkRemoveDoCliente.mutate({ ids: Array.from(selected) })
+      await (trpc as any).clienteObrigacao.bulkRemoveDoCliente.mutate({ ids: Array.from(selected) })
       setSelected(new Set())
       await alerts.success('Removidas', `${selected.size} obrigação(ões) desvinculada(s).`)
       fetchData()
@@ -294,7 +294,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
   return (
     <div className="space-y-4">
       {/* Banner de recomendação automática removido na unificação dos grupos —
-          ver comentário em grupo-obrigacao.service.ts para revisitar a ideia. */}
+          ver comentário em cliente-obrigacao.service.ts para revisitar a ideia. */}
 
       {/* Painel de responsáveis por área (do ClienteAreaContratada) */}
       {areasResponsaveis.length > 0 && (

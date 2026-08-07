@@ -1,48 +1,16 @@
 import { z } from 'zod'
 import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
-import { GrupoObrigacaoService } from './grupo-obrigacao.service'
+import { ClienteObrigacaoService } from './cliente-obrigacao.service'
 import {
-  listGruposObrigacaoSchema,
-  createGrupoObrigacaoSchema,
-  updateGrupoObrigacaoSchema,
   aplicarTemplateSchema,
   addClienteObrigacaoSchema,
   updateClienteObrigacaoSchema,
 } from '@saas/types'
 
-const MODULE_CFG = 'configuracoes'
 const MODULE_CLIENTES = 'clientes'
 
-export function createGrupoObrigacaoRouter(svc: GrupoObrigacaoService) {
+export function createClienteObrigacaoRouter(svc: ClienteObrigacaoService) {
   return router({
-    // ── Templates ──────────────────────────────────────────
-    list: readProcedure(MODULE_CFG)
-      .input(listGruposObrigacaoSchema)
-      .query(({ input, ctx }) => svc.listGrupos(input, ctx.empresaId)),
-
-    stats: readProcedure(MODULE_CFG)
-      .query(() => svc.getStats()),
-
-    getById: readProcedure(MODULE_CFG)
-      .input(z.object({ id: z.string() }))
-      .query(({ input }) => svc.getGrupo(input.id)),
-
-    create: writeProcedure(MODULE_CFG)
-      .input(createGrupoObrigacaoSchema)
-      .mutation(({ input, ctx }) => svc.createGrupo(input, ctx.empresaId)),
-
-    update: writeProcedure(MODULE_CFG)
-      .input(updateGrupoObrigacaoSchema)
-      .mutation(({ input }) => svc.updateGrupo(input.id, input.data)),
-
-    delete: deleteProcedure(MODULE_CFG)
-      .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => svc.deleteGrupo(input.id)),
-
-    bulkDelete: deleteProcedure(MODULE_CFG)
-      .input(z.object({ ids: z.array(z.string()).min(1) }))
-      .mutation(({ input }) => svc.bulkDeleteGrupos(input.ids)),
-
     // ── Cliente ↔ Obrigação ───────────────────────────────
     listDoCliente: readProcedure(MODULE_CLIENTES)
       .input(z.object({ clienteId: z.string() }))
@@ -65,12 +33,9 @@ export function createGrupoObrigacaoRouter(svc: GrupoObrigacaoService) {
       .mutation(({ input }) => svc.bulkRemoveObrigacaoCliente(input.ids)),
 
     // ── Aplicar grupo (ServicoGrupo tipo=OBRIGACOES) ──────
-    aplicarTemplate: writeProcedure(MODULE_CLIENTES)
+    aplicarGrupo: writeProcedure(MODULE_CLIENTES)
       .input(aplicarTemplateSchema)
-      .mutation(({ input, ctx }) => svc.aplicarTemplate(input, ctx.empresaId)),
-
-    // recomendarParaCliente removido na unificação dos grupos — ver comentário
-    // em grupo-obrigacao.service.ts (o ServicoGrupo não tem tributação/CNAE).
+      .mutation(({ input, ctx }) => svc.aplicarGrupo(input, ctx.empresaId)),
 
     // ── Calendário de vencimentos do cliente ──────────────
     calendarioDoCliente: readProcedure(MODULE_CLIENTES)

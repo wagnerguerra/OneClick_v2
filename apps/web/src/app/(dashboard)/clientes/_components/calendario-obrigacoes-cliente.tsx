@@ -246,7 +246,7 @@ export function CalendarioObrigacoesCliente({ clienteId }: { clienteId: string }
 
   useEffect(() => {
     setLoading(true)
-    ;(trpc as any).grupoObrigacao.calendarioDoCliente.query({ clienteId, ano })
+    ;(trpc as any).clienteObrigacao.calendarioDoCliente.query({ clienteId, ano })
       .then((res: Evento[]) => setEventos(res))
       .catch(() => setEventos([]))
       .finally(() => setLoading(false))
