@@ -13,8 +13,8 @@ import type {
   CreateCompraCriterioInput, UpdateCompraCriterioInput,
 } from '@saas/types'
 
-function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.CompraWhereInput {
-  return !isMaster && empresaId ? { empresaId } : {}
+function empresaFilter(_isMaster: boolean, empresaId?: string): Prisma.CompraWhereInput {
+  return empresaId ? { empresaId } : {}
 }
 const dec = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v))
 
@@ -322,10 +322,10 @@ export class CompraService {
   }
 
   /** Critérios de avaliação aplicáveis + a resposta atual do pedido (p/ o modal de avaliar). */
-  async getAvaliacao(compraId: string, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+  async getAvaliacao(compraId: string, _isMaster: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
       const criterios = await db.compraCriterio.findMany({
-        where: { isActive: true, ...(!isMaster && empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) },
+        where: { isActive: true, ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) },
         orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
       })
       const respostas = await db.compraAvaliacaoResposta.findMany({ where: { compraId } })
@@ -404,9 +404,9 @@ export class CompraService {
   }
 
   // ── Critérios de avaliação (catálogo) ───────────────────────
-  async listCriterios(isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+  async listCriterios(_isMaster: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, (db) =>
-      db.compraCriterio.findMany({ where: { isActive: true, ...(!isMaster && empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) }, orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }] }),
+      db.compraCriterio.findMany({ where: { isActive: true, ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}) }, orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }] }),
     )
   }
   async createCriterio(input: CreateCompraCriterioInput, empresaId?: string, tenantSchema?: string) {
@@ -428,10 +428,10 @@ export class CompraService {
     return scoped(tenantSchema, (db) => db.compraCriterio.update({ where: { id }, data: { isActive: false } }))
   }
 
-  async listForSelectFornecedores(isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+  async listForSelectFornecedores(_isMaster: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, (db) =>
       db.fornecedor.findMany({
-        where: { isActive: true, ...(!isMaster && empresaId ? { empresaId } : {}) },
+        where: { isActive: true, ...(empresaId ? { empresaId } : {}) },
         select: { id: true, razaoSocial: true, documento: true },
         orderBy: { razaoSocial: 'asc' },
       }),
@@ -452,11 +452,11 @@ export class CompraService {
    * entram como aprovadores implícitos (o guard os libera sempre), sinalizados
    * com `implicito` para a tela não oferecer um toggle que não faria nada.
    */
-  async listAprovadores(isMaster: boolean, empresaId?: string) {
+  async listAprovadores(_isMaster: boolean, empresaId?: string) {
     const users = await prisma.user.findMany({
       where: {
         isActive: true,
-        ...(!isMaster && empresaId ? { empresaId } : {}),
+        ...(empresaId ? { empresaId } : {}),
         // Colaborador de cliente não aprova compra interna.
         role: { not: 'COLABORADOR_CLIENTE' },
       },

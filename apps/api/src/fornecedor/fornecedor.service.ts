@@ -8,8 +8,8 @@ import type {
   CreateFornecedorMensagemInput, UpdateFornecedorMensagemInput,
 } from '@saas/types'
 
-function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.FornecedorWhereInput {
-  return !isMaster && empresaId ? { empresaId } : {}
+function empresaFilter(_isMaster: boolean, empresaId?: string): Prisma.FornecedorWhereInput {
+  return empresaId ? { empresaId } : {}
 }
 
 @Injectable()
@@ -239,10 +239,10 @@ export class FornecedorService {
   }
 
   // ── Categorias (tags) ────────────────────────────────────────
-  async listCategorias(isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+  async listCategorias(_isMaster: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, (db) =>
       db.fornecedorCategoria.findMany({
-        where: { isActive: true, ...(!isMaster && empresaId ? { empresaId } : {}) },
+        where: { isActive: true, ...(empresaId ? { empresaId } : {}) },
         orderBy: { nome: 'asc' },
         select: { id: true, nome: true, _count: { select: { vinculos: true } } },
       }),
@@ -361,12 +361,12 @@ export class FornecedorService {
   }
 
   // ── Critérios de seleção/homologação (port v1 cad_for_cri) ──
-  async listCriterios(isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+  async listCriterios(_isMaster: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, (db) =>
       db.fornecedorCriterio.findMany({
         where: {
           isActive: true,
-          ...(!isMaster && empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
+          ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
         },
         orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
       }),
@@ -408,7 +408,7 @@ export class FornecedorService {
 
   /** Checklist de qualificação de um fornecedor: critérios aplicáveis ao tipo dele
    *  (ou AMBOS) + a resposta atual (atende Sim/Não), se houver. */
-  async getQualificacoes(fornecedorId: string, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+  async getQualificacoes(fornecedorId: string, _isMaster: boolean, empresaId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
       const forn = await db.fornecedor.findUniqueOrThrow({
         where: { id: fornecedorId },
@@ -417,7 +417,7 @@ export class FornecedorService {
       const criterios = await db.fornecedorCriterio.findMany({
         where: {
           isActive: true,
-          ...(!isMaster && empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
+          ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
           ...(forn.tipoFornecedor !== 'AMBOS'
             ? { tipoFornecedor: { in: [forn.tipoFornecedor, 'AMBOS'] } }
             : {}),

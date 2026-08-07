@@ -56,9 +56,9 @@ export class BeneficioService {
   }
 
   // ── Empresas (seletor CENTRAL / L&L) ───────────────────────────────
-  async listEmpresas(empresaId?: string | null, isMaster?: boolean) {
+  async listEmpresas(empresaId?: string | null, _isMaster?: boolean) {
     return prisma.empresa.findMany({
-      where: { isActive: true, ...(isMaster ? {} : empresaId ? { id: empresaId } : {}) },
+      where: { isActive: true, ...(empresaId ? { id: empresaId } : {}) },
       select: { id: true, razaoSocial: true, nomeFantasia: true },
       orderBy: { razaoSocial: 'asc' },
     }).catch(() => [] as Array<{ id: string; razaoSocial: string; nomeFantasia: string | null }>)

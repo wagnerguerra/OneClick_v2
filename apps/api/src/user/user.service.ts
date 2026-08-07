@@ -24,6 +24,7 @@ export class UserService {
   async list(input: ListUserInput, callerIsMaster: boolean, callerEmpresaId?: string) {
     const { page, limit, search, sortBy, sortDir, role, empresaId } = input
     const incluirInativos = (input as any).incluirInativos === true
+    const empresaEfetiva = (callerIsMaster && empresaId) ? empresaId : callerEmpresaId
     const { skip, take } = getPrismaSkipTake(page, limit)
 
     const where: Prisma.UserWhereInput = {
@@ -36,21 +37,26 @@ export class UserService {
           }
         : {}),
       ...(role ? { role } : {}),
-      ...(empresaId ? { empresaId } : {}),
       // Por padrão esconde inativos (soft-deleted). Pra mostrar todos, passar incluirInativos=true.
       ...(incluirInativos ? {} : { isActive: true }),
-      // Atravessar tenants é exclusivo do master. Para os demais a empresa é
-      // sempre a própria — e a chave repetida aqui, por vir depois, sobrepõe a
-      // que veio no filtro.
+      // Empresa efetiva: a que o master pediu explicitamente (a aba de usuários
+      // dentro de Empresas faz isso) ou, no caso normal, a empresa ATIVA dele.
+      // O master atravessa tenants TROCANDO de empresa, não somando todas: com a
+      // Central carregada, a equipe da JR não pode aparecer na tela.
       //
-      // Sobrepor, porém, não basta: devolver a PRÓPRIA lista para quem pediu a
-      // de outra empresa responde a pergunta errada, e na tela da empresa X
-      // apareceria a equipe da empresa Y. Nesse caso a resposta correta é
-      // vazia.
-      ...(!callerIsMaster && callerEmpresaId
-        ? (empresaId && empresaId !== callerEmpresaId
-            ? { id: { in: [] as string[] } }
-            : { empresaId: callerEmpresaId })
+      // Usuário SEM empresa entra junto de propósito. São contas que existem e
+      // logam; escondidas de todo mundo, ficariam sem quem as administre.
+      //
+      // Vai dentro de um AND, e não como `OR` solto: a busca por nome/e-mail
+      // acima também usa `OR`, e a chave repetida no mesmo objeto sobrescreve a
+      // primeira — o filtro de empresa apagaria a busca em silêncio.
+      ...(empresaEfetiva
+        ? { AND: [{ OR: [{ empresaId: empresaEfetiva }, { empresaId: null }] }] }
+        : {}),
+      // Não-master pedindo a lista de outra empresa: a resposta certa é vazia —
+      // devolver a própria responderia a pergunta errada.
+      ...(!callerIsMaster && empresaId && empresaId !== callerEmpresaId
+        ? { id: { in: [] as string[] } }
         : {}),
     }
 
@@ -112,10 +118,10 @@ export class UserService {
    *    governada por uma sub-permissão, não pelo módulo inteiro.
    * Escopo: não-master vê só usuários da própria empresa (igual ao list).
    */
-  async comAcessoAoModulo(moduleSlug: string, callerIsMaster = false, callerEmpresaId?: string, subPermission?: string) {
+  async comAcessoAoModulo(moduleSlug: string, _callerIsMaster = false, callerEmpresaId?: string, subPermission?: string) {
     const where: Prisma.UserWhereInput = {
       isActive: true,
-      ...(!callerIsMaster && callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
+      ...(callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
     }
 
     const users = await prisma.user.findMany({
@@ -783,10 +789,10 @@ export class UserService {
     return { updated, permissionsCopied: sourcePerms.length }
   }
 
-  async exportAll(callerIsMaster: boolean, callerEmpresaId?: string) {
+  async exportAll(_callerIsMaster: boolean, callerEmpresaId?: string) {
     return prisma.user.findMany({
       where: {
-        ...(!callerIsMaster && callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
+        ...(callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
       },
       orderBy: { name: 'asc' },
       select: {

@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake, scoped, Prisma } from '@saas/db'
 import type { CreateSocioInput, UpdateSocioInput, ListSocioInput } from '@saas/types'
 
-function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.SocioWhereInput {
-  return !isMaster && empresaId ? { empresaId } : {}
+function empresaFilter(_isMaster: boolean, empresaId?: string): Prisma.SocioWhereInput {
+  return empresaId ? { empresaId } : {}
 }
 
 @Injectable()

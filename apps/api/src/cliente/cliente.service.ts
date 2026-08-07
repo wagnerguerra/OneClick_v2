@@ -30,9 +30,19 @@ function detectChanges(before: Record<string, unknown>, after: Record<string, un
   return Object.keys(changes).length > 0 ? changes : null
 }
 
+/**
+ * Recorte por empresa.
+ *
+ * O master TAMBEM e recortado: o poder dele e TROCAR de empresa pelo seletor do
+ * cabecalho, nao ver todas somadas. Uma tabela que mistura tenants mostra o
+ * cliente de um escritorio na tela do outro.
+ *
+ * Sem empresa ativa, so o master ve tudo — o nao-master fica sem nada, que e o
+ * comportamento seguro de sempre.
+ */
 function empresaFilter(isMaster?: boolean, empresaId?: string): Prisma.ClienteWhereInput {
-  if (isMaster) return {}
-  return empresaId ? { empresaId } : { empresaId: '__none__' }
+  if (empresaId) return { empresaId }
+  return isMaster ? {} : { empresaId: '__none__' }
 }
 
 function parseOptionalDate(value?: string | null): Date | null {
@@ -118,11 +128,11 @@ export class ClienteService {
                WHERE deleted_at IS NULL AND tipo_documento = 'CNPJ'
                  AND length(documento) = 14
                  AND (eh_matriz = true OR (eh_matriz IS NULL AND substring(documento, 9, 4) = '0001'))
-                 ${isMaster ? '' : 'AND empresa_id = $1'}
+                 ${empresaId ? 'AND empresa_id = $1' : ''}
              )
            )
-           ${isMaster ? '' : 'AND c.empresa_id = $1'}`,
-        ...(isMaster ? [] : [empresaId ?? '']),
+           ${empresaId ? 'AND c.empresa_id = $1' : ''}`,
+        ...(empresaId ? [empresaId] : []),
       )
       matrizFilter = [{ id: { in: rows.map(r => r.id) } }]
     }
@@ -152,9 +162,9 @@ export class ClienteService {
              OR telefone   ILIKE $1
              OR id_sistema ILIKE $1
            )
-           ${isMaster ? '' : 'AND empresa_id = $2'}`,
+           ${empresaId ? 'AND empresa_id = $2' : ''}`,
         term,
-        ...(isMaster ? [] : [empresaId ?? '']),
+        ...(empresaId ? [empresaId] : []),
       )
       // OR com matches de enum (situação/tributação) — esses ainda funcionam
       // pelo where do Prisma porque os enums não têm acento.
@@ -334,12 +344,12 @@ export class ClienteService {
    * Todos os CNPJs da MESMA RAIZ (matriz + filiais), EXCETO o cliente atual —
    * para o seletor de filiais no header do detalhe. Ordena a matriz (/0001) primeiro.
    */
-  async listMesmaRaiz(clienteId: string, documento: string, isMaster?: boolean, empresaId?: string) {
+  async listMesmaRaiz(clienteId: string, documento: string, _isMaster?: boolean, empresaId?: string) {
     const doc = limparCnpj(documento)
     if (doc.length !== 14) return []
     const base = doc.slice(0, 8)
     const params: unknown[] = [base, clienteId]
-    if (!isMaster) params.push(empresaId)
+    if (empresaId) params.push(empresaId)
     return prisma.$queryRawUnsafe<Array<{
       id: string; documento: string; razaoSocial: string; nomeFantasia: string | null
       ehMatriz: boolean | null; status: string; situacao: string
@@ -353,7 +363,7 @@ export class ClienteService {
          AND length(c.documento) = 14
          AND substring(c.documento, 1, 8) = $1
          AND c.id <> $2
-         ${isMaster ? '' : 'AND c.empresa_id = $3'}
+         ${empresaId ? 'AND c.empresa_id = $3' : ''}
        ORDER BY (substring(c.documento, 9, 4) = '0001') DESC, substring(c.documento, 9, 4)`,
       ...params,
     )
@@ -652,7 +662,7 @@ export class ClienteService {
       prisma.cliente.findMany({ where: { ...base, tipoCliente: { not: null } }, select: { tipoCliente: true }, distinct: ['tipoCliente'], orderBy: { tipoCliente: 'asc' } }),
       prisma.clienteAtividade.findMany({ where: { cliente: base }, select: { valor: true }, distinct: ['valor'], orderBy: { valor: 'asc' } }),
       prisma.clienteBeneficio.findMany({ where: { cliente: base }, select: { valor: true }, distinct: ['valor'], orderBy: { valor: 'asc' } }),
-      prisma.area.findMany({ where: isMaster ? {} : { OR: [{ empresaId }, { empresaId: null }] }, select: { name: true }, distinct: ['name'], orderBy: { name: 'asc' } }),
+      prisma.area.findMany({ where: empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}, select: { name: true }, distinct: ['name'], orderBy: { name: 'asc' } }),
     ])
     return {
       grupos: grupos.map(g => g.grupo).filter(Boolean),

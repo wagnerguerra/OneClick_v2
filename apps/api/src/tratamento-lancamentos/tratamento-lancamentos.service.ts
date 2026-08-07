@@ -34,8 +34,8 @@ function projectTrace(t: TraceRow): ConvertTraceRow {
   }
 }
 
-function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.TreatmentModelWhereInput {
-  return !isMaster && empresaId ? { empresaId } : {}
+function empresaFilter(_isMaster: boolean, empresaId?: string): Prisma.TreatmentModelWhereInput {
+  return empresaId ? { empresaId } : {}
 }
 
 /** Garante que a linha pertence à empresa do usuário (master ignora o filtro). */

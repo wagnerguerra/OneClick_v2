@@ -66,7 +66,7 @@ export class DuplicidadeService {
    * continuam sendo o mesmo cliente duas vezes e precisam aparecer.
    */
   async listar(
-    isMaster: boolean,
+    _isMaster: boolean,
     empresaId: string | undefined,
     opts: { apenasComDado?: boolean } = {},
   ): Promise<{ grupos: GrupoDuplicado[]; totalGrupos: number; totalExcedentes: number }> {
@@ -74,7 +74,7 @@ export class DuplicidadeService {
       (v) => `(SELECT COUNT(*) FROM "${v.tabela}" x WHERE x.cliente_id = c.id) AS "${v.chave}"`,
     ).join(',\n           ')
 
-    const filtroEmpresa = !isMaster && empresaId ? 'AND c.empresa_id = $1' : ''
+    const filtroEmpresa = empresaId ? 'AND c.empresa_id = $1' : ''
 
     const sql = `
       WITH norm AS (

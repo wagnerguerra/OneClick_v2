@@ -634,7 +634,7 @@ export class AgendaService {
   async getById(id: string, isMaster = false, empresaId: string | null = null, viewerId?: string | null) {
     return prisma.agendaEvento.findFirstOrThrow({
       // Isolamento multi-tenant: não-master só acessa eventos da própria empresa.
-      where: { id, ...(isMaster ? {} : { empresaId }) },
+      where: { id, ...(empresaId ? { empresaId } : {}) },
       include: {
         tipo: { select: { id: true, nome: true, cor: true, corBorda: true, corTexto: true } },
         criador: { select: { id: true, name: true } },
@@ -1715,11 +1715,11 @@ export class AgendaService {
    * Respeita multi-tenant: usuários comuns só veem colegas da própria empresa;
    * masters veem todos do tenant. Inativos sempre ocultos.
    */
-  async listUsuarios(isMaster: boolean, empresaId?: string | null) {
+  async listUsuarios(_isMaster: boolean, empresaId?: string | null) {
     return prisma.user.findMany({
       where: {
         isActive: true,
-        ...(!isMaster && empresaId ? { empresaId } : {}),
+        ...(empresaId ? { empresaId } : {}),
       },
       // image pra exibir avatar nos selects de participantes
       select: { id: true, name: true, image: true },

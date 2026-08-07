@@ -163,7 +163,7 @@ export class CrmService {
       if (numStr) clienteOr.push({ documento: { contains: numStr } })
       const [clientes, usuarios] = await Promise.all([
         prisma.cliente.findMany({
-          where: { ...(!isMaster && empresaId ? { empresaId } : {}), OR: clienteOr },
+          where: { ...(empresaId ? { empresaId } : {}), OR: clienteOr },
           select: { id: true },
           take: 300,
         }).catch(() => [] as { id: string }[]),

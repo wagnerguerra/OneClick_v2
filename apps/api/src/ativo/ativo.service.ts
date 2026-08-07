@@ -26,13 +26,12 @@ export class AtivoService {
   // Helpers
   // ─────────────────────────────────────────────────────────────
 
-  /** Filtro base de tenancy: master vê tudo; demais só veem da própria empresa
-   *  + registros globais (empresaId=null). */
+  /** Filtro base de tenancy: a empresa ATIVA vale para todos — inclusive o
+   *  master, cujo poder e trocar de empresa, nao ver todas somadas. Registros
+   *  globais (empresaId=null) acompanham qualquer empresa. */
   private tenantWhere(isMaster: boolean, empresaId?: string) {
-    if (isMaster) return {}
-    return empresaId
-      ? { OR: [{ empresaId }, { empresaId: null }] }
-      : { empresaId: null }
+    if (empresaId) return { OR: [{ empresaId }, { empresaId: null }] }
+    return isMaster ? {} : { empresaId: null }
   }
 
   /** Gera tag sequencial baseada no maior `code` da empresa: AT-0001, AT-0002... */
