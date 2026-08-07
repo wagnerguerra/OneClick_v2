@@ -3,14 +3,36 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ShieldCheck, Loader2, Search, Users, ChevronDown, ChevronRight, Save, RotateCcw,
+  Circle,
 } from 'lucide-react'
 import { Button, Card, Input, Badge, Checkbox, cn } from '@saas/ui'
 import { MODULE_GROUPS, MODULE_LABELS, PLATFORM_ADMIN_MODULES } from '@saas/types'
 import { BackButton } from '@/components/ui/back-button'
+import { MODULE_ICONS, GROUP_ICONS } from '@/lib/navigation'
+import { useModuleColors } from '@/components/theme/module-colors'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+
+/**
+ * Bloco → slug da cor, os mesmos da barra lateral. Sem isto a tela seria uma
+ * lista cinza de 90 linhas: a cor é o que deixa achar "o bloco Fiscal" sem ler.
+ */
+const COR_DO_BLOCO: Record<string, string> = {
+  'Cadastros': 'cadastros', 'Comercial': 'comercial', 'Administrativo': 'administrativo',
+  'Legalização': 'legalizacao', 'Trabalhista': 'trabalhista', 'Fiscal': 'fiscal',
+  'Contábil': 'contabil', 'TI': 'ti', 'Ferramentas': 'ferramentas',
+  'Qualidade': 'qualidade', 'Configurações': 'configuracoes',
+}
+
+/**
+ * Os ícones saem de `MODULE_ICONS`/`GROUP_ICONS`, que a navegação já exporta
+ * exatamente para isto. Montar um mapa próprio aqui garantiria divergência:
+ * módulo novo entraria no menu com um ícone e apareceria nesta tela com outro
+ * — ou sem nenhum.
+ */
+
 
 interface Alvo {
   id: string; name: string; email: string; role: string
@@ -52,6 +74,8 @@ export default function PermissoesEmMassaPage() {
   const [pendentes, setPendentes] = useState<Record<string, Record<Nivel, boolean>>>({})
   const [salvando, setSalvando] = useState(false)
   const [abertos, setAbertos] = useState<Set<string>>(new Set(Object.keys(MODULE_GROUPS)))
+  const cores = useModuleColors()
+  const corDe = (bloco: string) => cores[COR_DO_BLOCO[bloco] ?? ''] ?? 'var(--muted-foreground)'
 
   const carregarAlvos = useCallback(async () => {
     setCarregando(true)
@@ -234,14 +258,17 @@ export default function PermissoesEmMassaPage() {
             <Input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Nome ou e-mail"
               className="h-8 pl-7 text-xs" />
           </div>
-          <div className="mb-2 grid grid-cols-2 gap-2">
+          {/* Um por linha: lado a lado em 320px o nome do cargo era cortado,
+              e cargo longo ("Auxiliar Administrativo Contábil/Fiscal") é a regra
+              aqui, não a exceção. */}
+          <div className="mb-2 flex flex-col gap-2">
             <select value={filtroArea} onChange={e => setFiltroArea(e.target.value)}
-              className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground">
+              className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground">
               <option value="">Todas as áreas</option>
               {areas.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
             <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
-              className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground">
+              className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground">
               <option value="">Todos os cargos</option>
               {cargos.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -295,10 +322,12 @@ export default function PermissoesEmMassaPage() {
               const aberto = abertos.has(bloco)
               return (
                 <div key={bloco} className="border-b border-border/60 last:border-0">
-                  <div className="flex items-center gap-2 bg-muted/30 px-4 py-2">
+                  <div className="flex items-center gap-2 border-l-[3px] bg-muted/30 px-4 py-2"
+                    style={{ borderLeftColor: corDe(bloco) }}>
                     <button onClick={() => setAbertos(s => { const n = new Set(s); n.has(bloco) ? n.delete(bloco) : n.add(bloco); return n })}
                       className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
                       {aberto ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                      {(() => { const I = GROUP_ICONS[bloco]; return I ? <I className="h-4 w-4" style={{ color: corDe(bloco) }} /> : null })()}
                       {bloco}
                       <span className="font-normal text-muted-foreground">({lista.length})</span>
                     </button>
@@ -324,7 +353,13 @@ export default function PermissoesEmMassaPage() {
                         {lista.map(slug => (
                           <tr key={slug} className="border-t border-border/40 hover:bg-muted/20">
                             <td className="px-4 py-1.5 text-foreground">
-                              {MODULE_LABELS[slug] ?? slug}
+                              <span className="inline-flex items-center gap-2">
+                                {(() => {
+                                  const I = MODULE_ICONS[slug] ?? Circle
+                                  return <I className="h-3.5 w-3.5 shrink-0" style={{ color: corDe(bloco) }} />
+                                })()}
+                                {MODULE_LABELS[slug] ?? slug}
+                              </span>
                               {pendentes[slug] && (
                                 <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
                                   alterado
