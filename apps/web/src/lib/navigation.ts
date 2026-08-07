@@ -130,7 +130,7 @@ export const navigation: NavGroup[] = [
       { label: 'Empresas', href: '/empresas', icon: Building2, masterOnly: true },
       { label: 'Fornecedores', href: '/fornecedores', icon: Package },
       { label: 'Grupos Empresariais', href: '/grupos-empresariais', icon: Folders, wip: true },
-      { label: 'Serviços', href: '/servicos', icon: CheckSquare },
+      { label: 'Serviços e Obrigações', href: '/servicos', icon: CheckSquare },
       { label: 'Sócios', href: '/socios', icon: UserPlus },
       { label: 'Usuários', href: '/usuarios', icon: UserCog },
     ],

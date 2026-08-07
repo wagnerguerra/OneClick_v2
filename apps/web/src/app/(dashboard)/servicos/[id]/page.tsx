@@ -1173,7 +1173,7 @@ export default function ServicoDetailPage() {
               <Button
                 variant="outline" size="icon"
                 onClick={() => router.push('/servicos')}
-                title="Voltar para Serviços"
+                title="Voltar para Serviços e Obrigações"
                 className="h-8 w-8 bg-white/70 hover:bg-white shrink-0"
               >
                 <ArrowLeft className="h-4 w-4" />
