@@ -379,6 +379,148 @@ export class UserService {
     })
   }
 
+  // ============================================================
+  // Permissoes em massa (tela de matriz)
+  // ============================================================
+
+  /**
+   * Usuarios que podem receber alteracao em massa, com area e cargo para os
+   * filtros da tela. Master fica de fora: a permissao dele nao vem desta
+   * tabela, e mostra-lo sugeriria que marcar/desmarcar ali muda alguma coisa.
+   */
+  async alvosPermissao(callerIsMaster: boolean, callerEmpresaId?: string) {
+    const usuarios = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        isMaster: false,
+        ...(callerEmpresaId ? { OR: [{ empresaId: callerEmpresaId }, { empresaId: null }] } : {}),
+      },
+      select: {
+        id: true, name: true, email: true, role: true,
+        area: { select: { id: true, name: true } },
+        cargo: { select: { id: true, name: true } },
+      },
+      orderBy: { name: 'asc' },
+    })
+    void callerIsMaster
+    return usuarios.map(u => ({
+      id: u.id, name: u.name, email: u.email, role: u.role,
+      areaId: u.area?.id ?? null, areaNome: u.area?.name ?? null,
+      cargoId: u.cargo?.id ?? null, cargoNome: u.cargo?.name ?? null,
+    }))
+  }
+
+  /**
+   * Estado agregado por modulo para um conjunto de usuarios: quantos ja tem
+   * cada nivel. E o que permite a tela mostrar o meio-termo ("14 dos 40") em vez
+   * de fingir que a selecao inteira esta marcada ou desmarcada.
+   */
+  async matrizPermissoes(userIds: string[]) {
+    if (userIds.length === 0) return { total: 0, modulos: [] }
+    // groupBy nao soma boolean, entao a contagem por nivel sai de uma consulta
+    // unica, somada em memoria.
+    const cruas = await prisma.userPermission.findMany({
+      where: { userId: { in: userIds } },
+      select: { moduleSlug: true, canRead: true, canWrite: true, canDelete: true },
+    })
+    const mapa = new Map<string, { ler: number; escrever: number; excluir: number }>()
+    for (const l of cruas) {
+      const m = mapa.get(l.moduleSlug) ?? { ler: 0, escrever: 0, excluir: 0 }
+      if (l.canRead) m.ler++
+      if (l.canWrite) m.escrever++
+      if (l.canDelete) m.excluir++
+      mapa.set(l.moduleSlug, m)
+    }
+    return {
+      total: userIds.length,
+      modulos: [...mapa.entries()].map(([moduleSlug, c]) => ({ moduleSlug, ...c })),
+    }
+  }
+
+  /**
+   * Aplica alteracoes de permissao a varios usuarios de uma vez.
+   *
+   * Regras que fazem esta operacao ser segura:
+   * - so os modulos TOCADOS mudam. O que nao veio no pedido fica como esta —
+   *   senao aplicar "libere Fiscal" apagaria todo o resto de quem foi marcado;
+   * - `subPermissions` do registro existente e PRESERVADO. Elas guardam ajuste
+   *   fino feito na mao (ex.: "orcamento completo"), e uma acao em massa que as
+   *   zerasse destruiria configuracao sem ninguem perceber;
+   * - master nunca e alvo;
+   * - nivel todo falso REMOVE a linha — "sem acesso" e ausencia de registro, e
+   *   deixar a linha zerada faria o modulo parecer concedido nas listagens.
+   */
+  async aplicarPermissoesEmMassa(
+    userIds: string[],
+    alteracoes: Array<{ moduleSlug: string; canRead: boolean; canWrite: boolean; canDelete: boolean }>,
+    callerIsMaster: boolean,
+    callerEmpresaId?: string,
+  ) {
+    if (userIds.length === 0 || alteracoes.length === 0) {
+      return { usuarios: 0, concedidos: 0, revogados: 0, ajustados: 0 }
+    }
+
+    // Recorte de seguranca: so alcanca quem o solicitante ja poderia editar.
+    const alvos = await prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        isActive: true,
+        isMaster: false,
+        ...(callerEmpresaId ? { OR: [{ empresaId: callerEmpresaId }, { empresaId: null }] } : {}),
+      },
+      select: { id: true },
+    })
+    void callerIsMaster
+    const ids = alvos.map(a => a.id)
+    if (ids.length === 0) return { usuarios: 0, concedidos: 0, revogados: 0, ajustados: 0 }
+
+    const slugs = alteracoes.map(a => a.moduleSlug)
+    const atuais = await prisma.userPermission.findMany({
+      where: { userId: { in: ids }, moduleSlug: { in: slugs } },
+      select: { userId: true, moduleSlug: true, canRead: true, canWrite: true, canDelete: true },
+    })
+    const atual = new Map(atuais.map(a => [`${a.userId}|${a.moduleSlug}`, a]))
+
+    let concedidos = 0, revogados = 0, ajustados = 0
+    const tocados = new Set<string>()
+
+    await prisma.$transaction(async (tx) => {
+      for (const id of ids) {
+        for (const alt of alteracoes) {
+          const chave = `${id}|${alt.moduleSlug}`
+          const antes = atual.get(chave)
+          const semAcesso = !alt.canRead && !alt.canWrite && !alt.canDelete
+
+          if (semAcesso) {
+            if (antes) { await tx.userPermission.delete({ where: { userId_moduleSlug: { userId: id, moduleSlug: alt.moduleSlug } } }); revogados++; tocados.add(id) }
+            continue
+          }
+          if (!antes) {
+            await tx.userPermission.create({
+              data: { userId: id, moduleSlug: alt.moduleSlug, canRead: alt.canRead, canWrite: alt.canWrite, canDelete: alt.canDelete },
+            })
+            concedidos++; tocados.add(id)
+            continue
+          }
+          if (antes.canRead !== alt.canRead || antes.canWrite !== alt.canWrite || antes.canDelete !== alt.canDelete) {
+            // update NAO menciona subPermissions — o ajuste fino sobrevive.
+            await tx.userPermission.update({
+              where: { userId_moduleSlug: { userId: id, moduleSlug: alt.moduleSlug } },
+              data: { canRead: alt.canRead, canWrite: alt.canWrite, canDelete: alt.canDelete },
+            })
+            ajustados++; tocados.add(id)
+          }
+        }
+      }
+    }, { timeout: 60_000 })
+
+    // Cada usuario afetado recebe o aviso: sidebar e permissoes se refazem sem
+    // que ninguem precise sair e entrar de novo.
+    for (const id of tocados) this.notifyPermissionsChanged(id)
+
+    return { usuarios: tocados.size, concedidos, revogados, ajustados }
+  }
+
   async updatePermissions(userId: string, permissions: Array<{ moduleSlug: string; canRead: boolean; canWrite: boolean; canDelete: boolean; subPermissions?: Record<string, boolean | string> }>) {
     // A tela salva sozinha a cada clique, então duas chamadas para o MESMO
     // usuário se sobrepõem com facilidade. Com "apaga tudo + createMany", as

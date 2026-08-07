@@ -413,6 +413,9 @@ export default function UsuariosPage() {
               <DropdownMenuItem onClick={() => handleExport()} disabled={exporting}>
                 <FileDown className="h-4 w-4" />Exportar
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/usuarios/permissoes"><ShieldCheck className="h-4 w-4" />Permissões em massa</Link>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setCopyPermsOpen(true)}>
                 <Copy className="h-4 w-4" />Copiar Permissões
               </DropdownMenuItem>
