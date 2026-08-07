@@ -1,6 +1,6 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
-import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, SetServicoGruposInput, FlowPlan } from '@saas/types'
+import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, SetServicoGruposInput, CreateObrigacaoInput, FlowPlan } from '@saas/types'
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { ProcessoService } from '../processo/processo.service'
 import { avaliarCondicao } from '../processo/avaliador-condicao'
@@ -1107,6 +1107,54 @@ export class ServicoService {
 
   async deleteServico(id: string) {
     return prisma.servico.update({ where: { id }, data: { ativo: false } })
+  }
+
+  // ── Obrigações acessórias (consolidadas em Serviços; ex-módulo /obrigacoes) ──
+
+  /** Lista as obrigações acessórias (Servico com ehObrigacaoAcessoria=true) para
+   *  vínculo — ex.: a tela do Acessórias casa o nome de lá com uma daqui. */
+  async listObrigacoesAcessorias(empresaId?: string) {
+    return prisma.servico.findMany({
+      where: {
+        ehObrigacaoAcessoria: true,
+        ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
+      },
+      select: { id: true, nome: true },
+      orderBy: { nome: 'asc' },
+    })
+  }
+
+  /** Cria uma obrigação acessória (Servico marcado) + recorrência opcional.
+   *  Movido do ex-módulo `obrigacao`; usado pela integração do Acessórias. */
+  async createObrigacaoAcessoria(input: CreateObrigacaoInput) {
+    return prisma.$transaction(async (tx) => {
+      const servico = await tx.servico.create({
+        data: {
+          nome: input.nome,
+          descricao: input.descricao ?? null,
+          categoriaObrigacao: input.categoria,
+          categoriaServico: 'MENSAL',
+          ehObrigacaoAcessoria: true,
+          atribuicaoResponsavel: 'CLIENTE_AREA',
+          fonteUrl: input.fonteUrl ?? null,
+          documentacaoUrl: input.documentacaoUrl ?? null,
+          empresaId: null,
+        },
+      })
+      if (input.recorrencia) {
+        await tx.servicoRecorrencia.create({
+          data: {
+            servicoId: servico.id,
+            ativa: true,
+            frequencia: input.recorrencia.frequencia,
+            ancoragem: input.recorrencia.ancoragem,
+            valorAncoragem: input.recorrencia.valorAncoragem,
+            competenciaOffset: input.recorrencia.competenciaOffset,
+          },
+        })
+      }
+      return servico
+    })
   }
 
   // ── Vencimentos por mês (Fase B Acessórias) ──────────────────

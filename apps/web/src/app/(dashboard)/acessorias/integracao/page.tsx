@@ -549,7 +549,7 @@ function MappingPanel() {
         // não com serviço mensal qualquer. São o mesmo cadastro, distinguidos
         // pela marca `ehObrigacaoAcessoria`, e misturar os dois traria serviço
         // comercial para uma lista que é de rotina fiscal.
-        (trpc as any).obrigacao.list.query({}).catch(() => []),
+        (trpc as any).servico.listObrigacoesAcessorias.query().catch(() => []),
         // Lista guardada da última importação — sem isso, sair da tela apagava
         // tudo e obrigava a repetir uma varredura de dezenas de requisições.
         (trpc as any).acessorias.listObligationsObservedCache.query().catch(() => ({ itens: [] })),
@@ -613,7 +613,7 @@ function MappingPanel() {
       // 1. Cria a OBRIGAÇÃO ACESSÓRIA (marca ehObrigacaoAcessoria; é o mesmo
       //    cadastro de serviços, mas com a natureza correta — antes nascia como
       //    serviço mensal comum e ia parar na lista comercial).
-      const created = await (trpc as any).obrigacao.create.mutate({
+      const created = await (trpc as any).servico.createObrigacaoAcessoria.mutate({
         nome: createNome.trim(),
         categoria: createArea || 'Fiscal',
       }) as { id: string; nome: string }
