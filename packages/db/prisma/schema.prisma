@@ -859,6 +859,13 @@ model Cliente {
   atividades           ClienteAtividade[]
   beneficios           ClienteBeneficio[]
   beneficiosFiscais    BeneficioFiscalCliente[]
+  acessos              ClienteAcesso[]
+  vencimentosCliente   ClienteVencimento[]
+  andamentosCliente    ClienteAndamento[]
+  cnaes                ClienteCnae[]
+  protocolos           ClienteProtocolo[]
+  ocorrencias          ClienteOcorrencia[]
+  dteMensagens         ClienteDteMensagem[]
 
   @@map("clientes")
   manifestacoes Manifestacao[]
@@ -977,6 +984,7 @@ model ClienteAcesso {
   observacoes String?  @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_acessos")
@@ -994,6 +1002,7 @@ model ClienteVencimento {
   concluido      Boolean   @default(false)
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_vencimentos")
@@ -1011,6 +1020,7 @@ model ClienteAndamento {
   usuarioId     String?   @map("usuario_id")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_andamentos")
@@ -1024,6 +1034,7 @@ model ClienteCnae {
   principal  Boolean  @default(false)
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_cnaes")
@@ -1042,6 +1053,7 @@ model ClienteProtocolo {
   usuarioId   String?   @map("usuario_id")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_protocolos")
@@ -1062,6 +1074,7 @@ model ClienteOcorrencia {
   usuarioId     String?   @map("usuario_id")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_ocorrencias")
@@ -1075,6 +1088,7 @@ model ClienteDteMensagem {
   dataMensagem DateTime? @map("data_mensagem")
   observacao   String?   @db.Text
   createdAt    DateTime  @default(now()) @map("created_at")
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_dte_mensagens")
@@ -1087,6 +1101,7 @@ model ClienteParticularidade {
   updatedByUserId         String?  @map("updated_by_user_id")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
+  clienteAreaContratada ClienteAreaContratada @relation(fields: [clienteAreaContratadaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cliente_particularidades_cac_id_fkey")
 
   @@map("cliente_particularidades")
 }
@@ -1098,6 +1113,7 @@ model ClienteParticularidadeHistorico {
   textoNovo               String?  @map("texto_novo") @db.Text
   usuarioId               String?  @map("usuario_id")
   createdAt               DateTime @default(now()) @map("created_at")
+  clienteAreaContratada ClienteAreaContratada @relation(fields: [clienteAreaContratadaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cliente_part_hist_cac_id_fkey")
 
   @@index([clienteAreaContratadaId])
   @@map("cliente_particularidades_historico")
@@ -1703,6 +1719,8 @@ model ClienteAreaContratada {
   responsavel User?                  @relation("AreaResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
   substituto  User?                  @relation("AreaSubstituto", fields: [substitutoId], references: [id], onDelete: SetNull)
   parametros  ClienteAreaParametro[]
+  particularidade        ClienteParticularidade?
+  particularidadeHistorico ClienteParticularidadeHistorico[]
 
   @@unique([clienteId, areaId])
   @@index([clienteId])
@@ -3505,6 +3523,7 @@ model AgendaTarefa {
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@index([criadorId, concluida, prazo])
+  @@index([isActive], map: "agenda_tarefas_is_active_idx")
   @@index([prazo])
   @@index([empresaId])
   @@index([oportunidadeId])
@@ -3524,6 +3543,7 @@ model AgendaTarefaParticipante {
   createdAt DateTime     @default(now()) @map("created_at")
 
   @@unique([tarefaId, usuarioId])
+  @@index([tarefaId], map: "agenda_tarefa_participantes_tarefa_idx")
   @@index([usuarioId])
   @@map("agenda_tarefa_participantes")
 }
@@ -3824,6 +3844,8 @@ model BeneficioCompetencia {
   fechadoEm           DateTime? @map("fechado_em")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
+  apontamentos BeneficioApontamento[]
+  recargas     BeneficioRecarga[]
 
   @@unique([empresaId, ano, mes])
   @@index([empresaId, ano, mes])
@@ -3844,6 +3866,7 @@ model BeneficioApontamento {
   lancadoPorId  String?  @map("lancado_por_id")
   lancadoEm     DateTime @default(now()) @map("lancado_em")
   updatedAt     DateTime @updatedAt @map("updated_at")
+  competencia BeneficioCompetencia @relation(fields: [competenciaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "beneficio_apontamento_competencia_fkey")
 
   @@unique([competenciaId, colaboradorId])
   @@index([competenciaId])
@@ -3860,6 +3883,7 @@ model BeneficioRecarga {
   total           Decimal  @default(0) @db.Decimal(10, 2)
   breakdown       Json?
   geradoEm        DateTime @default(now()) @map("gerado_em")
+  competencia BeneficioCompetencia @relation(fields: [competenciaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "beneficio_recarga_competencia_fkey")
 
   @@unique([competenciaId, colaboradorId])
   @@index([competenciaId])

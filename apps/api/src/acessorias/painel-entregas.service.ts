@@ -197,9 +197,9 @@ export class PainelEntregasService {
   }
 
   /** Filtros da tela — comuns às duas visões. */
-  private baseWhere(filtro: FiltroPainel, isMaster: boolean, empresaId?: string): Prisma.AcessoriasEntregaWhereInput {
+  private baseWhere(filtro: FiltroPainel, _isMaster: boolean, empresaId?: string): Prisma.AcessoriasEntregaWhereInput {
     return {
-      ...(!isMaster && empresaId ? { empresaId } : {}),
+      ...(empresaId ? { empresaId } : {}),
       ...(filtro.clienteId ? { clienteId: filtro.clienteId } : {}),
       ...(filtro.dpto ? { dpto: filtro.dpto } : {}),
       // Casa nos dois papéis: quem entregou OU quem responde pelo prazo. Só
@@ -226,7 +226,6 @@ export class PainelEntregasService {
   }
 
   async listar(filtro: FiltroPainel, ctx: CtxPainel) {
-    const { isMaster } = ctx
     const empresaId = ctx.empresaId
     const janela = filtro.janelaDias ?? 7
     const recorte = await this.recorte(ctx)
@@ -339,7 +338,6 @@ export class PainelEntregasService {
    * cliente fora do corte simplesmente não existia aqui. Agora agrega no banco.
    */
   async porCliente(filtro: FiltroPainel, ctx: CtxPainel) {
-    const { isMaster } = ctx
     const empresaId = ctx.empresaId
     const janelaDias = filtro.janelaDias ?? 7
     const recorte = await this.recorte(ctx)
@@ -435,13 +433,12 @@ export class PainelEntregasService {
     ctx: CtxPainel,
     filtro: { dpto?: string; responsavel?: string; clienteId?: string } = {},
   ) {
-    const { isMaster } = ctx
     const empresaId = ctx.empresaId
     // As opções seguem o mesmo recorte da lista: oferecer área ou responsável
     // que o usuário não pode ver só produziria tela vazia — e vazaria os nomes.
     const recorte = await this.recorte(ctx)
     const escopo: Prisma.AcessoriasEntregaWhereInput = e(
-      !isMaster && empresaId ? { empresaId } : {},
+      empresaId ? { empresaId } : {},
       recorte,
     )
     const porDpto = filtro.dpto ? { dpto: filtro.dpto } : {}

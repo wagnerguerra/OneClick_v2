@@ -9,8 +9,8 @@ import type { CreateColaboradorInput, UpdateColaboradorInput, ListColaboradorInp
  * Permissões/RBAC ficam no módulo /usuarios.
  */
 
-function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.UserWhereInput {
-  return !isMaster && empresaId ? { empresaId } : {}
+function empresaFilter(_isMaster: boolean, empresaId?: string): Prisma.UserWhereInput {
+  return empresaId ? { empresaId } : {}
 }
 
 /** Aceita um User do Prisma e devolve no shape antigo de Colaborador (compat com frontend). */

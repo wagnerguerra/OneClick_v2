@@ -20,8 +20,8 @@ function detectChanges(before: Record<string, unknown>, after: Record<string, un
   return Object.keys(changes).length > 0 ? changes : null
 }
 
-function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.CargoWhereInput {
-  return !isMaster && empresaId ? { empresaId } : {}
+function empresaFilter(_isMaster: boolean, empresaId?: string): Prisma.CargoWhereInput {
+  return empresaId ? { empresaId } : {}
 }
 
 @Injectable()

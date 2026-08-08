@@ -25,39 +25,57 @@ BEGIN
   END IF;
 END $$;
 
--- Backfill: casa categoria (nome) com a Area da MESMA empresa (ou global,
--- empresa_id IS NULL) por nome normalizado (trim + lower). Empresa-scoped de
--- propósito: o mesmo nome "Fiscal" pode existir em empresas diferentes, com ids
--- diferentes — casar sem escopo vincularia à área errada. Só preenche o que
--- ainda está nulo (idempotente) e onde há categoria.
-UPDATE servicos s
-SET area_id = a.id
-FROM areas a
-WHERE s.area_id IS NULL
-  AND s.eh_obrigacao_acessoria = false   -- obrigações usam categoria_obrigacao, nunca area_id
-  AND s.categoria IS NOT NULL
-  AND btrim(s.categoria) <> ''
-  AND lower(btrim(a.name)) = lower(btrim(s.categoria))
-  AND (a.empresa_id = s.empresa_id OR a.empresa_id IS NULL);
-
--- Obrigações Acessórias: a "categoria" delas é um enum próprio (Fiscal/
--- Trabalhista/Contábil), não uma Área — registros globais sem Area equivalente.
--- Preserva o valor antigo numa coluna dedicada antes do drop.
+-- Coluna que guarda a categoria das obrigações acessórias (enum próprio, não Área).
 ALTER TABLE servicos ADD COLUMN IF NOT EXISTS categoria_obrigacao TEXT;
-UPDATE servicos
-SET categoria_obrigacao = categoria
-WHERE eh_obrigacao_acessoria = true
-  AND categoria IS NOT NULL
-  AND categoria_obrigacao IS NULL;
 
--- Diagnóstico (não falha): categorias não-nulas que não casaram com nenhuma
--- Area da própria empresa — ficam como "sem área". Registre a Area (no cadastro
--- de Áreas) e rode de novo para vincular, ANTES do drop.
+-- Tudo daqui pra baixo lê `servicos.categoria`, que é a coluna sendo aposentada.
+-- O guard existe porque o `prisma db push` do deploy roda ANTES desta etapa e já
+-- remove a coluna (o schema.prisma não a tem mais). Sem o guard, o arquivo passa
+-- a estourar "column s.categoria does not exist" e derruba TODO deploy seguinte.
+--
+-- Com o guard, o backfill roda enquanto a coluna existir e vira no-op depois —
+-- que é o comportamento correto de uma migração que já cumpriu seu papel.
+--
+-- ATENÇÃO: por causa dessa ordem, o backfill só aproveita a coluna se rodar
+-- ANTES do primeiro db push que a remove. Depois disso não há de onde ler.
 DO $$
 DECLARE n INTEGER;
 BEGIN
-  -- Exclui obrigações acessórias: a categoria delas virou categoria_obrigacao,
-  -- não precisa de Area.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'servicos' AND column_name = 'categoria'
+  ) THEN
+    RAISE NOTICE '[add_servico_area_id] servicos.categoria já não existe — backfill ignorado (migração concluída).';
+    RETURN;
+  END IF;
+
+  -- Backfill: casa categoria (nome) com a Area da MESMA empresa (ou global,
+  -- empresa_id IS NULL) por nome normalizado (trim + lower). Empresa-scoped de
+  -- propósito: o mesmo nome "Fiscal" pode existir em empresas diferentes, com
+  -- ids diferentes — casar sem escopo vincularia à área errada. Só preenche o
+  -- que ainda está nulo (idempotente) e onde há categoria.
+  UPDATE servicos s
+  SET area_id = a.id
+  FROM areas a
+  WHERE s.area_id IS NULL
+    AND s.eh_obrigacao_acessoria = false   -- obrigações usam categoria_obrigacao, nunca area_id
+    AND s.categoria IS NOT NULL
+    AND btrim(s.categoria) <> ''
+    AND lower(btrim(a.name)) = lower(btrim(s.categoria))
+    AND (a.empresa_id = s.empresa_id OR a.empresa_id IS NULL);
+
+  -- Obrigações Acessórias: a "categoria" delas é um enum próprio (Fiscal/
+  -- Trabalhista/Contábil), não uma Área — registros globais sem Area
+  -- equivalente. Preserva o valor antigo numa coluna dedicada antes do drop.
+  UPDATE servicos
+  SET categoria_obrigacao = categoria
+  WHERE eh_obrigacao_acessoria = true
+    AND categoria IS NOT NULL
+    AND categoria_obrigacao IS NULL;
+
+  -- Diagnóstico (não falha): categorias não-nulas que não casaram com nenhuma
+  -- Area da própria empresa — ficam como "sem área". Registre a Area (no
+  -- cadastro de Áreas) e rode de novo para vincular, ANTES do drop.
   SELECT count(*) INTO n FROM servicos s
   WHERE s.area_id IS NULL AND s.categoria IS NOT NULL AND btrim(s.categoria) <> ''
     AND s.eh_obrigacao_acessoria = false;

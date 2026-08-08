@@ -1,0 +1,199 @@
+<title>Resumo do dia — OneClick v2 · 06/08/2026</title>
+<style>
+  :root {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+    /* dots por bloco (cores dos módulos) */
+    --cadastros:#10b981; --comercial:#fb7185; --corporativo:#8b5cf6; --administrativo:#64748b;
+    --legalizacao:#0ea5e9; --trabalhista:#f97316; --fiscal:#6366f1; --contabil:#14b8a6;
+    --ti:#3b82f6; --qualidade:#f59e0b; --configuracoes:#64748b; --processos:#a855f7;
+    --faq:#22c55e; --perfil:#ec4899; --dashboard:#0ea5e9; --agenda:#8b5cf6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+      --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+      --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+    --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+    --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  header { animation: rise .5s ease-out both; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: .13em; font-size: 11px; font-weight: 700;
+    color: var(--accent-deep); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px); line-height: 1.08; margin: 0 0 8px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+  .stat {
+    flex: 1 1 150px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat .n { font-size: 24px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  main { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+    animation: rise .5s ease-out both;
+  }
+  .card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .card-head h2 { font-size: 16px; margin: 0; letter-spacing: -.01em; font-weight: 700; }
+  .card-head .tag {
+    margin-left: auto; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+  }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  li { display: flex; gap: 10px; font-size: 14.5px; }
+  li::before {
+    content: ""; margin-top: 9px; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted); flex: none; opacity: .55;
+  }
+  li b { font-weight: 650; }
+  .hash {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 5px;
+    background: var(--chip-bg); color: var(--chip-ink); margin-left: 4px; vertical-align: baseline;
+  }
+
+  .note {
+    margin-top: 22px; border: 1px dashed var(--border); border-radius: 12px;
+    padding: 14px 18px; font-size: 13.5px; color: var(--muted); background: transparent;
+  }
+  .note b { color: var(--ink); }
+  footer { margin-top: 34px; text-align: center; color: var(--muted); font-size: 12px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Resumo do dia · sessão de desenvolvimento</p>
+    <h1>O que fizemos hoje no OneClick v2</h1>
+    <p class="sub">6 de agosto de 2026 — visão geral, sem entrar no detalhe.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n">28</div><div class="l">commits (locais)</div></div>
+    <div class="stat"><div class="n">4</div><div class="l">módulos novos</div></div>
+    <div class="stat"><div class="n">7</div><div class="l">correções</div></div>
+    <div class="stat"><div class="n">1</div><div class="l">incidente resolvido</div></div>
+  </div>
+
+  <main>
+    <section class="card" style="animation-delay:.05s">
+      <div class="card-head"><span class="dot" style="background:var(--ti)"></span><h2>Relatórios da TI</h2><span class="tag">TI · novo</span></div>
+      <ul>
+        <li><span><b>Um lugar para o relatório diário da equipe</b> — cada colaborador da TI registra o que fez no dia, e o mês inteiro aparece num calendário. Antes isso vivia em pastas soltas no computador. <span class="hash mono">abf5a4f9</span></span></li>
+        <li><span><b>O dia vira um documento só, enviado à diretoria</b> — o sistema junta os relatórios do dia num PDF único e envia. A cópia enviada fica guardada exatamente como saiu. <span class="hash mono">0fe34aa0</span></span></li>
+        <li><span><b>Novidades da TI no painel inicial</b> — a equipe destaca o que merece atenção e isso aparece para todos ao entrar no sistema. <span class="hash mono">c6a88ef8</span></span></li>
+        <li><span><b>O histórico antigo foi trazido para dentro</b> — os relatórios que já existiam em pasta puderam ser importados, com o autor reconhecido pelo próprio nome do arquivo. <span class="hash mono">44e96512</span> <span class="hash mono">0783aad2</span> <span class="hash mono">32573a00</span></span></li>
+        <li><span><b>Cada um responde pelo que escreveu</b> — ninguém apaga o relatório do colega. Depois de enviado à diretoria, o relatório congela: aceita substituição, mas a versão enviada permanece. <span class="hash mono">b4ade075</span> <span class="hash mono">857071ee</span></span></li>
+        <li><span><b>Ajustes de uso</b> — o anexo baixava vazio e foi corrigido; o calendário passou a mostrar também os dias do mês anterior; e o dia abre num painel lateral, igual ao do Helpdesk. <span class="hash mono">39e4c35e</span> <span class="hash mono">9848b0f5</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.10s">
+      <div class="card-head"><span class="dot" style="background:var(--qualidade)"></span><h2>Elogios, Reclamações e Sugestões</h2><span class="tag">Qualidade · novo</span></div>
+      <ul>
+        <li><span><b>Três módulos do sistema antigo voltaram a existir</b> — com o fluxo completo da reclamação preservado: resposta imediata ao cliente primeiro, apuração de procedência depois. É essa separação que prova, numa auditoria, que a empresa respondeu rápido e apurou com calma. <span class="hash mono">627db403</span> <span class="hash mono">bb35a66f</span></span></li>
+        <li><span><b>Registro anônimo de verdade</b> — quando a pessoa escolhe não se identificar, o sistema não guarda quem foi. Ela recebe um protocolo e acompanha a tratativa por ele. No sistema antigo o autor era gravado mesmo nas anônimas.</span></li>
+        <li><span><b>O que o legado não permitia</b> — agora cabe reclamação interna (antes só de cliente) e elogio ou sugestão vindos do cliente (antes só internos).</span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.15s">
+      <div class="card-head"><span class="dot" style="background:var(--trabalhista)"></span><h2>Espelho da Folha</h2><span class="tag">Trabalhista · melhoria</span></div>
+      <ul>
+        <li><span><b>A busca da folha passou a ser pedida pela tela</b> — antes alguém precisava abrir o gerenciador de serviços e rodar a extração na mão. Agora o próprio módulo pede, e o programa que roda na rede do escritório (único ponto com acesso ao sistema contábil) executa e devolve os dados. <span class="hash mono">62fb1455</span></span></li>
+        <li><span><b>Cada pedido fica registrado</b> — quem pediu, quando, quanto demorou e qual foi o erro quando falha, em vez de uma espera sem resposta. <span class="hash mono">62fb1455</span></span></li>
+        <li><span><b>Duas atualizações do gerenciador publicadas</b> — a primeira levou a aba da Folha que já estava pronta mas nunca havia sido empacotada; a segunda ensinou o programa a atender os pedidos feitos pela tela. <span class="hash mono">0453e431</span> <span class="hash mono">cb0759b2</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.20s">
+      <div class="card-head"><span class="dot" style="background:var(--corporativo)"></span><h2>Catálogo de Serviços</h2><span class="tag">Corporativo · melhoria</span></div>
+      <ul>
+        <li><span><b>Responsáveis ganharam aba própria</b> — a atribuição saiu do meio do cadastro e virou uma seção só dela; "Área" passou a se chamar "Área principal", que é o que o campo realmente significa. <span class="hash mono">a3281b9c</span></span></li>
+        <li><span><b>O tipo do serviço agora aparece na listagem</b> — dá para ver de relance se é mensal, extra, interno, obrigação acessória ou fluxo, sem abrir cada um. <span class="hash mono">a3281b9c</span></span></li>
+        <li><span><b>A área do serviço deixou de ser texto solto</b> — passou a ser um vínculo real com a área cadastrada. Antes, renomear uma área desligava todos os serviços dela sem avisar. Trabalho do João Vitor. <span class="hash mono">cc9904c7</span> <span class="hash mono">15643db4</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.25s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Clientes e Entregas</h2><span class="tag">correção</span></div>
+      <ul>
+        <li><span><b>Contagem de filiais deixou de incluir as inativas</b> — um cliente com 4 filiais ativas e 1 inativa aparecia com "5 filiais", e quem abria a lista procurava a quinta sem encontrar. Agora o selo e a lista seguem o mesmo filtro da tela. <span class="hash mono">ac2acec3</span></span></li>
+        <li><span><b>Vincular obrigação parou de piscar a tela</b> — a cada vínculo criado a tabela inteira era recarregada e voltava para o topo. Com centenas de obrigações, o mapeamento era penoso. Agora o vínculo aparece na hora. <span class="hash mono">97da153f</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.30s">
+      <div class="card-head"><span class="dot" style="background:var(--configuracoes)"></span><h2>Acesso do administrador geral</h2><span class="tag">Configurações · melhoria</span></div>
+      <ul>
+        <li><span><b>A empresa carregada ficou à vista</b> — quem administra todas as empresas passa a ver no topo qual está aberta, e troca por ali. Os campos de usuário e área passaram a listar só gente da empresa selecionada, sem misturar. <span class="hash mono">f145756e</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.35s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Incidente no banco de dados</h2><span class="tag">infraestrutura · incidente</span></div>
+      <ul>
+        <li><span><b>Uma publicação apagou duas tabelas — recuperadas no mesmo dia</b> — a rotina que atualiza a estrutura do banco a cada publicação considera "estranha" toda tabela que não conhece, e apaga. Caíram 48 registros de auditoria de qualidade e 19 parâmetros da Reforma Tributária. Percebemos na hora e restauramos do backup automático das 3h da manhã, com conferência dos totais.</span></li>
+        <li><span><b>A causa foi eliminada, não contornada</b> — essas tabelas passaram a ser declaradas para o sistema, que agora as reconhece e não as toca. Sem isso, o problema voltaria na publicação seguinte. <span class="hash mono">5cc19703</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.40s">
+      <div class="card-head"><span class="dot" style="background:var(--comercial)"></span><h2>Publicações de colegas</h2><span class="tag">integração</span></div>
+      <ul>
+        <li><span><b>CRM</b> — a tarefa criada dentro de uma oportunidade passou a ser a mesma tarefa da agenda, com lembretes. <span class="hash mono">bbfbf661</span></span></li>
+        <li><span><b>Helpdesk e Orçamentos</b> — visualizador de imagens interativo, lista organizada por data e nome correto no PDF gerado. <span class="hash mono">c3770cda</span></span></li>
+        <li><span><b>Espelho da Folha</b> — a base da sincronização pelo gerenciador de serviços, entregue pelo Enoque, entrou no sistema. <span class="hash mono">dfdb36a0</span></span></li>
+      </ul>
+    </section>
+  </main>
+
+  <div class="note">
+    <b>Além do código:</b> a publicação da tarde parou no meio por lentidão do servidor e precisou ser
+    refeita — foi nesse momento que o problema das tabelas apareceu. Aproveitamos para levantar quais
+    outras tabelas corriam o mesmo risco, e uma delas guarda a conexão dos usuários com o Google Agenda:
+    a perda não daria erro nenhum, a agenda simplesmente pararia de sincronizar.
+  </div>
+  <div class="note" style="margin-top:10px">
+    <b>Situação:</b> tudo o que está acima já foi publicado em produção, com exceção da última atualização
+    do gerenciador de serviços, que chega a cada máquina quando o programa é fechado e reaberto. Os módulos
+    de Qualidade estão no ar; o portal público para o cliente registrar sem login fica para uma próxima etapa.
+  </div>
+
+  <footer>Resumo gerado ao fim da sessão · OneClick v2</footer>
+</div>

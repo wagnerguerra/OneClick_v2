@@ -47,10 +47,8 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('bi-sync-event', handler)
   },
 
-  // Folha Sync — executa o ETL da folha (importar_empresa.py) local, faz stream do
+  // Folha Sync — eventos do ETL da folha (a fila do modulo /folha-bi). Faz stream do
   // progresso e (modo empresa) sobe os envelopes usando o cookie da sessao (main process).
-  folhaSyncRun: (payload) => ipcRenderer.invoke('folha-sync-run', payload),
-  folhaSyncRunNow: () => ipcRenderer.invoke('folha-sync-run-now'),
   onFolhaSyncEvent: (callback) => {
     const handler = (_event, data) => callback(data)
     ipcRenderer.on('folha-sync-event', handler)

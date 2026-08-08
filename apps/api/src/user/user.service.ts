@@ -24,6 +24,7 @@ export class UserService {
   async list(input: ListUserInput, callerIsMaster: boolean, callerEmpresaId?: string) {
     const { page, limit, search, sortBy, sortDir, role, empresaId } = input
     const incluirInativos = (input as any).incluirInativos === true
+    const empresaEfetiva = (callerIsMaster && empresaId) ? empresaId : callerEmpresaId
     const { skip, take } = getPrismaSkipTake(page, limit)
 
     const where: Prisma.UserWhereInput = {
@@ -36,21 +37,26 @@ export class UserService {
           }
         : {}),
       ...(role ? { role } : {}),
-      ...(empresaId ? { empresaId } : {}),
       // Por padrão esconde inativos (soft-deleted). Pra mostrar todos, passar incluirInativos=true.
       ...(incluirInativos ? {} : { isActive: true }),
-      // Atravessar tenants é exclusivo do master. Para os demais a empresa é
-      // sempre a própria — e a chave repetida aqui, por vir depois, sobrepõe a
-      // que veio no filtro.
+      // Empresa efetiva: a que o master pediu explicitamente (a aba de usuários
+      // dentro de Empresas faz isso) ou, no caso normal, a empresa ATIVA dele.
+      // O master atravessa tenants TROCANDO de empresa, não somando todas: com a
+      // Central carregada, a equipe da JR não pode aparecer na tela.
       //
-      // Sobrepor, porém, não basta: devolver a PRÓPRIA lista para quem pediu a
-      // de outra empresa responde a pergunta errada, e na tela da empresa X
-      // apareceria a equipe da empresa Y. Nesse caso a resposta correta é
-      // vazia.
-      ...(!callerIsMaster && callerEmpresaId
-        ? (empresaId && empresaId !== callerEmpresaId
-            ? { id: { in: [] as string[] } }
-            : { empresaId: callerEmpresaId })
+      // Usuário SEM empresa entra junto de propósito. São contas que existem e
+      // logam; escondidas de todo mundo, ficariam sem quem as administre.
+      //
+      // Vai dentro de um AND, e não como `OR` solto: a busca por nome/e-mail
+      // acima também usa `OR`, e a chave repetida no mesmo objeto sobrescreve a
+      // primeira — o filtro de empresa apagaria a busca em silêncio.
+      ...(empresaEfetiva
+        ? { AND: [{ OR: [{ empresaId: empresaEfetiva }, { empresaId: null }] }] }
+        : {}),
+      // Não-master pedindo a lista de outra empresa: a resposta certa é vazia —
+      // devolver a própria responderia a pergunta errada.
+      ...(!callerIsMaster && empresaId && empresaId !== callerEmpresaId
+        ? { id: { in: [] as string[] } }
         : {}),
     }
 
@@ -112,10 +118,10 @@ export class UserService {
    *    governada por uma sub-permissão, não pelo módulo inteiro.
    * Escopo: não-master vê só usuários da própria empresa (igual ao list).
    */
-  async comAcessoAoModulo(moduleSlug: string, callerIsMaster = false, callerEmpresaId?: string, subPermission?: string) {
+  async comAcessoAoModulo(moduleSlug: string, _callerIsMaster = false, callerEmpresaId?: string, subPermission?: string) {
     const where: Prisma.UserWhereInput = {
       isActive: true,
-      ...(!callerIsMaster && callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
+      ...(callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
     }
 
     const users = await prisma.user.findMany({
@@ -371,6 +377,148 @@ export class UserService {
       if (permissions !== undefined) this.notifyPermissionsChanged(id)
       return res
     })
+  }
+
+  // ============================================================
+  // Permissoes em massa (tela de matriz)
+  // ============================================================
+
+  /**
+   * Usuarios que podem receber alteracao em massa, com area e cargo para os
+   * filtros da tela. Master fica de fora: a permissao dele nao vem desta
+   * tabela, e mostra-lo sugeriria que marcar/desmarcar ali muda alguma coisa.
+   */
+  async alvosPermissao(callerIsMaster: boolean, callerEmpresaId?: string) {
+    const usuarios = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        isMaster: false,
+        ...(callerEmpresaId ? { OR: [{ empresaId: callerEmpresaId }, { empresaId: null }] } : {}),
+      },
+      select: {
+        id: true, name: true, email: true, role: true,
+        area: { select: { id: true, name: true } },
+        cargo: { select: { id: true, name: true } },
+      },
+      orderBy: { name: 'asc' },
+    })
+    void callerIsMaster
+    return usuarios.map(u => ({
+      id: u.id, name: u.name, email: u.email, role: u.role,
+      areaId: u.area?.id ?? null, areaNome: u.area?.name ?? null,
+      cargoId: u.cargo?.id ?? null, cargoNome: u.cargo?.name ?? null,
+    }))
+  }
+
+  /**
+   * Quantos, dentro da selecao, TEM ACESSO a cada modulo.
+   *
+   * Acesso e um estado so — existir a linha. O detalhe fino vive nas
+   * sub-permissoes de cada modulo, que sao especificas demais para uma acao em
+   * massa e continuam no cadastro individual.
+   *
+   * A contagem e o que permite a tela mostrar o meio-termo ("14 dos 40") em vez
+   * de fingir que a selecao inteira esta ligada ou desligada.
+   */
+  async matrizPermissoes(userIds: string[]) {
+    if (userIds.length === 0) return { total: 0, modulos: [] }
+    const linhas = await prisma.userPermission.groupBy({
+      by: ['moduleSlug'],
+      where: { userId: { in: userIds }, canRead: true },
+      _count: { _all: true },
+    })
+    return {
+      total: userIds.length,
+      modulos: linhas.map(l => ({ moduleSlug: l.moduleSlug, comAcesso: l._count._all })),
+    }
+  }
+
+  /**
+   * Concede ou retira o ACESSO a modulos, para varios usuarios de uma vez.
+   *
+   * Regras que fazem esta operacao ser segura:
+   * - so os modulos TOCADOS mudam. O que nao veio no pedido fica como esta —
+   *   senao "libere Fiscal" apagaria todo o resto do acesso de quem foi
+   *   selecionado;
+   * - conceder a quem JA TEM nao mexe na linha. E ai que moram as
+   *   sub-permissoes ajustadas na mao ("orcamento completo", "ver todos os
+   *   clientes"); reescrever a linha as zeraria sem ninguem perceber;
+   * - retirar apaga a linha, que e como o cadastro individual representa "sem
+   *   acesso" — linha zerada faria o modulo parecer concedido nas listagens;
+   * - master nunca e alvo, e o alcance respeita a empresa carregada.
+   */
+  async aplicarPermissoesEmMassa(
+    userIds: string[],
+    alteracoes: Array<{ moduleSlug: string; conceder: boolean }>,
+    callerIsMaster: boolean,
+    callerEmpresaId?: string,
+  ) {
+    if (userIds.length === 0 || alteracoes.length === 0) {
+      return { usuarios: 0, concedidos: 0, retirados: 0, jaTinham: 0 }
+    }
+
+    const alvos = await prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        isActive: true,
+        isMaster: false,
+        ...(callerEmpresaId ? { OR: [{ empresaId: callerEmpresaId }, { empresaId: null }] } : {}),
+      },
+      select: { id: true },
+    })
+    void callerIsMaster
+    const ids = alvos.map(a => a.id)
+    if (ids.length === 0) return { usuarios: 0, concedidos: 0, retirados: 0, jaTinham: 0 }
+
+    const slugs = alteracoes.map(a => a.moduleSlug)
+    const existentes = await prisma.userPermission.findMany({
+      where: { userId: { in: ids }, moduleSlug: { in: slugs } },
+      select: { userId: true, moduleSlug: true, canRead: true },
+    })
+    const tem = new Set(existentes.filter(e => e.canRead).map(e => `${e.userId}|${e.moduleSlug}`))
+
+    const conceder = alteracoes.filter(a => a.conceder).map(a => a.moduleSlug)
+    const retirar = alteracoes.filter(a => !a.conceder).map(a => a.moduleSlug)
+
+    const novos: Array<{ userId: string; moduleSlug: string }> = []
+    let jaTinham = 0
+    for (const id of ids) {
+      for (const slug of conceder) {
+        if (tem.has(`${id}|${slug}`)) { jaTinham++; continue }
+        novos.push({ userId: id, moduleSlug: slug })
+      }
+    }
+
+    let retirados = 0
+    await prisma.$transaction(async (tx) => {
+      if (novos.length > 0) {
+        // skipDuplicates cobre a linha que exista com canRead=false: ela e
+        // atualizada logo abaixo em vez de estourar a chave unica.
+        await tx.userPermission.createMany({
+          data: novos.map(n => ({ ...n, canRead: true, canWrite: true, canDelete: true })),
+          skipDuplicates: true,
+        })
+        await tx.userPermission.updateMany({
+          where: { userId: { in: ids }, moduleSlug: { in: conceder }, canRead: false },
+          data: { canRead: true, canWrite: true, canDelete: true },
+        })
+      }
+      if (retirar.length > 0) {
+        const r = await tx.userPermission.deleteMany({
+          where: { userId: { in: ids }, moduleSlug: { in: retirar } },
+        })
+        retirados = r.count
+      }
+    }, { timeout: 60_000 })
+
+    // Quem foi afetado recebe o aviso: barra lateral e permissoes se refazem sem
+    // que a pessoa precise sair e entrar de novo.
+    const tocados = new Set<string>()
+    for (const n of novos) tocados.add(n.userId)
+    if (retirados > 0) for (const id of ids) tocados.add(id)
+    for (const id of tocados) this.notifyPermissionsChanged(id)
+
+    return { usuarios: tocados.size, concedidos: novos.length, retirados, jaTinham }
   }
 
   async updatePermissions(userId: string, permissions: Array<{ moduleSlug: string; canRead: boolean; canWrite: boolean; canDelete: boolean; subPermissions?: Record<string, boolean | string> }>) {
@@ -783,10 +931,10 @@ export class UserService {
     return { updated, permissionsCopied: sourcePerms.length }
   }
 
-  async exportAll(callerIsMaster: boolean, callerEmpresaId?: string) {
+  async exportAll(_callerIsMaster: boolean, callerEmpresaId?: string) {
     return prisma.user.findMany({
       where: {
-        ...(!callerIsMaster && callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
+        ...(callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
       },
       orderBy: { name: 'asc' },
       select: {

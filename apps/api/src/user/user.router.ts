@@ -193,6 +193,27 @@ export function createUserRouter(userService: UserService) {
       .input(z.object({ userId: z.string(), permissions: z.array(permissionSchema) }))
       .mutation(({ input }) => userService.updatePermissions(input.userId, input.permissions)),
 
+    // ===== Permissoes em massa (tela de matriz) =====
+    alvosPermissao: readProcedure(MODULE)
+      .query(({ ctx }) => userService.alvosPermissao(ctx.isMaster ?? false, ctx.empresaId)),
+
+    matrizPermissoes: readProcedure(MODULE)
+      .input(z.object({ userIds: z.array(z.string()) }))
+      .query(({ input }) => userService.matrizPermissoes(input.userIds)),
+
+    aplicarPermissoesEmMassa: writeProcedure(MODULE)
+      .input(z.object({
+        userIds: z.array(z.string()).min(1),
+        // Acesso e um estado so: tem ou nao tem. O ajuste fino de cada modulo
+        // fica nas sub-permissoes, no cadastro individual.
+        alteracoes: z.array(z.object({
+          moduleSlug: z.string(),
+          conceder: z.boolean(),
+        })).min(1),
+      }))
+      .mutation(({ input, ctx }) =>
+        userService.aplicarPermissoesEmMassa(input.userIds, input.alteracoes, ctx.isMaster ?? false, ctx.empresaId)),
+
     copyPermissions: writeProcedure(MODULE)
       .input(z.object({
         sourceUserId: z.string(),

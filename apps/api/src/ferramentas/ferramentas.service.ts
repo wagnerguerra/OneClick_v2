@@ -10,8 +10,8 @@ import {
 } from '@saas/types'
 import { WebappGatewayService, type GatewayUploadFile } from './webapp-gateway.service'
 
-function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.ToolJobWhereInput {
-  return !isMaster && empresaId ? { empresaId } : {}
+function empresaFilter(_isMaster: boolean, empresaId?: string): Prisma.ToolJobWhereInput {
+  return empresaId ? { empresaId } : {}
 }
 
 function toolsOfArea(area: ToolArea): JobToolId[] {

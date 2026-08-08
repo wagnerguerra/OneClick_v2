@@ -98,9 +98,18 @@ CREATE INDEX IF NOT EXISTS "idx_compra_cotacao_precos_forn"
 -- ── Rastro do pedido até a cotação que o originou ──
 ALTER TABLE "compras" ADD COLUMN IF NOT EXISTS "cotacao_id" TEXT;
 CREATE INDEX IF NOT EXISTS "idx_compras_cotacao" ON "compras" ("cotacao_id");
+-- A checagem e por QUALQUER FK sobre compras.cotacao_id, nao pelo nome desta.
+-- O modelo Compra ja declara a relacao, entao o `prisma db push` cria a dele
+-- (compras_cotacao_id_fkey). Checando so pelo nome antigo, as duas conviviam:
+-- o push derrubava a nossa a cada deploy e este arquivo a recriava logo em
+-- seguida — duas FKs identicas sobre a mesma coluna, para sempre.
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'compras_cotacao_fk') THEN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c
+    JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+    WHERE c.contype = 'f' AND c.conrelid = 'compras'::regclass AND a.attname = 'cotacao_id'
+  ) THEN
     ALTER TABLE "compras" ADD CONSTRAINT "compras_cotacao_fk"
       FOREIGN KEY ("cotacao_id") REFERENCES "compra_cotacoes" ("id") ON DELETE SET NULL;
   END IF;

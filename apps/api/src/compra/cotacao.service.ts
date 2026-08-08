@@ -42,12 +42,12 @@ export class CotacaoService {
 
   // ── Leitura ────────────────────────────────────────────────
 
-  async list(input: ListCotacaoInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+  async list(input: ListCotacaoInput, _isMaster: boolean, empresaId?: string, tenantSchema?: string) {
     const { page, limit, search, status } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
     const where = {
       isActive: true,
-      ...(!isMaster && empresaId ? { empresaId } : {}),
+      ...(empresaId ? { empresaId } : {}),
       ...(status ? { status: status as never } : {}),
       ...(search
         ? {

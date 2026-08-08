@@ -826,10 +826,10 @@ export class SitfisService {
     return buildPaginatedResponse(data, total, page, limit)
   }
 
-  async getById(id: string, isMaster = false, empresaId: string | null = null) {
+  async getById(id: string, _isMaster = false, empresaId: string | null = null) {
     return prisma.situacaoFiscal.findFirstOrThrow({
       // isolamento multi-tenant: não-master só acessa registros do próprio tenant. ISO-001
-      where: { id, ...(isMaster ? {} : { empresaId }) },
+      where: { id, ...(empresaId ? { empresaId } : {}) },
       select: {
         id: true, documento: true, tipoDocumento: true, razaoSocial: true, periodo: true,
         protocolo: true, etapa: true, tipoCertidao: true, numeroCertidao: true,
@@ -842,9 +842,9 @@ export class SitfisService {
     })
   }
 
-  async getPdf(id: string, isMaster = false, empresaId: string | null = null): Promise<string | null> {
+  async getPdf(id: string, _isMaster = false, empresaId: string | null = null): Promise<string | null> {
     const record = await prisma.situacaoFiscal.findFirstOrThrow({
-      where: { id, ...(isMaster ? {} : { empresaId }) },  // isolamento multi-tenant. ISO-001
+      where: { id, ...(empresaId ? { empresaId } : {}) },  // isolamento multi-tenant. ISO-001
       select: { pdfBase64: true, respostaCompleta: true },
     })
     // Tentar pdfBase64 primeiro, depois extrair da respostaCompleta

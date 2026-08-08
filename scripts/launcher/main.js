@@ -2982,13 +2982,51 @@ function registerIpcHandlers() {
   // ════════════════════════════════════════════════════════
   function folhaEmit(ev) { try { if (mainWindow) mainWindow.webContents.send('folha-sync-event', ev) } catch {} }
 
+  /**
+   * Traduz a conexão do SCI da aba Conexões para o que o ETL da folha espera.
+   *
+   * São dois formatos para o mesmo banco: a aba guarda um caminho UNC
+   * (\\192.168.0.2\s\SCI\banco\VSCI.SDB), que é como os scripts do OneClick
+   * abrem o arquivo; o `conexao_bi.py` da folha monta `host/porta:caminho` e o
+   * caminho ali é o do SERVIDOR (S:\SCI\...), não o compartilhamento.
+   *
+   * Daí a conversão: o primeiro pedaço do UNC vira o host, e o segundo — o nome
+   * do compartilhamento, uma letra — vira a unidade local do servidor. É a
+   * convenção desta rede (`\\host\s\...` = `S:\...`), e é o que permite as
+   * duas telas dividirem uma configuração só em vez de pedir a mesma senha duas
+   * vezes.
+   */
+  function sciEnvDaFolha() {
+    const s = loadSettings().firebirdSci || {}
+    const env = {}
+    if (s.user) env.SCI_USER = String(s.user)
+    if (s.password) env.SCI_PASSWORD = String(s.password)
+
+    const dsn = String(s.dsn || '').trim()
+    if (!dsn) return env
+
+    const unc = dsn.match(/^\\\\([^\\]+)\\([^\\])\\(.+)$/)   // \\host\s\resto
+    if (unc) {
+      env.SCI_HOST = unc[1]
+      env.SCI_DB = `${unc[2].toUpperCase()}:\\${unc[3]}`
+      return env
+    }
+    const hostPorta = dsn.match(/^([^/]+)\/(\d+):(.+)$/)              // host/porta:caminho
+    if (hostPorta) {
+      env.SCI_HOST = hostPorta[1]
+      env.SCI_PORT = hostPorta[2]
+      env.SCI_DB = hostPorta[3]
+    }
+    return env
+  }
+
   function folhaEnvBase(cfg) {
     const env = {
       ...process.env,
       PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1',
       ...(cfg.dbUrl ? { SUPABASE_DB_URL: cfg.dbUrl } : {}),
-      ...(cfg.sciPassword ? { SCI_PASSWORD: cfg.sciPassword } : {}),
-      ...(cfg.sciHost ? { SCI_HOST: cfg.sciHost } : {}),
+      // SCI: uma configuração só, a da aba Conexões.
+      ...sciEnvDaFolha(),
     }
     // base = SEM upload por token (o modo empresa sobe por cookie; so folhaRunTodas re-adiciona).
     // Evita double-upload caso o host tenha FOLHA_BI_SYNC_URL no ambiente global.
@@ -3040,49 +3078,9 @@ function registerIpcHandlers() {
     return { ok: r.code === 0 }
   }
 
+  // A execução manual por empresa saiu junto com a aba Folha: quem pede a
+  // sincronização agora é o módulo /folha-bi, e o pedido chega pela fila abaixo.
   let folhaBusy = false
-  ipcMain.handle('folha-sync-run', async (_e, payload) => {
-    if (folhaBusy) return { ok: false, erro: 'Sincronizacao ja em andamento' }
-    const cfg = loadSettings().folha || {}
-    const { mode, codEmp, refs, baseUrl } = payload || {}
-    if (!cfg.etlDir || !fs.existsSync(cfg.etlDir)) return { ok: false, erro: 'Caminho do ETL da folha nao configurado (Configuracoes > Folha)' }
-    if (mode === 'empresa' && (!codEmp || !Array.isArray(refs) || refs.length === 0)) return { ok: false, erro: 'Informe a empresa e ao menos uma competencia' }
-    folhaBusy = true
-    try {
-      const env = folhaEnvBase(cfg)
-      if (mode === 'empresa') {
-        folhaEmit({ type: 'inicio', mode, codEmp, refs })
-        const build = await folhaRunStreaming(cfg, ['importar_empresa.py', String(codEmp), ...refs.map(String)], env)
-        if (build.code !== 0) { folhaEmit({ type: 'fim', code: build.code, erro: build.erro || 'ETL falhou' }); return { ok: false } }
-        let enviados = 0
-        for (const ref of refs) {
-          const em = spawnSync(cfg.python || 'python', ['oneclick_upload.py', '--emit', String(codEmp), String(ref)],
-            { cwd: cfg.etlDir, encoding: 'utf8', env, timeout: 120000, windowsHide: true })
-          const out = (em.stdout || '').trim()
-          if (!out) { folhaEmit({ type: 'log', line: `ref ${ref}: sem folha (nada a enviar)` }); continue }
-          let envelope
-          try { envelope = JSON.parse(out) } catch (e) { folhaEmit({ type: 'log', line: `ref ${ref}: envelope invalido (${e.message})`, err: true }); continue }
-          try {
-            const up = await folhaUploadEnvelope(baseUrl, envelope)
-            folhaEmit({ type: 'upload', ref, ok: up.ok, status: up.status })
-            if (up.ok) enviados++
-          } catch (e) { folhaEmit({ type: 'log', line: `ref ${ref}: upload falhou — ${e.message}`, err: true }) }
-        }
-        folhaEmit({ type: 'fim', code: 0, enviados })
-        return { ok: true, enviados }
-      }
-      return await folhaRunTodas(cfg, { refs, baseUrl })
-    } catch (e) {
-      folhaEmit({ type: 'fim', code: -1, erro: e.message }); return { ok: false, erro: e.message }
-    } finally { folhaBusy = false }
-  })
-
-  ipcMain.handle('folha-sync-run-now', async () => {
-    if (folhaBusy) return { ok: false, erro: 'Sincronizacao ja em andamento' }
-    folhaBusy = true
-    try { return await folhaRunTodas(loadSettings().folha || {}, { anterior: true }) }
-    finally { folhaBusy = false }
-  })
 
   // ════════════════════════════════════════════════════════
   // Fila de pedidos vindos da tela (/folha-bi)
@@ -3091,6 +3089,9 @@ function registerIpcHandlers() {
   // o SCI (Firebird) so existe aqui na LAN. Entao o pedido fica gravado na API e e
   // o Service Manager quem vem busca-lo — este laco. Sem fila, so restaria expor o
   // SCI para fora ou depender de alguem clicar no lugar certo.
+
+  /** Teto de jobs por rodada — evita que uma fila enorme prenda o laco para sempre. */
+  const LIMITE_JOBS_POR_RODADA = 40
 
   /**
    * Base da API para a fila: a URL de upload configurada ou, na falta dela, a
@@ -3198,13 +3199,19 @@ function registerIpcHandlers() {
       if (!auth) return
       if (!cfg.etlDir || !fs.existsSync(cfg.etlDir)) return
 
-      const r = await fetch(`${base}/api/folha-bi-sync/jobs/proximo`, { headers: { ...auth } })
-      if (!r.ok) return
-      const data = await r.json()
-      if (!data || !data.job) return
-
+      // ESVAZIA a fila num tick so. Um pedido de intervalo vira um job por
+      // competencia; esperar 20s entre cada um faria um ano de folha levar 5
+      // minutos so de espera ociosa, com a tela parada olhando.
       folhaBusy = true
-      try { await folhaExecutarJob(cfg, base, auth, data.job) } finally { folhaBusy = false }
+      try {
+        for (let i = 0; i < LIMITE_JOBS_POR_RODADA; i++) {
+          const r = await fetch(`${base}/api/folha-bi-sync/jobs/proximo`, { headers: { ...auth } })
+          if (!r.ok) return
+          const data = await r.json()
+          if (!data || !data.job) return          // fila vazia: volta a dormir
+          await folhaExecutarJob(cfg, base, auth, data.job)
+        }
+      } finally { folhaBusy = false }
     } catch { /* silencioso: e um laco de fundo, nao um clique do usuario */ }
   }
   setInterval(folhaFilaTick, 20 * 1000)   // a tela espera resposta; 20s e o limite do aceitavel

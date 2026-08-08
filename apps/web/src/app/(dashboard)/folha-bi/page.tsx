@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BarChart3, Database, Loader2, RefreshCw, Table2, LayoutGrid, Landmark, PiggyBank, Receipt, Settings2, X, Plus, Trash2, ChevronUp, ChevronDown, Pencil, Coins, FileSpreadsheet } from 'lucide-react'
 import { Button, Card, cn } from '@saas/ui'
+import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -53,12 +54,16 @@ export default function FolhaBiPage() {
   const [configOpen, setConfigOpen] = useState(false)
   const [groupingNonce, setGroupingNonce] = useState(0)
 
-  // seletores do topo — na ordem CLIENTE, MES, ANO
+  // seletores do topo — CLIENTE e o PERIODO (de/ate) que sera buscado no SCI
   const [clienteId, setClienteId] = useState('')
-  const [busca, setBusca] = useState('')
   const [filial, setFilial] = useState('')   // CNPJ (quando o cliente tem mais de uma filial)
-  const [mes, setMes] = useState(0)
-  const [ano, setAno] = useState(0)
+  const [mesIni, setMesIni] = useState(0)
+  const [anoIni, setAnoIni] = useState(0)
+  const [mesFim, setMesFim] = useState(0)
+  const [anoFim, setAnoFim] = useState(0)
+  // Competencia EM EXIBICAO. E separada do periodo porque o periodo pede varios
+  // meses de uma vez e a tela mostra um por vez.
+  const [refVer, setRefVer] = useState(0)
   const [pedindo, setPedindo] = useState(false)
 
   const fetchList = useCallback(async () => {
@@ -79,33 +84,29 @@ export default function FolhaBiPage() {
 
   useEffect(() => { void fetchList(); void fetchClientes(); void fetchJobs() }, [fetchList, fetchClientes, fetchJobs])
 
-  // Competencia inicial = mes anterior (a folha do mes corrente ainda esta aberta).
-  // Fica no efeito, e nao no useState, para servidor e navegador renderizarem igual.
+  // Periodo inicial = mes anterior nas duas pontas (a folha do mes corrente ainda
+  // esta aberta). Fica no efeito, e nao no useState, para servidor e navegador
+  // renderizarem igual.
   useEffect(() => {
-    if (mes) return
+    if (mesIni) return
     const d = new Date()
     const m = d.getMonth()   // 0-11 -> ja e o mes anterior em base 1
-    setMes(m === 0 ? 12 : m)
-    setAno(m === 0 ? d.getFullYear() - 1 : d.getFullYear())
-  }, [mes])
+    const mm = m === 0 ? 12 : m
+    const aa = m === 0 ? d.getFullYear() - 1 : d.getFullYear()
+    setMesIni(mm); setAnoIni(aa); setMesFim(mm); setAnoFim(aa)
+  }, [mesIni])
 
   const anos = useMemo(() => {
     const atual = new Date().getFullYear()
     return [atual, atual - 1, atual - 2, atual - 3, atual - 4]
   }, [])
 
-  // Clientes filtrados pela busca (razao, numero ou ID SCI), agrupados por grupo empresarial.
-  const clientesFiltrados = useMemo(() => {
-    const t = busca.trim().toLowerCase()
-    if (!t) return clientes
-    return clientes.filter((c) =>
-      c.razaoSocial.toLowerCase().includes(t) || String(c.code).includes(t) || (c.idSistema || '').includes(t))
-  }, [clientes, busca])
-  const gruposCli = useMemo(() => {
-    const g = new Map<string, ClienteLite[]>()
-    for (const c of clientesFiltrados) { const k = c.grupo || ''; if (!g.has(k)) g.set(k, []); g.get(k)!.push(c) }
-    return [...g.entries()].sort((a, b) => (a[0] || '￿').localeCompare(b[0] || '￿', 'pt-BR'))
-  }, [clientesFiltrados])
+  // O numero do cliente entra na propria razao social: o combobox filtra por
+  // razao e por documento, entao digitar "1102" ou o CNPJ acha do mesmo jeito.
+  const opcoesCliente = useMemo(
+    () => clientes.map((c) => ({ id: c.id, razaoSocial: `${c.code} · ${c.razaoSocial}`, documento: c.documento })),
+    [clientes],
+  )
 
   const clienteSel = clientes.find((c) => c.id === clienteId) ?? null
   useEffect(() => {
@@ -123,28 +124,64 @@ export default function FolhaBiPage() {
   const filiais = useMemo(() => [...new Set(linhasDoCliente.map((r) => r.cnpj))].sort(), [linhasDoCliente])
   const filEff = filiais.length ? (filiais.includes(filial) ? filial : filiais[0]!) : ''
 
-  const refSel = ano * 100 + mes
+  // Competencias deste cliente que JA foram sincronizadas — e o que se pode ver.
+  const compsComDados = useMemo(
+    () => [...new Set(linhasDoCliente.filter((r) => r.cnpj === filEff).map((r) => r.ref))].sort((a, b) => b - a),
+    [linhasDoCliente, filEff],
+  )
   const row = useMemo(
-    () => linhasDoCliente.find((r) => r.cnpj === filEff && r.ref === refSel) ?? null,
-    [linhasDoCliente, filEff, refSel],
+    () => linhasDoCliente.find((r) => r.cnpj === filEff && r.ref === refVer) ?? null,
+    [linhasDoCliente, filEff, refVer],
   )
-  // Competencias que ja existem no OneClick — marcam o seletor de mes com um ponto.
-  const mesesComDados = useMemo(
-    () => new Set(linhasDoCliente.filter((r) => Math.floor(r.ref / 100) === ano).map((r) => r.ref % 100)),
-    [linhasDoCliente, ano],
-  )
+  // Ao trocar de cliente ou terminar uma sincronizacao, abre a competencia mais
+  // recente que existe. Sem isso a tela ficaria vazia logo apos sincronizar.
+  useEffect(() => {
+    if (compsComDados.length === 0) { if (refVer) setRefVer(0); return }
+    if (!compsComDados.includes(refVer)) setRefVer(compsComDados[0]!)
+  }, [compsComDados, refVer])
 
   // ===== Sincronizacao pelo Service Manager =====
-  const jobDaSelecao = jobs.find((j) => j.clienteId === clienteId && j.ref === refSel) ?? null
+  const refIni = anoIni * 100 + mesIni
+  const refFim = anoFim * 100 + mesFim
+  const intervaloInvalido = refFim < refIni
+  // Mesma contagem do backend: o 13o vem depois do 12, entao um intervalo que
+  // cruza a virada do ano leva o 13o daquele ano junto.
+  const competencias = useMemo(() => {
+    if (!refIni || !refFim || intervaloInvalido) return []
+    const out: number[] = []
+    let a = Math.floor(refIni / 100), m = refIni % 100
+    while (a * 100 + m <= refFim && out.length <= 40) {
+      out.push(a * 100 + m)
+      m += 1
+      if (m > 13) { m = 1; a += 1 }
+    }
+    return out
+  }, [refIni, refFim, intervaloInvalido])
+  const excedeLimite = competencias.length > 36
+
+  const jobDaSelecao = jobs.find((j) => j.clienteId === clienteId && j.ref === refVer) ?? null
+  // Resumo do ultimo lote pedido para este cliente (todas as competencias que
+  // vieram no mesmo pedido continuam sendo jobs independentes).
+  const lote = useMemo(() => {
+    const meus = jobs.filter((j) => j.clienteId === clienteId)
+    return {
+      total: meus.length,
+      ativos: meus.filter(EM_ANDAMENTO).length,
+      concluidos: meus.filter((j) => j.status === 'CONCLUIDO').length,
+      comErro: meus.filter((j) => j.status === 'ERRO').length,
+    }
+  }, [jobs, clienteId])
   const jobAtivo = jobDaSelecao && EM_ANDAMENTO(jobDaSelecao) ? jobDaSelecao : null
   const temAlgumAtivo = jobs.some(EM_ANDAMENTO)
 
   const sincronizar = async () => {
-    if (!clienteId || !mes || !ano) return
+    if (!clienteId || intervaloInvalido || competencias.length === 0 || excedeLimite) return
     setPedindo(true)
     try {
-      await (trpc.folhaBi as any).sincronizar.mutate({ clienteId, ref: refSel })
+      const r = await (trpc.folhaBi as any).sincronizar.mutate({ clienteId, refInicio: refIni, refFim })
       await fetchJobs()
+      const criados = (r as { criados?: number })?.criados ?? competencias.length
+      if (criados === 0) void alerts.toast('Essas competências já estavam na fila')
     } catch (e) {
       alerts.error('Não foi possível pedir a sincronização', (e as Error).message)
     } finally { setPedindo(false) }
@@ -181,7 +218,8 @@ export default function FolhaBiPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Header padrao do modulo */}
+      {/* Header padrao do modulo — sem botoes: a acao mora junto do periodo que
+          ela usa, do outro lado nao daria para ver o que sera buscado. */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
@@ -193,65 +231,86 @@ export default function FolhaBiPage() {
             <p className="text-sm text-muted-foreground">Confira a folha do SCI por cliente e competência</p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => { void fetchList(); void fetchJobs() }}
-            title="Recarregar o que já está no OneClick">
-            <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} /> Atualizar
-          </Button>
-          <Button size="sm" variant="success" onClick={sincronizar}
-            disabled={!clienteId || !mes || !ano || pedindo || !!jobAtivo}
-            title="Pede ao Service Manager que busque esta competência no SCI">
-            {jobAtivo || pedindo
-              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sincronizando…</>
-              : <><RefreshCw className="h-3.5 w-3.5" /> Sincronizar</>}
-          </Button>
-        </div>
       </div>
 
-      {/* Seletores: CLIENTE, MES, ANO */}
-      <Card className="flex flex-wrap items-end gap-x-3 gap-y-2 p-3">
-        <Selecao label="Cliente" value={clienteId} onChange={setClienteId} className="min-w-[260px] max-w-[420px]">
-          {clientesFiltrados.length === 0 && <option value="">—</option>}
-          {gruposCli.map(([g, cs]) => (
-            g
-              ? <optgroup key={g} label={g}>{cs.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.razaoSocial}</option>)}</optgroup>
-              : <Fragment key="__semgrupo">{cs.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.razaoSocial}</option>)}</Fragment>
-          ))}
-        </Selecao>
+      {/* Barra: CLIENTE · periodo DE/ATE · Sincronizar.
+          O `Card` ja e flex-col; por isso cada linha vive num filho com flex-row —
+          `flex-wrap` sozinho nao vence a direcao do pai e os campos empilhavam. */}
+      <Card className="p-3">
+        <div className="flex flex-row flex-wrap items-end gap-x-3 gap-y-2">
+          <div className="flex min-w-[260px] flex-1 flex-col gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Cliente</span>
+            <ClienteCombobox
+              clientes={opcoesCliente}
+              value={clienteId}
+              onSelect={setClienteId}
+              placeholder="Selecione o cliente"
+            />
+          </div>
 
-        <Selecao label="Mês" value={String(mes)} onChange={(v) => setMes(Number(v))} className="min-w-[150px]">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((m) => (
-            <option key={m} value={m}>{mesesComDados.has(m) ? '• ' : ''}{labelMes(m)}</option>
-          ))}
-        </Selecao>
-
-        <Selecao label="Ano" value={String(ano)} onChange={(v) => setAno(Number(v))}>
-          {anos.map((a) => <option key={a} value={a}>{a}</option>)}
-        </Selecao>
-
-        {filiais.length > 1 && (
-          <Selecao label="Filial" value={filEff} onChange={setFilial} className="min-w-[160px]">
-            {filiais.map((c) => <option key={c} value={c}>{c}</option>)}
+          <Selecao label="De · mês" value={String(mesIni)} onChange={(v) => setMesIni(Number(v))} className="min-w-[140px]">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((m) => <option key={m} value={m}>{labelMes(m)}</option>)}
           </Selecao>
+          <Selecao label="Ano" value={String(anoIni)} onChange={(v) => setAnoIni(Number(v))}>
+            {anos.map((a) => <option key={a} value={a}>{a}</option>)}
+          </Selecao>
+
+          <Selecao label="Até · mês" value={String(mesFim)} onChange={(v) => setMesFim(Number(v))} className="min-w-[140px]">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((m) => <option key={m} value={m}>{labelMes(m)}</option>)}
+          </Selecao>
+          <Selecao label="Ano" value={String(anoFim)} onChange={(v) => setAnoFim(Number(v))}>
+            {anos.map((a) => <option key={a} value={a}>{a}</option>)}
+          </Selecao>
+
+          <Button size="sm" variant="success" className="h-9" onClick={sincronizar}
+            disabled={!clienteId || pedindo || temAlgumAtivo || intervaloInvalido || excedeLimite || competencias.length === 0}
+            title="Pede ao Service Manager que busque este período no SCI">
+            {temAlgumAtivo || pedindo
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sincronizando…</>
+              : <><RefreshCw className="h-3.5 w-3.5" /> Sincronizar{competencias.length > 1 ? ` ${competencias.length} meses` : ''}</>}
+          </Button>
+        </div>
+
+        {intervaloInvalido && (
+          <p className="mt-2 text-xs text-rose-500">
+            A competência final ({String(mesFim).padStart(2, '0')}/{anoFim}) é anterior à inicial ({String(mesIni).padStart(2, '0')}/{anoIni}).
+          </p>
+        )}
+        {!intervaloInvalido && excedeLimite && (
+          <p className="mt-2 text-xs text-rose-500">
+            {competencias.length} competências de uma vez é demais — o limite é 36. Cada uma é uma extração no SCI.
+          </p>
         )}
 
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Buscar cliente</span>
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Razão, nº ou ID SCI"
-            className="h-9 w-48 rounded-lg border border-border bg-background px-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-border" />
-        </label>
+        {/* Segunda linha: so aparece quando ha competencia sincronizada. Antes
+            disso nao ha o que relatar, e os botoes so confundiriam. */}
+        {compsComDados.length > 0 && (
+          <div className="mt-3 flex flex-row flex-wrap items-end gap-x-3 gap-y-2 border-t border-border pt-3">
+            {compsComDados.length > 1 && (
+              <Selecao label="Competência" value={String(refVer)} onChange={(v) => setRefVer(Number(v))} className="min-w-[150px]">
+                {compsComDados.map((r) => <option key={r} value={r}>{fmtComp(r)}</option>)}
+              </Selecao>
+            )}
 
-        <div className="ml-auto flex flex-col gap-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Relatório</span>
-          <div className="flex gap-1 rounded-lg bg-muted/40 p-1">
-            <Pill active={view === 'resumo'} onClick={() => setView('resumo')} icon={LayoutGrid} label="Resumo" />
-            <Pill active={view === 'matriz'} onClick={() => setView('matriz')} icon={Table2} label="Verbas" />
-            <Pill active={view === 'inss'} onClick={() => setView('inss')} icon={Landmark} label="INSS" />
-            <Pill active={view === 'fgts'} onClick={() => setView('fgts')} icon={PiggyBank} label="FGTS" />
-            <Pill active={view === 'irrf'} onClick={() => setView('irrf')} icon={Receipt} label="IRRF" />
-            <Pill active={view === 'provisoes'} onClick={() => setView('provisoes')} icon={Coins} label="Provisões" />
+            {filiais.length > 1 && (
+              <Selecao label="Filial" value={filEff} onChange={setFilial} className="min-w-[160px]">
+                {filiais.map((c) => <option key={c} value={c}>{c}</option>)}
+              </Selecao>
+            )}
+
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Relatório</span>
+              <div className="flex gap-1 rounded-lg bg-muted/40 p-1">
+                <Pill active={view === 'resumo'} onClick={() => setView('resumo')} icon={LayoutGrid} label="Resumo" />
+                <Pill active={view === 'matriz'} onClick={() => setView('matriz')} icon={Table2} label="Verbas" />
+                <Pill active={view === 'inss'} onClick={() => setView('inss')} icon={Landmark} label="INSS" />
+                <Pill active={view === 'fgts'} onClick={() => setView('fgts')} icon={PiggyBank} label="FGTS" />
+                <Pill active={view === 'irrf'} onClick={() => setView('irrf')} icon={Receipt} label="IRRF" />
+                <Pill active={view === 'provisoes'} onClick={() => setView('provisoes')} icon={Coins} label="Provisões" />
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </Card>
 
       {erroClientes && (
@@ -275,120 +334,127 @@ export default function FolhaBiPage() {
         </Card>
       )}
 
-      {/* Estado do pedido desta competencia */}
-      {jobDaSelecao && (
-        <Card className={cn('p-3 text-sm', jobDaSelecao.status === 'ERRO' && 'border-rose-500/40')}>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {jobAtivo
-              ? <><Loader2 className="h-4 w-4 shrink-0 animate-spin" style={{ color: MODULE_COLOR }} />
-                  <span className="text-foreground">
-                    {jobDaSelecao.status === 'PENDENTE'
-                      ? 'Pedido na fila — aguardando o Service Manager que roda perto do SCI.'
-                      : 'O Service Manager está consultando o SCI…'}
-                  </span></>
-              : jobDaSelecao.status === 'CONCLUIDO'
-                ? <span className="text-foreground">
-                    Sincronizado {jobDaSelecao.concluidoEm ? new Date(jobDaSelecao.concluidoEm).toLocaleString('pt-BR') : ''}
-                    {jobDaSelecao.totalLinhas != null ? ` · ${jobDaSelecao.totalLinhas} linha(s)` : ''}
-                  </span>
-                : <span className="text-rose-500">Falhou: {jobDaSelecao.erro || 'erro não informado'}</span>}
-          </div>
-          {jobDaSelecao.log && (
-            <pre className="nice-scrollbar mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-[11px] text-muted-foreground">
-              {jobDaSelecao.log}
-            </pre>
-          )}
-        </Card>
-      )}
+      {/* Resultado em duas colunas: o relatorio a esquerda e o acompanhamento da
+          sincronizacao na lateral, como no detalhe do cliente. Antes esses dois
+          cards empurravam o relatorio para baixo da dobra. */}
+      {(row || lote.total > 0) && (
+        <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+          <div className="min-w-0 space-y-3">
+            {row && (
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <h2 className="text-base font-semibold text-foreground">
+                  {clienteSel?.razaoSocial ?? snap?.razao ?? ''}
+                  <span className="ml-1.5 text-sm font-normal text-muted-foreground">— {fmtComp(row.ref)}</span>
+                </h2>
+                <span className="text-xs text-muted-foreground">
+                  {row.cnpj} · {row.totalLinhas} colaborador(es) · atualizado {new Date(row.atualizadoEm).toLocaleString('pt-BR')}
+                </span>
+              </div>
+            )}
 
-      {clientes.length > 0 && (
-        <div className="min-w-0 space-y-3">
-          {row && (
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <h2 className="text-base font-semibold text-foreground">
-                {clienteSel?.razaoSocial ?? snap?.razao ?? ''}
-                <span className="ml-1.5 text-sm font-normal text-muted-foreground">— {fmtComp(row.ref)}</span>
-              </h2>
-              <span className="text-xs text-muted-foreground">
-                {row.cnpj} · {row.totalLinhas} colaborador(es) · atualizado {new Date(row.atualizadoEm).toLocaleString('pt-BR')}
-                {' · '}
-                {row.clienteRealId
-                  ? <span style={{ color: MODULE_COLOR }}>✓ vinculado ao Cliente {row.clienteRazao}</span>
-                  : <span className="text-amber-500/90">sem vinculo (cadastre o Cliente com este CNPJ)</span>}
-              </span>
-            </div>
-          )}
+            {row && loadingSnap && <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Carregando…</Card>}
 
-          {!row && !jobAtivo && (
-            <Card className="flex h-40 flex-col items-center justify-center gap-2 text-center">
-              <p className="text-sm text-muted-foreground">
-                {clienteSel?.razaoSocial ?? 'Este cliente'} nao tem a competencia {String(mes).padStart(2, '0')}/{ano} no OneClick.
-              </p>
-              <Button size="sm" variant="success" onClick={sincronizar} disabled={pedindo || !!jobAtivo}>
-                <RefreshCw className="h-3.5 w-3.5" /> Buscar no SCI
-              </Button>
-            </Card>
-          )}
-          {row && loadingSnap && <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Carregando…</Card>}
-
-          {row && !loadingSnap && snap && view === 'resumo' && (
-            <div className="space-y-3">
-              <Card className="space-y-4 p-5">
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Proventos</p>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <Stat label="Proventos (verbas)" value={brl(resumo.proventos_matriz)} />
-                    <Stat label="Autonomos / RPA" value={brl(resumo.rpa_bruto)} />
-                    <Stat label="Total de proventos da folha" value={brl(resumo.total_proventos_folha)} strong />
-                  </div>
-                </div>
-                {resumo.descontos_matriz != null && (
+            {row && !loadingSnap && snap && view === 'resumo' && (
+              <div className="space-y-3">
+                <Card className="space-y-4 p-5">
                   <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Descontos</p>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Proventos</p>
                     <div className="grid gap-3 sm:grid-cols-3">
-                      <Stat label="Descontos (verbas)" value={brl(resumo.descontos_matriz)} />
-                      <Stat label="Autonomos / RPA" value={brl(resumo.rpa_descontos)} />
-                      <Stat label="Total de descontos da folha" value={brl(resumo.total_descontos_folha)} strong />
+                      <Stat label="Proventos (verbas)" value={brl(resumo.proventos_matriz)} />
+                      <Stat label="Autonomos / RPA" value={brl(resumo.rpa_bruto)} />
+                      <Stat label="Total de proventos da folha" value={brl(resumo.total_proventos_folha)} strong />
                     </div>
                   </div>
-                )}
-                {(autonomos?.n != null || autonomos?.sest_senat != null) && (
-                  <p className="text-xs text-muted-foreground">Autonomos: {autonomos.n ?? '—'} · SEST/SENAT {brl(autonomos.sest_senat)}</p>
+                  {resumo.descontos_matriz != null && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Descontos</p>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <Stat label="Descontos (verbas)" value={brl(resumo.descontos_matriz)} />
+                        <Stat label="Autonomos / RPA" value={brl(resumo.rpa_descontos)} />
+                        <Stat label="Total de descontos da folha" value={brl(resumo.total_descontos_folha)} strong />
+                      </div>
+                    </div>
+                  )}
+                  {(autonomos?.n != null || autonomos?.sest_senat != null) && (
+                    <p className="text-xs text-muted-foreground">Autonomos: {autonomos.n ?? '—'} · SEST/SENAT {brl(autonomos.sest_senat)}</p>
+                  )}
+                </Card>
+                <Resumo empresa={snap.empresa} refNum={row.ref} />
+              </div>
+            )}
+
+            {row && !loadingSnap && snap && view === 'matriz' && (
+              matriz
+                ? <Matriz m={matriz} empresa={snap.empresa} refNum={row.ref} nonce={groupingNonce} onConfig={() => setConfigOpen(true)} />
+                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem verbas no cache.</Card>
+            )}
+
+            {row && !loadingSnap && snap && view === 'inss' && (
+              snap.inss
+                ? <Inss inss={snap.inss} />
+                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem INSS no cache.</Card>
+            )}
+
+            {row && !loadingSnap && snap && view === 'fgts' && (
+              snap.fgts
+                ? <Fgts fgts={snap.fgts} comp={snap.competencia} />
+                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem FGTS no cache.</Card>
+            )}
+
+            {row && !loadingSnap && snap && view === 'irrf' && (
+              snap.irrf
+                ? <Irrf irrf={snap.irrf} />
+                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem IRRF no cache.</Card>
+            )}
+
+            {row && !loadingSnap && snap && view === 'provisoes' && (
+              snap.provisoes
+                ? <Provisoes provisoes={snap.provisoes} empresa={snap.empresa} refNum={row.ref} />
+                : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem provisoes no cache.</Card>
+            )}
+          </div>
+
+          <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
+            {lote.total > 1 && (
+              <Card className="p-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <Loader2 className={cn('h-4 w-4 shrink-0', lote.ativos > 0 && 'animate-spin')} style={{ color: MODULE_COLOR }} />
+                  <span className="font-medium text-foreground">
+                    {lote.concluidos} de {lote.total} sincronizadas
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {lote.ativos > 0 ? `${lote.ativos} na fila` : 'lote encerrado'}
+                  {lote.comErro > 0 && <span className="text-rose-500"> · {lote.comErro} com erro</span>}
+                </p>
+              </Card>
+            )}
+
+            {jobDaSelecao && (
+              <Card className={cn('p-3 text-sm', jobDaSelecao.status === 'ERRO' && 'border-rose-500/40')}>
+                <div className="flex items-start gap-2">
+                  {jobAtivo
+                    ? <><Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" style={{ color: MODULE_COLOR }} />
+                        <span className="text-foreground">
+                          {jobDaSelecao.status === 'PENDENTE'
+                            ? 'Na fila — aguardando o Service Manager que roda perto do SCI.'
+                            : 'Consultando o SCI…'}
+                        </span></>
+                    : jobDaSelecao.status === 'CONCLUIDO'
+                      ? <span className="text-muted-foreground">
+                          Sincronizado {jobDaSelecao.concluidoEm ? new Date(jobDaSelecao.concluidoEm).toLocaleString('pt-BR') : ''}
+                          {jobDaSelecao.totalLinhas != null ? ` · ${jobDaSelecao.totalLinhas} linha(s)` : ''}
+                        </span>
+                      : <span className="text-rose-500">Falhou: {jobDaSelecao.erro || 'erro não informado'}</span>}
+                </div>
+                {jobDaSelecao.log && (
+                  <pre className="nice-scrollbar mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-[11px] leading-snug text-muted-foreground">
+                    {jobDaSelecao.log}
+                  </pre>
                 )}
               </Card>
-              <Resumo empresa={snap.empresa} refNum={row.ref} />
-            </div>
-          )}
-
-          {row && !loadingSnap && snap && view === 'matriz' && (
-            matriz
-              ? <Matriz m={matriz} empresa={snap.empresa} refNum={row.ref} nonce={groupingNonce} onConfig={() => setConfigOpen(true)} />
-              : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem verbas no cache.</Card>
-          )}
-
-          {row && !loadingSnap && snap && view === 'inss' && (
-            snap.inss
-              ? <Inss inss={snap.inss} />
-              : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem INSS no cache.</Card>
-          )}
-
-          {row && !loadingSnap && snap && view === 'fgts' && (
-            snap.fgts
-              ? <Fgts fgts={snap.fgts} comp={snap.competencia} />
-              : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem FGTS no cache.</Card>
-          )}
-
-          {row && !loadingSnap && snap && view === 'irrf' && (
-            snap.irrf
-              ? <Irrf irrf={snap.irrf} />
-              : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem IRRF no cache.</Card>
-          )}
-
-          {row && !loadingSnap && snap && view === 'provisoes' && (
-            snap.provisoes
-              ? <Provisoes provisoes={snap.provisoes} empresa={snap.empresa} refNum={row.ref} />
-              : <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">Esta competencia nao tem provisoes no cache.</Card>
-          )}
+            )}
+          </aside>
         </div>
       )}
 

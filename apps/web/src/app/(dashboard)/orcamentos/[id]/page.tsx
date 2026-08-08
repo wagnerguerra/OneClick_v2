@@ -772,7 +772,7 @@ export default function OrcamentoDetailPage() {
   const [itemDescValor, setItemDescValor] = useState('')
   const [itemCatalogoId, setItemCatalogoId] = useState<string>('')
   const [itemTextoId, setItemTextoId] = useState<string>('')
-  /** Subserviço escolhido dentro do serviço — obrigatório quando ele tem subserviços. */
+  /** Subserviço escolhido dentro do serviço — opcional; o serviço pode ser vendido inteiro. */
   const [itemSubservicoId, setItemSubservicoId] = useState<string>('')
   const [addingItem, setAddingItem] = useState(false)
 
@@ -2433,7 +2433,7 @@ export default function OrcamentoDetailPage() {
                                 <div className="space-y-1.5 min-w-[180px]">
                                   {/* Sem "Nenhum": o serviço foi decomposto justamente
                                       para não entrar genérico no orçamento. */}
-                                  <Label className="text-[13px] font-semibold text-foreground">Subserviço *</Label>
+                                  <Label className="text-[13px] font-semibold text-foreground">Subserviço</Label>
                                   <Select value={itemSubservicoId || undefined} onValueChange={handleSelecionarSubservico}>
                                     <SelectTrigger className="h-9 w-[220px] text-sm"><SelectValue placeholder="Escolha o subserviço" /></SelectTrigger>
                                     <SelectContent>

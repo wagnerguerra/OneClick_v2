@@ -3,8 +3,8 @@ import { buildPaginatedResponse, getPrismaSkipTake, scoped } from '@saas/db'
 import type { Prisma } from '@saas/db'
 import type { CreateAreaInput, UpdateAreaInput, ListAreaInput } from '@saas/types'
 
-function empresaFilter(isMaster: boolean, empresaId?: string): Prisma.AreaWhereInput {
-  return !isMaster && empresaId ? { empresaId } : {}
+function empresaFilter(_isMaster: boolean, empresaId?: string): Prisma.AreaWhereInput {
+  return empresaId ? { empresaId } : {}
 }
 
 @Injectable()

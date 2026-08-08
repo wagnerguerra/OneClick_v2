@@ -59,7 +59,7 @@ export function createNfeDistRouter(svc: NfeDistService) {
           where: {
             nfeDistEnabled: true,
             deletedAt: null,
-            ...(ctx.isMaster ? {} : { empresaId: ctx.empresaId }),
+            ...(ctx.empresaId ? { empresaId: ctx.empresaId } : {}),
           },
           select: {
             id: true, razaoSocial: true, nomeFantasia: true, documento: true,

@@ -109,7 +109,7 @@ export class DivergenciaAcessoriasService {
    * 70 requisições, com pausa de 250ms entre elas — bem abaixo do limite de 100
    * por minuto. É um relatório sob demanda, não um polling.
    */
-  async gerar(isMaster: boolean, empresaId?: string): Promise<RelatorioDivergencias> {
+  async gerar(_isMaster: boolean, empresaId?: string): Promise<RelatorioDivergencias> {
     const empresas = await this.baixarEmpresas()
 
     const clientes = await prisma.cliente.findMany({
@@ -117,7 +117,7 @@ export class DivergenciaAcessoriasService {
       // avulso encheria o relatório de divergência que ninguém vai conciliar.
       where: {
         deletedAt: null, status: 'ATIVA', situacao: 'MENSAL',
-        ...(!isMaster && empresaId ? { empresaId } : {}),
+        ...(empresaId ? { empresaId } : {}),
       },
       select: {
         id: true, code: true, razaoSocial: true, nomeFantasia: true, documento: true,

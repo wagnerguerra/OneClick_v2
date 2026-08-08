@@ -18,6 +18,9 @@ async function fq<T = any>(sql: string, params: any[] = []): Promise<T[]> {
   return r.rows as T[]
 }
 
+/** Teto de competencias por pedido — cada uma e uma execucao do ETL na LAN. */
+const LIMITE_COMPETENCIAS = 36
+
 @Injectable()
 export class FolhaBiService {
   // Upsert de um snapshot (cliente/CNPJ/competencia) vindo da ETL.
@@ -112,32 +115,68 @@ export class FolhaBiService {
   }
 
   /**
-   * Registra o pedido de sincronizacao. Nao dispara nada: quem executa e o Service
-   * Manager, que roda na LAN do SCI e busca os pendentes.
+   * Enumera as competencias de um intervalo, INCLUSIVE.
    *
-   * Um pedido ainda na fila para o mesmo cliente e competencia e reaproveitado —
-   * clicar duas vezes no botao nao vira duas execucoes do ETL.
+   * O 13o e o mes 13 e vem depois do 12 — entao um intervalo que cruze a virada
+   * do ano leva junto o 13o daquele ano, que faz parte do ciclo da folha. Se a
+   * pessoa quiser so os meses normais, e so terminar em 12.
    */
-  async solicitarSync(clienteId: string, ref: number, userId?: string, isMaster?: boolean, empresaId?: string) {
+  private competenciasDoIntervalo(refInicio: number, refFim: number): number[] {
+    const refs: number[] = []
+    let ano = Math.floor(refInicio / 100)
+    let mes = refInicio % 100
+    while (ano * 100 + mes <= refFim) {
+      refs.push(ano * 100 + mes)
+      mes += 1
+      if (mes > 13) { mes = 1; ano += 1 }
+    }
+    return refs
+  }
+
+  /**
+   * Registra os pedidos de sincronizacao de um intervalo de competencias. Nao
+   * dispara nada: quem executa e o Service Manager, que roda na LAN do SCI e
+   * busca os pendentes.
+   *
+   * UM PEDIDO POR COMPETENCIA, de proposito: cada mes e uma execucao do ETL e um
+   * envio proprio, entao um mes que falhe nao leva os outros junto e a tela
+   * consegue dizer exatamente qual deu errado.
+   *
+   * Competencia ja na fila e reaproveitada — pedir de novo enquanto roda nao
+   * vira duas execucoes do mesmo mes.
+   */
+  async solicitarSync(clienteId: string, refInicio: number, refFim: number, userId?: string, isMaster?: boolean, empresaId?: string) {
     const cliente = await prisma.cliente.findFirst({
       where: { id: clienteId, deletedAt: null, ...(isMaster ? {} : { empresaId: empresaId ?? '' }) },
       select: { id: true, empresaId: true, idSistema: true, razaoSocial: true },
     })
     if (!cliente) throw new Error('Cliente nao encontrado neste tenant.')
     if (!cliente.idSistema) throw new Error(`${cliente.razaoSocial} esta sem ID SCI — preencha no cadastro do cliente.`)
+    if (refFim < refInicio) throw new Error('A competencia final nao pode ser anterior a inicial.')
 
-    const emAndamento = await prisma.folhaBiSyncJob.findFirst({
-      where: { clienteId, ref, status: { in: ['PENDENTE', 'EXECUTANDO'] } },
-      orderBy: { criadoEm: 'desc' },
-    })
-    if (emAndamento) return emAndamento
+    const refs = this.competenciasDoIntervalo(refInicio, refFim)
+    // Teto de seguranca: cada competencia e uma execucao do ETL na maquina da LAN.
+    if (refs.length > LIMITE_COMPETENCIAS) {
+      throw new Error(`Intervalo grande demais: ${refs.length} competencias (maximo ${LIMITE_COMPETENCIAS}).`)
+    }
 
-    return prisma.folhaBiSyncJob.create({
-      data: {
-        clienteId, ref, idSci: cliente.idSistema,
-        empresaId: cliente.empresaId, solicitadoPorId: userId,
-      },
+    const jaNaFila = await prisma.folhaBiSyncJob.findMany({
+      where: { clienteId, ref: { in: refs }, status: { in: ['PENDENTE', 'EXECUTANDO'] } },
+      select: { ref: true },
     })
+    const pendentes = new Set(jaNaFila.map(j => j.ref))
+    const novos = refs.filter(r => !pendentes.has(r))
+
+    if (novos.length > 0) {
+      await prisma.folhaBiSyncJob.createMany({
+        data: novos.map(ref => ({
+          clienteId, ref, idSci: cliente.idSistema!,
+          empresaId: cliente.empresaId, solicitadoPorId: userId,
+        })),
+      })
+    }
+
+    return { refs, criados: novos.length, jaNaFila: pendentes.size }
   }
 
   /** Pedidos de um cliente (ou os ultimos do tenant) — historico e status na tela. */
