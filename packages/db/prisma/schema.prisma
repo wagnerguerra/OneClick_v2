@@ -4305,11 +4305,6 @@ model Servico {
   // para ID. A multiplicidade de responsabilidade de execução fica em
   // `atribuicaoAreas` ("Setores"), não aqui: a área do serviço é UMA.
   areaId              String?           @map("area_id")
-  // Categoria da OBRIGAÇÃO ACESSÓRIA (Fiscal/Trabalhista/Contábil) — enum fixo,
-  // só faz sentido quando ehObrigacaoAcessoria=true. Herdou o papel que o antigo
-  // `categoria` tinha para as obrigações (registros GLOBAIS, sem Area própria);
-  // separado da Área do serviço de propósito. Ver OBRIGACAO_CATEGORIAS.
-  categoriaObrigacao  String?           @map("categoria_obrigacao")
   // Prioridade padrao — copiada para a execucao na criacao
   prioridadePadrao    PrioridadeServico @default(MEDIA) @map("prioridade_padrao")
   // Catalogo: valor padrao quando esse servico e adicionado como item de orcamento.
