@@ -1031,9 +1031,9 @@ export default function ServicosPage() {
             <ClipboardCheck className="h-6 w-6" />
           </div>
           <div>
-            <h1>{view === 'templates' ? 'Serviços' : 'Execuções'}</h1>
+            <h1>{view === 'templates' ? 'Serviços e Obrigações' : 'Execuções'}</h1>
             <p className="text-sm text-muted-foreground">
-              {view === 'templates' ? 'Gerencie templates de serviço e execuções' : 'Acompanhe o andamento das execuções de serviços'}
+              {view === 'templates' ? 'Gerencie serviços, obrigações acessórias e suas execuções' : 'Acompanhe o andamento das execuções de serviços'}
             </p>
           </div>
         </div>

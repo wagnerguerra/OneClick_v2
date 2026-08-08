@@ -3186,6 +3186,65 @@ export class OrcamentoService {
     return item
   }
 
+  /**
+   * Aplica um grupo de serviços (ServicoGrupo tipo=ORCAMENTO) num orçamento —
+   * adiciona cada serviço do grupo como OrcamentoItem (tipo SERVICO), em lote.
+   *
+   * Só entra serviço elegível ao catálogo de orçamento (ativo, disponível, não
+   * interno) — espelha o filtro do listCatalogo. Serviço já presente no orçamento
+   * (mesmo catalogoId) é pulado, pra reaplicar o grupo não duplicar itens.
+   * Uma recalculada/evento só no fim.
+   */
+  async aplicarGrupo(input: { orcamentoId: string; grupoId: string }) {
+    await this.assertEditable(input.orcamentoId)
+
+    const grupo = await prisma.servicoGrupo.findUnique({
+      where: { id: input.grupoId },
+      include: { itens: { select: { servicoId: true } } },
+    })
+    if (!grupo) throw new Error('Grupo de serviços não encontrado.')
+    if (grupo.tipo !== 'ORCAMENTO') throw new Error('Só grupos do tipo "Itens de orçamento" podem ser aplicados aqui.')
+    if (grupo.itens.length === 0) throw new Error('Grupo vazio — adicione serviços antes de aplicar.')
+
+    const servicoIds = grupo.itens.map(i => i.servicoId)
+    const servicos = await prisma.servico.findMany({
+      where: { id: { in: servicoIds }, ativo: true, disponivelOrcamento: true, ehServicoInterno: false },
+      select: { id: true, nome: true, valorPadrao: true, textoPadrao: true },
+    })
+
+    // Serviços já presentes no orçamento (por catalogoId) — pra não duplicar.
+    const jaPresentes = new Set(
+      (await prisma.orcamentoItem.findMany({
+        where: { orcamentoId: input.orcamentoId, catalogoId: { in: servicoIds } },
+        select: { catalogoId: true },
+      })).map(i => i.catalogoId),
+    )
+
+    const novos = servicos.filter(s => !jaPresentes.has(s.id))
+    if (novos.length > 0) {
+      await prisma.orcamentoItem.createMany({
+        data: novos.map(s => ({
+          orcamentoId: input.orcamentoId,
+          tipo: 'SERVICO' as const,
+          descricao: s.nome,
+          quantidade: 1,
+          valorUnitario: s.valorPadrao ?? 0,
+          catalogoId: s.id,
+          situacao: 'A_FAZER' as const,
+        })),
+      })
+      await this.recalcularTotais(input.orcamentoId)
+      await this.emitItemEvent(input.orcamentoId)
+    }
+
+    return {
+      grupoNome: grupo.nome,
+      criadas: novos.length,
+      // itens do grupo que não entraram: já presentes + inelegíveis (inativo/indisponível/interno)
+      pulados: grupo.itens.length - novos.length,
+    }
+  }
+
   async updateItem(id: string, data: UpdateOrcamentoItemInput) {
     const item = await prisma.orcamentoItem.findUnique({
       where: { id },

@@ -1,8 +1,8 @@
 'use client'
 
 import {
-  Receipt, Info, Plus, Repeat, ExternalLink, FileText, Power, PowerOff,
-  Calendar, Filter, Settings, AlertTriangle, ListChecks, Layers,
+  Receipt, Info, Repeat, ExternalLink, PowerOff,
+  Calendar, Settings, AlertTriangle, ListChecks, Layers, Boxes,
 } from 'lucide-react'
 import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, DefRow } from '../_components/article-blocks'
@@ -13,88 +13,98 @@ const FAQ_COLOR = '#0891b2'
 export default function FaqObrigacoesPage() {
   return (
     <ArticleShell
-      modulo="Obrigações"
+      modulo="Serviços"
       moduloColor={MODULO_COLOR}
       icon={Receipt}
-      titulo="Obrigações Acessórias: catálogo, vencimentos e fontes oficiais"
-      descricao="O módulo /obrigacoes é o catálogo global das obrigações fiscais, trabalhistas e contábeis que sua contabilidade entrega aos clientes — cada uma com regra de recorrência, vencimento previsto e link para fonte legal + documentação oficial."
+      titulo="Obrigações acessórias: cadastro em Serviços, grupos e recorrência"
+      descricao="Obrigações acessórias (DAS, DCTFWeb, eSocial, ECD…) são serviços recorrentes: vivem dentro de Serviços com a marca de obrigação acessória, com regra de recorrência, vencimento previsto e fonte legal. O antigo módulo /obrigacoes foi unificado em /servicos."
     >
+      <Callout tipo="info">
+        <strong>Mudou de lugar.</strong> A tela dedicada <code>/obrigacoes</code> foi aposentada — obrigações acessórias agora são cadastradas e listadas em <code>/servicos</code> (marcadas com <code>ehObrigacaoAcessoria</code>). O agrupamento saiu dos antigos "Templates de Obrigações" e passou para <code>/servicos/grupos</code> (grupos do tipo <strong>Obrigações acessórias</strong>).
+      </Callout>
+
       <Section icon={Info} titulo="Conceitos" cor={FAQ_COLOR}>
         <div className="space-y-2 text-sm">
-          <DefRow termo="Obrigação acessória" texto="Declaração, demonstrativo ou guia que a contabilidade entrega periodicamente para o Fisco, conselho ou cliente (ex.: DAS, DCTFWeb, eSocial, ECD)." />
-          <DefRow termo="Catálogo global" texto="Os 28 templates que vêm seedados são compartilhados entre todos os tenants. empresaId=null no banco. Quem cria via formulário também entra no catálogo global por padrão." />
-          <DefRow termo="Categoria" texto="Fiscal, Trabalhista ou Contábil. Define a cor do badge na listagem e ajuda a agrupar visualmente." />
+          <DefRow termo="Obrigação acessória" texto="Declaração, demonstrativo ou guia que a contabilidade entrega periodicamente para o Fisco, conselho ou cliente (ex.: DAS, DCTFWeb, eSocial, ECD). No banco é um Servico com a flag ehObrigacaoAcessoria=true." />
+          <DefRow termo="Onde cadastrar" texto="Em /servicos — o mesmo cadastro dos serviços, distinguido pela marca de obrigação acessória. A integração do Acessórias também cria obrigações direto a partir das entregas observadas." />
+          <DefRow termo="Grupo de obrigações" texto="Um ServicoGrupo do tipo Obrigações acessórias (em /servicos/grupos). Reúne N obrigações para aplicar em lote num cliente — substitui os antigos Templates de Obrigações." />
           <DefRow termo="Recorrência" texto="Regra de disparo automático: frequência (mensal/trimestral/anual...), ancoragem (dia do mês, n-ésimo dia útil ou dias após competência) e offset de competência." />
-          <DefRow termo="Próximo vencimento" texto="Data calculada em runtime pelo RecorrenciaScheduler com base na regra. O semáforo vermelho aparece quando atrasado, âmbar quando faltam ≤7 dias." />
-          <DefRow termo="Fonte oficial" texto="URL pública onde o vencimento/regra foi confirmado (site Receita, portal SEFAZ, lei no Planalto). Usado como prova de auditoria e facilita revisão anual." />
-          <DefRow termo="Documentação" texto="URL pública do manual/FAQ/guia oficial. Vinculada para consulta rápida do operador (ex.: Perguntas frequentes do Simples Nacional)." />
+          <DefRow termo="Próximo vencimento" texto="Data calculada em runtime pelo RecorrenciaScheduler com base na regra. Aparece no calendário de obrigações do cliente e no disparo diário da agenda." />
+          <DefRow termo="Fonte oficial / Documentação" texto="URLs opcionais: a fonte serve pra auditoria (de onde tiramos a data — lei/IN) e a documentação pra operação (manual/FAQ oficial)." />
         </div>
       </Section>
 
       <h2 className="text-base font-bold pt-2">Como usar</h2>
 
-      <Step n={1} cor={MODULO_COLOR} icon={Filter} titulo="Filtrar o catálogo" rota="/obrigacoes">
+      <Step n={1} cor={MODULO_COLOR} icon={Receipt} titulo="Cadastrar / encontrar a obrigação" rota="/servicos">
         <p>
-          A barra superior tem 4 filtros independentes:
+          Obrigações acessórias ficam em <strong>Serviços</strong>. Ao criar um serviço, marque-o como
+          obrigação acessória; ele passa a valer todo o motor de Serviços (SLA, etapas, fluxo, notificações).
         </p>
-        <ul className="list-disc list-inside space-y-1 ml-2">
-          <li><strong>Categoria</strong>: Fiscal · Trabalhista · Contábil</li>
-          <li><strong>Frequência</strong>: Mensal · Trimestral · Semestral · Anual (e Diária/Semanal, raras)</li>
-          <li><strong>Ativas/Inativas</strong>: por padrão mostra todas, mas dá pra ocultar as desativadas</li>
-          <li><strong>Busca livre</strong>: procura no nome e na descrição (case-insensitive)</li>
+        <ul className="list-disc list-inside space-y-1 ml-2 text-sm">
+          <li>Os ajustes finos (SLA por etapa, fluxo/DAG, regras de notificação, recorrência personalizada) ficam em <code>/servicos/[id]</code>.</li>
+          <li>A integração do <strong>Acessórias</strong> (Acessórias → Integração → Mapeamento) também cria a obrigação direto a partir de uma entrega observada e já vincula.</li>
         </ul>
+      </Step>
+
+      <Step n={2} cor={MODULO_COLOR} icon={Boxes} titulo="Agrupar obrigações" rota="/servicos/grupos">
+        <p>
+          Em <code>/servicos/grupos</code>, crie um grupo do tipo <strong>Obrigações acessórias</strong>. O
+          seletor de itens passa a listar só obrigações acessórias, e o grupo fica disponível para aplicar
+          em lote nos clientes.
+        </p>
         <Callout tipo="info">
-          Cada filtro aplicado conta no contador ao lado do ícone <Filter className="inline h-3.5 w-3.5" />. Ao chegar em zero resultados, dá pra remover filtros um a um.
+          O tipo do grupo restringe o que entra: <strong>Geral</strong> (qualquer serviço), <strong>Obrigações
+          acessórias</strong> (só obrigações) ou <strong>Itens de orçamento</strong> (só serviços disponíveis
+          para orçamento).
         </Callout>
       </Step>
 
-      <Step n={2} cor={MODULO_COLOR} icon={Calendar} titulo="Acompanhar vencimentos">
-        <p>A coluna <strong>Próximo vencimento</strong> mostra a data calculada em runtime, com cor indicando urgência:</p>
+      <Step n={3} cor={MODULO_COLOR} icon={ListChecks} titulo="Aplicar um grupo no cliente" rota="/clientes">
+        <p>
+          Na ficha do cliente, aba <strong>Obrigações</strong>, use <strong>Aplicar grupo</strong> para
+          herdar em lote as obrigações de um grupo (tipo Obrigações acessórias). Cada obrigação vira um
+          vínculo <code>ClienteObrigacao</code>.
+        </p>
         <ul className="list-disc list-inside space-y-1 ml-2 text-sm">
-          <li><span className="text-red-600 font-medium">Vermelho</span> — atrasada (data já passou)</li>
-          <li><span className="text-amber-700 font-medium">Âmbar</span> — faltam 7 dias ou menos</li>
-          <li><span className="text-muted-foreground">Cinza</span> — prazo confortável</li>
+          <li><strong>Manter obrigações já existentes</strong> (padrão): adiciona só as que faltam; o que o cliente já tem fica intacto.</li>
+          <li><strong>Substituir tudo</strong>: remove TODAS as obrigações atuais do cliente (inclusive as manuais) antes de aplicar — pede confirmação.</li>
+          <li><strong>Adicionar individual</strong>: vincula uma obrigação avulsa, sem grupo.</li>
         </ul>
+      </Step>
+
+      <Step n={4} cor={MODULO_COLOR} icon={Calendar} titulo="Acompanhar vencimentos">
+        <p>
+          A aba Obrigações do cliente tem a visão <strong>Calendário</strong> (toggle Tabela ↔ Calendário no
+          cabeçalho), que expande os próximos vencimentos a partir da recorrência de cada obrigação ativa.
+          O disparo diário da agenda também lista os vencimentos do dia (cross-client).
+        </p>
         <Callout tipo="info">
-          O cálculo é determinístico — usa o mesmo motor que o cron diário de 06:00 (<code>RecorrenciaScheduler</code>). Se você ajusta a regra, a próxima data atualiza imediatamente ao recarregar a página.
+          O cálculo é determinístico — usa o mesmo motor do cron (<code>RecorrenciaScheduler</code>). Ajustou a regra, a próxima data atualiza ao recarregar.
         </Callout>
       </Step>
 
-      <Step n={3} cor={MODULO_COLOR} icon={ExternalLink} titulo="Consultar fonte oficial e documentação">
-        <p>Cada obrigação tem dois links opcionais:</p>
+      <Step n={5} cor={MODULO_COLOR} icon={ExternalLink} titulo="Consultar fonte oficial e documentação">
+        <p>Cada obrigação tem dois links opcionais (na ficha do serviço):</p>
         <ul className="list-disc list-inside space-y-1 ml-2 text-sm">
-          <li><strong>Fonte oficial</strong> — onde o vencimento foi confirmado (ícone <ExternalLink className="inline h-3.5 w-3.5" /> direto na linha)</li>
-          <li><strong>Documentação</strong> — manual, FAQ ou guia (acessível pelo menu <strong>⋮</strong>)</li>
+          <li><strong>Fonte oficial</strong> — onde o vencimento foi confirmado (lei/IN)</li>
+          <li><strong>Documentação</strong> — manual, FAQ ou guia oficial</li>
         </ul>
         <Callout tipo="dica">
-          <strong>Por que existem dois?</strong> A <em>fonte</em> serve pra auditoria (provar de onde tiramos a data) e a <em>documentação</em> serve pra operação (resolver dúvidas na hora). Em geral fonte é a lei/IN e documentação é o manual ou FAQ.
+          <strong>Por que dois?</strong> A <em>fonte</em> serve pra auditoria (provar de onde tiramos a data) e a <em>documentação</em> pra operação (resolver dúvidas na hora).
         </Callout>
       </Step>
 
-      <Step n={4} cor={MODULO_COLOR} icon={Plus} titulo="Cadastrar nova obrigação" rota="/obrigacoes/new">
-        <p>O botão <strong>Nova obrigação</strong> abre um formulário enxuto:</p>
-        <ul className="list-disc list-inside space-y-1 ml-2 text-sm">
-          <li><strong>Nome</strong> e <strong>categoria</strong> (Fiscal/Trabalhista/Contábil)</li>
-          <li><strong>Descrição</strong> com base legal e particularidades</li>
-          <li><strong>Fonte</strong> e <strong>Documentação</strong> (URLs opcionais)</li>
-          <li><strong>Recorrência inicial</strong> — frequência + ancoragem + valor + offset</li>
-        </ul>
-        <Callout tipo="info">
-          Após criar, você é redirecionado para <code>/servicos/[id]</code>, onde estão os ajustes finos: SLA por etapa, fluxo (DAG), regras de notificação, recorrência personalizada (dias específicos do mês, meses do ano), etc.
-        </Callout>
-      </Step>
-
-      <Step n={5} cor={MODULO_COLOR} icon={PowerOff} titulo="Desativar e reativar">
+      <Step n={6} cor={MODULO_COLOR} icon={PowerOff} titulo="Desativar e reativar">
         <p>
-          O menu <strong>⋮</strong> de cada linha tem <strong>Desativar</strong> (ou <strong>Reativar</strong>). Obrigações desativadas:
+          Como qualquer serviço, uma obrigação pode ser desativada em <code>/servicos/[id]</code>. Desativadas:
         </p>
         <ul className="list-disc list-inside space-y-1 ml-2 text-sm">
-          <li>Aparecem em cinza (opacity reduzida) na listagem</li>
           <li><strong>Não são</strong> mais executadas automaticamente pelo cron — o scheduler ignora <code>ativo=false</code></li>
           <li>São preservadas no histórico, mas saem da rotação até serem reativadas</li>
         </ul>
         <Callout tipo="aviso">
-          Desativar é diferente de excluir. Como obrigações têm execuções vinculadas (histórico contábil), a opção de excluir não está exposta na UI — desativar é o caminho correto para "tirar de circulação".
+          Desativar é diferente de excluir. Como obrigações têm execuções vinculadas (histórico contábil), o caminho correto para "tirar de circulação" é desativar.
         </Callout>
       </Step>
 
@@ -140,18 +150,18 @@ export default function FaqObrigacoesPage() {
 
       <Section icon={Layers} titulo="Por que reusa Servico no banco?" cor={FAQ_COLOR}>
         <p className="text-sm">
-          Obrigações acessórias são serviços recorrentes — têm SLA, etapas, passos, fluxo de execução, regras de notificação. Em vez de duplicar tudo isso numa tabela <code>Obrigacao</code> à parte, o módulo reusa <code>Servico</code> com a flag <code>ehObrigacaoAcessoria=true</code>.
+          Obrigações acessórias são serviços recorrentes — têm SLA, etapas, passos, fluxo de execução, regras de notificação. Em vez de duplicar tudo isso numa tabela <code>Obrigacao</code> à parte, o sistema reusa <code>Servico</code> com a flag <code>ehObrigacaoAcessoria=true</code>.
         </p>
         <p className="text-sm">
-          Resultado: <strong>todo o motor de execução, fluxograma e notificações que existe para Serviços vale automaticamente para Obrigações</strong> — sem código duplicado.
+          Resultado: <strong>todo o motor de execução, fluxograma e notificações que existe para Serviços vale automaticamente para Obrigações</strong> — sem código duplicado. Foi por isso que a tela separada <code>/obrigacoes</code> pôde ser aposentada.
         </p>
       </Section>
 
       <h2 className="text-base font-bold pt-2">Dicas e armadilhas</h2>
 
       <Callout tipo="dica">
-        <p className="font-semibold mb-1">🔍 Antes de criar uma obrigação nova, busque no catálogo</p>
-        <p>As 28 já seedadas cobrem a maior parte do Brasil fiscal/trabalhista. Use a busca livre — pode ser que ela já exista com nome ligeiramente diferente.</p>
+        <p className="font-semibold mb-1">🔍 Antes de criar uma obrigação nova, busque em Serviços</p>
+        <p>Muitas já existem no cadastro. Use a busca de <code>/servicos</code> — pode ser que a obrigação já exista com nome ligeiramente diferente.</p>
       </Callout>
 
       <Callout tipo="aviso">
@@ -160,12 +170,8 @@ export default function FaqObrigacoesPage() {
       </Callout>
 
       <Callout tipo="info">
-        <Info className="inline-block h-3.5 w-3.5 mr-1" />
-        <strong>Fonte sempre que possível.</strong> Antes de salvar uma obrigação nova, busque a fonte oficial. Mesmo que pareça evidente (DAS = dia 20), em revisão futura o link na mão evita perda de tempo.
-      </Callout>
-
-      <Callout tipo="info">
-        <strong>O semáforo é só visual.</strong> Vermelho/âmbar/cinza muda só a cor — não bloqueia nada. A criação automática da execução ainda acontece no horário do cron mesmo que a regra esteja "atrasada".
+        <AlertTriangle className="inline-block h-3.5 w-3.5 mr-1" />
+        <strong>Aplicar grupo é aditivo por padrão.</strong> O modo "Substituir tudo" remove todas as obrigações atuais do cliente (inclusive as manuais) antes de reaplicar — use com atenção; ele pede confirmação.
       </Callout>
     </ArticleShell>
   )

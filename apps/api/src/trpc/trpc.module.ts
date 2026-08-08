@@ -52,9 +52,8 @@ import { BeneficioModule } from '../beneficio/beneficio.module'
 import { PainelTvModule } from '../painel-tv/painel-tv.module'
 import { AcessoriasModule } from '../acessorias/acessorias.module'
 import { NotificacaoModule } from '../notificacao/notificacao.module'
-import { ObrigacaoModule } from '../obrigacao/obrigacao.module'
 import { FeriadoModule } from '../feriado/feriado.module'
-import { GrupoObrigacaoModule } from '../grupo-obrigacao/grupo-obrigacao.module'
+import { ClienteObrigacaoModule } from '../cliente-obrigacao/cliente-obrigacao.module'
 import { ProjetoModule } from '../projeto/projeto.module'
 import { MinhasObrigacoesModule } from '../minhas-obrigacoes/minhas-obrigacoes.module'
 import { AtivoModule } from '../ativo/ativo.module'
@@ -76,7 +75,7 @@ import { ReformaTributariaModule } from '../reforma-tributaria/reforma-tributari
 import { CusteioModule } from '../custeio/custeio.module'
 
 @Module({
-  imports: [AreaModule, FerramentasModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AdminTenantModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, CompraModule, SocioModule, CnpjModule, SitfisModule, CaixaPostalModule, CndModule, DctfwebModule, BiModule, FolhaModule, FolhaBiModule, AgendaModule, DteModule, CrmModule, OrcamentoModule, BeneficioFiscalModule, ReformaTributariaModule, CusteioModule, NotaModule, WhatsappModule, FaqModule, ServicoModule, ProcessoModule, PesquisaModule, ContratoModule, NotificationModule, TabsModule, CertificadoDigitalModule, DashboardLayoutModule, PermissionsEventsModule, NotificationsEventsModule, DashboardCalendarioModule, HelpdeskModule, AcessoriasModule, NotificacaoModule, ObrigacaoModule, FeriadoModule, GrupoObrigacaoModule, ProjetoModule, MinhasObrigacoesModule, AtivoModule,
+  imports: [AreaModule, FerramentasModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AdminTenantModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, CompraModule, SocioModule, CnpjModule, SitfisModule, CaixaPostalModule, CndModule, DctfwebModule, BiModule, FolhaModule, FolhaBiModule, AgendaModule, DteModule, CrmModule, OrcamentoModule, BeneficioFiscalModule, ReformaTributariaModule, CusteioModule, NotaModule, WhatsappModule, FaqModule, ServicoModule, ProcessoModule, PesquisaModule, ContratoModule, NotificationModule, TabsModule, CertificadoDigitalModule, DashboardLayoutModule, PermissionsEventsModule, NotificationsEventsModule, DashboardCalendarioModule, HelpdeskModule, AcessoriasModule, NotificacaoModule, FeriadoModule, ClienteObrigacaoModule, ProjetoModule, MinhasObrigacoesModule, AtivoModule,
     RelatorioTiModule, ManifestacaoModule, ClientErrorModule, ThemeModule, DanfeModule, DriveSyncModule, NfeDistModule, NfseDistModule, AgendamentoModule, GoogleBackupModule, SignatureModule, OnlineUsersModule, ChatModule, PushModule, PainelTvModule, LeadModule, BeneficioModule, TratamentoLancamentosModule, QaModule, SqlConsoleModule],
   providers: [TrpcService],
   controllers: [TrpcController],

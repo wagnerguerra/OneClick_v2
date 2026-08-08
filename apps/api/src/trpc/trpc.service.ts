@@ -148,12 +148,10 @@ import { createAcessoriasRouter } from '../acessorias/acessorias.router'
 import { RecorrenciaScheduler } from '../notificacao/recorrencia.scheduler'
 import { NotificacaoService } from '../notificacao/notificacao.service'
 import { createNotificacaoRouter } from '../notificacao/notificacao.router'
-import { ObrigacaoService } from '../obrigacao/obrigacao.service'
-import { createObrigacaoRouter } from '../obrigacao/obrigacao.router'
 import { FeriadoService } from '../feriado/feriado.service'
 import { createFeriadoRouter } from '../feriado/feriado.router'
-import { GrupoObrigacaoService } from '../grupo-obrigacao/grupo-obrigacao.service'
-import { createGrupoObrigacaoRouter } from '../grupo-obrigacao/grupo-obrigacao.router'
+import { ClienteObrigacaoService } from '../cliente-obrigacao/cliente-obrigacao.service'
+import { createClienteObrigacaoRouter } from '../cliente-obrigacao/cliente-obrigacao.router'
 import { ProjetoService } from '../projeto/projeto.service'
 import { createProjetoRouter } from '../projeto/projeto.router'
 import { RelatorioTiService } from '../relatorio-ti/relatorio-ti.service'
@@ -714,9 +712,8 @@ export class TrpcService {
     @Inject(IndicadoresAcessoriasService) private readonly indicadoresAcessoriasService: IndicadoresAcessoriasService,
     @Inject(RecorrenciaScheduler) private readonly recorrenciaScheduler: RecorrenciaScheduler,
     @Inject(NotificacaoService) private readonly notificacaoServiceTrpc: NotificacaoService,
-    @Inject(ObrigacaoService) private readonly obrigacaoService: ObrigacaoService,
     @Inject(FeriadoService) private readonly feriadoService: FeriadoService,
-    @Inject(GrupoObrigacaoService) private readonly grupoObrigacaoService: GrupoObrigacaoService,
+    @Inject(ClienteObrigacaoService) private readonly clienteObrigacaoService: ClienteObrigacaoService,
     @Inject(ProjetoService) private readonly projetoService: ProjetoService,
     @Inject(MinhasObrigacoesService) private readonly minhasObrigacoesService: MinhasObrigacoesService,
     @Inject(AtivoService) private readonly ativoService: AtivoService,
@@ -816,9 +813,8 @@ export class TrpcService {
       acessorias: createAcessoriasRouter(this.acessoriasService, this.divergenciaAcessoriasService, this.painelEntregasService, this.regrasObrigacaoService,
         this.vinculosAcessoriasService, this.indicadoresAcessoriasService),
       notificacao: createNotificacaoRouter(this.recorrenciaScheduler, this.notificacaoServiceTrpc),
-      obrigacao: createObrigacaoRouter(this.obrigacaoService),
       feriado: createFeriadoRouter(this.feriadoService),
-      grupoObrigacao: createGrupoObrigacaoRouter(this.grupoObrigacaoService),
+      clienteObrigacao: createClienteObrigacaoRouter(this.clienteObrigacaoService),
       projetos: createProjetoRouter(this.projetoService),
       relatorioTi: createRelatorioTiRouter(this.relatorioTiService),
       // Um router por módulo sobre a mesma engrenagem — o tipo é fixado aqui,

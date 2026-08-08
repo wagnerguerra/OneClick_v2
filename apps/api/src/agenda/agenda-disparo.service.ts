@@ -5,7 +5,7 @@ import { prisma } from '@saas/db'
 import type { AgendaDisparoConfig, Prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { AgendaEmailTemplateService } from './agenda-email-template.service'
-import { GrupoObrigacaoService } from '../grupo-obrigacao/grupo-obrigacao.service'
+import { ClienteObrigacaoService } from '../cliente-obrigacao/cliente-obrigacao.service'
 
 // Pseudo-tipo (não é AgendaTipo real): id sentinela que, quando atribuído a um
 // grupo do e-mail, faz os vencimentos de obrigações acessórias do dia entrarem
@@ -47,7 +47,7 @@ export class AgendaDisparoService implements OnModuleInit {
   constructor(
     @Inject(EmailService) private readonly emailService: EmailService,
     @Inject(AgendaEmailTemplateService) private readonly templateService: AgendaEmailTemplateService,
-    @Inject(GrupoObrigacaoService) private readonly grupoObrigacaoService: GrupoObrigacaoService,
+    @Inject(ClienteObrigacaoService) private readonly clienteObrigacaoService: ClienteObrigacaoService,
   ) {}
 
   // Cache dos vencimentos do dia (mesmo dia → mesma lista pra todos os
@@ -56,7 +56,7 @@ export class AgendaDisparoService implements OnModuleInit {
 
   private async vencimentosDoDia(dataYyyyMmDd: string) {
     if (this.vencCache?.dia === dataYyyyMmDd) return this.vencCache.itens
-    const itens = await this.grupoObrigacaoService.getVencimentosDoDia(new Date(dataYyyyMmDd)).catch(() => [])
+    const itens = await this.clienteObrigacaoService.getVencimentosDoDia(new Date(dataYyyyMmDd)).catch(() => [])
     this.vencCache = { dia: dataYyyyMmDd, itens }
     return itens
   }

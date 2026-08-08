@@ -452,9 +452,28 @@ export type ReorderMateriaisInput = z.infer<typeof reorderMateriaisSchema>
 // ── Grupos de serviço (M→N) ──────────────────────────────────────────
 /** Agrupa serviços por operação (ex: "Constituição de Cliente Mensal").
  *  Um serviço pode estar em vários grupos via tabela junção. */
+/** Escopo do grupo de serviços (espelha o enum Prisma GrupoTipo). Restringe
+ *  quais serviços entram e onde o grupo é oferecido. */
+export const GRUPO_TIPO = ['GERAL', 'OBRIGACOES', 'ORCAMENTO'] as const
+export type GrupoTipo = (typeof GRUPO_TIPO)[number]
+
+export const GRUPO_TIPO_LABELS: Record<GrupoTipo, string> = {
+  GERAL: 'Geral (qualquer serviço)',
+  OBRIGACOES: 'Obrigações acessórias',
+  ORCAMENTO: 'Itens de orçamento',
+}
+
+/** Ajuda contextual de cada tipo — o que ele restringe / onde é usado. */
+export const GRUPO_TIPO_HINTS: Record<GrupoTipo, string> = {
+  GERAL: 'Aceita qualquer serviço. Usado para agrupamento livre.',
+  OBRIGACOES: 'Só obrigações acessórias. Aplicável em lote a um cliente.',
+  ORCAMENTO: 'Só serviços disponíveis para orçamento. Aplicável em lote nos itens de um orçamento.',
+}
+
 export const createGrupoSchema = z.object({
   nome: z.string().min(1, 'Nome é obrigatório').max(120),
   descricao: z.string().optional().nullable(),
+  tipo: z.enum(GRUPO_TIPO).optional(),
   cor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Cor hex inválida').optional().nullable(),
   ordem: z.coerce.number().int().nonnegative().optional(),
   servicoIds: z.array(z.string()).optional(),
@@ -464,6 +483,7 @@ export const updateGrupoSchema = z.object({
   id: z.string(),
   nome: z.string().min(1).max(120).optional(),
   descricao: z.string().optional().nullable(),
+  tipo: z.enum(GRUPO_TIPO).optional(),
   cor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().nullable(),
   ordem: z.coerce.number().int().nonnegative().optional(),
   ativo: z.boolean().optional(),

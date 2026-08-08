@@ -424,6 +424,10 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => orcamentoService.removeItem(input.id)),
 
+    aplicarGrupo: writeSubProcedure(MODULE, 'manage_itens', 'Incluir itens em orcamentos')
+      .input(z.object({ orcamentoId: z.string(), grupoId: z.string() }))
+      .mutation(({ input }) => orcamentoService.aplicarGrupo(input)),
+
     // ── Mensagens ──────────────────────────────────────────
     addMensagem: writeProcedure(MODULE)
       .input(z.object({

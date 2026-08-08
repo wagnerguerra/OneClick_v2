@@ -1172,8 +1172,8 @@ export default function ServicoDetailPage() {
               </div>
               <Button
                 variant="outline" size="icon"
-                onClick={() => router.push(ehObrigacaoAcessoria ? '/obrigacoes' : '/servicos')}
-                title={ehObrigacaoAcessoria ? 'Voltar para Obrigações' : 'Voltar para Serviços'}
+                onClick={() => router.push('/servicos')}
+                title="Voltar para Serviços e Obrigações"
                 className="h-8 w-8 bg-white/70 hover:bg-white shrink-0"
               >
                 <ArrowLeft className="h-4 w-4" />

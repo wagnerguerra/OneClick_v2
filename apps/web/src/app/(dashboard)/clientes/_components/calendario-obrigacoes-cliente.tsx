@@ -43,6 +43,17 @@ function coresParaEvento(categoria: string | null) {
   return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }
 }
 
+// Sigla/borda para qualquer Área — as 3 fiscais têm mapa próprio; as demais caem
+// na inicial do nome + borda neutra (o front deixou de assumir 3 áreas fixas).
+function siglaParaEvento(categoria: string | null): string | null {
+  if (!categoria) return null
+  return CATEGORIA_SIGLA[categoria] ?? categoria.trim().charAt(0).toUpperCase()
+}
+function bordaParaEvento(categoria: string | null): string {
+  if (categoria && CATEGORIA_BORDA_FORTE[categoria]) return CATEGORIA_BORDA_FORTE[categoria]!
+  return 'border-l-slate-400'
+}
+
 function DiaTooltip({ eventos, posicaoTopo }: { eventos: Evento[]; posicaoTopo: boolean }) {
   return (
     <div
@@ -146,8 +157,8 @@ function MesCalendario({
 
           const catDominante = tem ? c.eventos[0]!.categoria : null
           const cores = tem ? coresParaEvento(catDominante) : null
-          const sigla = catDominante && catDominante in CATEGORIA_SIGLA ? CATEGORIA_SIGLA[catDominante] : null
-          const bordaForte = catDominante && catDominante in CATEGORIA_BORDA_FORTE ? CATEGORIA_BORDA_FORTE[catDominante] : null
+          const sigla = tem ? siglaParaEvento(catDominante) : null
+          const bordaForte = tem ? bordaParaEvento(catDominante) : null
           const multi = c.eventos.length > 1
 
           const conteudo = (
@@ -246,7 +257,7 @@ export function CalendarioObrigacoesCliente({ clienteId }: { clienteId: string }
 
   useEffect(() => {
     setLoading(true)
-    ;(trpc as any).grupoObrigacao.calendarioDoCliente.query({ clienteId, ano })
+    ;(trpc as any).clienteObrigacao.calendarioDoCliente.query({ clienteId, ano })
       .then((res: Evento[]) => setEventos(res))
       .catch(() => setEventos([]))
       .finally(() => setLoading(false))
@@ -285,22 +296,25 @@ export function CalendarioObrigacoesCliente({ clienteId }: { clienteId: string }
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 text-[10px] text-muted-foreground">
-          {(['Fiscal', 'Trabalhista', 'Contábil'] as const).map((cat) => {
-            const c = OBRIGACAO_CATEGORIA_CORES[cat]
-            return (
-              <span key={cat} className="inline-flex items-center gap-1.5">
-                <span
-                  className={cn(
-                    'inline-flex items-center justify-center h-4 w-4 rounded text-[8px] font-extrabold border border-l-[3px]',
-                    c.bg, c.text, c.border, CATEGORIA_BORDA_FORTE[cat],
-                  )}
-                >
-                  {CATEGORIA_SIGLA[cat]}
+          {/* Legenda dinâmica: só as Áreas realmente presentes nos vencimentos do ano. */}
+          {Array.from(new Set(eventos.map((e) => e.categoria).filter((c): c is string => !!c)))
+            .sort((a, b) => a.localeCompare(b))
+            .map((cat) => {
+              const c = coresParaEvento(cat)
+              return (
+                <span key={cat} className="inline-flex items-center gap-1.5">
+                  <span
+                    className={cn(
+                      'inline-flex items-center justify-center h-4 w-4 rounded text-[8px] font-extrabold border border-l-[3px]',
+                      c.bg, c.text, c.border, bordaParaEvento(cat),
+                    )}
+                  >
+                    {siglaParaEvento(cat)}
+                  </span>
+                  <span>{cat}</span>
                 </span>
-                <span>{cat}</span>
-              </span>
-            )
-          })}
+              )
+            })}
         </div>
       </div>
 
