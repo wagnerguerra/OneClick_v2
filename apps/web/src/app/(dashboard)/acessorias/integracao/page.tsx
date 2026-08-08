@@ -12,11 +12,10 @@
  */
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import {
   Zap, Loader2, Play, Copy, CheckCircle2, XCircle, Database,
   ChevronRight, ChevronDown, Building2, FileSearch, Link as LinkIcon,
-  History, Search, RefreshCw, AlertCircle, Trash2, Save, Plus, MailWarning, GitCompareArrows, Square,
+  History, Search, RefreshCw, AlertCircle, Trash2, Save, Plus, MailWarning, GitCompareArrows, Square, Lock,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn,
@@ -31,7 +30,7 @@ import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { trpc } from '@/lib/trpc'
 import { masks } from '@/lib/masks'
 import { alerts } from '@/lib/alerts'
-import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)' // Sky — Administrativo
@@ -110,9 +109,13 @@ const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
 
 export default function AcessoriasPage() {
-  const router = useRouter()
-  const { profile, loading: profileLoading } = useCurrentUserProfile()
-  const isAdmin = !!(profile?.isMaster || profile?.isEmpresaMaster)
+  const { isMaster, isEmpresaMaster, permissions, loading: permsLoading } = useUserPermissions()
+  const isAdmin = isMaster || isEmpresaMaster
+  const subsAcessorias = (permissions.find((p) => p.moduleSlug === 'acessorias')?.subPermissions ?? {}) as Record<string, boolean>
+  // Acesso à integração: master/empresa-master OU a sub-permissão (igual à aba em
+  // abas.ts e ao backend integracaoProc). Antes barrava só por master e ainda
+  // fazia router.replace('/') — que cascateava pro /login e parecia crash de sessão.
+  const podeIntegracao = isAdmin || subsAcessorias['gerenciar_integracao'] === true
   const [tab, setTab] = useState<Tab>('companies')
   /**
    * Avisa o histórico de que uma sincronização acabou de ser disparada. Sem
@@ -122,14 +125,19 @@ export default function AcessoriasPage() {
    */
   const [syncTick, setSyncTick] = useState(0)
 
-  useEffect(() => {
-    if (!profileLoading && !isAdmin) router.replace('/')
-  }, [profileLoading, isAdmin, router])
-
-  if (profileLoading) {
+  if (permsLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
   }
-  if (!isAdmin) return null
+  // Sem acesso → mensagem clara (nada de redirect pra "/" que virava ida ao login).
+  if (!podeIntegracao) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
+        <Lock className="mb-3 h-10 w-10 opacity-20" />
+        <p className="text-sm">Você não tem acesso à integração do Acessórias.</p>
+        <p className="text-[13px]">Peça a sub-permissão <strong>Gerenciar a integração</strong> nas permissões do seu usuário.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
