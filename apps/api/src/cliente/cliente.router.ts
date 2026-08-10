@@ -375,6 +375,12 @@ export function createClienteRouter(
       }))
       .mutation(({ input, ctx }) => clienteService.saveContratoParams(input.clienteId, ctx.empresaId, input)),
 
+    // Tira/devolve o cliente ao painel de gestão. Mutation própria porque o
+    // `saveContratoParams` grava a baseline inteira e zeraria os parâmetros.
+    setGestaoIgnorar: writeSubProcedure(MODULE, 'manage_contracts', 'Gerenciar contratos dos clientes')
+      .input(z.object({ clienteId: z.string(), ignorar: z.boolean() }))
+      .mutation(({ input, ctx }) => clienteService.setGestaoIgnorar(input.clienteId, ctx.empresaId, input.ignorar)),
+
     // === SNAPSHOTS ERP ===
     getErpSnapshots: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string(), datai: z.string().optional(), dataf: z.string().optional() }))

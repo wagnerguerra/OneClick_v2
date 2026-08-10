@@ -1012,6 +1012,29 @@ export class ClienteService {
     return prisma.clienteContratoParam.create({ data: { clienteId, empresaId: empresa, ...clean, ...meta } })
   }
 
+  /**
+   * Liga/desliga o cliente no painel de gestão de contratos.
+   *
+   * Existe separado de `saveContratoParams` de propósito: lá os oito números da
+   * baseline têm `default(0)` no schema, então uma chamada só com o flag gravaria
+   * zero em honorário, lançamentos e afins — apagaria justamente o parâmetro de
+   * que o farol depende. Aqui só o flag é tocado.
+   */
+  async setGestaoIgnorar(clienteId: string, empresaId: string | undefined, ignorar: boolean) {
+    const empresa = empresaId || null
+    const existing = await prisma.clienteContratoParam.findFirst({ where: { clienteId, empresaId: empresa } })
+    if (existing) {
+      return prisma.clienteContratoParam.update({
+        where: { id: existing.id },
+        data: { gestaoIgnorar: ignorar },
+      })
+    }
+    // Cliente ainda sem parâmetros: cria a linha só para guardar a decisão.
+    return prisma.clienteContratoParam.create({
+      data: { clienteId, empresaId: empresa, gestaoIgnorar: ignorar },
+    })
+  }
+
   // ============================================================
   // SNAPSHOTS ERP (SCI)
   // ============================================================

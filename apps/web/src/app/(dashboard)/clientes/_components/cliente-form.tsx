@@ -3518,6 +3518,9 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
   const [savingEdit, setSavingEdit] = useState(false)
   // Modal de edição de observações do certificado
   const [editingCert, setEditingCert] = useState<{ id: string; titular: string; emissor: string; observacoes: string } | null>(null)
+  // Alvo do deep-link `#arquivos` (ver o efeito de scroll abaixo).
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [destacado, setDestacado] = useState(false)
   const [savingCert, setSavingCert] = useState(false)
   // Modal de detalhes (read-only) do certificado — componente compartilhado com o
   // módulo Legalização; embute o fluxo de acesso (ver senha / baixar PFX). #HLP0301
@@ -3540,6 +3543,21 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
   }
 
   useEffect(() => { load(); loadCertificados() }, [clienteId])
+
+  /**
+   * Quem chega por `/clientes/{id}#arquivos` (ação "Anexar arquivos" da gestão
+   * de contratos) cai no topo da página, com este card fora da vista. Rola até
+   * ele depois que a lista carrega — antes disso a altura do card ainda muda e
+   * o scroll erraria o alvo. Âncora nativa não serve pelo mesmo motivo.
+   */
+  useEffect(() => {
+    if (loading || typeof window === 'undefined') return
+    if (window.location.hash !== '#arquivos') return
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setDestacado(true)
+    const t = setTimeout(() => setDestacado(false), 2000)
+    return () => clearTimeout(t)
+  }, [loading])
 
   async function handleSaveCert() {
     if (!editingCert) return
@@ -3636,7 +3654,11 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
   }
 
   return (
-    <Card className="p-5">
+    <Card
+      id="arquivos"
+      ref={cardRef}
+      className={cn('p-5 transition-shadow', destacado && 'ring-2 ring-emerald-500/60')}
+    >
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-sm font-semibold">Arquivos</h4>
         {canManageFiles && (

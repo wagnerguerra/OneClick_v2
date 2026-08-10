@@ -4,14 +4,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText, Users, CheckCircle2, TrendingUp, Info, Search,
-  FileDown, ArrowUpRight, ArrowDownRight, Loader2, CalendarClock,
+  FileDown, Loader2, CalendarClock,
   SlidersHorizontal, Database, Paperclip, RefreshCcw, FileSignature, Activity, Check, X, ChevronRight, Percent,
+  MoreVertical, Pencil, EyeOff,
 } from 'lucide-react'
 import {
   Button, Card, Input, Badge,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '@saas/ui'
+import { alerts } from '@/lib/alerts'
 import { cn } from '@saas/ui'
 import { StatCard } from '@/components/stat-card'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -86,38 +89,11 @@ const FAROL_COR: Record<Registro['farol'], string> = {
   verde: '#10b981', amarelo: '#f59e0b', vermelho: '#f43f5e',
 }
 
-const VIGENCIA_INFO: Record<Registro['vigencia'], { label: string; cls: string }> = {
-  permanente: { label: 'Permanente', cls: 'text-muted-foreground' },
-  sem_vigencia: { label: 'Sem vigência', cls: 'text-muted-foreground' },
-  vigente: { label: 'Vigente', cls: 'text-emerald-600 dark:text-emerald-400' },
-  vence_atencao: { label: 'A vencer', cls: 'text-amber-600 dark:text-amber-400' },
-  vence_critico: { label: 'Vence em breve', cls: 'text-amber-600 dark:text-amber-400 font-medium' },
-  vencido: { label: 'Vencido', cls: 'text-rose-600 dark:text-rose-400 font-medium' },
-}
-
-const fmtMoeda = (v: number | null) =>
-  v == null ? '—' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v))
-
 function fmtCnpj(doc: string | null) {
   if (!doc) return '—'
   const s = String(doc)
   if (s.length !== 14) return s
   return s.replace(/^(.{2})(.{3})(.{3})(.{4})(.{2})$/, '$1.$2.$3/$4-$5')
-}
-
-/** Indicador de variação (percentual + seta) ao lado do valor. Vermelho se o
- * ERP superou o parâmetro (defasado), verde se está abaixo. */
-function VariacaoBadge({ pct }: { pct: number | null }) {
-  if (pct == null || !Number.isFinite(pct)) return null
-  const up = pct > 0
-  const down = pct < 0
-  return (
-    <span className={cn('ml-1 inline-flex items-center gap-0.5 text-[11px] font-medium',
-      up ? 'text-rose-600 dark:text-rose-400' : down ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
-      {up ? '+' : ''}{pct}%
-      {up ? <ArrowUpRight className="h-3 w-3" /> : down ? <ArrowDownRight className="h-3 w-3" /> : null}
-    </span>
-  )
 }
 
 /** Ícone de status na faixa "Status": verde/vivo quando presente, apagado quando ausente.
@@ -183,6 +159,28 @@ export default function GestaoContratosPage() {
   }, [page, debounced])
 
   useEffect(() => { carregar() }, [carregar])
+
+  /**
+   * Tira o cliente do painel — a listagem já filtra `gestao_ignorar`.
+   *
+   * Confirma antes porque a saída é silenciosa: a linha some e não há nada aqui
+   * que a traga de volta; o caminho é o card de contrato no cadastro do cliente.
+   */
+  async function ignorarNaGestao(r: Registro) {
+    const ok = await alerts.confirm({
+      title: 'Ignorar na gestão?',
+      text: `${r.cliente || 'Este cliente'} sai deste painel e deixa de ser cobrado pelo farol. Para trazê-lo de volta, use os parâmetros de contrato no cadastro do cliente.`,
+      confirmText: 'Ignorar',
+    })
+    if (!ok) return
+    try {
+      await trpc.cliente.setGestaoIgnorar.mutate({ clienteId: r.id, ignorar: true })
+      await carregar()
+      alerts.toast('Cliente removido da gestão')
+    } catch (e) {
+      alerts.error('Erro', e instanceof Error ? e.message : 'Não foi possível atualizar.')
+    }
+  }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -266,27 +264,19 @@ export default function GestaoContratosPage() {
                     <TableHead className="w-12 text-center text-xs font-semibold uppercase tracking-wider">#</TableHead>
                     <TableHead className="text-xs font-semibold uppercase tracking-wider">CNPJ</TableHead>
                     <TableHead className="text-xs font-semibold uppercase tracking-wider">Cliente</TableHead>
-                    <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Situação</TableHead>
                     <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Status</TableHead>
                     <TableHead className="text-center text-xs font-semibold uppercase tracking-wider" title="Sugestão de renegociação — acende antes do farol">Recomendação</TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wider">Vigência</TableHead>
-                    <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Faturamento</TableHead>
-                    <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Honorários</TableHead>
-                    <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Lançamentos</TableHead>
-                    <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Notas</TableHead>
-                    <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Vidas</TableHead>
+                    <TableHead className="w-16 text-center text-xs font-semibold uppercase tracking-wider">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {registros.length === 0 && !loading ? (
                     <TableRow>
-                      <TableCell colSpan={13} className="py-10 text-center text-sm text-muted-foreground">
+                      <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                         Nenhum cliente com contrato ou parâmetros. Use &quot;Verificar no ERP&quot; no detalhe do cliente para alimentar os dados.
                       </TableCell>
                     </TableRow>
                   ) : registros.map(r => {
-                    const sit = SITUACAO_BADGE[r.situacao]
-                    const vig = VIGENCIA_INFO[r.vigencia]
                     return (
                       <TableRow key={r.id} className="cursor-pointer" onClick={() => router.push(`/clientes/${r.id}`)}>
                         <TableCell className="text-center">
@@ -303,9 +293,6 @@ export default function GestaoContratosPage() {
                         <TableCell className="text-center text-xs text-muted-foreground">{r.numero}</TableCell>
                         <TableCell className="whitespace-nowrap text-sm tabular-nums">{fmtCnpj(r.documento)}</TableCell>
                         <TableCell className="max-w-[260px] truncate text-sm font-medium">{r.cliente || '—'}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className={cn('font-normal', sit.cls)}>{sit.label}</Badge>
-                        </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-2">
                             <StatusIcon icon={FileSignature} active={r.temContrato}
@@ -335,33 +322,32 @@ export default function GestaoContratosPage() {
                             </button>
                           ) : <span className="text-muted-foreground">—</span>}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">
-                          {!r.temContrato ? (
-                            <span className="text-muted-foreground">Sem contrato</span>
-                          ) : (
-                            <span className={vig.cls} title={r.dataFim ? `Vence em ${r.dataFim.split('-').reverse().join('/')}` : undefined}>
-                              {vig.label}
-                              {r.diasParaVencer != null && r.vigencia !== 'vigente' && (
-                                <span className="ml-1 text-muted-foreground">
-                                  ({r.diasParaVencer < 0 ? `há ${Math.abs(r.diasParaVencer)}d` : `${r.diasParaVencer}d`})
-                                </span>
-                              )}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right text-sm tabular-nums">{fmtMoeda(r.faturamento)}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums">{fmtMoeda(r.honorarios)}</TableCell>
-                        <TableCell className="text-center text-sm tabular-nums">
-                          {r.lancamentos == null ? '—' : r.lancamentos}
-                          <VariacaoBadge pct={r.variacao_lancamentos_pct} />
-                        </TableCell>
-                        <TableCell className="text-center text-sm tabular-nums">
-                          {r.notas == null ? '—' : r.notas}
-                          <VariacaoBadge pct={r.variacao_notas_pct} />
-                        </TableCell>
-                        <TableCell className="text-center text-sm tabular-nums">
-                          {r.vidas == null ? '—' : r.vidas}
-                          <VariacaoBadge pct={r.variacao_vidas_pct} />
+                        {/* Ações do farol do SERPRO2: ver/editar, anexar e tirar
+                            da gestão. O stopPropagation impede que abrir o menu
+                            conte como clique na linha (que navega). */}
+                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="icon-sm" title="Ações">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-52">
+                              <DropdownMenuItem onClick={() => router.push(`/clientes/${r.id}`)}>
+                                <Pencil className="h-4 w-4" /> Ver / Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => router.push(`/clientes/${r.id}#arquivos`)}>
+                                <Paperclip className="h-4 w-4" /> Anexar arquivos
+                                {r.anexosCount > 0 && (
+                                  <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">{r.anexosCount}</span>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => ignorarNaGestao(r)}>
+                                <EyeOff className="h-4 w-4" /> Ignorar na gestão
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     )
