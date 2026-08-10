@@ -5,10 +5,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   History, Loader2, Eye, ChevronLeft, ChevronRight,
-  CheckCircle2, AlertOctagon, RotateCw,
 } from 'lucide-react'
 import {
-  Button, Card, cn, Badge,
+  Button, Card, cn,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'

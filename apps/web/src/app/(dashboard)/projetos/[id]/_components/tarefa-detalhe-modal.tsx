@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  Loader2, Plus, Pencil, MessageSquare, Paperclip, FileText, Send, Trash2,
+  Loader2, Plus, Pencil, MessageSquare, Paperclip, FileText, Send,
   Clock, ArrowRight, Flag, Calendar, AlertCircle, Download, X, Image as ImageIcon,
 } from 'lucide-react'
 import {

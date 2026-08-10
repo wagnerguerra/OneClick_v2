@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Briefcase, Save, Loader2, MoreVertical, Settings, CalendarOff,
   Plus, Trash2, Copy, ChevronDown,

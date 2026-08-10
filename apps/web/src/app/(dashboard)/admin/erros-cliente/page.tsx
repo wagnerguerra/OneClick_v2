@@ -2,10 +2,9 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Bug, RefreshCw, Search, Loader2, CheckCircle2, AlertTriangle, AlertOctagon,
-  ExternalLink, Trash2, ChevronDown, ChevronUp, User as UserIcon, RotateCw,
+  Bug, RefreshCw, Search, Loader2, CheckCircle2, AlertTriangle, AlertOctagon, Trash2, ChevronDown, ChevronUp, User as UserIcon, RotateCw,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-  FileText, BarChart3, ListTree, StickyNote, Save, TrendingUp,
+  FileText, BarChart3, ListTree, StickyNote, TrendingUp,
 } from 'lucide-react'
 import {
   Button, Input, Card, cn, Badge,

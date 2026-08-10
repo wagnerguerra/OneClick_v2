@@ -5,7 +5,7 @@ import {
   Bell, Repeat, Trash2, Save, Loader2, Mail, Power, X,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card, CardHeader, CardContent, Badge,
+  Button, Input, Label, Card, CardHeader, Badge,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   RichEditor, cn,
 } from '@saas/ui'

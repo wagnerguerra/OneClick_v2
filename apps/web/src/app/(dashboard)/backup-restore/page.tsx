@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Archive, Download, Upload, Loader2, CheckCircle, FileArchive, AlertTriangle, X, Trash2 } from 'lucide-react'
-import { Button, Card, CardHeader, Checkbox, Label, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, cn } from '@saas/ui'
+import { Button, Card, CardHeader, Checkbox, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'

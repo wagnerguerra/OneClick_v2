@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Loader2, Edit, Trash2, Layers, Search, GripVertical, X,
-  MoreVertical, ClipboardCheck,
+  MoreVertical,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn,

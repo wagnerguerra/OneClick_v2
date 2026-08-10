@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { Command } from 'cmdk'
 import {
-  Button, Input, Card, CardHeader, Label,
+  Button, Input, Card, Label,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogClose, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Checkbox,

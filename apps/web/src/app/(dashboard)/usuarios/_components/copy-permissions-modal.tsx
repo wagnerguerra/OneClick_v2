@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Copy, Loader2, Search, Check } from 'lucide-react'
 import {
-  Button, Input, Badge,
+  Button, Input,
   Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
   Checkbox, Avatar, AvatarFallback,
 } from '@saas/ui'

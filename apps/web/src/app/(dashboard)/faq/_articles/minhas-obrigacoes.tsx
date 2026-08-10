@@ -2,7 +2,7 @@
 
 import {
   ClipboardCheck, CheckCircle2, AlertCircle, Clock, History,
-  Info, Eye, Calendar, FileText,
+  Info, Eye, Calendar,
 } from 'lucide-react'
 import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'

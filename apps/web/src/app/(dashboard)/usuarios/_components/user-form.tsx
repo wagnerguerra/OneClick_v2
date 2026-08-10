@@ -10,13 +10,12 @@ import {
   MODULE_GROUPS, MODULE_LABELS, USER_ROLE_LABELS, USER_PROFILE_LABELS,
   MODULE_SUB_PERMISSIONS,
 } from '@saas/types'
-import { HelpCircle, User, Briefcase, Calendar, Building2, Shield, ChevronDown, X, ShieldCheck, Save, ArrowLeft, Handshake, Loader2, Download, Search, Settings } from 'lucide-react'
+import { HelpCircle, User, Briefcase, Calendar, Building2, Shield, ChevronDown, ShieldCheck, Save, ArrowLeft, Handshake, Loader2, Download, Settings } from 'lucide-react'
 import Link from 'next/link'
 import {
   Button, Input, Label, Checkbox, Card,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
-  Tabs, TabsList, TabsTrigger, TabsContent,
   Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
 } from '@saas/ui'
 import { cn } from '@saas/ui'

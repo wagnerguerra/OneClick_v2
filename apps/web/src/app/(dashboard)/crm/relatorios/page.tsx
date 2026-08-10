@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  ArrowLeft, TrendingUp, Target, ArrowRight, Clock, Loader2, Users, BarChart3,
+  ArrowLeft, TrendingUp, Target, ArrowRight, Clock, Loader2, BarChart3,
 } from 'lucide-react'
 import {
   Button, Card, Badge,
@@ -15,7 +15,7 @@ import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, LabelList,
+  PieChart, Pie, Cell, LabelList,
 } from 'recharts'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'

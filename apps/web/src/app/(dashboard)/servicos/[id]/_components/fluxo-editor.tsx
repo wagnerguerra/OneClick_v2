@@ -26,7 +26,7 @@ import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
 import {
   Target, History, ChevronRight, ArrowRight, X, LayoutGrid, Loader2,
-  Maximize2, Minimize2, Eye, EyeOff, Plus, Minus, Search, Workflow,
+  Maximize2, Minimize2, Eye, EyeOff, Plus, Minus, Search,
   PanelLeftOpen, PanelLeftClose, AlertTriangle, Link2, Grid3x3,
   // Ícones de marca d'água por tipo/categoria do bloco — espelham
   // exatamente os ícones de grupo da sidebar (lib/navigation.ts).

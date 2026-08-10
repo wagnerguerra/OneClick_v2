@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { PanelLeftClose, PanelLeft, LayoutDashboard, Wrench, X } from 'lucide-react'
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
-import { cn, ScrollArea, Separator, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
+import { cn, Separator, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
 import { navigation, type NavItem } from '@/lib/navigation'
 
 /**

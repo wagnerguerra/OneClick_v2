@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
@@ -8,7 +8,7 @@ import {
   Download, ExternalLink, Maximize2, X,
   ArrowDownToLine, ArrowUpFromLine, Calendar,
   ChevronLeft, ChevronRight, RefreshCw, ShieldCheck, AlertTriangle,
-  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, FileCode2,
+  PanelLeftClose, PanelLeftOpen, PanelRightClose, FileCode2,
 } from 'lucide-react'
 import {
   Button, Input, Card, cn, Badge,

@@ -2,12 +2,11 @@
 
 import { useState } from 'react'
 import {
-  Loader2, X, Sparkles, Check, AlertTriangle, Database, Globe,
+  Loader2, X, Sparkles, Check, AlertTriangle, Globe,
 } from 'lucide-react'
 import {
   Button, Card, Badge, Checkbox, Input, Label,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  cn,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'

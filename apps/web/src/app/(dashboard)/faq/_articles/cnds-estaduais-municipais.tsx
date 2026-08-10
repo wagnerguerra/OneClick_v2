@@ -1,10 +1,9 @@
 'use client'
 
 import {
-  Landmark, Search, Calendar, RefreshCw, Settings,
-  Lightbulb, Info, ArrowRight, AlertTriangle, Building, Shield,
+  Landmark, Search, RefreshCw, Settings,
+  Lightbulb, Info, ArrowRight, Building, Shield,
 } from 'lucide-react'
-import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 

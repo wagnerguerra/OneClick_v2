@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Calculator, Save, Loader2, Plus, Trash2, ChevronRight, ChevronDown,
-  Search, ChevronsUpDown, Eye, EyeOff, Link2, Copy, RefreshCw, X, ExternalLink,
+  Search, Link2, RefreshCw, X, ExternalLink,
 } from 'lucide-react'
 import {
   Button, Input, Card, Checkbox,
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'

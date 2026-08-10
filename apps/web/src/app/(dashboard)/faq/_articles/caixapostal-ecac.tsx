@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  Mail, Calendar, Search, Star, AlertTriangle, RefreshCw,
+  Mail, Calendar, Star, RefreshCw,
   Lightbulb, Info, ArrowRight, Bell, Eye, Archive, Settings,
 } from 'lucide-react'
 import { Badge } from '@saas/ui'

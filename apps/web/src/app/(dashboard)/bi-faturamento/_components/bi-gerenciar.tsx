@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Loader2, Trash2, Plus, Minus, ChevronDown, ChevronRight } from 'lucide-react'
+import { Loader2, Trash2, Plus, Minus } from 'lucide-react'
 import { Button, Input, Badge } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'

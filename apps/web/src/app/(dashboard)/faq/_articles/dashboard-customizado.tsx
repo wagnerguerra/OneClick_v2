@@ -2,9 +2,8 @@
 
 import {
   LayoutGrid, Plus, Move, Maximize2, Edit, Save, RotateCcw,
-  Lightbulb, Info, ArrowRight, AlertTriangle,
+  Lightbulb, Info, ArrowRight,
 } from 'lucide-react'
-import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 

@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ClipboardCheck, Search, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, Copy, ArrowLeft,
+  ClipboardCheck, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, Copy, ArrowLeft,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   Clock, CheckCircle2, LayoutGrid, List, Play, XCircle, Eye,
-  GripVertical, ToggleLeft, ToggleRight, Pause, MessageSquare, Paperclip, Send, ChevronDown, ChevronUp,
-  AlertCircle, Check, SkipForward, Network, Repeat, Zap, FileText, Type, ListChecks, Layers, Lock, ShieldCheck, Wand2,
+  GripVertical, Pause, MessageSquare, Paperclip, Send, ChevronDown, ChevronUp,
+  AlertCircle, Check, Network, Repeat, Zap, FileText, Type, ListChecks, Layers, Lock, ShieldCheck, Wand2,
   SlidersHorizontal, X, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import {

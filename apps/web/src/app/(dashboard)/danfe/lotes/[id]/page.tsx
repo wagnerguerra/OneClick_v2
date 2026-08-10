@@ -5,10 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   History, Loader2, Download, RotateCw, X, CheckCircle2,
-  AlertOctagon, Copy as CopyIcon, FileText, ExternalLink,
+  AlertOctagon, ExternalLink,
 } from 'lucide-react'
 import {
-  Button, Card, cn, Badge,
+  Button, Card, cn,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'

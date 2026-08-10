@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2, Search,
+  Plus, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
   LayoutGrid, FileUp,
@@ -12,7 +12,6 @@ import {
 import {
   Button,
   Input,
-  Badge,
   Table,
   TableHeader,
   TableBody,

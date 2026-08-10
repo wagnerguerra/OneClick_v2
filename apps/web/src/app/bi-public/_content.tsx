@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
 import {
   TrendingUp, TrendingDown, DollarSign, BarChart3, Receipt, Wallet,
-  Table as TableIcon, Loader2, AlertCircle, ChevronDown, Plus, Minus, Search,
+  Table as TableIcon, Loader2, AlertCircle, Plus, Minus,
 } from 'lucide-react'
 import {
   ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid,

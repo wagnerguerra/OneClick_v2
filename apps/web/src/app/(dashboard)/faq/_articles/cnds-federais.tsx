@@ -1,8 +1,8 @@
 'use client'
 
 import {
-  Shield, Calendar, Search, AlertTriangle, RefreshCw, Download,
-  Lightbulb, Info, ArrowRight, Bell, Eye, Settings, Clock, CheckCircle2,
+  Shield, Calendar, Search, RefreshCw, Download,
+  Lightbulb, Info, ArrowRight, Bell, Eye, Settings,
 } from 'lucide-react'
 import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'

@@ -2,9 +2,8 @@
 
 import {
   CreditCard, Key, Webhook, Building2, Lock, CheckCircle2, Server,
-  Lightbulb, Info, ArrowRight, AlertTriangle, Shield,
+  Lightbulb, Info, ArrowRight, Shield,
 } from 'lucide-react'
-import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 

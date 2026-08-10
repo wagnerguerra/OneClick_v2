@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   Shield, Upload, Trash2, Save, Loader2, CheckCircle2, XCircle,
-  AlertTriangle, Key, Eye, EyeOff, X, FileText, HelpCircle, CircleUser,
+  AlertTriangle, Key, Eye, EyeOff, X, HelpCircle, CircleUser,
 } from 'lucide-react'
 import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'

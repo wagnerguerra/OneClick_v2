@@ -1,10 +1,9 @@
 'use client'
 
 import {
-  Layers, Pin, X, ArrowRight as ArrowRightIcon, ChevronsRight,
-  Lightbulb, Info, ArrowRight, AlertTriangle, MousePointer,
+  Layers, Pin, X,
+  Lightbulb, Info, ArrowRight, MousePointer,
 } from 'lucide-react'
-import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 

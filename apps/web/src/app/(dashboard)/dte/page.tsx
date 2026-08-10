@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Search, Loader2, Trash2, RefreshCw, CheckCircle2, AlertTriangle,
   MailWarning, Eye, Mail, Inbox, Filter, Info, ArrowLeft,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreVertical,
-  Building2, Clock, FileText, AlertCircle,
+  Building2, FileText, AlertCircle,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card,

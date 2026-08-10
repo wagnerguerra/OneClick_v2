@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { Search, Loader2, Plus, Minus } from 'lucide-react'
+import { Loader2, Plus, Minus } from 'lucide-react'
 import { Input, Checkbox, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 

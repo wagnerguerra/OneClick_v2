@@ -2,9 +2,8 @@
 
 import {
   Handshake, Plus, FileSearch, Users, MapPin, Phone, Network,
-  Lightbulb, Info, ArrowRight, FileText, Building2, Briefcase,
+  Lightbulb, Info, ArrowRight, FileText, Briefcase,
 } from 'lucide-react'
-import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 

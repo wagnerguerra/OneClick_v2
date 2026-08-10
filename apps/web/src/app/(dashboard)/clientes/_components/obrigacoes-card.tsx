@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ListChecks, Plus, Loader2, Trash2, Power, Clock } from 'lucide-react'
-import { Button, Card, Badge, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@saas/ui'
+import { Button, Card, Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'

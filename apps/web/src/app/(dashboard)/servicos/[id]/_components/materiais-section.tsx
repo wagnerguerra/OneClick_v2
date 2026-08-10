@@ -17,7 +17,7 @@ import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import {
   Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
-  Input, Label, Badge, cn,
+  Input, Label, cn,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'

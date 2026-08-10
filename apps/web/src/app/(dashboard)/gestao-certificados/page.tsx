@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { masks, limparCnpj } from '@/lib/masks'
 import {
   ShieldCheck, Loader2, Plus, MoreVertical, Eye, Archive, ArchiveRestore,
-  Ban, Trash2, AlertTriangle, CheckCircle2, Clock, XCircle, FileLock,
-  Upload, Lock, FileText, RefreshCw, History, DatabaseBackup, UploadCloud, X, FileCheck, Bell,
+  Ban, Trash2, CheckCircle2, Clock, XCircle, FileLock,
+  Upload, Lock, RefreshCw, History, DatabaseBackup, UploadCloud, X, FileCheck, Bell,
   Settings2, KeyRound,
 } from 'lucide-react'
 import {

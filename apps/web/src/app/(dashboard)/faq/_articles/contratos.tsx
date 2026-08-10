@@ -1,10 +1,9 @@
 'use client'
 
 import {
-  FileText, FileBox, FileCheck, Plus, Send, Download, BarChart3,
-  Lightbulb, Info, ArrowRight, AlertTriangle,
+  FileText, FileBox, FileCheck, Plus, Download, BarChart3,
+  Lightbulb, Info, ArrowRight,
 } from 'lucide-react'
-import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 

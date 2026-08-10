@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { LogOut, User, Settings, HelpCircle, Bell, Crown, DownloadCloud } from 'lucide-react'
+import { LogOut, User, Settings, HelpCircle, Crown, DownloadCloud } from 'lucide-react'
 import {
   Avatar,
   AvatarFallback,

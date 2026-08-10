@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  Database, Info, Plus, ShieldCheck, Wrench, Paperclip, QrCode, Printer,
+  Database, Info, Plus, ShieldCheck, Wrench, Paperclip, QrCode,
   ClipboardCheck, BarChart3, History, AlertTriangle, FileText, Coins,
   Lightbulb, Tag, UserCog,
 } from 'lucide-react'

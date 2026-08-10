@@ -6,7 +6,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Handshake, Save, ArrowLeft, Search as SearchIcon, Camera,
-  FileText, ShoppingCart, Receipt, ClipboardList, Plus, Send,
+  FileText, ShoppingCart, Receipt, Plus, Send,
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
   ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2, Check,
@@ -19,8 +19,7 @@ import {
   cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor, Badge,
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Tabs, TabsTrigger, TabsContent, SlidingTabsList,
-  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
+  Tabs, TabsTrigger, TabsContent, SlidingTabsList, TooltipProvider,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   RichContent,
 } from '@saas/ui'
@@ -42,7 +41,6 @@ import { ParticularidadesCard } from './particularidades-card'
 import { LegalizacaoCard } from './legalizacao-card'
 import { CnpjFilialSelect } from './cnpj-filial-select'
 import { ContabilCard } from './contabil-card'
-import { ObrigacoesCard } from './obrigacoes-card'
 import { ObrigacoesClienteSection } from './obrigacoes-cliente-section'
 import { ProtocolosCard } from './protocolos-card'
 import { DriveSyncCard } from './drive-sync-card'
@@ -55,7 +53,6 @@ import {
   REGIME_LABELS,
   type CreateClienteInput,
 } from '@saas/types'
-import { taxRegimeLabels } from '@saas/types'
 
 function RequiredMark() {
   return <span className="text-destructive ml-0.5">*</span>

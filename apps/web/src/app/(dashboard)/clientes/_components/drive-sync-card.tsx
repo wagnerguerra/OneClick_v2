@@ -6,7 +6,7 @@ import {
   CheckCircle2, AlertCircle, Loader2, Folder, Clock, HardDrive,
   Receipt, Briefcase, ShieldCheck, ChevronRight, ChevronDown, ListChecks,
 } from 'lucide-react'
-import { Button, Card, Input, Badge } from '@saas/ui'
+import { Button, Input, Badge } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  Plus, Search, Loader2, Database, Laptop, ShieldCheck, Wrench, PackageOpen, Coins,
+  Plus, Search, Loader2, Database, Laptop, Wrench, PackageOpen, Coins,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreVertical, Pencil, Trash2,
   ClipboardCheck, Printer, AlertTriangle,
 } from 'lucide-react'

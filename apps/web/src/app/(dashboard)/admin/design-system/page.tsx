@@ -19,12 +19,11 @@ import {
   Info, Lightbulb, AlertTriangle, FileCode, Workflow,
   Sparkles, Database, Plus, Search, Eye, Edit, Trash2,
   MoreVertical, Calculator, FileText, MessageSquare,
-  Settings, X, Save, ListChecks, ShoppingCart, RotateCcw, Loader2,
+  Settings, X, Save, ListChecks, ShoppingCart, RotateCcw,
   ArrowLeft, Smartphone, Calendar, ChevronRight, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import { useModuleColors, useRefreshModuleColors, useSetLocalModuleColor, DEFAULT_MODULE_COLORS } from '@/components/theme/module-colors'
 import { alerts } from '@/lib/alerts'
-import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 
 /** Helper: chama uma mutation tRPC via fetch nativo. Bypassa o trpc client,

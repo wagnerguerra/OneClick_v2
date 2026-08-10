@@ -9,7 +9,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import {
-  Mail, Save, Loader2, Palette, ImageIcon, Code2, RefreshCcw,
+  Mail, Save, Loader2, Palette, Code2, RefreshCcw,
   Upload, X, Eye, AlertTriangle,
 } from 'lucide-react'
 import {

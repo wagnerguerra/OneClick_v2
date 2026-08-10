@@ -1,9 +1,8 @@
 'use client'
 
 import {
-  FolderKanban, Plus, ListChecks, LayoutGrid, List, MessageSquare, Paperclip,
-  Info, Lightbulb, AlertTriangle, Flag, Calendar, Tag, Shield, ArrowRight,
-  Move, Filter, Pencil, Trash2,
+  FolderKanban, Plus, LayoutGrid, List, MessageSquare, Paperclip,
+  Info, Lightbulb, AlertTriangle, Shield, Pencil,
 } from 'lucide-react'
 import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, DefRow } from '../_components/article-blocks'

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
-  Target, Search, Loader2, Plus, MoreVertical, ArrowRight,
+  Target, Loader2, Plus, MoreVertical, ArrowRight,
   Clock, TrendingUp, Calendar,
   CheckSquare, MessageSquare, Trash2, Send, LayoutGrid, List,
   Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers, Sparkles,

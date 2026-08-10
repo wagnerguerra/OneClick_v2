@@ -13,7 +13,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import {
   Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
-  Input, Label, Checkbox, cn,
+  Input, Label, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue, SelectGroup,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'

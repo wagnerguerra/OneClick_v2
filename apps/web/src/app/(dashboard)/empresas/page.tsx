@@ -5,15 +5,14 @@ import { masks } from '@/lib/masks'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2, Search,
+  Plus, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  Building2, MoreVertical, FileUp, FileDown, Loader2, Lock,
+  Building2, MoreVertical, FileUp, FileDown, Lock,
 } from 'lucide-react'
 import {
   Button,
   Input,
-  Badge,
   Table,
   TableHeader,
   TableBody,
