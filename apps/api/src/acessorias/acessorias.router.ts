@@ -32,7 +32,8 @@ const painelFiltroSchema = z.object({
   de: z.string().optional(),
   ate: z.string().optional(),
   dpto: z.string().optional(),
-  responsavel: z.string().optional(),
+  // Aceita lista: o mesmo usuário pode ter mais de uma grafia no Acessórias.
+  responsavel: z.union([z.string(), z.array(z.string())]).optional(),
   clienteId: z.string().optional(),
   competencia: z.string().regex(/^\d{4}-\d{2}$/).optional(),
   foco: z.enum(['nao_lidas', 'a_vencer', 'atrasadas', 'todas']).optional(),
@@ -355,7 +356,8 @@ export function createAcessoriasRouter(
     painelEntregasOpcoes: painelProc()
       .input(z.object({
         dpto: z.string().optional(),
-        responsavel: z.string().optional(),
+        // Aceita lista: o mesmo usuário pode ter mais de uma grafia no Acessórias.
+  responsavel: z.union([z.string(), z.array(z.string())]).optional(),
         clienteId: z.string().optional(),
       }).optional())
       .query(({ input, ctx }) => {

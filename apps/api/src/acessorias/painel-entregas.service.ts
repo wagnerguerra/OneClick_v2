@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma, Prisma } from '@saas/db'
-import { VinculosAcessoriasService, norm } from './vinculos.service'
+import { VinculosAcessoriasService } from './vinculos.service'
 
 /**
  * Painel de acompanhamento das entregas do Acessórias.
@@ -23,7 +23,9 @@ export interface FiltroPainel {
   de?: string
   ate?: string
   dpto?: string
-  responsavel?: string
+  /** Nome(s) do responsável no Acessórias. Vários porque o mesmo usuário pode
+   *  estar gravado com grafias diferentes lá. */
+  responsavel?: string | string[]
   clienteId?: string
   /** "YYYY-MM" — recorta pela competência e ignora de/ate. */
   competencia?: string
@@ -205,8 +207,11 @@ export class PainelEntregasService {
       // Casa nos dois papéis: quem entregou OU quem responde pelo prazo. Só
       // por respEntrega, filtrar um colaborador escondia tudo que ele ainda
       // não entregou — o oposto do que se quer ao cobrar.
-      ...(filtro.responsavel
-        ? { OR: [{ respEntrega: filtro.responsavel }, { respPrazo: filtro.responsavel }] }
+      ...(filtro.responsavel && filtro.responsavel.length > 0
+        ? (() => {
+            const nomes = Array.isArray(filtro.responsavel) ? filtro.responsavel : [filtro.responsavel]
+            return { OR: [{ respEntrega: { in: nomes } }, { respPrazo: { in: nomes } }] }
+          })()
         : {}),
       // Competência manda sobre o período: quem escolheu o mês de referência
       // quer o fechamento inteiro, independentemente de quando vence.
@@ -431,40 +436,35 @@ export class PainelEntregasService {
    */
   async opcoes(
     ctx: CtxPainel,
-    filtro: { dpto?: string; responsavel?: string; clienteId?: string } = {},
+    filtro: { dpto?: string; responsavel?: string | string[]; clienteId?: string } = {},
   ) {
     const empresaId = ctx.empresaId
     // As opções seguem o mesmo recorte da lista: oferecer área ou responsável
     // que o usuário não pode ver só produziria tela vazia — e vazaria os nomes.
     const recorte = await this.recorte(ctx)
-    const escopo: Prisma.AcessoriasEntregaWhereInput = e(
+    const escopoWhere: Prisma.AcessoriasEntregaWhereInput = e(
       empresaId ? { empresaId } : {},
       recorte,
     )
     const porDpto = filtro.dpto ? { dpto: filtro.dpto } : {}
     const porCliente = filtro.clienteId ? { clienteId: filtro.clienteId } : {}
-    const porResp = filtro.responsavel
-      ? { OR: [{ respEntrega: filtro.responsavel }, { respPrazo: filtro.responsavel }] }
+    const nomesResp = filtro.responsavel
+      ? (Array.isArray(filtro.responsavel) ? filtro.responsavel : [filtro.responsavel])
+      : []
+    const porResp = nomesResp.length > 0
+      ? { OR: [{ respEntrega: { in: nomesResp } }, { respPrazo: { in: nomesResp } }] }
       : {}
 
-    const [dptos, resps, respsPrazo, comEntrega] = await Promise.all([
+    const [dptos, comEntrega] = await Promise.all([
       // Departamento não se filtra por departamento — sobraria só o escolhido.
       prisma.acessoriasEntrega.findMany({
-        where: e(escopo, porCliente, porResp, { dpto: { not: null } }),
+        where: e(escopoWhere, porCliente, porResp, { dpto: { not: null } }),
         select: { dpto: true }, distinct: ['dpto'], orderBy: { dpto: 'asc' }, take: 50,
-      }),
-      prisma.acessoriasEntrega.findMany({
-        where: e(escopo, porDpto, porCliente, { respEntrega: { not: null } }),
-        select: { respEntrega: true }, distinct: ['respEntrega'], orderBy: { respEntrega: 'asc' }, take: 200,
-      }),
-      prisma.acessoriasEntrega.findMany({
-        where: e(escopo, porDpto, porCliente, { respPrazo: { not: null } }),
-        select: { respPrazo: true }, distinct: ['respPrazo'], orderBy: { respPrazo: 'asc' }, take: 200,
       }),
       // Só os clientes que têm entrega no recorte atual — filtrar por quem não
       // aparece no painel não serviria para nada.
       prisma.acessoriasEntrega.findMany({
-        where: e(escopo, porDpto, porResp),
+        where: e(escopoWhere, porDpto, porResp),
         select: { clienteId: true }, distinct: ['clienteId'], take: 3000,
       }),
     ])
@@ -475,32 +475,46 @@ export class PainelEntregasService {
       orderBy: { razaoSocial: 'asc' },
     })
 
-    // Ex-colaborador fora da lista.
+    // A lista de responsáveis vem dos USUÁRIOS ATIVOS, no recorte de quem olha —
+    // não dos nomes gravados nas entregas.
     //
-    // Os nomes saem das ENTREGAS, e entrega antiga guarda para sempre quem a
-    // fez — então quem saiu da empresa continuava aparecendo no filtro, anos
-    // depois. O painel de indicadores já esconde esses; aqui ficava diferente.
+    // Montada a partir das entregas, ela era um histórico: trazia todo mundo que
+    // um dia entregou algo, incluindo dez pessoas que já saíram da empresa. E
+    // trazia gente de outras áreas para um gestor que só cobra a sua.
     //
-    // Só some quem é RECONHECIDO como inativo: nome do Acessórias que casa com
-    // um usuário nosso desligado. Nome que não casa com ninguém permanece — pode
-    // ser um analista sem vínculo cadastrado, e sumir com ele esconderia
-    // obrigação de gente que ainda trabalha aqui.
+    // O recorte é o mesmo do resto do painel:
+    //   gestor/coordenador  → os ativos da área dele
+    //   gerente/diretor/master → todos os ativos do tenant
+    //   colaborador → só ele
+    const { escopo, user } = await this.vinculos.escopoDoUsuario(ctx.userId, ctx.isMaster, ctx.isEmpresaMaster)
+    const filtroUsuarios: Prisma.UserWhereInput =
+      escopo === 'PROPRIO' ? { id: ctx.userId }
+      : escopo === 'COLABORADORES' ? { areaId: user?.areaId ?? '__sem_area__' }
+      : {}
+    const usuarios = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        ...filtroUsuarios,
+        ...(ctx.empresaId ? { OR: [{ empresaId: ctx.empresaId }, { empresaId: null }] } : {}),
+      },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    })
+
+    // O filtro da consulta casa pelo NOME gravado na entrega, e o mesmo usuário
+    // pode aparecer com grafias diferentes no Acessórias. Cada opção leva a
+    // lista de nomes dele; sem vínculo cadastrado, cai no próprio nome — que é o
+    // melhor palpite e ainda casa na maioria dos casos.
     const idx = await this.vinculos.indices(ctx.empresaId ?? null)
-    const inativo = (nome: string) => {
-      const userId = idx.usuarioDe.get(norm(nome))
-      return !!userId && !idx.usuariosAtivos.has(userId)
-    }
+    const responsaveis = usuarios.map((u) => ({
+      id: u.id,
+      nome: u.name,
+      nomesAcessorias: idx.nomesDoUsuario.get(u.id) ?? [u.name],
+    }))
 
     return {
       departamentos: dptos.map((x) => x.dpto).filter(Boolean) as string[],
-      // União dos dois papéis: quem só tem obrigação em aberto não aparecia na
-      // lista de responsáveis, e era impossível filtrar por ele.
-      responsaveis: [...new Set([
-        ...resps.map((r) => r.respEntrega),
-        ...respsPrazo.map((r) => r.respPrazo),
-      ].filter(Boolean) as string[])]
-        .filter((nome) => !inativo(nome))
-        .sort((x, y) => x.localeCompare(y, 'pt-BR')),
+      responsaveis,
       clientes,
     }
   }

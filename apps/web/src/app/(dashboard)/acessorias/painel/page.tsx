@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import {
   MailWarning, Loader2, AlertTriangle, Clock, CheckCircle2, ExternalLink,
@@ -63,7 +63,10 @@ interface Resumo {
 }
 interface OpcoesPainel {
   departamentos: string[]
-  responsaveis: string[]
+  /** Usuários ATIVOS no recorte de quem olha — e não os nomes achados nas
+   *  entregas, que traziam quem já saiu da empresa. `nomesAcessorias` são as
+   *  grafias com que a pessoa aparece lá, e é por elas que a consulta filtra. */
+  responsaveis: Array<{ id: string; nome: string; nomesAcessorias: string[] }>
   clientes: { id: string; code: number; razaoSocial: string; documento: string }[]
 }
 interface PorCliente {
@@ -223,7 +226,7 @@ export default function PainelEntregasPage() {
   const [foco, setFoco] = useState<Foco>('a_vencer')
   const [janelaDias, setJanelaDias] = useState(7)
   const [dpto, setDpto] = useState('')
-  const [responsavel, setResponsavel] = useState('')
+  const [responsavelId, setResponsavelId] = useState('')
   const [clienteId, setClienteId] = useState('')
   const [recorte, setRecorte] = useState<Recorte>('todo')
   const [ordem, setOrdem] = useState<CampoOrdem>('vencimento')
@@ -235,6 +238,11 @@ export default function PainelEntregasPage() {
   const [resumo, setResumo] = useState<Resumo | null>(null)
   const [clientes, setClientes] = useState<PorCliente[]>([])
   const [opcoes, setOpcoes] = useState<OpcoesPainel>({ departamentos: [], responsaveis: [], clientes: [] })
+  // A consulta casa pelo NOME gravado na entrega; a tela escolhe a PESSOA.
+  const nomesDoResponsavel = useMemo(() => {
+    if (!responsavelId) return undefined
+    return opcoes.responsaveis.find(r => r.id === responsavelId)?.nomesAcessorias
+  }, [responsavelId, opcoes.responsaveis])
   const [loading, setLoading] = useState(true)
   const [urlTemplate, setUrlTemplate] = useState<string | null>(null)
   const [truncado, setTruncado] = useState<{ limite: number } | null>(null)
@@ -250,10 +258,10 @@ export default function PainelEntregasPage() {
     foco,
     janelaDias,
     dpto: dpto || undefined,
-    responsavel: responsavel || undefined,
+    responsavel: nomesDoResponsavel,
     clienteId: clienteId || undefined,
     ...filtroDe(recorte),
-  }), [foco, janelaDias, dpto, responsavel, clienteId, recorte])
+  }), [foco, janelaDias, dpto, nomesDoResponsavel, clienteId, recorte])
 
   const carregar = useCallback(() => {
     setLoading(true)
@@ -282,17 +290,19 @@ export default function PainelEntregasPage() {
   // em "Responsável" só quem tem entrega em PESSOAL, e vice-versa.
   useEffect(() => {
     ;(trpc.acessorias as any).painelEntregasOpcoes
-      .query({ dpto: dpto || undefined, responsavel: responsavel || undefined, clienteId: clienteId || undefined })
+      .query({ dpto: dpto || undefined, responsavel: nomesDoResponsavel, clienteId: clienteId || undefined })
       .then((d: OpcoesPainel) => {
         const novas = { ...d, clientes: d.clientes ?? [] }
         setOpcoes(novas)
         // Se a escolha anterior não existe mais no recorte, limpa: manter um
         // filtro invisível na tela só produziria lista vazia sem explicação.
-        if (responsavel && !novas.responsaveis.includes(responsavel)) setResponsavel('')
+        // Trocou de área/cliente e quem estava escolhido saiu da lista: limpa,
+        // senão o filtro seguiria valendo sem estar visível.
+        if (responsavelId && !novas.responsaveis.some(r => r.id === responsavelId)) setResponsavelId('')
         if (clienteId && !novas.clientes.some((c) => c.id === clienteId)) setClienteId('')
       })
       .catch(() => {})
-  }, [dpto, responsavel, clienteId])
+  }, [dpto, responsavelId, clienteId])
 
   const ordenar = (campo: CampoOrdem) => {
     if (campo === ordem) setDir((d) => (d === 'asc' ? 'desc' : 'asc'))
@@ -399,11 +409,11 @@ export default function PainelEntregasPage() {
               </SelectContent>
             </Select>
 
-            <Select value={responsavel || '__all__'} onValueChange={(v) => setResponsavel(v === '__all__' ? '' : v)}>
+            <Select value={responsavelId || '__all__'} onValueChange={(v) => setResponsavelId(v === '__all__' ? '' : v)}>
               <SelectTrigger className="h-8 w-[190px] bg-card text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os responsáveis</SelectItem>
-                {opcoes.responsaveis.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                {opcoes.responsaveis.map((r) => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}
               </SelectContent>
             </Select>
 
@@ -686,7 +696,7 @@ export default function PainelEntregasPage() {
       {drill && (
         <ObrigacoesDoClienteModal
           cliente={drill.cliente} foco={drill.foco} rotulo={drill.rotulo}
-          dpto={dpto} responsavel={responsavel} janelaDias={janelaDias}
+          dpto={dpto} responsavel={nomesDoResponsavel} janelaDias={janelaDias}
           onAbrirDetalhe={(l) => { setDrill(null); setDetalhe(l) }}
           onClose={() => setDrill(null)}
         />
@@ -722,7 +732,7 @@ function ObrigacoesDoClienteModal({
   cliente, foco, rotulo, dpto, responsavel, janelaDias, onAbrirDetalhe, onClose,
 }: {
   cliente: PorCliente; foco: Foco; rotulo: string
-  dpto: string; responsavel: string; janelaDias: number
+  dpto: string; responsavel?: string[]; janelaDias: number
   onAbrirDetalhe: (l: Linha) => void
   onClose: () => void
 }) {
