@@ -88,8 +88,7 @@ ORDER BY 1, 4, 5;
 --   nf saída    : BDDATASAIDA (data)              +  BDCODSITNF <> 2
 --
 -- Note a incoerência: uma exclui situação 1, a outra exclui situação 2.
--- As duas não podem estar certas — se "cancelada" é 1, o filtro das notas
--- está jogando fora justamente as válidas.
+-- (Resolvido — ver a seção 5C no fim: quem está frouxo é o faturamento.)
 -- ---------------------------------------------------------------------
 
 -- 2.1 FATURAMENTO  → query_faturamento (esta traz dados hoje)
@@ -107,14 +106,14 @@ ORDER BY a.BDREFLAN;
 
 
 -- ---------------------------------------------------------------------
--- 3. OS TRÊS TESTES QUE APONTAM O CULPADO
+-- 3. OS TRÊS TESTES QUE APONTARAM O CULPADO (resultados na seção 5)
 -- ---------------------------------------------------------------------
 
 -- 3.1 SEM NENHUM FILTRO ALÉM DA EMPRESA E DA COMPETÊNCIA.
 --     Mostra, por competência: quantas notas existem, quantas têm
 --     BDDATASAIDA preenchida e como se distribuem por BDCODSITNF.
---     Se BDDATASAIDA vier nula/1899 → o problema é o filtro de DATA.
---     Se tudo estiver em BDCODSITNF = 2 → o problema é o filtro de SITUAÇÃO.
+--     Resultado real: datas TODAS preenchidas e 99% das notas em
+--     BDCODSITNF = 0. Nenhum dos dois filtros é o culpado — ver seção 5.
 SELECT a.BDREFLAN,
        a.BDCODSITNF,
        COUNT(*) AS QTD,
@@ -144,8 +143,8 @@ GROUP BY a.BDREFLAN, a.BDCODSITNF
 ORDER BY a.BDREFLAN, a.BDCODSITNF;
 
 -- 3.3 ESPÉCIES REALMENTE USADAS (para NF prestado / tomado).
---     A consulta só aceita 'NFS', 'NFSE' e 'S'. Se a base gravar 'NFSe',
---     'SE', '99' ou com espaços, a lista está curta demais.
+--     A consulta só aceita 'NFS', 'NFSE' e 'S'. Resultado real: só há
+--     NFe e NFCe. Não é lista curta — é ausência de nota de serviço.
 SELECT a.BDESPECIE, COUNT(*) AS QTD
 FROM VEF_EMP_TMOVSAI a
 INNER JOIN VW_TEMPRESAS_REF b ON a.BDCODEMP = b.BDCODEMP
@@ -171,33 +170,65 @@ ORDER BY 2 DESC;
 
 
 -- =====================================================================
--- 5. DUAS SUSPEITAS, AMBAS VINDAS DO PRÓPRIO LEGADO
+-- 5. RESULTADO — investigado no SCI em 10/08/2026 (ACAI BRASIL, 05–07/2026)
 --
--- (a) O FILTRO DE SITUAÇÃO ESTÁ INVERTIDO.
---     Varredura no SERPRO2: TODO o resto do sistema exclui a situação 1.
---       backend/src/services/relatorioCfopService.js:299  BDCODSITNF <> 1  (entradas)
---       backend/src/services/relatorioCfopService.js:304  BDCODSITNF <> 1  (saídas)
---       apps/relatorio-cfop-faturado/sciService.js:341    BDCODSITNF <> 1
---       apps/relatorio-cfop-faturado/sciService.js:353    BDCODSITNF <> 1
---       erp_sci/sci_metrics.py:287 (faturamento)          BDCODSITNF <> 1  "desconsidera canceladas"
---     Só as quatro contagens de NF usam `<> 2`:
---       erp_sci/sci_metrics.py:191, 211, 231, 252
---     Se 1 é a cancelada — como o comentário do próprio faturamento diz —,
---     então `<> 2` está descartando as notas VÁLIDAS e mantendo as canceladas.
---     O teste 3.1 confirma: se a maioria das linhas estiver em BDCODSITNF = 2,
---     é isso.
+-- São DOIS problemas distintos, e nenhum dos dois está no SQL.
 --
--- (b) A DATA DA SAÍDA PODE ESTAR VAZIA.
---     O relatório de CFOP do legado consulta as saídas por BDDATAEMISSAO
---     (relatorioCfopService.js:304), não por BDDATASAIDA. Nota de serviço
---     (NFS-e) costuma não ter "saída". Se COM_DATA_SAIDA vier 0 no teste 3.1,
---     o BETWEEN elimina tudo antes de qualquer outro filtro.
+-- ---------------------------------------------------------------------
+-- (A) NF ENTRADA e NF SAÍDA: o SQL sempre funcionou. O nome da chave é
+--     que não batia.
 --
--- As duas causas podem coexistir. O teste 3.1 separa uma da outra numa
--- consulta só: a coluna COM_DATA_SAIDA responde (b) e a quebra por
--- BDCODSITNF responde (a).
+--     As consultas rodadas na mão devolvem:
+--       fisca_saida    -> 190 / 175 / 208  (mai / jun / jul)
+--       fisca_entrada  ->  26 /  22 /  35
 --
--- Correção depende do resultado — não mexi em sci_metrics.py sem a
--- confirmação, porque trocar o filtro no escuro passaria a contar nota
--- cancelada como movimento e inflaria o parâmetro de todo mundo.
+--     Mas o `sci_metrics.py` publica esses números sob as chaves
+--     `fisca_saida` / `fisca_entrada` (nome herdado do SERPRO2), enquanto
+--     o resto do sistema lê `nf_saida` / `nf_entrada`:
+--       sci.service.ts:196-197        metrics.nf_entrada / metrics.nf_saida
+--       cliente.service.ts:1050       INDICADORES = [... 'nf_entrada', 'nf_saida' ...]
+--
+--     A chave não existia, virava `[]` e a média saía zero. Sem erro, sem
+--     log — só o zero. Os dois indicadores nunca chegaram nem à baseline
+--     nem à tabela cliente_erp_snapshots. Conferido em produção:
+--       SELECT indicador, count(*) FROM cliente_erp_snapshots GROUP BY 1;
+--       -> só lancamentos, vidas e faturamento. Nenhum nf_*.
+--
+--     Corrigido com um de-para na fronteira (SciService.normalizarMetricas
+--     + ALIAS em salvarSnapshotsSci). Depois da correção, o mesmo período:
+--       nfEntrada  0 -> 27,67      nfSaida  0 -> 191
+--       (lancamentos 872 e faturamento 267.020,47 seguem idênticos)
+--
+-- ---------------------------------------------------------------------
+-- (B) NF PRESTADO e NF TOMADO: o zero está certo. O dado não existe.
+--
+--     Espécies realmente gravadas para este cliente no período:
+--       saídas   NFe (463), NFCe (109)
+--       entradas NFe (59), NF (14), NF3e (6), CTe (4)
+--     Nenhuma nota de serviço. E na base INTEIRA:
+--       saídas   NFCe 5.707.301 · NFe 2.769.579 · CTe 866.948 · NF 38.616
+--                ... nenhuma linha com espécie NFS / NFSE / NFSe
+--       entradas CTe 1.222.657 · NFe 703.836 · NF 10.596 ... NFS aparece 11 vezes
+--
+--     Ou seja: as notas de serviço não são registradas nas views fiscais
+--     deste SCI (VEF_EMP_TMOVSAI / VEF_EMP_TMOVENT). O filtro
+--     BDESPECIE IN ('NFS','NFSE','S') não tem o que casar — mudar a lista
+--     não resolve, porque não há linha nenhuma de serviço para achar.
+--
+--     Se esses números forem necessários, o caminho é descobrir ONDE o SCI
+--     guarda a NFS-e (outro módulo/view) — não ajustar este filtro.
+--
+-- ---------------------------------------------------------------------
+-- (C) DE QUEBRA: o filtro de situação do FATURAMENTO é que está frouxo.
+--
+--     Domínio real de BDCODSITNF (base inteira, saídas):
+--       0 -> 9.313.106   (normal)      5 -> 42.202     2 -> 39.642 (canceladas)
+--       8 -> 5.995       6 -> 2.491    4 -> 172        1 -> 18     3 -> 3
+--
+--     As contagens de NF usam `<> 2` e estão certas: excluem cancelada.
+--     O faturamento usa `<> 1` — e o código 1 tem 18 linhas na base toda.
+--     Na prática ele não exclui nada; as canceladas entram na soma. Não
+--     distorce hoje porque nota cancelada vem com BDVALORNOTA = 0, mas o
+--     filtro está errado e é uma armadilha se isso mudar.
+--     (Todo o resto do SERPRO2 usa `<> 1` também — o mesmo engano copiado.)
 -- =====================================================================

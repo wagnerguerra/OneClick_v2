@@ -162,8 +162,29 @@ export class SciService {
    * movimento (> 0) — ignora meses zerados. Assim, cliente parado nos últimos
    * meses ainda pega o último período em que de fato movimentou.
    */
+  /**
+   * Alinha os nomes das métricas ao vocabulário do resto do sistema.
+   *
+   * O `sci_metrics.py` chama as contagens de nota de entrada e saída de
+   * `fisca_entrada` / `fisca_saida` (herdado do SERPRO2), mas tudo daqui para
+   * cima — parâmetros sugeridos, snapshots, farol, comparativo — fala
+   * `nf_entrada` / `nf_saida`. O descompasso não dava erro: a chave
+   * simplesmente não existia, virava `[]` e a média saía zero. Resultado: os
+   * dois indicadores nunca chegaram, nem à baseline nem ao banco.
+   *
+   * Normaliza aqui, na fronteira, e não no script: a ponte do Launcher roda
+   * uma cópia própria do Python na máquina do escritório, que não é atualizada
+   * junto com a API. Renomear lá deixaria os dois lados fora de sincronia.
+   */
+  normalizarMetricas(metrics: Record<string, unknown>): Record<string, unknown> {
+    const out = { ...metrics }
+    if (out.nf_saida == null && out.fisca_saida != null) out.nf_saida = out.fisca_saida
+    if (out.nf_entrada == null && out.fisca_entrada != null) out.nf_entrada = out.fisca_entrada
+    return out
+  }
+
   calcularParametrosDeMetricas(
-    metrics: Record<string, unknown>,
+    metricsBrutas: Record<string, unknown>,
     periodo: { datai: string; dataf: string },
   ): {
     parametros: Record<string, number>
@@ -172,6 +193,7 @@ export class SciService {
     mesesPorMetrica: Record<string, string[]>
     mesesUsados: string[]
   } {
+    const metrics = this.normalizarMetricas(metricsBrutas)
     const mesesPorMetrica: Record<string, string[]> = {}
     const usados = new Map<number, { ano: number; mes: number }>() // dedup por AAAAMM
     const fmt = (r: Record<string, unknown>) => `${String(Number(r.mes)).padStart(2, '0')}/${Number(r.ano)}`

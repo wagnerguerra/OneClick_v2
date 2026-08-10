@@ -1048,10 +1048,15 @@ export class ClienteService {
     metricas: Record<string, unknown>,
   ): Promise<{ salvos: number }> {
     const INDICADORES = ['lancamentos', 'faturamento', 'nf_entrada', 'nf_saida', 'nf_prestado', 'nf_tomado', 'vidas']
+    // O script do SCI nomeia as notas de entrada/saída como `fisca_*`; aqui e
+    // no resto do sistema elas são `nf_*`. Sem este de-para nenhum snapshot
+    // desses dois indicadores era gravado — a chave não existia e o laço
+    // pulava. Ver SciService.normalizarMetricas.
+    const ALIAS: Record<string, string> = { nf_entrada: 'fisca_entrada', nf_saida: 'fisca_saida' }
     const empresa = empresaId || null
     let salvos = 0
     for (const ind of INDICADORES) {
-      const rows = metricas[ind]
+      const rows = metricas[ind] ?? (ALIAS[ind] ? metricas[ALIAS[ind]] : undefined)
       if (!Array.isArray(rows)) continue
       for (const r of rows as Array<{ ano?: number; mes?: number; movimentacao?: number }>) {
         const ano = Number(r.ano)
