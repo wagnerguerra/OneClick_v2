@@ -218,46 +218,51 @@ def query_fisca_entrada(cur, datai: str, dataf: str, cnpj_digits: str):
     return _rows_to_dicts(cur.fetchall())
 
 
-def query_nf_prestado(cur, datai: str, dataf: str, cnpj_digits: str):
-    """Serviços prestados: VEF_EMP_TMOVSAI, BDDATASAIDA, BDCODSITNF <> 2, BDESPECIE IN ('NFS','NFSE','S')."""
-    sql = f"""
+# Nota de serviço mora em VEF_EMP_TMOVSER, view própria — não em TMOVSAI/TMOVENT.
+#
+# As consultas antigas procuravam a nota de serviço junto com a de mercadoria,
+# filtrando por BDESPECIE IN ('NFS','NFSE','S'). Nunca acharam nada: em ~9
+# milhões de saídas não existe uma linha com essas espécies, porque o SCI
+# guarda serviço separado. Resultado: prestado e tomado voltavam zero para
+# TODOS os clientes, desde o SERPRO2.
+#
+# Em VEF_EMP_TMOVSER quem separa prestado de tomado é BDTIPLAN, cujo domínio
+# está em VEF_BASE_TTIPLANSER:  0 = Emitidos (prestado) · 1 = Recebidos (tomado).
+# Espécie ali é texto livre — 'NFSE', 'NFS-e', 'nfse', 'NFS'... — e por isso
+# não entra no filtro: a view inteira já é de serviço.
+_TIPLAN_PRESTADO = 0
+_TIPLAN_TOMADO = 1
+
+
+def _query_servico(cur, datai: str, dataf: str, cnpj_digits: str, tiplan: int):
+    """Contagem mensal de nota de serviço (emitida ou recebida) por empresa."""
+    sql = """
         SELECT A.BDCODEMP, B.BDNOMEMP, B.BDCNPJEMP,
-               EXTRACT(YEAR FROM A.BDDATASAIDA) AS ANO,
-               EXTRACT(MONTH FROM A.BDDATASAIDA) AS MES,
+               EXTRACT(YEAR FROM A.BDDATAEMISSAO) AS ANO,
+               EXTRACT(MONTH FROM A.BDDATAEMISSAO) AS MES,
                COUNT(*) AS MOVIMENTACAO
-        FROM VEF_EMP_TMOVSAI A
+        FROM VEF_EMP_TMOVSER A
         INNER JOIN VW_TEMPRESAS_REF B ON A.BDCODEMP = B.BDCODEMP
-        WHERE A.BDDATASAIDA BETWEEN ? AND ?
-          AND A.BDCODSITNF <> 2
-          AND A.BDESPECIE IN ('NFS', 'NFSE', 'S')
+        WHERE A.BDDATAEMISSAO BETWEEN ? AND ?
+          AND A.BDTIPLAN = ?
+          AND (A.BDCODSITNF IS NULL OR A.BDCODSITNF <> 2)
           AND REPLACE(REPLACE(REPLACE(B.BDCNPJEMP, '.', ''), '/', ''), '-', '') = ?
         GROUP BY A.BDCODEMP, B.BDNOMEMP, B.BDCNPJEMP,
-                 EXTRACT(YEAR FROM A.BDDATASAIDA), EXTRACT(MONTH FROM A.BDDATASAIDA)
+                 EXTRACT(YEAR FROM A.BDDATAEMISSAO), EXTRACT(MONTH FROM A.BDDATAEMISSAO)
         ORDER BY 1, 4, 5
     """
-    cur.execute(sql, (datai, dataf, cnpj_digits))
+    cur.execute(sql, (datai, dataf, tiplan, cnpj_digits))
     return _rows_to_dicts(cur.fetchall())
+
+
+def query_nf_prestado(cur, datai: str, dataf: str, cnpj_digits: str):
+    """Serviços prestados: VEF_EMP_TMOVSER, BDTIPLAN = 0 (Emitidos)."""
+    return _query_servico(cur, datai, dataf, cnpj_digits, _TIPLAN_PRESTADO)
 
 
 def query_nf_tomado(cur, datai: str, dataf: str, cnpj_digits: str):
-    """Serviços tomados: VEF_EMP_TMOVENT, BDDATAENTRADAENT, BDCODSITNF <> 2, BDESPECIE IN ('NFS','NFSE','S')."""
-    sql = f"""
-        SELECT A.BDCODEMP, B.BDNOMEMP, B.BDCNPJEMP,
-               EXTRACT(YEAR FROM A.BDDATAENTRADAENT) AS ANO,
-               EXTRACT(MONTH FROM A.BDDATAENTRADAENT) AS MES,
-               COUNT(*) AS MOVIMENTACAO
-        FROM VEF_EMP_TMOVENT A
-        INNER JOIN VW_TEMPRESAS_REF B ON A.BDCODEMP = B.BDCODEMP
-        WHERE A.BDDATAENTRADAENT BETWEEN ? AND ?
-          AND A.BDCODSITNF <> 2
-          AND A.BDESPECIE IN ('NFS', 'NFSE', 'S')
-          AND REPLACE(REPLACE(REPLACE(B.BDCNPJEMP, '.', ''), '/', ''), '-', '') = ?
-        GROUP BY A.BDCODEMP, B.BDNOMEMP, B.BDCNPJEMP,
-                 EXTRACT(YEAR FROM A.BDDATAENTRADAENT), EXTRACT(MONTH FROM A.BDDATAENTRADAENT)
-        ORDER BY 1, 4, 5
-    """
-    cur.execute(sql, (datai, dataf, cnpj_digits))
-    return _rows_to_dicts(cur.fetchall())
+    """Serviços tomados: VEF_EMP_TMOVSER, BDTIPLAN = 1 (Recebidos)."""
+    return _query_servico(cur, datai, dataf, cnpj_digits, _TIPLAN_TOMADO)
 
 
 def _datai_dataf_to_referencia_str(datai: str, dataf: str) -> tuple[str, str]:

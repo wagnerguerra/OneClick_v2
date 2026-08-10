@@ -172,9 +172,10 @@ export class SciService {
    * simplesmente não existia, virava `[]` e a média saía zero. Resultado: os
    * dois indicadores nunca chegaram, nem à baseline nem ao banco.
    *
-   * Normaliza aqui, na fronteira, e não no script: a ponte do Launcher roda
-   * uma cópia própria do Python na máquina do escritório, que não é atualizada
-   * junto com a API. Renomear lá deixaria os dois lados fora de sincronia.
+   * Normaliza aqui, na fronteira, em vez de renomear no script: a ponte do
+   * Launcher executa o Python a partir do checkout da máquina do escritório,
+   * que é atualizado em outro momento que a API da VPS. Aceitar os dois nomes
+   * atravessa essa janela sem voltar a zerar os indicadores.
    */
   normalizarMetricas(metrics: Record<string, unknown>): Record<string, unknown> {
     const out = { ...metrics }

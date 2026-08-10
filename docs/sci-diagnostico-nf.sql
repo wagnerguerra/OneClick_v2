@@ -143,8 +143,9 @@ GROUP BY a.BDREFLAN, a.BDCODSITNF
 ORDER BY a.BDREFLAN, a.BDCODSITNF;
 
 -- 3.3 ESPÉCIES REALMENTE USADAS (para NF prestado / tomado).
---     A consulta só aceita 'NFS', 'NFSE' e 'S'. Resultado real: só há
---     NFe e NFCe. Não é lista curta — é ausência de nota de serviço.
+--     A consulta antiga só aceitava 'NFS', 'NFSE' e 'S'. Resultado real:
+--     só NFe e NFCe. Nota de serviço não está aqui — está em
+--     VEF_EMP_TMOVSER (ver 5B).
 SELECT a.BDESPECIE, COUNT(*) AS QTD
 FROM VEF_EMP_TMOVSAI a
 INNER JOIN VW_TEMPRESAS_REF b ON a.BDCODEMP = b.BDCODEMP
@@ -200,24 +201,30 @@ ORDER BY 2 DESC;
 --       (lancamentos 872 e faturamento 267.020,47 seguem idênticos)
 --
 -- ---------------------------------------------------------------------
--- (B) NF PRESTADO e NF TOMADO: o zero está certo. O dado não existe.
+-- (B) NF PRESTADO e NF TOMADO: procuravam no lugar errado.
 --
---     Espécies realmente gravadas para este cliente no período:
---       saídas   NFe (463), NFCe (109)
---       entradas NFe (59), NF (14), NF3e (6), CTe (4)
---     Nenhuma nota de serviço. E na base INTEIRA:
---       saídas   NFCe 5.707.301 · NFe 2.769.579 · CTe 866.948 · NF 38.616
---                ... nenhuma linha com espécie NFS / NFSE / NFSe
---       entradas CTe 1.222.657 · NFe 703.836 · NF 10.596 ... NFS aparece 11 vezes
+--     As consultas caçavam a nota de serviço dentro das views de mercadoria
+--     (VEF_EMP_TMOVSAI / VEF_EMP_TMOVENT), filtrando
+--     BDESPECIE IN ('NFS','NFSE','S'). Nunca acharam nada — em ~9 milhões de
+--     saídas não existe UMA linha com essas espécies.
 --
---     Ou seja: as notas de serviço não são registradas nas views fiscais
---     deste SCI (VEF_EMP_TMOVSAI / VEF_EMP_TMOVENT). O filtro
---     BDESPECIE IN ('NFS','NFSE','S') não tem o que casar — mudar a lista
---     não resolve, porque não há linha nenhuma de serviço para achar.
+--     O SCI guarda serviço numa view própria: VEF_EMP_TMOVSER (274.602
+--     linhas). Quem separa prestado de tomado é BDTIPLAN, com domínio em
+--     VEF_BASE_TTIPLANSER:
+--       SELECT * FROM VEF_BASE_TTIPLANSER;
+--         (1, 0, 'Emitidos')   -> prestado
+--         (2, 1, 'Recebidos')  -> tomado
 --
---     Se esses números forem necessários, o caminho é descobrir ONDE o SCI
---     guarda a NFS-e (outro módulo/view) — não ajustar este filtro.
+--     Espécie ali é texto livre — NFSE, NFS-E, NFS-e, nfse, NFS, NFSe... —
+--     e por isso NÃO entra no filtro: a view inteira já é de serviço. Era
+--     esse campo, aliás, que a consulta antiga tentava usar como peneira.
 --
+--     Corrigido em sci_metrics.py (_query_servico). Conferido:
+--       ACAI BRASIL (indústria)   prestado   0 · tomado 17,67  (19/27/7)
+--       LANGUAGE IDIOMAS (escola) prestado  79 · tomado 11
+--     A indústria só toma serviço e a escola presta — o resultado bate com
+--     a natureza de cada uma, que é o teste que importa.
+
 -- ---------------------------------------------------------------------
 -- (C) DE QUEBRA: o filtro de situação do FATURAMENTO é que está frouxo.
 --
@@ -232,3 +239,32 @@ ORDER BY 2 DESC;
 --     filtro está errado e é uma armadilha se isso mudar.
 --     (Todo o resto do SERPRO2 usa `<> 1` também — o mesmo engano copiado.)
 -- =====================================================================
+
+
+-- =====================================================================
+-- 6. NOTA DE SERVIÇO — a view certa (usada pela correção)
+-- =====================================================================
+
+-- 6.1 Domínio que separa prestado de tomado
+SELECT * FROM VEF_BASE_TTIPLANSER;
+--   (1, 0, 'Emitidos')  ·  (2, 1, 'Recebidos')
+
+-- 6.2 Serviço PRESTADO (BDTIPLAN = 0) — trocar 0 por 1 para TOMADO
+SELECT A.BDCODEMP, B.BDNOMEMP, B.BDCNPJEMP,
+       EXTRACT(YEAR FROM A.BDDATAEMISSAO) AS ANO,
+       EXTRACT(MONTH FROM A.BDDATAEMISSAO) AS MES,
+       COUNT(*) AS MOVIMENTACAO
+FROM VEF_EMP_TMOVSER A
+INNER JOIN VW_TEMPRESAS_REF B ON A.BDCODEMP = B.BDCODEMP
+WHERE A.BDDATAEMISSAO BETWEEN '2026-05-01' AND '2026-07-31'
+  AND A.BDTIPLAN = 0
+  AND (A.BDCODSITNF IS NULL OR A.BDCODSITNF <> 2)
+  AND REPLACE(REPLACE(REPLACE(B.BDCNPJEMP, '.', ''), '/', ''), '-', '') = '10203600000100'
+GROUP BY A.BDCODEMP, B.BDNOMEMP, B.BDCNPJEMP,
+         EXTRACT(YEAR FROM A.BDDATAEMISSAO), EXTRACT(MONTH FROM A.BDDATAEMISSAO)
+ORDER BY 1, 4, 5;
+
+-- 6.3 Por que a espécie não serve de filtro aqui: é texto livre.
+SELECT BDESPECIE, COUNT(*) FROM VEF_EMP_TMOVSER GROUP BY BDESPECIE ORDER BY 2 DESC;
+--   NFSE 108.297 · NFS-E 54.962 · NFS-e 42.386 · NFS 33.377 · nfse 17.690
+--   NFSe 8.242 · '1' 4.152 · nfs 2.700 · (null) 2.397 · ND 58 · NFFSE 36
