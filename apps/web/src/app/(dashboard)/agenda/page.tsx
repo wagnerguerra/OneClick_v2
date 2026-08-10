@@ -48,6 +48,8 @@ interface AgendaTipo {
   permiteSala?: boolean
   permiteGaragem?: boolean
   permiteEquipamentos?: boolean
+  destacarEmail?: boolean
+  corDestaque?: string | null
   salasPermitidas?: string[]
 }
 
@@ -668,7 +670,7 @@ export default function AgendaPage() {
   // Master-detail: painel direito ativo p/ criar um tipo novo (edição usa tipoEditando)
   const [tipoPainelNovo, setTipoPainelNovo] = useState(false)
   const [tipoEditando, setTipoEditando] = useState<AgendaTipo | null>(null)
-  const [tipoForm, setTipoForm] = useState({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false, salasPermitidas: [] as string[] })
+  const [tipoForm, setTipoForm] = useState({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false, salasPermitidas: [] as string[], destacarEmail: false, corDestaque: '#f59e0b' })
   const [tipoSaving, setTipoSaving] = useState(false)
 
   // Drag and drop
@@ -1328,7 +1330,7 @@ export default function AgendaPage() {
   function openTipoNew() {
     if (!canManageTipos) return // [QA #13] defesa em profundidade (o botão já é gateado)
     setTipoEditando(null)
-    setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false, salasPermitidas: [] as string[] })
+    setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false, salasPermitidas: [] as string[], destacarEmail: false, corDestaque: '#f59e0b' })
     setTipoPainelNovo(true)
     setTiposModalOpen(true)
   }
@@ -1336,13 +1338,13 @@ export default function AgendaPage() {
   function openTipoEdit(t: AgendaTipo) {
     setTipoEditando(t)
     setTipoPainelNovo(false)
-    setTipoForm({ nome: t.nome, cor: t.cor, corBorda: t.corBorda, corTexto: t.corTexto, bloqueiaAgenda: t.bloqueiaAgenda, permiteModalidade: !!t.permiteModalidade, permiteSala: !!t.permiteSala, permiteGaragem: !!t.permiteGaragem, permiteEquipamentos: !!t.permiteEquipamentos, salasPermitidas: t.salasPermitidas ?? [] })
+    setTipoForm({ nome: t.nome, cor: t.cor, corBorda: t.corBorda, corTexto: t.corTexto, bloqueiaAgenda: t.bloqueiaAgenda, permiteModalidade: !!t.permiteModalidade, permiteSala: !!t.permiteSala, permiteGaragem: !!t.permiteGaragem, permiteEquipamentos: !!t.permiteEquipamentos, salasPermitidas: t.salasPermitidas ?? [], destacarEmail: !!t.destacarEmail, corDestaque: t.corDestaque || '#f59e0b' })
   }
 
   function cancelTipoEdit() {
     setTipoEditando(null)
     setTipoPainelNovo(false)
-    setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false, salasPermitidas: [] as string[] })
+    setTipoForm({ nome: '', cor: '#3b82f6', corBorda: '#2563eb', corTexto: '#ffffff', bloqueiaAgenda: false, permiteModalidade: false, permiteSala: false, permiteGaragem: false, permiteEquipamentos: false, salasPermitidas: [] as string[], destacarEmail: false, corDestaque: '#f59e0b' })
   }
 
   async function handleSaveTipo() {
@@ -3657,6 +3659,30 @@ export default function AgendaPage() {
                     <Checkbox checked={tipoForm.permiteEquipamentos} onCheckedChange={v => setTipoForm(f => ({ ...f, permiteEquipamentos: !!v }))} />
                     <span className="text-xs">Equipamentos</span>
                   </label>
+                </div>
+
+                {/* Destaque no e-mail do dia — o que motivou: "arrumar sala"
+                    virava uma linha cinza no rodapé de um card entre vinte, e a
+                    equipe de limpeza passava direto. */}
+                <div className="mt-1 space-y-1.5 rounded-md border bg-background/60 p-2.5">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={tipoForm.destacarEmail} onCheckedChange={v => setTipoForm(f => ({ ...f, destacarEmail: !!v }))} />
+                    <span className="text-xs font-medium">Destacar no e-mail do dia</span>
+                  </label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Eventos deste tipo aparecem com moldura colorida no resumo diário, para não passarem batido.
+                  </p>
+                  {tipoForm.destacarEmail && (
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <span className="text-[11px] text-muted-foreground">Cor da moldura</span>
+                      <input type="color" value={tipoForm.corDestaque}
+                        onChange={e => setTipoForm(f => ({ ...f, corDestaque: e.target.value }))}
+                        className="h-7 w-12 cursor-pointer rounded border border-border bg-background p-0.5" />
+                      <span className="rounded px-2 py-0.5 text-[10px] font-semibold text-white" style={{ backgroundColor: tipoForm.corDestaque }}>
+                        exemplo
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Allowlist de salas — só quando a regra de Sala está ligada */}

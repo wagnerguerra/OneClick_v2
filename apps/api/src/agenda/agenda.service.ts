@@ -428,7 +428,7 @@ export class AgendaService {
     }
   }
 
-  async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }, userId?: string, ctxEmpresaId: string | null = null) {
+  async createTipo(data: { nome: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[]; destacarEmail?: boolean; corDestaque?: string | null }, userId?: string, ctxEmpresaId: string | null = null) {
     const nomeLimpo = (data.nome || '').trim()
     if (!nomeLimpo) throw new Error('Informe o nome do tipo de evento.')
     // Dedup por nome no escopo visível (global NULL + a própria empresa) — evita
@@ -460,6 +460,8 @@ export class AgendaService {
           permiteGaragem: data.permiteGaragem ?? false,
           permiteEquipamentos: data.permiteEquipamentos ?? false,
           salasPermitidas: data.salasPermitidas ?? [],
+          destacarEmail: data.destacarEmail ?? false,
+          corDestaque: data.corDestaque ?? null,
         },
       })
       await this.logTipo(reativado.id, reativado.nome, userId, 'CRIOU')
@@ -478,6 +480,8 @@ export class AgendaService {
         permiteGaragem: data.permiteGaragem ?? false,
         permiteEquipamentos: data.permiteEquipamentos ?? false,
         salasPermitidas: data.salasPermitidas ?? [],
+        destacarEmail: data.destacarEmail ?? false,
+        corDestaque: data.corDestaque ?? null,
       },
     })
     await this.logTipo(tipo.id, tipo.nome, userId, 'CRIOU')
@@ -496,7 +500,7 @@ export class AgendaService {
     }
   }
 
-  async updateTipo(id: string, data: { nome?: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[] }, userId?: string, isMaster = false, empresaId: string | null = null) {
+  async updateTipo(id: string, data: { nome?: string; cor?: string; corBorda?: string; corTexto?: string; bloqueiaAgenda?: boolean; permiteModalidade?: boolean; permiteSala?: boolean; permiteGaragem?: boolean; permiteEquipamentos?: boolean; salasPermitidas?: string[]; destacarEmail?: boolean; corDestaque?: string | null }, userId?: string, isMaster = false, empresaId: string | null = null) {
     await this.assertTipoOwned(id, isMaster, empresaId)
     const updateData: Record<string, unknown> = {}
     if (data.nome !== undefined) updateData.nome = data.nome
@@ -508,6 +512,8 @@ export class AgendaService {
     if (data.permiteSala !== undefined) updateData.permiteSala = data.permiteSala
     if (data.permiteGaragem !== undefined) updateData.permiteGaragem = data.permiteGaragem
     if (data.permiteEquipamentos !== undefined) updateData.permiteEquipamentos = data.permiteEquipamentos
+    if (data.destacarEmail !== undefined) updateData.destacarEmail = data.destacarEmail
+    if (data.corDestaque !== undefined) updateData.corDestaque = data.corDestaque
     if (data.salasPermitidas !== undefined) updateData.salasPermitidas = data.salasPermitidas
 
     const tipo = await prisma.agendaTipo.update({

@@ -579,6 +579,22 @@ export class AgendaDisparoService implements OnModuleInit {
            </div>`
         : ''
 
+      // "Arrumar sala" sobe para um selo ao lado do título. Como linha do
+      // rodapé, em cinza de 11px, era a informação que a equipe de limpeza mais
+      // precisava ver e a que menos se via — foi o motivo do pedido.
+      const arrumarSelo = ev.arrumarSala
+        ? `<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;vertical-align:middle">🧹 Arrumar sala</span>`
+        : ''
+
+      // Destaque por TIPO de evento (configurado no cadastro do tipo): troca a
+      // moldura fina cinza por uma grossa na cor escolhida. Continua sendo
+      // <table>+bgcolor, e não CSS, porque Gmail e Outlook descartam borda em
+      // style — o mesmo motivo do wrapper que já existia aqui.
+      const destacado = !!ev.tipo?.destacarEmail
+      const corMoldura = (ev.tipo?.corDestaque || ev.tipo?.corBorda || cor) as string
+      const molduraCor = destacado ? corMoldura : '#cbd5e1'
+      const molduraPad = destacado ? '3px' : '1px'
+
       // Linha do criador separada visualmente — fica isolada no rodapé do card
       const criadorHtml = ev.criador?.name
         ? `<div class="ev-creator" style="margin-top:12px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Agendado por ${this.escape(ev.criador.name)}</div>`
@@ -589,7 +605,7 @@ export class AgendaDisparoService implements OnModuleInit {
       // Faixa lateral colorida vem como td separada de 4px largura.
       return `
 <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 14px">
-  <tr><td bgcolor="#cbd5e1" class="ev-border" style="background-color:#cbd5e1;padding:1px;border-radius:10px">
+  <tr><td bgcolor="${molduraCor}" class="ev-border" style="background-color:${molduraCor};padding:${molduraPad};border-radius:10px">
     <table cellpadding="0" cellspacing="0" border="0" width="100%" class="ev-card" style="background:#ffffff;border-radius:9px;overflow:hidden">
       <tr>
         <td width="4" bgcolor="${cor}" style="background-color:${cor};width:4px;padding:0;line-height:0;font-size:0">&nbsp;</td>
@@ -597,7 +613,7 @@ export class AgendaDisparoService implements OnModuleInit {
           ${horarioBlock}
         </td>
         <td valign="top" style="padding:14px 16px;vertical-align:top">
-          <div class="ev-title" style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${this.escape(ev.titulo)}</div>
+          <div class="ev-title" style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${this.escape(ev.titulo)}${arrumarSelo}</div>
           <div style="margin-bottom:4px">${linhaInfo.join(' &nbsp; ')}</div>
           ${linkHtml}
           ${crmHtml}

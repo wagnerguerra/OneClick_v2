@@ -3337,6 +3337,12 @@ model AgendaTipo {
   permiteEquipamentos Boolean @default(false) @map("permite_equipamentos")
   // Allowlist de salas disponíveis para este tipo (vazio = todas as ativas).
   salasPermitidas String[] @default([]) @map("salas_permitidas")
+  /// Destaca os eventos deste tipo no e-mail do dia, com uma moldura colorida.
+  /// Existe porque informação importante (ex.: "arrumar sala") ficava diluída
+  /// numa lista de vinte eventos e quem precisava agir passava direto.
+  destacarEmail Boolean @default(false) @map("destacar_email")
+  /// Cor da moldura do destaque. Nulo = usa a cor da borda do próprio tipo.
+  corDestaque   String? @map("cor_destaque")
   isActive       Boolean  @default(true) @map("is_active")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
