@@ -109,6 +109,38 @@ const PESO_FAROL = {
 /** ≥70% das linhas com parâmetro precisam estar dentro da margem. */
 const MARGEM_MIN_INDICADORES_PCT = 70
 
+/**
+ * Os SETE indicadores comparados, na ordem do SERPRO2.
+ *
+ * `param` é a coluna do contrato; `erp` é o nome do indicador no snapshot do
+ * SCI. Os dois divergem num caso — "funcionarios" no contrato chega como
+ * "vidas" do ERP —, e essa tradução é o motivo de a lista existir em vez de
+ * usar a mesma chave dos dois lados.
+ *
+ * Indicador com parâmetro mas SEM dado do ERP não conta como dentro nem como
+ * fora: fica "sem dados", e ainda assim pesa no denominador dos 70%. É o
+ * legado sendo honesto — não saber não é o mesmo que estar em ordem.
+ */
+const INDICADORES_COMPARATIVO = [
+  { param: 'lancamentos', erp: 'lancamentos', titulo: 'Lançamentos' },
+  { param: 'nf_entrada', erp: 'nf_entrada', titulo: 'NF entrada' },
+  { param: 'nf_saida', erp: 'nf_saida', titulo: 'NF saída' },
+  { param: 'nf_prestado', erp: 'nf_prestado', titulo: 'NF prestado' },
+  { param: 'nf_tomado', erp: 'nf_tomado', titulo: 'NF tomado' },
+  { param: 'funcionarios', erp: 'vidas', titulo: 'Vidas' },
+  { param: 'faturamento', erp: 'faturamento', titulo: 'Faturamento' },
+] as const
+
+export interface LinhaComparativo {
+  titulo: string
+  parametro: number | null
+  /** Valor por competência (mais antiga primeiro), alinhado a `meses`. */
+  valores: Array<number | null>
+  media: number | null
+  status: 'ok' | 'defasado' | 'sem_erp' | 'sem_parametro'
+  variacaoPct: number | null
+}
+
 /** Verde acima de 80, amarelo até 80, vermelho até 60 — como no legado. */
 function corDoFarol(score: number): 'verde' | 'amarelo' | 'vermelho' {
   if (!Number.isFinite(score)) return 'amarelo'
@@ -1143,6 +1175,7 @@ export class ClienteService {
       SELECT c.id, c.code, c.documento, c.razao_social,
              p.honorario, p.faturamento,
              p.lancamentos AS p_lanc, p.nf_saida AS p_nfs, p.funcionarios AS p_func,
+             p.nf_entrada AS p_nfe, p.nf_prestado AS p_nfp, p.nf_tomado AS p_nft,
              p.numero AS contrato_numero, p.tipo AS contrato_tipo,
              p.data_inicio AS contrato_inicio, p.data_fim AS contrato_fim,
              COALESCE(p.permanente, false) AS contrato_permanente,
@@ -1160,7 +1193,7 @@ export class ClienteService {
         ON lm.cliente_id = c.id
       LEFT JOIN ult3 m3l ON m3l.cliente_id = c.id AND m3l.indicador = 'lancamentos'
       LEFT JOIN ult3 m3n ON m3n.cliente_id = c.id AND m3n.indicador = 'nf_saida'
-      LEFT JOIN ult3 m3v ON m3v.cliente_id = c.id AND m3v.indicador = 'funcionarios'
+      LEFT JOIN ult3 m3v ON m3v.cliente_id = c.id AND m3v.indicador = 'vidas'
       LEFT JOIN latest ll ON ll.cliente_id = c.id AND ll.indicador = 'lancamentos'
       LEFT JOIN latest ns ON ns.cliente_id = c.id AND ns.indicador = 'nf_saida'
       LEFT JOIN latest vd ON vd.cliente_id = c.id AND vd.indicador = 'vidas'
@@ -1171,6 +1204,7 @@ export class ClienteService {
       id: string; code: number | null; documento: string | null; razao_social: string | null
       honorario: number | null; faturamento: number | null
       p_lanc: number | null; p_nfs: number | null; p_func: number | null
+      p_nfe: number | null; p_nfp: number | null; p_nft: number | null
       contrato_numero: string | null; contrato_tipo: string | null
       contrato_inicio: Date | null; contrato_fim: Date | null
       contrato_permanente: boolean; dias_alerta: number | null
@@ -1198,7 +1232,79 @@ export class ClienteService {
       return { valor: e, status: e > c ? 'defasado' : 'ok', variacao_pct }
     }
 
+    // Últimos 3 meses do SCI por indicador, para o comparativo do farol.
+    // Numa consulta só para toda a página: por cliente seriam centenas de idas
+    // ao banco só para preencher um modal que quase sempre nem é aberto.
+    const idsPagina = allRows.map(r => r.id)
+    const snaps = idsPagina.length === 0 ? [] : await prisma.$queryRawUnsafe<Array<{
+      cliente_id: string; indicador: string; mes: string; valor: number | null
+    }>>(
+      `SELECT cliente_id, indicador, mes, valor
+         FROM (
+           SELECT s.cliente_id, s.indicador, s.mes, s.valor,
+                  ROW_NUMBER() OVER (PARTITION BY s.cliente_id, s.indicador ORDER BY s.mes DESC) AS rn
+             FROM cliente_erp_snapshots s
+            WHERE s.cliente_id = ANY($1::text[])
+         ) t
+        WHERE rn <= 3
+        ORDER BY mes`,
+      idsPagina,
+    ).catch(() => [])
+
+    const porCliente = new Map<string, Map<string, Map<string, number | null>>>()
+    const mesesPorCliente = new Map<string, Set<string>>()
+    for (const sn of snaps) {
+      if (!porCliente.has(sn.cliente_id)) porCliente.set(sn.cliente_id, new Map())
+      const doInd = porCliente.get(sn.cliente_id)!
+      if (!doInd.has(sn.indicador)) doInd.set(sn.indicador, new Map())
+      doInd.get(sn.indicador)!.set(sn.mes, sn.valor == null ? null : Number(sn.valor))
+      if (!mesesPorCliente.has(sn.cliente_id)) mesesPorCliente.set(sn.cliente_id, new Set())
+      mesesPorCliente.get(sn.cliente_id)!.add(sn.mes)
+    }
+
+    /** Uma linha por indicador — a mesma tabela que o modal desenha e que a
+     *  regra da margem consome. Cálculo único: se a conta do modal e a do farol
+     *  vivessem separadas, um diria "dentro" e o outro "fora". */
+    const montarComparativo = (r: (typeof allRows)[number]) => {
+      // 'AAAA-MM' ordena alfabeticamente na ordem cronológica — sem parse.
+      const meses = [...(mesesPorCliente.get(r.id) ?? [])].sort().slice(-3)
+      const doCliente = porCliente.get(r.id) ?? new Map()
+      const params: Record<string, number | null> = {
+        lancamentos: r.p_lanc, nf_entrada: r.p_nfe, nf_saida: r.p_nfs,
+        nf_prestado: r.p_nfp, nf_tomado: r.p_nft, funcionarios: r.p_func,
+        faturamento: r.faturamento,
+      }
+
+      const linhas: LinhaComparativo[] = INDICADORES_COMPARATIVO.map((ind) => {
+        const pv = params[ind.param]
+        const parametro = pv == null || !Number.isFinite(Number(pv)) ? null : Number(pv)
+        const valores = meses.map(m => doCliente.get(ind.erp)?.get(m) ?? null)
+        const comValor = valores.filter((v): v is number => v != null && Number.isFinite(v))
+        const media = comValor.length > 0 ? comValor.reduce((a, b) => a + b, 0) / comValor.length : null
+
+        if (parametro == null) {
+          return { titulo: ind.titulo, parametro: null, valores, media, status: 'sem_parametro' as const, variacaoPct: null }
+        }
+        if (media == null) {
+          return { titulo: ind.titulo, parametro, valores, media: null, status: 'sem_erp' as const, variacaoPct: null }
+        }
+        const variacaoPct = parametro > 0
+          ? Math.round(((media - parametro) / parametro) * 1000) / 10
+          : (media === 0 ? 0 : null)
+        return {
+          titulo: ind.titulo, parametro, valores, media,
+          status: media <= parametro ? ('ok' as const) : ('defasado' as const),
+          variacaoPct,
+        }
+      })
+
+      // Rótulo em MM/AAAA só na saída: a chave interna continua ordenável.
+      const rotulo = (m: string) => { const [a, mm] = m.split('-'); return `${mm}/${a}` }
+      return { meses: meses.map(rotulo), linhas }
+    }
+
     const registros = allRows.map((r, i) => {
+      const comparativo = montarComparativo(r)
       const lanc = statusCell(r.p_lanc, r.e_lanc)
       const notas = statusCell(r.p_nfs, r.e_nfs)
       const vidas = statusCell(r.p_func, r.e_vidas)
@@ -1266,21 +1372,9 @@ export class ClienteService {
             // a linha. Passa com ≥70% das linhas dentro E menos de duas fora —
             // duas linhas defasadas já pedem reavaliação, mesmo com o percentual
             // salvo pelas demais.
-            const linhas = [
-              { p: r.p_lanc, m: r.m_lanc },
-              { p: r.p_nfs, m: r.m_nfs },
-              { p: r.p_func, m: r.m_vidas },
-            ]
-            let comParametro = 0, dentro = 0, defasados = 0
-            for (const l of linhas) {
-              const c = Number(l.p)
-              if (!Number.isFinite(c) || c <= 0) continue
-              comParametro++
-              const media = l.m == null ? null : Number(l.m)
-              if (media == null || !Number.isFinite(media)) continue
-              if (media <= c) dentro++
-              else defasados++
-            }
+            const comParametro = comparativo.linhas.filter(l => l.parametro != null).length
+            const dentro = comparativo.linhas.filter(l => l.status === 'ok').length
+            const defasados = comparativo.linhas.filter(l => l.status === 'defasado').length
             const minExigido = comParametro >= 1 ? Math.ceil((comParametro * MARGEM_MIN_INDICADORES_PCT) / 100) : 0
             const margemOk = comParametro >= 1 && defasados < 2 && dentro >= minExigido
             marcar(
@@ -1322,6 +1416,19 @@ export class ClienteService {
         farol,
         score,
         farolItens: itens,
+        comparativo,
+        /**
+         * Recomendação de reavaliação do contrato, com a régua do SERPRO2:
+         * UMA linha defasada já sugere revisar (moderado); DUAS ou mais tornam
+         * a sugestão forte. É mais sensível que o farol de propósito — o farol
+         * responde "está saudável?", esta coluna responde "é hora de renegociar?",
+         * e a segunda tem de acender antes.
+         */
+        recomendacao: (() => {
+          const defasados = comparativo.linhas.filter(l => l.status === 'defasado').length
+          if (!r.tem_parametro || defasados < 1) return null
+          return defasados >= 2 ? ('forte' as const) : ('moderada' as const)
+        })(),
         ultimaConsulta: r.ultima_consulta,
         situacao,
         faturamento: r.faturamento != null ? Number(r.faturamento) : null,

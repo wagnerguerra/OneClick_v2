@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, Users, CheckCircle2, TrendingUp, Info, Search,
   FileDown, ArrowUpRight, ArrowDownRight, Loader2, CalendarClock,
-  SlidersHorizontal, Database, Paperclip, RefreshCcw, FileSignature, Activity, Check, X,
+  SlidersHorizontal, Database, Paperclip, RefreshCcw, FileSignature, Activity, Check, X, ChevronRight, Percent,
 } from 'lucide-react'
 import {
   Button, Card, Input, Badge,
@@ -41,6 +41,19 @@ type Registro = {
   /** 0 a 100. Nasce em 100 e cada critério que falha desconta o peso dele. */
   score: number
   farolItens: Array<{ id: string; titulo: string; ok: boolean; desconto: number }>
+  recomendacao: 'forte' | 'moderada' | null
+  comparativo: {
+    /** Competências do SCI, da mais antiga para a mais recente (até 3). */
+    meses: string[]
+    linhas: Array<{
+      titulo: string
+      parametro: number | null
+      valores: Array<number | null>
+      media: number | null
+      status: 'ok' | 'defasado' | 'sem_erp' | 'sem_parametro'
+      variacaoPct: number | null
+    }>
+  }
   ultimaConsulta: string | null
   situacao: 'sem_parametro' | 'sem_consulta' | 'defasado' | 'em_dia'
   faturamento: number | null
@@ -61,6 +74,10 @@ type CellStatus = 'ok' | 'defasado' | 'sem_parametro' | 'sem_erp'
 type Resumo = { total: number; emDia: number; defasados: number; semParametro: number; vencidos: number; vencendo: number }
 
 /** Rótulo da cor, para o cabeçalho do detalhamento. */
+/** Inteiro sem casas; decimal com duas — faturamento e contagem na mesma tabela. */
+const fmtNum = (n: number) =>
+  Number.isInteger(n) ? n.toLocaleString('pt-BR') : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 const FAROL_LABEL: Record<Registro['farol'], string> = {
   verde: 'Em ordem', amarelo: 'Atenção', vermelho: 'Requer ação',
 }
@@ -133,6 +150,7 @@ const SITUACAO_BADGE: Record<Registro['situacao'], { label: string; cls: string 
 export default function GestaoContratosPage() {
   const router = useRouter()
   const [detalheFarol, setDetalheFarol] = useState<Registro | null>(null)
+  const [comparativo, setComparativo] = useState<Registro | null>(null)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
@@ -250,6 +268,7 @@ export default function GestaoContratosPage() {
                     <TableHead className="text-xs font-semibold uppercase tracking-wider">Cliente</TableHead>
                     <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Situação</TableHead>
                     <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Status</TableHead>
+                    <TableHead className="text-center text-xs font-semibold uppercase tracking-wider" title="Sugestão de renegociação — acende antes do farol">Recomendação</TableHead>
                     <TableHead className="text-xs font-semibold uppercase tracking-wider">Vigência</TableHead>
                     <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Faturamento</TableHead>
                     <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Honorários</TableHead>
@@ -261,7 +280,7 @@ export default function GestaoContratosPage() {
                 <TableBody>
                   {registros.length === 0 && !loading ? (
                     <TableRow>
-                      <TableCell colSpan={12} className="py-10 text-center text-sm text-muted-foreground">
+                      <TableCell colSpan={13} className="py-10 text-center text-sm text-muted-foreground">
                         Nenhum cliente com contrato ou parâmetros. Use &quot;Verificar no ERP&quot; no detalhe do cliente para alimentar os dados.
                       </TableCell>
                     </TableRow>
@@ -300,6 +319,21 @@ export default function GestaoContratosPage() {
                             <StatusIcon icon={RefreshCcw} active={r.situacao === 'defasado'} tone="alert"
                               title={r.situacao === 'defasado' ? 'Cliente cresceu além do contratado — reavaliar honorário' : 'Sem sinal de renegociação'} />
                           </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {/* Abre o comparativo: a recomendação nasce dele, e
+                              ver a pill sem poder olhar o porquê obrigaria a
+                              refazer o caminho pelo farol. */}
+                          {r.recomendacao ? (
+                            <button type="button" onClick={(e) => { e.stopPropagation(); setComparativo(r) }}>
+                              <Badge variant="outline" className={cn('font-medium cursor-pointer',
+                                r.recomendacao === 'forte'
+                                  ? 'border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                  : 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400')}>
+                                Reavaliar
+                              </Badge>
+                            </button>
+                          ) : <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-xs">
                           {!r.temContrato ? (
@@ -394,7 +428,21 @@ export default function GestaoContratosPage() {
                   <tbody>
                     {detalheFarol.farolItens.map(it => (
                       <tr key={it.id} className="border-b border-border/40">
-                        <td className="py-2 pr-3 text-foreground">{it.titulo}</td>
+                        <td className="py-2 pr-3 text-foreground">
+                          {/* Só o critério de margem abre segundo nível: é o
+                              único cujo resultado vem de uma conta, e não de um
+                              campo preenchido ou vazio. */}
+                          {it.id === 'indicadores' ? (
+                            <button
+                              type="button"
+                              onClick={() => { setComparativo(detalheFarol); setDetalheFarol(null) }}
+                              className="inline-flex items-center gap-1 text-left text-sky-600 hover:underline dark:text-sky-400"
+                            >
+                              {it.titulo}
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </button>
+                          ) : it.titulo}
+                        </td>
                         <td className="py-2 text-right whitespace-nowrap">
                           {it.ok
                             ? <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><Check className="h-3.5 w-3.5" />OK</span>
@@ -413,6 +461,78 @@ export default function GestaoContratosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setDetalheFarol(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Segundo nível: a composição do indicador, competência a competência.
+          O farol diz "fora da margem"; aqui se vê QUAL indicador e por quanto —
+          sem isso a única saída era abrir o ERP e conferir na mão. */}
+      <Dialog open={!!comparativo} onOpenChange={(o) => { if (!o) setComparativo(null) }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeaderIcon icon={Percent} color="amber">
+            <DialogTitle className="text-[15px]">Comparativo — margem de indicadores</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              {comparativo ? `${comparativo.documento ?? ''} · ${comparativo.cliente}` : ''}
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            {comparativo && (
+              <div className="nice-scrollbar overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <th className="py-1.5 text-left font-semibold">Indicador</th>
+                      <th className="py-1.5 text-right font-semibold">Contrato</th>
+                      {comparativo.comparativo.meses.map(m => (
+                        <th key={m} className="py-1.5 text-right font-semibold tabular-nums">{m}</th>
+                      ))}
+                      <th className="py-1.5 pl-4 text-left font-semibold">Situação</th>
+                      <th className="py-1.5 text-right font-semibold">Variação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comparativo.comparativo.linhas.map(l => (
+                      <tr key={l.titulo} className="border-b border-border/40">
+                        <td className="py-2 pr-3 text-foreground">{l.titulo}</td>
+                        <td className="py-2 text-right tabular-nums text-muted-foreground">
+                          {l.parametro == null ? '—' : fmtNum(l.parametro)}
+                        </td>
+                        {l.valores.map((v, i) => (
+                          <td key={i} className="py-2 text-right tabular-nums text-muted-foreground">
+                            {v == null ? '—' : fmtNum(v)}
+                          </td>
+                        ))}
+                        <td className={cn('py-2 pl-4 whitespace-nowrap',
+                          l.status === 'defasado' ? 'text-rose-500'
+                            : l.status === 'ok' ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-muted-foreground')}>
+                          {l.status === 'defasado' ? 'Acima do contrato'
+                            : l.status === 'ok' ? 'Dentro da referência'
+                              : l.status === 'sem_erp' ? 'Sem dados do ERP'
+                                : 'Sem parâmetro'}
+                        </td>
+                        <td className={cn('py-2 text-right tabular-nums',
+                          l.variacaoPct == null ? 'text-muted-foreground'
+                            : l.variacaoPct > 0 ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400')}>
+                          {l.variacaoPct == null ? '—' : `${l.variacaoPct > 0 ? '+' : ''}${l.variacaoPct.toString().replace('.', ',')} %`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-3 text-[11px] text-muted-foreground">
+                  A variação compara a <b>média das competências</b> acima com o valor do contrato.
+                  Indicador com parâmetro e sem dado do ERP não conta como dentro nem como fora — mas
+                  entra na conta dos 70%.
+                </p>
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => { const r = comparativo; setComparativo(null); setDetalheFarol(r) }}>
+              Voltar
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setComparativo(null)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
