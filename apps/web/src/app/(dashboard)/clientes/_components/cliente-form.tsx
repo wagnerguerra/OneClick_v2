@@ -650,7 +650,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
               {/* ======================================================== */}
               <TabsContent value="comercial" className="mt-0">
                 <ComercialCard
-                  register={register} control={control} watch={watch} errors={errors}
+                  register={register} control={control} watch={watch} setValue={setValue} errors={errors}
                   chatMsg={chatMsg} setChatMsg={setChatMsg}
                   chatAsCliente={chatAsCliente} setChatAsCliente={setChatAsCliente}
                   clienteId={clienteId}
@@ -826,6 +826,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   setCnpjCard: (v: CnpjCardData | null) => void
   canEdit: boolean
 }) {
+
   const [activeTab, setActiveTab] = useState('dados')
 
   // "Dados Gerais" reúne todos os campos essenciais (igual ao cadastro do
@@ -1451,10 +1452,11 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   )
 }
 
-function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, opcoesGrupo, canEdit }: {
+function ComercialCard({ register, control, watch, setValue, errors, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, opcoesGrupo, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
+  setValue: ReturnType<typeof useForm<CreateClienteInput>>['setValue']
   errors: ReturnType<typeof useForm<CreateClienteInput>>['formState']['errors']
   chatMsg: string; setChatMsg: (v: string) => void
   chatAsCliente: boolean; setChatAsCliente: (v: boolean) => void
@@ -1463,6 +1465,43 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
   opcoesGrupo: Array<{ id: string; valor: string }>
   canEdit: boolean
 }) {
+  /**
+   * Data de saída preenchida → oferece inativar o cliente (#HLP0329).
+   *
+   * Sair da carteira e continuar ativo no sistema é o estado que ninguém quer:
+   * o cliente segue aparecendo em listagem, cobrança e obrigação. Antes isso
+   * dependia de lembrar de trocar a situação num campo do outro lado da tela.
+   *
+   * É PERGUNTA, não automático: baixa e transferência têm trâmite, e há quem
+   * registre a data de saída antes de encerrar o serviço de fato. Decidir pelo
+   * usuário inativaria cliente que ainda está sendo atendido.
+   */
+  async function perguntarInativar(dataSaida: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataSaida)) return   // data incompleta
+    if (watch('status') === 'INATIVA') return
+
+    const ok = await alerts.confirm({
+      title: 'Inativar o cliente?',
+      text: 'Você informou a data de saída. Quer marcar o cliente como INATIVO? '
+        + 'Ele sai das listagens e da contagem de filiais, e o histórico é preservado.',
+      confirmText: 'Inativar',
+      icon: 'question',
+    })
+    if (!ok) return
+
+    setValue('status', 'INATIVA', { shouldDirty: true })
+    // Em edição grava na hora: a data de saída vai junto para as duas
+    // informações não contarem histórias diferentes se a pessoa sair da tela
+    // sem salvar.
+    if (clienteId) {
+      try {
+        await trpc.cliente.update.mutate({ id: clienteId, data: { status: 'INATIVA', dataSaida } as never })
+      } catch {
+        alerts.error('Erro', 'Não foi possível inativar agora — a alteração fica pendente no formulário.')
+      }
+    }
+  }
+
   const [activeTab, setActiveTab] = useState('cadastros')
   const [historicos, setHistoricos] = useState<Array<{ id: string; mensagem: string; tipo: string; createdAt: string; user: { id: string; name: string } | null }>>([])
   const [histLoaded, setHistLoaded] = useState(false)
@@ -1570,7 +1609,9 @@ function ComercialCard({ register, control, watch, errors, chatMsg, setChatMsg, 
                 </div>
                 <div className="col-span-6 md:col-span-3 space-y-1.5">
                   <Label>Data Saída</Label>
-                  <Input type="date" {...register('dataSaida')} />
+                  <Input type="date" {...register('dataSaida', {
+                    onChange: (e: { target: { value: string } }) => { void perguntarInativar(e.target.value) },
+                  })} />
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label>Categoria<RequiredMark /></Label>
