@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma, Prisma } from '@saas/db'
-import { VinculosAcessoriasService } from './vinculos.service'
+import { VinculosAcessoriasService, norm } from './vinculos.service'
 
 /**
  * Painel de acompanhamento das entregas do Acessórias.
@@ -475,6 +475,22 @@ export class PainelEntregasService {
       orderBy: { razaoSocial: 'asc' },
     })
 
+    // Ex-colaborador fora da lista.
+    //
+    // Os nomes saem das ENTREGAS, e entrega antiga guarda para sempre quem a
+    // fez — então quem saiu da empresa continuava aparecendo no filtro, anos
+    // depois. O painel de indicadores já esconde esses; aqui ficava diferente.
+    //
+    // Só some quem é RECONHECIDO como inativo: nome do Acessórias que casa com
+    // um usuário nosso desligado. Nome que não casa com ninguém permanece — pode
+    // ser um analista sem vínculo cadastrado, e sumir com ele esconderia
+    // obrigação de gente que ainda trabalha aqui.
+    const idx = await this.vinculos.indices(ctx.empresaId ?? null)
+    const inativo = (nome: string) => {
+      const userId = idx.usuarioDe.get(norm(nome))
+      return !!userId && !idx.usuariosAtivos.has(userId)
+    }
+
     return {
       departamentos: dptos.map((x) => x.dpto).filter(Boolean) as string[],
       // União dos dois papéis: quem só tem obrigação em aberto não aparecia na
@@ -482,7 +498,9 @@ export class PainelEntregasService {
       responsaveis: [...new Set([
         ...resps.map((r) => r.respEntrega),
         ...respsPrazo.map((r) => r.respPrazo),
-      ].filter(Boolean) as string[])].sort((x, y) => x.localeCompare(y, 'pt-BR')),
+      ].filter(Boolean) as string[])]
+        .filter((nome) => !inativo(nome))
+        .sort((x, y) => x.localeCompare(y, 'pt-BR')),
       clientes,
     }
   }

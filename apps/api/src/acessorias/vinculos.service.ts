@@ -18,7 +18,7 @@ import { prisma, Prisma } from '@saas/db'
 const STOPWORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e'])
 
 /** Sem acento, minúsculo, sem pontuação. */
-function norm(v: string): string {
+export function norm(v: string): string {
   return String(v ?? '')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
