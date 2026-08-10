@@ -189,6 +189,9 @@ importers:
       '@types/pdfkit':
         specifier: ^0.17.6
         version: 0.17.6
+      '@types/pg':
+        specifier: ^8.21.0
+        version: 8.21.0
       '@types/qrcode':
         specifier: ^1.5.6
         version: 1.5.6
@@ -367,6 +370,12 @@ importers:
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@saas/api':
+        specifier: workspace:*
+        version: link:../api
+      '@saas/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@saas/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -3915,6 +3924,9 @@ packages:
 
   '@types/pdfmake@0.3.3':
     resolution: {integrity: sha512-ufbceB4Q3dKpmFUMKEbZvJcfLi8+C5b1+rTFVG6urtkS3FHwaTQH6NCh/iEEDINlApCxH/W3/rsq99pP5E9/JA==}
+
+  '@types/pg@8.21.0':
+    resolution: {integrity: sha512-AYdtudzabjLZgVgRZmAnU8bAnVUXzuJX2IYHeSIiIHm68olD+LgQYCGWdtcNYnP0uq9c4S4NibVG3Ni7VbKW7Q==}
 
   '@types/qrcode@1.5.6':
     resolution: {integrity: sha512-te7NQcV2BOvdj2b1hCAHzAoMNuj65kNBMz0KBaxM6c3VGBOhU0dURQKOtH8CFNI/dsKkwlv32p26qYQTWoB5bw==}
@@ -13264,6 +13276,12 @@ snapshots:
     dependencies:
       '@types/node': 22.19.21
       '@types/pdfkit': 0.17.6
+
+  '@types/pg@8.21.0':
+    dependencies:
+      '@types/node': 22.19.21
+      pg-protocol: 1.15.0
+      pg-types: 2.2.0
 
   '@types/qrcode@1.5.6':
     dependencies:
