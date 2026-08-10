@@ -1391,6 +1391,14 @@ export default function AgendaPage() {
     return eventosPorDia[dayModalDate] ?? []
   }, [dayModalDate, eventosPorDia])
 
+  // Tarefas do dia aberto (#HLP0163). Ficavam só no quadradinho do calendário —
+  // quem abria o resumo do dia via os compromissos e concluía que não tinha mais
+  // nada, justamente o oposto do e-mail diário, que traz as duas coisas.
+  const dayModalTarefas = useMemo(() => {
+    if (!dayModalDate) return []
+    return tarefasPorDia[dayModalDate] ?? []
+  }, [dayModalDate, tarefasPorDia])
+
   // Agrupamento do resumo do dia — segue os grupos definidos no modelo de e-mail.
   type AgrupGrupo = { nome: string; cor: string; icone: string; ordem: number; tiposIds: string[] }
   const [agrupGrupos, setAgrupGrupos] = useState<AgrupGrupo[]>([])
@@ -2011,7 +2019,7 @@ export default function AgendaPage() {
       {/* Modal resumo do dia */}
       {/* ============================================================ */}
       <Dialog open={dayModalOpen} onOpenChange={setDayModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className={dayModalTarefas.length > 0 ? 'max-w-4xl' : 'max-w-2xl'}>
           <DialogHeaderIcon icon={Calendar} color="sky">
             <DialogTitle>
               {dayModalDate && (() => {
@@ -2019,9 +2027,14 @@ export default function AgendaPage() {
                 return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`
               })()}
             </DialogTitle>
-            <DialogDescription>{dayModalEvents.length} evento(s)</DialogDescription>
+            <DialogDescription>
+              {dayModalEvents.length} evento(s)
+              {dayModalTarefas.length > 0 && ` · ${dayModalTarefas.length} tarefa(s)`}
+            </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-4 max-h-[min(72vh,640px)] nice-scrollbar">
+          <DialogBody className="max-h-[min(72vh,640px)] nice-scrollbar">
+          <div className={dayModalTarefas.length > 0 ? 'grid gap-5 md:grid-cols-[1fr_260px]' : ''}>
+          <div className="space-y-4 min-w-0">
             {dayModalGrupos.map(grupo => (
             <div key={grupo.key} className="space-y-3">
               {grupo.nome && (
@@ -2134,6 +2147,56 @@ export default function AgendaPage() {
             })}
             </div>
             ))}
+            {dayModalEvents.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted-foreground">Nenhum compromisso neste dia.</p>
+            )}
+          </div>
+
+          {/* Painel de tarefas — só existe quando há tarefas, para não ocupar
+              metade do resumo com um vazio nos dias em que não há nenhuma. */}
+          {dayModalTarefas.length > 0 && (
+            <aside className="space-y-2 md:border-l md:border-border md:pl-5">
+              <div className="flex items-center gap-2">
+                <ListTodo className="h-4 w-4 text-sky-500" />
+                <span className="text-[13px] font-bold uppercase tracking-wide text-foreground">Tarefas</span>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                  {dayModalTarefas.length}
+                </span>
+              </div>
+              {dayModalTarefas.map(t => (
+                <div
+                  key={t.id}
+                  onClick={() => { setDayModalOpen(false); setTarefaEditando(t); setTarefaModalOpen(true) }}
+                  className={cn(
+                    'group/tk flex cursor-pointer items-start gap-2 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2 hover:bg-muted/50',
+                    t.concluida && 'opacity-60',
+                  )}
+                >
+                  {/* Concluir sem sair do resumo: a tarefa do dia costuma ser
+                      marcada na hora em que se olha a agenda. */}
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); toggleTarefaConcluida(t) }}
+                    className="mt-0.5 shrink-0"
+                    title={t.concluida ? 'Desmarcar' : 'Concluir tarefa'}
+                  >
+                    {t.concluida
+                      ? <CheckSquare className="h-4 w-4 text-emerald-600" />
+                      : <Square className="h-4 w-4 text-muted-foreground group-hover/tk:text-sky-500" />}
+                  </button>
+                  <div className="min-w-0">
+                    <p className={cn('text-[13px] leading-snug text-foreground', t.concluida && 'line-through text-muted-foreground')}>
+                      {t.titulo}
+                    </p>
+                    {t.horaPrazo && (
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">⏰ {t.horaPrazo}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </aside>
+          )}
+          </div>
           </DialogBody>
           {/* Footer só quando há ação possível — pra datas passadas, oculta inteiro */}
           {dayModalDate >= formatDate(new Date()) && (
