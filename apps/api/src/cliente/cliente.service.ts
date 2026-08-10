@@ -1494,6 +1494,8 @@ export class ClienteService {
           return defasados >= 2 ? ('forte' as const) : ('moderada' as const)
         })(),
         ultimaConsulta: r.ultima_consulta,
+        // A tela acende o atalho de "definir data de entrada" só quando falta.
+        dataEntrada: r.data_entrada ? new Date(r.data_entrada).toISOString().slice(0, 10) : null,
         situacao,
         faturamento: r.faturamento != null ? Number(r.faturamento) : null,
         honorarios: r.honorario != null ? Number(r.honorario) : null,

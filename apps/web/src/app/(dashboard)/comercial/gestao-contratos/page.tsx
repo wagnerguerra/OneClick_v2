@@ -58,6 +58,7 @@ type Registro = {
     }>
   }
   ultimaConsulta: string | null
+  dataEntrada: string | null
   situacao: 'sem_parametro' | 'sem_consulta' | 'defasado' | 'em_dia'
   faturamento: number | null
   honorarios: number | null
@@ -95,23 +96,75 @@ function fmtCnpj(doc: string | null) {
 }
 
 /** Ícone de status na faixa "Status": verde/vivo quando presente, apagado quando ausente.
- * Reproduz os indicadores da tabela do legado (contrato, parâmetros, ERP, anexos, renegociação). */
-function StatusIcon({ icon: Icon, active, title, count, tone = 'ok' }: {
-  icon: typeof FileText; active: boolean; title: string; count?: number; tone?: 'ok' | 'alert'
+ * Reproduz os indicadores da tabela do legado (contrato, parâmetros, ERP, anexos, renegociação).
+ *
+ * Cada ícone é também o atalho para resolver aquela pendência, como no SERPRO2:
+ * ver o que falta e ter de caçar onde se resolve são duas coisas diferentes. */
+function StatusIcon({ icon: Icon, active, title, count, tone = 'ok', onClick }: {
+  icon: typeof FileText; active: boolean; title: string; count?: number
+  tone?: 'ok' | 'alert'; onClick?: () => void
 }) {
   const onCls = tone === 'alert'
     ? 'text-rose-600 dark:text-rose-400'
     : 'text-emerald-600 dark:text-emerald-400'
-  return (
-    <span className="relative inline-flex" title={title}>
+  const conteudo = (
+    <>
       <Icon className={cn('h-4 w-4', active ? onCls : 'text-muted-foreground/30')} />
       {active && count != null && count > 0 && (
         <span className="absolute -right-1.5 -top-1.5 flex h-3 min-w-[12px] items-center justify-center rounded-full bg-muted px-0.5 text-[8px] font-semibold text-foreground">
           {count > 9 ? '9+' : count}
         </span>
       )}
-    </span>
+    </>
   )
+  if (!onClick) return <span className="relative inline-flex" title={title}>{conteudo}</span>
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={(e) => { e.stopPropagation(); onClick() }}
+      className="relative inline-flex rounded p-1 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {conteudo}
+    </button>
+  )
+}
+
+/** Baseline do contrato — mesma ordem e mesmos rótulos do comparativo. */
+const CAMPOS_PARAMETRO = [
+  { key: 'honorario', label: 'Honorário (R$)' },
+  { key: 'faturamento', label: 'Faturamento (R$)' },
+  { key: 'lancamentos', label: 'Lançamentos' },
+  { key: 'nfEntrada', label: 'NF entrada' },
+  { key: 'nfSaida', label: 'NF saída' },
+  { key: 'nfPrestado', label: 'NF prestado' },
+  { key: 'nfTomado', label: 'NF tomado' },
+  { key: 'funcionarios', label: 'Vidas' },
+] as const
+
+/** Indicadores como o SCI os grava (chave) e como a tela os mostra (rótulo). */
+const INDICADORES_ERP = [
+  { key: 'lancamentos', label: 'Lançamentos' },
+  { key: 'nf_entrada', label: 'NF entrada' },
+  { key: 'nf_saida', label: 'NF saída' },
+  { key: 'nf_prestado', label: 'NF prestado' },
+  { key: 'nf_tomado', label: 'NF tomado' },
+  { key: 'vidas', label: 'Vidas' },
+  { key: 'faturamento', label: 'Faturamento' },
+] as const
+
+/** O SCI grava uma linha por indicador; a leitura útil é uma linha por mês. */
+function pivotPeriodos(linhas: Array<{ mes: string; indicador: string; valor: number | null }>) {
+  const porMes = new Map<string, Record<string, number | null>>()
+  for (const l of linhas) {
+    if (!porMes.has(l.mes)) porMes.set(l.mes, {})
+    porMes.get(l.mes)![l.indicador] = l.valor == null ? null : Number(l.valor)
+  }
+  // Mais recente primeiro: é o período que se quer conferir depois de importar.
+  return [...porMes.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([mes, valores]) => ({ mes, valores }))
 }
 
 type FiltroCard = 'ok' | 'sem_contrato' | 'reavaliacao' | 'sem_entrada' | 'sem_parametros' | 'indicadores' | 'erp' | 'ignorados'
@@ -186,6 +239,74 @@ export default function GestaoContratosPage() {
   }, [page, debounced, filtro])
 
   useEffect(() => { carregar() }, [carregar])
+
+  // ── Atalhos da coluna Situação ──
+  // Cada pendência se resolve sem sair da lista, como no legado. Sair para o
+  // cadastro e voltar por 8 números faria a varredura da carteira — que é o
+  // trabalho desta tela — custar uma navegação por cliente.
+  const [paramsModal, setParamsModal] = useState<{ registro: Registro; valores: Record<string, string> } | null>(null)
+  const [salvandoParams, setSalvandoParams] = useState(false)
+  const [periodos, setPeriodos] = useState<{ registro: Registro; linhas: Array<{ mes: string; indicador: string; valor: number | null }> } | null>(null)
+  const [editandoEntrada, setEditandoEntrada] = useState<{ registro: Registro; valor: string } | null>(null)
+  const [salvandoEntrada, setSalvandoEntrada] = useState(false)
+
+  async function abrirParametros(r: Registro) {
+    try {
+      const p = await trpc.cliente.getContratoParams.query({ clienteId: r.id })
+      const num = (v: unknown) => (v == null ? '' : String(v))
+      setParamsModal({
+        registro: r,
+        valores: {
+          honorario: num(p?.honorario), faturamento: num(p?.faturamento),
+          lancamentos: num(p?.lancamentos), nfEntrada: num(p?.nfEntrada), nfSaida: num(p?.nfSaida),
+          nfPrestado: num(p?.nfPrestado), nfTomado: num(p?.nfTomado), funcionarios: num(p?.funcionarios),
+        },
+      })
+    } catch (e) {
+      alerts.error('Erro', e instanceof Error ? e.message : 'Não foi possível carregar os parâmetros.')
+    }
+  }
+
+  async function salvarParametros() {
+    if (!paramsModal) return
+    setSalvandoParams(true)
+    try {
+      const n = (k: string) => Number(String(paramsModal.valores[k] ?? '').replace(',', '.')) || 0
+      await trpc.cliente.saveContratoParams.mutate({
+        clienteId: paramsModal.registro.id,
+        honorario: n('honorario'), faturamento: n('faturamento'), lancamentos: n('lancamentos'),
+        nfEntrada: n('nfEntrada'), nfSaida: n('nfSaida'), nfPrestado: n('nfPrestado'),
+        nfTomado: n('nfTomado'), funcionarios: n('funcionarios'),
+      })
+      setParamsModal(null)
+      await carregar()
+      alerts.toast('Parâmetros salvos')
+    } catch (e) {
+      alerts.error('Erro', e instanceof Error ? e.message : 'Não foi possível salvar.')
+    } finally { setSalvandoParams(false) }
+  }
+
+  async function abrirPeriodos(r: Registro) {
+    try {
+      const linhas = await trpc.cliente.getErpSnapshots.query({ clienteId: r.id })
+      setPeriodos({ registro: r, linhas: linhas as Array<{ mes: string; indicador: string; valor: number | null }> })
+    } catch (e) {
+      alerts.error('Erro', e instanceof Error ? e.message : 'Não foi possível carregar os períodos.')
+    }
+  }
+
+  async function salvarDataEntrada() {
+    if (!editandoEntrada?.valor) return
+    setSalvandoEntrada(true)
+    try {
+      await trpc.cliente.update.mutate({ id: editandoEntrada.registro.id, data: { dataEntrada: editandoEntrada.valor } })
+      setEditandoEntrada(null)
+      await carregar()
+      alerts.toast('Data de entrada definida')
+    } catch (e) {
+      alerts.error('Erro', e instanceof Error ? e.message : 'Não foi possível salvar.')
+    } finally { setSalvandoEntrada(false) }
+  }
 
   // ── Faixa de indicadores: arrastar para os lados ──
   // São oito cards e eles vazam para fora da tela de propósito (é o que mostra
@@ -388,17 +509,30 @@ export default function GestaoContratosPage() {
                         <TableCell className="whitespace-nowrap text-sm tabular-nums">{fmtCnpj(r.documento)}</TableCell>
                         <TableCell className="max-w-[260px] truncate text-sm font-medium">{r.cliente || '—'}</TableCell>
                         <TableCell>
-                          <div className="flex items-center justify-center gap-2">
+                          <div className="flex items-center justify-center gap-1">
                             <StatusIcon icon={FileSignature} active={r.temContrato}
-                              title={r.temContrato ? 'Contrato vinculado' : 'Sem contrato cadastrado'} />
+                              title={r.temContrato ? 'Contrato vinculado — abrir o cadastro' : 'Sem contrato cadastrado — clique para cadastrar'}
+                              onClick={() => router.push(`/clientes/${r.id}`)} />
+                            {/* Só aparece quando falta: um ícone permanentemente
+                                apagado vira ruído, e a data de entrada é a única
+                                pendência aqui que se resolve com um campo só. */}
+                            {!r.dataEntrada && (
+                              <StatusIcon icon={CalendarClock} active tone="alert"
+                                title="Sem data de entrada — clique para definir"
+                                onClick={() => setEditandoEntrada({ registro: r, valor: '' })} />
+                            )}
                             <StatusIcon icon={SlidersHorizontal} active={r.temParametro}
-                              title={r.temParametro ? 'Parâmetros iniciais cadastrados' : 'Sem parâmetros iniciais'} />
+                              title={r.temParametro ? 'Parâmetros iniciais cadastrados — clique para editar' : 'Sem parâmetros iniciais — clique para cadastrar'}
+                              onClick={() => abrirParametros(r)} />
                             <StatusIcon icon={Database} active={r.erpMeses > 0} count={r.erpMeses}
-                              title={r.erpMeses > 0 ? `${r.erpMeses} período(s) importado(s) do ERP (SCI)` : 'Nenhum período importado do ERP'} />
+                              title={r.erpMeses > 0 ? `${r.erpMeses} período(s) do ERP (SCI) — clique para ver` : 'Nenhum período importado do ERP'}
+                              onClick={() => abrirPeriodos(r)} />
                             <StatusIcon icon={Paperclip} active={r.anexosCount > 0} count={r.anexosCount}
-                              title={r.anexosCount > 0 ? `${r.anexosCount} arquivo(s) anexado(s)` : 'Sem anexos'} />
+                              title={r.anexosCount > 0 ? `${r.anexosCount} arquivo(s) anexado(s) — clique para abrir` : 'Sem anexos — clique para anexar'}
+                              onClick={() => router.push(`/clientes/${r.id}#arquivos`)} />
                             <StatusIcon icon={RefreshCcw} active={r.situacao === 'defasado'} tone="alert"
-                              title={r.situacao === 'defasado' ? 'Cliente cresceu além do contratado — reavaliar honorário' : 'Sem sinal de renegociação'} />
+                              title={r.situacao === 'defasado' ? 'Cresceu além do contratado — clique para ver o comparativo' : 'Sem sinal de renegociação'}
+                              onClick={r.situacao === 'defasado' ? () => setComparativo(r) : undefined} />
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
@@ -613,6 +747,130 @@ export default function GestaoContratosPage() {
               Voltar
             </Button>
             <Button variant="outline" size="sm" onClick={() => setComparativo(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Parâmetros iniciais — a baseline com que todo o resto é comparado. */}
+      <Dialog open={!!paramsModal} onOpenChange={(o) => { if (!o) setParamsModal(null) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeaderIcon icon={SlidersHorizontal} color="sky">
+            <DialogTitle className="text-[15px]">Parâmetros do contrato</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              {paramsModal ? `${fmtCnpj(paramsModal.registro.documento)} · ${paramsModal.registro.cliente ?? ''}` : ''}
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            {paramsModal && (
+              <div className="grid grid-cols-2 gap-3">
+                {CAMPOS_PARAMETRO.map(c => (
+                  <div key={c.key} className="space-y-1.5">
+                    <label className="text-[13px] font-semibold" htmlFor={`par-${c.key}`}>{c.label}</label>
+                    <Input
+                      id={`par-${c.key}`}
+                      value={paramsModal.valores[c.key] ?? ''}
+                      inputMode="decimal"
+                      className="h-9 text-sm"
+                      onChange={e => setParamsModal({
+                        ...paramsModal,
+                        valores: { ...paramsModal.valores, [c.key]: e.target.value },
+                      })}
+                    />
+                  </div>
+                ))}
+                <p className="col-span-2 text-[11px] text-muted-foreground">
+                  Zero significa &quot;não acompanhar este indicador&quot; — ele sai da conta da margem em vez de contar como estourado.
+                </p>
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setParamsModal(null)}>Cancelar</Button>
+            <Button variant="success" size="sm" onClick={salvarParametros} disabled={salvandoParams}>
+              {salvandoParams ? 'Salvando…' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Períodos do SCI já importados, competência a competência. */}
+      <Dialog open={!!periodos} onOpenChange={(o) => { if (!o) setPeriodos(null) }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeaderIcon icon={Database} color="cyan">
+            <DialogTitle className="text-[15px]">Períodos importados do ERP (SCI)</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              {periodos ? `${fmtCnpj(periodos.registro.documento)} · ${periodos.registro.cliente ?? ''}` : ''}
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            {periodos && periodos.linhas.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Nenhum período importado. Use &quot;Verificar no ERP&quot; no cadastro do cliente.
+              </p>
+            ) : periodos && (
+              <div className="nice-scrollbar max-h-[420px] overflow-auto">
+                <table className="w-full text-[13px]">
+                  <thead className="sticky top-0 bg-background">
+                    <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <th className="py-1.5 text-left font-semibold">Competência</th>
+                      {INDICADORES_ERP.map(i => (
+                        <th key={i.key} className="py-1.5 text-right font-semibold">{i.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pivotPeriodos(periodos.linhas).map(l => (
+                      <tr key={l.mes} className="border-b border-border/40">
+                        <td className="py-2 pr-3 tabular-nums text-foreground">{l.mes.split('-').reverse().join('/')}</td>
+                        {INDICADORES_ERP.map(i => (
+                          <td key={i.key} className="py-2 text-right tabular-nums text-muted-foreground">
+                            {l.valores[i.key] == null ? '—' : fmtNum(l.valores[i.key] as number)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => { const r = periodos?.registro; setPeriodos(null); if (r) router.push(`/clientes/${r.id}`) }}>
+              Abrir cliente
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setPeriodos(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Data de entrada — um campo só, resolvido sem trocar de tela. */}
+      <Dialog open={!!editandoEntrada} onOpenChange={(o) => { if (!o) setEditandoEntrada(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeaderIcon icon={CalendarClock} color="amber">
+            <DialogTitle className="text-[15px]">Data de entrada</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              {editandoEntrada ? editandoEntrada.registro.cliente ?? '' : ''}
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            {editandoEntrada && (
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold" htmlFor="data-entrada">Início do atendimento</label>
+                <Input
+                  id="data-entrada"
+                  type="date"
+                  className="h-9 text-sm"
+                  value={editandoEntrada.valor}
+                  onChange={e => setEditandoEntrada({ ...editandoEntrada, valor: e.target.value })}
+                />
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setEditandoEntrada(null)}>Cancelar</Button>
+            <Button variant="success" size="sm" onClick={salvarDataEntrada} disabled={salvandoEntrada || !editandoEntrada?.valor}>
+              {salvandoEntrada ? 'Salvando…' : 'Salvar'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
