@@ -12,11 +12,10 @@
  */
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import {
   Zap, Loader2, Play, Copy, CheckCircle2, XCircle, Database,
   ChevronRight, ChevronDown, Building2, FileSearch, Link as LinkIcon,
-  History, Search, RefreshCw, AlertCircle, Trash2, Save, Plus, MailWarning, GitCompareArrows, Square,
+  History, Search, RefreshCw, AlertCircle, Trash2, Save, Plus, MailWarning, GitCompareArrows, Square, Lock,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn,
@@ -31,7 +30,7 @@ import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { trpc } from '@/lib/trpc'
 import { masks } from '@/lib/masks'
 import { alerts } from '@/lib/alerts'
-import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)' // Sky — Administrativo
@@ -110,9 +109,13 @@ const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
 
 export default function AcessoriasPage() {
-  const router = useRouter()
-  const { profile, loading: profileLoading } = useCurrentUserProfile()
-  const isAdmin = !!(profile?.isMaster || profile?.isEmpresaMaster)
+  const { isMaster, isEmpresaMaster, permissions, loading: permsLoading } = useUserPermissions()
+  const isAdmin = isMaster || isEmpresaMaster
+  const subsAcessorias = (permissions.find((p) => p.moduleSlug === 'acessorias')?.subPermissions ?? {}) as Record<string, boolean>
+  // Acesso à integração: master/empresa-master OU a sub-permissão (igual à aba em
+  // abas.ts e ao backend integracaoProc). Antes barrava só por master e ainda
+  // fazia router.replace('/') — que cascateava pro /login e parecia crash de sessão.
+  const podeIntegracao = isAdmin || subsAcessorias['gerenciar_integracao'] === true
   const [tab, setTab] = useState<Tab>('companies')
   /**
    * Avisa o histórico de que uma sincronização acabou de ser disparada. Sem
@@ -122,14 +125,19 @@ export default function AcessoriasPage() {
    */
   const [syncTick, setSyncTick] = useState(0)
 
-  useEffect(() => {
-    if (!profileLoading && !isAdmin) router.replace('/')
-  }, [profileLoading, isAdmin, router])
-
-  if (profileLoading) {
+  if (permsLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
   }
-  if (!isAdmin) return null
+  // Sem acesso → mensagem clara (nada de redirect pra "/" que virava ida ao login).
+  if (!podeIntegracao) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
+        <Lock className="mb-3 h-10 w-10 opacity-20" />
+        <p className="text-sm">Você não tem acesso à integração do Acessórias.</p>
+        <p className="text-[13px]">Peça a sub-permissão <strong>Gerenciar a integração</strong> nas permissões do seu usuário.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -527,8 +535,10 @@ function MappingPanel() {
   const [createOpen, setCreateOpen] = useState(false)
   const [createForObrigation, setCreateForObrigation] = useState<string>('')
   const [createNome, setCreateNome] = useState('')
-  const [createArea, setCreateArea] = useState('')
+  const [createAreaId, setCreateAreaId] = useState<string>('')
   const [createSaving, setCreateSaving] = useState(false)
+  // Áreas reais do sistema — pra escolher a área da obrigação por ID (não mais 3 fixas).
+  const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
 
   // Modal de limpeza de vínculos em lote
   const [limpezaOpen, setLimpezaOpen] = useState(false)
@@ -549,7 +559,7 @@ function MappingPanel() {
         // não com serviço mensal qualquer. São o mesmo cadastro, distinguidos
         // pela marca `ehObrigacaoAcessoria`, e misturar os dois traria serviço
         // comercial para uma lista que é de rotina fiscal.
-        (trpc as any).obrigacao.list.query({}).catch(() => []),
+        (trpc as any).servico.listObrigacoesAcessorias.query().catch(() => []),
         // Lista guardada da última importação — sem isso, sair da tela apagava
         // tudo e obrigava a repetir uma varredura de dezenas de requisições.
         (trpc as any).acessorias.listObligationsObservedCache.query().catch(() => ({ itens: [] })),
@@ -566,6 +576,13 @@ function MappingPanel() {
   }, [])
 
   useEffect(() => { void fetchAll() }, [fetchAll])
+
+  // Carrega as áreas do sistema pro seletor de área da obrigação (por ID).
+  useEffect(() => {
+    (trpc as any).area.listForSelect.query()
+      .then((r: Array<{ id: string; name: string }>) => setAreas(r ?? []))
+      .catch(() => { /* silencioso — o select só fica vazio */ })
+  }, [])
 
   /**
    * Recarrega SÓ os vínculos, sem acender o carregando.
@@ -595,14 +612,15 @@ function MappingPanel() {
   function abrirCriacao(obrigacao: string, departamento?: string | null) {
     setCreateForObrigation(obrigacao)
     setCreateNome(sugestaoNomeServico(obrigacao))
-    // Aproveita o departamento que veio do Acessórias como palpite da categoria
-    // — o usuário confirma, mas na maioria das vezes já vem certo.
+    // Aproveita o departamento do Acessórias como palpite da área — casa o nome
+    // provável com uma área real carregada (o usuário confirma/troca). Por ID.
     const d = String(departamento ?? '').toLowerCase()
-    setCreateArea(
-      d.includes('pessoal') || d.includes('trabalh') ? 'Trabalhista'
-        : d.includes('cont') ? 'Contábil'
-        : 'Fiscal',
-    )
+    const nomePalpite =
+      d.includes('pessoal') || d.includes('trabalh') ? 'trabalhista'
+        : d.includes('cont') ? 'contábil'
+        : 'fiscal'
+    const areaPalpite = areas.find((a) => a.name.toLowerCase() === nomePalpite)
+    setCreateAreaId(areaPalpite?.id ?? '')
     setCreateOpen(true)
   }
 
@@ -613,9 +631,9 @@ function MappingPanel() {
       // 1. Cria a OBRIGAÇÃO ACESSÓRIA (marca ehObrigacaoAcessoria; é o mesmo
       //    cadastro de serviços, mas com a natureza correta — antes nascia como
       //    serviço mensal comum e ia parar na lista comercial).
-      const created = await (trpc as any).obrigacao.create.mutate({
+      const created = await (trpc as any).servico.createObrigacaoAcessoria.mutate({
         nome: createNome.trim(),
-        categoria: createArea || 'Fiscal',
+        areaId: createAreaId || null,
       }) as { id: string; nome: string }
       // 2. Vincula a obrigação do Acessórias à recém-criada.
       await (trpc as any).acessorias.addObligationServico.mutate({
@@ -1085,17 +1103,15 @@ function MappingPanel() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Categoria *</Label>
-              {/* A obrigação acessória aceita exatamente estas três — não são as
-                  áreas do sistema. Oferecer as áreas fazia o cadastro ser
-                  recusado por valor inválido. */}
-              <Select value={createArea || 'Fiscal'} onValueChange={setCreateArea}>
+              {/* Área real do sistema (por ID). A obrigação nasce com Servico.areaId. */}
+              <Select value={createAreaId || undefined} onValueChange={setCreateAreaId}>
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione a área" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Fiscal">Fiscal</SelectItem>
-                  <SelectItem value="Trabalhista">Trabalhista</SelectItem>
-                  <SelectItem value="Contábil">Contábil</SelectItem>
+                  {areas.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground">

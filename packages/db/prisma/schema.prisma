@@ -4329,11 +4329,6 @@ model Servico {
   // para ID. A multiplicidade de responsabilidade de execução fica em
   // `atribuicaoAreas` ("Setores"), não aqui: a área do serviço é UMA.
   areaId              String?           @map("area_id")
-  // Categoria da OBRIGAÇÃO ACESSÓRIA (Fiscal/Trabalhista/Contábil) — enum fixo,
-  // só faz sentido quando ehObrigacaoAcessoria=true. Herdou o papel que o antigo
-  // `categoria` tinha para as obrigações (registros GLOBAIS, sem Area própria);
-  // separado da Área do serviço de propósito. Ver OBRIGACAO_CATEGORIAS.
-  categoriaObrigacao  String?           @map("categoria_obrigacao")
   // Prioridade padrao — copiada para a execucao na criacao
   prioridadePadrao    PrioridadeServico @default(MEDIA) @map("prioridade_padrao")
   // Catalogo: valor padrao quando esse servico e adicionado como item de orcamento.
@@ -4498,8 +4493,7 @@ model Servico {
   recorrencia          ServicoRecorrencia?
   // Regras de notificação por evento — múltiplas por serviço
   notificacoes         ServicoNotificacaoRegra[]
-  // Back-refs: vínculos com grupos/templates e clientes (M:N)
-  grupoObrigacaoItens  GrupoObrigacaoItem[]
+  // Back-ref: obrigações vinculadas a clientes (M:N)
   clienteObrigacoes    ClienteObrigacao[]
   // Overrides de vencimento por mês (1-12) — quando preenchido, sobrescreve
   // a regra padrão de ServicoRecorrencia naquele mês específico.
@@ -5027,15 +5021,27 @@ model AcessoriasSyncLog {
 /// (ex: "Constituição de Cliente Mensal" contém vários serviços top-level
 /// que devem ser executados juntos para um cliente). Relação M→N: um
 /// serviço pode estar em vários grupos via ServicoGrupoItem.
+/// Escopo de um ServicoGrupo — restringe quais serviços podem entrar e onde o
+/// grupo é oferecido. GERAL = qualquer serviço; OBRIGACOES = só obrigações
+/// acessórias (aplicáveis em lote a um cliente); ORCAMENTO = só serviços
+/// disponíveis para orçamento (aplicáveis em lote nos itens do orçamento).
+enum GrupoTipo {
+  GERAL
+  OBRIGACOES
+  ORCAMENTO
+}
+
 model ServicoGrupo {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   nome      String
-  descricao String?  @db.Text
+  descricao String?   @db.Text
+  /// Escopo do grupo — ver GrupoTipo.
+  tipo      GrupoTipo @default(GERAL)
   /// Cor hex pra identificação visual (chip/badge no UI).
   cor       String?
-  ordem     Int      @default(0)
-  ativo     Boolean  @default(true)
-  empresaId String?  @map("empresa_id")
+  ordem     Int       @default(0)
+  ativo     Boolean   @default(true)
+  empresaId String?   @map("empresa_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -6535,88 +6541,13 @@ model Feriado {
 // Templates de grupos de obrigação + vínculo cliente↔obrigação
 // ============================================================
 /**
- * Template de grupo de obrigações — agrupa N obrigações por regime/segmento/área.
- * Ex.: "Simples Nacional · Comércio" com DAS, DEFIS, NFC-e, Balancete. Usado pra
- * aplicar em lote no cliente (cria ClienteObrigacao em massa).
- */
-model GrupoObrigacao {
-  id              String     @id @default(cuid())
-  nome            String
-  slug            String     @unique
-  descricao       String?    @db.Text
-  /**
-   * Quando preenchido, sugere o template pra clientes desta tributação.
-   */
-  tributacao      TaxRegime?
-  /**
-   * Slug do segmento (referencia SEGMENTO_SLUGS em packages/types). Opcional.
-   */
-  segmentoSlug    String?    @map("segmento_slug")
-  /**
-   * Área dominante (Fiscal | Trabalhista | Contabil | Comercial). Opcional.
-   */
-  area            String?
-  /**
-   * Cor de identificação visual (hex). Default herda do módulo Cadastros.
-   */
-  cor             String?    @default("#10b981")
-  ativo           Boolean    @default(true)
-  /**
-   * Global (empresaId=null) ou da empresa.
-   */
-  empresaId       String?    @map("empresa_id")
-  /**
-   * Prefixos de CNAE aplicáveis (ex.: ["45", "47"] = Comércio). Match por
-   * prefixo do cnaePrincipal do cliente. Vazio = qualquer atividade.
-   */
-  cnaesAplicaveis String[]   @default([]) @map("cnaes_aplicaveis")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  itens             GrupoObrigacaoItem[]
-  // Clientes que receberam ClienteObrigacao oriundas deste template (rastreio)
-  clienteObrigacoes ClienteObrigacao[]
-
-  @@index([tributacao])
-  @@index([empresaId])
-  @@map("grupos_obrigacao")
-}
-
-/**
- * Pivot N:M GrupoObrigacao ↔ Servico (obrigação).
- */
-model GrupoObrigacaoItem {
-  id          String  @id @default(cuid())
-  grupoId     String  @map("grupo_id")
-  servicoId   String  @map("servico_id")
-  /**
-   * Quando true, esta obrigação é OBRIGATÓRIA do template (sempre aplicada).
-   * Quando false, é sugestão — pode ser desmarcada na hora de aplicar.
-   */
-  obrigatoria Boolean @default(true)
-  ordem       Int     @default(0)
-
-  grupo   GrupoObrigacao @relation(fields: [grupoId], references: [id], onDelete: Cascade)
-  servico Servico        @relation(fields: [servicoId], references: [id], onDelete: Cascade)
-
-  @@unique([grupoId, servicoId])
-  @@index([servicoId])
-  @@map("grupos_obrigacao_itens")
-}
-
-/**
  * Vínculo Cliente ↔ Servico (obrigação). Cada cliente tem sua lista própria.
- * Originado de template (`vindoDeTemplateId`) ou cadastro manual (null).
+ * Alimentado por "Aplicar grupo" (ServicoGrupo tipo=OBRIGACOES) ou cadastro manual.
  */
 model ClienteObrigacao {
   id                       String            @id @default(cuid())
   clienteId                String            @map("cliente_id")
   servicoId                String            @map("servico_id")
-  /**
-   * Quando o vínculo veio de um template, aponta pra ele (rastreabilidade).
-   */
-  vindoDeTemplateId        String?           @map("vindo_de_template_id")
   ativo                    Boolean           @default(true)
   observacao               String?           @db.Text
   /**
@@ -6631,12 +6562,10 @@ model ClienteObrigacao {
 
   cliente  Cliente         @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   servico  Servico         @relation(fields: [servicoId], references: [id], onDelete: Cascade)
-  template GrupoObrigacao? @relation(fields: [vindoDeTemplateId], references: [id], onDelete: SetNull)
 
   @@unique([clienteId, servicoId])
   @@index([servicoId])
   @@index([empresaId])
-  @@index([vindoDeTemplateId])
   @@map("cliente_obrigacoes")
 }
 

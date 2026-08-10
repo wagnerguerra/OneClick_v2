@@ -346,14 +346,14 @@ export const FAQ_ARTIGOS: FaqArtigo[] = [
   },
   {
     slug: 'obrigacoes',
-    titulo: 'Obrigações Acessórias: catálogo, vencimentos e fontes oficiais',
-    descricao: 'Templates globais de obrigações fiscais, trabalhistas e contábeis com regra de recorrência, vencimento previsto e link para fonte legal + documentação.',
-    modulo: 'Obrigações',
+    titulo: 'Obrigações acessórias: cadastro em Serviços, grupos e recorrência',
+    descricao: 'Obrigações (DAS, DCTFWeb, eSocial, ECD…) vivem em Serviços com a marca de obrigação acessória. Agrupamento em /servicos/grupos (tipo Obrigações) e aplicação em lote no cliente via "Aplicar grupo". O antigo /obrigacoes foi unificado em /servicos.',
+    modulo: 'Serviços',
     moduloColor: '#10b981',
     icon: Receipt,
     categoria: 'Cadastros e estrutura',
     disponivel: true,
-    tags: ['obrigações', 'acessórias', 'fiscal', 'trabalhista', 'contábil', 'das', 'dctfweb', 'esocial', 'vencimento', 'recorrência'],
+    tags: ['obrigações', 'acessórias', 'fiscal', 'trabalhista', 'contábil', 'das', 'dctfweb', 'esocial', 'vencimento', 'recorrência', 'grupo', 'aplicar grupo', 'serviços'],
   },
   {
     slug: 'areas-cargos-lideres',

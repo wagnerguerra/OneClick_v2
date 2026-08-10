@@ -1,6 +1,6 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
-import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, SetServicoGruposInput, FlowPlan } from '@saas/types'
+import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, SetServicoGruposInput, CreateObrigacaoInput, FlowPlan } from '@saas/types'
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { ProcessoService } from '../processo/processo.service'
 import { avaliarCondicao } from '../processo/avaliador-condicao'
@@ -1107,6 +1107,56 @@ export class ServicoService {
 
   async deleteServico(id: string) {
     return prisma.servico.update({ where: { id }, data: { ativo: false } })
+  }
+
+  // ── Obrigações acessórias (consolidadas em Serviços; ex-módulo /obrigacoes) ──
+
+  /** Lista as obrigações acessórias (Servico com ehObrigacaoAcessoria=true) para
+   *  vínculo — ex.: a tela do Acessórias casa o nome de lá com uma daqui. */
+  async listObrigacoesAcessorias(empresaId?: string) {
+    return prisma.servico.findMany({
+      where: {
+        ehObrigacaoAcessoria: true,
+        ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
+      },
+      select: { id: true, nome: true },
+      orderBy: { nome: 'asc' },
+    })
+  }
+
+  /** Cria uma obrigação acessória (Servico marcado) + recorrência opcional.
+   *  Movido do ex-módulo `obrigacao`; usado pela integração do Acessórias. */
+  async createObrigacaoAcessoria(input: CreateObrigacaoInput, empresaId?: string) {
+    return prisma.$transaction(async (tx) => {
+      // Área real por ID (Servico.areaId) — o front escolhe da lista de áreas.
+      // Antes gravava categoria_obrigacao (coluna-ponte removida na F2.5).
+      const servico = await tx.servico.create({
+        data: {
+          nome: input.nome,
+          descricao: input.descricao ?? null,
+          areaId: input.areaId ?? null,
+          categoriaServico: 'MENSAL',
+          ehObrigacaoAcessoria: true,
+          atribuicaoResponsavel: 'CLIENTE_AREA',
+          fonteUrl: input.fonteUrl ?? null,
+          documentacaoUrl: input.documentacaoUrl ?? null,
+          empresaId: empresaId ?? null,
+        },
+      })
+      if (input.recorrencia) {
+        await tx.servicoRecorrencia.create({
+          data: {
+            servicoId: servico.id,
+            ativa: true,
+            frequencia: input.recorrencia.frequencia,
+            ancoragem: input.recorrencia.ancoragem,
+            valorAncoragem: input.recorrencia.valorAncoragem,
+            competenciaOffset: input.recorrencia.competenciaOffset,
+          },
+        })
+      }
+      return servico
+    })
   }
 
   // ── Vencimentos por mês (Fase B Acessórias) ──────────────────
@@ -3914,7 +3964,6 @@ export class ServicoService {
     })
     if (!user) return []
     const callerAreaId = user.areaId ?? null
-    const callerAreaName = user.area?.name ?? null
 
     // Carrega config de dias de exibicao de concluidas (master configura em /servicos/configuracoes)
     const cfg = await this.getMeusServicosConfig()
@@ -4028,18 +4077,15 @@ export class ServicoService {
         // 5. Execucoes vindas de orcamento sob responsabilidade do user
         orClauses.push({ orcamentoId: { in: orcamentoIds } })
       }
-      if (callerAreaId || callerAreaName) {
+      if (callerAreaId) {
         // 6. Claim-first pela ÁREA do serviço: execuções sem responsável cujo
-        //    serviço pertence à área do user. Serviços comuns casam por
-        //    Servico.areaId; obrigações acessórias (sem Area própria) casam a
-        //    categoria pelo NOME da área do user. Complementa a regra 8
-        //    (Setores/atribuicaoAreas), que é outro campo.
-        const areaOr: any[] = []
-        if (callerAreaId) areaOr.push({ areaId: callerAreaId })
-        if (callerAreaName) areaOr.push({ categoriaObrigacao: { equals: callerAreaName, mode: 'insensitive' } })
+        //    serviço pertence à área do user. Serviços e obrigações acessórias
+        //    casam por Servico.areaId (as obrigações passaram a ter Area própria
+        //    na F2.5 — o fallback por nome via categoria_obrigacao foi removido).
+        //    Complementa a regra 8 (Setores/atribuicaoAreas), que é outro campo.
         orClauses.push({
           responsavelId: null,
-          servico: { OR: areaOr },
+          servico: { areaId: callerAreaId },
         })
       }
 
@@ -4549,11 +4595,30 @@ export class ServicoService {
     })
   }
 
+  /** Guard defensivo: os serviços têm de casar com o tipo do grupo. GERAL aceita
+   *  tudo; OBRIGACOES só obrigações acessórias; ORCAMENTO só disponíveis p/ orçamento. */
+  private async assertServicosDoTipo(servicoIds: string[], tipo: 'GERAL' | 'OBRIGACOES' | 'ORCAMENTO') {
+    if (tipo === 'GERAL' || servicoIds.length === 0) return
+    const servs = await prisma.servico.findMany({
+      where: { id: { in: servicoIds } },
+      select: { nome: true, ehObrigacaoAcessoria: true, disponivelOrcamento: true },
+    })
+    const incompativel = (s: { ehObrigacaoAcessoria: boolean; disponivelOrcamento: boolean }) =>
+      tipo === 'OBRIGACOES' ? !s.ehObrigacaoAcessoria : !s.disponivelOrcamento
+    const ruins = servs.filter(incompativel).map(s => s.nome)
+    if (ruins.length > 0) {
+      throw new Error(`Serviço(s) incompatíveis com o tipo do grupo (${tipo}): ${ruins.join(', ')}`)
+    }
+  }
+
   async createGrupo(input: CreateGrupoInput, empresaId?: string) {
+    const tipo = input.tipo ?? 'GERAL'
+    await this.assertServicosDoTipo(input.servicoIds ?? [], tipo)
     const grupo = await prisma.servicoGrupo.create({
       data: {
         nome: input.nome,
         descricao: input.descricao ?? null,
+        tipo,
         cor: input.cor ?? null,
         ordem: input.ordem ?? 0,
         empresaId: empresaId ?? null,
@@ -4585,6 +4650,8 @@ export class ServicoService {
   /** Substitui o conjunto completo de serviços do grupo (deleta o que sumiu,
    *  cria o que apareceu, atualiza ordem dos demais). A ordem é o índice. */
   async setGrupoServicos(grupoId: string, servicoIds: string[]) {
+    const grupo = await prisma.servicoGrupo.findUnique({ where: { id: grupoId }, select: { tipo: true } })
+    if (grupo) await this.assertServicosDoTipo(servicoIds, grupo.tipo)
     const existing = await prisma.servicoGrupoItem.findMany({
       where: { grupoId }, select: { servicoId: true },
     })

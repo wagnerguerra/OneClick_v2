@@ -11,6 +11,7 @@ import {
   createEncadeamentoSchema, updateEncadeamentoSchema,
   createMaterialSchema, updateMaterialSchema, reorderMateriaisSchema,
   createGrupoSchema, updateGrupoSchema, setGrupoServicosSchema, setServicoGruposSchema, iniciarGrupoSchema,
+  createObrigacaoSchema,
   responderPerguntaSchema,
   setVencimentosMensaisSchema,
   aplicarFlowPlanSchema,
@@ -32,6 +33,13 @@ export function createServicoRouter(servicoService: ServicoService) {
         tipo: z.enum(['comerciais', 'internos', 'todos']).optional(),
       }).optional())
       .query(({ ctx, input }) => servicoService.listServicos(ctx.empresaId, input?.categoria, input?.tipo)),
+
+    // ── Obrigações acessórias (consolidadas em Serviços; ex-módulo /obrigacoes) ──
+    listObrigacoesAcessorias: readProcedure(MODULE)
+      .query(({ ctx }) => servicoService.listObrigacoesAcessorias(ctx.empresaId)),
+    createObrigacaoAcessoria: writeProcedure(MODULE)
+      .input(createObrigacaoSchema)
+      .mutation(({ input, ctx }) => servicoService.createObrigacaoAcessoria(input, ctx.empresaId)),
 
     getServico: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))

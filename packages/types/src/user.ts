@@ -94,7 +94,7 @@ export const MODULE_LABELS: Record<string, string> = {
   empresas: 'Empresas', fornecedores: 'Fornecedores', 'grupos-empresariais': 'Grupos Empresariais',
   obrigacoes: 'Obrigações Acessórias',
   'obrigacoes-fixas': 'Obrigações Fixas', 'obrigacoes-demanda': 'Obrigações Sob Demanda',
-  servicos: 'Serviços', socios: 'Sócios', usuarios: 'Usuários',
+  servicos: 'Serviços e Obrigações', socios: 'Sócios', usuarios: 'Usuários',
   // Comercial
   crm: 'CRM', whatsapp: 'WhatsApp',
   clausulas: 'Cláusulas', comercial: 'Comercial', contratos: 'Contratos',
