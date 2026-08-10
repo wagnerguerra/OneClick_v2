@@ -2727,11 +2727,21 @@ function registerIpcHandlers() {
         for (const sqlFile of sqlFiles) {
           const fname = sqlFile.split('/').pop()
           deployEmit(67, 'sql', `  → ${fname}`, 'info')
-          // statement_timeout server-side (120s): se um statement ficar preso em lock,
-          // o psql aborta sozinho em vez de pendurar. + timeout no SSH (130s) como rede.
+          // Dois relógios, com papéis diferentes:
+          //
+          // statement_timeout (120s) — a consulta que demora demais aborta em vez
+          // de pendurar o deploy.
+          //
+          // lock_timeout (8s) — a que NÃO consegue o lock desiste rápido. 63 dos
+          // arquivos têm ALTER TABLE, e ALTER pede lock exclusivo mesmo quando
+          // não há o que alterar (`ADD COLUMN IF NOT EXISTS` numa coluna que já
+          // existe). Enquanto ele espera, TODA consulta na mesma tabela entra na
+          // fila atrás dele: em 10/08 o deploy segurou `orcamento_itens` por dois
+          // minutos com o sistema no ar. Falhar em 8s e repetir o deploy é muito
+          // melhor do que congelar a tela de orçamentos de quem está usando.
           const sqlExec = await sshExec(
             cfg,
-            `( echo "SET statement_timeout='120s';"; cat ${sqlFile} ) | docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -v ON_ERROR_STOP=1 2>&1`,
+            `( echo "SET statement_timeout='120s'; SET lock_timeout='8s';"; cat ${sqlFile} ) | docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -v ON_ERROR_STOP=1 2>&1`,
             (line) => {
               // Filtra NOTICE/INFO ruidosos do psql
               if (!/^NOTICE:|^INFO:|^DO$|^SET$|^BEGIN$|^COMMIT$|^$/.test(line)) {

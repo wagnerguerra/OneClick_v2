@@ -44,8 +44,21 @@ CREATE INDEX IF NOT EXISTS servico_subservicos_filho_id_idx
 -- ── Item de orçamento guarda o subserviço escolhido ──
 -- SetNull, e não Cascade: apagar um serviço do catálogo não pode levar junto o
 -- item de um orçamento já enviado ao cliente.
-ALTER TABLE orcamento_itens
-  ADD COLUMN IF NOT EXISTS subservico_id TEXT;
+--
+-- O `IF NOT EXISTS` do ALTER evita o erro, mas NÃO evita o lock: o comando pede
+-- acesso exclusivo à tabela mesmo quando não há o que alterar, e toda consulta a
+-- orcamento_itens fica na fila atrás dele. Num deploy com o sistema no ar, isso
+-- congelou a tela de orçamentos por dois minutos (10/08). Perguntando antes, o
+-- caso normal — coluna já existente — não emite ALTER nenhum.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'orcamento_itens' AND column_name = 'subservico_id'
+  ) THEN
+    ALTER TABLE orcamento_itens ADD COLUMN subservico_id TEXT;
+  END IF;
+END $$;
 
 DO $$
 BEGIN
