@@ -321,6 +321,8 @@ export class AgendaEmailTemplateService {
       if (ev.tipoId === 'OBRIGACAO_ACESSORIA') {
         return {
           cor,
+          molduraCor: '#cbd5e1',   // vencimento nao tem tipo de evento, logo nao destaca
+          molduraPad: '1px',
           frags: {
             titulo: `<div class="em-evtitle" style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${esc(ev.titulo)}</div>`,
             categoria: pillCategoria,
@@ -356,6 +358,20 @@ export class AgendaEmailTemplateService {
         ? `<div class="em-meta" style="margin-top:8px;font-size:11px;color:#64748b"><strong style="color:#475569">🧰 Equipamentos:</strong> ${esc(ev.equipamentos)}</div>` : ''
       const garagemHtml = ev.garagem
         ? `<span class="em-meta" style="font-size:11px;color:#64748b">🚗 Garagem reservada${esc(vagasTxt)}</span>` : ''
+      // "Arrumar sala" sobe para um selo ao lado do titulo. Dentro da caixa
+      // "Logistica", em cinza de 11px, era a informacao que a equipe de limpeza
+      // mais precisava ver e a que menos se via — foi o motivo do pedido.
+      const arrumarSelo = ev.arrumarSala
+        ? `<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;vertical-align:middle">&#129529; Arrumar sala</span>`
+        : ''
+
+      // Destaque por TIPO (configurado no cadastro do tipo): moldura grossa na
+      // cor escolhida no lugar do fio cinza. Continua <table>+bgcolor, e nao
+      // borda em CSS, porque Gmail e Outlook descartam style de borda.
+      const destacado = !!ev.tipo?.destacarEmail
+      const molduraCor = destacado ? (ev.tipo?.corDestaque || ev.tipo?.corBorda || cor) : '#cbd5e1'
+      const molduraPad = destacado ? '3px' : '1px'
+
       const prepItens: string[] = []
       if (ev.arrumarSala) prepItens.push('Arrumar sala')
       if (ev.equipamentos) prepItens.push('Disponibilizar equipamentos')
@@ -378,8 +394,10 @@ export class AgendaEmailTemplateService {
 
       return {
         cor,
+        molduraCor,
+        molduraPad,
         frags: {
-          titulo: `<div class="em-evtitle" style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${esc(ev.titulo)}</div>`,
+          titulo: `<div class="em-evtitle" style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;line-height:1.3">${esc(ev.titulo)}${arrumarSelo}</div>`,
           categoria: pillCategoria,
           modalidade: `<span class="em-meta" style="font-size:11px;color:#64748b">${modalidadeIcon} ${modalidadeLabel}</span>`,
           local: local ? `<span class="em-meta" style="font-size:11px;color:#64748b">📍 ${esc(local)}</span>` : '',
@@ -400,7 +418,9 @@ export class AgendaEmailTemplateService {
 
     // Variáveis pro modo HTML livre (controle total do card).
     const buildVars = (ev: any) => {
-      const { cor, frags } = fragmentosDoEvento(ev)
+      const { cor, frags, molduraCor, molduraPad } = fragmentosDoEvento(ev)
+      // Expostas ao HTML livre como {{evento.molduraCor}} / {{evento.molduraPad}}:
+      // quem escreve o proprio card tambem consegue respeitar o destaque do tipo.
       const horario = ev.diaInteiro ? 'Dia inteiro' : [ev.horaInicio, ev.horaFim].filter(Boolean).join(' — ') || ev.horaInicio || ''
       const local = ev.salaRef?.nome || salaTexto(ev.sala) || ev.local || ''
       const modalidade = ev.presenca === 'ONLINE' ? 'Online' : ev.presenca === 'HIBRIDO' ? 'Híbrido' : 'Presencial'
@@ -414,6 +434,7 @@ export class AgendaEmailTemplateService {
           local: esc(local), sala: esc(ev.salaRef?.nome || salaTexto(ev.sala) || ''), contato: esc(ev.contato ?? ''),
           link: esc(ev.link ?? ''), presenca: esc(ev.presenca ?? ''), modalidade: esc(modalidade),
           tipoNome: esc(ev.tipo?.nome ?? ''), tipoCor: cor, criador: esc(ev.criador?.name ?? ''),
+          molduraCor, molduraPad,
           descricao: ev.descricao ? String(ev.descricao) : '',
           participantes: nomes.map(esc).join(', '),
           // logística (reunião interna):
@@ -428,7 +449,7 @@ export class AgendaEmailTemplateService {
     // ── Builder: monta o corpo do card respeitando ordem/visibilidade; elementos
     //    inline vizinhos fluem na mesma linha (preserva o visual original). ──
     const renderCardBuilder = (ev: any) => {
-      const { cor, frags } = fragmentosDoEvento(ev)
+      const { cor, frags, molduraCor, molduraPad } = fragmentosDoEvento(ev)
       const horarioBlock = ev.diaInteiro
         ? `<span class="em-evtimev" style="font-weight:700;color:${cor}">Dia inteiro</span>`
         : `<div class="em-evtimev" style="font-weight:700;font-size:14px;color:#0f172a;line-height:1.1">${esc(ev.horaInicio ?? '')}</div>
@@ -451,7 +472,7 @@ export class AgendaEmailTemplateService {
 
       return `
 <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 14px">
-  <tr><td class="em-evborder" bgcolor="#cbd5e1" style="background-color:#cbd5e1;padding:1px;border-radius:10px">
+  <tr><td class="em-evborder" bgcolor="${molduraCor}" style="background-color:${molduraCor};padding:${molduraPad};border-radius:10px">
     <table cellpadding="0" cellspacing="0" border="0" width="100%" class="em-evcard" style="background:#ffffff;border-radius:9px;overflow:hidden">
       <tr>
         <td width="4" bgcolor="${cor}" style="background-color:${cor};width:4px;padding:0;line-height:0;font-size:0">&nbsp;</td>
