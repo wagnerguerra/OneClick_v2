@@ -238,7 +238,7 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
               <Calendar className="h-4 w-4 text-sky-600 dark:text-sky-400" />
             </div>
             <div className="min-w-0">
-              <CardTitle className="text-base font-bold leading-tight capitalize">{title ?? MESES_NOME[calMonth].toLowerCase()}</CardTitle>
+              <CardTitle className="text-base font-bold leading-tight capitalize">{title ?? MESES_NOME[calMonth]?.toLowerCase()}</CardTitle>
               <p className="text-[11px] text-muted-foreground tabular-nums leading-tight">
                 {calYear}
                 {isCurrentMonth && (
@@ -451,7 +451,7 @@ function DiaDetalheModal(props: {
   if (day === null) return null
   const dataObj = new Date(year, month, day)
   const diaSemana = DIAS_SEMANA_FULL[dataObj.getDay()]
-  const dataLabel = `${diaSemana}, ${String(day).padStart(2, '0')} de ${MESES_NOME[month].toLowerCase()} de ${year}`
+  const dataLabel = `${diaSemana}, ${String(day).padStart(2, '0')} de ${MESES_NOME[month]?.toLowerCase()} de ${year}`
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -673,7 +673,7 @@ function CalendarioExpandido(props: {
             </div>
             <div className="min-w-0">
               <h2 className="text-xl font-bold leading-tight capitalize">
-                {title ?? MESES_NOME[month].toLowerCase()}
+                {title ?? MESES_NOME[month]?.toLowerCase()}
               </h2>
               <p className="text-xs text-muted-foreground tabular-nums">
                 {year}
@@ -941,7 +941,7 @@ function CalendarioExpandido(props: {
                   {String(selectedDay).padStart(2, '0')}
                 </h3>
                 <p className="text-xs text-muted-foreground capitalize">
-                  {MESES_NOME[month].toLowerCase()} de {year}
+                  {MESES_NOME[month]?.toLowerCase()} de {year}
                 </p>
                 {feriadoSelecionado && (
                   <div

@@ -66,7 +66,7 @@ export default function CrmFunilPage() {
   const [report, setReport] = useState<ReportFunil | null>(null)
   const [tipos, setTipos] = useState<Array<{ id: string; nome: string }>>([])
 
-  useEffect(() => { trpc.agenda.listTipos.query().then(t => setTipos((t ?? []).map(x => ({ id: x.id, nome: x.nome })))).catch(() => {}) }, [])
+  useEffect(() => { trpc.agenda.listTipos.query().then((t: Array<{ id: string; nome: string }> | null | undefined) => setTipos((t ?? []).map(x => ({ id: x.id, nome: x.nome })))).catch(() => {}) }, [])
   useEffect(() => { if (!permsLoading && !pode) router.replace('/crm') }, [permsLoading, pode, router])
 
   const carregar = useCallback((selecionarSlug?: string) => {
@@ -174,7 +174,7 @@ export default function CrmFunilPage() {
       )}
 
       {/* Comparativo por campanha (30d) */}
-      {report?.porCampanha?.length > 0 && (
+      {report && report.porCampanha && report.porCampanha.length > 0 && (
         <Card className="p-5 space-y-3">
           <h4 className="text-sm font-semibold">Comparativo por campanha (30 dias)</h4>
           <div className="overflow-x-auto">
@@ -189,7 +189,7 @@ export default function CrmFunilPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {report.porCampanha.map((c) => (
+                {report.porCampanha.map((c: { slug: string; nome: string; total: number; registrados: number; taxaConversao: number; porTemperatura?: { quente?: number; morno?: number; frio?: number } | null }) => (
                   <tr key={c.slug} className="hover:bg-muted/30">
                     <td className="py-2 pr-3">
                       <span className="font-medium">{c.nome}</span>

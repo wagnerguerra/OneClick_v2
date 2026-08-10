@@ -1805,8 +1805,8 @@ export default function CaixaPostalPage() {
                           setVerArquivadas(true)
                           setMensagensLoading(true)
                           try {
-                            const r = await trpc.caixaPostal.listarArquivadas.query({ contribuinte: selectedCliente.documento }) as { mensagens: MensagemClassificada[]; total: number }
-                            setMensagens(r.mensagens || [])
+                            const r = await trpc.caixaPostal.listarArquivadas.query({ contribuinte: selectedCliente.documento })
+                            setMensagens((r.mensagens || []).map((m: unknown) => m as MensagemClassificada))
                           } catch (e) { alerts.error('Erro', (e as Error).message) }
                           finally { setMensagensLoading(false) }
                         }

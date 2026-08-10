@@ -63,7 +63,7 @@ export function CargoForm({ mode, cargoId, title, description, icon, defaultValu
   const [saving, setSaving] = useState(false)
   const [areas, setAreas] = useState<AreaOption[]>([])
 
-  const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<CreateCargoInput>({
+  const { register, handleSubmit, control, formState: { errors } } = useForm<CreateCargoInput>({
     resolver: zodResolver(createCargoSchema),
     defaultValues: {
       name: '', isActive: true, areaId: '', showInOrgChart: false,

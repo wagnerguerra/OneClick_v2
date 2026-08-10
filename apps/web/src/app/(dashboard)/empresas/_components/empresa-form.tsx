@@ -87,7 +87,7 @@ const UF_OPTIONS = [
   'SP','SE','TO',
 ]
 
-function LogoUpload({ control, setValue, fieldName = 'logoUrl', label }: {
+function LogoUpload({ control, setValue, fieldName = 'logoUrl' }: {
   control: Control<CreateEmpresaInput>
   setValue: ReturnType<typeof useForm<CreateEmpresaInput>>['setValue']
   fieldName?: 'logoUrl' | 'logoDarkUrl' | 'marcaDaguaUrl'

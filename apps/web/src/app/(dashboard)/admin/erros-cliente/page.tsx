@@ -22,8 +22,9 @@ import { getApiUrl } from '@/lib/api-url'
 
 const MODULE_COLOR = '#dc2626' // red
 
+const LEVEL_META_FALLBACK: { label: string; cor: string; icon: typeof Bug } = { label: 'Erro', cor: 'rose', icon: AlertOctagon }
 const LEVEL_META: Record<string, { label: string; cor: string; icon: typeof Bug }> = {
-  ERROR:     { label: 'Erro',     cor: 'rose',   icon: AlertOctagon },
+  ERROR:     LEVEL_META_FALLBACK,
   WARN:      { label: 'Warning',  cor: 'amber',  icon: AlertTriangle },
   REJECTION: { label: 'Promise',  cor: 'violet', icon: Bug },
 }
@@ -373,7 +374,7 @@ export default function ErrosClientePage() {
             ) : data.length === 0 ? (
               <TableRow><TableCell colSpan={6}><div className="text-center py-10 text-muted-foreground"><CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-30" /><p className="text-sm">Nenhum erro {resolvedFilter === 'open' ? 'aberto' : ''}.</p></div></TableCell></TableRow>
             ) : data.map(e => {
-              const meta = LEVEL_META[e.level]
+              const meta = LEVEL_META[e.level] ?? LEVEL_META_FALLBACK
               const Icon = meta.icon
               const exp = expanded.has(e.id)
               return (
@@ -636,7 +637,7 @@ function AnaliseTab() {
           <div className="divide-y divide-border/40">
             {top.length === 0 && <div className="px-4 py-8 text-center text-muted-foreground text-sm">Sem dados</div>}
             {top.map((r, i) => {
-              const meta = LEVEL_META[r.level]
+              const meta = LEVEL_META[r.level] ?? LEVEL_META_FALLBACK
               return (
                 <div key={r.id} className="px-4 py-2.5 flex items-start gap-3 hover:bg-muted/30">
                   <span className="text-[11px] font-bold text-muted-foreground tabular-nums w-6 shrink-0">#{i + 1}</span>

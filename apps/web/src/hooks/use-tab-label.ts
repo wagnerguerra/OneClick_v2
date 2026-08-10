@@ -19,7 +19,7 @@ export function useTabLabel(label: string | null | undefined) {
 
   useEffect(() => {
     if (!label || !pathname) return
-    const pathClean = pathname.split('?')[0]!.split('#')[0]
+    const pathClean = pathname.split('?')[0]?.split('#')[0] ?? pathname
     updateLabel(pathClean, label)
   }, [label, pathname, updateLabel])
 }

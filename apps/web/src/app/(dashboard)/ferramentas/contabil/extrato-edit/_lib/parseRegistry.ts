@@ -78,7 +78,8 @@ function bestCol(
   let best: { col: number; label: string; rank: number } | null = null;
   for (const { c, n, raw } of cols) {
     for (let p = 0; p < patterns.length; p++) {
-      if (patterns[p].test(n)) {
+      const pat = patterns[p];
+      if (pat && pat.test(n)) {
         if (!best || p < best.rank) best = { col: c, label: raw, rank: p };
         break;
       }

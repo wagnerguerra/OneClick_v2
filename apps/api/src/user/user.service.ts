@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import type { Prisma } from '@saas/db'
-import type { CreateUserInput, UpdateUserInput, ListUserInput } from '@saas/types'
+import type { CreateUserInput, UpdateUserInput, ListUserInput, PermissionInput } from '@saas/types'
 import { PLATFORM_ADMIN_MODULES } from '@saas/types'
 import { hashPassword, verifyPassword } from 'better-auth/crypto'
 import { PermissionsEventsService } from '../permissions-events/permissions-events.service'
@@ -244,7 +244,7 @@ export class UserService {
 
   async create(input: CreateUserInput) {
     const {
-      permissions, password, empresaId, areaId, cargoId,
+      permissions, password, name, email, empresaId, areaId, cargoId,
       dataAdmissao, dataNascimento, dataDemissao,
       salario, role, profile, sexo, estadoCivil, tipoContrato,
       cpf, ...rest
@@ -261,6 +261,8 @@ export class UserService {
       const user = await tx.user.create({
         data: {
           ...userData,
+          name,
+          email,
           role: (role ?? 'COLABORADOR_INTERNO') as never,
           profile: (profile ?? 'OPERADOR') as never,
           empresaId: empresaId || null,
@@ -291,7 +293,7 @@ export class UserService {
       // Create permissions
       if (permissions?.length) {
         await tx.userPermission.createMany({
-          data: permissions.map((p) => ({
+          data: permissions.map((p: PermissionInput) => ({
             userId: user.id,
             moduleSlug: p.moduleSlug,
             canRead: p.canRead,
@@ -358,7 +360,7 @@ export class UserService {
         await tx.userPermission.deleteMany({ where: { userId: id } })
         if (permissions.length) {
           await tx.userPermission.createMany({
-            data: permissions.map((p) => ({
+            data: permissions.map((p: PermissionInput) => ({
               userId: id,
               moduleSlug: p.moduleSlug,
               canRead: p.canRead,

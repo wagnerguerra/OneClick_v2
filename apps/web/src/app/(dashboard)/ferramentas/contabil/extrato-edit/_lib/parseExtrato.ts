@@ -124,9 +124,10 @@ function logicalColumns(row: Row, colCount: number, smart: boolean): LogicalColu
   //    (no SIST a coluna de código vem antes de "Conta"/"Fornecedor").
   if (smart) {
     for (let i = 0; i < raw.length; i++) {
+      const cur = raw[i];
       const next = raw[i + 1];
-      if (next && GENERIC_CODE_RE.test(raw[i].label)) {
-        raw[i].label = `Cód. ${next.label}`;
+      if (cur && next && GENERIC_CODE_RE.test(cur.label)) {
+        cur.label = `Cód. ${next.label}`;
       }
     }
   }
@@ -252,7 +253,8 @@ function parseContasPagas(ws: Worksheet, rowCount: number, colCount: number): Pa
   if (headerRowIndex === -1) throw new Error("Não foi possível identificar o cabeçalho da planilha.");
 
   const cols = logicalColumns(ws.getRow(headerRowIndex), colCount, !usedFallback);
-  if (cols.length === 0) throw new Error("O cabeçalho identificado não tem colunas com título.");
+  const firstCol = cols[0];
+  if (!firstCol) throw new Error("O cabeçalho identificado não tem colunas com título.");
 
   /**
    * No relatório SIST a 1ª coluna é o nº do lançamento (`Lanc.`). Exigir que ela
@@ -260,7 +262,7 @@ function parseContasPagas(ws: Worksheet, rowCount: number, colCount: number): Pa
    * fim — que escapam do filtro `Total do Dia`. Só no formato reconhecido (não no
    * fallback genérico, que pode ter texto na 1ª coluna).
    */
-  const requireNumericFirstCol = !usedFallback && HEADER_FIRST_COL_RE.test(cols[0].label.trim());
+  const requireNumericFirstCol = !usedFallback && HEADER_FIRST_COL_RE.test(firstCol.label.trim());
 
   // 2) Varre todas as linhas; data separadora atualiza a data corrente (mesmo no preâmbulo).
   let currentDate: Date | null = null;
@@ -305,7 +307,7 @@ function parseContasPagas(ws: Worksheet, rowCount: number, colCount: number): Pa
       continue;
     }
     // Linha-resumo/rodapé (total geral, assinatura) sem nº de lançamento válido.
-    if (requireNumericFirstCol && !isLancamentoNumber(row.getCell(cols[0].col).value)) {
+    if (requireNumericFirstCol && !isLancamentoNumber(row.getCell(firstCol.col).value)) {
       totalsRemoved++;
       continue;
     }

@@ -394,7 +394,7 @@ function ModuleColorsEditor() {
     // Debounce do save no backend
     if (debounceRefs.current[slug]) clearTimeout(debounceRefs.current[slug])
     debounceRefs.current[slug] = setTimeout(() => {
-      void persistColor(slug, label, pendingColorRefs.current[slug])
+      void persistColor(slug, label, pendingColorRefs.current[slug] ?? color)
     }, 400)
   }
 
@@ -416,7 +416,7 @@ function ModuleColorsEditor() {
     }
   }
 
-  async function handleReset(slug: string, label: string) {
+  async function handleReset(slug: string) {
     setStatus(slug, 'saving')
     const startedAt = performance.now()
     pushLog(slug, `Restaurando padrão...`, 'info')
@@ -488,7 +488,7 @@ function ModuleColorsEditor() {
                       variant="ghost"
                       size="sm"
                       className="h-6 px-2 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
-                      onClick={() => handleReset(m.slug, m.label)}
+                      onClick={() => handleReset(m.slug)}
                       disabled={status === 'saving'}
                     >
                       <RotateCcw className="h-3 w-3" /> Restaurar padrão

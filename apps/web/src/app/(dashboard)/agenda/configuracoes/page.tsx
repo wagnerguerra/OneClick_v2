@@ -1233,7 +1233,7 @@ export default function AgendaConfiguracoesPage() {
                     {([['footerHtml', 'Rodapé'], ['semEventosHtml', 'Mensagem quando não há eventos']] as const).map(([k, label]) => (
                       <div key={k} className="space-y-1.5">
                         <Label className="text-[13px] font-semibold">{label}</Label>
-                        <RichEditor value={(tpl as Record<string, string>)[k] ?? ''} onChange={v => setTplField(k as keyof EmailTpl, v)} placeholder="Use a barra de formatação ou o modo HTML (&lt;/&gt;)…" />
+                        <RichEditor value={tpl?.[k] ?? ''} onChange={v => setTplField(k, v)} placeholder="Use a barra de formatação ou o modo HTML (&lt;/&gt;)…" />
                       </div>
                     ))}
 

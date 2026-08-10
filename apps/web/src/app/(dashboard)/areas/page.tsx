@@ -30,16 +30,10 @@ import { alerts } from '@/lib/alerts'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { ImportModal } from './_components/import-modal'
+import type { inferRouterOutputs } from '@trpc/server'
+import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
 
-interface Area {
-  id: string
-  code: number
-  name: string
-  isActive: boolean
-  email: string | null
-  leader: { id: string; name: string; email: string } | null
-  parent: { id: string; name: string } | null
-}
+type AreaListOutput = inferRouterOutputs<AppRouter>['area']['list']
 
 type SortDir = 'asc' | 'desc'
 interface SortState { column: string; dir: SortDir }
@@ -53,9 +47,7 @@ export default function AreasPage() {
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
   const [sort, setSort] = useState<SortState>({ column: 'code', dir: 'asc' })
-  const [data, setData] = useState<{
-    data: Area[]; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean
-  } | null>(null)
+  const [data, setData] = useState<AreaListOutput | null>(null)
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
 

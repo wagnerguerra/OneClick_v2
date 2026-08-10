@@ -137,7 +137,7 @@ export function IndicadoresDashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="mes" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={50} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => [`${v} orçamentos`, '']} />
+                <Tooltip formatter={(v) => [`${v} orçamentos`, '']} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="mensal" name="Mensal" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="extra" name="Extra" fill="#f59e0b" radius={[4, 4, 0, 0]} />

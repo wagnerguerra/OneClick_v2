@@ -7,6 +7,31 @@ import type { CreateEmpresaInput } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { EmpresaForm } from '../_components/empresa-form'
 
+type EmpresaData = {
+  code: number
+  razaoSocial: string
+  nomeFantasia: string | null
+  cnpj: string
+  inscricaoEstadual: string | null
+  inscricaoMunicipal: string | null
+  taxRegime: string | null
+  isActive: boolean
+  cep: string | null
+  logradouro: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
+  cidade: string | null
+  uf: string | null
+  telefone: string | null
+  email: string | null
+  site: string | null
+  logoUrl: string | null
+  logoDarkUrl: string | null
+  serproHabilitado: boolean | null
+  serproOrcamentoMensal: number | null
+}
+
 export default function EditEmpresaPage() {
   const params = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)
@@ -17,7 +42,7 @@ export default function EditEmpresaPage() {
     if (!params.id) return
     trpc.empresa.getById
       .query({ id: params.id })
-      .then((data) => {
+      .then((data: EmpresaData) => {
         setEmpresa({
           code: data.code,
           razaoSocial: data.razaoSocial,

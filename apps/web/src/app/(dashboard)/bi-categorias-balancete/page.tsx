@@ -66,12 +66,6 @@ const MODULE_COLOR = 'var(--mod-contabil, #a78bfa)'
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
-const TIPO_LABELS: Record<string, { label: string; color: string }> = {
-  R: { label: 'Real', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  C: { label: 'Calculada', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' },
-  F: { label: 'Formula', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-}
-
 const formatCnpj = (doc: string) =>
   doc.length === 14
     ? `${doc.slice(0,2)}.${doc.slice(2,5)}.${doc.slice(5,8)}/${doc.slice(8,12)}-${doc.slice(12,14)}`
@@ -439,7 +433,7 @@ export default function BiCategoriasBalancetePage() {
   /* --- load PlanoContasCategoriaPadrao (global, 1x) --- */
   useEffect(() => {
     trpc.cliente.biListPlanoContasPadrao.query()
-      .then((rows) => {
+      .then((rows: unknown) => {
         const map = new Map<string, PlanoPadraoEntry>()
         for (const r of rows as Array<{ classificacao: string; categoriaDre: string; sinal: number }>) {
           map.set(r.classificacao, { classificacao: r.classificacao, categoriaDre: r.categoriaDre, sinal: r.sinal })
@@ -1002,7 +996,6 @@ export default function BiCategoriasBalancetePage() {
     if (!ok2) return
     try {
       const result = await (trpc.bi as any).limparTudoCliente.mutate({ clienteId })
-      const total = (result.linhas || 0) + (result.categorias || 0) + (result.cache || 0)
       alerts.success('Dados removidos', `${result.linhas} linha(s), ${result.categorias} categoria(s), ${result.cache} cache(s), ${result.contasIgnoradas} regra(s) KPI, ${result.links} link(s) removidos.`)
       setCategorias([])
       setSelected(new Set())

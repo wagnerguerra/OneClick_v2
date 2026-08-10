@@ -53,6 +53,15 @@ export const alerts = {
     })
   },
 
+  info(title: string, text?: string) {
+    return Swal.fire({
+      icon: 'info',
+      title,
+      text,
+      confirmButtonColor: themeColor,
+    })
+  },
+
   async confirm(opts: { title: string; text: string; confirmText?: string; icon?: 'warning' | 'question' | 'info' }) {
     const result = await Swal.fire({
       icon: opts.icon ?? 'warning',
@@ -95,6 +104,7 @@ export const alerts = {
     text?: string
     inputLabel?: string
     inputPlaceholder?: string
+    inputValue?: string
     confirmText?: string
     icon?: 'warning' | 'question' | 'info'
     inputType?: 'text' | 'textarea'
@@ -107,6 +117,7 @@ export const alerts = {
       input: opts.inputType ?? 'text',
       inputLabel: opts.inputLabel,
       inputPlaceholder: opts.inputPlaceholder,
+      inputValue: opts.inputValue,
       showCancelButton: true,
       confirmButtonColor: themeColor,
       cancelButtonColor: '#6b7280',
@@ -114,7 +125,7 @@ export const alerts = {
       cancelButtonText: 'Cancelar',
       reverseButtons: true,
       inputValidator: opts.required
-        ? (v) => (!v?.trim() ? 'Campo obrigatório' : null)
+        ? (v: string) => (!v?.trim() ? 'Campo obrigatório' : null)
         : undefined,
     })
     if (!result.isConfirmed) return null

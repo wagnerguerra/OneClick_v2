@@ -305,7 +305,7 @@ function KanbanCard({
 // ─── Overlay (card que segue o cursor) ────────────────────────
 
 function KanbanCardOverlay({
-  tarefa, velocityX, width, projetoCor,
+  tarefa, velocityX, width,
 }: {
   tarefa: KanbanTarefa
   velocityX: number

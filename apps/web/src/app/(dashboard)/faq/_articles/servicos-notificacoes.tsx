@@ -52,7 +52,7 @@ export default function FaqServicosNotificacoesPage() {
         <Callout tipo="info">
           O scheduler roda às <strong>06:00</strong> todos os dias. Quando encontra uma recorrência com próxima execução vencida, cria uma <code>ServicoExecucao</code> para cada cliente com contrato VIGENTE (ou ASSINADO) vinculado a esse serviço — atribuindo o responsável padrão configurado.
         </Callout>
-        <Callout tipo="warning">
+        <Callout tipo="aviso">
           Cliente sem contrato vinculado ao serviço <strong>não recebe</strong> execução. Atualize o contrato em /contratos antes de ativar a recorrência.
         </Callout>
       </Step>
@@ -114,7 +114,7 @@ export default function FaqServicosNotificacoesPage() {
         <p>Quando não há regras configuradas, o card oferece templates clicáveis (Atrasada→Responsável, Concluída→Cliente, etc). Eles já vêm com variáveis pré-aplicadas — basta clicar, ajustar e salvar.</p>
       </Callout>
 
-      <Callout tipo="warning">
+      <Callout tipo="aviso">
         <p className="font-semibold mb-1">⚠️ Configure SMTP/Resend antes</p>
         <p>O envio depende de credenciais de e-mail válidas no sistema. Configure em <code>/configuracoes</code> — primeiro tenta Resend (RESEND_API_KEY), fallback para SMTP.</p>
       </Callout>
@@ -124,7 +124,7 @@ export default function FaqServicosNotificacoesPage() {
         <strong>Idempotência:</strong> uma regra dispara no máximo 1 vez por execução por evento. O log <code>ServicoNotificacaoLog</code> com unique <code>(regra, exec, evento)</code> garante isso — retries do engine não duplicam.
       </Callout>
 
-      <Callout tipo="warning">
+      <Callout tipo="aviso">
         <strong>Sem destinatário válido?</strong> Se uma regra do tipo CLIENTE for disparada e o cliente não tem e-mail cadastrado, a regra é silenciosamente ignorada (sem gravar log). Quando o e-mail for adicionado, o envio acontece no próximo disparo.
       </Callout>
 

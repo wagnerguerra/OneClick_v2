@@ -68,7 +68,7 @@ export function ColaboradorForm({
   const [activeTab, setActiveTab] = useState<typeof COLAB_TABS[number]['key']>('identificacao')
 
   const {
-    register, handleSubmit, control, setValue, watch,
+    register, handleSubmit, control, setValue,
     formState: { errors },
   } = useForm<CreateColaboradorInput>({
     resolver: zodResolver(createColaboradorSchema),

@@ -239,10 +239,10 @@ export class PesquisaService {
 
   private async inserirPerguntas(modeloId: string, perguntas: { tipo: string; enunciado: string; obrigatoria?: boolean }[]) {
     const validas = perguntas.filter(p => p.enunciado?.trim() && PESQ_TIPOS.includes(p.tipo))
-    for (let i = 0; i < validas.length; i++) {
+    for (const [i, p] of validas.entries()) {
       await prisma.$executeRawUnsafe(
         `INSERT INTO pesquisa_pergunta (id, modelo_id, ordem, tipo, enunciado, obrigatoria) VALUES ($1,$2,$3,$4,$5,$6)`,
-        randomUUID(), modeloId, i, validas[i].tipo, validas[i].enunciado.trim(), validas[i].obrigatoria !== false,
+        randomUUID(), modeloId, i, p.tipo, p.enunciado.trim(), p.obrigatoria !== false,
       )
     }
   }

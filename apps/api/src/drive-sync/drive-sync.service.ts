@@ -13,7 +13,7 @@ interface SyncOptions {
   tipo?: 'manual' | 'automatico'
 }
 
-interface ItemLog {
+export interface ItemLog {
   nome: string
   fileId: string
   status: 'ok' | 'duplicado' | 'erro' | 'ignorado' | 'ja_processado'
@@ -35,7 +35,7 @@ interface ArquivoEncontrado {
   path: string
 }
 
-interface SyncResult {
+export interface SyncResult {
   logId: string
   arquivosVistos: number
   arquivosNovos: number

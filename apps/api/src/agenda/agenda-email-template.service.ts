@@ -214,6 +214,7 @@ export class AgendaEmailTemplateService {
     await prisma.$executeRawUnsafe(`DELETE FROM agenda_email_grupos WHERE template_id = $1`, template.id)
     for (let i = 0; i < grupos.length; i++) {
       const g = grupos[i]
+      if (!g) continue
       await prisma.$executeRawUnsafe(
         `INSERT INTO agenda_email_grupos (id, template_id, nome, cor, icone, ordem, inclui_particulares, tipos_ids)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
@@ -465,7 +466,7 @@ export class AgendaEmailTemplateService {
       let criadorPart = ''
       for (const el of elementos) {
         if (!el.visivel) continue
-        if (el.key === 'criador') { criadorPart = frags.criador; continue } // "Agendado por" sempre por último
+        if (el.key === 'criador') { criadorPart = frags.criador ?? ''; continue } // "Agendado por" sempre por último
         const html = frags[el.key]
         if (!html) continue
         if (CARD_EL_INLINE.has(el.key)) inlineBuf.push(html)

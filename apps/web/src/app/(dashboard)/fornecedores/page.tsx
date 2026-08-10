@@ -123,7 +123,7 @@ export default function FornecedoresPage() {
         Documento: f.documento, Tipo: TIPO_FORNECEDOR_LABELS[f.tipoFornecedor] ?? f.tipoFornecedor,
         Telefone: f.telefone ?? '', Email: f.email ?? '', Cidade: f.cidade ?? '', UF: f.uf ?? '',
       }))
-      exportToExcel(rows, 'fornecedores')
+      exportToExcel(rows, Object.keys(rows[0] ?? {}).map((h) => ({ header: h, accessor: h })), 'fornecedores')
     } catch { alerts.error('Erro', 'Não foi possível exportar.') }
   }
 

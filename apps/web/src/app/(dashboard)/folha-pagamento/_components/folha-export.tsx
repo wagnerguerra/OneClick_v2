@@ -20,7 +20,7 @@ export function FolhaExportTab({ clienteId }: { clienteId: string }) {
   useEffect(() => {
     setLoading(true)
     trpc.folha.listarImportacoes.query({ clienteId })
-      .then(r => {
+      .then((r: unknown) => {
         const contabilizados = (r as Importacao[]).filter(i => i.status === 'contabilizado' || i.status === 'exportado')
         setImportacoes(contabilizados)
         if (contabilizados.length > 0) setSelectedId(contabilizados[0]!.id)
@@ -32,7 +32,7 @@ export function FolhaExportTab({ clienteId }: { clienteId: string }) {
   useEffect(() => {
     if (!selectedId) { setFiliais([]); return }
     trpc.folha.listarFiliaisImportacao.query({ importacaoId: selectedId })
-      .then(r => { setFiliais(r as Filial[]); setSelectedFilial('TODAS') })
+      .then((r: unknown) => { setFiliais(r as Filial[]); setSelectedFilial('TODAS') })
       .catch(() => {})
   }, [selectedId])
 

@@ -129,7 +129,7 @@ function useExecucoesAndamento() {
  * Chips clicaveis no topo agrupando por situacao + lista detalhada com passo
  * atual de cada execucao.
  */
-function ServicosExpanded({ titulo }: { titulo: string }) {
+function ServicosExpanded({ titulo: _titulo }: { titulo: string }) {
   const { items, loaded, erro } = useExecucoesAndamento()
   const [filtro, setFiltro] = useState<ExecucaoItem['situacao'] | null>(null)
 

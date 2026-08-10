@@ -64,7 +64,7 @@ export function QsaImportModal({ open, onClose, onSuccess, prefilledCnpj, prefil
   useEffect(() => {
     if (open) {
       trpc.cliente.listForSelect.query()
-        .then((c) => setClientes(c as ClienteOption[]))
+        .then((c: unknown) => setClientes(c as ClienteOption[]))
         .catch(() => {})
       if (prefilledCnpj) setCnpj(prefilledCnpj)
       if (prefilledClienteId) setClienteId(prefilledClienteId)

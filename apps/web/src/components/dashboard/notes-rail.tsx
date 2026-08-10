@@ -16,7 +16,7 @@ interface Nota {
 }
 
 // Cores estilo Keep — chave persistida em `cor`.
-const CORES: Record<string, { bg: string; dot: string; label: string }> = {
+const CORES = {
   default: { bg: 'bg-card', dot: 'bg-muted-foreground/30', label: 'Padrão' },
   amarelo: { bg: 'bg-amber-100 dark:bg-amber-900/40', dot: 'bg-amber-300', label: 'Amarelo' },
   verde:   { bg: 'bg-emerald-100 dark:bg-emerald-900/40', dot: 'bg-emerald-300', label: 'Verde' },
@@ -25,9 +25,10 @@ const CORES: Record<string, { bg: string; dot: string; label: string }> = {
   roxo:    { bg: 'bg-violet-100 dark:bg-violet-900/40', dot: 'bg-violet-300', label: 'Roxo' },
   laranja: { bg: 'bg-orange-100 dark:bg-orange-900/40', dot: 'bg-orange-300', label: 'Laranja' },
   cinza:   { bg: 'bg-slate-100 dark:bg-slate-800/60', dot: 'bg-slate-300', label: 'Cinza' },
-}
-const COR_KEYS = Object.keys(CORES)
-const corBg = (c: string) => (CORES[c] ?? CORES.default).bg
+} satisfies Record<string, { bg: string; dot: string; label: string }>
+type CorKey = keyof typeof CORES
+const COR_KEYS = Object.keys(CORES) as CorKey[]
+const corBg = (c: string) => (CORES[c as CorKey] ?? CORES.default).bg
 
 const notaTRPC = () => (trpc as any).nota
 

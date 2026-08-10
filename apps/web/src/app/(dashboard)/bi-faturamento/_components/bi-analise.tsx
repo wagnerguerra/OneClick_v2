@@ -10,7 +10,6 @@ import {
   Line, LabelList, BarChart, Cell,
 } from 'recharts'
 
-const MODULE_COLOR = 'var(--mod-contabil, #8b5cf6)'
 const COLOR_POSITIVO = '#16a34a'
 const COLOR_NEGATIVO = '#dc2626'
 
@@ -63,9 +62,9 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
   useEffect(() => {
     if (!clienteId || !ano) return
     setLoading(true)
-    const mesesParam = meses.length === 12 ? undefined : meses
+    const mesesParam = meses.length === 12 ? undefined : meses.join(',')
     trpc.bi.balanceteAnalise.query({ clienteId, ano, meses: mesesParam })
-      .then((result) => setData(result as AnaliseData))
+      .then((result: unknown) => setData(result as AnaliseData))
       .catch(() => setData(null))
       .finally(() => setLoading(false))
   }, [clienteId, ano, meses])
@@ -139,7 +138,7 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
                   interval={0}
                 />
                 <Tooltip
-                  formatter={(val: number) => [fmtCurrency(val), 'Valor']}
+                  formatter={(val) => [fmtCurrency(Number(val)), 'Valor']}
                   labelFormatter={(label) => label}
                   contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)' }}
                 />
@@ -148,7 +147,7 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
                   <LabelList
                     dataKey="valor"
                     position="right"
-                    formatter={(v: number) => fmtCurrency(v)}
+                    formatter={(v) => fmtCurrency(Number(v))}
                     style={{ fontSize: 10, fill: 'var(--foreground)' }}
                   />
                 </Bar>
@@ -196,7 +195,7 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
                 interval={0}
               />
               <Tooltip
-                formatter={(_v: number, _name: string, item: { payload?: { valor: number; percentual: number } }) =>
+                formatter={(_v, _name, item) =>
                   [`${fmtSigned(item.payload?.valor ?? 0)} (${(item.payload?.percentual ?? 0).toFixed(2)}%)`, 'Valor']}
                 contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)' }}
               />
@@ -263,9 +262,9 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
                   tickFormatter={v => `${v}%`}
                 />
                 <Tooltip
-                  formatter={(val: number, name: string) => {
-                    if (name === 'variacao') return [`${val !== null && val !== undefined ? val.toFixed(0) : '-'}%`, 'Variação Mensal']
-                    return [fmtCurrency(val), 'Indicador Selecionado']
+                  formatter={(val, name) => {
+                    if (name === 'variacao') return [`${val !== null && val !== undefined ? Number(val).toFixed(0) : '-'}%`, 'Variação Mensal']
+                    return [fmtCurrency(Number(val)), 'Indicador Selecionado']
                   }}
                   contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)' }}
                 />
@@ -273,7 +272,7 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
                   <LabelList
                     dataKey="valor"
                     position="top"
-                    formatter={(v: number) => v !== 0 ? `R$ ${fmtCompact(v)}` : ''}
+                    formatter={(v) => Number(v) !== 0 ? `R$ ${fmtCompact(Number(v))}` : ''}
                     style={{ fontSize: 9, fill: 'var(--foreground)' }}
                   />
                 </Bar>
@@ -286,7 +285,7 @@ export function BiAnalise({ clienteId, ano, meses }: BiAnaliseProps) {
                   <LabelList
                     dataKey="variacao"
                     position="top"
-                    formatter={(v: number | null) => v !== null && v !== undefined ? `${v.toFixed(0)}%` : ''}
+                    formatter={(v) => v !== null && v !== undefined ? `${Number(v).toFixed(0)}%` : ''}
                     style={{ fontSize: 9, fill: colorVariacao, fontWeight: 600 }}
                   />
                 </Line>

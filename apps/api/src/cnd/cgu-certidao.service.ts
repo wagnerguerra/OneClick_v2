@@ -114,7 +114,7 @@ export class CguCertidaoService {
       if (texto.includes('inválido')) {
         await browser.close()
         const msg = 'CNPJ/CPF inválido'
-        await this.salvar(doc, null, false, null, msg, null, null, clienteId, userId)
+        await this.salvar(doc, null, false, null, msg, null, null, clienteId ?? null, userId ?? null)
         return { sucesso: false, mensagem: msg, tipo: null }
       }
 
@@ -184,7 +184,7 @@ export class CguCertidaoService {
         if (cli) { razaoSocial = cli.razaoSocial; resolvedClienteId = cli.id }
       }
 
-      await this.salvar(doc, razaoSocial, sucesso, tipo, mensagem, situacao, pdfBase64, resolvedClienteId, userId)
+      await this.salvar(doc, razaoSocial, sucesso, tipo, mensagem, situacao, pdfBase64, resolvedClienteId, userId ?? null)
       return { sucesso, mensagem, tipo }
     } catch (e) {
       await browser.close()

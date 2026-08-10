@@ -10,7 +10,6 @@
  * (ex: "Constituição de Cliente Mensal" contém vários serviços top-level).
  */
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Loader2, Edit, Trash2, Layers, Search, GripVertical, X,
   MoreVertical,
@@ -65,7 +64,6 @@ interface Grupo {
 const PALETA_PADRAO = ['#10b981', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ec4899', '#ef4444', '#22c55e', '#06b6d4']
 
 export default function GruposPage() {
-  const router = useRouter()
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')

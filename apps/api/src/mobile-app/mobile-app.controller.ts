@@ -3,6 +3,16 @@ import type { Response } from 'express'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
+/** Uma versão do app disponível pra download (item do histórico exibido no dashboard). */
+export interface VersionEntry {
+  url: string
+  file: string
+  version: string | null
+  build: number | null
+  sizeMb: number
+  mtime: string
+}
+
 /**
  * Distribuição do app mobile (OneClick ERP — Android/iOS) pelo dashboard.
  *
@@ -48,15 +58,6 @@ export class MobileAppController {
   @Get()
   info() {
     const dir = this.getDistPath()
-
-    interface VersionEntry {
-      url: string
-      file: string
-      version: string | null
-      build: number | null
-      sizeMb: number
-      mtime: string
-    }
 
     let versions: VersionEntry[] = []
     if (fs.existsSync(dir)) {

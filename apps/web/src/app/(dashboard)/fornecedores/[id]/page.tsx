@@ -8,6 +8,43 @@ import { trpc } from '@/lib/trpc'
 import { FornecedorForm } from '../_components/fornecedor-form'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
+interface FornecedorGetByIdResult {
+  code: number
+  razaoSocial: string
+  nomeFantasia: string | null
+  documento: string
+  tipoDocumento: string
+  inscricaoEstadual: string | null
+  inscricaoMunicipal: string | null
+  tipoFornecedor: string
+  categoria: string | null
+  categoriaIds: string[] | null
+  logoUrl: string | null
+  risco: string | null
+  avaliacaoObrigatoria: boolean | null
+  telefone: string | null
+  celular: string | null
+  email: string | null
+  site: string | null
+  contatoPrincipal: string | null
+  cargoContato: string | null
+  cep: string | null
+  logradouro: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
+  cidade: string | null
+  uf: string | null
+  banco: string | null
+  agencia: string | null
+  conta: string | null
+  tipoConta: string | null
+  pixChave: string | null
+  pixTipo: string | null
+  observacoes: string | null
+  isActive: boolean
+}
+
 export default function EditFornecedorPage() {
   const params = useParams<{ id: string }>()
   const { profile } = useCurrentUserProfile()
@@ -19,7 +56,7 @@ export default function EditFornecedorPage() {
     if (!params.id) return
     trpc.fornecedor.getById
       .query({ id: params.id })
-      .then((data) => {
+      .then((data: FornecedorGetByIdResult) => {
         setFornecedor({
           code: data.code,
           razaoSocial: data.razaoSocial,

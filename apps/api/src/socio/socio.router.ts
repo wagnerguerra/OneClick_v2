@@ -213,6 +213,9 @@ export function createSocioRouter(socioService: SocioService, cnpjService: CnpjS
             participacao,
             clienteId: input.clienteId,
             observacoes: `Importado via ${result.fonte} — ${s.qualificacao}${pctPdf != null ? ' (% do PDF Sitfis)' : ''}`,
+            assinaNaEmpresa: false,
+            responsavelLegal: false,
+            isActive: true,
           }, ctx.userId, ctx.isMaster ?? false, ctx.empresaId, ctx.tenantSchema)
           existentes.push({ cpf: s.cpfCnpj || '', nome: s.nome })
           imported++

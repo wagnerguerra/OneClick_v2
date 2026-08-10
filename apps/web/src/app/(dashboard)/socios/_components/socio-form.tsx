@@ -89,7 +89,7 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
   })
 
   useEffect(() => {
-    trpc.cliente.listForSelect.query().then(c => setClientes(c as SelectOption[])).catch(() => {})
+    trpc.cliente.listForSelect.query().then((c: unknown) => setClientes(c as SelectOption[])).catch(() => {})
   }, [])
 
   const loadArquivos = useCallback(async () => {
@@ -131,7 +131,7 @@ export function SocioForm({ mode, socioId, title, description, icon, defaultValu
           formData.append('file', file)
           const res = await fetch(`${getApiUrl()}/api/upload`, { method: 'POST', body: formData, credentials: 'include' })
           if (!res.ok) throw new Error('Falha no upload')
-          const { url, filename } = await res.json() as { url: string; filename: string }
+          const { url } = await res.json() as { url: string; filename: string }
           await trpc.socio.addArquivo.mutate({ socioId, fileName: file.name, fileUrl: url, fileSize: file.size, mimeType: file.type })
         } catch { alerts.error('Erro', `Falha ao enviar ${file.name}`) }
       }

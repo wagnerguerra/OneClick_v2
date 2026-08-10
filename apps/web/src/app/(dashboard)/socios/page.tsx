@@ -23,6 +23,10 @@ import { ImportModal } from './_components/import-modal'
 import { QsaImportModal } from './_components/qsa-import-modal'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import type { inferRouterOutputs } from '@trpc/server'
+import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
+
+type SocioListOutput = inferRouterOutputs<AppRouter>['socio']['list']
 
 interface Socio {
   id: string
@@ -46,7 +50,7 @@ export default function SociosPage() {
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
   const [sort, setSort] = useState<{ column: string; dir: SortDir }>({ column: 'nomeCompleto', dir: 'asc' })
-  const [data, setData] = useState<{ data: Socio[]; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean } | null>(null)
+  const [data, setData] = useState<SocioListOutput | null>(null)
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
   const [qsaOpen, setQsaOpen] = useState(false)
@@ -84,12 +88,13 @@ export default function SociosPage() {
   async function handleExport() {
     try {
       const all = await trpc.socio.exportAll.query() as (Socio & { cliente: { razaoSocial: string } | null })[]
-      exportToExcel(all.map(s => ({
+      const rows = all.map(s => ({
         Codigo: s.code, Nome: s.nomeCompleto, CPF: s.cpf,
         Tipo: TIPO_SOCIO_LABELS[s.tipoSocio] ?? s.tipoSocio,
         'Participação (%)': s.participacao ?? '', Empresa: s.cliente?.razaoSocial ?? '',
         Email: s.email ?? '',
-      })), 'socios')
+      }))
+      exportToExcel(rows, Object.keys(rows[0] ?? {}).map((h) => ({ header: h, accessor: h })), 'socios')
     } catch { alerts.error('Erro', 'Não foi possível exportar.') }
   }
 

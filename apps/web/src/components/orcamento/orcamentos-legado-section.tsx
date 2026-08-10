@@ -25,7 +25,7 @@ const fmtMoeda = (v: unknown) => {
 const fmtData = (v: string | null) => v ? new Date(v).toLocaleDateString('pt-BR') : null
 const servicoLabel = (o: OrcLegado) => {
   if (!o.itens.length) return '—'
-  const first = o.itens[0].descricao || o.itens[0].tipo || 'Serviço'
+  const first = o.itens[0]?.descricao || o.itens[0]?.tipo || 'Serviço'
   return o.itens.length > 1 ? `${first} +${o.itens.length - 1}` : first
 }
 

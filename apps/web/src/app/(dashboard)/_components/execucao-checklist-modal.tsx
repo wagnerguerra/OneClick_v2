@@ -222,33 +222,6 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
     catch { /* silent */ }
   }
 
-  async function handleIgnorar(passoId: string) {
-    // Pede motivo opcional. alerts.input retorna null se cancelou.
-    const motivo = await alerts.input({
-      title: 'Ignorar passo',
-      text: 'Informe um motivo (opcional) para ignorar este passo.',
-      inputLabel: 'Motivo',
-      inputPlaceholder: 'Ex: cliente forneceu documento por outro canal',
-      confirmText: 'Ignorar passo',
-      icon: 'question',
-      inputType: 'textarea',
-    })
-    if (motivo === null) return // cancelado
-    // Update otimista
-    setExecucao(prev => prev ? {
-      ...prev,
-      passos: prev.passos.map(p => p.id === passoId ? { ...p, ignorado: true } : p),
-    } : prev)
-    try {
-      await (trpc.servico as any).ignorarPasso.mutate({ id: passoId, motivo: motivo || null })
-      recarregarSilencioso()
-      onChange?.()
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message)
-      recarregarSilencioso()
-    }
-  }
-
   async function handleDesfazerIgnorar(passoId: string) {
     // Update otimista
     setExecucao(prev => prev ? {

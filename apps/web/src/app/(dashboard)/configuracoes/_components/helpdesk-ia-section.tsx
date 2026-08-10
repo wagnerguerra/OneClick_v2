@@ -154,8 +154,10 @@ export function HelpdeskIaSection() {
 
   function atualizarFaixa(tipo: 'faixasChars' | 'faixasAnexos', idx: number, campo: keyof Faixa, valor: string) {
     const arr = [...regras[tipo]]
+    const atual = arr[idx]
+    if (!atual) return
     const num = valor === '' ? null : Number(valor)
-    arr[idx] = { ...arr[idx], [campo]: num }
+    arr[idx] = { ...atual, [campo]: num }
     setRegras({ ...regras, [tipo]: arr })
   }
 
@@ -413,8 +415,8 @@ export function HelpdeskIaSection() {
                 <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={v => `$${v.toFixed(2)}`} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
                 <Tooltip
-                  formatter={(value: number, name: string) => {
-                    if (name === 'totalUsd') return [`US$ ${value.toFixed(4)}`, 'Gasto']
+                  formatter={(value, name) => {
+                    if (name === 'totalUsd') return [`US$ ${Number(value).toFixed(4)}`, 'Gasto']
                     if (name === 'tickets') return [value, 'Tickets']
                     return [value, name]
                   }}

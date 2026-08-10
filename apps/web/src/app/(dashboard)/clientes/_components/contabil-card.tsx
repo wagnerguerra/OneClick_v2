@@ -54,7 +54,6 @@ function buildTree(cats: Categoria[]) {
 function getRootNodes(children: Map<string | null, Categoria[]>) {
   const roots = children.get(null) || []
   // Also include nodes whose parent doesn't exist
-  const allParents = new Set([...children.keys()].filter(Boolean))
   for (const [, arr] of children) {
     for (const c of arr) {
       if (c.parentConta && !children.has(c.parentConta) && !roots.includes(c)) {
@@ -78,7 +77,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [showOnlyAtivo, setShowOnlyAtivo] = useState(false)
-  const [linkToken, setLinkToken] = useState<string | null>(null)
+  const [, setLinkToken] = useState<string | null>(null)
   const [periodos, setPeriodos] = useState<Array<{ periodo: string; total: number }>>([])
 
   const fetchData = useCallback(async () => {

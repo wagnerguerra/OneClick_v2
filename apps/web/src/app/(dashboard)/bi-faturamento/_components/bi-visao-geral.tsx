@@ -15,8 +15,6 @@ const GREEN = 'rgba(16, 185, 129, 0.85)'
 const GREEN_SOLID = '#10b981'
 const RED = 'rgba(239, 68, 68, 0.85)'
 const RED_SOLID = '#ef4444'
-const AMBER = 'rgba(245, 158, 11, 0.85)'
-const BLUE = 'rgba(59, 130, 246, 0.85)'
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -128,15 +126,6 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
             {p.name === 'custos' ? 'Custos Fixos' : p.name === 'despesas' ? 'Despesas Op.' : p.name}: <span className="font-semibold">{formatCurrency(p.value)}</span>
           </p>
         ))}
-      </div>
-    )
-  }
-
-  const FonteTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.[0]) return null
-    return (
-      <div className="rounded-lg border bg-white dark:bg-card px-3 py-2 shadow-md">
-        <p className="text-[11px] font-semibold">{formatCurrency(payload[0].value)}</p>
       </div>
     )
   }
@@ -361,7 +350,7 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                       <ResponsiveContainer width="100%" height={220}>
                         <PieChart>
                           <Pie data={donutData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value"
-                            label={({ cx, cy, midAngle, innerRadius, outerRadius, value }) => {
+                            label={({ cx, cy, midAngle = 0, innerRadius, outerRadius, value }) => {
                               const RADIAN = Math.PI / 180
                               const radius = innerRadius + (outerRadius - innerRadius) * 0.5
                               const x = cx + radius * Math.cos(-midAngle * RADIAN)
@@ -373,7 +362,7 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                             <Cell fill={GREEN_SOLID} stroke={GREEN_SOLID} />
                             <Cell fill={RED_SOLID} stroke={RED_SOLID} />
                           </Pie>
-                          <Tooltip formatter={(value: number) => `${value}%`} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid var(--border)' }} />
+                          <Tooltip formatter={(value) => `${value}%`} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid var(--border)' }} />
                         </PieChart>
                       </ResponsiveContainer>
                       <div className="flex flex-col gap-2 w-full mt-1">

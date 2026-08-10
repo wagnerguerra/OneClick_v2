@@ -102,7 +102,8 @@ export default function AssinaturaTemplatePage() {
       .then((list: Array<{ id: string; razaoSocial: string; nomeFantasia: string | null }>) => {
         const opts = list.map(e => ({ id: e.id, name: e.nomeFantasia ?? e.razaoSocial }))
         setEmpresas(opts)
-        if (opts.length > 0 && !empresaId) setEmpresaId(opts[0].id)
+        const first = opts[0]
+        if (first && !empresaId) setEmpresaId(first.id)
       })
       .catch(() => { /* sem permissão */ })
   }, [isMaster, empresaId])

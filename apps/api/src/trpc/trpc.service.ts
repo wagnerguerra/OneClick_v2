@@ -740,7 +740,10 @@ export class TrpcService {
     this.appRouter = this.createRouter()
   }
 
-  private createRouter() {
+  // Público (não privado) de propósito: o `apps/web` deriva `AppRouter` do tipo de
+  // retorno deste método via `dist-types` (build:types). Método privado é emitido sem
+  // tipo no .d.ts, degradando o AppRouter pra `any`. Ver tsconfig.types.json + typesVersions.
+  public createRouter() {
     return router({
       health: publicProcedure.query(() => {
         return { status: 'ok', timestamp: new Date().toISOString() }

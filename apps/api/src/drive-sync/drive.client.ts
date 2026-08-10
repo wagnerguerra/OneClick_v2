@@ -1,8 +1,6 @@
-import { google, drive_v3, Auth } from 'googleapis'
+import { google, drive_v3 } from 'googleapis'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-
-const { OAuth2Client } = Auth
 
 /**
  * Cliente Google Drive autenticado.
@@ -72,7 +70,7 @@ export class DriveClient {
       const creds = JSON.parse(fs.readFileSync(credsPath, 'utf8'))
       const { client_id, client_secret } = (creds.installed ?? creds.web ?? {}) as { client_id?: string; client_secret?: string }
       if (!client_id || !client_secret) return null
-      const oauth2Client = new OAuth2Client(client_id, client_secret)
+      const oauth2Client = new google.auth.OAuth2(client_id, client_secret)
       oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN! })
       const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
       const r = await oauth2.userinfo.get()
@@ -189,7 +187,7 @@ export class DriveClient {
     if (!block?.client_id || !block?.client_secret) {
       throw new Error(`OAuth: ${credsPath} não contém installed.client_id/client_secret. Esperado JSON de OAuth Client (Desktop ou Web).`)
     }
-    const oauth2Client = new OAuth2Client(block.client_id, block.client_secret)
+    const oauth2Client = new google.auth.OAuth2(block.client_id, block.client_secret)
     oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN! })
     return google.drive({ version: 'v3', auth: oauth2Client })
   }

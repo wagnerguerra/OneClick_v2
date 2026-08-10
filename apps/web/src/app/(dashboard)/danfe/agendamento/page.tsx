@@ -105,13 +105,14 @@ const SCHEDULERS: Array<{ slug: SchedulerSlug; label: string; icon: typeof Recei
 ]
 
 function StatusBadge({ status }: { status: string }) {
+  const rodando = { cls: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900/50', icon: Loader2, label: 'Rodando' }
   const variants: Record<string, { cls: string; icon: typeof CheckCircle2; label: string }> = {
     OK:      { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50', icon: CheckCircle2, label: 'OK' },
     ERRO:    { cls: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50', icon: XCircle, label: 'Erro' },
     PARCIAL: { cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50', icon: AlertCircle, label: 'Parcial' },
-    RODANDO: { cls: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900/50', icon: Loader2, label: 'Rodando' },
+    RODANDO: rodando,
   }
-  const v = variants[status] ?? variants.RODANDO
+  const v = variants[status] ?? rodando
   const Icon = v.icon
   return (
     <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-medium', v.cls)}>

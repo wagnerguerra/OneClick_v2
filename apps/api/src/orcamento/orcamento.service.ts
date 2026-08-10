@@ -1,5 +1,5 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
-import { prisma } from '@saas/db'
+import { prisma, Prisma } from '@saas/db'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
 import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj, resolveOrcamentoScope } from '@saas/types'
 import * as XLSX from 'xlsx'
@@ -68,7 +68,11 @@ export class OrcamentoService {
     private readonly processoService: ProcessoService,
     private readonly notificationService: NotificationService,
     private readonly events: OrcamentoEventsService,
-  ) {}
+  ) {
+    // Injetado para manter o wiring de DI (forwardRef quebra ciclo com Pesquisa);
+    // sem leitura direta hoje. Ref no-op evita erro de "declarado e não usado".
+    void this.pesquisaService
+  }
 
   /** Helper interno — emite evento SSE pra todos os clientes conectados. */
   private emitEvent(

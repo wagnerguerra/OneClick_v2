@@ -273,7 +273,7 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
   importingLegado: boolean; setImportingLegado: (v: boolean) => void
 }) {
   const [activeTab, setActiveTab] = useState('dados')
-  const [permSearchQuery, setPermSearchQuery] = useState('')
+  const [, setPermSearchQuery] = useState('')
   const [permGroupTab, setPermGroupTab] = useState(Object.keys(MODULE_GROUPS)[0] || 'Cadastros')
   const [permSaving, setPermSaving] = useState(false)
   const [permSaved, setPermSaved] = useState(false)

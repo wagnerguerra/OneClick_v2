@@ -44,7 +44,7 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
     if (!clienteId || !ano) return
     setLoading(true)
     trpc.bi.balanceteMatriz.query({ clienteId, ano, useParent })
-      .then((res) => { setData(res as MatrizResponse); setExpanded(new Set()) })
+      .then((res: unknown) => { setData(res as MatrizResponse); setExpanded(new Set()) })
       .catch(() => setData(null))
       .finally(() => setLoading(false))
   }, [clienteId, ano, useParent])

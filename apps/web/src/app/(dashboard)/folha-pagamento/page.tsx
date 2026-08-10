@@ -46,7 +46,7 @@ export default function FolhaPagamentoPage() {
   // Carregar clientes
   useEffect(() => {
     trpc.cliente.listForSelect.query()
-      .then((result) => {
+      .then((result: unknown) => {
         const all = result as Array<ClienteOption & { situacao?: string }>
         setClientes(all.filter(c => c.situacao === 'MENSAL'))
       })

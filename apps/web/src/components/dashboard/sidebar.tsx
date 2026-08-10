@@ -30,7 +30,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
   const logoSrc = '/logo-light.png'
 
   // Filtrar navigation baseado nas permissões do usuário
-  const { isMaster, isEmpresaMaster, allowedSlugs, permissions, role, loading: permsLoading } = useUserPermissions()
+  const { isMaster, isEmpresaMaster, allowedSlugs, permissions, role } = useUserPermissions()
   const ehLiderSetor = ['GESTOR', 'COORDENADOR', 'DIRETOR'].includes(role)
 
   const pathname = usePathname()

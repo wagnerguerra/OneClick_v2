@@ -102,7 +102,7 @@ interface LogEntry {
   message: string
 }
 
-interface JobState {
+export interface JobState {
   empresaId: string
   fase: 'conectando' | 'lendo_legado' | 'processando' | 'importando' | 'done' | 'error'
   total: number

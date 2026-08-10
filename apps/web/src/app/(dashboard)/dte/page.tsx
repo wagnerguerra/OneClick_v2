@@ -119,7 +119,7 @@ export default function DtePage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize] = useState(20)
 
   // Filtros da lista de mensagens
   const [msgSearch, setMsgSearch] = useState('')

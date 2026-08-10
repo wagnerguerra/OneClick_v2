@@ -818,8 +818,9 @@ export class CrmService {
     const existing = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
       `SELECT id FROM opcoes_cadastro WHERE tipo = 'CRM_CONFIG' AND valor LIKE '${key}=%' ${empresaId ? `AND empresa_id = '${empresaId}'` : ''} LIMIT 1`
     ).catch(() => [])
-    if (existing.length > 0) {
-      await prisma.$executeRawUnsafe(`UPDATE opcoes_cadastro SET valor = $1 WHERE id = $2`, `${key}=${value}`, existing[0].id)
+    const first = existing[0]
+    if (first) {
+      await prisma.$executeRawUnsafe(`UPDATE opcoes_cadastro SET valor = $1 WHERE id = $2`, `${key}=${value}`, first.id)
     } else {
       await prisma.$executeRawUnsafe(
         `INSERT INTO opcoes_cadastro (id, tipo, valor, empresa_id) VALUES (gen_random_uuid(), 'CRM_CONFIG', $1, $2)`,
@@ -875,6 +876,7 @@ export class CrmService {
     for (let i = 0; i < etapasAtivas.length - 1; i++) {
       const atual = etapasAtivas[i]
       const prox = etapasAtivas[i + 1]
+      if (!atual || !prox) continue
       const taxa = atual.count > 0 ? Math.round((prox.count / atual.count) * 100) : 0
       conversoes.push({ de: atual.nome, para: prox.nome, taxa })
     }
@@ -1007,9 +1009,12 @@ export class CrmService {
     // Calcular tempo entre eventos consecutivos
     for (const [, evs] of eventosPorOp) {
       for (let i = 0; i < evs.length - 1; i++) {
-        const etapaNome = evs[i].para
+        const cur = evs[i]
+        const next = evs[i + 1]
+        if (!cur || !next) continue
+        const etapaNome = cur.para
         if (!etapaNome) continue
-        const diffMs = new Date(evs[i + 1].createdAt).getTime() - new Date(evs[i].createdAt).getTime()
+        const diffMs = new Date(next.createdAt).getTime() - new Date(cur.createdAt).getTime()
         const diffDias = diffMs / 86400000
         if (temposPorEtapa.has(etapaNome)) {
           temposPorEtapa.get(etapaNome)!.push(diffDias)

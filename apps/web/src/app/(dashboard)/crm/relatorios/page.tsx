@@ -158,7 +158,7 @@ function TabFunil({ dias }: { dias?: number }) {
         <Card className="col-span-5 p-4">
           <h3 className="text-[13px] font-semibold text-foreground mb-4">Funil Visual</h3>
           <div className="space-y-1.5">
-            {etapasChart.map((etapa: any, idx: number) => {
+            {etapasChart.map((etapa: any) => {
               const width = Math.max(30, (etapa.count / maxCount) * 100)
               return (
                 <div key={etapa.etapaId} className="flex items-center gap-2">
@@ -197,8 +197,8 @@ function TabFunil({ dias }: { dias?: number }) {
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatCompact(v)} />
                 <Tooltip
                   contentStyle={{ fontSize: 11, borderRadius: 8 }}
-                  formatter={(value: any, name: string) => [
-                    name === 'valor' ? formatCurrency(value) : value,
+                  formatter={(value, name) => [
+                    name === 'valor' ? formatCurrency(Number(value)) : value,
                     name === 'valor' ? 'Valor' : 'Quantidade',
                   ]}
                 />
@@ -528,7 +528,7 @@ function TabTempoMedio() {
                 {data.map((e: any) => (
                   <Cell key={e.etapaId} fill={e.cor || MODULE_COLOR} opacity={0.85} />
                 ))}
-                <LabelList dataKey="mediaDias" position="top" style={{ fontSize: 10, fontWeight: 600 }} formatter={(v: number) => `${v}d`} />
+                <LabelList dataKey="mediaDias" position="top" style={{ fontSize: 10, fontWeight: 600 }} formatter={(v) => `${v}d`} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>

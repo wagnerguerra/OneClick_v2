@@ -248,8 +248,8 @@ const LAYER_BG_CLASSES = [
   'bg-violet-50/60 dark:bg-violet-950/20',
 ]
 function getLayerBgClass(layer: number): string {
-  if (layer <= 0) return LAYER_BG_CLASSES[0]
-  return LAYER_BG_CLASSES[((layer - 1) % (LAYER_BG_CLASSES.length - 1)) + 1]
+  if (layer <= 0) return LAYER_BG_CLASSES[0] ?? ''
+  return LAYER_BG_CLASSES[((layer - 1) % (LAYER_BG_CLASSES.length - 1)) + 1] ?? ''
 }
 
 /** Conta quantos trilhos distintos existem (qtd. de níveis com pelo menos 1 passo). */
@@ -1144,13 +1144,14 @@ export default function ServicoDetailPage() {
                       )
                     })()}
                     {(() => {
+                      const priMedia = { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' }
                       const pri: Record<string, { bg: string; text: string; border: string }> = {
                         BAIXA:    { bg: 'bg-slate-100',   text: 'text-slate-700',  border: 'border-slate-200' },
-                        MEDIA:    { bg: 'bg-blue-100',    text: 'text-blue-800',   border: 'border-blue-200' },
+                        MEDIA:    priMedia,
                         ALTA:     { bg: 'bg-amber-100',   text: 'text-amber-800',  border: 'border-amber-300' },
                         URGENTE:  { bg: 'bg-rose-100',    text: 'text-rose-800',   border: 'border-rose-300' },
                       }
-                      const p = pri[prioridade] ?? pri.MEDIA
+                      const p = pri[prioridade] ?? priMedia
                       return (
                         <Badge className={cn('text-[11px] h-6 px-2.5 border shadow-sm font-medium', p.bg, p.text, p.border)}>
                           Prioridade {prioridade}
@@ -1322,11 +1323,11 @@ export default function ServicoDetailPage() {
                         <Label className="text-[13px] font-semibold">Tipo de cadastro</Label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                           {([
-                            { v: 'MENSAL' as const, key: 'MENSAL',     label: 'Serviço Recorrente',     desc: 'Serviço que precisa ser executado com uma determinada recorrência', tone: 'sky',    Icon: Repeat },
-                            { v: 'EXTRA'  as const, key: 'EXTRA',      label: 'Serviço Extraordinário', desc: 'Pontual — cobrança por execução',                                    tone: 'amber',  Icon: Zap },
-                            { v: 'FLUXO'  as const, key: 'FLUXO',      label: 'Parte do Fluxo',         desc: 'Item interno de outro serviço',                                      tone: 'violet', Icon: Network },
-                            { v: 'EXTRA'  as const, key: 'INTERNO',    label: 'Serviço Interno',        desc: 'Serviço de execução interna',                                        tone: 'slate',  Icon: Lock },
-                            { v: 'MENSAL' as const, key: 'ACESSORIA',  label: 'Obrigação Acessória',  desc: 'Obrigações que são entregues com uma certa recorrência',             tone: 'rose',   Icon: ShieldCheck },
+                            { v: 'MENSAL' as const, key: 'MENSAL',     label: 'Serviço Recorrente',     desc: 'Serviço que precisa ser executado com uma determinada recorrência', tone: 'sky'    as const, Icon: Repeat },
+                            { v: 'EXTRA'  as const, key: 'EXTRA',      label: 'Serviço Extraordinário', desc: 'Pontual — cobrança por execução',                                    tone: 'amber'  as const, Icon: Zap },
+                            { v: 'FLUXO'  as const, key: 'FLUXO',      label: 'Parte do Fluxo',         desc: 'Item interno de outro serviço',                                      tone: 'violet' as const, Icon: Network },
+                            { v: 'EXTRA'  as const, key: 'INTERNO',    label: 'Serviço Interno',        desc: 'Serviço de execução interna',                                        tone: 'slate'  as const, Icon: Lock },
+                            { v: 'MENSAL' as const, key: 'ACESSORIA',  label: 'Obrigação Acessória',  desc: 'Obrigações que são entregues com uma certa recorrência',             tone: 'rose'   as const, Icon: ShieldCheck },
                           ]).map(opt => {
                             const active = opt.key === 'INTERNO'
                               ? ehServicoInterno

@@ -35,6 +35,10 @@ import { masks } from '@/lib/masks'
 import { EnriquecerCnaeDialog } from './_components/enriquecer-cnae-dialog'
 import { SincronizarResponsaveisDialog } from './_components/sincronizar-responsaveis-dialog'
 import { useClientesPerms } from './_components/use-clientes-perms'
+import type { inferRouterOutputs } from '@trpc/server'
+import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
+
+type ClienteListOutput = inferRouterOutputs<AppRouter>['cliente']['list']
 
 interface Cliente {
   id: string; code: number; razaoSocial: string; nomeFantasia: string | null
@@ -90,7 +94,7 @@ export default function ClientesPage() {
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
   const [sort, setSort] = useState<SortState>({ column: 'razaoSocial', dir: 'asc' })
-  const [data, setData] = useState<{ data: Cliente[]; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean } | null>(null)
+  const [data, setData] = useState<ClienteListOutput | null>(null)
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
   const [enriquecimentoOpen, setEnriquecimentoOpen] = useState(false)
@@ -192,7 +196,7 @@ export default function ClientesPage() {
   const [filterArea, setFilterArea] = useState('')
   const [filterBeneficio, setFilterBeneficio] = useState('')
   const [debouncedNumero, setDebouncedNumero] = useState('')
-  const [filterOptions, setFilterOptions] = useState<{ grupos: string[]; cidades: string[]; estados: string[]; tipos: string[]; atividades: string[]; beneficios: string[]; areas: string[] }>({ grupos: [], cidades: [], estados: [], tipos: [], atividades: [], beneficios: [], areas: [] })
+  const [filterOptions, setFilterOptions] = useState<{ grupos: (string | null)[]; cidades: (string | null)[]; estados: (string | null)[]; tipos: (string | null)[]; atividades: string[]; beneficios: string[]; areas: string[] }>({ grupos: [], cidades: [], estados: [], tipos: [], atividades: [], beneficios: [], areas: [] })
 
   useEffect(() => {
     if (!filiaisModal) { setFiliais([]); return }

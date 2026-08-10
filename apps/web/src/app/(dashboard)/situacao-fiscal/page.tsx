@@ -25,16 +25,16 @@ interface Consulta {
   documento: string
   tipoDocumento: number
   razaoSocial: string | null
-  periodo: string | null
+  periodo?: string | null
   tipoCertidao: string | null
-  protocolo: string | null
+  protocolo?: string | null
   etapa: string
   sucesso: boolean
-  erro: string | null
+  erro?: string | null
   createdAt: string
   deletedAt?: string | null
-  cliente: { id: string; razaoSocial: string } | null
-  user: { id: string; name: string } | null
+  cliente?: { id: string; razaoSocial: string } | null
+  user?: { id: string; name: string } | null
 }
 
 const CERTIDAO_COLORS: Record<string, { bg: string; text: string; border: string }> = {

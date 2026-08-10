@@ -182,7 +182,7 @@ export class CndMunicipalService {
                   const ab = await res.arrayBuffer()
                   const arr = new Uint8Array(ab)
                   let hex = ''
-                  for (let i = 0; i < arr.length; i++) hex += arr[i].toString(16).padStart(2, '0')
+                  for (let i = 0; i < arr.length; i++) hex += (arr[i] ?? 0).toString(16).padStart(2, '0')
                   return hex
                 } catch { return null }
               }, pdfFullUrl)
@@ -356,7 +356,7 @@ export class CndMunicipalService {
 
       // Usar captcha raw interceptado (melhor qualidade) ou fallback para canvas
       const captchaHints = { caseSensitive: true, minLen: 5, maxLen: 6, lang: 'en' as const }
-      let captchaB64 = captchaRawB64
+      let captchaB64: string | null = captchaRawB64
       if (!captchaB64) {
         captchaB64 = await page.evaluate(`(function(){ var img = document.getElementById("${prefix}captchaimg"); if (!img) return null; var c = document.createElement("canvas"); c.width = img.naturalWidth || img.width; c.height = img.naturalHeight || img.height; c.getContext("2d").drawImage(img, 0, 0); return c.toDataURL("image/png").split(",")[1]; })()`) as string | null
       }
@@ -396,7 +396,7 @@ export class CndMunicipalService {
         await new Promise((r: (v: unknown) => void) => setTimeout(r, 3000))
 
         // Usar raw interceptado ou fallback canvas
-        let newCaptchaB64 = captchaRawB64
+        let newCaptchaB64: string | null = captchaRawB64
         if (!newCaptchaB64) {
           newCaptchaB64 = await page.evaluate(`(function(){ var img = document.getElementById("${prefix}captchaimg"); if (!img) return null; var c = document.createElement("canvas"); c.width = img.naturalWidth || img.width; c.height = img.naturalHeight || img.height; c.getContext("2d").drawImage(img, 0, 0); return c.toDataURL("image/png").split(",")[1]; })()`) as string | null
         }
@@ -450,7 +450,7 @@ export class CndMunicipalService {
               const ab = await res.arrayBuffer()
               const arr = new Uint8Array(ab)
               let hex = ''
-              for (let i = 0; i < arr.length; i++) hex += arr[i].toString(16).padStart(2, '0')
+              for (let i = 0; i < arr.length; i++) hex += (arr[i] ?? 0).toString(16).padStart(2, '0')
               return hex
             } catch { return null }
           }, pdfUrl)

@@ -69,7 +69,7 @@ function statusFromVal(val: number, limite: number): 'ok' | 'igual' | 'defasado'
   return 'defasado'
 }
 
-const STATUS_BADGE: Record<string, { bg: string; text: string; label: string }> = {
+const STATUS_BADGE: Record<'ok' | 'igual' | 'defasado' | 'sem', { bg: string; text: string; label: string }> = {
   ok: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'OK' },
   igual: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'IGUAL' },
   defasado: { bg: 'bg-red-100', text: 'text-red-700', label: 'DEFASADO' },
@@ -318,7 +318,7 @@ function MultiSeriesChart({ data, Charts, fullscreen }: { data: ChartData; Chart
   const sortedKeys = Array.from(labelsSet).sort()
   const labels = sortedKeys.map((k) => {
     const [y, m] = k.split('-')
-    return `${MESES_PT[Number(m) - 1]}/${y.slice(2)}`
+    return `${MESES_PT[Number(m) - 1]}/${(y ?? '').slice(2)}`
   })
 
   const seriesOf = (key: string): number[] => {
@@ -444,13 +444,15 @@ function IndicadorCard({ ind, rows, paramVal, Charts, fullscreen }: {
   const byMesAno: Record<number, Record<number, number>> = {}
   for (let m = 1; m <= 12; m++) byMesAno[m] = {}
   rows.forEach((r) => {
-    byMesAno[r.mes][r.ano] = (byMesAno[r.mes][r.ano] || 0) + Number(r.movimentacao || 0)
+    let inner = byMesAno[r.mes]
+    if (!inner) { inner = {}; byMesAno[r.mes] = inner }
+    inner[r.ano] = (inner[r.ano] || 0) + Number(r.movimentacao || 0)
   })
 
   const labels = MESES_PT
   const datasets = anos.map((ano, i) => ({
     label: String(ano),
-    data: labels.map((_, mi) => byMesAno[mi + 1][ano] || 0),
+    data: labels.map((_, mi) => byMesAno[mi + 1]?.[ano] || 0),
     backgroundColor: YEAR_COLORS[i % YEAR_COLORS.length] + 'cc',
     borderColor: YEAR_COLORS[i % YEAR_COLORS.length],
     borderWidth: 1,

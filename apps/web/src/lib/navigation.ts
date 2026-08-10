@@ -375,7 +375,7 @@ function groupColorVar(label: string): string {
  * Sub-itens (subItems) também são considerados — usam a cor do grupo pai.
  */
 export function getGroupHexForHref(href: string): string {
-  const pathClean = href.split('?')[0]!.split('#')[0]
+  const pathClean = href.split('?')[0]!.split('#')[0]!
   for (const group of navigation) {
     for (const item of group.items) {
       if (item.href === pathClean) return groupColorVar(group.label)

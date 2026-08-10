@@ -29,7 +29,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
-import { numeroParaMoeda, moedaParaNumero, masks } from '@/lib/masks'
+import { moedaParaNumero, masks } from '@/lib/masks'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { TarefaModal } from '../agenda/_components/tarefa-modal'
 
@@ -157,11 +157,6 @@ function novaOpTemConteudo(f: Record<string, unknown>): boolean {
 // Helpers
 // ============================================================
 
-function formatCurrency(v: number | null | undefined): string {
-  if (v == null) return 'R$ 0,00'
-  return `R$ ${numeroParaMoeda(v)}`
-}
-
 function diasDesde(dateStr: string): number {
   const d = new Date(dateStr)
   return Math.floor((Date.now() - d.getTime()) / 86400000)
@@ -181,22 +176,6 @@ function getSlaStatus(updatedAt: string, slaDias: number | null | undefined): { 
 // Stat Card
 // ============================================================
 
-function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: string; color: string }) {
-  return (
-    <Card className="relative overflow-hidden">
-      <div className="p-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}18` }}>
-          <Icon className="h-5 w-5" style={{ color }} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] text-muted-foreground uppercase tracking-wide truncate">{label}</p>
-          <p className="text-lg font-bold leading-tight mt-0.5">{value}</p>
-        </div>
-      </div>
-      <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ backgroundColor: color }} />
-    </Card>
-  )
-}
 
 // ============================================================
 // Main Page
@@ -209,7 +188,7 @@ export default function CrmPage() {
   const canManageConfig = !!(profile?.isMaster || profile?.isEmpresaMaster)
   const [etapas, setEtapas] = useState<Etapa[]>([])
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([])
-  const [stats, setStats] = useState<Stats | null>(null)
+  const [, setStats] = useState<Stats | null>(null)
   const [tags, setTags] = useState<Array<{ id: string; nome: string; cor: string; _count: { oportunidades: number } }>>([])
   const [opcoesAtividade, setOpcoesAtividade] = useState<Array<{ id: string; valor: string }>>([])
   const [opcoesOrigem, setOpcoesOrigem] = useState<Array<{ id: string; valor: string }>>([])
@@ -554,19 +533,6 @@ export default function CrmPage() {
     })
     return map
   }, [filteredOps, etapas])
-
-  const emNegociacao = useMemo(() => {
-    return oportunidades.filter(o => {
-      const et = etapas.find(e => e.id === o.etapaId)
-      return et && !et.ehGanho && !et.ehPerda
-    }).length
-  }, [oportunidades, etapas])
-
-  const taxaConversao = useMemo(() => {
-    if (!stats || stats.total === 0) return '0%'
-    const ganhos = stats.porEtapa.filter(e => e.ehGanho).reduce((s, e) => s + e.count, 0)
-    return `${((ganhos / stats.total) * 100).toFixed(1)}%`
-  }, [stats])
 
   // ── Create ──
   const formVazio = () => ({ titulo: '', descricao: '', valor: '', etapaId: etapas[0]?.id || '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '' })
@@ -1668,7 +1634,7 @@ export default function CrmPage() {
 // Detail Tab (inline edit)
 // ============================================================
 
-function DetailTab({ detail, etapas, clientes, onSave, onMove, saving, loadClientes, tags, opcoesAtividade, opcoesOrigem }: {
+function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesAtividade, opcoesOrigem }: {
   detail: OportunidadeDetail
   etapas: Etapa[]
   clientes: ClienteSelect[]
@@ -1693,7 +1659,7 @@ function DetailTab({ detail, etapas, clientes, onSave, onMove, saving, loadClien
   const [contatoCargo, setContatoCargo] = useState((detail as any).contatoCargo || '')
   const [contatoTelefone, setContatoTelefone] = useState((detail as any).contatoTelefone || '')
   const [contatoEmail, setContatoEmail] = useState((detail as any).contatoEmail || '')
-  const [dirty, setDirty] = useState(false)
+  const [, setDirty] = useState(false)
   const [activeTagId, setActiveTagId] = useState((detail as any).tags?.[0]?.tagId || '')
 
   useEffect(() => { loadClientes() }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -2117,7 +2083,7 @@ function KanbanCardOverlay({ op, diasDesde, velocityX, width }: { op: Oportunida
   )
 }
 
-function KanbanCardContent({ op, etapas, onMover, onDelete, diasDesde, showMenu, declinioDias = 30 }: {
+function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }: {
   op: Oportunidade; etapas: Etapa[]
   onMover: (id: string, etapaId: string) => void; onDelete: (id: string, titulo: string) => void; diasDesde: (d: string) => number; showMenu: boolean; declinioDias?: number
 }) {
@@ -2397,7 +2363,7 @@ function HistoricoTab({ eventos }: { eventos: Evento[] }) {
               {/* Icone na timeline */}
               <div
                 className={cn('relative z-10 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border-2 border-background', isFirst && 'ring-2 ring-offset-1')}
-                style={{ backgroundColor: `${config.color}18`, ringColor: isFirst ? config.color : undefined }}
+                style={{ backgroundColor: `${config.color}18` }}
               >
                 <Icon className="h-3.5 w-3.5" style={{ color: config.color }} />
               </div>
@@ -2500,7 +2466,7 @@ function SlaIndicator({ op, etapas, declinioDias = 30 }: { op: Oportunidade; eta
   )
 }
 
-function SortableEtapaRow({ etapa, idx, onSave, onChangeName, onChangeProb, onChangeSla, onDelete }: {
+function SortableEtapaRow({ etapa, onSave, onChangeName, onChangeSla, onDelete }: {
   etapa: Etapa; idx: number
   onSave: (id: string, data: { nome?: string; cor?: string; probabilidade?: number; slaDias?: number | null }) => void
   onChangeName: (id: string, nome: string) => void

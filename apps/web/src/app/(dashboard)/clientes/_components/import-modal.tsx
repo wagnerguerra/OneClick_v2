@@ -37,8 +37,8 @@ const CLIENTE_COLUMNS: ColumnMapping[] = [
 ]
 
 // Mapeamento de valores do Excel para enums do Prisma
-function mapSituacao(val: string): string {
-  const map: Record<string, string> = {
+function mapSituacao(val: string): CreateClienteInput['situacao'] {
+  const map: Record<string, CreateClienteInput['situacao']> = {
     'MENSAL': 'MENSAL', 'EM CONSTITUICAO': 'EM_CONSTITUICAO', 'EM CONSTITUIÇÃO': 'EM_CONSTITUICAO',
     'POTENCIAL': 'POTENCIAL', 'AVULSO': 'AVULSO', 'PARALIZADO': 'PARALIZADO',
     'PRE OPERACIONAL': 'PRE_OPERACIONAL', 'PRÉ OPERACIONAL': 'PRE_OPERACIONAL', 'PROSPECT': 'PROSPECT',
@@ -60,7 +60,7 @@ function mapRegime(val: string): string | undefined {
   return map[val?.toUpperCase()?.trim()] || undefined
 }
 
-function mapTipoDocumento(val: string): string {
+function mapTipoDocumento(val: string): CreateClienteInput['tipoDocumento'] {
   return val?.toUpperCase()?.trim() === 'CPF' ? 'CPF' : 'CNPJ'
 }
 

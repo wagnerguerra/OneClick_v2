@@ -115,7 +115,7 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
     setLoadingLogs(true)
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const certsP = (trpc as any).certificadoDigital.list.query({ clienteId, status: 'ATIVO' })
+      void (trpc as any).certificadoDigital.list.query({ clienteId, status: 'ATIVO' })
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .then((rows: any[]) => {
           const a1 = (rows ?? [])

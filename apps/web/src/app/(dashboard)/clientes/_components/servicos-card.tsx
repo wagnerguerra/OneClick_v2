@@ -370,7 +370,7 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
   clienteId: string
 }) {
   const [params, setParams] = useState<Parametro[]>([])
-  const [media, setMedia] = useState(0)
+  const [, setMedia] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [newTipo, setNewTipo] = useState('Geral')

@@ -818,7 +818,6 @@ function FluxoGraph({ execucoes, onChanged }: {
   const PAD = 16
 
   // Calcula nivel (depth) de cada execucao via BFS
-  const byId = new Map(execucoes.map(e => [e.id, e]))
   const childrenMap = new Map<string | null, Execucao[]>()
   for (const e of execucoes) {
     const k = e.predecessorExecucaoId
