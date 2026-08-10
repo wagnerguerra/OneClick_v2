@@ -1209,8 +1209,24 @@ export default function OrcamentosPage() {
                 clientes={clientes}
                 value={form.clienteId}
                 onSelect={v => setForm({ ...form, clienteId: v })}
-                placeholder="Selecione o cliente"
+                placeholder="Selecione o cliente ou digite o nome"
+                onCreate={async (nome) => {
+                  try {
+                    const novo = await (trpc.orcamento as any).criarClienteRapido.mutate({ nome }) as { id: string; razaoSocial: string; documento?: string | null } | null
+                    if (!novo) { alerts.error('Erro', 'Não foi possível cadastrar o cliente.'); return null }
+                    // Entra na lista já selecionado — sem isto o combobox
+                    // mostraria o campo vazio logo após cadastrar.
+                    setClientes(prev => prev.some(c => c.id === novo.id) ? prev : [...prev, { id: novo.id, razaoSocial: novo.razaoSocial, documento: novo.documento ?? null }])
+                    return novo.id
+                  } catch (e) {
+                    alerts.error('Erro ao cadastrar cliente', (e as Error).message)
+                    return null
+                  }
+                }}
               />
+              <p className="text-[11px] text-muted-foreground">
+                Cliente não cadastrado? Digite o nome — cadastramos automaticamente como prospect.
+              </p>
             </div>
 
             {/* Contato + E-mail do contato */}
