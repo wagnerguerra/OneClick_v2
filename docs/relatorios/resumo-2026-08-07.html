@@ -1,0 +1,185 @@
+<title>Resumo do dia — OneClick v2 · 07/08/2026</title>
+<style>
+  :root {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+    /* dots por bloco (cores dos módulos) */
+    --cadastros:#10b981; --comercial:#fb7185; --corporativo:#8b5cf6; --administrativo:#64748b;
+    --legalizacao:#0ea5e9; --trabalhista:#f97316; --fiscal:#6366f1; --contabil:#14b8a6;
+    --ti:#3b82f6; --qualidade:#f59e0b; --configuracoes:#64748b; --processos:#a855f7;
+    --faq:#22c55e; --perfil:#ec4899; --dashboard:#0ea5e9; --agenda:#8b5cf6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+      --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+      --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1411; --surface: #161d19; --ink: #e9efeb; --muted: #90a29a;
+    --border: #26302a; --accent: #34d399; --accent-deep: #5eead4;
+    --chip-bg: #1d261f; --chip-ink: #9fb0a7;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f8f7; --surface: #ffffff; --ink: #17211d; --muted: #5c6b64;
+    --border: #e4e9e6; --accent: #10b981; --accent-deep: #0f766e;
+    --chip-bg: #eef2f0; --chip-ink: #45544d;
+    --shadow: 0 1px 2px rgba(20,40,32,.04), 0 8px 24px -12px rgba(20,40,32,.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  header { animation: rise .5s ease-out both; }
+  .eyebrow {
+    text-transform: uppercase; letter-spacing: .13em; font-size: 11px; font-weight: 700;
+    color: var(--accent-deep); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px); line-height: 1.08; margin: 0 0 8px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+  .stat {
+    flex: 1 1 150px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .stat .n { font-size: 24px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  main { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+    animation: rise .5s ease-out both;
+  }
+  .card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .card-head h2 { font-size: 16px; margin: 0; letter-spacing: -.01em; font-weight: 700; }
+  .card-head .tag {
+    margin-left: auto; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+  }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  li { display: flex; gap: 10px; font-size: 14.5px; }
+  li::before {
+    content: ""; margin-top: 9px; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted); flex: none; opacity: .55;
+  }
+  li b { font-weight: 650; }
+  .hash {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 5px;
+    background: var(--chip-bg); color: var(--chip-ink); margin-left: 4px; vertical-align: baseline;
+  }
+
+  .note {
+    margin-top: 22px; border: 1px dashed var(--border); border-radius: 12px;
+    padding: 14px 18px; font-size: 13.5px; color: var(--muted); background: transparent;
+  }
+  .note b { color: var(--ink); }
+  footer { margin-top: 34px; text-align: center; color: var(--muted); font-size: 12px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Resumo do dia · sessão de desenvolvimento</p>
+    <h1>O que fizemos hoje no OneClick v2</h1>
+    <p class="sub">7 de agosto de 2026 — visão geral, sem entrar no detalhe.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n">30</div><div class="l">commits (locais)</div></div>
+    <div class="stat"><div class="n">22</div><div class="l">módulos com correção de isolamento</div></div>
+    <div class="stat"><div class="n">1</div><div class="l">tela nova</div></div>
+    <div class="stat"><div class="n">1</div><div class="l">integração no ar pela 1ª vez</div></div>
+  </div>
+
+  <main>
+    <section class="card" style="animation-delay:.05s">
+      <div class="card-head"><span class="dot" style="background:var(--trabalhista)"></span><h2>Espelho da Folha</h2><span class="tag">Trabalhista · entrega</span></div>
+      <ul>
+        <li><span><b>A folha do sistema contábil chegou ao OneClick pela primeira vez</b> — a competência de maio da FORMASET foi importada de ponta a ponta: 71 colaboradores, com proventos, descontos, INSS, FGTS e IRRF disponíveis na tela. Até ontem essa ligação existia só no papel. <span class="hash mono">a7ca2acb</span></span></li>
+        <li><span><b>Agora se pede um período inteiro, não um mês</b> — dá para buscar de janeiro a dezembro de uma vez. Cada mês é tratado separadamente, então um que falhe não leva os outros junto, e a tela diz exatamente qual deu problema. <span class="hash mono">98b62c55</span></span></li>
+        <li><span><b>A tela foi reorganizada em torno do uso real</b> — o cliente virou um campo de busca que mostra o nome inteiro; o período ficou ao lado do botão que o usa; e os relatórios (Resumo, Verbas, INSS…) só aparecem depois que existe o que mostrar. O acompanhamento da busca foi para uma coluna lateral, para não empurrar os números para baixo da tela. <span class="hash mono">eb495fe6</span> <span class="hash mono">cd8d41d7</span></span></li>
+        <li><span><b>A conexão com o sistema contábil deixou de ser configurada em dois lugares</b> — eram duas senhas para o mesmo banco, livres para divergir sem ninguém notar. Agora vale a que já existia no gerenciador de serviços. <span class="hash mono">a7ca2acb</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.10s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Serviços e Obrigações</h2><span class="tag">Cadastros · reformulação</span></div>
+      <ul>
+        <li><span><b>Obrigações acessórias passaram a morar no módulo de Serviços</b> — eram dois cadastros paralelos para coisas parecidas, com telas próprias e regras próprias. Agora há um lugar só, e o módulo se chama "Serviços e Obrigações". Trabalho do João Vitor. <span class="hash mono">b7e47fbd</span> <span class="hash mono">802705aa</span> <span class="hash mono">949720f2</span></span></li>
+        <li><span><b>Os grupos de serviços passaram a ter tipo</b> — Geral, Obrigações ou Orçamento —, e o botão "Aplicar grupo" ficou disponível tanto no cadastro do cliente quanto no orçamento. Em vez de incluir item por item, aplica-se o conjunto pronto. <span class="hash mono">e3c15275</span> <span class="hash mono">e2df9caf</span> <span class="hash mono">00ecaf08</span></span></li>
+        <li><span><b>O sistema antigo de modelos de obrigação foi aposentado</b> — os dados foram migrados para a nova estrutura antes da retirada, sem perda. <span class="hash mono">ab0e3fde</span> <span class="hash mono">8f729f83</span> <span class="hash mono">47dc3c7b</span></span></li>
+        <li><span><b>A área da obrigação deixou de ser uma lista fixa de três</b> — passou a usar as áreas cadastradas de verdade, com filtro e legenda acompanhando. <span class="hash mono">d4feece7</span> <span class="hash mono">e33b8f78</span> <span class="hash mono">e1f5a184</span> <span class="hash mono">ec27c8df</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.15s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Isolamento entre empresas</h2><span class="tag">correção</span></div>
+      <ul>
+        <li><span><b>Com uma empresa carregada, o sistema mostrava dados de outra</b> — a tela de Usuários da Central Contábil listava a equipe da JR Serviços. A varredura mostrou que o problema não era da tela: aparecia em <b>22 módulos</b>, entre eles Clientes, Compras, Fornecedores, Agenda e Orçamentos. Quem administra várias empresas tem o poder de <b>trocar</b> de empresa, não de ver todas somadas. <span class="hash mono">22a6c229</span></span></li>
+        <li><span><b>Conferido com dados reais antes de publicar</b> — com a Central carregada, a lista de usuários cai de 98 para 46 e nenhum contato da outra empresa aparece.</span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.20s">
+      <div class="card-head"><span class="dot" style="background:var(--cadastros)"></span><h2>Permissões em massa</h2><span class="tag">Cadastros · novo</span></div>
+      <ul>
+        <li><span><b>Liberar um módulo deixou de ser um usuário por vez</b> — os números explicam o tamanho da tarefa: 101 pessoas com permissão, mas só 33 combinações diferentes, e o maior grupo tem <b>40 pessoas com acesso idêntico</b>. Cada módulo novo era a mesma edição repetida 40 vezes. <span class="hash mono">6b770209</span></span></li>
+        <li><span><b>A tela mostra o menu do sistema de um lado e quem recebe do outro</b> — libera-se um bloco inteiro ou módulo a módulo, para todos, por área, por cargo ou por seleção. Quando parte do grupo já tem o acesso, isso é dito na tela em vez de fingir que está tudo igual. <span class="hash mono">7d1b7a7a</span> <span class="hash mono">98abbf35</span> <span class="hash mono">6f260a5b</span></span></li>
+        <li><span><b>O que a operação não faz, de propósito</b> — só mexe no que foi marcado, sem tocar no resto do acesso das pessoas, e não altera os ajustes finos feitos individualmente. Uma ação em massa que apagasse essa configuração destruiria trabalho sem ninguém perceber.</span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.25s">
+      <div class="card-head"><span class="dot" style="background:var(--administrativo)"></span><h2>Proteção do banco de dados</h2><span class="tag">correção</span></div>
+      <ul>
+        <li><span><b>Fechamos a causa do incidente de ontem</b> — a rotina que atualiza a estrutura do banco a cada publicação apagava tudo o que não reconhecia. Além das duas tabelas recuperadas ontem, outras três corriam o mesmo risco; a mais sensível guarda a conexão dos usuários com o Google Agenda, cuja perda não daria erro nenhum — a agenda simplesmente pararia de sincronizar. <span class="hash mono">64198c83</span></span></li>
+        <li><span><b>Também as ligações entre tabelas</b> — 11 vínculos e 2 índices eram derrubados no início de cada publicação e recriados minutos depois, deixando uma janela sem as travas de integridade, com o sistema já no ar. <span class="hash mono">eadf0d47</span></span></li>
+        <li><span><b>E uma armadilha na publicação seguinte</b> — a migração da área dos serviços apagaria o dado de 405 serviços antes de copiá-lo para o lugar novo. Rodamos a cópia antes e travamos o passo para não repetir. <span class="hash mono">88e6eb56</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card" style="animation-delay:.30s">
+      <div class="card-head"><span class="dot" style="background:var(--comercial)"></span><h2>Orçamentos e Clientes</h2><span class="tag">correção</span></div>
+      <ul>
+        <li><span><b>Escolher o subserviço voltou a ser opcional</b> — o campo passou a exigir escolha sempre que o serviço tivesse subdivisões, e isso travava orçamento que antes passava. Um serviço pode ser vendido inteiro; a decisão é de quem vende. <span class="hash mono">f321c671</span></span></li>
+        <li><span><b>Textos que confundiam foram corrigidos</b> — a mensagem de desvincular em lote no cliente falava em "templates de origem", termo que não existe para quem usa. <span class="hash mono">70935f97</span></span></li>
+        <li><span><b>Obrigação criada pela integração de entregas passou a nascer na empresa certa</b>. <span class="hash mono">c03bc848</span></span></li>
+      </ul>
+    </section>
+  </main>
+
+  <div class="note">
+    <b>Além do código:</b> a folha só rodou depois de uma investigação. O banco intermediário que
+    o processo usa apontava para um serviço na nuvem que não existe mais — e o backup dele estava
+    guardado dentro do próprio projeto, de junho. Restauramos, instalamos o que faltava na máquina
+    que roda a extração e a importação passou. Fica uma decisão para depois: esse banco hoje mora
+    na máquina do escritório, e enquanto for assim dois relatórios (Verbas e Provisões) não terão
+    dados quando abertos de fora.
+  </div>
+  <div class="note" style="margin-top:10px">
+    <b>Situação:</b> a reformulação de Serviços e Obrigações foi publicada na segunda de manhã.
+    O restante — Espelho da Folha, isolamento entre empresas, permissões em massa e as proteções
+    do banco — está pronto e aguarda a próxima publicação.
+  </div>
+
+  <footer>Resumo gerado ao fim da sessão · OneClick v2</footer>
+</div>
