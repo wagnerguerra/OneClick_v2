@@ -84,6 +84,46 @@ function matchEnumTributacao(search: string): Prisma.ClienteWhereInput[] {
   return matches
 }
 
+/**
+ * Farol da Gestão de Contratos — pontuação de 0 a 100 por descontos.
+ *
+ * Portado do SERPRO2 (`contratosController.js`), com os MESMOS pesos e limiares:
+ * o número que a diretoria já conhece não podia mudar de significado na
+ * migração. Cada critério que falha desconta; a cor sai da pontuação final.
+ *
+ * "Sem contrato" zera de uma vez, e não por soma: um cliente sem contrato não é
+ * "um pouco pior" que um com contrato vencido — é outra categoria.
+ */
+const PESO_FAROL = {
+  SEM_CONTRATO: 100,
+  VENCIDO: 28,
+  VENCE_CRITICO: 22,
+  VENCE_ATENCAO: 12,
+  SEM_ENTRADA: 8,
+  SEM_PARAMETROS: 10,
+  SEM_ERP: 10,
+  INDICADORES_MARGEM: 9,
+  INFO_EXTRA: 4,
+} as const
+
+/** ≥70% das linhas com parâmetro precisam estar dentro da margem. */
+const MARGEM_MIN_INDICADORES_PCT = 70
+
+/** Verde acima de 80, amarelo até 80, vermelho até 60 — como no legado. */
+function corDoFarol(score: number): 'verde' | 'amarelo' | 'vermelho' {
+  if (!Number.isFinite(score)) return 'amarelo'
+  if (score <= 60) return 'vermelho'
+  if (score <= 80) return 'amarelo'
+  return 'verde'
+}
+
+export interface ItemFarol {
+  id: string
+  titulo: string
+  ok: boolean
+  desconto: number
+}
+
 @Injectable()
 export class ClienteService {
   constructor(
@@ -1086,6 +1126,19 @@ export class ClienteService {
         FROM cliente_erp_snapshots s
         JOIN (SELECT cliente_id, MAX(mes) AS max_mes FROM cliente_erp_snapshots GROUP BY cliente_id) m
           ON m.cliente_id = s.cliente_id AND m.max_mes = s.mes
+      ),
+      -- Media dos ULTIMOS 3 MESES por indicador. O farol do SERPRO2 comparava a
+      -- media dos periodos importados com o parametro, e nao o ultimo mes: um
+      -- mes atipico sozinho acendia (ou apagava) o alerta sem motivo.
+      ult3 AS (
+        SELECT cliente_id, indicador, AVG(valor)::numeric AS media
+        FROM (
+          SELECT s.cliente_id, s.indicador, s.valor,
+                 ROW_NUMBER() OVER (PARTITION BY s.cliente_id, s.indicador ORDER BY s.mes DESC) AS rn
+          FROM cliente_erp_snapshots s
+        ) t
+        WHERE rn <= 3
+        GROUP BY cliente_id, indicador
       )
       SELECT c.id, c.code, c.documento, c.razao_social,
              p.honorario, p.faturamento,
@@ -1095,6 +1148,8 @@ export class ClienteService {
              COALESCE(p.permanente, false) AS contrato_permanente,
              p.dias_alerta_renovacao AS dias_alerta,
              ll.valor AS e_lanc, ns.valor AS e_nfs, vd.valor AS e_vidas,
+             m3l.media AS m_lanc, m3n.media AS m_nfs, m3v.media AS m_vidas,
+             c.data_entrada AS data_entrada,
              lm.max_mes AS ultima_consulta,
              (SELECT COUNT(DISTINCT mes) FROM cliente_erp_snapshots WHERE cliente_id = c.id) AS erp_meses,
              (SELECT COUNT(*) FROM cliente_arquivos WHERE cliente_id = c.id) AS anexos_count,
@@ -1103,6 +1158,9 @@ export class ClienteService {
       LEFT JOIN cliente_contrato_params p ON p.cliente_id = c.id
       LEFT JOIN (SELECT cliente_id, MAX(mes) AS max_mes FROM cliente_erp_snapshots GROUP BY cliente_id) lm
         ON lm.cliente_id = c.id
+      LEFT JOIN ult3 m3l ON m3l.cliente_id = c.id AND m3l.indicador = 'lancamentos'
+      LEFT JOIN ult3 m3n ON m3n.cliente_id = c.id AND m3n.indicador = 'nf_saida'
+      LEFT JOIN ult3 m3v ON m3v.cliente_id = c.id AND m3v.indicador = 'funcionarios'
       LEFT JOIN latest ll ON ll.cliente_id = c.id AND ll.indicador = 'lancamentos'
       LEFT JOIN latest ns ON ns.cliente_id = c.id AND ns.indicador = 'nf_saida'
       LEFT JOIN latest vd ON vd.cliente_id = c.id AND vd.indicador = 'vidas'
@@ -1117,6 +1175,8 @@ export class ClienteService {
       contrato_inicio: Date | null; contrato_fim: Date | null
       contrato_permanente: boolean; dias_alerta: number | null
       e_lanc: number | null; e_nfs: number | null; e_vidas: number | null
+      m_lanc: number | null; m_nfs: number | null; m_vidas: number | null
+      data_entrada: Date | string | null
       ultima_consulta: string | null; erp_meses: bigint | number | null
       anexos_count: bigint | number | null; tem_parametro: boolean
     }>>(sql, ...params)
@@ -1168,12 +1228,80 @@ export class ClienteService {
       // Contrato "vinculado" = tem alguma metadata de contrato preenchida.
       const temContrato = !!(r.contrato_numero || r.contrato_tipo || r.contrato_inicio || r.contrato_fim)
 
-      // Farol consolidado. Vermelho = ação urgente (defasado / vencido);
-      // amarelo = pendência (a vencer / sem consulta / sem baseline); verde = ok.
-      const farol: 'verde' | 'amarelo' | 'vermelho' =
-        situacao === 'defasado' || vigencia === 'vencido' ? 'vermelho'
-          : vigencia === 'vence_critico' || vigencia === 'vence_atencao' || situacao === 'sem_consulta' || situacao === 'sem_parametro' ? 'amarelo'
-            : 'verde'
+      // ── Farol pontuado (portado do SERPRO2) ──
+      // A ordem importa: os critérios de dado só são avaliados depois que o
+      // anterior passou. Cobrar "indicadores fora da margem" de quem nem tem
+      // parâmetro cadastrado seria descontar duas vezes pela mesma ausência.
+      const itens: ItemFarol[] = []
+      let desconto = 0
+      const marcar = (id: string, titulo: string, falhou: boolean, peso: number) => {
+        if (falhou) desconto += peso
+        itens.push({ id, titulo, ok: !falhou, desconto: falhou ? peso : 0 })
+      }
+
+      let farol: 'verde' | 'amarelo' | 'vermelho'
+      let score: number
+
+      if (!temContrato) {
+        marcar('sem_contrato', 'Contrato cadastrado', true, PESO_FAROL.SEM_CONTRATO)
+        score = 0
+        farol = 'vermelho'
+      } else {
+        if (vigencia === 'vencido') marcar('vencido', 'Contrato não vencido', true, PESO_FAROL.VENCIDO)
+        else if (vigencia === 'vence_critico') marcar('vence_critico', 'Prazo de renovação acima do alerta crítico', true, PESO_FAROL.VENCE_CRITICO)
+        else if (vigencia === 'vence_atencao') marcar('vence_atencao', 'Prazo de renovação acima do alerta amplo', true, PESO_FAROL.VENCE_ATENCAO)
+
+        marcar('entrada', 'Data de entrada comercial', !r.data_entrada, PESO_FAROL.SEM_ENTRADA)
+
+        if (!r.tem_parametro) {
+          marcar('parametros', 'Parâmetros iniciais do contrato', true, PESO_FAROL.SEM_PARAMETROS)
+        } else {
+          marcar('parametros', 'Parâmetros iniciais do contrato', false, 0)
+          const temErp = (Number(r.erp_meses) || 0) > 0
+          if (!temErp) {
+            marcar('erp', 'Dados importados do ERP (SCI)', true, PESO_FAROL.SEM_ERP)
+          } else {
+            marcar('erp', 'Dados importados do ERP (SCI)', false, 0)
+            // Margem: média dos últimos 3 meses do SCI contra o parâmetro, linha
+            // a linha. Passa com ≥70% das linhas dentro E menos de duas fora —
+            // duas linhas defasadas já pedem reavaliação, mesmo com o percentual
+            // salvo pelas demais.
+            const linhas = [
+              { p: r.p_lanc, m: r.m_lanc },
+              { p: r.p_nfs, m: r.m_nfs },
+              { p: r.p_func, m: r.m_vidas },
+            ]
+            let comParametro = 0, dentro = 0, defasados = 0
+            for (const l of linhas) {
+              const c = Number(l.p)
+              if (!Number.isFinite(c) || c <= 0) continue
+              comParametro++
+              const media = l.m == null ? null : Number(l.m)
+              if (media == null || !Number.isFinite(media)) continue
+              if (media <= c) dentro++
+              else defasados++
+            }
+            const minExigido = comParametro >= 1 ? Math.ceil((comParametro * MARGEM_MIN_INDICADORES_PCT) / 100) : 0
+            const margemOk = comParametro >= 1 && defasados < 2 && dentro >= minExigido
+            marcar(
+              'indicadores',
+              `Indicadores dentro da margem (≥${MARGEM_MIN_INDICADORES_PCT}%, média dos períodos SCI)`,
+              !margemOk,
+              PESO_FAROL.INDICADORES_MARGEM,
+            )
+          }
+        }
+
+        // Informação faltando que não é critério próprio — no legado, cada uma
+        // custava um desconto pequeno.
+        if (r.dias_alerta == null && !r.contrato_permanente) {
+          marcar('dias_alerta', 'Dias de alerta de renovação definidos', true, PESO_FAROL.INFO_EXTRA)
+        }
+
+        desconto = Math.min(100, desconto)
+        score = Math.max(0, 100 - desconto)
+        farol = corDoFarol(score)
+      }
 
       return {
         id: r.id,
@@ -1192,6 +1320,8 @@ export class ClienteService {
         vigencia,
         diasParaVencer,
         farol,
+        score,
+        farolItens: itens,
         ultimaConsulta: r.ultima_consulta,
         situacao,
         faturamento: r.faturamento != null ? Number(r.faturamento) : null,

@@ -5,14 +5,16 @@ import { useRouter } from 'next/navigation'
 import {
   FileText, Users, CheckCircle2, TrendingUp, Info, Search,
   FileDown, ArrowUpRight, ArrowDownRight, Loader2, CalendarClock,
-  SlidersHorizontal, Database, Paperclip, RefreshCcw, FileSignature,
+  SlidersHorizontal, Database, Paperclip, RefreshCcw, FileSignature, Activity, Check, X,
 } from 'lucide-react'
 import {
   Button, Card, Input, Badge,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { StatCard } from '@/components/stat-card'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 
@@ -36,6 +38,9 @@ type Registro = {
   vigencia: 'permanente' | 'sem_vigencia' | 'vigente' | 'vence_atencao' | 'vence_critico' | 'vencido'
   diasParaVencer: number | null
   farol: 'verde' | 'amarelo' | 'vermelho'
+  /** 0 a 100. Nasce em 100 e cada critério que falha desconta o peso dele. */
+  score: number
+  farolItens: Array<{ id: string; titulo: string; ok: boolean; desconto: number }>
   ultimaConsulta: string | null
   situacao: 'sem_parametro' | 'sem_consulta' | 'defasado' | 'em_dia'
   faturamento: number | null
@@ -54,6 +59,11 @@ type Registro = {
 type CellStatus = 'ok' | 'defasado' | 'sem_parametro' | 'sem_erp'
 
 type Resumo = { total: number; emDia: number; defasados: number; semParametro: number; vencidos: number; vencendo: number }
+
+/** Rótulo da cor, para o cabeçalho do detalhamento. */
+const FAROL_LABEL: Record<Registro['farol'], string> = {
+  verde: 'Em ordem', amarelo: 'Atenção', vermelho: 'Requer ação',
+}
 
 const FAROL_COR: Record<Registro['farol'], string> = {
   verde: '#10b981', amarelo: '#f59e0b', vermelho: '#f43f5e',
@@ -122,6 +132,7 @@ const SITUACAO_BADGE: Record<Registro['situacao'], { label: string; cls: string 
 
 export default function GestaoContratosPage() {
   const router = useRouter()
+  const [detalheFarol, setDetalheFarol] = useState<Registro | null>(null)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
@@ -260,8 +271,15 @@ export default function GestaoContratosPage() {
                     return (
                       <TableRow key={r.id} className="cursor-pointer" onClick={() => router.push(`/clientes/${r.id}`)}>
                         <TableCell className="text-center">
-                          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: FAROL_COR[r.farol] }}
-                            title={r.farol === 'vermelho' ? 'Requer ação' : r.farol === 'amarelo' ? 'Atenção' : 'Em ordem'} />
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setDetalheFarol(r) }}
+                            title={`${FAROL_LABEL[r.farol]} · ${r.score}% — clique para ver os indicadores`}
+                            className="inline-flex items-center gap-1.5 rounded-full px-1.5 py-0.5 hover:bg-muted/60"
+                          >
+                            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: FAROL_COR[r.farol] }} />
+                            <span className="text-[11px] font-semibold tabular-nums" style={{ color: FAROL_COR[r.farol] }}>{r.score}%</span>
+                          </button>
                         </TableCell>
                         <TableCell className="text-center text-xs text-muted-foreground">{r.numero}</TableCell>
                         <TableCell className="whitespace-nowrap text-sm tabular-nums">{fmtCnpj(r.documento)}</TableCell>
@@ -342,6 +360,62 @@ export default function GestaoContratosPage() {
           </div>
         )}
       </Card>
+
+      {/* Detalhamento do farol — o mesmo do SERPRO2: pontuação no topo e, abaixo,
+          cada critério com OK ou o quanto descontou. Sem isto o farol é uma cor
+          sem argumento, e ninguém sabe o que fazer para melhorá-la. */}
+      <Dialog open={!!detalheFarol} onOpenChange={(o) => { if (!o) setDetalheFarol(null) }}>
+        <DialogContent className="max-w-xl">
+          <DialogHeaderIcon icon={Activity} color="sky">
+            <DialogTitle className="text-[15px]">Indicadores do farol</DialogTitle>
+            <DialogDescription className="text-[11px]">{detalheFarol?.cliente ?? ''}</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            {detalheFarol && (
+              <>
+                <div className="mb-3 flex items-baseline justify-between border-b border-border pb-2">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {FAROL_LABEL[detalheFarol.farol]}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    Pontuação{' '}
+                    <b className="text-2xl tabular-nums" style={{ color: FAROL_COR[detalheFarol.farol] }}>
+                      {detalheFarol.score}%
+                    </b>
+                  </span>
+                </div>
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <th className="py-1.5 text-left font-semibold">Critério</th>
+                      <th className="py-1.5 text-right font-semibold">Resultado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detalheFarol.farolItens.map(it => (
+                      <tr key={it.id} className="border-b border-border/40">
+                        <td className="py-2 pr-3 text-foreground">{it.titulo}</td>
+                        <td className="py-2 text-right whitespace-nowrap">
+                          {it.ok
+                            ? <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><Check className="h-3.5 w-3.5" />OK</span>
+                            : <span className="inline-flex items-center gap-1 text-rose-500"><X className="h-3.5 w-3.5" />−{it.desconto} pts</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-3 text-[11px] text-muted-foreground">
+                  A pontuação começa em 100 e cada critério pendente desconta o próprio peso.
+                  Acima de 80 o farol fica verde; até 80, amarelo; até 60, vermelho.
+                </p>
+              </>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setDetalheFarol(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
