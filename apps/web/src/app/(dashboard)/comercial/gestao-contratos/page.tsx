@@ -19,6 +19,7 @@ import { cn } from '@saas/ui'
 import { StatCard } from '@/components/stat-card'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import { ParametrosContratoModal } from '@/components/contrato/parametros-contrato-modal'
 import { trpc } from '@/lib/trpc'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
@@ -131,18 +132,6 @@ function StatusIcon({ icon: Icon, active, title, count, tone = 'ok', onClick }: 
   )
 }
 
-/** Baseline do contrato — mesma ordem e mesmos rótulos do comparativo. */
-const CAMPOS_PARAMETRO = [
-  { key: 'honorario', label: 'Honorário (R$)' },
-  { key: 'faturamento', label: 'Faturamento (R$)' },
-  { key: 'lancamentos', label: 'Lançamentos' },
-  { key: 'nfEntrada', label: 'NF entrada' },
-  { key: 'nfSaida', label: 'NF saída' },
-  { key: 'nfPrestado', label: 'NF prestado' },
-  { key: 'nfTomado', label: 'NF tomado' },
-  { key: 'funcionarios', label: 'Vidas' },
-] as const
-
 /** Indicadores como o SCI os grava (chave) e como a tela os mostra (rótulo). */
 const INDICADORES_ERP = [
   { key: 'lancamentos', label: 'Lançamentos' },
@@ -244,47 +233,10 @@ export default function GestaoContratosPage() {
   // Cada pendência se resolve sem sair da lista, como no legado. Sair para o
   // cadastro e voltar por 8 números faria a varredura da carteira — que é o
   // trabalho desta tela — custar uma navegação por cliente.
-  const [paramsModal, setParamsModal] = useState<{ registro: Registro; valores: Record<string, string> } | null>(null)
-  const [salvandoParams, setSalvandoParams] = useState(false)
+  const [paramsDe, setParamsDe] = useState<Registro | null>(null)
   const [periodos, setPeriodos] = useState<{ registro: Registro; linhas: Array<{ mes: string; indicador: string; valor: number | null }> } | null>(null)
   const [editandoEntrada, setEditandoEntrada] = useState<{ registro: Registro; valor: string } | null>(null)
   const [salvandoEntrada, setSalvandoEntrada] = useState(false)
-
-  async function abrirParametros(r: Registro) {
-    try {
-      const p = await trpc.cliente.getContratoParams.query({ clienteId: r.id })
-      const num = (v: unknown) => (v == null ? '' : String(v))
-      setParamsModal({
-        registro: r,
-        valores: {
-          honorario: num(p?.honorario), faturamento: num(p?.faturamento),
-          lancamentos: num(p?.lancamentos), nfEntrada: num(p?.nfEntrada), nfSaida: num(p?.nfSaida),
-          nfPrestado: num(p?.nfPrestado), nfTomado: num(p?.nfTomado), funcionarios: num(p?.funcionarios),
-        },
-      })
-    } catch (e) {
-      alerts.error('Erro', e instanceof Error ? e.message : 'Não foi possível carregar os parâmetros.')
-    }
-  }
-
-  async function salvarParametros() {
-    if (!paramsModal) return
-    setSalvandoParams(true)
-    try {
-      const n = (k: string) => Number(String(paramsModal.valores[k] ?? '').replace(',', '.')) || 0
-      await trpc.cliente.saveContratoParams.mutate({
-        clienteId: paramsModal.registro.id,
-        honorario: n('honorario'), faturamento: n('faturamento'), lancamentos: n('lancamentos'),
-        nfEntrada: n('nfEntrada'), nfSaida: n('nfSaida'), nfPrestado: n('nfPrestado'),
-        nfTomado: n('nfTomado'), funcionarios: n('funcionarios'),
-      })
-      setParamsModal(null)
-      await carregar()
-      alerts.toast('Parâmetros salvos')
-    } catch (e) {
-      alerts.error('Erro', e instanceof Error ? e.message : 'Não foi possível salvar.')
-    } finally { setSalvandoParams(false) }
-  }
 
   async function abrirPeriodos(r: Registro) {
     try {
@@ -523,7 +475,7 @@ export default function GestaoContratosPage() {
                             )}
                             <StatusIcon icon={SlidersHorizontal} active={r.temParametro}
                               title={r.temParametro ? 'Parâmetros iniciais cadastrados — clique para editar' : 'Sem parâmetros iniciais — clique para cadastrar'}
-                              onClick={() => abrirParametros(r)} />
+                              onClick={() => setParamsDe(r)} />
                             <StatusIcon icon={Database} active={r.erpMeses > 0} count={r.erpMeses}
                               title={r.erpMeses > 0 ? `${r.erpMeses} período(s) do ERP (SCI) — clique para ver` : 'Nenhum período importado do ERP'}
                               onClick={() => abrirPeriodos(r)} />
@@ -751,47 +703,17 @@ export default function GestaoContratosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Parâmetros iniciais — a baseline com que todo o resto é comparado. */}
-      <Dialog open={!!paramsModal} onOpenChange={(o) => { if (!o) setParamsModal(null) }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeaderIcon icon={SlidersHorizontal} color="sky">
-            <DialogTitle className="text-[15px]">Parâmetros do contrato</DialogTitle>
-            <DialogDescription className="text-[11px]">
-              {paramsModal ? `${fmtCnpj(paramsModal.registro.documento)} · ${paramsModal.registro.cliente ?? ''}` : ''}
-            </DialogDescription>
-          </DialogHeaderIcon>
-          <DialogBody>
-            {paramsModal && (
-              <div className="grid grid-cols-2 gap-3">
-                {CAMPOS_PARAMETRO.map(c => (
-                  <div key={c.key} className="space-y-1.5">
-                    <label className="text-[13px] font-semibold" htmlFor={`par-${c.key}`}>{c.label}</label>
-                    <Input
-                      id={`par-${c.key}`}
-                      value={paramsModal.valores[c.key] ?? ''}
-                      inputMode="decimal"
-                      className="h-9 text-sm"
-                      onChange={e => setParamsModal({
-                        ...paramsModal,
-                        valores: { ...paramsModal.valores, [c.key]: e.target.value },
-                      })}
-                    />
-                  </div>
-                ))}
-                <p className="col-span-2 text-[11px] text-muted-foreground">
-                  Zero significa &quot;não acompanhar este indicador&quot; — ele sai da conta da margem em vez de contar como estourado.
-                </p>
-              </div>
-            )}
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setParamsModal(null)}>Cancelar</Button>
-            <Button variant="success" size="sm" onClick={salvarParametros} disabled={salvandoParams}>
-              {salvandoParams ? 'Salvando…' : 'Salvar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Mesmo modal da aba Comercial do cliente: metadata do contrato, a
+          baseline e o "Obter parametros iniciais", que puxa a média do SCI. */}
+      {paramsDe && (
+        <ParametrosContratoModal
+          clienteId={paramsDe.id}
+          open
+          onOpenChange={(o) => { if (!o) setParamsDe(null) }}
+          subtitulo={`${fmtCnpj(paramsDe.documento)} · ${paramsDe.cliente ?? ''}`}
+          onSaved={carregar}
+        />
+      )}
 
       {/* Períodos do SCI já importados, competência a competência. */}
       <Dialog open={!!periodos} onOpenChange={(o) => { if (!o) setPeriodos(null) }}>

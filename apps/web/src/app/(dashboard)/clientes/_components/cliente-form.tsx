@@ -28,6 +28,7 @@ import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
 import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
+import { ParametrosContratoModal } from '@/components/contrato/parametros-contrato-modal'
 import { OrcamentosTab } from './orcamentos-tab'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -47,7 +48,7 @@ import { ObrigacoesClienteSection } from './obrigacoes-cliente-section'
 import { ProtocolosCard } from './protocolos-card'
 import { DriveSyncCard } from './drive-sync-card'
 import { ContratoChartModal } from './contrato-charts'
-import { masks, numeroParaMoeda, moedaParaNumero, limparCnpj } from '@/lib/masks'
+import { masks, limparCnpj } from '@/lib/masks'
 import {
   createClienteSchema,
   SITUACAO_LABELS, SITUACAO_COLORS,
@@ -1743,15 +1744,6 @@ function ComercialCard({ register, control, watch, setValue, errors, chatMsg, se
 
 function ContratosPanel({ clienteId }: { clienteId?: string }) {
   const [showParamModal, setShowParamModal] = useState(false)
-  const [params, setParams] = useState({
-    honorario: 0, lancamentos: 0, faturamento: 0, nfEntrada: 0, nfSaida: 0, nfPrestado: 0, nfTomado: 0, funcionarios: 0,
-    // Metadata do contrato (Fase 2)
-    numero: '', tipo: '', dataInicio: '', dataFim: '', permanente: false, diasAlertaRenovacao: '', gestaoIgnorar: false,
-  })
-  const [loadingParams, setLoadingParams] = useState(false)
-  const [savingParams, setSavingParams] = useState(false)
-  const [fetchingSuggested, setFetchingSuggested] = useState(false)
-  const [suggestedInfo, setSuggestedInfo] = useState<string | null>(null)
 
   // Verificar no ERP
   const [showErpModal, setShowErpModal] = useState(false)
@@ -1767,73 +1759,17 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
   const [chartDatef, setChartDatef] = useState(() => { const d = new Date(); d.setDate(0); return d.toISOString().slice(0, 10) })
   const [chartData, setChartData] = useState<Record<string, unknown> | null>(null)
   const [chartLoading, setChartLoading] = useState(false)
+  /** Baseline do contrato só para as linhas de referência do gráfico — quem
+   *  edita é o ParametrosContratoModal. */
+  const [baseline, setBaseline] = useState({
+    honorario: 0, lancamentos: 0, faturamento: 0, nfEntrada: 0, nfSaida: 0, nfPrestado: 0, nfTomado: 0, funcionarios: 0,
+  })
 
   // Arquivos do contrato
   const [showFilesModal, setShowFilesModal] = useState(false)
   const [files, setFiles] = useState<Array<{ id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null; createdAt: string; user: { name: string } | null }>>([])
   const [filesLoaded, setFilesLoaded] = useState(false)
   const [uploading, setUploading] = useState(false)
-
-  async function openParamModal() {
-    if (!clienteId) return
-    setShowParamModal(true)
-    setLoadingParams(true)
-    setSuggestedInfo(null)
-    try {
-      const data = await trpc.cliente.getContratoParams.query({ clienteId })
-      if (data) {
-        const d = data as Record<string, unknown>
-        const num = (k: string) => Number(d[k]) || 0
-        const dateStr = (k: string) => (d[k] ? String(d[k]).slice(0, 10) : '')
-        setParams({
-          honorario: num('honorario'),
-          lancamentos: num('lancamentos'),
-          faturamento: num('faturamento'),
-          nfEntrada: num('nfEntrada'),
-          nfSaida: num('nfSaida'),
-          nfPrestado: num('nfPrestado'),
-          nfTomado: num('nfTomado'),
-          funcionarios: num('funcionarios'),
-          numero: d.numero ? String(d.numero) : '',
-          tipo: d.tipo ? String(d.tipo) : '',
-          dataInicio: dateStr('dataInicio'),
-          dataFim: dateStr('dataFim'),
-          permanente: !!d.permanente,
-          diasAlertaRenovacao: d.diasAlertaRenovacao != null ? String(d.diasAlertaRenovacao) : '',
-          gestaoIgnorar: !!d.gestaoIgnorar,
-        })
-      }
-    } catch {}
-    finally { setLoadingParams(false) }
-  }
-
-  async function fetchSuggested() {
-    if (!clienteId) return
-    setFetchingSuggested(true)
-    setSuggestedInfo(null)
-    try {
-      const result = await trpc.cliente.getParametrosSugeridos.query({ clienteId }) as {
-        parametros: Record<string, number>; periodo: { datai: string; dataf: string }; origem: string
-        mesesUsados?: string[]
-      }
-      setParams(prev => ({
-        ...prev,
-        lancamentos: result.parametros.lancamentos ?? prev.lancamentos,
-        faturamento: result.parametros.faturamento ?? prev.faturamento,
-        nfEntrada: result.parametros.nfEntrada ?? prev.nfEntrada,
-        nfSaida: result.parametros.nfSaida ?? prev.nfSaida,
-        nfPrestado: result.parametros.nfPrestado ?? prev.nfPrestado,
-        nfTomado: result.parametros.nfTomado ?? prev.nfTomado,
-        funcionarios: result.parametros.funcionarios ?? prev.funcionarios,
-      }))
-      const meses = result.mesesUsados ?? []
-      setSuggestedInfo(meses.length > 0
-        ? `Média dos últimos meses com movimento: ${meses.join(', ')}.`
-        : `Sem movimento no período consultado (${result.periodo.datai} a ${result.periodo.dataf}) — parâmetros vieram zerados.`)
-    } catch (e) {
-      alerts.error('Erro ao obter parametros', mensagemErro(e, 'Nao foi possivel consultar o SCI.'))
-    } finally { setFetchingSuggested(false) }
-  }
 
   function toggleErpIndicador(ind: string) {
     setErpIndicadores(prev => prev.includes(ind) ? prev.filter(i => i !== ind) : [...prev, ind])
@@ -1859,10 +1795,20 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
     try {
       // Sempre lê do snapshot (DB). Quem alimenta é o botão "Verificar no ERP",
       // que ao buscar do SCI também grava no DB.
-      const result = await trpc.cliente.getMetricasSnapshot.query({
-        clienteId, datai: chartDatei, dataf: chartDatef,
-      })
+      const [result, par] = await Promise.all([
+        trpc.cliente.getMetricasSnapshot.query({ clienteId, datai: chartDatei, dataf: chartDatef }),
+        trpc.cliente.getContratoParams.query({ clienteId }).catch(() => null),
+      ])
       setChartData(result as Record<string, unknown>)
+      if (par) {
+        const d = par as Record<string, unknown>
+        const n = (k: string) => Number(d[k]) || 0
+        setBaseline({
+          honorario: n('honorario'), lancamentos: n('lancamentos'), faturamento: n('faturamento'),
+          nfEntrada: n('nfEntrada'), nfSaida: n('nfSaida'), nfPrestado: n('nfPrestado'),
+          nfTomado: n('nfTomado'), funcionarios: n('funcionarios'),
+        })
+      }
     } catch (e) {
       alerts.error('Erro', mensagemErro(e, 'Nao foi possivel carregar dados para os graficos.'))
     } finally { setChartLoading(false) }
@@ -1965,30 +1911,6 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
     if (!chartData) loadChartData()
   }
 
-  async function saveParams() {
-    if (!clienteId) return
-    setSavingParams(true)
-    try {
-      await trpc.cliente.saveContratoParams.mutate({
-        clienteId,
-        honorario: params.honorario, lancamentos: params.lancamentos, faturamento: params.faturamento,
-        nfEntrada: params.nfEntrada, nfSaida: params.nfSaida, nfPrestado: params.nfPrestado,
-        nfTomado: params.nfTomado, funcionarios: params.funcionarios,
-        numero: params.numero || null,
-        tipo: params.tipo || null,
-        dataInicio: params.dataInicio || null,
-        dataFim: params.dataFim || null,
-        permanente: params.permanente,
-        diasAlertaRenovacao: params.diasAlertaRenovacao !== '' ? Number(params.diasAlertaRenovacao) : null,
-        gestaoIgnorar: params.gestaoIgnorar,
-      })
-      await alerts.success('Parametros salvos', 'Os parametros do contrato foram atualizados.')
-      setShowParamModal(false)
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message || 'Nao foi possivel salvar.')
-    } finally { setSavingParams(false) }
-  }
-
   return (
     <>
       <div className="-m-5">
@@ -2001,7 +1923,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
             <h4 className="font-semibold text-xs mb-1">Parametros</h4>
             <p className="text-[10px] text-muted-foreground mb-3">Parametros do contrato para acompanhamento no grafico.</p>
             <div className="flex flex-col gap-2 w-full">
-              <Button type="button" size="sm" onClick={openParamModal} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }} className="w-full">→ Atualizar Parametros</Button>
+              <Button type="button" size="sm" onClick={() => setShowParamModal(true)} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }} className="w-full">→ Atualizar Parametros</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setShowErpModal(true)} className="w-full"><ExternalLink className="h-3 w-3" /> Verificar no ERP</Button>
             </div>
           </div>
@@ -2022,134 +1944,14 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
         </div>
       </div>
 
-      {/* Modal de Parametros */}
-      {showParamModal && (
-        <>
-          <div className="fixed inset-0 z-50 bg-black/50 modal-overlay" onClick={() => setShowParamModal(false)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-card rounded-lg shadow-xl w-full max-w-lg modal-content" onClick={(e) => e.stopPropagation()}>
-              {/* Header */}
-              <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-                <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" /> Parametros do Contrato
-                </h4>
-                <button type="button" onClick={() => setShowParamModal(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
-              </div>
-              {/* Body */}
-              <div className="p-5">
-                {loadingParams ? (
-                  <div className="flex justify-center py-10"><div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
-                ) : (
-                  <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
-                  {/* Contrato (vínculo / vigência / renovação) */}
-                  <div className="rounded border border-border/60 p-3 space-y-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Contrato</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label>Número do contrato</Label>
-                        <Input placeholder="Ex.: 2024/001" value={params.numero} onChange={(e) => setParams(p => ({ ...p, numero: e.target.value }))} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Tipo / modalidade</Label>
-                        <Input placeholder="Ex.: Prestação de serviços" value={params.tipo} onChange={(e) => setParams(p => ({ ...p, tipo: e.target.value }))} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Início da vigência</Label>
-                        <Input type="date" value={params.dataInicio} onChange={(e) => setParams(p => ({ ...p, dataInicio: e.target.value }))} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Fim da vigência</Label>
-                        <Input type="date" value={params.dataFim} disabled={params.permanente}
-                          onChange={(e) => setParams(p => ({ ...p, dataFim: e.target.value }))} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Alerta de renovação (dias)</Label>
-                        <Input type="number" placeholder="30" value={params.diasAlertaRenovacao} disabled={params.permanente}
-                          onChange={(e) => setParams(p => ({ ...p, diasAlertaRenovacao: e.target.value }))} />
-                      </div>
-                      <div className="flex flex-col justify-end gap-2 pb-1">
-                        <label className="flex items-center gap-2 text-xs cursor-pointer">
-                          <input type="checkbox" className="h-3.5 w-3.5 rounded border-border" checked={params.permanente}
-                            onChange={(e) => setParams(p => ({ ...p, permanente: e.target.checked, ...(e.target.checked ? { dataFim: '' } : {}) }))} />
-                          Contrato permanente (sem prazo)
-                        </label>
-                        <label className="flex items-center gap-2 text-xs cursor-pointer">
-                          <input type="checkbox" className="h-3.5 w-3.5 rounded border-border" checked={params.gestaoIgnorar}
-                            onChange={(e) => setParams(p => ({ ...p, gestaoIgnorar: e.target.checked }))} />
-                          Ignorar no painel de gestão
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Baseline de parâmetros (comparação com o ERP) */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label>Honorário (R$)</Label>
-                      <Input
-                        placeholder="0,00"
-                        value={numeroParaMoeda(params.honorario)}
-                        onChange={(e) => { e.target.value = masks.moeda(e.target.value); setParams(p => ({ ...p, honorario: moedaParaNumero(e.target.value) || 0 })) }}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Lancamentos</Label>
-                      <Input type="number" placeholder="0" value={params.lancamentos || ''} onChange={(e) => setParams(p => ({ ...p, lancamentos: Number(e.target.value) || 0 }))} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Faturamento (R$)</Label>
-                      <Input
-                        placeholder="0,00"
-                        value={numeroParaMoeda(params.faturamento)}
-                        onChange={(e) => { e.target.value = masks.moeda(e.target.value); setParams(p => ({ ...p, faturamento: moedaParaNumero(e.target.value) || 0 })) }}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>NF Entrada</Label>
-                      <Input type="number" placeholder="0" value={params.nfEntrada || ''} onChange={(e) => setParams(p => ({ ...p, nfEntrada: Number(e.target.value) || 0 }))} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>NF Saida</Label>
-                      <Input type="number" placeholder="0" value={params.nfSaida || ''} onChange={(e) => setParams(p => ({ ...p, nfSaida: Number(e.target.value) || 0 }))} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>NF Prestado</Label>
-                      <Input type="number" placeholder="0" value={params.nfPrestado || ''} onChange={(e) => setParams(p => ({ ...p, nfPrestado: Number(e.target.value) || 0 }))} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>NF Tomado</Label>
-                      <Input type="number" placeholder="0" value={params.nfTomado || ''} onChange={(e) => setParams(p => ({ ...p, nfTomado: Number(e.target.value) || 0 }))} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Funcionarios</Label>
-                      <Input type="number" placeholder="0" value={params.funcionarios || ''} onChange={(e) => setParams(p => ({ ...p, funcionarios: Number(e.target.value) || 0 }))} />
-                    </div>
-                  </div>
-                  </div>
-                )}
-                {suggestedInfo && (
-                  <div className="mt-3 rounded bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
-                    {suggestedInfo}
-                  </div>
-                )}
-              </div>
-              {/* Footer */}
-              <div className="px-5 py-3 border-t border-border flex items-center justify-between">
-                <Button type="button" variant="outline" size="sm" onClick={fetchSuggested} disabled={fetchingSuggested || loadingParams}>
-                  {fetchingSuggested ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />}
-                  {fetchingSuggested ? 'Consultando SCI...' : 'Obter parametros iniciais'}
-                </Button>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setShowParamModal(false)}>Fechar</Button>
-                  <Button type="button" size="sm" onClick={saveParams} disabled={savingParams || loadingParams} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
-                    {savingParams ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                    {savingParams ? 'Salvando...' : 'Salvar'}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
+      {/* Parâmetros do contrato — componente compartilhado com o painel de
+          gestão de contratos, que abre o mesmo modal pela coluna Situação. */}
+      {clienteId && (
+        <ParametrosContratoModal
+          clienteId={clienteId}
+          open={showParamModal}
+          onOpenChange={setShowParamModal}
+        />
       )}
 
       {/* Modal Verificar no ERP */}
@@ -2381,11 +2183,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
           chartDatei={chartDatei} setChartDatei={setChartDatei}
           chartDatef={chartDatef} setChartDatef={setChartDatef}
           chartData={chartData} chartLoading={chartLoading}
-          params={{
-            honorario: params.honorario, lancamentos: params.lancamentos, faturamento: params.faturamento,
-            nfEntrada: params.nfEntrada, nfSaida: params.nfSaida, nfPrestado: params.nfPrestado,
-            nfTomado: params.nfTomado, funcionarios: params.funcionarios,
-          }}
+          params={baseline}
           onLoad={loadChartData}
           onClose={() => setShowChartModal(false)}
           onOpenErp={() => { setShowChartModal(false); setShowErpModal(true) }}
