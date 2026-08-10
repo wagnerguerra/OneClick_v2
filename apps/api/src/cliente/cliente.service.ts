@@ -1149,13 +1149,17 @@ export class ClienteService {
    * paginada em memória (uma linha por cliente, volume baixo).
    */
   async gestaoContratos(
-    input: { page?: number; limit?: number; search?: string },
+    input: { page?: number; limit?: number; search?: string; filtro?: string },
     isMaster?: boolean,
     empresaId?: string,
   ) {
     const page = Math.max(1, Number(input.page) || 1)
     const limit = Math.min(Math.max(1, Number(input.limit) || 20), 100)
     const search = (input.search || '').trim()
+    const filtro = (input.filtro || '').trim()
+    // "Ignorados" é o único card que inverte a base: os demais contam dentro da
+    // carteira visível, e os ignorados justamente saíram dela.
+    const verIgnorados = filtro === 'ignorados'
 
     const params: unknown[] = []
     let idx = 0
@@ -1163,7 +1167,7 @@ export class ClienteService {
       `c.deleted_at IS NULL`,
       `c.status <> 'INATIVA'`,
       `(p.cliente_id IS NOT NULL OR lm.cliente_id IS NOT NULL)`,
-      `COALESCE(p.gestao_ignorar, false) = false`,
+      `COALESCE(p.gestao_ignorar, false) = ${verIgnorados ? 'true' : 'false'}`,
     ]
     if (!isMaster) {
       params.push(empresaId ?? '')
@@ -1174,6 +1178,20 @@ export class ClienteService {
       const s = ++idx
       conds.push(`(unaccent(c.razao_social) ILIKE unaccent($${s}) OR c.documento ILIKE $${s})`)
     }
+
+    // Janela do card "Períodos importados": os TRÊS meses anteriores ao atual,
+    // como no legado. O mês corrente fica de fora de propósito — ele ainda está
+    // sendo fechado, então não dizer nada sobre ele não é atraso.
+    const agora = new Date()
+    const mesRef = (deslocamento: number) => {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - deslocamento, 1)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    }
+    // Só os parâmetros das condições — a contagem de ignorados reusa o WHERE,
+    // mas não a janela, e o Postgres recusa bind com parâmetro sobrando.
+    const paramsConds = [...params]
+    params.push(mesRef(3)); const pJanelaIni = ++idx
+    params.push(mesRef(1)); const pJanelaFim = ++idx
 
     const sql = `
       WITH latest AS (
@@ -1209,6 +1227,10 @@ export class ClienteService {
              lm.max_mes AS ultima_consulta,
              (SELECT COUNT(DISTINCT mes) FROM cliente_erp_snapshots WHERE cliente_id = c.id) AS erp_meses,
              (SELECT COUNT(*) FROM cliente_arquivos WHERE cliente_id = c.id) AS anexos_count,
+             EXISTS (
+               SELECT 1 FROM cliente_erp_snapshots sj
+                WHERE sj.cliente_id = c.id AND sj.mes >= $${pJanelaIni} AND sj.mes <= $${pJanelaFim}
+             ) AS erp_na_janela,
              (p.cliente_id IS NOT NULL) AS tem_parametro
       FROM clientes c
       LEFT JOIN cliente_contrato_params p ON p.cliente_id = c.id
@@ -1235,7 +1257,7 @@ export class ClienteService {
       m_lanc: number | null; m_nfs: number | null; m_vidas: number | null
       data_entrada: Date | string | null
       ultima_consulta: string | null; erp_meses: bigint | number | null
-      anexos_count: bigint | number | null; tem_parametro: boolean
+      anexos_count: bigint | number | null; erp_na_janela: boolean; tem_parametro: boolean
     }>>(sql, ...params)
 
     const hoje = new Date()
@@ -1420,7 +1442,26 @@ export class ClienteService {
         farol = corDoFarol(score)
       }
 
+      const defasados = comparativo.linhas.filter(l => l.status === 'defasado').length
+      const margemOk = itens.find(i => i.id === 'indicadores')?.ok ?? false
+
+      /**
+       * Tags da legenda — a mesma régua do SERPRO2. Um cliente pode carregar
+       * várias: são recortes da carteira, não um estado único, e é por isso que
+       * a soma dos cards passa do total.
+       */
+      const tags: string[] = []
+      if (!temContrato) tags.push('sem_contrato')
+      // "Em dia" é o oposto da soma das pendências, não só "tem contrato".
+      if (temContrato && r.data_entrada && r.tem_parametro && margemOk) tags.push('ok')
+      if (defasados >= 1 && r.tem_parametro) tags.push('reavaliacao')
+      if (!r.data_entrada) tags.push('sem_entrada')
+      if (!r.tem_parametro) tags.push('sem_parametros')
+      else if ((Number(r.erp_meses) || 0) > 0 && !margemOk) tags.push('indicadores')
+      if (r.erp_na_janela) tags.push('erp')
+
       return {
+        tags,
         id: r.id,
         numero: r.code ?? i + 1,
         documento: r.documento,
@@ -1468,20 +1509,41 @@ export class ClienteService {
       }
     })
 
-    const resumo = {
-      total: registros.length,
-      emDia: registros.filter(r => r.situacao === 'em_dia').length,
-      defasados: registros.filter(r => r.situacao === 'defasado').length,
-      semParametro: registros.filter(r => r.situacao === 'sem_parametro').length,
-      vencidos: registros.filter(r => r.vigencia === 'vencido').length,
-      vencendo: registros.filter(r => r.vigencia === 'vence_critico' || r.vigencia === 'vence_atencao').length,
+    // Contadores dos cards. Sempre sobre a carteira INTEIRA (respeitando só a
+    // busca) — se caíssem junto com o filtro, clicar num card zeraria os outros
+    // e não haveria como voltar de um para o outro.
+    const contadores: Record<string, number> = {
+      ok: 0, sem_contrato: 0, reavaliacao: 0, sem_entrada: 0,
+      sem_parametros: 0, indicadores: 0, erp: 0, ignorados: 0,
     }
+    if (!verIgnorados) {
+      for (const r of registros) for (const t of r.tags) contadores[t] = (contadores[t] ?? 0) + 1
+    }
+    // Ignorados vive fora da lista carregada, então precisa da própria conta.
+    const condsIgnorados = conds
+      .map(c => c.replace('COALESCE(p.gestao_ignorar, false) = false', 'COALESCE(p.gestao_ignorar, false) = true'))
+    const totIgnorados = await prisma.$queryRawUnsafe<Array<{ n: bigint | number }>>(
+      `SELECT COUNT(*)::int AS n
+         FROM clientes c
+         LEFT JOIN cliente_contrato_params p ON p.cliente_id = c.id
+         LEFT JOIN (SELECT cliente_id, MAX(mes) AS max_mes FROM cliente_erp_snapshots GROUP BY cliente_id) lm
+           ON lm.cliente_id = c.id
+        WHERE ${condsIgnorados.join(' AND ')}`,
+      ...paramsConds,
+    ).catch(() => [])
+    contadores.ignorados = verIgnorados ? registros.length : Number(totIgnorados[0]?.n ?? 0) || 0
+
+    // O filtro do card corta a lista já montada: as tags nascem do farol, que
+    // só existe depois de calcular a linha inteira.
+    const filtrados = filtro && !verIgnorados
+      ? registros.filter(r => r.tags.includes(filtro))
+      : registros
 
     const offset = (page - 1) * limit
     return {
-      registros: registros.slice(offset, offset + limit),
-      resumo,
-      total: registros.length,
+      registros: filtrados.slice(offset, offset + limit),
+      contadores,
+      total: filtrados.length,
       page,
       limit,
     }

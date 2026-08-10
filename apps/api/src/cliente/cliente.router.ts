@@ -402,6 +402,8 @@ export function createClienteRouter(
         page: z.number().min(1).default(1),
         limit: z.number().min(1).max(100).default(20),
         search: z.string().optional(),
+        // Card da legenda em foco (recorte da carteira). Vazio = carteira toda.
+        filtro: z.enum(['ok', 'sem_contrato', 'reavaliacao', 'sem_entrada', 'sem_parametros', 'indicadores', 'erp', 'ignorados']).optional(),
       }))
       .query(({ input, ctx }) => clienteService.gestaoContratos(input, ctx.isMaster, ctx.empresaId)),
 

@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  FileText, Users, CheckCircle2, TrendingUp, Info, Search,
+  FileText, CheckCircle2, Search,
   FileDown, Loader2, CalendarClock,
   SlidersHorizontal, Database, Paperclip, RefreshCcw, FileSignature, Activity, Check, X, ChevronRight, Percent,
-  MoreVertical, Pencil, EyeOff,
+  MoreVertical, Pencil, EyeOff, FileX2,
 } from 'lucide-react'
 import {
   Button, Card, Input, Badge,
@@ -74,8 +74,6 @@ type Registro = {
 
 type CellStatus = 'ok' | 'defasado' | 'sem_parametro' | 'sem_erp'
 
-type Resumo = { total: number; emDia: number; defasados: number; semParametro: number; vencidos: number; vencendo: number }
-
 /** Rótulo da cor, para o cabeçalho do detalhamento. */
 /** Inteiro sem casas; decimal com duas — faturamento e contagem na mesma tabela. */
 const fmtNum = (n: number) =>
@@ -116,6 +114,32 @@ function StatusIcon({ icon: Icon, active, title, count, tone = 'ok' }: {
   )
 }
 
+type FiltroCard = 'ok' | 'sem_contrato' | 'reavaliacao' | 'sem_entrada' | 'sem_parametros' | 'indicadores' | 'erp' | 'ignorados'
+
+/**
+ * Os oito recortes da legenda do SERPRO2, na mesma ordem e com a mesma regra.
+ * Os rótulos dizem o que o número conta: no legado, "Parâmetros" contava quem
+ * NÃO tinha, e a leitura natural era a oposta.
+ */
+const CARDS: Array<{ key: FiltroCard; label: string; icon: typeof FileText; cor: string; dica: string }> = [
+  { key: 'ok', label: 'Contrato em dia', icon: CheckCircle2, cor: '#10b981',
+    dica: 'Com contrato, data de entrada, parâmetros e indicadores dentro da margem.' },
+  { key: 'sem_contrato', label: 'Sem contrato', icon: FileX2, cor: '#f43f5e',
+    dica: 'Nenhuma informação de contrato cadastrada (número, tipo ou vigência).' },
+  { key: 'reavaliacao', label: 'Reavaliação', icon: RefreshCcw, cor: '#f43f5e',
+    dica: 'Ao menos um indicador do ERP acima do contratado — sugere renegociar.' },
+  { key: 'sem_entrada', label: 'Sem data de entrada', icon: CalendarClock, cor: '#f59e0b',
+    dica: 'Cliente sem a data de entrada comercial preenchida.' },
+  { key: 'sem_parametros', label: 'Sem parâmetros', icon: SlidersHorizontal, cor: '#f59e0b',
+    dica: 'Sem os valores de referência do contrato — sem eles não há o que comparar.' },
+  { key: 'indicadores', label: 'Fora da margem', icon: Percent, cor: '#f59e0b',
+    dica: 'Tem parâmetros e dados do ERP, mas os indicadores não alcançam a margem de 70%.' },
+  { key: 'erp', label: 'Períodos importados', icon: Database, cor: '#3b82f6',
+    dica: 'Com ao menos um período do SCI importado nos três meses anteriores ao atual.' },
+  { key: 'ignorados', label: 'Ignorados', icon: EyeOff, cor: '#94a3b8',
+    dica: 'Retirados da gestão pelo menu de ações. Clique para vê-los.' },
+]
+
 const SITUACAO_BADGE: Record<Registro['situacao'], { label: string; cls: string }> = {
   em_dia: { label: 'Em dia', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
   defasado: { label: 'Defasado', cls: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' },
@@ -132,7 +156,8 @@ export default function GestaoContratosPage() {
   const [debounced, setDebounced] = useState('')
   const [loading, setLoading] = useState(true)
   const [registros, setRegistros] = useState<Registro[]>([])
-  const [resumo, setResumo] = useState<Resumo>({ total: 0, emDia: 0, defasados: 0, semParametro: 0, vencidos: 0, vencendo: 0 })
+  const [contadores, setContadores] = useState<Record<string, number>>({})
+  const [filtro, setFiltro] = useState<FiltroCard | null>(null)
   const [total, setTotal] = useState(0)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -146,9 +171,11 @@ export default function GestaoContratosPage() {
     setLoading(true)
     setErro(null)
     try {
-      const res = await trpc.cliente.gestaoContratos.query({ page, limit: PAGE_SIZE, search: debounced || undefined })
+      const res = await trpc.cliente.gestaoContratos.query({
+        page, limit: PAGE_SIZE, search: debounced || undefined, filtro: filtro ?? undefined,
+      })
       setRegistros(res.registros as Registro[])
-      setResumo(res.resumo)
+      setContadores(res.contadores)
       setTotal(res.total)
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar')
@@ -156,9 +183,36 @@ export default function GestaoContratosPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, debounced])
+  }, [page, debounced, filtro])
 
   useEffect(() => { carregar() }, [carregar])
+
+  // ── Faixa de indicadores: arrastar para os lados ──
+  // São oito cards e eles vazam para fora da tela de propósito (é o que mostra
+  // que há mais). Sem o arraste, só sobraria a barra de rolagem — que no toque
+  // nem aparece. Ponteiro em vez de mouse: cobre dedo, caneta e mouse de uma vez.
+  const faixaRef = useRef<HTMLDivElement>(null)
+  const arraste = useRef({ ativo: false, x0: 0, scroll0: 0, arrastou: false })
+
+  function arrastarInicio(e: React.PointerEvent<HTMLDivElement>) {
+    const el = faixaRef.current
+    if (!el) return
+    arraste.current = { ativo: true, x0: e.clientX, scroll0: el.scrollLeft, arrastou: false }
+  }
+  function arrastarMover(e: React.PointerEvent<HTMLDivElement>) {
+    const el = faixaRef.current
+    if (!el || !arraste.current.ativo) return
+    const dx = e.clientX - arraste.current.x0
+    // Folga de 4px: um clique comum treme alguns pixels e não é arraste.
+    if (Math.abs(dx) > 4) arraste.current.arrastou = true
+    el.scrollLeft = arraste.current.scroll0 - dx
+  }
+  function arrastarFim() {
+    arraste.current.ativo = false
+    // O flag de "arrastou" só zera no próximo quadro: o clique dispara depois
+    // do pointerup, e é ele que precisa enxergar que houve arraste.
+    requestAnimationFrame(() => { arraste.current.arrastou = false })
+  }
 
   /**
    * Tira o cliente do painel — a listagem já filtra `gestao_ignorar`.
@@ -183,9 +237,13 @@ export default function GestaoContratosPage() {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const cardAtivo = CARDS.find(c => c.key === filtro) ?? null
 
   async function exportarCsv() {
-    const res = await trpc.cliente.gestaoContratos.query({ page: 1, limit: 100, search: debounced || undefined })
+    // Exporta o que está na tela: com um card ativo, o CSV segue o mesmo recorte.
+    const res = await trpc.cliente.gestaoContratos.query({
+      page: 1, limit: 100, search: debounced || undefined, filtro: filtro ?? undefined,
+    })
     const list = res.registros as Registro[]
     const headers = ['#', 'CNPJ', 'Cliente', 'Situação', 'Faturamento', 'Honorários', 'Lançamentos', 'Notas', 'Vidas']
     const rows = list.map(r => [
@@ -224,22 +282,56 @@ export default function GestaoContratosPage() {
         </div>
       </div>
 
-      {/* Cards de indicadores */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard icon={Users} label="Total de clientes" value={resumo.total} color={MODULE_COLOR} loading={loading} />
-        <StatCard icon={CheckCircle2} label="Em dia" value={resumo.emDia} color="#10b981" loading={loading} />
-        <StatCard icon={TrendingUp} label="Com variação defasada" value={resumo.defasados} color="#f43f5e" loading={loading} />
-        <StatCard icon={CalendarClock} label="Contratos a vencer" value={resumo.vencendo} color="#f59e0b"
-          sub={resumo.vencidos > 0 ? `${resumo.vencidos} já vencido${resumo.vencidos === 1 ? '' : 's'}` : undefined} loading={loading} />
-        <StatCard icon={Info} label="Sem parâmetro" value={resumo.semParametro} color="#94a3b8" loading={loading} />
+      {/* Legenda: cada card é um recorte da carteira e filtra a tabela ao ser
+          clicado. Um cliente entra em vários — são pendências, não estados
+          exclusivos —, então a soma passa do total de propósito. */}
+      <div
+        ref={faixaRef}
+        onPointerDown={arrastarInicio}
+        onPointerMove={arrastarMover}
+        onPointerUp={arrastarFim}
+        onPointerCancel={arrastarFim}
+        className="nice-scrollbar -mx-1 flex cursor-grab gap-3 overflow-x-auto px-1 pb-1 active:cursor-grabbing"
+      >
+        {CARDS.map(c => (
+          <div key={c.key} className="w-[200px] shrink-0 select-none">
+            <StatCard
+              icon={c.icon}
+              label={c.label}
+              value={contadores[c.key] ?? 0}
+              color={c.cor}
+              title={c.dica}
+              loading={loading}
+              active={filtro === c.key}
+              onClick={() => {
+                // Arrastar a faixa não pode valer como clique no card que ficou
+                // sob o dedo — senão a rolagem troca o filtro sem querer.
+                if (arraste.current.arrastou) return
+                setFiltro(filtro === c.key ? null : c.key)
+                setPage(1)
+              }}
+            />
+          </div>
+        ))}
       </div>
 
       {/* Tabela */}
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <FileText className="h-4 w-4" style={{ color: MODULE_COLOR }} />
             <span className="text-sm font-semibold">Indicações de variação dos contratos</span>
+            {/* Com o card destacado lá em cima o recorte já se vê, mas a faixa
+                rola: se o card ativo saiu da vista, some a única pista de que a
+                lista está filtrada. Este chip fica. */}
+            {cardAtivo && (
+              <Badge variant="outline" className="gap-1 font-normal" style={{ borderColor: `${cardAtivo.cor}66`, color: cardAtivo.cor }}>
+                {cardAtivo.label}
+                <button type="button" onClick={() => { setFiltro(null); setPage(1) }} title="Limpar filtro" className="hover:opacity-70">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
           </div>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -273,7 +365,9 @@ export default function GestaoContratosPage() {
                   {registros.length === 0 && !loading ? (
                     <TableRow>
                       <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
-                        Nenhum cliente com contrato ou parâmetros. Use &quot;Verificar no ERP&quot; no detalhe do cliente para alimentar os dados.
+                        {cardAtivo
+                          ? `Nenhum cliente em "${cardAtivo.label}"${debounced ? ' com essa busca' : ''}.`
+                          : 'Nenhum cliente com contrato ou parâmetros. Use "Verificar no ERP" no detalhe do cliente para alimentar os dados.'}
                       </TableCell>
                     </TableRow>
                   ) : registros.map(r => {

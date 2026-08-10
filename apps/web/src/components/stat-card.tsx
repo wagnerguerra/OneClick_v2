@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Card } from '@saas/ui'
+import { Card, cn } from '@saas/ui'
 
 export interface StatCardProps {
   icon: React.ElementType
@@ -13,15 +13,36 @@ export interface StatCardProps {
   sub?: string
   /** Mostra um placeholder pulsando no lugar do valor. */
   loading?: boolean
+  /** Torna o card um filtro clicável (ex.: legenda da gestão de contratos). */
+  onClick?: () => void
+  /** Filtro deste card está ativo — só faz sentido junto com `onClick`. */
+  active?: boolean
+  /** Dica no hover; explica o que o número conta. */
+  title?: string
 }
 
 /**
  * Cartão de KPI reutilizável (padrão do CRM). Ícone em quadro colorido,
  * label em caixa alta + valor em destaque e barra fina da cor do módulo na base.
  */
-export function StatCard({ icon: Icon, label, value, color, sub, loading }: StatCardProps) {
+export function StatCard({ icon: Icon, label, value, color, sub, loading, onClick, active, title }: StatCardProps) {
   return (
-    <Card className="relative overflow-hidden">
+    <Card
+      className={cn(
+        'relative overflow-hidden transition-shadow',
+        onClick && 'cursor-pointer hover:shadow-md',
+        // O anel usa a cor do próprio card: com sete deles lado a lado, uma cor
+        // única de seleção não diria qual recorte está no ar.
+        active && 'shadow-md',
+      )}
+      style={active ? { boxShadow: `0 0 0 2px ${color}, 0 4px 12px ${color}25` } : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-pressed={onClick ? !!active : undefined}
+      title={title}
+    >
       <div className="p-4 flex items-center gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}18` }}>
           <Icon className="h-5 w-5" style={{ color }} />
