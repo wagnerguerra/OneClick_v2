@@ -57,6 +57,9 @@ interface Retorno {
   areaNome: string | null
   ocultosInativos?: number
   cobertura?: { de: string | null; ate: string | null }
+  /** Obrigações que o time declarou não acompanhar — explicam a diferença
+   *  contra o e-mail semanal do Acessórias, que conta a carteira inteira. */
+  foraPorRegra?: { nomes: string[]; ocorrencias: number }
 }
 interface LinhaDetalhe {
   id: string
@@ -251,6 +254,18 @@ export default function IndicadoresPage() {
               />
             ))}
           </div>
+
+          {/* O que a regra deixou de fora — sem esta linha o total nao fecha com
+              o e-mail semanal do Acessorias e ninguem sabe por que. */}
+          {!!dados.foraPorRegra?.nomes?.length && (
+            <p className="text-[12px] text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {dados.foraPorRegra.nomes.length === 1 ? '1 obrigação fora do painel' : `${dados.foraPorRegra.nomes.length} obrigações fora do painel`}
+              </span>{' '}
+              por regra do time: {dados.foraPorRegra.nomes.join(', ')}.
+              {dados.foraPorRegra.ocorrencias > 0 && ` São ~${dados.foraPorRegra.ocorrencias} na carteira — por isso o total daqui fica abaixo do e-mail semanal do Acessórias, que conta tudo.`}
+            </p>
+          )}
 
           {!!dados.ocultosInativos && (
             <p className="text-[12px] text-muted-foreground">

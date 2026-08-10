@@ -321,7 +321,39 @@ export class IndicadoresAcessoriasService {
       areaNome: user?.area?.name ?? null,
       ocultosInativos,
       cobertura,
+      foraPorRegra: await this.foraPorRegra(),
     }
+  }
+
+  /**
+   * Obrigações que o time declarou NÃO acompanhar.
+   *
+   * Elas nem chegam à nossa base — a sincronização as descarta na origem —, e
+   * por isso o painel fecha num total menor que o e-mail semanal do Acessórias,
+   * que conta a carteira inteira. Duas perguntas diferentes, as duas certas; o
+   * que faltava era a tela dizer qual delas está respondendo.
+   *
+   * Sem isso alguém compara com o e-mail, acha 51 entregas de diferença e
+   * desconfia do sistema — foi exatamente o que aconteceu em 10/08.
+   */
+  private async foraPorRegra() {
+    const regras = await prisma.acessoriasRegraObrigacao.findMany({
+      where: { considerar: false },
+      select: { nome: true, clienteId: true },
+    }).catch(() => [])
+    if (regras.length === 0) return { nomes: [] as string[], ocorrencias: 0 }
+
+    const nomes = [...new Set(regras.map(r => r.nome.trim()))].sort()
+    // Quantas vezes essas obrigações aparecem na carteira, segundo o próprio
+    // Acessórias (cache da última leitura). É a ordem de grandeza do que ficou
+    // de fora — não o número exato do período, que só existe do lado deles.
+    const observadas = await prisma.$queryRaw<Array<{ n: bigint }>>`
+      SELECT coalesce(sum(ocorrencias), 0)::bigint AS n
+      FROM acessorias_obrigacoes_observadas
+      WHERE lower(btrim(nome)) = ANY(${nomes.map(n => n.toLowerCase())}::text[])
+    `.catch(() => [{ n: BigInt(0) }])
+
+    return { nomes, ocorrencias: Number(observadas[0]?.n ?? 0) }
   }
 
   /**
