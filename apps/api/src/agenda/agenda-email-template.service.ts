@@ -368,7 +368,11 @@ export class AgendaEmailTemplateService {
       // Destaque por TIPO (configurado no cadastro do tipo): moldura grossa na
       // cor escolhida no lugar do fio cinza. Continua <table>+bgcolor, e nao
       // borda em CSS, porque Gmail e Outlook descartam style de borda.
-      const destacado = !!ev.tipo?.destacarEmail
+      // O destaque exige as DUAS coisas: o tipo autorizar e o evento pedir
+      // arrumacao. Só pelo tipo, toda "Reuniao Interna" saia com moldura — e um
+      // e-mail em que tudo se destaca nao destaca nada, que foi o que aconteceu
+      // no primeiro teste.
+      const destacado = !!ev.tipo?.destacarEmail && !!ev.arrumarSala
       const molduraCor = destacado ? (ev.tipo?.corDestaque || ev.tipo?.corBorda || cor) : '#cbd5e1'
       const molduraPad = destacado ? '3px' : '1px'
 

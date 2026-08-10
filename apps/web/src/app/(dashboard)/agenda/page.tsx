@@ -3667,10 +3667,11 @@ export default function AgendaPage() {
                 <div className="mt-1 space-y-1.5 rounded-md border bg-background/60 p-2.5">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <Checkbox checked={tipoForm.destacarEmail} onCheckedChange={v => setTipoForm(f => ({ ...f, destacarEmail: !!v }))} />
-                    <span className="text-xs font-medium">Destacar no e-mail do dia</span>
+                    <span className="text-xs font-medium">Destacar no e-mail quando pedir arrumação de sala</span>
                   </label>
                   <p className="text-[10px] text-muted-foreground">
-                    Eventos deste tipo aparecem com moldura colorida no resumo diário, para não passarem batido.
+                    No resumo diário, o evento sai com moldura colorida <b>só quando</b> a preparação
+                    &quot;arrumar a sala&quot; estiver marcada — assim o destaque continua chamando atenção.
                   </p>
                   {tipoForm.destacarEmail && (
                     <div className="flex items-center gap-2 pt-0.5">

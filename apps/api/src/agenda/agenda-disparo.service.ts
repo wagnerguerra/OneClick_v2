@@ -590,7 +590,11 @@ export class AgendaDisparoService implements OnModuleInit {
       // moldura fina cinza por uma grossa na cor escolhida. Continua sendo
       // <table>+bgcolor, e não CSS, porque Gmail e Outlook descartam borda em
       // style — o mesmo motivo do wrapper que já existia aqui.
-      const destacado = !!ev.tipo?.destacarEmail
+      // O destaque exige as DUAS coisas: o tipo autorizar e o evento pedir
+      // arrumacao. Só pelo tipo, toda "Reuniao Interna" saia com moldura — e um
+      // e-mail em que tudo se destaca nao destaca nada, que foi o que aconteceu
+      // no primeiro teste.
+      const destacado = !!ev.tipo?.destacarEmail && !!ev.arrumarSala
       const corMoldura = (ev.tipo?.corDestaque || ev.tipo?.corBorda || cor) as string
       const molduraCor = destacado ? corMoldura : '#cbd5e1'
       const molduraPad = destacado ? '3px' : '1px'
