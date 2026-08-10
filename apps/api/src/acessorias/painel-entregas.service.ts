@@ -197,7 +197,7 @@ export class PainelEntregasService {
   }
 
   /** Filtros da tela — comuns às duas visões. */
-  private baseWhere(filtro: FiltroPainel, _isMaster: boolean, empresaId?: string): Prisma.AcessoriasEntregaWhereInput {
+  private baseWhere(filtro: FiltroPainel, empresaId?: string): Prisma.AcessoriasEntregaWhereInput {
     return {
       ...(empresaId ? { empresaId } : {}),
       ...(filtro.clienteId ? { clienteId: filtro.clienteId } : {}),
@@ -229,7 +229,7 @@ export class PainelEntregasService {
     const empresaId = ctx.empresaId
     const janela = filtro.janelaDias ?? 7
     const recorte = await this.recorte(ctx)
-    const where = e(this.baseWhere(filtro, isMaster, empresaId), recorte)
+    const where = e(this.baseWhere(filtro, empresaId), recorte)
 
     const hoje = inicioDoDia()
     const limiteJanela = emDias(hoje, janela)
@@ -341,7 +341,7 @@ export class PainelEntregasService {
     const empresaId = ctx.empresaId
     const janelaDias = filtro.janelaDias ?? 7
     const recorte = await this.recorte(ctx)
-    const where = e(this.baseWhere(filtro, isMaster, empresaId), recorte)
+    const where = e(this.baseWhere(filtro, empresaId), recorte)
     const hoje = inicioDoDia()
 
     const wNaoLidas = e(where, W_ENTREGUE, { lida: false })
