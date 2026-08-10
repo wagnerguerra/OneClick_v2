@@ -140,7 +140,9 @@ export class SciService {
 
     if (parsed.sucesso === false) throw new Error(String(parsed.erro || 'Erro desconhecido no SCI'))
 
-    return parsed
+    // Nomes alinhados já na saída: o retorno cru vai direto para a tela do
+    // "Verificar no ERP", que também procura por nf_entrada / nf_saida.
+    return this.normalizarMetricas(parsed)
   }
 
   /** Janela de referência dos parâmetros sugeridos: últimos N meses completos
@@ -156,12 +158,6 @@ export class SciService {
     return { datai, dataf }
   }
 
-  /**
-   * Calcula os parâmetros a partir das métricas já obtidas (local OU via ponte).
-   * Por métrica, faz a média dos `paramsMesesMedia` meses MAIS RECENTES com
-   * movimento (> 0) — ignora meses zerados. Assim, cliente parado nos últimos
-   * meses ainda pega o último período em que de fato movimentou.
-   */
   /**
    * Alinha os nomes das métricas ao vocabulário do resto do sistema.
    *
@@ -184,6 +180,12 @@ export class SciService {
     return out
   }
 
+  /**
+   * Calcula os parâmetros a partir das métricas já obtidas (local OU via ponte).
+   * Por métrica, faz a média dos `paramsMesesMedia` meses MAIS RECENTES com
+   * movimento (> 0) — ignora meses zerados. Assim, cliente parado nos últimos
+   * meses ainda pega o último período em que de fato movimentou.
+   */
   calcularParametrosDeMetricas(
     metricsBrutas: Record<string, unknown>,
     periodo: { datai: string; dataf: string },

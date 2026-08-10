@@ -733,7 +733,7 @@ export function createClienteRouter(
           const sciUnreachable = /ENOENT|conn|connect|refused|timeout|Firebird|python|Não foi possível conectar/i.test(msg)
           if (!sciUnreachable || !contratoSyncService) throw err
           console.log(`[Cliente] SCI local indisponível p/ parâmetros, pedindo ao Launcher: ${msg.slice(0, 100)}`)
-          metricas = await contratoSyncService.requestErpRemote({ cnpj, datai: periodo.datai, dataf: periodo.dataf })
+          metricas = sciService.normalizarMetricas(await contratoSyncService.requestErpRemote({ cnpj, datai: periodo.datai, dataf: periodo.dataf }))
         }
         return sciService.calcularParametrosDeMetricas(metricas, periodo)
       }),
@@ -757,12 +757,14 @@ export function createClienteRouter(
 
           // Fallback: pede ao Launcher local via SSE
           console.log(`[Cliente] SCI local indisponível, pedindo ao Launcher: ${msg.slice(0, 100)}`)
-          metricas = await contratoSyncService.requestErpRemote({
+          // A ponte devolve o JSON cru do script; alinha os nomes igual ao
+          // caminho local, senão nf_entrada/nf_saida somem só neste fluxo.
+          metricas = sciService.normalizarMetricas(await contratoSyncService.requestErpRemote({
             cnpj,
             datai: input.datai,
             dataf: input.dataf,
             indicadores: input.indicadores,
-          })
+          }))
         }
 
         // Persiste snapshot — gráficos passam a ler direto do DB sem tocar SCI.

@@ -29,6 +29,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
 import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
 import { ParametrosContratoModal } from '@/components/contrato/parametros-contrato-modal'
+import { VerificarErpModal } from '@/components/contrato/verificar-erp-modal'
 import { OrcamentosTab } from './orcamentos-tab'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -1747,11 +1748,6 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
 
   // Verificar no ERP
   const [showErpModal, setShowErpModal] = useState(false)
-  const [erpDatei, setErpDatei] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 3); return d.toISOString().slice(0, 10) })
-  const [erpDatef, setErpDatef] = useState(() => { const d = new Date(); d.setDate(0); return d.toISOString().slice(0, 10) })
-  const [erpIndicadores, setErpIndicadores] = useState<string[]>(['lancamentos', 'faturamento', 'nf_entrada', 'nf_saida', 'nf_prestado', 'nf_tomado', 'vidas'])
-  const [erpLoading, setErpLoading] = useState(false)
-  const [erpResult, setErpResult] = useState<Record<string, unknown> | null>(null)
 
   // Graficos
   const [showChartModal, setShowChartModal] = useState(false)
@@ -1770,24 +1766,6 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
   const [files, setFiles] = useState<Array<{ id: string; fileName: string; fileUrl: string; fileSize: number | null; mimeType: string | null; createdAt: string; user: { name: string } | null }>>([])
   const [filesLoaded, setFilesLoaded] = useState(false)
   const [uploading, setUploading] = useState(false)
-
-  function toggleErpIndicador(ind: string) {
-    setErpIndicadores(prev => prev.includes(ind) ? prev.filter(i => i !== ind) : [...prev, ind])
-  }
-
-  async function runErpVerification() {
-    if (!clienteId || erpIndicadores.length === 0) return
-    setErpLoading(true)
-    setErpResult(null)
-    try {
-      const result = await trpc.cliente.buscarMetricasSci.query({
-        clienteId, datai: erpDatei, dataf: erpDatef, indicadores: erpIndicadores,
-      })
-      setErpResult(result as Record<string, unknown>)
-    } catch (e) {
-      alerts.error('Erro SCI', mensagemErro(e, 'Nao foi possivel consultar o ERP.'))
-    } finally { setErpLoading(false) }
-  }
 
   async function loadChartData() {
     if (!clienteId) return
@@ -1954,127 +1932,15 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
         />
       )}
 
-      {/* Modal Verificar no ERP */}
-      {showErpModal && (
-        <>
-          <div className="fixed inset-0 z-50 bg-black/50 modal-overlay" onClick={() => !erpLoading && setShowErpModal(false)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-card rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col modal-content" onClick={(e) => e.stopPropagation()}>
-              {/* Header */}
-              <div className="px-5 py-3 border-b border-border flex items-center justify-between shrink-0">
-                <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
-                  <ExternalLink className="h-4 w-4 text-muted-foreground" /> Verificar no ERP (SCI)
-                </h4>
-                <button type="button" onClick={() => !erpLoading && setShowErpModal(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
-              </div>
-              {/* Filtros */}
-              <div className="px-5 py-3 border-b border-border shrink-0">
-                <div className="grid grid-cols-12 gap-3 items-end">
-                  <div className="col-span-4 space-y-1.5">
-                    <Label>Data Inicial</Label>
-                    <Input type="date" value={erpDatei} onChange={(e) => setErpDatei(e.target.value)} />
-                  </div>
-                  <div className="col-span-4 space-y-1.5">
-                    <Label>Data Final</Label>
-                    <Input type="date" value={erpDatef} onChange={(e) => setErpDatef(e.target.value)} />
-                  </div>
-                  <div className="col-span-4">
-                    <Button type="button" size="sm" onClick={runErpVerification} disabled={erpLoading} className="w-full" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
-                      {erpLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />}
-                      {erpLoading ? 'Consultando...' : 'Consultar'}
-                    </Button>
-                  </div>
-                  <div className="col-span-12">
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { key: 'lancamentos', label: 'Lancamentos' },
-                        { key: 'nf_entrada', label: 'NF Entrada' },
-                        { key: 'nf_saida', label: 'NF Saida' },
-                        { key: 'nf_prestado', label: 'NF Prestado' },
-                        { key: 'nf_tomado', label: 'NF Tomado' },
-                        { key: 'faturamento', label: 'Faturamento' },
-                        { key: 'vidas', label: 'Funcionarios' },
-                      ].map((ind) => (
-                        <label key={ind.key} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                          <Checkbox checked={erpIndicadores.includes(ind.key)} onCheckedChange={() => toggleErpIndicador(ind.key)} />
-                          {ind.label}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {/* Resultado */}
-              <div className="flex-1 overflow-y-auto p-5 scrollbar-none">
-                {erpLoading ? (
-                  <div className="flex flex-col items-center justify-center py-16">
-                    <Loader2 className="h-8 w-8 animate-spin text-emerald-500 mb-3" />
-                    <p className="text-sm text-muted-foreground">Consultando SCI Firebird...</p>
-                  </div>
-                ) : !erpResult ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                    <ExternalLink className="h-10 w-10 mb-2 opacity-20" />
-                    <p className="text-sm">Selecione o periodo e clique em Consultar.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="rounded bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
-                      Periodo: {(erpResult.periodo as Record<string, string>)?.datai} a {(erpResult.periodo as Record<string, string>)?.dataf} | CNPJ: {erpResult.cnpj as string}
-                    </div>
-                    {erpIndicadores.map((ind) => {
-                      const rows = erpResult[ind] as Array<Record<string, unknown>> | undefined
-                      if (!rows || rows.length === 0) return (
-                        <div key={ind} className="text-xs text-muted-foreground">
-                          <strong className="text-foreground">{ind}</strong>: Sem dados no periodo
-                        </div>
-                      )
-                      const total = rows.reduce((s, r) => s + (Number(r.movimentacao) || 0), 0)
-                      const media = rows.length > 0 ? total / rows.length : 0
-                      return (
-                        <div key={ind}>
-                          <div className="flex items-center justify-between mb-1">
-                            <h5 className="text-xs font-semibold text-foreground capitalize">{ind.replace(/_/g, ' ')}</h5>
-                            <div className="text-[10px] text-muted-foreground">
-                              Total: <strong>{ind === 'faturamento' ? `R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : total.toLocaleString('pt-BR')}</strong>
-                              &nbsp;|&nbsp;Media: <strong>{ind === 'faturamento' ? `R$ ${media.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : Math.round(media).toLocaleString('pt-BR')}</strong>
-                            </div>
-                          </div>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-[11px]">
-                              <thead>
-                                <tr className="border-b border-border/40">
-                                  <th className="text-left py-1 pr-3 font-semibold text-muted-foreground">Mes/Ano</th>
-                                  <th className="text-right py-1 font-semibold text-muted-foreground">Valor</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {rows.map((r, i) => (
-                                  <tr key={i} className="border-b border-border/20">
-                                    <td className="py-1 pr-3">{String(r.mes).padStart(2, '0')}/{String(r.ano)}</td>
-                                    <td className="py-1 text-right font-mono">
-                                      {ind === 'faturamento'
-                                        ? `R$ ${Number(r.movimentacao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                        : Number(r.movimentacao || 0).toLocaleString('pt-BR')
-                                      }
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-              {/* Footer */}
-              <div className="px-5 py-3 border-t border-border flex justify-end shrink-0">
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowErpModal(false)}>Fechar</Button>
-              </div>
-            </div>
-          </div>
-        </>
+      {/* Verificar no ERP — componente compartilhado com o painel de gestão
+          de contratos, que abre o mesmo modal pelo ícone de banco da coluna
+          Situação. A consulta já grava os snapshots. */}
+      {clienteId && (
+        <VerificarErpModal
+          clienteId={clienteId}
+          open={showErpModal}
+          onOpenChange={setShowErpModal}
+        />
       )}
 
       {/* Modal Gerenciar Arquivos */}

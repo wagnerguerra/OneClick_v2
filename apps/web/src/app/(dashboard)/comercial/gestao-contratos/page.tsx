@@ -20,6 +20,7 @@ import { StatCard } from '@/components/stat-card'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { ParametrosContratoModal } from '@/components/contrato/parametros-contrato-modal'
+import { VerificarErpModal } from '@/components/contrato/verificar-erp-modal'
 import { trpc } from '@/lib/trpc'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
@@ -132,30 +133,6 @@ function StatusIcon({ icon: Icon, active, title, count, tone = 'ok', onClick }: 
   )
 }
 
-/** Indicadores como o SCI os grava (chave) e como a tela os mostra (rótulo). */
-const INDICADORES_ERP = [
-  { key: 'lancamentos', label: 'Lançamentos' },
-  { key: 'nf_entrada', label: 'NF entrada' },
-  { key: 'nf_saida', label: 'NF saída' },
-  { key: 'nf_prestado', label: 'NF prestado' },
-  { key: 'nf_tomado', label: 'NF tomado' },
-  { key: 'vidas', label: 'Vidas' },
-  { key: 'faturamento', label: 'Faturamento' },
-] as const
-
-/** O SCI grava uma linha por indicador; a leitura útil é uma linha por mês. */
-function pivotPeriodos(linhas: Array<{ mes: string; indicador: string; valor: number | null }>) {
-  const porMes = new Map<string, Record<string, number | null>>()
-  for (const l of linhas) {
-    if (!porMes.has(l.mes)) porMes.set(l.mes, {})
-    porMes.get(l.mes)![l.indicador] = l.valor == null ? null : Number(l.valor)
-  }
-  // Mais recente primeiro: é o período que se quer conferir depois de importar.
-  return [...porMes.entries()]
-    .sort((a, b) => b[0].localeCompare(a[0]))
-    .map(([mes, valores]) => ({ mes, valores }))
-}
-
 type FiltroCard = 'ok' | 'sem_contrato' | 'reavaliacao' | 'sem_entrada' | 'sem_parametros' | 'indicadores' | 'erp' | 'ignorados'
 
 /**
@@ -234,18 +211,9 @@ export default function GestaoContratosPage() {
   // cadastro e voltar por 8 números faria a varredura da carteira — que é o
   // trabalho desta tela — custar uma navegação por cliente.
   const [paramsDe, setParamsDe] = useState<Registro | null>(null)
-  const [periodos, setPeriodos] = useState<{ registro: Registro; linhas: Array<{ mes: string; indicador: string; valor: number | null }> } | null>(null)
+  const [sincronizarDe, setSincronizarDe] = useState<Registro | null>(null)
   const [editandoEntrada, setEditandoEntrada] = useState<{ registro: Registro; valor: string } | null>(null)
   const [salvandoEntrada, setSalvandoEntrada] = useState(false)
-
-  async function abrirPeriodos(r: Registro) {
-    try {
-      const linhas = await trpc.cliente.getErpSnapshots.query({ clienteId: r.id })
-      setPeriodos({ registro: r, linhas: linhas as Array<{ mes: string; indicador: string; valor: number | null }> })
-    } catch (e) {
-      alerts.error('Erro', e instanceof Error ? e.message : 'Não foi possível carregar os períodos.')
-    }
-  }
 
   async function salvarDataEntrada() {
     if (!editandoEntrada?.valor) return
@@ -477,8 +445,10 @@ export default function GestaoContratosPage() {
                               title={r.temParametro ? 'Parâmetros iniciais cadastrados — clique para editar' : 'Sem parâmetros iniciais — clique para cadastrar'}
                               onClick={() => setParamsDe(r)} />
                             <StatusIcon icon={Database} active={r.erpMeses > 0} count={r.erpMeses}
-                              title={r.erpMeses > 0 ? `${r.erpMeses} período(s) do ERP (SCI) — clique para ver` : 'Nenhum período importado do ERP'}
-                              onClick={() => abrirPeriodos(r)} />
+                              title={r.erpMeses > 0
+                                ? `${r.erpMeses} período(s) do ERP (SCI) — clique para sincronizar mais`
+                                : 'Nenhum período importado — clique para buscar no ERP'}
+                              onClick={() => setSincronizarDe(r)} />
                             <StatusIcon icon={Paperclip} active={r.anexosCount > 0} count={r.anexosCount}
                               title={r.anexosCount > 0 ? `${r.anexosCount} arquivo(s) anexado(s) — clique para abrir` : 'Sem anexos — clique para anexar'}
                               onClick={() => router.push(`/clientes/${r.id}#arquivos`)} />
@@ -715,55 +685,18 @@ export default function GestaoContratosPage() {
         />
       )}
 
-      {/* Períodos do SCI já importados, competência a competência. */}
-      <Dialog open={!!periodos} onOpenChange={(o) => { if (!o) setPeriodos(null) }}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeaderIcon icon={Database} color="cyan">
-            <DialogTitle className="text-[15px]">Períodos importados do ERP (SCI)</DialogTitle>
-            <DialogDescription className="text-[11px]">
-              {periodos ? `${fmtCnpj(periodos.registro.documento)} · ${periodos.registro.cliente ?? ''}` : ''}
-            </DialogDescription>
-          </DialogHeaderIcon>
-          <DialogBody>
-            {periodos && periodos.linhas.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                Nenhum período importado. Use &quot;Verificar no ERP&quot; no cadastro do cliente.
-              </p>
-            ) : periodos && (
-              <div className="nice-scrollbar max-h-[420px] overflow-auto">
-                <table className="w-full text-[13px]">
-                  <thead className="sticky top-0 bg-background">
-                    <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-                      <th className="py-1.5 text-left font-semibold">Competência</th>
-                      {INDICADORES_ERP.map(i => (
-                        <th key={i.key} className="py-1.5 text-right font-semibold">{i.label}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pivotPeriodos(periodos.linhas).map(l => (
-                      <tr key={l.mes} className="border-b border-border/40">
-                        <td className="py-2 pr-3 tabular-nums text-foreground">{l.mes.split('-').reverse().join('/')}</td>
-                        {INDICADORES_ERP.map(i => (
-                          <td key={i.key} className="py-2 text-right tabular-nums text-muted-foreground">
-                            {l.valores[i.key] == null ? '—' : fmtNum(l.valores[i.key] as number)}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => { const r = periodos?.registro; setPeriodos(null); if (r) router.push(`/clientes/${r.id}`) }}>
-              Abrir cliente
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setPeriodos(null)}>Fechar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Mesma rotina do "Verificar no ERP" do cadastro: escolhe o período,
+          consulta o SCI e grava os snapshots. É o que alimenta o farol —
+          por isso a lista recarrega ao terminar. */}
+      {sincronizarDe && (
+        <VerificarErpModal
+          clienteId={sincronizarDe.id}
+          open
+          onOpenChange={(o) => { if (!o) setSincronizarDe(null) }}
+          subtitulo={`${fmtCnpj(sincronizarDe.documento)} · ${sincronizarDe.cliente ?? ''}`}
+          onSincronizado={carregar}
+        />
+      )}
 
       {/* Data de entrada — um campo só, resolvido sem trocar de tela. */}
       <Dialog open={!!editandoEntrada} onOpenChange={(o) => { if (!o) setEditandoEntrada(null) }}>
