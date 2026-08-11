@@ -26,7 +26,7 @@ describe('ferramentas-api (cliente do front)', () => {
     const res = await createToolJob('sped', file, { sheets: '["0150"]' })
 
     expect(res).toEqual({ id: 'job-1', status: 'queued' })
-    const [url, init] = fetchMock.mock.calls[0]
+    const [url, init] = fetchMock.mock.calls[0] ?? []
     expect(url).toBe('http://api.test:8050/api/tools/sped/jobs')
     expect(init.method).toBe('POST')
     expect(init.credentials).toBe('include')
@@ -39,7 +39,7 @@ describe('ferramentas-api (cliente do front)', () => {
     fetchMock.mockResolvedValue(okJson({ id: 'job-1', status: 'done', progress: 100 }))
     const r = await getToolJobStatus('sped', 'job-1')
     expect(r.status).toBe('done')
-    const [url, init] = fetchMock.mock.calls[0]
+    const [url, init] = fetchMock.mock.calls[0] ?? []
     expect(url).toBe('http://api.test:8050/api/tools/sped/jobs/job-1')
     expect(init.credentials).toBe('include')
   })
@@ -53,7 +53,7 @@ describe('ferramentas-api (cliente do front)', () => {
     const file = new File(['x'], 'a.txt')
     const r = await inspectSped(file)
     expect(r.presentRegs).toEqual(['0000', '0150'])
-    const [url] = fetchMock.mock.calls[0]
+    const [url] = fetchMock.mock.calls[0] ?? []
     expect(url).toBe('http://api.test:8050/api/tools/sped/inspect')
   })
 

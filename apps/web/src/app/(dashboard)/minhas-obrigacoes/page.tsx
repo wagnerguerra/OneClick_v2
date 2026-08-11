@@ -196,7 +196,7 @@ export default function MinhasObrigacoesPage() {
         <CalendarioMinhasObrigacoes
           items={items}
           loading={loading}
-          onSelecionar={(item) => handleEntregar(item)}
+          onSelecionar={(item) => { const full = items.find((o) => o.id === item.id); if (full) handleEntregar(full) }}
         />
       ) : (
         <Card>

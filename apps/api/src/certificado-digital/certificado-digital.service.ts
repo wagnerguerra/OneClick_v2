@@ -112,7 +112,7 @@ export class CertificadoDigitalService {
     // Carrega cadeia de versões anteriores (parentId em árvore)
     const versoes: Array<{ id: string; numeroSerie: string | null; emitidoEm: Date; expiraEm: Date; status: string }> = []
     let cursor: { parentId: string | null } | null = cert as any
-    const visitados = new Set<string>([cert.id])
+    const visitados = new Set<string>([String(cert.id)])
     while (cursor && (cursor as any).parentId) {
       const parentId: string = (cursor as any).parentId
       if (visitados.has(parentId)) break // safety
@@ -272,7 +272,7 @@ export class CertificadoDigitalService {
    * Decifra e retorna a senha em claro. REQUER reauth + sub-permissão
    * "acessar_certificados" (exceto via cadastro do cliente, gateado no router).
    */
-  async getSenha(id: string, motivo: string, audit: AuditContext): Promise<string> {
+  async getSenha(id: string, motivo: string, _audit: AuditContext): Promise<string> {
     const cert = await prisma.certificadoDigital.findUnique({
       where: { id },
       select: { senhaCifrada: true },

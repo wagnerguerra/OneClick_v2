@@ -127,6 +127,7 @@ export async function generateDanfseZip(
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
+    if (!file) continue;
     try {
       const parsed = await parseNfseFile(file);
       if (parsed.kind === "nfse") {

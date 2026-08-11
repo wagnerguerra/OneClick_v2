@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
 import {
   TrendingUp, TrendingDown, DollarSign, BarChart3, Receipt, Wallet,
-  Table as TableIcon, Loader2, AlertCircle, ChevronDown, Plus, Minus, Search,
+  Table as TableIcon, Loader2, AlertCircle, Plus, Minus,
 } from 'lucide-react'
 import {
   ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid,
@@ -160,7 +160,6 @@ export default function BiPublicContent() {
 const ANO_COLORS = ['#0ea5e9', '#f59e0b', '#8b5cf6', '#ec4899']
 
 function PubVisaoGeral({ kpis, analiseByAno, kpisByAno, anos }: { kpis: any; analiseByAno: Record<number, any>; kpisByAno: Record<number, any>; anos: number[] }) {
-  const ano = anos[0] ?? new Date().getFullYear()
   const isComparativo = anos.length > 1
   const [indicador, setIndicador] = useState('faturamento')
 
@@ -372,7 +371,7 @@ function PubVisaoGeral({ kpis, analiseByAno, kpisByAno, anos }: { kpis: any; ana
                       }} labelLine={false}>
                       <Cell fill={GREEN} /><Cell fill={RED} />
                     </Pie>
-                    <Tooltip formatter={(v: number) => `${v}%`} contentStyle={{ fontSize: 11, borderRadius: 8 }} />
+                    <Tooltip formatter={(v) => `${v}%`} contentStyle={{ fontSize: 11, borderRadius: 8 }} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex flex-col gap-2 w-full mt-1">
@@ -396,7 +395,7 @@ function PubVisaoGeral({ kpis, analiseByAno, kpisByAno, anos }: { kpis: any; ana
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#9ca3af' }} />
                     <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={v => fmtCompact(v)} />
-                    <Tooltip formatter={(value: number, name: string) => [fmt(value), name === 'custos' ? 'Custos' : 'Despesas']} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                    <Tooltip formatter={(value, name) => [fmt(Number(value)), name === 'custos' ? 'Custos' : 'Despesas']} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
                     <Legend formatter={v => <span className="text-xs">{v === 'custos' ? 'Custos Fixos' : 'Despesas Op.'}</span>} iconType="circle" iconSize={8} />
                     <Bar dataKey="custos" stackId="a" fill={GREEN} opacity={0.8} />
                     <Bar dataKey="despesas" stackId="a" fill={RED} opacity={0.8} radius={[4, 4, 0, 0]} />
@@ -547,7 +546,7 @@ function PubAnalise({ analise, ano }: { analise: any; ano: number }) {
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={v => fmtCompact(v)} />
-              <Tooltip formatter={(value: number, name: string) => [fmt(value), tipos.find(t => t.key === name)?.label ?? name]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+              <Tooltip formatter={(value, name) => [fmt(Number(value)), tipos.find(t => t.key === name)?.label ?? name]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
               <Legend iconType="circle" iconSize={8} formatter={v => <span className="text-xs">{tipos.find(t => t.key === v)?.label ?? v}</span>} />
               {tipos.map(t => <Line key={t.key} type="monotone" dataKey={t.key} stroke={t.color} strokeWidth={2} dot={{ r: 3, fill: t.color }} />)}
             </ComposedChart>

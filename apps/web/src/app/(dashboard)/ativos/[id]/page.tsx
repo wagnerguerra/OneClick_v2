@@ -6,9 +6,8 @@ import Link from 'next/link'
 import {
   Loader2, Save, Trash2, Database, Coins, Wrench, Shield,
   History, FileText, Paperclip, Pencil, X, Plus, Download, Upload,
-  AlertCircle, Printer, QrCode,
+  AlertCircle, Printer,
 } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
 import {
   Button, Input, Card, cn, Label, Badge,
   Tabs, TabsContent, SlidingTabsList, TabsTrigger,

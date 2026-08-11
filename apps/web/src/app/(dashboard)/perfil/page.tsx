@@ -12,7 +12,7 @@ import { USER_ROLE_LABELS } from '@saas/types'
 import { masks, limparCnpj } from '@/lib/masks'
 import {
   Button, Input, Label, Card, CardHeader, CardContent,
-  Tabs, TabsList, TabsTrigger, TabsContent, SlidingTabsList,
+  Tabs, TabsTrigger, TabsContent, SlidingTabsList,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'

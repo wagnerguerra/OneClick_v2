@@ -7,7 +7,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Flag, MoreVertical, Pencil, Trash2, Paperclip, MessageSquare } from 'lucide-react'
+import { Flag, MoreVertical, Trash2, Paperclip, MessageSquare } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Badge,
@@ -305,7 +305,7 @@ function KanbanCard({
 // ─── Overlay (card que segue o cursor) ────────────────────────
 
 function KanbanCardOverlay({
-  tarefa, velocityX, width, projetoCor,
+  tarefa, velocityX, width,
 }: {
   tarefa: KanbanTarefa
   velocityX: number

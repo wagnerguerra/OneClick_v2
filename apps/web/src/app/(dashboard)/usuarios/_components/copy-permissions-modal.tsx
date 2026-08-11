@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Copy, Loader2, Search, Check } from 'lucide-react'
 import {
-  Button, Input, Badge,
+  Button, Input,
   Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
   Checkbox, Avatar, AvatarFallback,
 } from '@saas/ui'
@@ -32,7 +32,7 @@ function getInitials(name: string) {
 
 export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissionsModalProps) {
   const [users, setUsers] = useState<UserOption[]>([])
-  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [, setLoadingUsers] = useState(false)
   const [sourceId, setSourceId] = useState<string | null>(null)
   const [targetIds, setTargetIds] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
@@ -42,7 +42,7 @@ export function CopyPermissionsModal({ open, onClose, onSuccess }: CopyPermissio
     if (open) {
       setLoadingUsers(true)
       trpc.user.listForSelect.query()
-        .then(list => setUsers(list.map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role, isMaster: false }))))
+        .then((list: Array<{ id: string; name: string; email: string; role: string }>) => setUsers(list.map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role, isMaster: false }))))
         .catch(() => {})
         .finally(() => setLoadingUsers(false))
     }

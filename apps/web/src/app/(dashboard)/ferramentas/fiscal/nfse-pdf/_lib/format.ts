@@ -80,9 +80,9 @@ function splitIso(
   );
   if (!m) return null;
   return {
-    yyyy: m[1],
-    mm: m[2],
-    dd: m[3],
+    yyyy: m[1] ?? "",
+    mm: m[2] ?? "",
+    dd: m[3] ?? "",
     hh: m[4] ?? "00",
     mi: m[5] ?? "00",
     ss: m[6] ?? "00",

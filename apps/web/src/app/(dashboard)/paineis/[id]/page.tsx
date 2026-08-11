@@ -78,13 +78,13 @@ export default function PainelEditorPage() {
 
   // ── Folhas ──
   const addFolha = async () => {
-    const r = await alerts.input({ title: 'Nova folha', label: 'Título da folha', placeholder: 'Ex.: Visão Geral' })
+    const r = await alerts.input({ title: 'Nova folha', inputLabel: 'Título da folha', inputPlaceholder: 'Ex.: Visão Geral' })
     if (!r) return
     const f = await (trpc.painelTv as any).createFolha.mutate({ painelId: id, titulo: r })
     await load(); setActiveFolha(f.id)
   }
   const renomearFolha = async (folha: any) => {
-    const r = await alerts.input({ title: 'Renomear folha', label: 'Título', initialValue: folha.titulo })
+    const r = await alerts.input({ title: 'Renomear folha', inputLabel: 'Título', inputValue: folha.titulo })
     if (!r) return
     await (trpc.painelTv as any).updateFolha.mutate({ id: folha.id, data: { titulo: r } }); load()
   }

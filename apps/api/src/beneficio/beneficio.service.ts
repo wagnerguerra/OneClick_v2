@@ -224,7 +224,7 @@ export class BeneficioService {
     return rows.map(r => ({ setor: r.setor, total: Number(r.total), lancados: Number(r.lancados) }))
   }
 
-  private async verificarEscopo(competenciaId: string, colaboradorId: string, ctx: Ctx) {
+  private async verificarEscopo(_competenciaId: string, colaboradorId: string, ctx: Ctx) {
     if (await this.podeGerir(ctx)) return
     const led = await this.areasLideradas(ctx.userId)
     if (led.length === 0) throw new Error('Sem permissão para lançar apontamentos.')
@@ -358,7 +358,28 @@ export class BeneficioService {
     const fimMes = new Date(comp.ano, comp.mes, 0)
     const weekdaysMes = this.weekdaysInRange(inicioMes, fimMes) || 1
 
-    const itens = colaboradores.map(r => {
+    type RecargaBreakdown = {
+      diasUteisEf?: number
+      fator?: number
+      descontoVA?: number
+      faltas?: number
+      plantoes?: number
+      sobra?: number
+      recebeVA: boolean
+      recebeVT: boolean
+      avulso?: boolean
+    }
+    type RecargaItem = {
+      colaboradorId: string
+      nome: string
+      setor: string | null
+      valorVA: number
+      valorVT: number
+      valorMobilidade: number
+      total: number
+      breakdown: RecargaBreakdown
+    }
+    const itens: RecargaItem[] = colaboradores.map((r): RecargaItem => {
       // Proporcional por admissão/demissão dentro do mês.
       let fator = 1
       const adm = r.dataAdmissao ? new Date(r.dataAdmissao) : null

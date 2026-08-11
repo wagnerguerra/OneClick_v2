@@ -1,10 +1,8 @@
 'use client'
 
 import {
-  Workflow, Info, Lightbulb, ArrowRight, MousePointer2, GitBranch, Trash2,
-  Plus, LayoutGrid, Maximize2, Eye, AlertTriangle, ShieldCheck,
+  Workflow, Info, Lightbulb, ArrowRight, MousePointer2, GitBranch, Trash2, LayoutGrid, Maximize2, Eye, AlertTriangle, ShieldCheck,
 } from 'lucide-react'
-import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 

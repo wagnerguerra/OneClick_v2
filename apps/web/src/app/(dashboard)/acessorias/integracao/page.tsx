@@ -14,8 +14,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import {
   Zap, Loader2, Play, Copy, CheckCircle2, XCircle, Database,
-  ChevronRight, ChevronDown, Building2, FileSearch, Link as LinkIcon,
-  History, Search, RefreshCw, AlertCircle, Trash2, Save, Plus, MailWarning, GitCompareArrows, Square, Lock,
+  ChevronRight, Building2, FileSearch, Link as LinkIcon,
+  History, Search, RefreshCw, AlertCircle, Trash2, Plus, MailWarning, GitCompareArrows, Square, Lock,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn,

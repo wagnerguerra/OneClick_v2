@@ -1,10 +1,9 @@
 'use client'
 
 import {
-  Star, Send, BarChart3, Globe, MessageSquare, AlertTriangle,
+  Star, Send, BarChart3, Globe, MessageSquare,
   Lightbulb, Info, ArrowRight, CheckCircle2,
 } from 'lucide-react'
-import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 

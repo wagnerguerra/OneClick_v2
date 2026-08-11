@@ -5,15 +5,14 @@ import { masks } from '@/lib/masks'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2, Search,
+  Plus, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  Building2, MoreVertical, FileUp, FileDown, Loader2, Lock,
+  Building2, MoreVertical, FileUp, FileDown, Lock,
 } from 'lucide-react'
 import {
   Button,
   Input,
-  Badge,
   Table,
   TableHeader,
   TableBody,
@@ -360,7 +359,6 @@ export default function EmpresasPage() {
                 {/* Primeira página */}
                 <Button
                   variant="outline"
-                  size="icon"
                   size="icon-xs"
                   disabled={page === 1}
                   onClick={() => setPage(1)}
@@ -370,7 +368,6 @@ export default function EmpresasPage() {
                 {/* Anterior */}
                 <Button
                   variant="outline"
-                  size="icon"
                   size="icon-xs"
                   disabled={!data.hasPrev}
                   onClick={() => setPage((p) => p - 1)}
@@ -394,7 +391,6 @@ export default function EmpresasPage() {
                 {/* Próxima */}
                 <Button
                   variant="outline"
-                  size="icon"
                   size="icon-xs"
                   disabled={!data.hasNext}
                   onClick={() => setPage((p) => p + 1)}
@@ -404,7 +400,6 @@ export default function EmpresasPage() {
                 {/* Última página */}
                 <Button
                   variant="outline"
-                  size="icon"
                   size="icon-xs"
                   disabled={page === totalPages}
                   onClick={() => setPage(totalPages)}

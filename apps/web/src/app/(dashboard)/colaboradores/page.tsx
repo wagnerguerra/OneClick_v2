@@ -17,7 +17,7 @@ import {
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { exportToExcel, exportToCsv } from '@/lib/export-data'
+import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
 import { TIPO_CONTRATO_LABELS } from '@saas/types'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
@@ -124,8 +124,9 @@ export default function ColaboradoresPage() {
         Cargo: c.cargo?.name ?? '',
         Ativo: c.isActive ? 'Sim' : 'Não',
       }))
-      if (format === 'excel') exportToExcel(rows, 'colaboradores')
-      else exportToCsv(rows, 'colaboradores')
+      const columns: ExportColumn[] = Object.keys(rows[0] ?? {}).map((k) => ({ header: k, accessor: k }))
+      if (format === 'excel') exportToExcel(rows, columns, 'colaboradores')
+      else exportToCsv(rows, columns, 'colaboradores')
     } catch {
       alerts.error('Erro', 'Não foi possível exportar.')
     }

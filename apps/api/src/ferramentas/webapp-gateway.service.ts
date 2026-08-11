@@ -141,7 +141,7 @@ export class WebappGatewayService {
   private buildForm(files: GatewayUploadFile[], fields: Record<string, string> = {}): FormData {
     const form = new FormData()
     for (const f of files) {
-      const blob = new Blob([f.content], { type: f.contentType ?? 'application/octet-stream' })
+      const blob = new Blob([new Uint8Array(f.content)], { type: f.contentType ?? 'application/octet-stream' })
       form.append(f.field, blob, f.filename)
     }
     for (const [key, value] of Object.entries(fields)) form.append(key, value)
@@ -178,7 +178,7 @@ export class WebappGatewayService {
     if (!inspectPath) throw new Error(`Ferramenta ${tool} não tem pré-passo de inspeção.`)
     const form = new FormData()
     for (const f of files) {
-      const blob = new Blob([f.content], { type: f.contentType ?? 'application/octet-stream' })
+      const blob = new Blob([new Uint8Array(f.content)], { type: f.contentType ?? 'application/octet-stream' })
       form.append(f.field, blob, f.filename)
     }
     const res = await fetch(`${this.baseUrl}${API_PREFIX}${inspectPath}`, { method: 'POST', body: form })

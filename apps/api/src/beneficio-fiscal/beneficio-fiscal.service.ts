@@ -299,6 +299,7 @@ export class BeneficioFiscalService {
         clienteId: v.clienteId,
         tipo: servico.recorrenteMensal ? 'SERVICO_MENSAL' : 'SERVICO_EXTRA',
         area: servico.area?.name ?? null,
+        validadeDias: 90,
         observacoes,
       },
       userId,

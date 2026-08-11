@@ -102,7 +102,7 @@ export default function BiFaturamentoPage() {
   // Carregar clientes (apenas situação MENSAL)
   useEffect(() => {
     trpc.cliente.listForSelect.query()
-      .then((result) => {
+      .then((result: unknown) => {
         const all = result as Array<ClienteOption & { situacao?: string }>
         const list = all.filter(c => c.situacao === 'MENSAL')
         setClientes(list)

@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  Database, Info, Plus, ShieldCheck, Wrench, Paperclip, QrCode, Printer,
+  Database, Info, Plus, ShieldCheck, Wrench, Paperclip, QrCode,
   ClipboardCheck, BarChart3, History, AlertTriangle, FileText, Coins,
   Lightbulb, Tag, UserCog,
 } from 'lucide-react'
@@ -185,7 +185,7 @@ export default function FaqControleAtivosPage() {
           <li>Marque os checkboxes dos ativos confirmados (cabeçalho marca todos da página)</li>
           <li>Clique em <strong>&quot;Marcar inventariados&quot;</strong> — o sistema registra a data atual em todos</li>
         </ul>
-        <Callout tipo="alerta">
+        <Callout tipo="aviso">
           O KPI <strong>&quot;Sem inventário 6m&quot;</strong> conta ativos não inventariados nos últimos 6 meses — alvo
           das próximas auditorias.
         </Callout>

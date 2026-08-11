@@ -43,7 +43,6 @@ export interface DteSyncProgress {
 // ============================================================
 
 const AGENCIA_VIRTUAL_URL = 'https://s1-internet.sefaz.es.gov.br/agenciavirtual'
-const GOV_BR_CERT_SELECTOR = 'button#login-certificate'
 const NAV_TIMEOUT = 120_000
 const SLEEP = (ms: number) => new Promise(r => setTimeout(r, ms))
 
@@ -134,7 +133,6 @@ export class DteService {
     try {
       const certPath = this.getCertPath()
       const output = child_process.execSync(`certutil -dump "${certPath}" 2>&1`, { encoding: 'utf8', timeout: 10000 })
-      const match = output.match(/Requerente:\s+CN=([^,\r\n]+)/)
       // Pegar o último CN (que é o do titular, não da CA)
       const allCNs = [...output.matchAll(/Requerente:\s+CN=([^,\r\n]+)/g)]
       if (allCNs.length > 0) {
@@ -268,7 +266,7 @@ export class DteService {
 
         // Aceitar cookies
         await page.evaluate(() => {
-          for (const b of document.querySelectorAll('button')) { if (b.textContent?.match(/Aceitar\s+todos/i)) { ;(b as HTMLElement).click(); return } }
+          for (const b of Array.from(document.querySelectorAll('button'))) { if (b.textContent?.match(/Aceitar\s+todos/i)) { ;(b as HTMLElement).click(); return } }
         })
         this.log('info', 'Cookies aceitos')
         await SLEEP(1500)
@@ -276,7 +274,7 @@ export class DteService {
         // Submeter form "Certificado Digital" → redireciona para gov.br SSO
         this.log('info', 'Submetendo form Certificado Digital → gov.br SSO...')
         await page.evaluate(() => {
-          for (const form of document.querySelectorAll('form')) {
+          for (const form of Array.from(document.querySelectorAll('form'))) {
             if ((form as HTMLFormElement).action?.includes('Challenge')) { (form as HTMLFormElement).submit(); return }
           }
         })
@@ -350,7 +348,7 @@ export class DteService {
       if (pageContent.includes('Pessoa') && pageContent.includes('dica')) {
         this.log('info', 'Clicando em "Pessoa Juridica"...')
         await page.evaluate(() => {
-          for (const el of document.querySelectorAll('a, div, span, h2, h3')) {
+          for (const el of Array.from(document.querySelectorAll('a, div, span, h2, h3'))) {
             if (el.textContent?.trim().match(/^Pessoa\s+Jur[ií]dica$/i)) {
               let t: Element = el; for (let i = 0; i < 5; i++) { if (t.parentElement?.tagName === 'A') { t = t.parentElement; break; } t = t.parentElement || t; }
               ;(t as HTMLElement).click(); return
@@ -371,7 +369,7 @@ export class DteService {
         this.log('info', `Filtrando tabela por: ${cnpjFormatado}`)
         await page.evaluate((doc: string) => {
           const inputs = document.querySelectorAll('input[type="search"], input[type="text"], input.form-control')
-          for (const input of inputs) {
+          for (const input of Array.from(inputs)) {
             const el = input as HTMLInputElement
             if (el.offsetParent) {
               el.value = doc
@@ -393,9 +391,9 @@ export class DteService {
       await SLEEP(1000)
 
       // Extrair clientes da tabela
-      const clientes = await page.evaluate(() => {
+      const clientes: Array<{ razaoSocial: string; documento: string; vizUrl: string }> = await page.evaluate(() => {
         const rows: Array<{ razaoSocial: string; documento: string; vizUrl: string }> = []
-        for (const tr of document.querySelectorAll('table tbody tr')) {
+        for (const tr of Array.from(document.querySelectorAll('table tbody tr'))) {
           const cells = Array.from(tr.querySelectorAll('td'))
           if (cells.length < 3) continue
           let cnpj = '', razao = ''
@@ -532,7 +530,7 @@ export class DteService {
           //   NOTIFICAÇÕES              ← categoria
           //   Retificação do DUA...     ← assunto
           //   30/03/2026 10:11          ← data
-          const mensagens = await page.evaluate(() => {
+          const mensagens: Array<{ tipo: string; titulo: string; dataMensagem: string; status: string }> = await page.evaluate(() => {
             const msgs: Array<{ tipo: string; titulo: string; dataMensagem: string; status: string }> = []
             const body = document.body.innerText || ''
             const lines = body.split('\n').map(l => l.trim()).filter(Boolean)
@@ -633,7 +631,7 @@ export class DteService {
   }
 
   // ── Sincronizar um cliente específico ─────────────────────
-  async sincronizarCliente(clienteId: string, documento: string): Promise<{ mensagens: number; novas: number }> {
+  async sincronizarCliente(_clienteId: string, documento: string): Promise<{ mensagens: number; novas: number }> {
     await this.ensureTable()
     const docLimpo = documento.replace(/\D/g, '')
     const before = await prisma.$queryRawUnsafe<Array<{ count: number }>>(

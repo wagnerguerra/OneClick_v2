@@ -68,7 +68,7 @@ export function LogDialog({ open, onOpenChange, execucao }: LogDialogProps) {
     setLoading(true)
     trpc.minhasObrigacoes.log
       .query({ execucaoId: execucao.id })
-      .then((d) => setEventos(d as unknown as Evento[]))
+      .then((d: unknown) => setEventos(d as Evento[]))
       .catch(() => setEventos([]))
       .finally(() => setLoading(false))
   }, [open, execucao])

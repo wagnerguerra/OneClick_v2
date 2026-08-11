@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  Plus, Search, Loader2, Database, Laptop, ShieldCheck, Wrench, PackageOpen, Coins,
+  Plus, Search, Loader2, Database, Laptop, Wrench, PackageOpen, Coins,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreVertical, Pencil, Trash2,
   ClipboardCheck, Printer, AlertTriangle,
 } from 'lucide-react'
@@ -128,26 +128,6 @@ export default function AtivosPage() {
   useEffect(() => { void fetchData() }, [fetchData])
 
   const totalPages = Math.max(1, Math.ceil(total / limit))
-
-  // KPIs (sobre TODO o dataset visível do filtro — não só a página atual)
-  const kpis = useMemo(() => {
-    const totalValor = data.reduce((sum, a) => sum + (a.valorAquisicao ? Number(a.valorAquisicao) : 0), 0)
-    const totalDeprec = data.reduce((sum, a) => {
-      const v = calcularValorDepreciado(
-        a.valorAquisicao ? Number(a.valorAquisicao) : null,
-        a.dataAquisicao,
-        a.categoria.depreciacaoMeses,
-      )
-      return sum + (v ?? 0)
-    }, 0)
-    return {
-      totalValor,
-      totalDeprec,
-      emUso: data.filter(a => a.status === 'ATIVO').length,
-      manutencao: data.filter(a => a.status === 'MANUTENCAO').length,
-      estoque: data.filter(a => a.status === 'ESTOQUE').length,
-    }
-  }, [data])
 
   async function handleDelete(id: string, tag: string) {
     const ok = await alerts.confirm({

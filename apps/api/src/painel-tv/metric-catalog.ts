@@ -161,11 +161,11 @@ export const METRIC_CATALOG: MetricDef[] = [
   { id: 'helpdesk.mttr', label: 'Tempo médio de resolução', modulo: 'helpdesk', kind: 'duration', source: 'helpdesk', visuals: KPI,
     extract: (s) => ({ value: s?.kpis?.mttrHoras ?? null }) },
   { id: 'helpdesk.porStatus', label: 'Backlog por status', modulo: 'helpdesk', kind: 'distribution', source: 'helpdesk', visuals: DIST,
-    extract: (s) => ({ items: (s?.porStatus ?? []).filter((x: any) => !HELPDESK_STATUS_FINAIS.includes(x.status) && (x.total ?? 0) > 0).map((x: any) => ({ name: HELPDESK_STATUS_LABELS[x.status] ?? x.status, value: x.total, color: STATUS_HD[x.status] })) }) },
+    extract: (s) => ({ items: (s?.porStatus ?? []).filter((x: any) => !HELPDESK_STATUS_FINAIS.includes(x.status) && (x.total ?? 0) > 0).map((x: any) => ({ name: HELPDESK_STATUS_LABELS[x.status as keyof typeof HELPDESK_STATUS_LABELS] ?? x.status, value: x.total, color: STATUS_HD[x.status] })) }) },
   { id: 'helpdesk.porPrioridade', label: 'Criados por prioridade', modulo: 'helpdesk', kind: 'distribution', source: 'helpdesk', visuals: DIST,
     extract: (s) => {
       const ord = ['BAIXA', 'MEDIA', 'ALTA', 'URGENTE']
-      return { items: (s?.porPrioridade ?? []).filter((x: any) => (x.total ?? 0) > 0).sort((a: any, b: any) => ord.indexOf(a.prioridade) - ord.indexOf(b.prioridade)).map((x: any) => ({ name: HELPDESK_PRIORIDADE_LABELS[x.prioridade] ?? x.prioridade, value: x.total, color: HELPDESK_PRIORIDADE_COLORS[x.prioridade] })) }
+      return { items: (s?.porPrioridade ?? []).filter((x: any) => (x.total ?? 0) > 0).sort((a: any, b: any) => ord.indexOf(a.prioridade) - ord.indexOf(b.prioridade)).map((x: any) => ({ name: HELPDESK_PRIORIDADE_LABELS[x.prioridade as keyof typeof HELPDESK_PRIORIDADE_LABELS] ?? x.prioridade, value: x.total, color: HELPDESK_PRIORIDADE_COLORS[x.prioridade as keyof typeof HELPDESK_PRIORIDADE_COLORS] })) }
     } },
   { id: 'helpdesk.serie', label: 'Criados × resolvidos (período)', modulo: 'helpdesk', kind: 'series', source: 'helpdesk', visuals: SERIES,
     extract: (s) => ({ points: (s?.serie ?? []).map((p: any) => ({ x: p.periodo, criados: p.criados, resolvidos: p.resolvidos })), series: [{ key: 'criados', label: 'Criados', color: '#60a5fa' }, { key: 'resolvidos', label: 'Resolvidos', color: '#10b981' }] }) },
@@ -212,7 +212,7 @@ export const METRIC_CATALOG: MetricDef[] = [
   { id: 'helpdesk.reabertura', label: 'Taxa de reabertura', modulo: 'helpdesk', kind: 'percent', source: 'helpdesk', visuals: KPI,
     extract: (s) => ({ value: s?.kpis?.taxaReaberturaPct ?? null }) },
   { id: 'helpdesk.porTipo', label: 'Tickets por tipo', modulo: 'helpdesk', kind: 'distribution', source: 'helpdesk', visuals: DIST,
-    extract: (s) => ({ items: (s?.porTipo ?? []).filter((x: any) => (x.total ?? 0) > 0).map((x: any, i: number) => ({ name: HELPDESK_TIPO_LABELS[x.tipo] ?? x.tipo, value: x.total, color: PALETTE[i % PALETTE.length] })) }) },
+    extract: (s) => ({ items: (s?.porTipo ?? []).filter((x: any) => (x.total ?? 0) > 0).map((x: any, i: number) => ({ name: HELPDESK_TIPO_LABELS[x.tipo as keyof typeof HELPDESK_TIPO_LABELS] ?? x.tipo, value: x.total, color: PALETTE[i % PALETTE.length] })) }) },
   { id: 'helpdesk.csatDist', label: 'Distribuição de CSAT (1–5)', modulo: 'helpdesk', kind: 'distribution', source: 'helpdesk', visuals: DIST,
     extract: (s) => ({ items: (s?.csatDist ?? []).map((x: any) => ({ name: `${x.nota}★`, value: x.total, color: CSAT_COR[x.nota] ?? '#94a3b8' })) }) },
 

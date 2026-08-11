@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  BadgeCheck, Upload, FileLock, AlertTriangle, RefreshCw,
+  BadgeCheck, Upload, RefreshCw,
   Lightbulb, Info, ArrowRight, Calendar, Server, Database,
 } from 'lucide-react'
 import { Badge } from '@saas/ui'

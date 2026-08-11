@@ -450,7 +450,7 @@ export class ContratoService {
           responsavelId: input.responsavelId || null,
           contratanteRazaoSocial: input.contratanteRazaoSocial || cliente.razaoSocial,
           contratanteCnpj: input.contratanteCnpj || cliente.documento,
-          contratanteEndereco: input.contratanteEndereco || [cliente.endereco, cliente.cidade, cliente.estado].filter(Boolean).join(', ') || null,
+          contratanteEndereco: input.contratanteEndereco || [cliente.logradouro, cliente.cidade, cliente.uf].filter(Boolean).join(', ') || null,
           contratanteRepresentante: input.contratanteRepresentante || null,
           contratanteCpfRep: input.contratanteCpfRep || null,
           empresaId: empresaId || null,
@@ -1144,7 +1144,7 @@ export class ContratoService {
     try {
       // 1) PDF da página de rosto — sem header/footer, margens zero (controle no HTML)
       const coverPage = await browser.newPage()
-      await coverPage.setContent(coverHtml, { waitUntil: 'networkidle0' })
+      await coverPage.setContent(coverHtml, { waitUntil: 'load' })
       coverPdf = Buffer.from(await coverPage.pdf({
         format: 'A4',
         printBackground: true,
@@ -1154,7 +1154,7 @@ export class ContratoService {
 
       // 2) PDF do conteúdo — com footer "Página X de Y" em cada página
       const contentPage = await browser.newPage()
-      await contentPage.setContent(contentHtml, { waitUntil: 'networkidle0' })
+      await contentPage.setContent(contentHtml, { waitUntil: 'load' })
       contentPdf = Buffer.from(await contentPage.pdf({
         format: 'A4',
         printBackground: true,
@@ -1890,12 +1890,14 @@ export class ContratoService {
     for (const c of criados as Array<{ createdAt: Date }>) {
       const d = new Date(c.createdAt)
       const idx = idxByKey[`${d.getFullYear()}-${d.getMonth()}`]
-      if (idx !== undefined) buckets[idx].novos++
+      const b = idx !== undefined ? buckets[idx] : undefined
+      if (b) b.novos++
     }
     for (const c of encerrados as Array<{ encerradoEm: Date }>) {
       const d = new Date(c.encerradoEm)
       const idx = idxByKey[`${d.getFullYear()}-${d.getMonth()}`]
-      if (idx !== undefined) buckets[idx].encerrados++
+      const b = idx !== undefined ? buckets[idx] : undefined
+      if (b) b.encerrados++
     }
 
     return {

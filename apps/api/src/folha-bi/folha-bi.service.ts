@@ -310,7 +310,9 @@ export class FolhaBiService {
     const ids = sibs.map((s: any) => Number(s.id))
     const i = ids.indexOf(Number(id)), j = i + (dir === 'up' ? -1 : 1)
     if (i < 0 || j < 0 || j >= ids.length) return { ok: true, moved: false }
-    ;[ids[i], ids[j]] = [ids[j], ids[i]]
+    const a = ids[i], b = ids[j]
+    if (a === undefined || b === undefined) return { ok: true, moved: false }
+    ids[i] = b; ids[j] = a
     for (let k = 0; k < ids.length; k++) await fq(`update folha_dash.classif_grupo set ordem=$2 where id=$1`, [ids[k], k])
     return { ok: true, moved: true }
   }

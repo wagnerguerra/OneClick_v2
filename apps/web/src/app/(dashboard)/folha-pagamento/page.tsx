@@ -5,7 +5,7 @@ import {
   FileSpreadsheet, Settings2, Upload, Table2, Download, Building2,
   ChevronsUpDown, Check, type LucideIcon,
 } from 'lucide-react'
-import { Button, Card, CardHeader, Badge, Label, cn } from '@saas/ui'
+import { Card, CardHeader, Label, cn } from '@saas/ui'
 import { Command } from 'cmdk'
 import { trpc } from '@/lib/trpc'
 import { FolhaConfigTab } from './_components/folha-config'
@@ -46,7 +46,7 @@ export default function FolhaPagamentoPage() {
   // Carregar clientes
   useEffect(() => {
     trpc.cliente.listForSelect.query()
-      .then((result) => {
+      .then((result: unknown) => {
         const all = result as Array<ClienteOption & { situacao?: string }>
         setClientes(all.filter(c => c.situacao === 'MENSAL'))
       })

@@ -238,7 +238,7 @@ export default function BeneficiosFiscaisPage() {
   async function handleExcluirMassa() {
     if (selecionados.size === 0) return
     const total = selecionados.size
-    const ok = await alerts.confirm('Excluir em massa', `Excluir ${total} vínculo(s) de benefício selecionado(s)? Esta ação é irreversível.`)
+    const ok = await alerts.confirm({ title: 'Excluir em massa', text: `Excluir ${total} vínculo(s) de benefício selecionado(s)? Esta ação é irreversível.` })
     if (!ok) return
     setExcluindoLote(true)
     try {
@@ -581,7 +581,7 @@ function CatalogoModal({ open, onClose, catalogo, servicos, onChanged }: {
     finally { setSaving(false) }
   }
   async function remover(c: CatalogoItem) {
-    const ok = await alerts.confirm('Inativar benefício', `Inativar "${c.nome}" do catálogo?`)
+    const ok = await alerts.confirm({ title: 'Inativar benefício', text: `Inativar "${c.nome}" do catálogo?` })
     if (!ok) return
     try { await trpcBF().removeCatalogo.mutate({ id: c.id }); onChanged() }
     catch (e) { alerts.error('Erro', (e as Error).message) }

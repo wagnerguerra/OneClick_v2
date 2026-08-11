@@ -109,7 +109,7 @@ export function AssinarWebPkiModal({ open, onOpenChange, contratoId, contratoTok
     instance.listCertificates({ filter: instance.filters.isWithinValidity })
       .success((certs: CertificadoItem[]) => {
         setCertificados(certs || [])
-        if (certs?.length === 1) setSelectedThumb(certs[0].thumbprint)
+        if (certs?.length === 1 && certs[0]) setSelectedThumb(certs[0].thumbprint)
         setLoadingCerts(false)
       })
       .error((err: any) => {
@@ -276,12 +276,13 @@ export function AssinarWebPkiModal({ open, onOpenChange, contratoId, contratoTok
 function extractNomeFromSubject(subject: string): string {
   const m = subject.match(/CN=([^,]+)/i)
   if (!m) return subject
-  return m[1].split(':')[0].trim()
+  const cn = m[1] ?? subject
+  return cn.split(':')[0]?.trim() ?? cn
 }
 
 function shortIssuer(issuer: string): string {
   const m = issuer.match(/CN=([^,]+)/i)
-  return m ? m[1].trim() : issuer.slice(0, 50)
+  return m?.[1]?.trim() ?? issuer.slice(0, 50)
 }
 
 // Converte uma string hex (ex: "a3f1...") para base64 — formato exigido pelo

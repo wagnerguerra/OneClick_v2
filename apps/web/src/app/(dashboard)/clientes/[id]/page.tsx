@@ -13,7 +13,7 @@ export default function EditClientePage() {
 
   useEffect(() => {
     trpc.cliente.getById.query({ id: params.id })
-      .then((data) => setCliente(data as unknown as Record<string, unknown>))
+      .then((data: unknown) => setCliente(data as Record<string, unknown>))
       .catch(() => setCliente(null))
       .finally(() => setLoading(false))
   }, [params.id])

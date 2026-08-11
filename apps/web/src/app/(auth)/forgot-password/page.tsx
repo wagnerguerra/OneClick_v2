@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
     setError(null)
     setLoading(true)
     try {
-      await authClient.forgetPassword({
+      await authClient.requestPasswordReset({
         email: data.email,
         redirectTo: '/reset-password',
       })

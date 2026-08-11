@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { PanelLeftClose, PanelLeft, LayoutDashboard, Wrench, X } from 'lucide-react'
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
-import { cn, ScrollArea, Separator, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
+import { cn, Separator, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
 import { navigation, type NavItem } from '@/lib/navigation'
 
 /**
@@ -30,7 +30,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
   const logoSrc = '/logo-light.png'
 
   // Filtrar navigation baseado nas permissões do usuário
-  const { isMaster, isEmpresaMaster, allowedSlugs, permissions, role, loading: permsLoading } = useUserPermissions()
+  const { isMaster, isEmpresaMaster, allowedSlugs, permissions, role } = useUserPermissions()
   const ehLiderSetor = ['GESTOR', 'COORDENADOR', 'DIRETOR'].includes(role)
 
   const pathname = usePathname()

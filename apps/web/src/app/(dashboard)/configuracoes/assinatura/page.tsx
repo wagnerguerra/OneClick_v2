@@ -15,6 +15,10 @@ import {
   PLAN_INTERVAL_LABELS,
   MODULE_GROUPS,
 } from '@saas/types'
+import type { inferRouterOutputs } from '@trpc/server'
+import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
+
+type SubscriptionOutput = inferRouterOutputs<AppRouter>['billing']['currentSubscription']
 
 interface Plan {
   id: string
@@ -30,15 +34,6 @@ interface Plan {
   highlight: boolean
 }
 
-interface Subscription {
-  id: string
-  status: string
-  currentPeriodStart: string
-  currentPeriodEnd: string
-  cancelAtPeriodEnd: boolean
-  plan: Plan
-}
-
 const STATUS_ICONS: Record<string, typeof CheckCircle2> = {
   ACTIVE: CheckCircle2,
   PAST_DUE: AlertTriangle,
@@ -50,7 +45,7 @@ const STATUS_ICONS: Record<string, typeof CheckCircle2> = {
 export default function AssinaturaPage() {
   const searchParams = useSearchParams()
   const [plans, setPlans] = useState<Plan[]>([])
-  const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [subscription, setSubscription] = useState<SubscriptionOutput>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [intervalo, setIntervalo] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY')
@@ -76,7 +71,7 @@ export default function AssinaturaPage() {
       ])
       const loadedPlans = (plansData as Plan[]) || []
       setPlans(loadedPlans)
-      setSubscription((subData as Subscription) || null)
+      setSubscription(subData)
       // Default: prefere MONTHLY; se nao houver, cai pra YEARLY se existir
       const hasMonthly = loadedPlans.some((p) => p.interval === 'MONTHLY')
       const hasYearly = loadedPlans.some((p) => p.interval === 'YEARLY')

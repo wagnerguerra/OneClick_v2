@@ -83,7 +83,7 @@ export class AgendaDisparoService implements OnModuleInit {
   }
 
   private diaSemanaExt(d: Date): string {
-    return ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'][d.getUTCDay()]
+    return ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'][d.getUTCDay()] ?? ''
   }
 
   onModuleInit() {

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { Search, Loader2, Plus, Minus } from 'lucide-react'
+import { Loader2, Plus, Minus } from 'lucide-react'
 import { Input, Checkbox, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 
@@ -44,7 +44,7 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
     if (!clienteId || !ano) return
     setLoading(true)
     trpc.bi.balanceteMatriz.query({ clienteId, ano, useParent })
-      .then((res) => { setData(res as MatrizResponse); setExpanded(new Set()) })
+      .then((res: unknown) => { setData(res as MatrizResponse); setExpanded(new Set()) })
       .catch(() => setData(null))
       .finally(() => setLoading(false))
   }, [clienteId, ano, useParent])

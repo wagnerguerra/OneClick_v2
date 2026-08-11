@@ -1,6 +1,6 @@
 'use client'
 
-import type { ComponentType, ReactNode } from 'react'
+import type { ComponentType, CSSProperties, ReactNode } from 'react'
 import { Lightbulb, Info, ArrowRight, FileSearch, Calendar, RotateCcw } from 'lucide-react'
 import { ArticleShell } from './article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from './article-blocks'
@@ -87,7 +87,7 @@ export function SegmentoShell({ modulo, moduloColor, icon, titulo, descricao, gl
   )
 }
 
-function CadeiaBlock({ nome, descricao, templates, cor, icon: Icon }: CadeiaTemplate & { cor: string; icon: ComponentType<{ className?: string }> }) {
+function CadeiaBlock({ nome, descricao, templates, cor, icon: Icon }: CadeiaTemplate & { cor: string; icon: ComponentType<{ className?: string; style?: CSSProperties }> }) {
   return (
     <div className="rounded-md border p-3 text-[12px]">
       <div className="flex items-center gap-2 mb-1">

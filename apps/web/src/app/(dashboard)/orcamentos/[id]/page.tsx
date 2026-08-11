@@ -670,9 +670,7 @@ export default function OrcamentoDetailPage() {
   const canRetomar = isMaster || subPerms.acao_retomar === true
   const canReabrir = isMaster || subPerms.acao_reabrir === true
   const canDuplicar = isMaster || subPerms.acao_duplicar === true
-  const canArquivar = isMaster || subPerms.acao_arquivar === true
   const canChangeSolicitante = isMaster || subPerms.change_solicitante === true
-  const canChangeResponsavel = isMaster || subPerms.change_responsavel === true
   const canEnviarPesquisa = isMaster || subPerms.enviar_pesquisa === true
   // Catálogo de serviços é configuração administrativa do módulo — restrito a master/empresa-master
   const canManageCatalogo = isMaster || isEmpresaMaster
@@ -813,7 +811,7 @@ export default function OrcamentoDetailPage() {
   // Servico template vinculado — quando orcamento for APROVADO, sistema cria
   // automaticamente uma execucao para o responsavel executar o checklist.
   const [formServicoId, setFormServicoId] = useState('')
-  const [servicosDisponiveis, setServicosDisponiveis] = useState<Array<{ id: string; nome: string; area: { name: string } | null }>>([])
+  const [, setServicosDisponiveis] = useState<Array<{ id: string; nome: string; area: { name: string } | null }>>([])
   useEffect(() => {
     (async () => {
       try {

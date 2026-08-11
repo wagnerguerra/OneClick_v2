@@ -10,7 +10,7 @@ const DEFAULT_MAX = 10
  * Rotas como '/dashboard' são sempre acessíveis (não exigem permissão).
  */
 function hrefToModuleSlug(href: string): string | null {
-  const clean = href.split('?')[0]!.split('#')[0]
+  const clean = href.split('?')[0]!.split('#')[0]!
   const segments = clean.split('/').filter(Boolean)
   if (segments.length === 0) return null
   return segments[0] || null

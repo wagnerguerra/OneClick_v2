@@ -5,14 +5,14 @@ import {
   HelpCircle, Workflow, Lightbulb, AlertTriangle, Info, CheckCircle2, Pause, ArrowRight,
 } from 'lucide-react'
 import { Card, CardContent, Badge } from '@saas/ui'
-import type { ComponentType, ReactNode } from 'react'
+import type { ComponentType, CSSProperties, ReactNode } from 'react'
 
 // ─────────────────────────────────────────────────────────────
 // Blocos reusáveis para artigos do FAQ
 // ─────────────────────────────────────────────────────────────
 
 export function Section({ icon: Icon, titulo, cor, children }: {
-  icon: ComponentType<{ className?: string }>
+  icon: ComponentType<{ className?: string; style?: CSSProperties }>
   titulo: string
   cor: string
   children: ReactNode
@@ -33,7 +33,7 @@ export function Section({ icon: Icon, titulo, cor, children }: {
 export function Step({ n, cor, icon: Icon, titulo, rota, children }: {
   n: number
   cor: string
-  icon: ComponentType<{ className?: string }>
+  icon: ComponentType<{ className?: string; style?: CSSProperties }>
   titulo: string
   rota?: string
   children: ReactNode

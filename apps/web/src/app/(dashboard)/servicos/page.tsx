@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ClipboardCheck, Search, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, Copy, ArrowLeft,
+  ClipboardCheck, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, Copy, ArrowLeft,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   Clock, CheckCircle2, LayoutGrid, List, Play, XCircle, Eye,
-  GripVertical, ToggleLeft, ToggleRight, Pause, MessageSquare, Paperclip, Send, ChevronDown, ChevronUp,
-  AlertCircle, Check, SkipForward, Network, Repeat, Zap, FileText, Type, ListChecks, Layers, Lock, ShieldCheck, Wand2,
+  GripVertical, Pause, MessageSquare, Paperclip, Send, ChevronDown, ChevronUp,
+  AlertCircle, Check, Network, Repeat, Zap, FileText, Type, ListChecks, Layers, Lock, ShieldCheck, Wand2,
   SlidersHorizontal, X, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import {
@@ -255,7 +255,7 @@ export default function ServicosPage() {
   // Lista completa (sem paginação/filtros) — usada APENAS no Select do modal
   // de encadeamento, para garantir que o destino atual aparece mesmo se estiver
   // em outra página ou outra categoria filtrada.
-  const [todosServicos, setTodosServicos] = useState<Array<{ id: string; nome: string }>>([])
+  const [todosServicos] = useState<Array<{ id: string; nome: string }>>([])
   const [totalServicos, setTotalServicos] = useState(0)
 
   // Execucoes
@@ -510,17 +510,6 @@ export default function ServicosPage() {
   }
 
   // ── Encadeamentos (Próximos serviços) ─────────────────────
-
-  async function loadTodosServicos() {
-    try {
-      // Sem filtros/paginação — usado apenas no Select do modal de encadeamento
-      const result = await (trpc.servico as any).listServicos.query() as Array<{ id: string; nome: string }>
-      setTodosServicos(result.map(s => ({ id: s.id, nome: s.nome })))
-    } catch (e) {
-      console.warn('Falha ao carregar lista completa de serviços:', (e as Error).message)
-      setTodosServicos([])
-    }
-  }
 
   async function loadEncadeamentos(servicoOrigemId: string) {
     try {
@@ -1833,12 +1822,12 @@ export default function ServicosPage() {
                 <Label className="text-[13px] font-semibold">Tipo de cadastro</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                   {([
-                    { v: 'MENSAL'  as const, key: 'MENSAL',     label: 'Serviço Recorrente',     desc: 'Serviço que precisa ser executado com uma determinada recorrência', tone: 'sky',    Icon: Repeat },
-                    { v: 'EXTRA'   as const, key: 'EXTRA',      label: 'Serviço Extraordinário', desc: 'Pontual — cobrança por execução',                                    tone: 'amber',  Icon: Zap },
-                    { v: 'FLUXO'   as const, key: 'FLUXO',      label: 'Parte do Fluxo',         desc: 'Item interno de outro serviço',                                      tone: 'violet', Icon: Network },
+                    { v: 'MENSAL'  as const, key: 'MENSAL',     label: 'Serviço Recorrente',     desc: 'Serviço que precisa ser executado com uma determinada recorrência', tone: 'sky' as const,    Icon: Repeat },
+                    { v: 'EXTRA'   as const, key: 'EXTRA',      label: 'Serviço Extraordinário', desc: 'Pontual — cobrança por execução',                                    tone: 'amber' as const,  Icon: Zap },
+                    { v: 'FLUXO'   as const, key: 'FLUXO',      label: 'Parte do Fluxo',         desc: 'Item interno de outro serviço',                                      tone: 'violet' as const, Icon: Network },
                     // INTERNO/ACESSORIA são "categorias virtuais": persistem em flags próprias.
-                    { v: 'EXTRA'   as const, key: 'INTERNO',    label: 'Serviço Interno',        desc: 'Serviço de execução interna',                                        tone: 'slate',  Icon: Lock },
-                    { v: 'MENSAL'  as const, key: 'ACESSORIA',  label: 'Obrigação Acessória',  desc: 'Obrigações que são entregues com uma certa recorrência',             tone: 'rose',   Icon: ShieldCheck },
+                    { v: 'EXTRA'   as const, key: 'INTERNO',    label: 'Serviço Interno',        desc: 'Serviço de execução interna',                                        tone: 'slate' as const,  Icon: Lock },
+                    { v: 'MENSAL'  as const, key: 'ACESSORIA',  label: 'Obrigação Acessória',  desc: 'Obrigações que são entregues com uma certa recorrência',             tone: 'rose' as const,   Icon: ShieldCheck },
                   ]).map(opt => {
                     const active = opt.key === 'INTERNO'
                       ? formEhServicoInterno

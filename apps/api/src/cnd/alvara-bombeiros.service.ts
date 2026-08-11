@@ -294,7 +294,7 @@ export class AlvaraBombeirosService {
       const newPagePromise = new Promise<unknown>(resolve => browser.once('targetcreated', async (t: { page: () => Promise<unknown> }) => resolve(await t.page())))
       await page.evaluate(`chamarImprimirAlvara('ALVARA_LICENCA',${alvaraId})`)
 
-      const pdfPage = await Promise.race([newPagePromise, new Promise((_, rej) => setTimeout(() => rej('timeout'), 15000))]) as { createCDPSession: () => Promise<{ send: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>; on: (event: string, handler: (...args: unknown[]) => void) => void }>; reload: (opts: Record<string, unknown>) => Promise<void> }
+      const pdfPage = await Promise.race([newPagePromise, new Promise((_, rej) => setTimeout(() => rej('timeout'), 15000))]) as { createCDPSession: () => Promise<{ send: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>; on: (event: string, handler: (event: { requestId: string; responseHeaders?: Array<{ name: string; value: string }> }) => void) => void }>; reload: (opts: Record<string, unknown>) => Promise<void> }
       await new Promise((r: (v: unknown) => void) => setTimeout(r, 3000))
 
       // CDP Fetch + reload para capturar o PDF

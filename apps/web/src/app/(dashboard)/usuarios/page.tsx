@@ -4,13 +4,13 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2, Search, Eye,
+  Plus, Pencil, Trash2, Eye,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown, ShieldCheck, ShieldOff,
-  UserCog, MoreVertical, FileUp, FileDown, Loader2, Copy,
+  UserCog, MoreVertical, FileUp, FileDown, Copy,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card, Checkbox,
+  Button, Input, Card, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,

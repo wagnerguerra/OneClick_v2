@@ -88,7 +88,7 @@ export function ProjetoTabDetalhes({ projeto, canWrite, onSaved }: Props) {
   }, [projeto.id, onSaved])
 
   // Helpers de onBlur — só salvam se houve mudança
-  function blurField(field: string) {
+  function blurField(_field: string) {
     focusedFieldRef.current = null
   }
   function focusField(field: string) {

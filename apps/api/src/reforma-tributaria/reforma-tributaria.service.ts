@@ -14,14 +14,14 @@ import type {
   ReformaCarteiraInput,
 } from '@saas/types'
 
-type Recomendacao =
+export type Recomendacao =
   | 'MANTER_SIMPLES'
   | 'AVALIAR_REGULAR'
   | 'REGULAR_TENDE_MELHOR'
   | 'REGIME_REGULAR_ANALISE_IMPACTO'
   | 'INCONCLUSIVO'
 
-interface ClienteBase {
+export interface ClienteBase {
   id: string
   razaoSocial: string
   nomeFantasia: string | null
@@ -34,7 +34,7 @@ interface ClienteBase {
   cidade: string | null
 }
 
-interface Metrics {
+export interface Metrics {
   faturamento12m: number
   faturamentoMedioMensal: number
   comprasMercadorias12m: number
@@ -72,32 +72,31 @@ interface Metrics {
   snapshots: Record<string, number>
 }
 
-interface PremissaFiscalInput extends ReformaPremissasInput {
+export interface PremissaFiscalInput extends ReformaPremissasInput {
   id?: string
   nome: string
   ano: number
   setor?: string | null
   cnaePrefix?: string | null
-  reducaoSetorial?: number
   observacoes?: string | null
   ativo?: boolean
 }
 
-interface PremissaFiscal extends PremissaFiscalInput {
+export interface PremissaFiscal extends PremissaFiscalInput {
   id: string
   empresaId: string | null
   createdAt?: Date
   updatedAt?: Date
 }
 
-interface Confiabilidade {
+export interface Confiabilidade {
   nivel: 'ALTA' | 'MEDIA' | 'BAIXA' | 'INCONCLUSIVA'
   score: number
   fatores: string[]
   pendencias: string[]
 }
 
-interface SensibilidadeItem {
+export interface SensibilidadeItem {
   cenario: 'CONSERVADOR' | 'BASE' | 'FAVORAVEL_REGULAR'
   label: string
   cargaSimples: number
@@ -107,7 +106,7 @@ interface SensibilidadeItem {
   recomendacao: Recomendacao
 }
 
-interface RegraSetorial {
+export interface RegraSetorial {
   origem: 'PREMISSA_CNAE' | 'BENEFICIO_CLIENTE' | 'ATIVIDADE_CLIENTE' | 'SEM_REGRA'
   setor: string | null
   reducaoSetorial: number
@@ -117,7 +116,7 @@ interface RegraSetorial {
   alertas: string[]
 }
 
-interface SimulacaoCompleta {
+export interface SimulacaoCompleta {
   cliente: ClienteBase
   cnaes: Array<{ codigo: string; descricao: string | null; principal: boolean }>
   atividades: string[]
@@ -167,7 +166,7 @@ const DEFAULT_PREMISSAS: ReformaPremissasInput = {
 //  2027: CBS integral, PIS/COFINS extintos, IS entra; IBS ainda simbólico; ICMS/ISS cheios.
 //  2029–2032: IBS sobe 10/20/30/40% e ICMS/ISS caem para 90/80/70/60%.
 //  2033: IBS/CBS integrais, ICMS/ISS extintos.
-interface FatorTransicao { cbs: number; ibs: number; is: number; pisCofins: number; icmsIss: number }
+export interface FatorTransicao { cbs: number; ibs: number; is: number; pisCofins: number; icmsIss: number }
 const TRANSICAO_CALENDARIO: Record<number, FatorTransicao> = {
   2026: { cbs: 0.102, ibs: 0.006, is: 0,   pisCofins: 1.0, icmsIss: 1.0 },
   2027: { cbs: 1.0,   ibs: 0.006, is: 1,   pisCofins: 0.0, icmsIss: 1.0 },
@@ -180,7 +179,7 @@ const TRANSICAO_CALENDARIO: Record<number, FatorTransicao> = {
 }
 const TRANSICAO_ANOS = Object.keys(TRANSICAO_CALENDARIO).map(Number).sort((a, b) => a - b)
 
-interface CargaAtual {
+export interface CargaAtual {
   regime: 'SIMPLES' | 'REGULAR'
   total: number
   pisCofins: number
@@ -188,14 +187,14 @@ interface CargaAtual {
   das: number
 }
 
-interface TransicaoAno {
+export interface TransicaoAno {
   ano: number
   cargaReforma: number
   delta: number
   componentes: { cbs: number; ibs: number; is: number; creditos: number; remanescenteAtual: number }
 }
 
-interface TransicaoProjecao {
+export interface TransicaoProjecao {
   isSimples: boolean
   cargaAtual: number
   cargaAtualComponentes: CargaAtual
@@ -1021,11 +1020,11 @@ export class ReformaTributariaService {
           itens: [],
         }
     const faturamento12m = contabil.faturamento12m || snapshots.faturamento || sci.faturamento12m || receitaDocs
-    const comprasMercadorias12m = creditos.baseAjustada12m || contabil.custosDespesas12m || comprasDocs || snapshots.nf_entrada
+    const comprasMercadorias12m = creditos.baseAjustada12m || contabil.custosDespesas12m || comprasDocs || (snapshots.nf_entrada ?? 0)
     const servicosTomados12m = servicosTomadosDocs
     const fontePrincipal: Metrics['fontePrincipal'] = contabil.faturamento12m > 0
       ? 'BALANCETE_ERP'
-      : snapshots.faturamento > 0 || sci.disponivel
+      : (snapshots.faturamento ?? 0) > 0 || sci.disponivel
         ? 'SNAPSHOT_SCI'
         : 'DOCUMENTOS_FISCAIS'
     const erpDisponivel = contabil.disponivel || sci.disponivel || rows.length > 0

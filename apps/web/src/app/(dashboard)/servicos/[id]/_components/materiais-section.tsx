@@ -14,10 +14,10 @@
 import { useState, useCallback } from 'react'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { getApiUrl } from '@/lib/api-url'
+import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import {
   Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
-  Input, Label, Badge, cn,
+  Input, Label, cn,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -384,7 +384,7 @@ function MateriaisListDialog({ tipo, materiais, readOnly, deletingId, onAdd, onE
               <div key={m.id} className="rounded-md border bg-card p-3 flex items-start justify-between gap-2">
                 <button
                   type="button"
-                  onClick={() => tipo === 'NOTA' ? onPreview(m) : tipo === 'LINK' ? window.open(m.conteudo, '_blank') : window.open(getApiUrl(m.conteudo), '_blank')}
+                  onClick={() => tipo === 'NOTA' ? onPreview(m) : tipo === 'LINK' ? window.open(m.conteudo, '_blank') : window.open(resolveAssetUrl(m.conteudo), '_blank')}
                   className="flex-1 min-w-0 text-left"
                   title={tipo === 'NOTA' ? m.conteudo : `${meta.label}: ${m.titulo}`}
                 >

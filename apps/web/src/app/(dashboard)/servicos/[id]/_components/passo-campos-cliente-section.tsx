@@ -13,7 +13,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import {
   Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
-  Input, Label, Checkbox, cn,
+  Input, Label, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue, SelectGroup,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -339,8 +339,9 @@ function VinculoEditor({ mode, passoId, initial, catalogo, usedKeys, onCancel, o
   // Agrupa catálogo por `grupo` pra exibir SelectGroups no dropdown.
   const grupos: Record<string, CampoClienteDef[]> = {}
   for (const c of catalogo) {
-    if (!grupos[c.grupo]) grupos[c.grupo] = []
-    grupos[c.grupo].push(c)
+    let arr = grupos[c.grupo]
+    if (!arr) { arr = []; grupos[c.grupo] = arr }
+    arr.push(c)
   }
 
   async function handleSave() {

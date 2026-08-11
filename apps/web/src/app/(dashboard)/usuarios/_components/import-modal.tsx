@@ -111,6 +111,7 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
         salario: r.data.salario ? r.data.salario.replace(/[^\d,.-]/g, '').replace(',', '.') : '',
         dataAdmissao: r.data.dataAdmissao ?? '', idOneClick: r.data.idOneClick ?? '',
         incluirFerias: parseBooleanPt(r.data.incluirFerias ?? 'sim'), isActive: true,
+        exibirComoColaborador: false,
       }))
       const result = await trpc.user.importBulk.mutate({ items })
       await alerts.success(result.errors.length ? 'Importação parcial' : 'Importação concluída', `${result.created} registros importados.`)

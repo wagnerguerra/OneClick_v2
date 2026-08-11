@@ -17,7 +17,7 @@ interface Metrics {
   totalCost: number
   sources: string[]
   pricing: Array<{ source: string; unitPrice: number; multiplier: number; currency: string }>
-  daily: Array<{ date: string; unique: number; total: number; costUnique: number; costTotal: number }>
+  daily: Array<{ date: string; unique: number; total: number }>
 }
 
 export default function MetricasPage() {

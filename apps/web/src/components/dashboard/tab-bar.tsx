@@ -27,7 +27,7 @@ interface ContextMenuState {
 export function TabBar() {
   const router = useRouter()
   const pathname = usePathname()
-  const { tabs, loading, maxTabs, close, closeMultiple, setPinned, reorder } = useTabs()
+  const { tabs, loading, close, closeMultiple, setPinned, reorder } = useTabs()
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)

@@ -1,14 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   History, Loader2, Download, RotateCw, X, CheckCircle2,
-  AlertOctagon, Copy as CopyIcon, FileText, ExternalLink,
+  AlertOctagon, ExternalLink,
 } from 'lucide-react'
 import {
-  Button, Card, cn, Badge,
+  Button, Card, cn,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
@@ -35,7 +35,6 @@ const STATUS_CHIP: Record<string, string> = {
 
 export default function LoteDetalhePage() {
   const { id } = useParams<{ id: string }>()
-  const router = useRouter()
   const [lote, setLote] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('__all__')

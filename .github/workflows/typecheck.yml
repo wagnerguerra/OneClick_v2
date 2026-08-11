@@ -1,0 +1,55 @@
+name: Type-check (gate)
+
+# ──────────────────────────────────────────────────────────────────────────
+# Gate de type-check: roda `pnpm typecheck` em cada PR pra `main` e falha se
+# houver erro de `tsc`. Era o gate que FALTAVA — sem ele os erros de tipo
+# acumulavam silenciosamente (o webpack da API remove o ForkTsChecker e o
+# `next build` roda com `ignoreBuildErrors`). Ver memória trpc-tipagem-e2e-gate.
+#
+# Ordem importa: o `apps/web` deriva o `AppRouter` do `dist-types` da API
+# (task `build:types`), que usa os tipos do `@saas/db` (Prisma Client). Por isso
+# geramos o Prisma Client (com .d.ts) ANTES; o turbo já ordena `build:types`
+# antes do `tsc` via `dependsOn: ["^build:types"]`.
+#
+# ⚠️  Pra BLOQUEAR o merge de fato, marque este check como obrigatório em
+#     GitHub → Settings → Branches → branch protection da `main` →
+#     "Require status checks to pass" → selecione "typecheck".
+# ──────────────────────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancela runs antigas do mesmo PR quando chega push novo.
+concurrency:
+  group: typecheck-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      # `prisma generate` não conecta no banco, mas o schema referencia
+      # env("DATABASE_URL") — valor fake só pra satisfazer a validação.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Habilita corepack (pnpm@10.33.0)
+        run: corepack enable
+
+      - name: Instala dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Gera Prisma Client (com .d.ts)
+        run: pnpm --filter @saas/db db:generate
+
+      - name: Type-check (turbo → build:types → tsc)
+        run: pnpm typecheck

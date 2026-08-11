@@ -169,18 +169,15 @@ export default function TratamentoLancamentosPage() {
     if (!file || !modelId || !fileBase64) return
     setConverting(true)
     setResult(null)
-    // Reuso da extração: se a tabela do preview está completa (não truncada),
-    // manda ela pronta e o backend NÃO re-extrai. Senão, cai no fallback do arquivo.
-    const usarTabela = !!extracted && !extracted.truncated
+    // A extração roda no cliente: o backend recebe a tabela pronta e não re-extrai
+    // (o convert exige `table`; o fallback de reenvio do arquivo bruto saiu do contrato).
     let res: ConvertResult
     try {
       res = await trpc.tratamentoLancamentos.convert.mutate({
         modelId,
         filename: file.name,
         competenciaAno,
-        ...(usarTabela
-          ? { table: { headers: extracted!.headers, rows: extracted!.rows } }
-          : { fileBase64 }),
+        table: { headers: extracted!.headers, rows: extracted!.rows },
       })
     } catch {
       alerts.error('Falha ao gerar o arquivo', 'Não foi possível ler o arquivo ou aplicar o modelo. Verifique o arquivo e tente novamente.')

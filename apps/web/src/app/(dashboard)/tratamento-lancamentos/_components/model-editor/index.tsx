@@ -3,18 +3,14 @@
 import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  FileSpreadsheet, Save, Upload, Plus, Trash2, Loader2, Info, Image as ImageIcon,
-  Tag, Columns3, ArrowLeftRight, Network, HelpCircle, ArrowLeft, ArrowRight, History, Landmark, AlertTriangle, X, type LucideIcon,
+  FileSpreadsheet, Save, Upload, Loader2, Info, Image as ImageIcon,
+  Tag, Columns3, ArrowLeftRight, Network, ArrowLeft, ArrowRight, History, Landmark, AlertTriangle, X,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Checkbox, Card,
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
-  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
+  Button, Input, Label, Checkbox, Card, TooltipProvider,
 } from '@saas/ui'
-import { cn } from '@saas/ui'
-import type { TreatmentDefinition, Direcao } from '@saas/types'
-import { EMPTY_TREATMENT_DEFINITION, stableStringify, formatValorExibicao, extrairMarcadorDC, matchPalavraChaveIndex } from '@saas/types'
+import type { TreatmentDefinition } from '@saas/types'
+import { EMPTY_TREATMENT_DEFINITION, formatValorExibicao, extrairMarcadorDC, matchPalavraChaveIndex } from '@saas/types'
 import { normalizeDefinition } from '../treatment-definition'
 import { DetectedRowsStatus } from '../detected-rows-status'
 import { trpc } from '@/lib/trpc'

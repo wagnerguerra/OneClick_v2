@@ -177,7 +177,7 @@ export default function ExtratoEditPage() {
                       : semCadastro ? 'border-amber-200/70 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-950/20'
                       : 'border-emerald-200/70 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20')}>
                     {linking ? (
-                      <span className="flex items-center gap-1.5 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Vinculando CNPJ por <b>{codigoCol.label ?? cnpjInfo?.label}</b>…</span>
+                      <span className="flex items-center gap-1.5 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Vinculando CNPJ por <b>{cnpjInfo?.label}</b>…</span>
                     ) : semCadastro ? (
                       <>
                         <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />

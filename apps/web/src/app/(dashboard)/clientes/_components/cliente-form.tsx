@@ -6,7 +6,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Handshake, Save, ArrowLeft, Search as SearchIcon, Camera,
-  FileText, ShoppingCart, Receipt, ClipboardList, Plus, Send,
+  FileText, ShoppingCart, Receipt, Plus, Send,
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
   ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2, Check,
@@ -19,8 +19,7 @@ import {
   cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor, Badge,
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Tabs, TabsTrigger, TabsContent, SlidingTabsList,
-  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
+  Tabs, TabsTrigger, TabsContent, SlidingTabsList, TooltipProvider,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   RichContent,
 } from '@saas/ui'
@@ -44,7 +43,6 @@ import { ParticularidadesCard } from './particularidades-card'
 import { LegalizacaoCard } from './legalizacao-card'
 import { CnpjFilialSelect } from './cnpj-filial-select'
 import { ContabilCard } from './contabil-card'
-import { ObrigacoesCard } from './obrigacoes-card'
 import { ObrigacoesClienteSection } from './obrigacoes-cliente-section'
 import { ProtocolosCard } from './protocolos-card'
 import { DriveSyncCard } from './drive-sync-card'
@@ -57,19 +55,9 @@ import {
   REGIME_LABELS,
   type CreateClienteInput,
 } from '@saas/types'
-import { taxRegimeLabels } from '@saas/types'
 
 function RequiredMark() {
   return <span className="text-destructive ml-0.5">*</span>
-}
-
-function SectionTitle({ children, icon: Icon }: { children: React.ReactNode; icon?: React.ComponentType<{ className?: string }> }) {
-  return (
-    <h3 className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-3 flex items-center gap-2 border-b border-border/40 pb-2">
-      {Icon && <Icon className="h-4 w-4" />}
-      {children}
-    </h3>
-  )
 }
 
 function PlaceholderTab({ icon: Icon, title, description }: { icon: React.ComponentType<{ className?: string }>; title: string; description: string }) {
@@ -811,7 +799,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
 /* ================================================================== */
 /* DetalhesCard — pills laterais (padrão igual ComercialCard)         */
 /* ================================================================== */
-function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, tipoDocumento, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard, canEdit }: {
+function DetalhesCard({ register, control, watch, errors, setValue, clienteId, watchedValues, buscarCnpj, buscarCep, consultarCartaoCnpj, cnpjCard, cnpjCardLoading, setCnpjCard, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -1454,7 +1442,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   )
 }
 
-function ComercialCard({ register, control, watch, setValue, errors, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, opcoesGrupo, canEdit }: {
+function ComercialCard({ register, control, watch, setValue, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, opcoesGrupo, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -1986,7 +1974,6 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                   <div className="divide-y divide-border/30">
                     {files.map((f) => {
                       const isImage = f.mimeType?.startsWith('image/')
-                      const isPdf = f.mimeType === 'application/pdf' || f.fileName.endsWith('.pdf')
                       const apiUrl = getApiUrl()
                       const fullUrl = f.fileUrl.startsWith('http') ? f.fileUrl : `${apiUrl}${f.fileUrl}`
                       return (
@@ -2060,7 +2047,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
 }
 
 
-function InlineFileName({ fileName, fileUrl, onRename }: { fileName: string; fileUrl: string; onRename: (name: string) => Promise<void> }) {
+function InlineFileName({ fileName, onRename }: { fileName: string; fileUrl: string; onRename: (name: string) => Promise<void> }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -2267,7 +2254,7 @@ function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
 // FiscalCard — pills laterais (padrão igual ComercialCard)
 // ============================================================
 
-function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }: {
+function FiscalCard({ control, clienteId, isEdit, documento, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   clienteId?: string
@@ -3580,7 +3567,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
   function load() {
     if (!clienteId) { setLoading(false); return }
     trpc.cliente.listContatos.query({ clienteId })
-      .then((data) => setContatos(data as ContatoRow[]))
+      .then((data: unknown) => setContatos(data as ContatoRow[]))
       .finally(() => setLoading(false))
   }
 
@@ -3909,8 +3896,8 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
     setLoading(true)
     setPagina(1)
     try {
-      const result = await trpc.caixaPostal.listCache.query({ contribuinte: { numero: docLimpo, tipo } }) as { mensagensClassificadas: CaixaPostalMsg[] }
-      setMensagens(result.mensagensClassificadas || [])
+      const result = await trpc.caixaPostal.listCache.query({ contribuinte: { numero: docLimpo, tipo } })
+      setMensagens((result.mensagensClassificadas || []).map((m: unknown) => m as CaixaPostalMsg))
     } catch {
       setMensagens([])
     } finally { setLoading(false) }
@@ -3922,8 +3909,8 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
     setConsultando(true)
     setPagina(1)
     try {
-      const result = await trpc.caixaPostal.consultarClassificadas.mutate({ contribuinte: { numero: docLimpo, tipo } }) as { mensagensClassificadas: CaixaPostalMsg[] }
-      setMensagens(result.mensagensClassificadas || [])
+      const result = await trpc.caixaPostal.consultarClassificadas.mutate({ contribuinte: { numero: docLimpo, tipo } })
+      setMensagens((result.mensagensClassificadas || []).map((m: unknown) => m as CaixaPostalMsg))
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally { setConsultando(false) }

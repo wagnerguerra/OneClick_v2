@@ -108,7 +108,7 @@ export default function ContratoDetailPage() {
   const [signOpen, setSignOpen] = useState(false)
   const [signParte, setSignParte] = useState<'CONTRATADA' | 'CONTRATANTE'>('CONTRATADA')
   const [activeTab, setActiveTab] = useState('detalhes')
-  const [serproIdLoading, setSerproIdLoading] = useState(false)
+  const [, setSerproIdLoading] = useState(false)
   const [serverSignLoading, setServerSignLoading] = useState(false)
 
   // Seções de cláusulas expandidas (todas começam retraídas).
@@ -175,28 +175,6 @@ export default function ContratoDetailPage() {
     } catch (e) {
       alerts.error('Erro na assinatura', (e as Error).message)
     } finally { setServerSignLoading(false) }
-  }
-
-  async function handleAssinarSerproId(parte: 'CONTRATADA' | 'CONTRATANTE') {
-    // Garante PDF antes de iniciar OAuth (após o redirect, o backend usa o hash)
-    if (!contrato?.pdfHash) {
-      const ok = await alerts.confirm({
-        title: 'Gerar PDF antes de assinar?',
-        text: 'É preciso gerar o PDF do contrato antes de assinar via SerproID. Gerar agora?',
-        confirmText: 'Gerar PDF',
-        icon: 'question',
-      })
-      if (!ok) return
-      await handleGerarPdf()
-    }
-    setSerproIdLoading(true)
-    try {
-      const r = await (trpc.contrato as any).iniciarAssinaturaSerproId.mutate({ contratoId: id, parte })
-      window.location.href = r.authUrl
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message)
-      setSerproIdLoading(false)
-    }
   }
 
   async function handleGerarPdf() {

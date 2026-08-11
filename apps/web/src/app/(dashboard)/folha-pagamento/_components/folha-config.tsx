@@ -7,7 +7,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
 interface Filial { id: string; cnpj: string; codigoFilial: string; endereco: string; contaLiquido: number; contaLiquidoAlt: number | null; ativo: boolean; setores: Array<{ id: string; nome: string; tipoContabil: string }> }
-interface EventoConta { id: string; codigoEvento: number; descricao: string; tipo: string; contaCustoDebito: number | null; contaCustoCredito: number | null; contaDespesaDebito: number | null; contaDespesaCredito: number | null; geraLancamento: boolean }
+interface EventoConta { id: string; codigoEvento: number; descricao: string; tipo: 'PROVENTO' | 'DESCONTO'; contaCustoDebito: number | null; contaCustoCredito: number | null; contaDespesaDebito: number | null; contaDespesaCredito: number | null; geraLancamento: boolean }
 
 export function FolhaConfigTab({ clienteId }: { clienteId: string }) {
   const [tab, setTab] = useState<'filiais' | 'eventos'>('filiais')
@@ -84,7 +84,7 @@ export function FolhaConfigTab({ clienteId }: { clienteId: string }) {
 function FiliaisSection({ clienteId, filiais, onReload }: { clienteId: string; filiais: Filial[]; onReload: () => void }) {
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ cnpj: '', codigoFilial: '', endereco: '', contaLiquido: 1287 })
-  const [novoSetor, setNovoSetor] = useState<{ filialId: string; nome: string; tipo: string } | null>(null)
+  const [novoSetor, setNovoSetor] = useState<{ filialId: string; nome: string; tipo: 'CUSTO' | 'DESPESA' } | null>(null)
 
   async function handleAddFilial() {
     if (!form.cnpj || !form.codigoFilial) { alerts.error('Erro', 'CNPJ e código são obrigatórios'); return }
@@ -158,7 +158,7 @@ function FiliaisSection({ clienteId, filiais, onReload }: { clienteId: string; f
             {novoSetor?.filialId === f.id ? (
               <div className="flex gap-2 mt-1">
                 <Input value={novoSetor.nome} onChange={e => setNovoSetor({ ...novoSetor, nome: e.target.value })} placeholder="Nome do setor" className="h-7 text-xs flex-1" />
-                <select value={novoSetor.tipo} onChange={e => setNovoSetor({ ...novoSetor, tipo: e.target.value })} className="h-7 rounded border px-2 text-xs">
+                <select value={novoSetor.tipo} onChange={e => setNovoSetor({ ...novoSetor, tipo: e.target.value === 'CUSTO' ? 'CUSTO' : 'DESPESA' })} className="h-7 rounded border px-2 text-xs">
                   <option value="DESPESA">DESPESA</option>
                   <option value="CUSTO">CUSTO</option>
                 </select>

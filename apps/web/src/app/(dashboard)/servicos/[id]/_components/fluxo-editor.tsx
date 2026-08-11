@@ -26,7 +26,7 @@ import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
 import {
   Target, History, ChevronRight, ArrowRight, X, LayoutGrid, Loader2,
-  Maximize2, Minimize2, Eye, EyeOff, Plus, Minus, Search, Workflow,
+  Maximize2, Minimize2, Eye, EyeOff, Plus, Minus, Search,
   PanelLeftOpen, PanelLeftClose, AlertTriangle, Link2, Grid3x3,
   // Ícones de marca d'água por tipo/categoria do bloco — espelham
   // exatamente os ícones de grupo da sidebar (lib/navigation.ts).
@@ -198,8 +198,9 @@ type AreaPaletteEntry = {
   border: string; borderRoot: string;
   text: string; textRoot: string;
 }
+const AREA_CADASTROS: AreaPaletteEntry = { fillLight: '#ecfdf5', fillRoot: '#a7f3d0', border: '#10b981', borderRoot: '#047857', text: '#047857', textRoot: '#064e3b' }
 const AREA_PALETTE: Record<string, AreaPaletteEntry> = {
-  'Cadastros':      { fillLight: '#ecfdf5', fillRoot: '#a7f3d0', border: '#10b981', borderRoot: '#047857', text: '#047857', textRoot: '#064e3b' },
+  'Cadastros':      AREA_CADASTROS,
   'Comercial':      { fillLight: '#fff1f2', fillRoot: '#fecdd3', border: '#f43f5e', borderRoot: '#be123c', text: '#be123c', textRoot: '#881337' },
   'Administrativo': { fillLight: '#f0f9ff', fillRoot: '#bae6fd', border: '#0ea5e9', borderRoot: '#0369a1', text: '#0369a1', textRoot: '#0c4a6e' },
   'Legalização':    { fillLight: '#fdf4ff', fillRoot: '#f5d0fe', border: '#d946ef', borderRoot: '#a21caf', text: '#a21caf', textRoot: '#701a75' },
@@ -211,7 +212,7 @@ const AREA_PALETTE: Record<string, AreaPaletteEntry> = {
   'Configurações':  { fillLight: '#fff7ed', fillRoot: '#fed7aa', border: '#f97316', borderRoot: '#c2410c', text: '#c2410c', textRoot: '#7c2d12' },
 }
 /** Fallback (área não-mapeada ou nula) — usa o tom emerald padrão do módulo. */
-const AREA_DEFAULT: AreaPaletteEntry = AREA_PALETTE['Cadastros']
+const AREA_DEFAULT: AreaPaletteEntry = AREA_CADASTROS
 
 function areaPalette(categoria: string | null | undefined): AreaPaletteEntry {
   if (!categoria) return AREA_DEFAULT
@@ -317,7 +318,7 @@ function ExecucoesPill({ execucoes }: { execucoes: NonNullable<FluxoNode['execuc
  * /meus-servicos com a execução em foco.
  */
 function ExecucoesSection({ execucoes }: { execucoes: NonNullable<FluxoNode['execucoesAtivas']> }) {
-  const cores: Record<string, { dot: string; label: string; bg: string }> = {
+  const cores = {
     em_dia:              { dot: '#10b981', label: 'Em dia',              bg: 'rgba(16,185,129,0.08)' },
     vencendo:            { dot: '#f59e0b', label: 'Vencendo',            bg: 'rgba(245,158,11,0.10)' },
     atrasada:            { dot: '#e11d48', label: 'Atrasada',            bg: 'rgba(225,29,72,0.10)' },
@@ -335,8 +336,10 @@ function ExecucoesSection({ execucoes }: { execucoes: NonNullable<FluxoNode['exe
   const iniciais = (name: string | null) => {
     if (!name) return '?'
     const parts = name.trim().split(/\s+/)
-    return parts.length === 1 ? parts[0].slice(0, 2).toUpperCase()
-      : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    const first = parts[0] ?? ''
+    const last = parts[parts.length - 1] ?? ''
+    return parts.length === 1 ? first.slice(0, 2).toUpperCase()
+      : ((first[0] ?? '') + (last[0] ?? '')).toUpperCase()
   }
   return (
     <div className="px-3 py-2.5 border-t bg-emerald-50/30 dark:bg-emerald-950/15">
@@ -382,7 +385,7 @@ function ExecucoesSection({ execucoes }: { execucoes: NonNullable<FluxoNode['exe
       {/* Lista de execuções */}
       <ul className="space-y-1 max-h-[200px] overflow-y-auto pr-1">
         {execucoes.itens.map(it => {
-          const c = cores[it.situacao] ?? cores.em_dia
+          const c = cores[it.situacao as keyof typeof cores] ?? cores.em_dia
           const respImg = it.responsavel?.image ? resolveAssetUrl(it.responsavel.image) : ''
           return (
             <li key={it.id}>
@@ -2934,7 +2937,8 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
 
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (popRef.current?.contains(e.target as Node)) return
+      const target = e.target
+      if (target instanceof Element && popRef.current?.contains(target)) return
       onClose()
     }
     function onKey(e: KeyboardEvent) {

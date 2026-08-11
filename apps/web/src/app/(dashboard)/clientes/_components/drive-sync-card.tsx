@@ -6,7 +6,7 @@ import {
   CheckCircle2, AlertCircle, Loader2, Folder, Clock, HardDrive,
   Receipt, Briefcase, ShieldCheck, ChevronRight, ChevronDown, ListChecks,
 } from 'lucide-react'
-import { Button, Card, Input, Badge } from '@saas/ui'
+import { Button, Input, Badge } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
@@ -115,7 +115,7 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
     setLoadingLogs(true)
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const certsP = (trpc as any).certificadoDigital.list.query({ clienteId, status: 'ATIVO' })
+      void (trpc as any).certificadoDigital.list.query({ clienteId, status: 'ATIVO' })
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .then((rows: any[]) => {
           const a1 = (rows ?? [])

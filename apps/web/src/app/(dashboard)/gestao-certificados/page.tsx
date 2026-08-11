@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { masks, limparCnpj } from '@/lib/masks'
 import {
   ShieldCheck, Loader2, Plus, MoreVertical, Eye, Archive, ArchiveRestore,
-  Ban, Trash2, AlertTriangle, CheckCircle2, Clock, XCircle, FileLock,
-  Upload, Lock, FileText, RefreshCw, History, DatabaseBackup, UploadCloud, X, FileCheck, Bell,
+  Ban, Trash2, CheckCircle2, Clock, XCircle, FileLock,
+  Upload, Lock, RefreshCw, History, DatabaseBackup, UploadCloud, X, FileCheck, Bell,
   Settings2, KeyRound,
 } from 'lucide-react'
 import {
@@ -58,13 +58,6 @@ interface Stats {
 }
 
 interface Cliente { id: string; razaoSocial: string; documento?: string | null; situacao?: string | null }
-
-const STATUS_LABELS: Record<string, string> = {
-  ATIVO: 'Ativo',
-  EXPIRADO: 'Expirado',
-  REVOGADO: 'Revogado',
-  ARQUIVADO: 'Arquivado',
-}
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -779,7 +772,7 @@ export default function GestaoCertificadosPage() {
 // Modal: Reauth (confirma senha do user + motivo)
 // ============================================================
 
-function ReauthModal({ open, onOpenChange, state, onClose }: {
+function ReauthModal({ open, state, onClose }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   state: {

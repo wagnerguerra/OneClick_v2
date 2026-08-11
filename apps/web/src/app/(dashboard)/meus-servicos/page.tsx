@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import {
   ListChecks, Loader2, Clock, CheckCircle2, AlertTriangle, Play, Pause, Receipt,
-  Calendar, Filter, ChevronRight, Plus, ChevronDown,
+  Calendar, ChevronRight, Plus, ChevronDown,
   MessageSquare, Paperclip, LayoutGrid, List, Archive, Settings2,
   UserCog, X, Search, HelpCircle,
 } from 'lucide-react'

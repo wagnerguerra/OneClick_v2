@@ -2,9 +2,8 @@
 
 import {
   Calendar, Plus, Users, Bell, Globe, RefreshCw,
-  Lightbulb, Info, ArrowRight, AlertTriangle, Clock,
+  Lightbulb, Info, ArrowRight, Clock,
 } from 'lucide-react'
-import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Loader2, Trash2, Plus, Minus, ChevronDown, ChevronRight } from 'lucide-react'
+import { Loader2, Trash2, Plus, Minus } from 'lucide-react'
 import { Button, Input, Badge } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -46,7 +46,7 @@ export function BiGerenciar({ clienteId, ano }: BiGerenciarProps) {
     setSelectedPeriodo('')
     setLinhas([])
     trpc.cliente.biGetPeriodos.query({ clienteId })
-      .then((result) => {
+      .then((result: unknown) => {
         const raw = (result as Array<{ periodo: string; total: number }>) || []
         const lista = raw.map(r => r.periodo)
         setPeriodos(lista)
@@ -61,7 +61,7 @@ export function BiGerenciar({ clienteId, ano }: BiGerenciarProps) {
     if (!clienteId || !selectedPeriodo) { setLinhas([]); return }
     setLoading(true)
     trpc.cliente.biListLinhas.query({ clienteId, periodo: selectedPeriodo })
-      .then((result) => {
+      .then((result: unknown) => {
         setLinhas((result as BalanceteLinha[]) || [])
         setExpanded(new Set())
       })

@@ -101,7 +101,7 @@ export type ParsedXml =
 
 function firstByLocal(scope: Element | Document, name: string): Element | null {
   const list = scope.getElementsByTagNameNS("*", name);
-  return list.length ? list[0] : null;
+  return list[0] ?? null;
 }
 
 /**

@@ -74,8 +74,6 @@ export function SpedSheetSelector({ files, color, onFields, onBlock }: ToolExtra
       return next
     })
   }
-  const allChecked = listed.length > 0 && listed.every((r) => selected.has(r))
-
   return (
     <div className="rounded-xl border border-border/60 bg-background/50 p-4 backdrop-blur">
       <div className="flex items-center justify-between gap-2 pb-3">

@@ -98,7 +98,7 @@ export default function ProjetosPage() {
     setFormNome('')
     setFormDescricao('')
     setFormCor('#22d3ee')
-    setFormStatus('ATIVO')
+    setFormStatus('NOVO')
     setFormDataPrevisao('')
     setModalOpen(true)
   }

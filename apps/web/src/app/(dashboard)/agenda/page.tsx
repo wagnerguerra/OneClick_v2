@@ -239,7 +239,6 @@ export default function AgendaPage() {
   // `manage_participantes` controla a edição avançada de participantes (em eventos
   // de outros usuários, por exemplo). O campo no formulário de criação fica
   // sempre disponível — quem cria evento naturalmente convida participantes.
-  const canManageParticipantes = isMaster || subPerms.manage_participantes === true
   const canDeleteEventos = isMaster || subPerms.delete_eventos === true
   const canManageConfig = isMaster || subPerms.manage_config === true
   // `editar_todos_eventos` permite editar/excluir eventos de QUALQUER usuário,
@@ -444,7 +443,7 @@ export default function AgendaPage() {
       await (trpc.agenda as any).alterarTipo.mutate({ eventoId: id, tipoId })
       // Atualiza o evento visto (badge/cores), o histórico e o calendário.
       const [full] = await Promise.all([
-        trpc.agenda.getById.query({ id }) as Promise<AgendaEvento>,
+        trpc.agenda.getById.query({ id }).then((r: unknown) => r as AgendaEvento),
         trpc.agenda.listLogs.query({ eventoId: id }).then((r: unknown) => setEventLogs(r as typeof eventLogs)).catch(() => {}),
         fetchEventos(),
       ])
@@ -751,7 +750,7 @@ export default function AgendaPage() {
         openViewEvent(ev as AgendaEvento)
         router.replace('/agenda', { scroll: false })
       })
-      .catch(e => alerts.error('Erro', (e as Error).message))
+      .catch((e: unknown) => alerts.error('Erro', (e as Error).message))
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verEventoId])
@@ -1127,7 +1126,6 @@ export default function AgendaPage() {
           particular: form.particular,
           editavel: form.editavel,
           sala: form.sala || undefined,
-          salaId: form.salaId || undefined,
           arrumarSala: form.arrumarSala,
           isTarefa: form.isTarefa,
           tipoId: form.tipoId,
@@ -1143,7 +1141,7 @@ export default function AgendaPage() {
           ?? (criado as Array<{ id: string }> | undefined)?.[0]?.id
         if (novoId) {
           await trpc.agenda.lembrete.save.mutate({ eventoId: novoId, lembretes: lembretesForm })
-            .catch(e => console.error('[Agenda] save lembretes:', (e as Error).message))
+            .catch((e: unknown) => console.error('[Agenda] save lembretes:', (e as Error).message))
         }
         alerts.success('Evento criado', '')
       } else if (modalMode === 'edit' && selectedEvento) {
@@ -1179,7 +1177,7 @@ export default function AgendaPage() {
           },
         })
         await trpc.agenda.lembrete.save.mutate({ eventoId: selectedEvento.id, lembretes: lembretesForm })
-          .catch(e => console.error('[Agenda] save lembretes:', (e as Error).message))
+          .catch((e: unknown) => console.error('[Agenda] save lembretes:', (e as Error).message))
         alerts.success('Evento atualizado', '')
       }
       setModalOpen(false)

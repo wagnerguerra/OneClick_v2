@@ -36,7 +36,7 @@ interface LogEntry {
   message: string
 }
 
-interface JobState {
+export interface JobState {
   empresaId: string
   fase: 'processando' | 'importando' | 'done' | 'error'
   total: number

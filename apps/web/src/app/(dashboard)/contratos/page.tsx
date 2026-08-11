@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  FileText, Loader2, Plus, MoreVertical, Search, Eye,
-  CheckCircle2, FileSignature, Clock, X as XIcon, FileX,
+  FileText, Loader2, Plus, MoreVertical, Search, Eye, FileSignature, FileX,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label,
@@ -12,7 +11,6 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
-import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'

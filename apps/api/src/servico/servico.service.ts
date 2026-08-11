@@ -1,6 +1,6 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
-import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, SetServicoGruposInput, CreateObrigacaoInput, FlowPlan } from '@saas/types'
+import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, CreateObrigacaoInput, FlowPlan } from '@saas/types'
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { ProcessoService } from '../processo/processo.service'
 import { avaliarCondicao } from '../processo/avaliador-condicao'
@@ -4675,6 +4675,7 @@ export class ServicoService {
     // Atualiza ordem dos que JÁ existiam (createMany não atualiza ordem).
     for (let i = 0; i < servicoIds.length; i++) {
       const sid = servicoIds[i]
+      if (sid === undefined) continue
       if (existingSet.has(sid)) {
         ops.push(prisma.servicoGrupoItem.update({
           where: { grupoId_servicoId: { grupoId, servicoId: sid } },
@@ -4689,7 +4690,7 @@ export class ServicoService {
   /** Ação operacional — cria uma ServicoExecucao para cada serviço do grupo
    *  no cliente informado. Respeita a ordem do grupo nas execuções (campo ordem
    *  fica refletido no iniciadoEm em ms — primeiro item iniciado primeiro). */
-  async iniciarGrupo(input: IniciarGrupoInput, userId?: string) {
+  async iniciarGrupo(input: IniciarGrupoInput, _userId?: string) {
     const grupo = await prisma.servicoGrupo.findUnique({
       where: { id: input.grupoId },
       include: {
@@ -4715,6 +4716,7 @@ export class ServicoService {
         responsavelId: input.responsavelId ?? undefined,
         observacoes: input.observacoes ?? undefined,
       }, cliente.empresaId ?? undefined)
+      if (!exec) continue
       execucoes.push({ id: exec.id, servicoId: item.servicoId, nome: item.servico.nome })
     }
     return { ok: true, grupoId: grupo.id, nomeGrupo: grupo.nome, execucoes }

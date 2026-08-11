@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Loader2, Table2, Trash2 } from 'lucide-react'
+import { Loader2, Trash2 } from 'lucide-react'
 import { Button, Input, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -23,7 +23,7 @@ export function FolhaLancamentosTab({ clienteId }: { clienteId: string }) {
   useEffect(() => {
     setLoading(true)
     trpc.folha.listarImportacoes.query({ clienteId })
-      .then(r => { setImportacoes(r as Importacao[]); if ((r as any[]).length > 0) setSelectedId((r as any[])[0].id) })
+      .then((r: unknown) => { setImportacoes(r as Importacao[]); if ((r as any[]).length > 0) setSelectedId((r as any[])[0].id) })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [clienteId])
@@ -32,7 +32,7 @@ export function FolhaLancamentosTab({ clienteId }: { clienteId: string }) {
     if (!selectedId) { setLancamentos([]); return }
     setLoadingLanc(true)
     trpc.folha.listarLancamentos.query({ importacaoId: selectedId })
-      .then(r => setLancamentos((r as any[]).map((l: any) => ({ ...l, valor: Number(l.valor) }))))
+      .then((r: unknown) => setLancamentos((r as any[]).map((l: any) => ({ ...l, valor: Number(l.valor) }))))
       .catch(() => setLancamentos([]))
       .finally(() => setLoadingLanc(false))
   }, [selectedId])

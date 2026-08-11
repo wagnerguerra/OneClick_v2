@@ -1,10 +1,9 @@
 'use client'
 
 import {
-  CircleUser, Search, Download, RefreshCw, Lock,
-  Lightbulb, Info, ArrowRight, AlertTriangle, Server, FileSearch,
+  CircleUser, Search, Download, RefreshCw,
+  Lightbulb, Info, ArrowRight, FileSearch,
 } from 'lucide-react'
-import { Badge } from '@saas/ui'
 import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 

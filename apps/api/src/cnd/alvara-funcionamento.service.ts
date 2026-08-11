@@ -133,7 +133,7 @@ export class AlvaraFuncionamentoService {
 
       // Captcha
       await new Promise((r: (v: unknown) => void) => setTimeout(r, 1000))
-      let captchaB64 = captchaRawB64
+      let captchaB64: string | null = captchaRawB64
       if (!captchaB64) {
         captchaB64 = await page.evaluate(`(function(){ var img = document.getElementById("${prefix}captchaimg"); if (!img) return null; var c = document.createElement("canvas"); c.width = img.naturalWidth || img.width; c.height = img.naturalHeight || img.height; c.getContext("2d").drawImage(img, 0, 0); return c.toDataURL("image/png").split(",")[1]; })()`) as string | null
       }
@@ -167,7 +167,7 @@ export class AlvaraFuncionamentoService {
                 const ab = await res.arrayBuffer()
                 const arr = new Uint8Array(ab)
                 let hex = ''
-                for (let i = 0; i < arr.length; i++) hex += arr[i].toString(16).padStart(2, '0')
+                for (const byte of arr) hex += byte.toString(16).padStart(2, '0')
                 return hex
               } catch { return null }
             }, pUrl)
@@ -338,7 +338,7 @@ export class AlvaraFuncionamentoService {
 
   async listarClientesMunicipio(municipio: string) {
     return prisma.cliente.findMany({
-      where: { cidade: { equals: municipio, mode: 'insensitive' }, situacao: 'ATIVO', deletedAt: null },
+      where: { cidade: { equals: municipio, mode: 'insensitive' }, situacao: 'MENSAL', deletedAt: null },
       select: { id: true, razaoSocial: true, documento: true },
       orderBy: { razaoSocial: 'asc' },
     })

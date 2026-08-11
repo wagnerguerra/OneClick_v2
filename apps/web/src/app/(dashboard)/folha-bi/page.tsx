@@ -1662,7 +1662,7 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
   const extrato = (subset: any[]) => {
     const sumLines = (lines: number[]) => { let prin = 0, enc = 0, tot = 0; for (const r of subset) if (lines.includes(Number(r.linha))) { prin += cfg.ext.prin(r, n); enc += n(r.fgts) + n(r.inss) + n(r.terc) + n(r.rat) + n(r.rat_apo) + n(r.pis); tot += n(r.total) } return { prin, enc, tot } }
     const v: any = saldoIni(subset)
-    const ini = { prin: v[conta[0][0]], enc: v.fgts + v.inss + v.pis, tot: v.tot }
+    const ini = { prin: v[conta[0]?.[0] ?? ''], enc: v.fgts + v.inss + v.pis, tot: v.tot }
     const fim = sumLines(cfg.ext.fimL), prov = sumLines(cfg.ext.provL), acertos = sumLines(cfg.ext.acertosL)
     const pago = { prin: fim.prin - ini.prin - prov.prin - acertos.prin, enc: fim.enc - ini.enc - prov.enc - acertos.enc, tot: fim.tot - ini.tot - prov.tot - acertos.tot }
     return { ini, prov, acertos, pago, fim }
@@ -1852,9 +1852,9 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
               {[['ini', 'Saldo no inicio do mes', true], ['prov', '(+) Provisao do mes (1/12 avos)', false], ['acertos', '(+/−) Acertos do mes', false], ['pago', '(−) Pago / baixado no mes', false], ['fim', '(=) Saldo no fim do mes', true]].map(([id, h, bold]: any) => (
                 <tr key={id} className={cn('border-b border-border/30', bold && 'bg-muted/20')}>
                   <td className={cn('px-2.5 py-1', bold ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{h}</td>
-                  <td className={cn(tdN, 'text-muted-foreground')}>{cell(ext[id].prin)}</td>
-                  <td className={cn(tdN, 'text-muted-foreground')}>{cell(ext[id].enc)}</td>
-                  <td className={cn(tdN, bold ? 'font-semibold text-foreground' : 'text-foreground')}>{cell(ext[id].tot)}</td>
+                  <td className={cn(tdN, 'text-muted-foreground')}>{cell(ext[id as keyof typeof ext].prin)}</td>
+                  <td className={cn(tdN, 'text-muted-foreground')}>{cell(ext[id as keyof typeof ext].enc)}</td>
+                  <td className={cn(tdN, bold ? 'font-semibold text-foreground' : 'text-foreground')}>{cell(ext[id as keyof typeof ext].tot)}</td>
                 </tr>
               ))}
             </tbody>
