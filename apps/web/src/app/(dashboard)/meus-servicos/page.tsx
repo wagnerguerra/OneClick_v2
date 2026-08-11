@@ -709,16 +709,23 @@ export default function MeusServicosPage() {
       atrasados: { key: 'atrasados', titulo: 'Atrasados', cor: '#ef4444', items: [] },
       pausados: { key: 'pausados', titulo: 'Pausados', cor: '#f59e0b', items: [] },
       concluidos: { key: 'concluidos', titulo: 'Concluídos', cor: '#10b981', items: [] },
+      dispensados: { key: 'dispensados', titulo: 'Dispensados', cor: '#a78bfa', items: [] },
       cancelados: { key: 'cancelados', titulo: 'Cancelados', cor: '#94a3b8', items: [] },
     }
     for (const e of execFiltradas) {
       if (e.status === 'CANCELADO') cols.cancelados!.items.push(e)
       else if (e.status === 'CONCLUIDO') cols.concluidos!.items.push(e)
+      // PULADO é obrigação DISPENSADA no Acessórias — o cliente não a deve.
+      // Precisa sair antes do teste de prazo: como toda dispensada carrega o
+      // prazo original, ela caía em "Atrasados" e respondia por 1.519 dos 2.737
+      // cartões da coluna. Mais da metade do "atraso" eram obrigações que nunca
+      // venceram porque nunca foram devidas.
+      else if (e.status === 'PULADO') cols.dispensados!.items.push(e)
       else if (e.pausado) cols.pausados!.items.push(e)
       else if (e.prazoLimite && new Date(e.prazoLimite).getTime() < agora) cols.atrasados!.items.push(e)
       else cols.em_andamento!.items.push(e)
     }
-    return [cols.em_andamento!, cols.atrasados!, cols.pausados!, cols.concluidos!, cols.cancelados!]
+    return [cols.em_andamento!, cols.atrasados!, cols.pausados!, cols.concluidos!, cols.dispensados!, cols.cancelados!]
   }, [execFiltradas])
 
   // Lista de filtros (chips) — mantém função de filtragem mas no padrão visual CRM/Orçamentos:
@@ -1317,6 +1324,16 @@ export default function MeusServicosPage() {
                       {exec.status === 'CONCLUIDO' ? (
                         <Badge className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 h-5 gap-1">
                           <CheckCircle2 className="h-3 w-3" /> Concluído
+                        </Badge>
+                      ) : exec.status === 'PULADO' ? (
+                        // Dispensada no Acessórias — está fechada. Sem este ramo
+                        // ela caía no cálculo de prazo abaixo e aparecia em
+                        // vermelho, como se estivesse atrasada.
+                        <Badge
+                          className="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 text-[10px] px-2 py-0.5 h-5 gap-1"
+                          title="Obrigação dispensada no Acessórias — não é devida por este cliente"
+                        >
+                          Dispensado
                         </Badge>
                       ) : exec.pausado ? (
                         <span
