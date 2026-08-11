@@ -1,0 +1,118 @@
+# OneClick — segunda instalação de produção (cliente wpsis)
+# Path na VPS: /opt/oneclick-wpsis/docker-compose.yml
+# Source:      /opt/oneclick-wpsis-src/   (checkout próprio — pode ficar numa
+#              versão diferente da instalação da Central Contábil)
+#
+# Diferenças em relação a /opt/oneclick/docker-compose.yml, todas deliberadas:
+#
+#  · Portas 3101/4101 (a outra usa 3100/4100). Ambas só em 127.0.0.1 — quem
+#    expõe para a internet é o nginx do host.
+#  · Nomes de container, volumes e rede com sufixo `-wpsis`. Sem isso o
+#    `docker compose up` da segunda derrubaria a primeira: nome de container é
+#    único por host.
+#  · Um único arquivo, em vez de compose + override como na instalação antiga.
+#    Lá o override nasceu de ajustes feitos depois; aqui já se sabe o resultado,
+#    e ler dois arquivos para entender uma stack é custo sem retorno.
+#  · SEM o docker-socket-proxy — ver a nota no fim.
+
+services:
+  api:
+    build:
+      context: /opt/oneclick-wpsis-src
+      dockerfile: apps/api/Dockerfile
+    image: oneclick-wpsis-api:latest
+    container_name: oneclick-wpsis-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4101:4000"
+    extra_hosts:
+      # Mantido por paridade com a instalação atual: alguns caminhos do código
+      # alcançam serviços publicados no host (ex.: Postgres em 127.0.0.1:54322).
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - /opt/oneclick-wpsis/.env
+    environment:
+      PORT: "4000"
+      HOSTNAME: "0.0.0.0"
+      # Diretório PRÓPRIO de backup. Apontar para /var/backups/oneclick faria
+      # esta instalação listar e restaurar os backups do outro cliente.
+      ONECLICK_BACKUPS_DIR: "/var/backups/oneclick-wpsis"
+    volumes:
+      - oneclick_wpsis_uploads:/app/apps/api/uploads
+      # Fonte read-only para a busca de arquivos da triagem por IA (#HLP0083).
+      # Aponta para o checkout DESTA instalação — ler o outro seria mostrar
+      # código de uma versão que não é a que está no ar aqui.
+      - /opt/oneclick-wpsis-src:/repo-src:ro
+      - /var/backups/oneclick-wpsis:/var/backups/oneclick-wpsis:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - default
+      - n8n_default        # onde vive o Postgres (container n8n-postgres-1)
+    mem_limit: 1g
+    mem_reservation: 256m
+
+  web:
+    build:
+      context: /opt/oneclick-wpsis-src
+      dockerfile: apps/web/Dockerfile
+      args:
+        # ATENÇÃO: estes dois são assados na imagem em build-time (Next.js
+        # substitui NEXT_PUBLIC_* no bundle). Mudar o domínio exige REBUILD —
+        # não basta editar o .env e reiniciar. É por isso que a imagem web não
+        # pode ser compartilhada entre as duas instalações.
+        NEXT_PUBLIC_API_URL: https://oneclick.wpsis.com.br
+        NEXT_PUBLIC_APP_URL: https://oneclick.wpsis.com.br
+    image: oneclick-wpsis-web:latest
+    container_name: oneclick-wpsis-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3101:3000"
+    env_file:
+      - /opt/oneclick-wpsis/.env
+    environment:
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    depends_on:
+      - api
+    mem_limit: 512m
+    mem_reservation: 128m
+
+  redis:
+    image: redis:7-alpine
+    container_name: oneclick-wpsis-redis
+    restart: unless-stopped
+    # Sem porta publicada — só a rede do compose alcança.
+    volumes:
+      - oneclick_wpsis_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    mem_limit: 128m
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NÃO incluído de propósito — decidir caso a caso:
+#
+# docker-proxy (tecnativa/docker-socket-proxy)
+#   A instalação atual usa para o painel que lista containers. Aqui ficaria
+#   errado por padrão: o proxy enxerga TODOS os containers do host, então esta
+#   instalação passaria a mostrar (e monitorar) os containers do outro cliente,
+#   do n8n e das demais aplicações da VPS. Se o painel for necessário, entra
+#   junto com um filtro — não como está.
+#
+# fiscal_net
+#   Rede da webapp (WEBAPP_API_URL). Só faz sentido se este cliente também usar
+#   aquela integração. Enquanto não usar, ficar fora da rede é uma superfície
+#   a menos.
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  n8n_default:
+    external: true
+
+volumes:
+  oneclick_wpsis_uploads:
+  oneclick_wpsis_redis_data:
