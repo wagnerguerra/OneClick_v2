@@ -1305,10 +1305,27 @@ export class AcessoriasService {
   private pickServico(
     classified: ReturnType<AcessoriasService['classifyObligation']>,
     servicos: Array<{ id: string; nome: string }>,
+    nomeObrigacao?: string,
   ): { id: string; nome: string; razao: string } | null {
-    if (classified.area === 'desconhecida' || servicos.length === 0) return null
+    if (servicos.length === 0) return null
 
     const has = (s: string, kw: string) => this.normText(s).includes(this.normText(kw))
+
+    // 1) Nome idêntico — antes de qualquer heurística.
+    //
+    // O "Importar obrigações" cria o serviço a partir do nome da obrigação, só
+    // que capitalizado ("DAM ISSQN RETIDO NA FONTE" vira "Dam Issqn Retido Na
+    // Fonte"). O par existe e é exato; era a regra de área/regime que passava
+    // por cima dele e devolvia nada. Casar nome com nome não é chute — é a
+    // sugestão mais segura que existe aqui, e vale mesmo quando a área não foi
+    // reconhecida.
+    if (nomeObrigacao) {
+      const alvo = this.normText(nomeObrigacao).trim()
+      const exato = servicos.find(sv => this.normText(sv.nome).trim() === alvo)
+      if (exato) return { ...exato, razao: 'Nome idêntico ao do serviço cadastrado' }
+    }
+
+    if (classified.area === 'desconhecida') return null
 
     // Filtro por área primeiro
     let candidatos = servicos.filter(s => {
@@ -1343,7 +1360,7 @@ export class AcessoriasService {
 
   /** Sugere mapeamentos automáticos pra cada obrigação observada.
    *  Retorna lista pronta pra UI mostrar e o usuário aprovar/rejeitar. */
-  async suggestMappings(): Promise<Array<{
+  async suggestMappings(empresaId?: string | null): Promise<Array<{
     nome: string
     ocorrencias: number
     departamento: string | null
@@ -1361,11 +1378,20 @@ export class AcessoriasService {
      *  ficou para trás. */
     currentServicoIds: string[]
   }>> {
+    // As três consultas precisam do MESMO tenant. A do cache era chamada sem
+    // argumento, e o default dela é `empresa_id IS NULL` — como as obrigações
+    // observadas são gravadas com o empresaId real, a lista voltava vazia e o
+    // modal dizia "clique em Importar obrigações primeiro" mesmo com a tabela
+    // cheia logo atrás. Serviços e mapeamentos vinham sem filtro nenhum, o que
+    // no master misturaria carteira de outros tenants.
     const [observedCache, maps, servicos] = await Promise.all([
-      this.listObligationsObservedCache(),
-      prisma.acessoriasObligationMap.findMany({ select: { nome: true, servicoId: true } }),
+      this.listObligationsObservedCache(empresaId ?? null),
+      prisma.acessoriasObligationMap.findMany({
+        where: empresaId !== undefined ? { empresaId } : undefined,
+        select: { nome: true, servicoId: true },
+      }),
       prisma.servico.findMany({
-        where: { ativo: true, categoriaServico: 'MENSAL' },
+        where: { ativo: true, categoriaServico: 'MENSAL', ...(empresaId ? { empresaId } : {}) },
         select: { id: true, nome: true },
       }),
     ])
@@ -1380,7 +1406,7 @@ export class AcessoriasService {
 
     return observedCache.itens.map(o => {
       const classified = this.classifyObligation(o.nome)
-      const sug = this.pickServico(classified, servicos)
+      const sug = this.pickServico(classified, servicos, o.nome)
       const currentIds = mappedByNome.get(o.nome.toLowerCase()) ?? []
       // "alreadyMapped" = sugestão já está nos vínculos atuais
       const already = sug ? currentIds.includes(sug.id) : currentIds.length > 0

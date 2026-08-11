@@ -162,7 +162,7 @@ export function createAcessoriasRouter(
       })),
 
     suggestMappings: integracaoProc()
-      .query(() => svc.suggestMappings()),
+      .query(({ ctx }) => svc.suggestMappings(ctx.empresaId ?? null)),
 
     applySuggestions: integracaoProc()
       .input(z.object({
