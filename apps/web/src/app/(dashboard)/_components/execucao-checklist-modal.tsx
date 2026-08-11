@@ -324,7 +324,12 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
   // Quem tem a sub-permissão (ou é master) pode concluir mesmo com obrigatórios
   // pendentes — o botão fica liberado e a confirmação avisa que vai pular o checklist.
   const ignorandoChecklist = podeIgnorarChecklist && passosObrigatoriosPendentes > 0
-  const podeConcluir = totalPassos > 0 && (passosObrigatoriosPendentes === 0 || podeIgnorarChecklist)
+  // Serviço sem checklist nenhum conclui direto: não há o que cumprir. Antes o
+  // `totalPassos > 0` travava o botão nesse caso e o título ainda pedia para
+  // "concluir os 0 passos pendentes" — a execução ficava sem saída pela tela.
+  // O backend nunca barrou isso (ele conta pendentes, e zero passos dá zero).
+  const semChecklist = totalPassos === 0
+  const podeConcluir = semChecklist || passosObrigatoriosPendentes === 0 || podeIgnorarChecklist
 
   // Calcula quais passos estão bloqueados por obrigatório anterior ainda em aberto.
   // "Em aberto" = não concluído E não ignorado.
@@ -746,7 +751,9 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                 </div>
 
                 {totalPassos === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhum passo encontrado nesta execução.</p>
+                  <p className="text-xs text-muted-foreground text-center py-6 italic">
+                    Este serviço não tem checklist — conclua quando terminar o trabalho.
+                  </p>
                 )}
               </DialogBody>
               <DialogFooter>
@@ -772,9 +779,11 @@ export function ExecucaoChecklistModal({ open, onOpenChange, execucaoId, accentC
                       title={
                         !podeConcluir
                           ? `Conclua os ${passosObrigatoriosPendentes} passo${passosObrigatoriosPendentes > 1 ? 's' : ''} obrigatório${passosObrigatoriosPendentes > 1 ? 's' : ''} pendente${passosObrigatoriosPendentes > 1 ? 's' : ''} antes de finalizar a execução`
-                          : ignorandoChecklist
-                            ? 'Você tem permissão para concluir sem cumprir o checklist'
-                            : 'Marcar execução como concluída'
+                          : semChecklist
+                            ? 'Este serviço não tem checklist — pode concluir direto'
+                            : ignorandoChecklist
+                              ? 'Você tem permissão para concluir sem cumprir o checklist'
+                              : 'Marcar execução como concluída'
                       }
                     >
                       <CheckCircle2 className="h-4 w-4" /> Concluir

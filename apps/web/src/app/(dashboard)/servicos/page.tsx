@@ -2381,7 +2381,9 @@ export default function ServicosPage() {
                   )
                 })}
                 {totalPassos === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhum passo encontrado nesta execução.</p>
+                  <p className="text-xs text-muted-foreground text-center py-6 italic">
+                    Este serviço não tem checklist — conclua quando terminar o trabalho.
+                  </p>
                 )}
               </DialogBody>
               <DialogFooter>
