@@ -582,6 +582,10 @@ export class AcessoriasService {
     const erros: string[] = []
 
     try {
+      // Cache de colaboradores zerado a cada rodada: se alguém acabou de casar
+      // um colaborador na tela de Vínculos, este sync já enxerga.
+      this.resetColaboradorCache()
+
       // Carrega o mapping de obrigações UMA vez no início (cache local).
       // Agora M:N — pra cada nome, lista de servicoIds vinculados.
       // null no array = "explicitamente ignorada" (não cria execução).
@@ -791,6 +795,36 @@ export class AcessoriasService {
    * Guarda a entrega crua em `acessorias_entregas` — o espelho que o painel de
    * prazos e leitura consulta. Independente do mapeamento de obrigações.
    */
+  /**
+   * De-para colaborador do Acessórias → usuário do OneClick, por ID.
+   *
+   * O cadastro vive em `AcessoriasColaborador` e é mantido pela tela de
+   * Vínculos (Integração → Vínculos), onde o casamento não resolvido
+   * automaticamente é corrigido à mão. Quem não estiver casado devolve null e a
+   * execução segue sem dono — melhor sem responsável do que com o errado.
+   */
+  private colaboradorCache: Map<string, string | null> | null = null
+
+  private async resolverResponsavel(acessoriasId: string | null, empresaId: string | null): Promise<string | null> {
+    if (!acessoriasId) return null
+    if (!this.colaboradorCache) {
+      // Uma leitura por rodada de sync: são dezenas de colaboradores para
+      // milhares de entregas, e consultar por entrega seria uma ida ao banco
+      // por linha sem nada a ganhar.
+      const rows = await prisma.acessoriasColaborador.findMany({
+        where: { ...(empresaId ? { empresaId } : {}), acessoriasId: { not: null } },
+        select: { acessoriasId: true, userId: true },
+      })
+      this.colaboradorCache = new Map(rows.map(r => [String(r.acessoriasId), r.userId]))
+    }
+    return this.colaboradorCache.get(acessoriasId) ?? null
+  }
+
+  /** Zera o cache de colaboradores — chamar no início de cada sync. */
+  private resetColaboradorCache() {
+    this.colaboradorCache = null
+  }
+
   private async espelharEntrega(clienteId: string, delivery: Record<string, unknown>, empresaId: string | null) {
     const config = (delivery.Config ?? {}) as Record<string, unknown>
     const entId = config.EntID ? String(config.EntID).trim() : ''
@@ -871,7 +905,19 @@ export class AcessoriasService {
     const respPrazo   = config.RespPrazo ? String(config.RespPrazo).trim() || null : null
     const respEntrega = config.RespEntrega ? String(config.RespEntrega).trim() || null : null
     const dptoNome    = config.DptoNome ? String(config.DptoNome).trim() || null : null
+    const respPrazoId   = config.RespPrazoID ? String(config.RespPrazoID).trim() || null : null
+    const respEntregaId = config.RespEntregaID ? String(config.RespEntregaID).trim() || null : null
     const { status }  = this.mapStatus(statusAce)
+
+    // Quem responde pela execução, resolvido por ID (nunca pela grafia do nome).
+    //
+    // RespEntrega primeiro: é quem de fato entregou. Mas ele só é preenchido
+    // DEPOIS da entrega — nas obrigações em aberto, que são justamente as que
+    // precisam de dono, vem sempre vazio (conferido: 0 de 8.694 em aberto).
+    // Por isso o RespPrazo, o responsável designado, entra quando não há
+    // entrega. Sem essa segunda volta, obrigação pendente nunca ganharia dono.
+    const respIdFonte = respEntregaId ?? respPrazoId
+    const responsavelId = await this.resolverResponsavel(respIdFonte, empresaId)
 
     const dataBase = {
       acessoriasEntId: entId,
@@ -883,6 +929,8 @@ export class AcessoriasService {
       acessoriasSyncedAt: new Date(),
       acessoriasRespPrazo: respPrazo,
       acessoriasRespEntrega: respEntrega,
+      acessoriasRespPrazoId: respPrazoId,
+      acessoriasRespEntregaId: respEntregaId,
       acessoriasDpto: dptoNome,
       status,
       concluidoEm: status === 'CONCLUIDO' && entrega ? entrega : null,
@@ -897,7 +945,10 @@ export class AcessoriasService {
 
       const existing = await prisma.servicoExecucao.findFirst({
         where: where as any,
-        select: { id: true, acessoriasLastDH: true },
+        select: {
+          id: true, acessoriasLastDH: true, responsavelId: true,
+          acessoriasRespEntregaId: true, acessoriasRespPrazoId: true,
+        },
       })
 
       if (existing) {
@@ -905,7 +956,16 @@ export class AcessoriasService {
           out.skipped++
           continue
         }
-        await prisma.servicoExecucao.update({ where: { id: existing.id }, data: dataBase })
+        // O responsável só é (re)atribuído quando ainda não há um, ou quando a
+        // atribuição MUDOU no Acessórias. Sem essa checagem, todo sync desfaria
+        // qualquer troca de responsável feita à mão aqui — e o sync roda várias
+        // vezes ao dia, então a correção manual não duraria até o fim do turno.
+        const fonteMudou = (existing.acessoriasRespEntregaId ?? existing.acessoriasRespPrazoId ?? null) !== respIdFonte
+        const atribuir = responsavelId != null && (existing.responsavelId == null || fonteMudou)
+        await prisma.servicoExecucao.update({
+          where: { id: existing.id },
+          data: atribuir ? { ...dataBase, responsavelId } : dataBase,
+        })
         out.updated++
       } else {
         await prisma.servicoExecucao.create({
@@ -913,6 +973,7 @@ export class AcessoriasService {
             ...dataBase,
             servicoId,
             clienteId,
+            responsavelId,
             prioridade: 'MEDIA',
             iniciadoEm: competencia ?? new Date(),
             prazoLimite: prazo,

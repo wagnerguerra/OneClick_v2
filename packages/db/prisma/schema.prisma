@@ -5151,6 +5151,13 @@ model ServicoExecucao {
   /// Departamento no Acessórias (Config.DptoNome): Fiscal, Trabalhista, Pessoal, Contábil...
   /// Usado pelo agregador pra decidir qual ClienteAreaContratada atualizar.
   acessoriasDpto        String?   @map("acessorias_dpto")
+  /// IDs de origem dos responsáveis no Acessórias (Config.RespEntregaID /
+  /// RespPrazoID). São eles que resolvem o `responsavelId` desta execução via
+  /// AcessoriasColaborador — o nome acima serve só para exibir. Guardar o ID
+  /// também permite saber quando a atribuição MUDOU lá, e só então reatribuir
+  /// aqui (senão o sync desfaria toda troca de responsável feita à mão).
+  acessoriasRespEntregaId String? @map("acessorias_resp_entrega_id")
+  acessoriasRespPrazoId   String? @map("acessorias_resp_prazo_id")
 
   // ── Log de entrega manual (módulo /minhas-obrigacoes) ──
   /// Usuário que marcou esta execução como entregue.
