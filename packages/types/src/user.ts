@@ -441,19 +441,21 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'registrar', label: 'Registrar elogios', group: 'Rotina' },
     { key: 'ver_todos', label: 'Ver os elogios de todos', group: 'Rotina', observacao: 'Sem isto, vê apenas os que registrou.' },
     { key: 'tratar', label: 'Responder e encerrar', group: 'Qualidade' },
-    { key: 'revelar_anonima', label: 'Ver dados de quem registrou', group: 'Qualidade', observacao: '* Anônimas não guardam autor — nem esta permissão as revela.' },
+    { key: 'excluir', label: 'Excluir elogios', group: 'Qualidade', observacao: 'No sistema antigo, exclusivo do nível de administração.' },
   ],
   reclamacoes: [
     { key: 'registrar', label: 'Registrar reclamações', group: 'Rotina' },
     { key: 'ver_todos', label: 'Ver as reclamações de todos', group: 'Rotina', observacao: 'Sem isto, vê apenas as que registrou.' },
     { key: 'tratar', label: 'Dar retorno, analisar procedência e encerrar', group: 'Qualidade' },
     { key: 'indicadores', label: 'Acessar os indicadores', group: 'Qualidade' },
+    { key: 'excluir', label: 'Excluir reclamações', group: 'Qualidade', observacao: 'No sistema antigo, exclusivo do nível de administração.' },
   ],
   sugestoes: [
     { key: 'registrar', label: 'Registrar sugestões', group: 'Rotina' },
     { key: 'ver_todos', label: 'Ver as sugestões de todos', group: 'Rotina', observacao: 'Sem isto, vê as próprias e as publicadas no mural.' },
     { key: 'tratar', label: 'Responder e encerrar', group: 'Qualidade' },
     { key: 'publicar', label: 'Publicar no mural', group: 'Qualidade' },
+    { key: 'excluir', label: 'Excluir sugestões', group: 'Qualidade', observacao: 'No sistema antigo, exclusivo do nível de administração.' },
   ],
 
   'relatorios-ti': [

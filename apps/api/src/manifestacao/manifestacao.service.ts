@@ -115,6 +115,60 @@ export class ManifestacaoService {
     return buildPaginatedResponse(linhas.map(l => this.semAutorSeAnonima(l)), total, page, limit)
   }
 
+  /**
+   * Escopo de leitura de UM registro — a mesma regra do `listar`.
+   *
+   * No legado a área do usuário comum consultava com `WHERE id_usuario = X`
+   * (v4/modules/sgq_reclamacoes/usu/index.asp), então nível 1 via só o que
+   * havia registrado. Aqui a lista já respeitava isso, mas o `getById` não:
+   * bastava ter o ID para abrir a reclamação de qualquer colega. Filtrar a
+   * listagem e liberar o detalhe deixa o escopo decorativo.
+   *
+   * Anônima não tem dono — sem autor gravado, ela não é de ninguém, e só
+   * aparece para quem trata. É o que a palavra promete.
+   */
+  async assertPodeVer(
+    id: string,
+    tipo: ManifestacaoTipo,
+    ctx: { userId: string; empresaId?: string | null; verTodos: boolean; verPublicas?: boolean },
+  ) {
+    const m = await prisma.manifestacao.findFirst({
+      where: { id, tipo, empresaId: ctx.empresaId ?? null },
+      select: { id: true, autorId: true, publica: true },
+    })
+    if (!m) throw new Error('Registro nao encontrado.')
+    const proprio = m.autorId != null && m.autorId === ctx.userId
+    const noMural = !!ctx.verPublicas && m.publica
+    if (!ctx.verTodos && !proprio && !noMural) {
+      // Mesma mensagem de "nao encontrado": dizer "sem permissao" confirmaria
+      // que o registro existe, e o protocolo do vizinho viraria oraculo.
+      throw new Error('Registro nao encontrado.')
+    }
+    return m
+  }
+
+  /**
+   * Escopo de ESCRITA de um registro: o autor, ou quem trata o módulo.
+   *
+   * Deliberadamente mais estreito que o de leitura: `ver_todos` é permissão de
+   * consulta ampla, e quem só consulta não deve reescrever o relato alheio. No
+   * legado a edição vivia dentro de `adm/`, atrás do nível de administração.
+   */
+  async assertPodeEditar(
+    id: string,
+    tipo: ManifestacaoTipo,
+    ctx: { userId: string; empresaId?: string | null; trata: boolean },
+  ) {
+    const m = await prisma.manifestacao.findFirst({
+      where: { id, tipo, empresaId: ctx.empresaId ?? null },
+      select: { id: true, autorId: true },
+    })
+    if (!m) throw new Error('Registro nao encontrado.')
+    const proprio = m.autorId != null && m.autorId === ctx.userId
+    if (!ctx.trata && !proprio) throw new Error('Registro nao encontrado.')
+    return m
+  }
+
   async getById(tipo: ManifestacaoTipo, id: string, empresaId?: string | null) {
     const m = await prisma.manifestacao.findFirst({
       where: { id, tipo, empresaId: empresaId ?? null },
