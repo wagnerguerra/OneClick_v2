@@ -32,6 +32,9 @@ interface ExecucaoMinha {
   status: string
   prioridade: PrioridadeServico
   prazoLimite: string | null
+  /** Status cru do Acessórias, quando a execução veio de lá. É ele que decide
+   *  se está atrasada — ver `estaAtrasada`. */
+  acessoriasStatus?: string | null
   iniciadoEm: string
   concluidoEm: string | null
   pausado: boolean
@@ -673,10 +676,28 @@ export default function MeusServicosPage() {
       } catch { /* sem perm */ }
     })()
   }, [])
+  /**
+   * Atraso segundo a ORIGEM, não segundo a data.
+   *
+   * Para execução vinda do Acessórias, o prazo que guardamos é o TÉCNICO (a
+   * data-limite interna do escritório), não o legal. Passar dele não é atraso —
+   * o próprio Acessórias diz "Prazo técnico" nesses casos, e só diz "Atrasada!"
+   * quando o prazo legal estoura. Comparar `prazoLimite < agora` marcava 163
+   * obrigações como atrasadas que a origem não considera atrasadas.
+   *
+   * Execução que não vem do Acessórias (sem status de origem) segue pela data,
+   * que é a única referência que ela tem.
+   */
+  function estaAtrasada(e: ExecucaoMinha, agora: number): boolean {
+    if (e.status !== 'EM_ANDAMENTO') return false
+    if (e.acessoriasStatus) return e.acessoriasStatus.startsWith('Atrasada')
+    return !!e.prazoLimite && new Date(e.prazoLimite).getTime() < agora
+  }
+
   const kpis = useMemo(() => {
     const agora = Date.now()
     const emAndamento = statsAll.filter(e => e.status === 'EM_ANDAMENTO').length
-    const atrasados = statsAll.filter(e => e.status === 'EM_ANDAMENTO' && e.prazoLimite && new Date(e.prazoLimite).getTime() < agora).length
+    const atrasados = statsAll.filter(e => estaAtrasada(e, agora)).length
     const concluidos = statsAll.filter(e => e.status === 'CONCLUIDO').length
     const concluidosHoje = statsAll.filter(e => {
       if (e.status !== 'CONCLUIDO' || !e.concluidoEm) return false
@@ -722,7 +743,7 @@ export default function MeusServicosPage() {
       // venceram porque nunca foram devidas.
       else if (e.status === 'PULADO') cols.dispensados!.items.push(e)
       else if (e.pausado) cols.pausados!.items.push(e)
-      else if (e.prazoLimite && new Date(e.prazoLimite).getTime() < agora) cols.atrasados!.items.push(e)
+      else if (estaAtrasada(e, agora)) cols.atrasados!.items.push(e)
       else cols.em_andamento!.items.push(e)
     }
     return [cols.em_andamento!, cols.atrasados!, cols.pausados!, cols.concluidos!, cols.dispensados!, cols.cancelados!]
@@ -1341,6 +1362,17 @@ export default function MeusServicosPage() {
                           title={exec.pausadoMotivo ? `Motivo: ${exec.pausadoMotivo}` : 'Execução pausada — SLA não corre'}
                         >
                           <Pause className="h-3 w-3" /> Pausado
+                        </span>
+                      ) : exec.acessoriasStatus && !estaAtrasada(exec, Date.now()) && exec.prazoLimite
+                          && new Date(exec.prazoLimite).getTime() < Date.now() ? (
+                        // Prazo TÉCNICO vencido, prazo legal não. Sem este ramo o
+                        // cálculo abaixo pintaria de vermelho algo que a origem
+                        // não considera atrasado.
+                        <span
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded text-sky-700 bg-sky-50 dark:bg-sky-900/20 dark:text-sky-300"
+                          title={`No Acessórias: ${exec.acessoriasStatus}. O prazo interno passou, o legal ainda não.`}
+                        >
+                          {exec.acessoriasStatus}
                         </span>
                       ) : (
                         <span

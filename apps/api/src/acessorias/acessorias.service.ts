@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { RegrasObrigacaoService } from './regras-obrigacao.service'
 
@@ -58,6 +58,8 @@ const SILENCIO_ATE_MORTA_MS = 3 * 60 * 1000
 
 @Injectable()
 export class AcessoriasService {
+  private readonly logger = new Logger(AcessoriasService.name)
+
   constructor(private readonly regras: RegrasObrigacaoService) {}
 
   /** Lê config corrente do process.env (atualizado por /configuracoes ao salvar).
@@ -262,8 +264,26 @@ export class AcessoriasService {
     if (s === 'Dispensada') return { status: 'PULADO', atrasada: false }
     if (s.startsWith('Atrasada')) return { status: 'EM_ANDAMENTO', atrasada: true }
     if (s === 'Pendente') return { status: 'EM_ANDAMENTO', atrasada: false }
-    // Concluídos: Entregue, Ent. antecipada, Ent. PzTéc, Atraso justificado
-    return { status: 'CONCLUIDO', atrasada: s === 'Atraso justificado' }
+    // "Prazo técnico": a data-limite INTERNA do escritório passou, a legal não.
+    // Nada foi entregue (conferido: 427 no espelho, zero com data de entrega).
+    // Caía no default abaixo e virava CONCLUIDO — obrigação em aberto sumia do
+    // painel como se tivesse sido cumprida.
+    if (s === 'Prazo técnico') return { status: 'EM_ANDAMENTO', atrasada: false }
+    // Concluído = ENTREGUE. Todos os status de entrega do Acessórias começam
+    // com "Ent." (Ent. antecipada, Ent. PzTéc, Ent. atrasada, Ent. justificada),
+    // e são exatamente os que têm data de entrega preenchida na origem.
+    if (s.startsWith('Ent.') || s === 'Entregue') return { status: 'CONCLUIDO', atrasada: false }
+    // "Atraso justificado" e "Pend. justificada" seguem como concluídos por
+    // decisão anterior (encerramento administrativo), embora não tenham data de
+    // entrega. Mantido de propósito — mudar isso reabriria 75 execuções e é
+    // decisão de negócio, não de código.
+    if (s === 'Atraso justificado') return { status: 'CONCLUIDO', atrasada: true }
+    if (s === 'Pend. justificada') return { status: 'CONCLUIDO', atrasada: false }
+    // Status novo do Acessórias cai aqui. Fica EM_ANDAMENTO de propósito: um
+    // default "concluído" faz a obrigação desaparecer em silêncio, que foi
+    // exatamente como "Prazo técnico" passou despercebido.
+    this.logger.warn(`[Acessorias] Status desconhecido "${s}" — tratado como EM_ANDAMENTO`)
+    return { status: 'EM_ANDAMENTO', atrasada: false }
   }
 
   /** Converte data "0000-00-00" em null; demais formatos passam. */
@@ -946,13 +966,21 @@ export class AcessoriasService {
       const existing = await prisma.servicoExecucao.findFirst({
         where: where as any,
         select: {
-          id: true, acessoriasLastDH: true, responsavelId: true,
+          id: true, acessoriasLastDH: true, acessoriasStatus: true, responsavelId: true,
           acessoriasRespEntregaId: true, acessoriasRespPrazoId: true,
         },
       })
 
       if (existing) {
-        if (existing.acessoriasLastDH && lastDH && existing.acessoriasLastDH.getTime() === lastDH.getTime()) {
+        // Pular pelo EntLastDH economiza escrita, mas o Acessórias muda o
+        // Status SEM mexer nesse carimbo: 163 execuções ficaram congeladas em
+        // "Pendente" enquanto a origem já dizia "Prazo técnico" — com o
+        // last_dh idêntico nos dois lados. O espelho não sofria porque é
+        // gravado antes deste filtro. Então o status entra na comparação.
+        const inalterado = existing.acessoriasLastDH && lastDH
+          && existing.acessoriasLastDH.getTime() === lastDH.getTime()
+          && existing.acessoriasStatus === statusAce
+        if (inalterado) {
           out.skipped++
           continue
         }
