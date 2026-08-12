@@ -257,6 +257,9 @@ export function createAgendaRouter(
     verificarConflitos: readProcedure(MODULE)
       .input(z.object({
         data: z.string(),
+        /** Fim do intervalo — sem ele, o aviso da tela ignora os dias seguintes
+         *  de um evento de vários dias, e o usuário só descobre ao salvar. */
+        dataFim: z.string().nullish(),
         horaInicio: z.string(),
         horaFim: z.string(),
         participanteIds: z.array(z.string()).optional(),

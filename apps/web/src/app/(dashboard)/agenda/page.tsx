@@ -1061,6 +1061,9 @@ export default function AgendaPage() {
       if ((checaParticipante || checaSala) && !form.diaInteiro && form.horaInicio && form.horaFim) {
         const conflitos = await trpc.agenda.verificarConflitos.query({
           data: form.data,
+          // Evento de vários dias ocupa o intervalo inteiro — sem mandar o fim,
+          // o aviso só olhava o primeiro dia e a colisão aparecia depois.
+          dataFim: form.dataFim || undefined,
           horaInicio: form.horaInicio,
           horaFim: form.horaFim,
           participanteIds: checaParticipante && form.participanteIds.length > 0 ? form.participanteIds : undefined,

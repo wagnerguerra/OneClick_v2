@@ -1038,7 +1038,7 @@ export class AgendaService {
     // Gate de conflito conforme AgendaConfig — pula se diaInteiro/sem horários
     // ou se o tipo escolhido não bloqueia agenda (lembretes corporativos).
     await this.aplicarGateConflito({
-      data, horaInicio, horaFim, diaInteiro,
+      data, dataFim, horaInicio, horaFim, diaInteiro,
       participanteIds, sala: sala || undefined, salaId: salaId || undefined,
       tipoId,
     }, userId)
@@ -1172,12 +1172,27 @@ export class AgendaService {
     // Gate de conflito conforme AgendaConfig — usa os valores novos quando passados,
     // ou os atuais do evento como fallback. Pula se diaInteiro/sem horários ou se o
     // tipo (novo ou atual) não bloqueia agenda (lembretes corporativos).
+    //
+    // Os participantes precisam do MESMO fallback dos demais campos. Sem ele,
+    // uma edição que mexe só no horário chegava aqui com a lista `undefined`, e
+    // `verificarConflitos` só examina participante quando recebe a lista
+    // preenchida — ou seja, o gate rodava e não olhava ninguém. Foi assim que
+    // um evento foi movido para cima de outro já existente: a checagem
+    // aconteceu, mas sobre uma lista vazia.
+    const participantesAtuais = data.participanteIds ?? (await prisma.agendaParticipante.findMany({
+      where: { eventoId: id, isActive: true },
+      select: { usuarioId: true },
+    })).map(p => p.usuarioId).filter((x): x is string => !!x)
+
     await this.aplicarGateConflito({
       data: data.data ?? evento.data.toISOString().slice(0, 10),
+      dataFim: data.dataFim !== undefined
+        ? data.dataFim
+        : (evento.dataFim ? evento.dataFim.toISOString().slice(0, 10) : null),
       horaInicio: data.horaInicio !== undefined ? data.horaInicio : evento.horaInicio,
       horaFim: data.horaFim !== undefined ? data.horaFim : evento.horaFim,
       diaInteiro: data.diaInteiro !== undefined ? data.diaInteiro : evento.diaInteiro,
-      participanteIds: data.participanteIds,
+      participanteIds: participantesAtuais,
       sala: data.sala !== undefined ? (data.sala || undefined) : (evento.sala || undefined),
       salaId: data.salaId !== undefined ? (data.salaId || undefined) : (evento.salaId || undefined),
       eventoIdExcluir: id,
@@ -1390,6 +1405,8 @@ export class AgendaService {
 
   async verificarConflitos(params: {
     data: string
+    /** Fim do intervalo do evento. Nulo = evento de um dia só. */
+    dataFim?: string | null
     horaInicio: string
     horaFim: string
     participanteIds?: string[]
@@ -1398,7 +1415,7 @@ export class AgendaService {
     eventoIdExcluir?: string // para ignorar o próprio evento ao editar
     tipoId?: string // se o tipo do evento sendo criado/editado não bloqueia (ex.: LEMBRETE CORPORATIVO), pular toda a checagem
   }, empresaId: string | null = null, viewerId?: string | null) {
-    const { data, horaInicio, horaFim, participanteIds, sala, salaId, eventoIdExcluir, tipoId } = params
+    const { data, dataFim, horaInicio, horaFim, participanteIds, sala, salaId, eventoIdExcluir, tipoId } = params
     const conflitos: Array<{
       tipo: 'participante' | 'sala'
       nome: string
@@ -1422,14 +1439,25 @@ export class AgendaService {
       if (tipoSel && !tipoSel.bloqueiaAgenda) return conflitos
     }
 
-    const eventDate = new Date(data)
+    // Um evento ocupa o INTERVALO [data, dataFim] — não só o primeiro dia.
+    // Buscar por `data: eventDate` fazia evento de vários dias sumir da
+    // checagem em todos os dias menos o de início: uma reunião de 12 a 14
+    // não era vista por quem marcava no dia 13, e ela própria só olhava o 12.
+    // Foi assim que dois compromissos caíram no mesmo horário da mesma pessoa.
+    const inicio = new Date(data)
+    const fim = dataFim ? new Date(dataFim) : inicio
 
-    // Buscar eventos no mesmo dia que se sobrepõem no horário
+    // Interseção de intervalos: o outro começa antes do meu fim E termina
+    // depois do meu início. `dataFim` nulo significa evento de um dia só.
     const eventosNoDia = await prisma.agendaEvento.findMany({
       where: {
         isActive: true,
         empresaId,  // isolamento multi-tenant: conflitos só com eventos do próprio tenant
-        data: eventDate,
+        data: { lte: fim },
+        OR: [
+          { dataFim: { gte: inicio } },
+          { AND: [{ dataFim: null }, { data: { gte: inicio } }] },
+        ],
         diaInteiro: false,
         ...(eventoIdExcluir ? { id: { not: eventoIdExcluir } } : {}),
         tipo: { bloqueiaAgenda: true },
@@ -2057,6 +2085,7 @@ export class AgendaService {
    */
   private async aplicarGateConflito(params: {
     data: string
+    dataFim?: string | null
     horaInicio?: string | null
     horaFim?: string | null
     diaInteiro?: boolean | null
@@ -2083,6 +2112,7 @@ export class AgendaService {
 
     const conflitos = await this.verificarConflitos({
       data: params.data,
+      dataFim: params.dataFim,
       horaInicio: params.horaInicio,
       horaFim: params.horaFim,
       participanteIds: params.participanteIds,
