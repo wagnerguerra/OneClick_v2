@@ -1,0 +1,318 @@
+<title>Agenda — colisões de horário a resolver</title>
+<style>
+  :root {
+    --ground:   #FBFCFD;
+    --surface:  #FFFFFF;
+    --ink:      #16202B;
+    --muted:    #5C6B7A;
+    --hairline: #E1E7ED;
+    --accent:   #2C6E9B;
+    --accent-soft: #EAF2F8;
+    --alert:    #C2413A;
+    --alert-soft:  #FBEDEC;
+    --warn:     #B4762A;
+    --warn-soft:   #FBF3E6;
+    --track:    #EDF1F5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #10161C;
+      --surface:  #161E26;
+      --ink:      #E6EDF3;
+      --muted:    #93A3B2;
+      --hairline: #26313C;
+      --accent:   #6FB3DC;
+      --accent-soft: #1A2A36;
+      --alert:    #E98177;
+      --alert-soft:  #2E1B19;
+      --warn:     #DDA95E;
+      --warn-soft:   #2B2214;
+      --track:    #1D262F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:   #10161C;
+    --surface:  #161E26;
+    --ink:      #E6EDF3;
+    --muted:    #93A3B2;
+    --hairline: #26313C;
+    --accent:   #6FB3DC;
+    --accent-soft: #1A2A36;
+    --alert:    #E98177;
+    --alert-soft:  #2E1B19;
+    --warn:     #DDA95E;
+    --warn-soft:   #2B2214;
+    --track:    #1D262F;
+  }
+  :root[data-theme="light"] {
+    --ground:   #FBFCFD;
+    --surface:  #FFFFFF;
+    --ink:      #16202B;
+    --muted:    #5C6B7A;
+    --hairline: #E1E7ED;
+    --accent:   #2C6E9B;
+    --accent-soft: #EAF2F8;
+    --alert:    #C2413A;
+    --alert-soft:  #FBEDEC;
+    --warn:     #B4762A;
+    --warn-soft:   #FBF3E6;
+    --track:    #EDF1F5;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    margin: 0;
+    padding: 40px 24px 72px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+
+  .eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(26px, 4.4vw, 36px); line-height: 1.15; letter-spacing: -.02em;
+    font-weight: 680; margin: 0 0 12px; text-wrap: balance;
+  }
+  .lede { font-size: 17px; color: var(--muted); margin: 0; max-width: 62ch; }
+
+  .tally { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  .tally div {
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 3px;
+    padding: 10px 14px; display: flex; align-items: baseline; gap: 8px;
+  }
+  .tally b { font-size: 20px; font-weight: 680; font-variant-numeric: tabular-nums; }
+  .tally span { font-size: 12px; color: var(--muted); }
+
+  h2 {
+    font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 16px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .case {
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 3px;
+    padding: 20px 22px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .cases { display: flex; flex-direction: column; gap: 16px; }
+
+  .case-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+  .when {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
+    color: var(--ink); background: var(--track); border-radius: 2px; padding: 3px 8px;
+  }
+  .who { font-weight: 640; font-size: 16px; }
+  .tag {
+    margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: .07em;
+    text-transform: uppercase; border-radius: 2px; padding: 4px 9px; white-space: nowrap;
+  }
+  .tag.alert { background: var(--alert-soft); color: var(--alert); }
+  .tag.warn  { background: var(--warn-soft);  color: var(--warn);  }
+
+  .note { font-size: 14.5px; color: var(--muted); margin: 0; max-width: 64ch; }
+  .note b { color: var(--ink); font-weight: 620; }
+
+  /* Faixa do dia: 07h → 19h */
+  .band { display: flex; flex-direction: column; gap: 7px; }
+  .row { display: grid; grid-template-columns: 1fr; gap: 4px; }
+  .row-head {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+    font-size: 13.5px;
+  }
+  .row-head .t { font-weight: 600; }
+  .row-head .m {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .track { position: relative; height: 16px; background: var(--track); border-radius: 2px; }
+  .bar {
+    position: absolute; top: 0; bottom: 0; border-radius: 2px;
+    background: var(--accent); opacity: .85;
+  }
+  .bar.span { background: var(--muted); opacity: .45; }
+  .bar.hit  { background: var(--alert); opacity: 1; }
+  .scale {
+    display: flex; justify-content: space-between; margin-top: 2px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+
+  .meta { font-size: 12.5px; color: var(--muted); }
+  .meta span + span::before { content: "·"; margin: 0 7px; opacity: .55; }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-left: 3px solid var(--accent); border-radius: 3px; padding: 18px 22px;
+  }
+  .panel h3 { font-size: 14px; font-weight: 660; margin: 0 0 8px; }
+  .panel p { margin: 0 0 10px; font-size: 14.5px; color: var(--muted); max-width: 64ch; }
+  .panel p:last-child { margin-bottom: 0; }
+
+  ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+  ol.steps li { font-size: 14.5px; color: var(--muted); }
+  ol.steps b { color: var(--ink); font-weight: 620; }
+
+  footer {
+    border-top: 1px solid var(--hairline); padding-top: 18px;
+    font-size: 12.5px; color: var(--muted);
+  }
+  footer p { margin: 0 0 6px; }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Agenda · Verificação de conflitos</p>
+    <h1>Cinco choques de horário que a agenda não estava enxergando</h1>
+    <p class="lede">
+      Uma falha na verificação de conflitos deixava passar compromissos marcados por cima
+      uns dos outros. Ela já foi corrigida, mas os agendamentos feitos antes seguem no
+      calendário — e todos os que restam ainda vão acontecer.
+    </p>
+    <div class="tally">
+      <div><b>5</b><span>choques encontrados</span></div>
+      <div><b>3</b><span>situações a resolver</span></div>
+      <div><b>2</b><span>pessoas afetadas</span></div>
+      <div><b>0</b><span>disputas de sala</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>O que precisa de decisão</h2>
+    <div class="cases">
+
+      <!-- 13/08 -->
+      <article class="case">
+        <div class="case-top">
+          <span class="when">Qui 13/08</span>
+          <span class="who">Giovana Castiglioni</span>
+          <span class="tag alert">Dois compromissos</span>
+        </div>
+        <p class="note">
+          Dois compromissos diferentes, no mesmo horário, com a mesma pessoa. É o caso que
+          revelou a falha: a reunião foi cadastrada para <b>12, 13 e 14</b> porque o cliente
+          ainda escolheria o dia, e a verificação só olhava o primeiro dia dela.
+        </p>
+        <div class="band">
+          <div class="row">
+            <div class="row-head"><span class="t">Reunião com Gregório Lorenzato — FL Rangel</span><span class="m">14:00–15:00</span></div>
+            <div class="track"><span class="bar hit" style="left:58.33%;width:8.33%"></span></div>
+          </div>
+          <div class="row">
+            <div class="row-head"><span class="t">Visita Takaschi S/Holding</span><span class="m">14:00–15:00</span></div>
+            <div class="track"><span class="bar hit" style="left:58.33%;width:8.33%"></span></div>
+          </div>
+          <div class="scale"><span>07h</span><span>10h</span><span>13h</span><span>16h</span><span>19h</span></div>
+        </div>
+        <p class="meta">
+          <span>Reunião Interna — cadastrada por Thayza Lima, ocupa 12 a 14/08</span>
+          <span>Evento Geral — cadastrado por Marcelo Munhão, só no dia 13</span>
+        </p>
+      </article>
+
+      <!-- 14/08 -->
+      <article class="case">
+        <div class="case-top">
+          <span class="when">Sex 14/08</span>
+          <span class="who">Giovana Castiglioni</span>
+          <span class="tag alert">Reunião durante ausência</span>
+        </div>
+        <p class="note">
+          A Giovana está marcada como <b>ausente o dia inteiro</b>, em atendimento on-line de
+          casa, e a reunião do Gregório cai dentro dessa janela. Como a reunião ocupa os três
+          dias, ela também alcança a sexta — provavelmente sem ninguém ter notado.
+        </p>
+        <div class="band">
+          <div class="row">
+            <div class="row-head"><span class="t">Ausente — Atendimento on-line, home office</span><span class="m">08:00–17:00</span></div>
+            <div class="track"><span class="bar span" style="left:8.33%;width:75%"></span></div>
+          </div>
+          <div class="row">
+            <div class="row-head"><span class="t">Reunião com Gregório Lorenzato — FL Rangel</span><span class="m">14:00–15:00</span></div>
+            <div class="track"><span class="bar hit" style="left:58.33%;width:8.33%"></span></div>
+          </div>
+          <div class="scale"><span>07h</span><span>10h</span><span>13h</span><span>16h</span><span>19h</span></div>
+        </div>
+        <p class="meta">
+          <span>Compromisso Pessoal — cadastrado pela própria Giovana</span>
+          <span>Reunião Interna — cadastrada por Thayza Lima</span>
+        </p>
+      </article>
+
+      <!-- 20 e 21/08 -->
+      <article class="case">
+        <div class="case-top">
+          <span class="when">Qui 20 e Sex 21/08</span>
+          <span class="who">Elisangela Santana</span>
+          <span class="tag warn">Cadastro repetido</span>
+        </div>
+        <p class="note">
+          A manutenção dos bebedouros na Casa Certa foi cadastrada <b>três vezes</b>, com
+          períodos que se sobrepõem. Não é conflito de compromissos — é o mesmo compromisso
+          registrado em triplicata, e é daí que saem três dos cinco choques.
+        </p>
+        <div class="band">
+          <div class="row">
+            <div class="row-head"><span class="t">(AC) Manutenção dos bebedouros</span><span class="m">19 a 21/08 · 09:00–10:00</span></div>
+            <div class="track"><span class="bar" style="left:16.67%;width:8.33%"></span></div>
+          </div>
+          <div class="row">
+            <div class="row-head"><span class="t">Manutenção dos bebedouros</span><span class="m">20 e 21/08 · 09:00–11:00</span></div>
+            <div class="track"><span class="bar" style="left:16.67%;width:16.67%"></span></div>
+          </div>
+          <div class="row">
+            <div class="row-head"><span class="t">(AC) Manutenção dos bebedouros</span><span class="m">21/08 · 09:00–10:00</span></div>
+            <div class="track"><span class="bar" style="left:16.67%;width:8.33%"></span></div>
+          </div>
+          <div class="scale"><span>07h</span><span>10h</span><span>13h</span><span>16h</span><span>19h</span></div>
+        </div>
+        <p class="meta"><span>Evento Geral — os três cadastrados por Elisangela Santana</span></p>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Encaminhamento sugerido</h2>
+    <div class="panel">
+      <ol class="steps">
+        <li><b>13/08 — Giovana:</b> definir qual dos dois compromissos ela atende e liberar o outro, ou passar um deles a outra pessoa.</li>
+        <li><b>Reunião do Gregório:</b> o cliente já escolheu o dia. Ajustar o cadastro para a data definida encerra este caso e o de sexta de uma vez.</li>
+        <li><b>20 e 21/08 — bebedouros:</b> manter um cadastro só e excluir os outros dois.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>O que foi verificado</h2>
+    <div class="panel">
+      <p>
+        A varredura cobriu a agenda inteira, não apenas os próximos dias, e considerou dois
+        compromissos em choque quando as datas se cruzam, os horários se sobrepõem e há uma
+        pessoa em comum — ignorando os que são de dia inteiro e os tipos que, por configuração,
+        não ocupam agenda.
+      </p>
+      <p>
+        Nada foi encontrado no passado: <b>os cinco casos ainda vão acontecer</b>, e nenhum
+        deles é disputa de sala. Seguem no calendário <b>24 compromissos de vários dias</b> com
+        data futura; a partir da correção, qualquer tentativa de marcar por cima deles passa a
+        ser barrada conforme a regra de cada tipo de evento.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Levantamento gerado em 13 de agosto de 2026, a partir dos dados de produção.</p>
+    <p>OneClick · Agenda</p>
+  </footer>
+
+</div>
