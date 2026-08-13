@@ -102,7 +102,39 @@ Esperado: `grupos: 67`. Na tela: abrir `/folha-bi` → Verbas → "Configurar ag
 aviso some, "Verbas Fixos/Variáveis" aparece no seletor e a matriz deixa de ser uma coluna
 `(OUTROS)` só.
 
-### 2.5. Se der `password authentication failed`
+### 2.5. Carga completa de dados (seed do PR #42)
+
+O restore acima leva **o que a máquina de origem tiver**. Para a carga cheia existe o
+`folha_dash_data_seed.sql.gz` (data-only, 106 empresas com folha, 202401–202607), gerado
+pelo PR #42 e entregue via `materiais/` — pasta **fora do versionamento**, que é onde este
+tipo de arquivo deve ficar.
+
+```bash
+scp materiais/folha_dash_data_seed.sql.gz root@72.60.155.69:/tmp/
+gunzip -c /tmp/folha_dash_data_seed.sql.gz \
+  | docker exec -i n8n-postgres-1 psql -U postgres -d folha_dash_db -v ON_ERROR_STOP=1
+```
+
+O arquivo dá `TRUNCATE` nas 31 tabelas de dados dentro de uma transação e **não toca**
+`classif_esquema/grupo/regra` nem `dim_verba_grupo` — preserva o agrupamento de produção e
+reconstrói a ponte no fim com `resolver_todos()`, usando os IDs daqui.
+
+**Antes de rodar**, três conferências que valem os dois minutos (a 2.4 provou que o schema
+de produção nasceu de um dump, não do `folha_dash_schema.sql` — os dois podem divergir):
+
+1. cada `COPY` do seed tem tabela e colunas correspondentes no destino;
+2. nenhuma coluna `NOT NULL` sem default fica de fora dos `COPY`;
+3. nenhuma FK aponta para as tabelas truncadas a partir de tabela **não** truncada — senão o
+   `TRUNCATE` falha (o caso a vigiar é `dim_verba_grupo`, que referencia só `classif_*`).
+
+Com `ON_ERROR_STOP=1` qualquer falha aborta e desfaz o `TRUNCATE` junto. Ainda assim, tire um
+`pg_dump` antes: são 2 MB.
+
+> **Aplicado em 13/08/2026.** 237 empresas (106 com folha), 388.496 linhas de verba,
+> 2.436 classes, ponte com 10.508 verbas resolvidas. Config intacta: 67 grupos, 689 regras.
+> `dim_competencia` fica vazia — é assim na origem e nenhuma view depende dela.
+
+### 2.6. Se der `password authentication failed`
 
 Sinal de que a senha da role e a do `.env` divergiram — acontece quando um `\password folha`
 roda depois de a linha já estar gravada. Alinhe a role ao que o `.env` tem:
