@@ -6,6 +6,7 @@ SaaS multi-tenant ERP/CRM (Cadastros, Corporativo, Fiscal, Qualidade) para escri
 Pagamento recorrente via Stripe. Reconstrução modernizada do legado **OneClick v1 (SERPRO2)**.
 
 **Documentos referenciados (sob demanda):**
+- `docs/SETUP-DEV-LOCAL.md` — subir o ambiente de dev do zero (infra, envs, `db push`, onboarding, master/trial, seeds, `gh`); guia reproduzível e direcionador do Claude
 - `docs/MODULOS.md` — lista canônica de módulos por bloco + slugs de cor
 - `docs/ENV.md` — variáveis de ambiente completas + integrações externas
 - `docs/error-registry.md` — registry de erros + gate obrigatório de entrega
