@@ -9,6 +9,7 @@
 // Usa upsert por nome+empresa para ser idempotente.
 
 import { PrismaClient } from '../src/generated/client'
+import { resolveEmpresaId, makeAreaResolver } from './_seed-target'
 
 const prisma = new PrismaClient()
 
@@ -1000,25 +1001,27 @@ const servicos: SeedServico[] = [
 ]
 
 async function main() {
+  const empresaId = await resolveEmpresaId(prisma)
+  const areaIdFor = makeAreaResolver(prisma, empresaId)
   console.log(`Cadastrando ${servicos.length} servicos contabeis...\n`)
   let criados = 0
   let atualizados = 0
 
   for (const s of servicos) {
     // Idempotencia por nome (escopo global — sem empresaId).
-    const existing = await prisma.servico.findFirst({ where: { nome: s.nome, empresaId: null } })
+    const existing = await prisma.servico.findFirst({ where: { nome: s.nome, empresaId } })
 
     // Os campos valorPadrao e disponivelOrcamento sao novos no schema. Para nao
     // depender do client Prisma regenerado (a API segura a DLL no Windows),
     // setamos eles via SQL bruto apos o create/update.
     const data = {
       nome: s.nome,
-      categoria: s.categoria,
+      areaId: await areaIdFor(s.categoria),
       descricao: s.descricao,
       slaHoras: s.slaHoras,
       prioridadePadrao: s.prioridadePadrao ?? 'MEDIA',
       ativo: true,
-      empresaId: null,
+      empresaId,
     }
 
     let servico

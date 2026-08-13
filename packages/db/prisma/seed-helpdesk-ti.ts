@@ -8,6 +8,7 @@
  *   pnpm --filter @saas/db tsx prisma/seed-helpdesk-ti.ts
  */
 import { PrismaClient } from '../src/generated/client'
+import { resolveEmpresaId, makeAreaResolver } from './_seed-target'
 
 const prisma = new PrismaClient()
 
@@ -119,25 +120,19 @@ const CATEGORIAS: CatSeed[] = [
 async function main() {
   console.log('🌱 Seed HelpDesk — categorias TI')
 
-  // Tenta resolver Area "TI" pra vincular como área padrão (roteamento).
-  // Se não existir, cria uma sem empresa (global).
-  let areaTi = await prisma.area.findFirst({
-    where: { name: { equals: 'TI', mode: 'insensitive' } },
-  })
-  if (!areaTi) {
-    areaTi = await prisma.area.create({
-      data: { name: 'TI', isActive: true },
-    })
-    console.log(`  ➕ Área "TI" criada (id=${areaTi.id})`)
-  } else {
-    console.log(`  ✓ Área "TI" já existe (id=${areaTi.id})`)
-  }
+  // Área "Tecnologia da Informação" (roteamento padrão do HelpDesk), escopada à
+  // empresa alvo — find-or-create pelo mesmo helper dos demais seeds. É a área
+  // associada a todas as categorias abaixo.
+  const empresaId = await resolveEmpresaId(prisma)
+  const areaIdFor = makeAreaResolver(prisma, empresaId)
+  const areaTiId = await areaIdFor('Tecnologia da Informação')
+  console.log(`  ✓ Área "Tecnologia da Informação" (id=${areaTiId})`)
 
   let ordem = 0
   for (const cat of CATEGORIAS) {
     ordem += 10
     const existing = await prisma.helpdeskCategoria.findFirst({
-      where: { nome: cat.nome, parentId: null },
+      where: { nome: cat.nome, parentId: null, empresaId },
     })
 
     let parentId: string
@@ -151,7 +146,8 @@ async function main() {
           descricao: cat.descricao,
           cor: cat.cor,
           slaPadraoHoras: cat.slaPadraoHoras,
-          areaId: areaTi.id,
+          areaId: areaTiId,
+          empresaId,
           ordem,
           ativo: true,
         },
@@ -165,7 +161,7 @@ async function main() {
       for (const filho of cat.filhos) {
         ordemFilho += 10
         const existingFilho = await prisma.helpdeskCategoria.findFirst({
-          where: { nome: filho.nome, parentId },
+          where: { nome: filho.nome, parentId, empresaId },
         })
         if (existingFilho) {
           console.log(`    ⏭️  ${filho.nome}`)
@@ -175,7 +171,8 @@ async function main() {
               nome: filho.nome,
               descricao: filho.descricao,
               parentId,
-              areaId: areaTi.id,
+              areaId: areaTiId,
+              empresaId,
               ordem: ordemFilho,
               ativo: true,
             },
