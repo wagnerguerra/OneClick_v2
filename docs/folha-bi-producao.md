@@ -38,6 +38,10 @@ Resumo, Planilha de Custos) falham do mesmo jeito.
 
 ## 2. Provisionar o `folha_dash` na VPS
 
+> **Feito em 13/08/2026.** Banco `folha_dash_db` criado no `n8n-postgres-1`, restaurado sem
+> erros e conferido pelo caminho do app: 67 grupos, 689 regras, 239 verbas da FORMASET (294).
+> A seção fica como referência — para refazer, para o segundo ambiente, ou se o banco cair.
+
 O `oneclick-api` já conversa com `n8n-postgres-1` (é onde mora o banco `oneclick`), então o
 caminho mais curto é criar ali um banco ao lado — sem container novo, sem porta nova, sem
 volume novo. São 40 MB.
@@ -83,11 +87,36 @@ FOLHA_DASH_URL=postgres://folha:<SENHA_FORTE>@n8n-postgres-1:5432/folha_dash_db
 ```
 
 O host é o **nome do container** — a API está na rede `n8n_default` e já resolve por lá.
-Depois: `docker restart oneclick-api`.
 
-**Conferência:** abrir `/folha-bi` → Verbas → "Configurar agrupamento". O aviso vermelho
-some, "Verbas Fixos/Variáveis" aparece no seletor de esquemas e a matriz deixa de ser uma
-coluna `(OUTROS)` só.
+> ⚠️ **`docker restart` não serve aqui.** `env_file` é lido na *criação* do container; um
+> restart mantém o ambiente antigo e a variável nova é ignorada — o erro volta idêntico e
+> parece que a linha não pegou. Recrie: `cd /opt/oneclick && docker compose up -d api`.
+
+**Conferência**, pelo caminho exato que o app usa (não por `psql`, que prova outra coisa):
+
+```bash
+docker exec oneclick-api node -e "const{Pool}=require('pg');new Pool({connectionString:process.env.FOLHA_DASH_URL}).query('select count(*) from folha_dash.classif_grupo').then(r=>console.log('grupos:',r.rows[0].count)).catch(e=>console.log('ERRO:',e.message))"
+```
+
+Esperado: `grupos: 67`. Na tela: abrir `/folha-bi` → Verbas → "Configurar agrupamento" — o
+aviso some, "Verbas Fixos/Variáveis" aparece no seletor e a matriz deixa de ser uma coluna
+`(OUTROS)` só.
+
+### 2.5. Se der `password authentication failed`
+
+Sinal de que a senha da role e a do `.env` divergiram — acontece quando um `\password folha`
+roda depois de a linha já estar gravada. Alinhe a role ao que o `.env` tem:
+
+```bash
+PW=$(grep '^FOLHA_DASH_URL=' /opt/oneclick/.env | sed -E 's#.*://folha:([^@]+)@.*#\1#')
+docker exec -i n8n-postgres-1 psql -U postgres -v pw="$PW" <<'SQL'
+alter user folha with password :'pw';
+SQL
+unset PW
+```
+
+> `psql -c` **não** expande `:'pw'` — daí o heredoc. Com `-c` o comando vai cru ao servidor e
+> o erro é um `syntax error at or near ":"`, que não parece o que é.
 
 ---
 
