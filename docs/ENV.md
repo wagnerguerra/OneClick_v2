@@ -53,6 +53,22 @@ SCI_USER=INTEGRACOES
 SCI_CHARSET=UTF8
 ```
 
+## BI da Folha (`folha_dash`)
+Banco do ETL da folha (`Folhas_Pagamento`), lido **ao vivo** pelo módulo `/folha-bi`:
+agrupamento de verbas (esquemas/grupos/regras), classes do SCI, provisões detalhadas,
+série multi-mês do Resumo e a Planilha de Custos. É um Postgres **separado** do banco
+do app — os snapshots por competência (esses sim) ficam em `folha_bi_cache`.
+
+Sem esta variável o painel abre, mas a matriz de Verbas cai tudo em `(outros)` e o modal
+"Configurar agrupamento" fica vazio. **Não há default**: faltando, a API responde
+"FOLHA_DASH_URL nao configurada" em vez de um `ECONNREFUSED` sem contexto.
+
+```env
+FOLHA_DASH_URL=postgres://<usuario>:<senha>@<host>:<porta>/folha_dash_db
+```
+
+Provisionamento em produção e o caminho de escrita do ETL: `docs/folha-bi-producao.md`.
+
 ## Omie ERP (API REST v1)
 Integração do cadastro de clientes: localiza o cliente no Omie pelo CNPJ
 (botão "Buscar no Omie" na aba Integrações → preenche ID Omie + Empresa).

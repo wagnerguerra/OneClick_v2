@@ -7,15 +7,34 @@ import * as XLSX from 'xlsx'
 // Conexao dedicada ao folha_dash (ETL) p/ ler/editar a config de agrupamento de verbas
 // ao vivo. O painel Verbas pivota no cliente a partir das verbas cruas do snapshot +
 // deste agrupamento; editar + resolver reflete na hora (sem reenviar snapshots).
-const FOLHA_DASH_URL = process.env.FOLHA_DASH_URL || 'postgres://folha:folha_local_2026@127.0.0.1:5433/folha_dash_db'
+//
+// SEM DEFAULT DE PROPOSITO: uma URL chutada aqui vira um ECONNREFUSED cru na tela e
+// esconde a causa real (o ambiente nao aponta p/ nenhum folha_dash). Ver docs/ENV.md.
+const FOLHA_DASH_URL = process.env.FOLHA_DASH_URL || ''
 let _folhaPool: Pool | null = null
 function folhaDash(): Pool {
+  if (!FOLHA_DASH_URL) {
+    throw new Error('FOLHA_DASH_URL nao configurada — o BI da folha le o banco folha_dash (ETL). Ver docs/ENV.md.')
+  }
   if (!_folhaPool) _folhaPool = new Pool({ connectionString: FOLHA_DASH_URL, max: 4 })
   return _folhaPool
 }
+/** Onde o ambiente aponta, sem a credencial — p/ a mensagem de erro dizer algo util. */
+function folhaDashAlvo(): string {
+  try { const u = new URL(FOLHA_DASH_URL); return `${u.hostname}:${u.port || '5432'}${u.pathname}` } catch { return '(URL invalida)' }
+}
 async function fq<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-  const r = await folhaDash().query(sql, params)
-  return r.rows as T[]
+  try {
+    const r = await folhaDash().query(sql, params)
+    return r.rows as T[]
+  } catch (e) {
+    // Falha de rede vira mensagem que nomeia o alvo; erro de SQL passa direto.
+    const cod = (e as { code?: string })?.code
+    if (cod === 'ECONNREFUSED' || cod === 'ENOTFOUND' || cod === 'ETIMEDOUT' || cod === 'EHOSTUNREACH') {
+      throw new Error(`Banco folha_dash inalcancavel em ${folhaDashAlvo()} (${cod}) — confira FOLHA_DASH_URL.`)
+    }
+    throw e
+  }
 }
 
 /** Teto de competencias por pedido — cada uma e uma execucao do ETL na LAN. */
