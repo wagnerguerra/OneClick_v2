@@ -935,25 +935,29 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                   {errors.razaoSocial && <p className="text-xs text-destructive">{errors.razaoSocial.message}</p>}
                 </div>
 
-                {/* Linha 2: Nome Fantasia (9) + Status (3). Situação, Origem e Grupo
-                    Empresarial foram movidos para a aba Comercial (HLP0269/0333) —
-                    eram os mesmos campos nas duas abas e editar um refletia no outro.
-                    "Regime" (→ Fiscal) e "Data de Início" (= Data Entrada, → Comercial)
-                    já haviam saído pelo mesmo motivo. O Status fica aqui (Dados
-                    Gerais) pois é regido por "Editar detalhes", não pela aba Comercial. */}
-                <div className="col-span-12 md:col-span-9 space-y-1.5">
+                {/* Linha 2: Nome Fantasia. Situação, Origem e Grupo Empresarial foram
+                    movidos para a aba Comercial (HLP0269/0333) — eram os mesmos campos
+                    nas duas abas e editar um refletia no outro. "Regime" (→ Fiscal) e
+                    "Data de Início" (= Data Entrada, → Comercial) já haviam saído pelo
+                    mesmo motivo. O Status seguiu o mesmo caminho: na edição quem manda
+                    é o badge do cabeçalho, visível em qualquer aba. Aqui ele só aparece
+                    no CADASTRO, onde não há cabeçalho com badges — sem isso, cliente
+                    novo nasceria sempre "Ativa", sem escolha. */}
+                <div className={cn('col-span-12 space-y-1.5', clienteId ? 'md:col-span-12' : 'md:col-span-9')}>
                   <Label>Nome Fantasia</Label>
                   <Input placeholder="Nome Fantasia" {...register('nomeFantasia')} />
                 </div>
-                <div className="col-span-12 md:col-span-3 space-y-1.5">
-                  <Label>Status</Label>
-                  <Controller control={control} name="status" render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
-                    </Select>
-                  )} />
-                </div>
+                {!clienteId && (
+                  <div className="col-span-12 md:col-span-3 space-y-1.5">
+                    <Label>Status</Label>
+                    <Controller control={control} name="status" render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+                      </Select>
+                    )} />
+                  </div>
+                )}
 
                 {/* Inscrição Estadual/Municipal migradas para a aba Fiscal → Registro de Inscrições. */}
 
