@@ -12,6 +12,7 @@
 // Executar: pnpm --filter @saas/db exec tsx prisma/seed-segmento-industria-lucro-real.ts
 
 import { PrismaClient } from '../src/generated/client'
+import { resolveEmpresaId, makeAreaResolver } from './_seed-target'
 
 const prisma = new PrismaClient()
 
@@ -309,12 +310,14 @@ const encadeamentos: SeedEnc[] = [
 ]
 
 async function main() {
+  const empresaId = await resolveEmpresaId(prisma)
+  const areaIdFor = makeAreaResolver(prisma, empresaId)
   console.log('Seed: Indústria — Lucro Real (com Bloco K)\n')
   const servicoIdByName = new Map<string, string>()
   let criados = 0, atualizados = 0
   for (const s of servicos) {
-    const existing = await prisma.servico.findFirst({ where: { nome: s.nome, empresaId: null } })
-    const data = { nome: s.nome, categoria: s.categoria, descricao: s.descricao, slaHoras: s.slaHoras, prioridadePadrao: (s.prioridadePadrao ?? 'MEDIA') as any, ativo: true, empresaId: null }
+    const existing = await prisma.servico.findFirst({ where: { nome: s.nome, empresaId } })
+    const data = { nome: s.nome, areaId: await areaIdFor(s.categoria), descricao: s.descricao, slaHoras: s.slaHoras, prioridadePadrao: (s.prioridadePadrao ?? 'MEDIA') as any, ativo: true, empresaId }
     let servico
     if (existing) {
       servico = await prisma.servico.update({ where: { id: existing.id }, data })

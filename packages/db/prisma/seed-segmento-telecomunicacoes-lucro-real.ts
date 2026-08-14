@@ -1,6 +1,7 @@
 // Seed: Telecomunicações — Lucro Real
 // 7 templates + 5 encadeamentos. Particularidades: ICMS-Comunicação 25-30%, FUST/FUNTTEL/CFRP, Convênio 126/1998.
 import { PrismaClient } from '../src/generated/client'
+import { resolveEmpresaId, makeAreaResolver } from './_seed-target'
 const prisma = new PrismaClient()
 type SeedPasso = { nome: string; slaHoras?: number; obrigatorio?: boolean; textoOrientativo?: string; permiteIgnorar?: boolean; recorrente?: boolean; recorrenciaTipo?: 'MENSAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL' }
 type SeedServico = { nome: string; categoria: string; descricao: string; slaHoras: number; valorPadrao?: number; prioridadePadrao?: 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'; disponivelOrcamento?: boolean; recorrenteMensal?: boolean; etapas: { nome: string; slaHoras?: number; passos: SeedPasso[] }[] }
@@ -107,11 +108,13 @@ const encadeamentos: SeedEnc[] = [
 ]
 
 async function main() {
+  const empresaId = await resolveEmpresaId(prisma)
+  const areaIdFor = makeAreaResolver(prisma, empresaId)
   console.log('Seed: Telecomunicações — Lucro Real\n')
   const idByName = new Map<string, string>(); let criados = 0, atualizados = 0
   for (const s of servicos) {
-    const existing = await prisma.servico.findFirst({ where: { nome: s.nome, empresaId: null } })
-    const data = { nome: s.nome, categoria: s.categoria, descricao: s.descricao, slaHoras: s.slaHoras, prioridadePadrao: (s.prioridadePadrao ?? 'MEDIA') as any, ativo: true, empresaId: null }
+    const existing = await prisma.servico.findFirst({ where: { nome: s.nome, empresaId } })
+    const data = { nome: s.nome, areaId: await areaIdFor(s.categoria), descricao: s.descricao, slaHoras: s.slaHoras, prioridadePadrao: (s.prioridadePadrao ?? 'MEDIA') as any, ativo: true, empresaId }
     let servico
     if (existing) { servico = await prisma.servico.update({ where: { id: existing.id }, data }); await prisma.servicoEtapa.deleteMany({ where: { servicoId: servico.id } }); atualizados++ }
     else { servico = await prisma.servico.create({ data }); criados++ }

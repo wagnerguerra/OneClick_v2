@@ -38,6 +38,7 @@
 // Idempotente: usa findFirst por nome + update; encadeamentos por @@unique.
 
 import { PrismaClient } from '../src/generated/client'
+import { resolveEmpresaId, makeAreaResolver } from './_seed-target'
 
 const prisma = new PrismaClient()
 
@@ -735,6 +736,8 @@ const encadeamentos: SeedEnc[] = [
 // Execução
 // ────────────────────────────────────────────────────────────
 async function main() {
+  const empresaId = await resolveEmpresaId(prisma)
+  const areaIdFor = makeAreaResolver(prisma, empresaId)
   console.log('Seed: Atacadista / Distribuidor / Importador — Lucro Real\n')
 
   const todos = [...servicosOnboarding, ...servicosMensal, ...servicosAnual]
@@ -742,15 +745,15 @@ async function main() {
 
   let criados = 0, atualizados = 0
   for (const s of todos) {
-    const existing = await prisma.servico.findFirst({ where: { nome: s.nome, empresaId: null } })
+    const existing = await prisma.servico.findFirst({ where: { nome: s.nome, empresaId } })
     const data = {
       nome: s.nome,
-      categoria: s.categoria,
+      areaId: await areaIdFor(s.categoria),
       descricao: s.descricao,
       slaHoras: s.slaHoras,
       prioridadePadrao: (s.prioridadePadrao ?? 'MEDIA') as any,
       ativo: true,
-      empresaId: null,
+      empresaId,
     }
     let servico
     if (existing) {
