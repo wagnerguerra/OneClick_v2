@@ -1020,22 +1020,6 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                     cep={watchedValues.cep}
                   />
                 </div>
-
-                {/* Subtítulo Observações */}
-                <div className="col-span-12 -mx-5 mt-1">
-                  <div className="px-5 py-2 border-t border-border">
-                    <h4 className="text-[13px] font-semibold text-foreground">Observações</h4>
-                  </div>
-                </div>
-                <div className="col-span-12">
-                  <Controller control={control} name="observacoes" render={({ field }) => (
-                    <RichEditor
-                      value={field.value || ''}
-                      onChange={field.onChange}
-                      placeholder="Informações relevantes sobre o cliente..."
-                    />
-                  )} />
-                </div>
               </div>
             </div>
           )}
@@ -1045,7 +1029,9 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
             <ContatosTab clienteId={clienteId} />
           )}
 
-          {/* (Endereço/Observações migrados para a aba "Dados Gerais" — igual v1) */}
+          {/* (Endereço migrado para a aba "Dados Gerais" — igual v1. Observações mora
+              só em Comercial > Cadastros > "Observações gerais": é um campo só do
+              cliente, e dois editores para o mesmo `observacoes` disputavam o valor.) */}
 
           {/* ---- SUB-TAB: INTEGRAÇÕES ---- */}
           {activeTab === 'integracoes' && (
