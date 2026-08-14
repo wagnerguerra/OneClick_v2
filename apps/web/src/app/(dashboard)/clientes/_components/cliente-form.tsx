@@ -2876,15 +2876,22 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
 
   const options = optAtividade
 
+  // Cada seção só existe se tiver o que mostrar. A de benefícios carrega junto a
+  // permissão de leitura — sem ela a lista vem vazia e o rótulo não deve aparecer.
+  const temAtividades = atividades.length > 0
+  const temBeneficios = beneficios.length > 0 && (bfPerms.canRead || bfPerms.canWrite || canManageActivitiesBenefits)
+
   return (
     <Card className="p-5">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-semibold">Atividades e Benefícios</h4>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        {/* truncate + shrink-0 no botão: sem isso o título quebra em duas linhas
+            na coluna de 320px e o card abre um buraco no topo. */}
+        <h4 className="text-sm font-semibold truncate">Atividades e Benefícios</h4>
         {(canManageActivitiesBenefits || bfPerms.canWrite) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" size="sm">
-                <Plus className="h-3.5 w-3.5" /> Adicionar <ChevronDown className="h-3.5 w-3.5" />
+              <Button type="button" variant="outline" size="sm" className="h-7 shrink-0 px-2 text-[11px]">
+                <Plus className="h-3.5 w-3.5" /> Adicionar <ChevronDown className="h-3 w-3 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -2905,20 +2912,21 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
 
       {loading ? (
         <div className="flex justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
-      ) : (atividades.length === 0 && beneficios.length === 0) ? (
+      ) : (!temAtividades && !temBeneficios) ? (
         <p className="text-xs text-muted-foreground">Sem registro</p>
       ) : (
         <div className="space-y-3.5">
-          {/* Atividades — chips que quebram linha (compacto) */}
+          {/* Uma seção só aparece quando tem conteúdo: um rótulo seguido de
+              "Nenhuma atividade." ocupa a mesma altura de um item de verdade e
+              não informa nada — quem cadastra usa o "Adicionar" do topo. Com as
+              duas vazias, o card inteiro cai no "Sem registro" acima. */}
+          {temAtividades && (
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
               <Activity className="h-3 w-3" /> Atividades
-              {atividades.length > 0 && <span className="text-[10px] font-normal text-muted-foreground/60">({atividades.length})</span>}
+              <span className="text-[10px] font-normal text-muted-foreground/60">({atividades.length})</span>
             </p>
-            {atividades.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground/70 italic">Nenhuma atividade.</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
                 {atividades.map((a) => (
                   <div
                     key={a.id}
@@ -2944,21 +2952,18 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
                     )}
                   </div>
                 ))}
-              </div>
-            )}
+            </div>
           </div>
+          )}
 
           {/* Benefícios Fiscais — mini-cards com hierarquia (módulo Benefícios Fiscais / bloco Legalização) */}
-          {(bfPerms.canRead || bfPerms.canWrite || canManageActivitiesBenefits) && (
+          {temBeneficios && (
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
               <Percent className="h-3 w-3" /> Benefícios Fiscais
-              {beneficios.length > 0 && <span className="text-[10px] font-normal text-muted-foreground/60">({beneficios.length})</span>}
+              <span className="text-[10px] font-normal text-muted-foreground/60">({beneficios.length})</span>
             </p>
-            {beneficios.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground/70 italic">Nenhum benefício fiscal.</p>
-            ) : (
-              <div className="space-y-1.5">
+            <div className="space-y-1.5">
                 {beneficios.map((b) => (
                   <div key={b.id} className="group flex items-start gap-2 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5 hover:bg-muted/50 transition-colors">
                     <div className="flex-1 min-w-0 space-y-0.5">
@@ -2985,8 +2990,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
                     )}
                   </div>
                 ))}
-              </div>
-            )}
+            </div>
           </div>
           )}
         </div>
