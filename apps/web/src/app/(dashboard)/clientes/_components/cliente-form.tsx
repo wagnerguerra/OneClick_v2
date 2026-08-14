@@ -1598,15 +1598,9 @@ function ComercialCard({ register, control, watch, setValue, chatMsg, setChatMsg
                     </Select>
                   )} />
                 </div>
-                <div className="col-span-12 md:col-span-4 space-y-1.5">
-                  <Label>Situação<RequiredMark /></Label>
-                  <Controller control={control} name="situacao" render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{Object.entries(SITUACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
-                    </Select>
-                  )} />
-                </div>
+                {/* Situação sai daqui: o badge do cabeçalho já edita o mesmo campo,
+                    com a mesma permissão ("Gerenciar aba comercial"). Só existe no
+                    modo edição — no cadastro esta aba nem aparece. */}
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label>Origem</Label>
                   <Controller control={control} name="origem" render={({ field }) => (
