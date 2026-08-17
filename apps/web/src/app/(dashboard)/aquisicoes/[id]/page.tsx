@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import {
   ShoppingCart, Save, Plus, Trash2, Loader2, Send, Check, Ban, PackageCheck, ClipboardCheck,
-  FileText, Package, StickyNote, Paperclip, MessageSquare, Printer,
+  FileText, Package, MessageSquare, Printer,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card, Badge, cn,
@@ -21,16 +21,18 @@ import { alerts } from '@/lib/alerts'
 import { STATUS_COMPRA_LABELS, TIPO_FORNECIMENTO_LABELS } from '@saas/types'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
-import { AnexosTab, MensagensTab } from '../_components/compra-tabs'
+import { AnexosCard, MensagensTab } from '../_components/compra-tabs'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 const brl = (v: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
+// Observações saiu de aba própria e voltou para "Dados", logo abaixo do frete:
+// é campo do pedido, não assunto à parte, e como aba obrigava a trocar de tela
+// para ler o que complementa os números que estão ao lado.
+// Anexos saiu para o card lateral, no mesmo desenho da tela do cliente.
 const PEDIDO_TABS = [
   { key: 'dados', label: 'Dados', icon: FileText },
   { key: 'itens', label: 'Itens', icon: Package },
-  { key: 'observacoes', label: 'Observações', icon: StickyNote },
-  { key: 'anexos', label: 'Anexos', icon: Paperclip },
   { key: 'mensagens', label: 'Mensagens', icon: MessageSquare },
 ] as const
 
@@ -157,7 +159,9 @@ export default function PedidoDetalhePage() {
         <Card className="p-3 border-rose-300 bg-rose-50 dark:bg-rose-950/20 text-sm text-rose-700 dark:text-rose-400"><strong>Reprovado:</strong> {c.motivoReprovacao}</Card>
       )}
 
-      {/* Card único — todas as abas do pedido nas pills laterais */}
+      {/* Conteúdo + coluna lateral, no mesmo grid da tela do cliente. */}
+      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+      {/* Card das abas do pedido, nas pills laterais */}
       <Card className="overflow-hidden">
         <div className="flex min-h-[450px]">
           <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
@@ -194,6 +198,13 @@ export default function PedidoDetalhePage() {
                 <div className="col-span-6 md:col-span-3"><Label>Prazo de Entrega</Label><Input value={pEnt} onChange={(e) => setPEnt(e.target.value)} disabled={!editavel} className="mt-1.5" /></div>
                 <div className="col-span-6 md:col-span-3"><Label>Prazo de Pagamento</Label><Input value={pPag} onChange={(e) => setPPag(e.target.value)} disabled={!editavel} className="mt-1.5" /></div>
                 <div className="col-span-6 md:col-span-3"><Label>Frete (R$)</Label><Input value={frete} onChange={(e) => setFrete(e.target.value)} disabled={!editavel} className="mt-1.5" placeholder="0,00" /></div>
+                <div className="col-span-12">
+                  <Label>Observações</Label>
+                  <div className="mt-1.5">
+                    {editavel ? <RichEditor value={obs} onChange={setObs} placeholder="Detalhamento..." />
+                      : <RichContent className="text-sm" html={c.observacoes || '<p class="text-muted-foreground">Sem observações.</p>'} />}
+                  </div>
+                </div>
               </div>
               <div className="flex flex-wrap gap-x-6 gap-y-1 mt-5 pt-3 border-t border-border text-xs text-muted-foreground">
                 {c.solicitante && <span>Solicitante: <strong className="text-foreground">{c.solicitante.name}</strong></span>}
@@ -230,23 +241,6 @@ export default function PedidoDetalhePage() {
               </div>
             </>)}
 
-            {/* OBSERVAÇÕES */}
-            {activeTab === 'observacoes' && (<>
-              <div className="-mx-5 px-5 pb-2.5 mb-4 border-b border-border">
-                <h4 className="text-[13px] font-semibold text-foreground">Observações</h4>
-              </div>
-              {editavel ? <RichEditor value={obs} onChange={setObs} placeholder="Detalhamento..." />
-                : <RichContent className="text-sm" html={c.observacoes || '<p class="text-muted-foreground">Sem observações.</p>'} />}
-            </>)}
-
-            {/* ANEXOS */}
-            {activeTab === 'anexos' && (<>
-              <div className="-mx-5 px-5 pb-2.5 mb-4 border-b border-border">
-                <h4 className="text-[13px] font-semibold text-foreground">Anexos</h4>
-              </div>
-              <AnexosTab compraId={c.id} />
-            </>)}
-
             {/* MENSAGENS */}
             {activeTab === 'mensagens' && (<>
               <div className="-mx-5 px-5 pb-2.5 mb-4 border-b border-border">
@@ -257,6 +251,12 @@ export default function PedidoDetalhePage() {
           </div>
         </div>
       </Card>
+
+        {/* SIDEBAR */}
+        <div className="space-y-5">
+          <AnexosCard compraId={c.id} />
+        </div>
+      </div>
 
       {/* Reprovar modal */}
       <Dialog open={reprovarOpen} onOpenChange={setReprovarOpen}>
