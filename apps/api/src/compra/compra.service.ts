@@ -4,6 +4,8 @@ import { PermissionsEventsService } from '../permissions-events/permissions-even
 import { EmailService } from '../common/email.service'
 import { NotificationService } from '../notification/notification.service'
 import { invalidateUserPermissionsCache } from '../trpc/trpc.service'
+import { CompraPdfService } from './compra-pdf.service'
+import { STATUS_COMPRA_LABELS } from '@saas/types'
 import type {
   CreateCompraInput, UpdateCompraInput, ListCompraInput,
   CreateCompraItemInput, UpdateCompraItemInput,
@@ -42,7 +44,76 @@ export class CompraService {
     private readonly permissionsEvents: PermissionsEventsService,
     private readonly emailService: EmailService,
     private readonly notificationService: NotificationService,
+    private readonly pdfService: CompraPdfService,
   ) {}
+
+  /**
+   * PDF do pedido — o documento que se imprime, arquiva e manda ao fornecedor.
+   *
+   * Vale em qualquer situação, e não só depois de aprovado: quem monta o pedido
+   * costuma imprimir para levar à aprovação no papel. O que muda com a situação
+   * é o conteúdo — sem data de aprovação, o documento sai com as duas linhas de
+   * assinatura; com ela, sai com quem aprovou e quando.
+   */
+  async pdf(id: string, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
+    return scoped(tenantSchema, async (db) => {
+      const c = await db.compra.findUniqueOrThrow({
+        where: { id },
+        include: {
+          fornecedor: { select: { razaoSocial: true, documento: true, contatoPrincipal: true } },
+          itens: { where: { isActive: true }, orderBy: { createdAt: 'asc' } },
+        },
+      })
+      // Mesma trava do getById: o PDF não pode ser uma porta lateral para ler
+      // pedido de outra empresa.
+      if (!isMaster && empresaId && c.empresaId !== empresaId) throw new Error('Acesso negado.')
+
+      const uMap = await resolverUsuarios(db, [c.solicitanteId, c.aprovadorId, c.recebedorId])
+      const empresa = c.empresaId
+        ? await db.empresa.findUnique({
+          where: { id: c.empresaId },
+          select: { razaoSocial: true, nomeFantasia: true, logoUrl: true },
+        })
+        : null
+
+      const buffer = await this.pdfService.gerar({
+        compra: {
+          code: c.code,
+          status: c.status,
+          statusLabel: STATUS_COMPRA_LABELS[c.status] ?? c.status,
+          formaPagamento: c.formaPagamento,
+          prazoEntrega: c.prazoEntrega,
+          prazoPagamento: c.prazoPagamento,
+          frete: dec(c.frete),
+          observacoes: c.observacoes,
+          dataSolicitacao: c.dataSolicitacao,
+          dataAprovacao: c.dataAprovacao,
+          dataRecebimento: c.dataRecebimento,
+          motivoReprovacao: c.motivoReprovacao,
+          criadoEm: c.createdAt,
+        },
+        itens: c.itens.map((i) => ({
+          descricao: i.descricao,
+          unidade: i.unidade,
+          quantidade: i.quantidade,
+          valorUnitario: Number(i.valorUnitario),
+        })),
+        fornecedor: c.fornecedor
+          ? {
+            razaoSocial: c.fornecedor.razaoSocial,
+            documento: c.fornecedor.documento,
+            contato: c.fornecedor.contatoPrincipal,
+          }
+          : null,
+        solicitante: c.solicitanteId ? uMap.get(c.solicitanteId)?.name ?? null : null,
+        aprovador: c.aprovadorId ? uMap.get(c.aprovadorId)?.name ?? null : null,
+        recebedor: c.recebedorId ? uMap.get(c.recebedorId)?.name ?? null : null,
+        empresa,
+      })
+
+      return { buffer, filename: `pedido-${c.code}.pdf` }
+    })
+  }
 
   private serializar(c: any) {
     return {

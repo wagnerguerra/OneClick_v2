@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import {
   ShoppingCart, Save, Plus, Trash2, Loader2, Send, Check, Ban, PackageCheck, ClipboardCheck,
-  FileText, Package, StickyNote, Paperclip, MessageSquare,
+  FileText, Package, StickyNote, Paperclip, MessageSquare, Printer,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card, Badge, cn,
@@ -16,6 +16,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
+import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { STATUS_COMPRA_LABELS, TIPO_FORNECIMENTO_LABELS } from '@saas/types'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -140,6 +141,14 @@ export default function PedidoDetalhePage() {
           </>}
           {c.status === 'APROVADO' && <Button size="sm" className="bg-indigo-500 hover:bg-indigo-600 text-white" disabled={acting} onClick={() => acao(() => (trpc.compra as any).receber.mutate({ id: c.id }), 'Marcado como recebido.')}><PackageCheck className="h-4 w-4" />Receber</Button>}
           {(c.status === 'RECEBIDO' || c.status === 'AVALIADO') && <Button variant="success" size="sm" onClick={() => setAvaliarOpen(true)}><ClipboardCheck className="h-4 w-4" />{c.status === 'AVALIADO' ? 'Rever avaliação' : 'Avaliar'}</Button>}
+          {/* Link de navegação, e não fetch+blob: o Content-Disposition da rota
+              entrega o arquivo sem esbarrar no bloqueio de download por JS.
+              Mesmo caminho do PDF da cotação. */}
+          <Button variant="outline" size="sm" asChild>
+            <a href={`${getApiUrl()}/api/compra/${c.id}/pdf`} target="_blank" rel="noopener noreferrer">
+              <Printer className="h-4 w-4" />Imprimir
+            </a>
+          </Button>
           <BackButton href="/aquisicoes" label="Voltar" />
         </div>
       </div>

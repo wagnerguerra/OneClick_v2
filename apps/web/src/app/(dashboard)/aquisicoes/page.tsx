@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, ShoppingCart, Trash2, Pencil, Settings, FileSpreadsheet,
+  Plus, ShoppingCart, Trash2, Pencil, Settings, FileSpreadsheet, Printer,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { STATUS_COMPRA_LABELS } from '@saas/types'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -160,6 +161,11 @@ export default function AquisicoesPage() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                       <Button variant="soft-info" size="icon-sm" onClick={() => router.push(`/aquisicoes/${c.id}`)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      {/* Imprimir direto da lista: quem precisa do papel raramente
+                          quer abrir o pedido antes. Link de navegação, como no detalhe. */}
+                      <Button variant="soft" size="icon-sm" asChild title="Imprimir pedido">
+                        <a href={`${getApiUrl()}/api/compra/${c.id}/pdf`} target="_blank" rel="noopener noreferrer"><Printer className="h-3.5 w-3.5" /></a>
+                      </Button>
                       <Button variant="soft-destructive" size="icon-sm" onClick={() => handleDelete(c.id, c.code)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </TableCell>
