@@ -250,6 +250,9 @@ model User {
   area                   Area?                   @relation("UserArea", fields: [areaId], references: [id], onDelete: SetNull)
   relatoriosDiarios      RelatorioDiario[]       @relation("RelatorioAutor")
   manifestacoes          Manifestacao[]          @relation("ManifestacaoAutor")
+  reunioes               Reuniao[]               @relation("ReuniaoAutor")
+  reunioesParticipando   ReuniaoParticipante[]   @relation("ReuniaoParticipanteUsuario")
+  reunioesAcoes          ReuniaoAcao[]           @relation("ReuniaoAcaoResponsavel")
   acessoriasColaborador  AcessoriasColaborador[] @relation("AcessoriasColaboradorUser")
   cargo                  Cargo?                  @relation(fields: [cargoId], references: [id], onDelete: SetNull)
   sessions               Session[]
@@ -432,6 +435,7 @@ model Area {
 
   @@map("areas")
   manifestacoes Manifestacao[]
+  reunioes      Reuniao[]
 }
 
 // ============================================================
@@ -869,6 +873,7 @@ model Cliente {
 
   @@map("clientes")
   manifestacoes Manifestacao[]
+  reunioes      Reuniao[]
 }
 
 // Drive Sync — rastreia cada arquivo já processado (dedup por file_id + sha256)
@@ -7799,4 +7804,160 @@ model ManifestacaoLog {
 
   @@index([manifestacaoId])
   @@map("manifestacao_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REUNIÕES — port do módulo `sgq_reunioes` do OneClick v1 (tabelas sgq_reu*).
+// Ver docs/migracao-reunioes-v1.md para o levantamento do legado.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Reunião registrada pela Qualidade: pauta, ata, participantes e plano de ação.
+model Reuniao {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  /// Número visível. Nos registros migrados é o `sgq_reu.id` do v1, para que o
+  /// pessoal continue achando a reunião pelo número que já usa.
+  numero    Int?
+
+  /// ANALISE_CRITICA | SETORIAL | OUTROS — os três valores que o v1 tinha
+  /// chumbados no `<select>`, sem tabela de apoio.
+  tipo   String  @default("OUTROS")
+  titulo String
+  /// 264 das 281 reuniões do v1 têm cliente: este módulo é, na prática,
+  /// registro de reunião COM cliente, não só de reunião interna.
+  clienteId String? @map("cliente_id")
+  /// O v1 derivava a área do setor de quem registrou. Aqui é explícito.
+  areaId    String? @map("area_id")
+
+  data       DateTime @map("data") @db.Date
+  horaInicio String?  @map("hora_inicio")
+  horaFim    String?  @map("hora_fim")
+  local      String?
+
+  /// HTML do RichEditor (no v1 era CKEditor). 275 de 281 têm pauta, 268 têm ata.
+  pauta String? @db.Text
+  ata   String? @db.Text
+
+  autorId String? @map("autor_id")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  cliente       Cliente?              @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  area          Area?                 @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  autor         User?                 @relation("ReuniaoAutor", fields: [autorId], references: [id], onDelete: SetNull)
+  participantes ReuniaoParticipante[]
+  acoes         ReuniaoAcao[]
+  arquivos      ReuniaoArquivo[]
+  mensagens     ReuniaoMensagem[]
+  logs          ReuniaoLog[]
+
+  @@index([empresaId, data])
+  @@index([empresaId, tipo, data])
+  @@index([clienteId])
+  @@map("reunioes")
+}
+
+/// Quem participou. Colaborador vira vínculo por ID; convidado externo (gente do
+/// cliente) fica no nome, porque não existe usuário para apontar.
+///
+/// O v1 tinha DOIS mecanismos: a tabela `sgq_reu_par` (por ID, 47 reuniões) e um
+/// longtext `sgq_reu.participantes` com nomes soltos separados por vírgula (193
+/// reuniões). O código atual só grava o longtext — a tabela por ID virou letra
+/// morta. Aqui há um caminho só, e ele guarda o ID sempre que existir um.
+model ReuniaoParticipante {
+  id        String  @id @default(cuid())
+  reuniaoId String  @map("reuniao_id")
+  usuarioId String? @map("usuario_id")
+  /// Preenchido só quando NÃO há usuário: externo, ou nome que a migração não
+  /// conseguiu casar com ninguém do cadastro.
+  nome      String?
+  presente  Boolean @default(true)
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  reuniao Reuniao @relation(fields: [reuniaoId], references: [id], onDelete: Cascade)
+  usuario User?   @relation("ReuniaoParticipanteUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([reuniaoId])
+  @@index([usuarioId])
+  @@map("reuniao_participantes")
+}
+
+/// Plano de ação saído da reunião — é o que dá utilidade ao módulo e o que o
+/// menu do v1 contava como pendência ("total_reunioes" = ações vencidas).
+model ReuniaoAcao {
+  id        String @id @default(cuid())
+  reuniaoId String @map("reuniao_id")
+  descricao String @db.Text
+
+  /// Responsável por ID. No v1, 133 das 140 ações tinham só o nome em texto e
+  /// apenas 41 tinham o id_usuario — o nome fica como resíduo do que não casar.
+  responsavelId   String? @map("responsavel_id")
+  responsavelNome String? @map("responsavel_nome")
+
+  prazo DateTime? @db.Date
+  /// PENDENTE | CONCLUIDA (no v1, situacao '1' e '2').
+  status String @default("PENDENTE")
+
+  concluidoEm    DateTime? @map("concluido_em")
+  concluidoPorId String?   @map("concluido_por_id")
+  observacao     String?   @db.Text
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  reuniao      Reuniao @relation(fields: [reuniaoId], references: [id], onDelete: Cascade)
+  responsavel  User?   @relation("ReuniaoAcaoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+
+  @@index([reuniaoId])
+  @@index([responsavelId, status])
+  @@index([status, prazo])
+  @@map("reuniao_acoes")
+}
+
+model ReuniaoArquivo {
+  id          String   @id @default(cuid())
+  reuniaoId   String   @map("reuniao_id")
+  autorId     String?  @map("autor_id")
+  nome        String
+  /// Nome do arquivo dentro de uploads/reunioes.
+  arquivoPath String   @map("arquivo_path")
+  mime        String?
+  bytes       Int?
+  criadoEm    DateTime @default(now()) @map("criado_em")
+
+  reuniao Reuniao @relation(fields: [reuniaoId], references: [id], onDelete: Cascade)
+
+  @@index([reuniaoId])
+  @@map("reuniao_arquivos")
+}
+
+model ReuniaoMensagem {
+  id        String   @id @default(cuid())
+  reuniaoId String   @map("reuniao_id")
+  autorId   String?  @map("autor_id")
+  texto     String   @db.Text
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  reuniao Reuniao @relation(fields: [reuniaoId], references: [id], onDelete: Cascade)
+
+  @@index([reuniaoId])
+  @@map("reuniao_mensagens")
+}
+
+/// Trilha de auditoria. O v1 já tinha (583 eventos), mas gravava frase pronta
+/// ("Editou a ação #115"); aqui o evento é um código e o detalhe fica à parte.
+model ReuniaoLog {
+  id        String   @id @default(cuid())
+  reuniaoId String   @map("reuniao_id")
+  usuarioId String?  @map("usuario_id")
+  evento    String
+  detalhe   String?  @db.Text
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  reuniao Reuniao @relation(fields: [reuniaoId], references: [id], onDelete: Cascade)
+
+  @@index([reuniaoId])
+  @@map("reuniao_logs")
 }
