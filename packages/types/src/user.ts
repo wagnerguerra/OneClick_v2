@@ -457,6 +457,21 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'publicar', label: 'Publicar no mural', group: 'Qualidade' },
     { key: 'excluir', label: 'Excluir sugestões', group: 'Qualidade', observacao: 'No sistema antigo, exclusivo do nível de administração.' },
   ],
+  // O v1 não tinha níveis aqui: quem abria o módulo fazia tudo. O corte que faz
+  // sentido é entre quem REGISTRA a ata e quem só precisa acompanhar as ações
+  // que sobraram para si — este segundo grupo é o maior.
+  reunioes: [
+    { key: 'registrar', label: 'Registrar reuniões', group: 'Rotina' },
+    {
+      key: 'ver_todas', label: 'Ver as reuniões de todos', group: 'Rotina',
+      observacao: 'Sem isto, vê apenas as que registrou ou de que participou.',
+    },
+    {
+      key: 'gerenciar_acoes', label: 'Criar e concluir ações', group: 'Rotina',
+      observacao: 'O responsável pela ação sempre pode concluí-la, mesmo sem esta marcação.',
+    },
+    { key: 'excluir', label: 'Excluir reuniões', group: 'Qualidade' },
+  ],
 
   'relatorios-ti': [
     // Ler é de todos que têm o módulo — o painel existe para a equipe
