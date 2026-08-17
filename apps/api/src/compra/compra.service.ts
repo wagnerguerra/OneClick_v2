@@ -457,7 +457,23 @@ export class CompraService {
     })
   }
   async addMensagem(input: CreateCompraMensagemInput, userId?: string, tenantSchema?: string) {
-    return scoped(tenantSchema, (db) => db.compraMensagem.create({ data: { compraId: input.compraId, texto: input.texto, autorId: userId || null } }))
+    return scoped(tenantSchema, async (db) => {
+      // Thread de um nível só, como no orçamento: responder a uma resposta
+      // reancora na mensagem original. Sem isso a conversa vira escada e a
+      // coluna fica ilegível depois do terceiro nível.
+      let parentId = input.parentId || null
+      if (parentId) {
+        const pai = await db.compraMensagem.findUnique({
+          where: { id: parentId },
+          select: { id: true, parentId: true, compraId: true },
+        })
+        if (!pai || pai.compraId !== input.compraId) throw new Error('Mensagem original não encontrada.')
+        parentId = pai.parentId ?? pai.id
+      }
+      return db.compraMensagem.create({
+        data: { compraId: input.compraId, texto: input.texto, autorId: userId || null, parentId },
+      })
+    })
   }
   async updateMensagem(input: UpdateCompraMensagemInput, userId?: string, tenantSchema?: string) {
     return scoped(tenantSchema, async (db) => {
@@ -470,6 +486,10 @@ export class CompraService {
     return scoped(tenantSchema, async (db) => {
       const m = await db.compraMensagem.findUniqueOrThrow({ where: { id } })
       if (userId && m.autorId && m.autorId !== userId) throw new Error('Só o autor pode excluir a mensagem.')
+      // A exclusão aqui é lógica (isActive), então o ON DELETE CASCADE da FK não
+      // dispara: as respostas precisam ser baixadas junto na mão. Sem isso elas
+      // sobrariam na tela apontando para uma pergunta que ninguém mais vê.
+      await db.compraMensagem.updateMany({ where: { parentId: id }, data: { isActive: false } })
       return db.compraMensagem.update({ where: { id }, data: { isActive: false } })
     })
   }

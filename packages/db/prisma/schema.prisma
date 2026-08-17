@@ -2223,14 +2223,21 @@ model CompraMensagem {
   id        String   @id @default(cuid())
   compraId  String   @map("compra_id")
   autorId   String?  @map("autor_id")
+  /// HTML do RichEditor. As mensagens antigas do módulo são texto puro e a tela
+  /// as embrulha na exibição — por isso não há migração de conteúdo aqui.
   texto     String   @db.Text
+  /// Resposta a outra mensagem: o mesmo encadeamento das mensagens do orçamento.
+  parentId  String?  @map("parent_id")
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  compra Compra @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  compra    Compra           @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  parent    CompraMensagem?  @relation("CompraMensagemThread", fields: [parentId], references: [id], onDelete: Cascade)
+  respostas CompraMensagem[] @relation("CompraMensagemThread")
 
   @@index([compraId])
+  @@index([parentId])
   @@map("compra_mensagens")
 }
 

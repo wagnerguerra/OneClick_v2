@@ -1,31 +1,20 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  Loader2, Trash2, Pencil, Plus,
-  Download, Send, X,
-} from 'lucide-react'
+import { Loader2, Trash2, Pencil, Plus, Download, X } from 'lucide-react'
 import { Button, Input, Card, Badge, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { classificarArquivo, formatarTamanho } from '@/lib/arquivo-tipo'
-
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+import { fmtData } from './compra-mensagens'
 
 interface AnexoRow {
   id: string; descricao: string | null; fileUrl: string; fileName: string
   mimeType: string | null; tamanho: number | null; createdAt: string
   uploadedBy: { id: string; name: string; image: string | null } | null
 }
-interface MensagemRow {
-  id: string; texto: string; createdAt: string; autorId: string | null
-  autor: { id: string; name: string; image: string | null } | null
-}
 
-function fmtData(iso: string) {
-  return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
 /**
  * Card lateral de arquivos do pedido — mesmo desenho do card de Arquivos da
  * tela do cliente: cabeçalho com "Adicionar", lista compacta com ícone por tipo
@@ -159,74 +148,3 @@ export function AnexosCard({ compraId }: { compraId: string }) {
   )
 }
 
-export function MensagensTab({ compraId, currentUserId }: { compraId: string; currentUserId?: string }) {
-  const [msgs, setMsgs] = useState<MensagemRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [texto, setTexto] = useState('')
-  const [enviando, setEnviando] = useState(false)
-  const [editId, setEditId] = useState<string | null>(null)
-  const [editTexto, setEditTexto] = useState('')
-
-  const carregar = useCallback(() => {
-    setLoading(true)
-    ;(trpc.compra as any).listMensagens.query({ compraId })
-      .then((d: MensagemRow[]) => setMsgs(d || [])).catch(() => setMsgs([])).finally(() => setLoading(false))
-  }, [compraId])
-  useEffect(() => { carregar() }, [carregar])
-
-  async function enviar() {
-    if (!texto.trim()) return
-    setEnviando(true)
-    try { await (trpc.compra as any).addMensagem.mutate({ compraId, texto: texto.trim() }); setTexto(''); carregar() }
-    catch (e) { alerts.error('Erro', (e as Error).message) } finally { setEnviando(false) }
-  }
-  async function salvarEdicao(id: string) {
-    if (!editTexto.trim()) return
-    try { await (trpc.compra as any).updateMensagem.mutate({ id, texto: editTexto.trim() }); setEditId(null); carregar() }
-    catch (e) { alerts.error('Erro', (e as Error).message) }
-  }
-  async function excluir(id: string) {
-    const ok = await alerts.confirm({ title: 'Excluir mensagem?', text: 'Esta ação não pode ser desfeita.', icon: 'warning', confirmText: 'Excluir' })
-    if (!ok) return
-    try { await (trpc.compra as any).removeMensagem.mutate({ id }); carregar() } catch (e) { alerts.error('Erro', (e as Error).message) }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start gap-2">
-        <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={2} placeholder="Escreva uma interação..." className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
-        <Button type="button" size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 mt-0.5" disabled={enviando || !texto.trim()} onClick={enviar}>{enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar</Button>
-      </div>
-      {loading ? <div className="flex items-center justify-center py-8 text-muted-foreground gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Carregando...</div>
-        : msgs.length === 0 ? <p className="text-center text-sm text-muted-foreground py-8">Nenhuma interação registrada.</p>
-        : <div className="space-y-3">
-            {msgs.map((m) => {
-              const meuAutor = !!currentUserId && m.autorId === currentUserId
-              return (
-                <div key={m.id} className="rounded-lg border border-border p-3 group">
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="text-[13px] font-semibold">{m.autor?.name ?? 'Usuário'}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-muted-foreground">{fmtData(m.createdAt)}</span>
-                      {meuAutor && editId !== m.id && (<>
-                        <button type="button" onClick={() => { setEditId(m.id); setEditTexto(m.texto) }} className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100" title="Editar"><Pencil className="h-3 w-3" /></button>
-                        <button type="button" onClick={() => excluir(m.id)} className="p-1 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 opacity-0 group-hover:opacity-100" title="Excluir"><Trash2 className="h-3 w-3" /></button>
-                      </>)}
-                    </div>
-                  </div>
-                  {editId === m.id ? (
-                    <div className="space-y-2">
-                      <textarea value={editTexto} onChange={(e) => setEditTexto(e.target.value)} rows={2} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
-                      <div className="flex items-center gap-2 justify-end">
-                        <Button type="button" size="xs" variant="outline" onClick={() => setEditId(null)}><X className="h-3.5 w-3.5" /> Cancelar</Button>
-                        <Button type="button" size="xs" variant="success" onClick={() => salvarEdicao(m.id)}>Salvar</Button>
-                      </div>
-                    </div>
-                  ) : <p className="text-sm whitespace-pre-wrap break-words">{m.texto}</p>}
-                </div>
-              )
-            })}
-          </div>}
-    </div>
-  )
-}

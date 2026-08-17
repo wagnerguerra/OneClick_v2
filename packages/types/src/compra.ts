@@ -111,7 +111,12 @@ export const createCompraAnexoSchema = z.object({
   tamanho: z.number().int().nonnegative().optional(),
 })
 export const updateCompraAnexoSchema = z.object({ id: z.string(), descricao: z.string().optional().or(z.literal('')) })
-export const createCompraMensagemSchema = z.object({ compraId: z.string(), texto: z.string().min(1) })
+export const createCompraMensagemSchema = z.object({
+  compraId: z.string(),
+  texto: z.string().min(1),
+  /** Resposta a outra mensagem — encadeia a thread, como no orçamento. */
+  parentId: z.string().optional(),
+})
 export const updateCompraMensagemSchema = z.object({ id: z.string(), texto: z.string().min(1) })
 export const createCompraCriterioSchema = z.object({ criterio: z.string().min(2), ordem: z.number().int().nonnegative().default(0) })
 export const updateCompraCriterioSchema = z.object({

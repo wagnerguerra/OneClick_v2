@@ -21,7 +21,8 @@ import { alerts } from '@/lib/alerts'
 import { STATUS_COMPRA_LABELS, TIPO_FORNECIMENTO_LABELS } from '@saas/types'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
-import { AnexosCard, MensagensTab } from '../_components/compra-tabs'
+import { AnexosCard } from '../_components/compra-tabs'
+import { MensagensTab } from '../_components/compra-mensagens'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 const brl = (v: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
