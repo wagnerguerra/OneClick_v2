@@ -33,14 +33,23 @@ export default function ForgotPasswordPage() {
     setError(null)
     setLoading(true)
     try {
-      await authClient.requestPasswordReset({
+      // O cliente do Better Auth roda sobre better-fetch, que NÃO lança em erro
+      // HTTP nem em falha de rede — devolve `{ data, error }`. Sem ler `error`
+      // aqui, um 403/500 ou a API fora do ar caíam no `setSent(true)` e a tela
+      // dizia "verifique seu e-mail" para uma solicitação que nunca saiu.
+      const { error: falha } = await authClient.requestPasswordReset({
         email: data.email,
         redirectTo: '/reset-password',
       })
+      if (falha) {
+        // Não vaza existência do e-mail: quando ele não existe, a API responde
+        // 200 igual. Só chega aqui quando a solicitação de fato falhou.
+        setError('Não foi possível enviar o e-mail de recuperação agora. Tente de novo em alguns instantes ou fale com o suporte.')
+        return
+      }
       setSent(true)
     } catch {
-      // Sempre mostra sucesso para não revelar se o email existe
-      setSent(true)
+      setError('Não foi possível falar com o servidor. Verifique sua conexão e tente de novo.')
     } finally {
       setLoading(false)
     }

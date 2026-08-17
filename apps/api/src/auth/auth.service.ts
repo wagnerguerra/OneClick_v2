@@ -28,7 +28,7 @@ export class AuthService {
         resetPasswordTokenExpiresIn: 30 * 60,
         sendResetPassword: async ({ user, url }) => {
           const safeName = user.name?.trim() || user.email.split('@')[0] || 'usuário'
-          const fromAddr = this.resolveResetFrom()
+          const fromAddr = await this.resolveResetFrom()
           const subject = 'Redefinição de senha'
           const html = this.buildResetPasswordHtml({ name: safeName, url })
           const ok = await this.emailService.sendMail({
@@ -149,17 +149,22 @@ export class AuthService {
 
   /**
    * Resolve o endereço "From" do email de reset de senha.
-   * Prioridade: RESEND_FROM_RESET → RESEND_FROM → SMTP_FROM → fallback.
+   * Prioridade: RESEND_FROM_RESET → RESEND_FROM → remetente padrão do app.
    * Sempre prefixa com "OneClick" como display name.
+   *
+   * O fallback é o MESMO endereço que todo o resto do sistema usa
+   * (`EmailService.resolveFromAddress()`). Antes havia aqui um endereço fixo,
+   * `noreply@oneclick.central-rnc.com.br` — um subdomínio que não é domínio de
+   * e-mail: sem registro SPF e sem DKIM alinhado. Só o reset de senha saía por
+   * ele, então era o único e-mail do sistema que chegava desalinhado (spam) ou
+   * era recusado pelo relay, enquanto todos os outros passavam.
    */
-  private resolveResetFrom(): string {
-    const fromEnv = process.env.RESEND_FROM_RESET
-      || process.env.RESEND_FROM
-      || process.env.SMTP_FROM
-      || 'noreply@oneclick.central-rnc.com.br'
+  private async resolveResetFrom(): Promise<string> {
+    const override = process.env.RESEND_FROM_RESET || process.env.RESEND_FROM
+    const base = override || (await this.emailService.resolveFromAddress())
     // Se já vem como "Nome <email>", troca o nome pra OneClick.
-    const match = fromEnv.match(/^.+?<(.+)>$/)
-    const addr = match ? match[1] : fromEnv
+    const match = base.match(/^.+?<(.+)>$/)
+    const addr = match ? match[1] : base
     return `OneClick <${addr}>`
   }
 

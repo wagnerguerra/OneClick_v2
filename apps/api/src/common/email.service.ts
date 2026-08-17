@@ -54,6 +54,16 @@ export class EmailService {
     })
   }
 
+  /**
+   * Endereço remetente efetivo deste ambiente (SystemConfig → env → SMTP_USER).
+   * Público porque quem precisa montar um `from` com display name ("OneClick
+   * <...>") tem que partir DESTE endereço — inventar outro domínio quebra o
+   * alinhamento de SPF/DKIM e o e-mail cai em spam ou é recusado pelo relay.
+   */
+  async resolveFromAddress(): Promise<string> {
+    return this.resolveFrom({})
+  }
+
   private async resolveFrom(opts: { from?: string }): Promise<string> {
     if (opts.from) return opts.from
     let configFrom = ''
