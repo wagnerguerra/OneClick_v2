@@ -463,6 +463,24 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
   // O v1 tinha tres perfis escolhidos na entrada (usu/ consulta, adm/ administra,
   // apr/ aprova). Viram sub-permissoes, com uma diferenca: aprovar deixa de ser um
   // perfil separado e passa a ser marcacao — quem aprova tambem precisa consultar.
+  // O v1 tinha quatro perfis escolhidos na entrada (usu/ consulta, adm/ administra,
+  // apr/ autoriza, sup/ supervisiona) combinados por dois flags. Viram sub-permissoes,
+  // com a mesma logica dos outros modulos: quem autoriza ou avalia tambem precisa
+  // consultar, entao nao ha perfil separado para isso.
+  capacitacoes: [
+    { key: 'solicitar', label: 'Solicitar capacitações', group: 'Rotina' },
+    {
+      key: 'ver_todas', label: 'Ver as capacitações de todos', group: 'Rotina',
+      observacao: 'Sem isto, vê apenas as que solicitou ou de que participa.',
+    },
+    { key: 'gerenciar', label: 'Cadastrar e editar capacitações', group: 'Qualidade' },
+    { key: 'autorizar', label: 'Autorizar ou recusar', group: 'Qualidade' },
+    {
+      key: 'avaliar', label: 'Avaliar a eficácia', group: 'Qualidade',
+      observacao: 'Fica registrado quem avaliou e quando.',
+    },
+    { key: 'excluir', label: 'Excluir capacitações', group: 'Qualidade' },
+  ],
   'documentos-internos': [
     { key: 'gerenciar', label: 'Cadastrar documentos e publicar revisões', group: 'Rotina' },
     {

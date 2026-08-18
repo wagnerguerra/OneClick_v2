@@ -8146,3 +8146,177 @@ model DocumentoInternoLog {
   @@index([documentoId])
   @@map("documento_interno_logs")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CAPACITAÇÕES (Qualidade) — port do `sgq_capacitacoes` do OneClick v1.
+// Ver docs/migracao-capacitacoes-v1.md para o levantamento do legado.
+//
+// Ids de usuário SOLTOS (sem FK para User), como em Compra e Documentos
+// Internos: são vários papéis (solicitou, autorizou, avaliou, participou).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Método da capacitação: Curso, Treinamento, Palestra, Workshop, Seminário…
+///
+/// No v1 esta lista mora numa tabela chamada `sgq_cap_tip` — "tipo" —, mas o
+/// formulário a usa no campo **Método**. O campo `tipo` de lá é outra coisa
+/// (interna/externa, chumbada no HTML). O nome aqui segue o rótulo que o
+/// usuário vê, não o da tabela de origem.
+model CapacitacaoMetodo {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+  nome      String
+  ordem     Int     @default(0)
+  ativo     Boolean @default(true)
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  capacitacoes Capacitacao[]
+
+  @@index([empresaId, ativo])
+  @@index([legacyId])
+  @@map("capacitacao_metodos")
+}
+
+/// Uma capacitação: da solicitação à avaliação de eficácia.
+model Capacitacao {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+
+  titulo String
+  /// INTERNA | EXTERNA — o `tipo` 1/2 do v1, que lá vinha chumbado no HTML.
+  ambito String  @default("INTERNA")
+  metodoId String? @map("metodo_id")
+
+  /// Quem aplicou ("Aplicado por" no formulário do v1).
+  instrutor    String?
+  organizacao  String?
+  local        String?
+
+  dataInicio DateTime  @map("data_inicio") @db.Date
+  dataFim    DateTime? @map("data_fim") @db.Date
+  horaInicio String?   @map("hora_inicio")
+  horaFim    String?   @map("hora_fim")
+
+  /// "Total de Horas por Colaborador". No v1 era varchar com "2", "07", "" e
+  /// nulo misturados — aqui é número, e o que não der para ler fica nulo.
+  cargaHoraria Decimal? @map("carga_horaria") @db.Decimal(8, 2)
+  /// "Investimento". Mesmo caso: varchar com "0", "0,00", "200,00".
+  custo        Decimal? @db.Decimal(14, 2)
+
+  descricao String? @db.Text
+
+  // ── Fluxo ──
+  /// SOLICITADA | AGUARDANDO_AUTORIZACAO | AUTORIZADA | AVALIADA | FINALIZADA | CANCELADA
+  status          String    @default("SOLICITADA")
+  solicitanteId   String?   @map("solicitante_id")
+  solicitadaEm    DateTime? @map("solicitada_em") @db.Date
+  autorizadaEm    DateTime? @map("autorizada_em") @db.Date
+  autorizadaPorId String?   @map("autorizada_por_id")
+
+  /// Prazo para avaliar a eficácia. O v1 calculava a partir de um parâmetro
+  /// (`sgq_cap_settings.prazo_avaliacao`, hoje 6 meses).
+  prazoAvaliacao DateTime? @map("prazo_avaliacao") @db.Date
+
+  // ── Avaliação de eficácia ──
+  avaliadaEm         DateTime? @map("avaliada_em") @db.Date
+  avaliadorId        String?   @map("avaliador_id")
+  avaliacaoForma     String?   @map("avaliacao_forma") @db.Text
+  avaliacaoEvidencia String?   @map("avaliacao_evidencia") @db.Text
+  /// Preenchido quando os objetivos NÃO foram atingidos.
+  avaliacaoAcoes     String?   @map("avaliacao_acoes") @db.Text
+  /// Sim/Não do v1 (`av_analise` 1/2). Nulo = ainda não avaliada — lá isso era
+  /// o 0, que se confundia com "não atingiu".
+  objetivosAtingidos Boolean?  @map("objetivos_atingidos")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  metodo        CapacitacaoMetodo?        @relation(fields: [metodoId], references: [id], onDelete: SetNull)
+  participantes CapacitacaoParticipante[]
+  anexos        CapacitacaoAnexo[]
+  mensagens     CapacitacaoMensagem[]
+  logs          CapacitacaoLog[]
+
+  @@index([empresaId, status])
+  @@index([empresaId, dataInicio])
+  @@index([metodoId])
+  @@index([legacyId])
+  @@map("capacitacoes")
+}
+
+/// Quem participou, e se confirmou presença.
+///
+/// O v1 acertou o mecanismo — já era vínculo por ID (`sgq_cap_par.participante`),
+/// 1.663 vínculos em 277 capacitações. O problema é outro: 117 dos 150
+/// participantes distintos não têm mais usuário no v2, e 102 deles estão
+/// inativos no próprio v1 — são ex-colaboradores. São 1.013 dos 1.663 vínculos.
+///
+/// Exigir `usuarioId` jogaria fora justamente o que a auditoria pede: provar
+/// que quem executava tal atividade foi treinado. Daí o `nome` como resíduo,
+/// igual ao que se fez em Reuniões e Documentos Internos.
+model CapacitacaoParticipante {
+  id            String  @id @default(cuid())
+  capacitacaoId String  @map("capacitacao_id")
+  usuarioId     String? @map("usuario_id")
+  /// Só quando não há usuário a apontar: ex-colaborador ou convidado externo.
+  nome          String?
+  confirmado    Boolean @default(false)
+  confirmadoEm  DateTime? @map("confirmado_em") @db.Date
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  capacitacao Capacitacao @relation(fields: [capacitacaoId], references: [id], onDelete: Cascade)
+
+  @@unique([capacitacaoId, usuarioId])
+  @@index([usuarioId, confirmado])
+  @@map("capacitacao_participantes")
+}
+
+model CapacitacaoAnexo {
+  id            String   @id @default(cuid())
+  capacitacaoId String   @map("capacitacao_id")
+  autorId       String?  @map("autor_id")
+  descricao     String?
+  arquivoPath   String   @map("arquivo_path")
+  arquivoNome   String?  @map("arquivo_nome")
+  mime          String?
+  bytes         Int?
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  capacitacao Capacitacao @relation(fields: [capacitacaoId], references: [id], onDelete: Cascade)
+
+  @@index([capacitacaoId])
+  @@map("capacitacao_anexos")
+}
+
+model CapacitacaoMensagem {
+  id            String   @id @default(cuid())
+  capacitacaoId String   @map("capacitacao_id")
+  autorId       String?  @map("autor_id")
+  texto         String   @db.Text
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  capacitacao Capacitacao @relation(fields: [capacitacaoId], references: [id], onDelete: Cascade)
+
+  @@index([capacitacaoId])
+  @@map("capacitacao_mensagens")
+}
+
+/// Trilha de auditoria. O v1 gravava frase pronta, e algumas com HTML dentro
+/// ("Cadastrou o participante <strong>Fulano</strong>"); aqui o evento é código
+/// e o detalhe fica à parte, em texto limpo.
+model CapacitacaoLog {
+  id            String   @id @default(cuid())
+  capacitacaoId String   @map("capacitacao_id")
+  usuarioId     String?  @map("usuario_id")
+  evento        String
+  detalhe       String?  @db.Text
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  capacitacao Capacitacao @relation(fields: [capacitacaoId], references: [id], onDelete: Cascade)
+
+  @@index([capacitacaoId])
+  @@map("capacitacao_logs")
+}
