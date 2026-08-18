@@ -85,11 +85,23 @@ processo, 0 órfãs.
 - O `add_tabelas_registros.sql` segue no stage 4.5 do deploy (idempotente —
   o próximo deploy só confirma). A UI entra no ar com o commit `852948fd`.
 
-## 6. Desativação no v1
+## 6. Desativação no v1 — ✅ aplicada em 18/08
 
 `\\192.168.0.7\wwwroot\central\modules\sgq_tabelas\` — **dois** pontos de
 gravação, ambos bloqueados (aviso + botão desabilitado + `Response.Redirect`
 server-side, padrão dos demais módulos):
-- `create.asp` — INSERT do registro novo;
+- `create.asp` — INSERT do registro novo (página inteira redireciona);
 - `details.asp` — o INSERT de lá é **nova versão** (mesmo precedente dos
-  Documentos, onde o revisar também criava registro novo).
+  Documentos, onde o revisar também criava registro novo). Só o branch de
+  gravação é bloqueado; a página continua servindo de consulta.
+- `index.asp` e `details.asp` ganharam o banner de migração; conferido logado
+  no navegador (lista com os 68 registros + detalhe renderizando os 5 campos).
+
+⚠️ **Incidente**: durante a desativação, uma escrita falhou no meio e truncou
+o `details.asp` original (0 bytes), sem backup em lugar nenhum. O arquivo foi
+**reconstruído** a partir do scaffold do próprio módulo (`create.asp` tem o
+mesmo formulário, `versoes.asp`/`index.asp` deram o resto) + o trecho de
+gravação original, lido na íntegra antes do acidente. A página reconstruída
+está marcada com um comentário no topo e foi validada no navegador logado.
+Nenhuma diferença funcional observada; o comportamento de gravação é
+irrelevante porque está bloqueado.
