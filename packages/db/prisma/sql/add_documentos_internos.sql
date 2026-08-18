@@ -2,6 +2,10 @@
 -- Idempotente e SÓ ADITIVA — 5 tabelas, nenhum enum novo.
 -- Levantamento do legado: docs/migracao-documentos-internos-v1.md
 
+-- Mora em packages/db/prisma/sql/ porque e ESTA a pasta que o Service Manager
+-- aplica no deploy (stage 4.5, em ordem alfabetica). A packages/db/migrations/
+-- nao e lida por ninguem — SQL colocado la simplesmente nao roda em producao.
+
 BEGIN;
 
 -- ── Mapa de processos da ISO (sgq_proc) ──────────────────────

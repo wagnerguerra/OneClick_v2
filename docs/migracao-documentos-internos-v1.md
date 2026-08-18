@@ -112,7 +112,7 @@ E um que é usado do jeito errado:
 ### Fase 1 — Schema ✅ (18/08/2026)
 5 models (`DocumentoProcesso`, `DocumentoInterno`, `DocumentoInternoVersao`,
 `DocumentoInternoElaborador`, `DocumentoInternoLog`) +
-`packages/db/migrations/manual_2026_08_18_documentos_internos.sql`, aditivo e idempotente
+`packages/db/prisma/sql/add_documentos_internos.sql`, aditivo e idempotente
 (aplicado 2× no dev: 5 tabelas, 5 FKs).
 
 Ids de usuário são **soltos** (sem FK para `User`), como já se faz em `Compra`: são muitos

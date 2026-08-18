@@ -118,7 +118,7 @@ const chaveNome = (s) => String(s || '')
   const avisos = []
   sql.push('-- Importação dos Documentos Internos do OneClick v1 (sgq_documentos).')
   sql.push('-- Gerado por scripts/legacy-v1-documentos-import.js — idempotente por legacy_id.')
-  sql.push('-- Aplicar DEPOIS de manual_2026_08_18_documentos_internos.sql.')
+  sql.push('-- Aplicar DEPOIS de add_documentos_internos.sql.')
   sql.push('')
   sql.push('BEGIN;')
   sql.push('')

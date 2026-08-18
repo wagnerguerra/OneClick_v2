@@ -3,6 +3,10 @@
 -- Não toca em nada existente além de criar as FKs para clientes/areas/users.
 -- Levantamento do legado: docs/migracao-reunioes-v1.md
 
+-- Mora em packages/db/prisma/sql/ porque e ESTA a pasta que o Service Manager
+-- aplica no deploy (stage 4.5, em ordem alfabetica). A packages/db/migrations/
+-- nao e lida por ninguem — SQL colocado la simplesmente nao roda em producao.
+
 BEGIN;
 
 -- ── Reunião (sgq_reu) ────────────────────────────────────────

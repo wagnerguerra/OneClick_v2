@@ -3,6 +3,10 @@
 -- um índice e uma FK. Nenhuma linha existente muda — mensagem sem resposta
 -- simplesmente fica com parent_id nulo.
 
+-- Mora em packages/db/prisma/sql/ porque e ESTA a pasta que o Service Manager
+-- aplica no deploy (stage 4.5, em ordem alfabetica). A packages/db/migrations/
+-- nao e lida por ninguem — SQL colocado la simplesmente nao roda em producao.
+
 BEGIN;
 
 ALTER TABLE "compra_mensagens" ADD COLUMN IF NOT EXISTS "parent_id" TEXT;

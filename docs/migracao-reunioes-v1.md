@@ -98,7 +98,7 @@ O mesmo padrão aparece nas ações: `sgq_reu_aca.responsavel` é `varchar` pree
 
 ### Fase 1 — Schema ✅ (17/08/2026)
 6 models no Prisma (`Reuniao`, `ReuniaoParticipante`, `ReuniaoAcao`, `ReuniaoArquivo`,
-`ReuniaoMensagem`, `ReuniaoLog`) + `packages/db/migrations/manual_2026_08_17_reunioes.sql`, aditivo e
+`ReuniaoMensagem`, `ReuniaoLog`) + `packages/db/prisma/sql/add_reunioes.sql`, aditivo e
 idempotente (aplicado 2× no dev, 6 tabelas e 10 FKs).
 
 ### Fase 2 — Backend
