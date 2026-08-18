@@ -25,7 +25,7 @@ export interface ToolAdapter {
   flow?: 'single' | 'multi-step'
 }
 
-/** Mapa autoritativo das 8 ferramentas job-based. Single source de rota/área/limite. */
+/** Mapa autoritativo das 9 ferramentas job-based. Single source de rota/área/limite. */
 export const TOOL_ADAPTERS: Record<JobToolId, ToolAdapter> = {
   nfe: { area: TOOL_AREA.nfe, basePath: '/jobs', uploadLimitMb: 50 },
   sped: {
@@ -59,6 +59,11 @@ export const TOOL_ADAPTERS: Record<JobToolId, ToolAdapter> = {
   'sci-portal-nacional': {
     area: TOOL_AREA['sci-portal-nacional'],
     basePath: '/tools/sci-portal-nacional/jobs',
+    uploadLimitMb: 50,
+  },
+  'concatenador-planilhas': {
+    area: TOOL_AREA['concatenador-planilhas'],
+    basePath: '/tools/concatenador-planilhas/jobs',
     uploadLimitMb: 50,
   },
   gnre: { area: TOOL_AREA.gnre, basePath: '/tools/gnre/jobs', uploadLimitMb: 300 },

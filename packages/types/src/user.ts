@@ -278,6 +278,7 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'comparacao-nfse', label: 'Comparador NFS-e (OCR)', group: 'Ferramentas' },
     { key: 'sci-portal-nacional', label: 'Conciliador NFS-e (Portal Nacional)', group: 'Ferramentas' },
     { key: 'nfse-pdf', label: 'NFS-e → PDF (DANFSe)', group: 'Ferramentas' },
+    { key: 'concatenador-planilhas', label: 'Concatenador de Planilhas', group: 'Ferramentas' },
   ],
   'ferramentas-contabil': [
     { key: 'gnre', label: 'Extrator GNRE', group: 'Ferramentas' },

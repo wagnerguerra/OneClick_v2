@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { FileSpreadsheet, FileCode, Files, Scale, ArrowLeftRight, Receipt, GitMerge, FileSearch } from 'lucide-react'
+import { FileSpreadsheet, FileCode, Files, Scale, ArrowLeftRight, Receipt, GitMerge, FileSearch, Combine } from 'lucide-react'
 import { SpedSheetSelector } from '../_components/sped-sheet-selector'
 
 /** Painel extra opcional por ferramenta (ex.: seleção de abas do SPED). */
@@ -160,6 +160,24 @@ export const TOOL_UI: Record<string, ToolUiConfig> = {
       { t: 'Baixe o resultado', d: 'Planilha com as divergências.' },
     ],
     note: 'PDFs ilegíveis passam por OCR (Gemini). Em pico de uso pode haver espera.',
+  },
+
+  'concatenador-planilhas': {
+    tool: 'concatenador-planilhas',
+    area: 'fiscal',
+    icon: Combine,
+    title: 'Concatenador de Planilhas',
+    subtitle: 'Emende as planilhas da SEFAZ que vieram quebradas em partes numa planilha só.',
+    submitLabel: 'Concatenar planilhas',
+    inputs: [
+      { field: 'planilhas', label: 'Planilhas em partes', accept: '.csv,.xlsx,.xls', multiple: true, hint: 'Todas as partes do MESMO relatório' },
+    ],
+    steps: [
+      { t: 'Envie as partes', d: 'Todas as planilhas do mesmo relatório, em qualquer ordem.' },
+      { t: 'Emendamos', d: 'A coluna # define a sequência; o cabeçalho das partes seguintes é descartado.' },
+      { t: 'Baixe a planilha', d: 'Uma planilha só, na ordem certa e sem linha em branco no meio.' },
+    ],
+    note: 'As partes precisam ser do mesmo tipo (Emitente com Emitente, Destinatário com Destinatário) e do mesmo CNPJ — o próprio nome do arquivo da SEFAZ traz essa informação.',
   },
 
   gnre: {

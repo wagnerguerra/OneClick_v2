@@ -10,7 +10,7 @@ import {
 
 // Fase 1 — passo 1 (TDD): schemas Zod compartilhados das ferramentas.
 describe('schemas de ferramentas (@saas/types/ferramentas)', () => {
-  it('jobToolIdSchema cobre as 8 ferramentas job-based e rejeita id desconhecido', () => {
+  it('jobToolIdSchema cobre as 9 ferramentas job-based e rejeita id desconhecido', () => {
     for (const id of [
       'nfe',
       'sped',
@@ -19,6 +19,7 @@ describe('schemas de ferramentas (@saas/types/ferramentas)', () => {
       'comparacao-planilhas',
       'comparacao-nfse',
       'sci-portal-nacional',
+      'concatenador-planilhas',
       'gnre',
     ]) {
       expect(jobToolIdSchema.parse(id)).toBe(id)
@@ -30,6 +31,7 @@ describe('schemas de ferramentas (@saas/types/ferramentas)', () => {
     expect(TOOL_AREA.sped).toBe('fiscal')
     expect(TOOL_AREA.nfe).toBe('fiscal')
     expect(TOOL_AREA['comparacao-nfse']).toBe('fiscal')
+    expect(TOOL_AREA['concatenador-planilhas']).toBe('fiscal')
     // gnre é Contábil no menu, ainda que seja job-based tecnicamente
     expect(TOOL_AREA.gnre).toBe('contabil')
   })

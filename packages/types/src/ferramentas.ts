@@ -13,7 +13,7 @@ export const toolAreaSchema = z.enum(TOOL_AREAS)
 export type ToolArea = (typeof TOOL_AREAS)[number]
 
 /**
- * 8 ferramentas job-based (geram `ToolJob` via gateway/proxy).
+ * 9 ferramentas job-based (geram `ToolJob` via gateway/proxy).
  * Espelha o enum `DownloadTool` da API Fastify do webapp (`webapp-01/apps/api/src/tokens.ts`).
  * As 2 browser-only (`nfse-pdf`, `extrato-edit`) NÃO geram job e não entram aqui.
  */
@@ -25,6 +25,7 @@ export const JOB_TOOL_IDS = [
   'comparacao-planilhas',
   'comparacao-nfse',
   'sci-portal-nacional',
+  'concatenador-planilhas',
   'gnre',
 ] as const
 export const jobToolIdSchema = z.enum(JOB_TOOL_IDS)
@@ -42,6 +43,7 @@ export const TOOL_AREA: Record<JobToolId, ToolArea> = {
   'comparacao-planilhas': 'fiscal',
   'comparacao-nfse': 'fiscal',
   'sci-portal-nacional': 'fiscal',
+  'concatenador-planilhas': 'fiscal',
   gnre: 'contabil',
 }
 

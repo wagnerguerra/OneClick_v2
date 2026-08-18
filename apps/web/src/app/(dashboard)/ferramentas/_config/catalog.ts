@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import {
-  FileSpreadsheet, FileCode, Files, Scale, ArrowLeftRight, Receipt, GitMerge, FileSearch, FileText,
+  FileSpreadsheet, FileCode, Files, Scale, ArrowLeftRight, Receipt, GitMerge, FileSearch, FileText, Combine,
 } from 'lucide-react'
 
 // Catálogo de TODAS as ferramentas (job-based + browser-only) para os hubs
@@ -41,6 +41,7 @@ export const TOOLS_CATALOG: ToolCard[] = [
   { tool: 'comparacao-nfse', area: 'fiscal', href: '/ferramentas/fiscal/comparacao-nfse', title: 'Comparador NFS-e', subtitle: 'PDF/imagem × XML (OCR)', icon: FileSearch, badge: 'NFS-e' },
   { tool: 'sci-portal-nacional', area: 'fiscal', href: '/ferramentas/fiscal/sci-portal-nacional', title: 'Conciliador NFS-e', subtitle: 'Portal Nacional × SCI', icon: ArrowLeftRight, badge: 'NFS-e' },
   { tool: 'nfse-pdf', area: 'fiscal', href: '/ferramentas/fiscal/nfse-pdf', title: 'NFS-e → PDF', subtitle: 'XML → DANFSe (.zip)', icon: FileText, badge: 'NFS-e' },
+  { tool: 'concatenador-planilhas', area: 'fiscal', href: '/ferramentas/fiscal/concatenador-planilhas', title: 'Concatenador', subtitle: 'Planilhas SEFAZ em partes → uma só', icon: Combine },
   // ── Contábil ────────────────────────────────────────────────────────────
   { tool: 'gnre', area: 'contabil', href: '/ferramentas/contabil/gnre', title: 'Extrator GNRE', subtitle: 'Guias GNRE (PDF) → planilha', icon: Receipt },
   { tool: 'extrato-edit', area: 'contabil', href: '/ferramentas/contabil/extrato-edit', title: 'Editor de Extrato', subtitle: 'Extrato bancário (.xlsx)', icon: FileText },
