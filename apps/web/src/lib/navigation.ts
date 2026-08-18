@@ -275,7 +275,7 @@ export const navigation: NavGroup[] = [
       // (F-006). Marcado wip p/ esconder do menu até as páginas existirem.
       { label: 'Análise de Contexto', href: '/analise-contexto', icon: Search, wip: true },
       { label: 'Aquisições', href: '/aquisicoes', icon: ShoppingCart },
-      { label: 'Capacitações', href: '/capacitacoes', icon: GraduationCap, wip: true },
+      { label: 'Capacitações', href: '/capacitacoes', icon: GraduationCap },
       { label: 'Documentos Externos', href: '/documentos-externos', icon: FileBox, wip: true },
       { label: 'Documentos Internos', href: '/documentos-internos', icon: FileCheck },
       { label: 'Elogios', href: '/elogios', icon: ThumbsUp },
