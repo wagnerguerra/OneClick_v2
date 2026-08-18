@@ -97,7 +97,9 @@ export default function DocumentosInternosPage() {
   async function handleDelete(d: DocumentoRow) {
     const ok = await alerts.confirm({
       title: `Excluir "${d.nome}"?`,
-      text: `O documento e as suas ${d._count.versoes} revisão(ões) serão apagados.`,
+      text: d._count.versoes === 1
+        ? 'O documento e a sua única revisão serão apagados.'
+        : `O documento e as suas ${d._count.versoes} revisões serão apagados.`,
       icon: 'warning', confirmText: 'Excluir',
     })
     if (!ok) return
@@ -210,7 +212,9 @@ export default function DocumentosInternosPage() {
                     {/* O total de revisões é o que diz se o documento tem história —
                         num módulo de ISO, isso conta tanto quanto o nome. */}
                     <span className="text-[11px] text-muted-foreground">
-                      {d._count.versoes} revisão{d._count.versoes === 1 ? '' : 'ões'}
+                      {/* O plural troca a sílaba inteira: revisão → revisões.
+                          Concatenar o sufixo produzia "revisãoões". */}
+                      {d._count.versoes} {d._count.versoes === 1 ? 'revisão' : 'revisões'}
                     </span>
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-xs text-muted-foreground truncate">{d.tipo?.nome ?? '—'}</TableCell>
