@@ -277,7 +277,7 @@ export const navigation: NavGroup[] = [
       { label: 'Aquisições', href: '/aquisicoes', icon: ShoppingCart },
       { label: 'Capacitações', href: '/capacitacoes', icon: GraduationCap, wip: true },
       { label: 'Documentos Externos', href: '/documentos-externos', icon: FileBox, wip: true },
-      { label: 'Documentos Internos', href: '/documentos-internos', icon: FileCheck, wip: true },
+      { label: 'Documentos Internos', href: '/documentos-internos', icon: FileCheck },
       { label: 'Elogios', href: '/elogios', icon: ThumbsUp },
       { label: 'Melhorias', href: '/melhorias', icon: TrendingUp, wip: true },
       { label: 'Não Conformidades', href: '/nao-conformidades', icon: AlertTriangle, wip: true },

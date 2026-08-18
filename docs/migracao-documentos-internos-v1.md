@@ -123,12 +123,16 @@ Módulo NestJS + router tRPC: CRUD do documento, nova revisão (que substitui a 
 marca a anterior como "Substituído"), fluxo de aprovação, download do arquivo e log.
 Permissão `documentos-internos` no catálogo.
 
-### Fase 3 — Interface
-Listagem no padrão da casa (header inline, tabela server-side, filtros por tipo/processo/
-situação) e detalhe com o histórico de revisões — cada uma com o seu arquivo, o que mudou
-e a justificativa.
+### Fase 3 — Interface ✅ (18/08/2026)
+Listagem no padrão da casa (header inline, tabela server-side, filtros por situação, tipo e
+processo, busca com debounce), tela de cadastro — que já nasce com a revisão 0 e o arquivo —
+e detalhe com o histórico completo de revisões. Cada revisão traz o seu arquivo para baixar,
+o que mudou, a justificativa, quem elaborou e, quando houver, quando foi aprovada. As ações
+do fluxo (enviar para aprovação, aprovar, rejeitar com motivo obrigatório) ficam na própria
+revisão. À direita, os dados do documento (só o cabeçalho se edita) e a trilha de atividades.
+O item saiu de `wip` no menu.
 
-### Fase 4 — Migração dos dados e dos arquivos
+### Fase 4 — Migração dos dados e dos arquivos ✅ (18/08/2026)
 67 documentos, 265 revisões e os 265 arquivos (66 MB) de
 `wwwroot/files/sgq_documentos` para o storage do v2. Elaboradores casados por nome contra
 `ger_cad_usu`, com relatório do que não casar. Só depois disso o v1 é desativado, pelo
