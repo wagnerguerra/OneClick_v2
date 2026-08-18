@@ -74,15 +74,16 @@ Decisões da carga:
 Resultado (dev, 18/08): **68 tabelas, 95 versões**, 0 sem vigente, 0 sem
 processo, 0 órfãs.
 
-## 5. Produção
+## 5. Produção — ✅ aplicada em 18/08
 
-Mesmo runbook dos módulos anteriores (`docs/deploy-2026-08-18.md`):
-1. Deploy leva `add_tabelas_registros.sql` no stage 4.5.
-2. Carga manual: copiar `scripts/out/v1-tabelas-registros.sql` para a VPS e
-   aplicar **como `-U oneclick`** no `n8n-postgres-1`, db `oneclick`
-   (ON_ERROR_STOP=1). Validar os mesmos contadores do §4.
-3. A carga exige que a carga de **documentos** já tenha rodado (processos com
-   `legacy_id` populado) — em produção isso já aconteceu em 18/08.
+- IDs embutidos validados antes (empresa + 4 usuários = 4/4; os 12 legacy de
+  processo usados existem todos em `documento_processos` da VPS).
+- Estrutura e carga aplicadas **como `-U oneclick`** no `n8n-postgres-1`
+  (owner conferido: `oneclick` nas duas tabelas).
+- Resultado idêntico ao dev: **68 tabelas, 95 versões**, 0 sem vigente, 0 sem
+  processo, 0 órfãs, 12 autores por id + 83 por nome.
+- O `add_tabelas_registros.sql` segue no stage 4.5 do deploy (idempotente —
+  o próximo deploy só confirma). A UI entra no ar com o commit `852948fd`.
 
 ## 6. Desativação no v1
 
