@@ -159,6 +159,8 @@ import { createRelatorioTiRouter } from '../relatorio-ti/relatorio-ti.router'
 import { ManifestacaoService } from '../manifestacao/manifestacao.service'
 import { ReuniaoService } from '../reuniao/reuniao.service'
 import { createReuniaoRouter } from '../reuniao/reuniao.router'
+import { DocumentoInternoService } from '../documento-interno/documento-interno.service'
+import { createDocumentoInternoRouter } from '../documento-interno/documento-interno.router'
 import { createManifestacaoRouter } from '../manifestacao/manifestacao.router'
 import { MinhasObrigacoesService } from '../minhas-obrigacoes/minhas-obrigacoes.service'
 import { AtivoService } from '../ativo/ativo.service'
@@ -722,6 +724,7 @@ export class TrpcService {
     @Inject(RelatorioTiService) private readonly relatorioTiService: RelatorioTiService,
     @Inject(ManifestacaoService) private readonly manifestacaoService: ManifestacaoService,
     @Inject(ReuniaoService) private readonly reuniaoService: ReuniaoService,
+    @Inject(DocumentoInternoService) private readonly documentoInternoService: DocumentoInternoService,
     @Inject(ClientErrorService) private readonly clientErrorService: ClientErrorService,
     @Inject(ThemeService) private readonly themeService: ThemeService,
     @Inject(DanfeService) private readonly danfeService: DanfeService,
@@ -829,6 +832,7 @@ export class TrpcService {
       reclamacao: createManifestacaoRouter(this.manifestacaoService, 'RECLAMACAO', 'reclamacoes'),
       sugestao: createManifestacaoRouter(this.manifestacaoService, 'SUGESTAO', 'sugestoes'),
       reuniao: createReuniaoRouter(this.reuniaoService),
+      documentoInterno: createDocumentoInternoRouter(this.documentoInternoService),
       minhasObrigacoes: createMinhasObrigacoesRouter(this.minhasObrigacoesService),
     })
   }

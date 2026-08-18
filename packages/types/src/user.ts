@@ -460,6 +460,21 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
   // O v1 não tinha níveis aqui: quem abria o módulo fazia tudo. O corte que faz
   // sentido é entre quem REGISTRA a ata e quem só precisa acompanhar as ações
   // que sobraram para si — este segundo grupo é o maior.
+  // O v1 tinha tres perfis escolhidos na entrada (usu/ consulta, adm/ administra,
+  // apr/ aprova). Viram sub-permissoes, com uma diferenca: aprovar deixa de ser um
+  // perfil separado e passa a ser marcacao — quem aprova tambem precisa consultar.
+  'documentos-internos': [
+    { key: 'gerenciar', label: 'Cadastrar documentos e publicar revisões', group: 'Rotina' },
+    {
+      key: 'aprovar', label: 'Aprovar revisões', group: 'Qualidade',
+      observacao: 'Fica registrado quem aprovou e quando — no sistema antigo isso não era gravado.',
+    },
+    {
+      key: 'ver_nao_aprovados', label: 'Ver revisões ainda não aprovadas', group: 'Qualidade',
+      observacao: 'Sem isto, vê apenas a versão vigente de cada documento.',
+    },
+    { key: 'excluir', label: 'Excluir documentos', group: 'Qualidade' },
+  ],
   reunioes: [
     { key: 'registrar', label: 'Registrar reuniões', group: 'Rotina' },
     {
