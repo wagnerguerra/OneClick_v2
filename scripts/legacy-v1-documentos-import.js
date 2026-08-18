@@ -84,7 +84,15 @@ const chaveNome = (s) => String(s || '')
 
   // ── Mapa de usuários: v1 (ger_cad_usu) → v2 (users), casado por nome ──
   const [usuariosV1] = await my.query('SELECT CAD_USU_ID id, CAD_USU_NOME nome, CAD_USU_EMAIL email FROM ger_cad_usu')
-  const usuariosV2 = await prisma.user.findMany({ select: { id: true, name: true, email: true } })
+  // SÓ os usuários da empresa de destino. Sem este filtro o casamento por nome
+  // pega gente de outro tenant — o "Wagner Guerra" da L&L venceu o da Central
+  // na primeira rodada, e o id dele nem existe na produção da Central. Como
+  // estes ids são soltos (sem FK), o registro entraria apontando para o nada,
+  // sem erro nenhum: pior que falhar.
+  const usuariosV2 = await prisma.user.findMany({
+    where: { empresaId: EMP },
+    select: { id: true, name: true, email: true },
+  })
   const porNome = new Map(usuariosV2.map((u) => [chaveNome(u.name), u.id]))
   const porEmail = new Map(usuariosV2.filter((u) => u.email).map((u) => [String(u.email).toLowerCase(), u.id]))
 
