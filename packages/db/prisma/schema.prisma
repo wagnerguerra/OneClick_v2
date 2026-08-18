@@ -7968,3 +7968,158 @@ model ReuniaoLog {
   @@index([reuniaoId])
   @@map("reuniao_logs")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOCUMENTOS INTERNOS (Qualidade) — port do `sgq_documentos` do OneClick v1.
+// Ver docs/migracao-documentos-internos-v1.md para o levantamento do legado.
+//
+// Os ids de usuário aqui são SOLTOS (sem FK para User), como já é feito em
+// Compra: são muitos papéis (quem registrou, quem aprovou, quem elaborou) e
+// puxar todos para dentro de User polui um model que já é grande.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Mapa de processos da ISO (o `sgq_proc` do v1): "Gestão de Pessoas",
+/// "Assessoria e Consultoria Fiscal", "Sistema de Gestão da Qualidade"…
+///
+/// Tabela própria, e não as Áreas do v2: só 7 dos 13 processos casam por nome
+/// com alguma Área, e as Áreas se repetem por empresa — o vínculo sairia
+/// ambíguo justamente onde ele precisa ser exato.
+model DocumentoProcesso {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  /// Id do `sgq_proc` de origem, para a migração casar sem depender do nome.
+  legacyId  Int?    @map("legacy_id")
+  nome      String
+  ordem     Int     @default(0)
+  ativo     Boolean @default(true)
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  documentos DocumentoInterno[]
+
+  @@index([empresaId, ativo])
+  @@index([legacyId])
+  @@map("documento_processos")
+}
+
+/// O documento em si — a identidade que atravessa as revisões.
+///
+/// No v1 isso não existia: cada revisão era uma linha nova em `sgq_doc` que
+/// repetia nome, tipo e processo, e se amarrava à anterior por `id_mestre`
+/// (que a raiz aponta para si mesma, ou fica 0 enquanto não há revisão). Eram
+/// 265 linhas para 67 documentos. Aqui o documento é um registro só e as
+/// revisões penduram nele.
+model DocumentoInterno {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  /// Id do documento-mestre no v1, para achar pelo número que o pessoal usa.
+  legacyId  Int?    @map("legacy_id")
+
+  nome String
+  /// PROCEDIMENTO | FORMULARIO | CORPORATIVO (o `sgq_doc_cod` do v1).
+  tipo String  @default("PROCEDIMENTO")
+
+  processoId String? @map("processo_id")
+  /// Sempre nulo nos 265 registros migrados: o campo existe no v1 e nunca foi
+  /// preenchido. Fica aqui porque a tela nova deve pedi-lo — ver o doc.
+  responsavelId String? @map("responsavel_id")
+
+  /// Aponta para a revisão vigente. É o que a listagem mostra e o que o
+  /// pessoal baixa; sem este ponteiro, achar "a versão atual" viraria uma
+  /// subconsulta em toda tela.
+  versaoAtualId String? @unique @map("versao_atual_id")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  processo   DocumentoProcesso?       @relation(fields: [processoId], references: [id], onDelete: SetNull)
+  versaoAtual DocumentoInternoVersao? @relation("VersaoVigente", fields: [versaoAtualId], references: [id], onDelete: SetNull)
+  versoes    DocumentoInternoVersao[] @relation("VersoesDoDocumento")
+  logs       DocumentoInternoLog[]
+
+  @@index([empresaId, tipo])
+  @@index([processoId])
+  @@index([legacyId])
+  @@map("documentos_internos")
+}
+
+/// Uma revisão do documento: o arquivo daquela versão e o que mudou nela.
+model DocumentoInternoVersao {
+  id           String @id @default(cuid())
+  documentoId  String @map("documento_id")
+  /// Id da linha de origem em `sgq_doc`.
+  legacyId     Int?   @map("legacy_id")
+
+  revisao Int @default(0)
+  /// NOVO | EM_APROVACAO | APROVADO | SUBSTITUIDO | CANCELADO | REJEITADO
+  /// (o `sgq_doc_sit` do v1; "Excluído" de lá é o `ativo = 0`, que aqui não
+  /// vira situação — documento apagado some.)
+  situacao String @default("NOVO")
+
+  dataVersao DateTime @map("data_versao") @db.Date
+
+  /// Arquivo daquela revisão. No v1 vinha como `/sgq_doc_<hash>.<ext>` dentro
+  /// de `wwwroot/files/sgq_documentos` — 265 links, todos com arquivo em disco.
+  arquivoPath String  @map("arquivo_path")
+  arquivoNome String? @map("arquivo_nome")
+  mime        String?
+  bytes       Int?
+
+  /// O que mudou e por quê (preenchidos em 195 das 265 revisões do v1).
+  alteracao     String? @db.Text
+  justificativa String? @db.Text
+
+  registradoPorId String?   @map("registrado_por_id")
+  /// O v1 tinha o perfil de aprovador e 208 documentos "Aprovado", mas NUNCA
+  /// gravou quem aprovou nem quando — as duas colunas estão vazias nas 265
+  /// linhas. Aqui elas passam a ser preenchidas de verdade pelo fluxo.
+  aprovadoPorId   String?   @map("aprovado_por_id")
+  aprovadoEm      DateTime? @map("aprovado_em")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  documento    DocumentoInterno            @relation("VersoesDoDocumento", fields: [documentoId], references: [id], onDelete: Cascade)
+  vigenteDe    DocumentoInterno?           @relation("VersaoVigente")
+  elaboradores DocumentoInternoElaborador[]
+
+  @@unique([documentoId, revisao])
+  @@index([documentoId, situacao])
+  @@index([legacyId])
+  @@map("documento_interno_versoes")
+}
+
+/// Quem elaborou a revisão. Por ID sempre que houver usuário; o nome só sobra
+/// para o que a migração não casar.
+///
+/// No v1 isto era um `varchar` com nomes separados por vírgula
+/// ("Lindalva Cavalcanti,Rose Munhão,Ricardo Laia") — não dava para responder
+/// "que documentos o fulano elaborou", que é justamente a pergunta da auditoria.
+model DocumentoInternoElaborador {
+  id        String  @id @default(cuid())
+  versaoId  String  @map("versao_id")
+  usuarioId String? @map("usuario_id")
+  nome      String?
+
+  versao DocumentoInternoVersao @relation(fields: [versaoId], references: [id], onDelete: Cascade)
+
+  @@index([versaoId])
+  @@index([usuarioId])
+  @@map("documento_interno_elaboradores")
+}
+
+/// Trilha de auditoria. O v1 gravava frase pronta ("Fez a revisão do documento
+/// #4"); aqui o evento é código e o detalhe fica à parte.
+model DocumentoInternoLog {
+  id          String   @id @default(cuid())
+  documentoId String   @map("documento_id")
+  usuarioId   String?  @map("usuario_id")
+  evento      String
+  detalhe     String?  @db.Text
+  criadoEm    DateTime @default(now()) @map("criado_em")
+
+  documento DocumentoInterno @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+
+  @@index([documentoId])
+  @@map("documento_interno_logs")
+}
