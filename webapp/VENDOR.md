@@ -7,8 +7,8 @@ Backend de processamento das **Ferramentas Fiscais/Contábeis** do OneClick V2
 
 ## Origem
 - Repositório: https://github.com/Bruno-1990/Webapp
-- Commit vendorizado: `ce3be2a31965b83f2f96c8ff1833bd95388113b3` (branch `refactor/engines-layout`)
-- Data: 2026-07-02
+- Commit vendorizado: `827b5edc7f3b67e63f83e4d8b1632a2e2e88957b` (branch `main`)
+- Data: 2026-08-18
 
 ## Como rodar / deployar
 Ver `webapp/docs/DEPLOY-VPS.md`. Resumo: `cd webapp && docker compose --profile sped

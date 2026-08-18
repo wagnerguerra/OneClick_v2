@@ -26,7 +26,8 @@ webapp/
 │  ├─ comparacao-planilhas/
 │  ├─ comparacao-nfse/
 │  ├─ gnre/
-│  └─ sci-portal-nacional/    #   engine Node (cli.mjs), não Python
+│  ├─ sci-portal-nacional/    #   engine Node (cli.mjs), não Python
+│  └─ concatenador-planilhas/ #   engine Node (cli.mjs), não Python
 ├─ docs/                      # esta documentação
 ├─ knowledge/                 # referência de domínio (guia EFD, exemplos SPED)
 ├─ docker-compose.yml         # orquestra tudo (raiz)
@@ -72,6 +73,7 @@ ver tabela). No Docker, o Dockerfile copia a engine e fixa essa env var.
 | Comparador NFS-e (OCR) | `comparacao-nfse` | `NfseComparadorHomePage.tsx` | `worker-comparacao-nfse` | `comparacao-nfse` | `COMPARACAO_NFSE_PY_DIR` | `comparacao-nfse` | `Dockerfile.worker-comparacao-nfse` | `worker-comparacao-nfse` | `nfse` |
 | Extrator GNRE | `gnre` | `GnreHomePage.tsx` | `worker-gnre-bridge` | `gnre` | `GNRE_PY_DIR` | `gnre-extract` | `Dockerfile.worker-gnre` | `worker-gnre` | `gnre` |
 | Conciliador NFS-e | `sci-portal-nacional` | `SciPortalNacionalHomePage.tsx` | `worker-sci-portal-nacional` | `sci-portal-nacional` (Node) | `SCI_PORTAL_DIR` | `sci-portal-nacional-comparacao` | `Dockerfile.worker-sci-portal-nacional` | `worker-sci-portal-nacional` | `comparacao` |
+| Concatenador de Planilhas | `concatenador-planilhas` | `ConcatenadorPlanilhasHomePage.tsx` | `worker-concatenador-planilhas` | `concatenador-planilhas` (Node) | `CONCATENADOR_DIR` | `concatenador-planilhas` | `Dockerfile.worker-concatenador-planilhas` | `worker-concatenador-planilhas` | `comparacao` |
 | **Editor de Extrato** | `extrato-edit` | `ExtratoEditHomePage.tsx` | — (rotas na `api`) | — | — | — | — | `api` (DB SQLite) | core |
 | **NFS-e → PDF (DANFSe)** | `nfse-pdf` | `NfsePdfHomePage.tsx` | — | — | — | — | — | — | — |
 
@@ -91,8 +93,8 @@ retenções `.xlsx` via ExcelJS, logo em `logoData.ts`; tabela IBGE `municipios.
 carregada sob demanda).
 
 Categorias do hub: **Fiscal** = nfe, sped, sped-merge, sci-consolidado,
-comparacao-planilhas, comparacao-nfse, sci-portal-nacional, nfse-pdf. **Contábil**
-= gnre, extrato-edit.
+comparacao-planilhas, comparacao-nfse, sci-portal-nacional, nfse-pdf,
+concatenador-planilhas. **Contábil** = gnre, extrato-edit.
 
 ## Como o frontend descobre as ferramentas
 
@@ -102,6 +104,22 @@ via `mergeToolsManifest`, deduplicando por `id`. `normalizeToolId` mapeia ids
 legados numerados (`webapp-0X`) para os semânticos, caso uma API antiga ainda os
 envie. Ícone/owner/cor de cada card ficam em mapas keyados por `id` no
 `ToolsHubPage.tsx`.
+
+## Informação duplicada e como ela é vigiada
+
+Algumas listas precisam existir dos dois lados da fronteira Python/TypeScript.
+`npm run check:sync` (dentro do `npm run lint` e do CI) compara:
+
+| O quê | Fonte Python | Fonte TypeScript |
+|-------|--------------|------------------|
+| Abas do export SPED | `engines/sped/sped_engine/config.py` → `SHEET_ORDER` | `packages/contracts` → `SPED_EXPORT_SHEET_KEYS` (+ um rótulo por aba) |
+| Guia de registros EFD | `engines/sped/sped_engine/cabecalhos_sped.txt` | cópia em `apps/api/src/data/cabecalhos-sped.txt` (servida em `/tools/sped/reg-meta`) |
+
+O que **não** deve ser duplicado já deriva da fonte: `CORE_SHEETS` em
+`engines/sped-merge/inspect_xlsx.py` vem do `SHEET_ORDER`, e a lista esperada em
+`scripts/run-sped-smoke.cjs` vem dos contracts. Ao criar uma duplicação nova,
+acrescente a comparação em `scripts/check-sync.mjs` — a mensagem de erro deve
+dizer qual arquivo atualizar.
 
 ## Subir o stack (a partir da raiz `webapp/`)
 
@@ -114,6 +132,12 @@ docker compose --profile sped --profile comparacao --profile nfse --profile gnre
 
 Frontend Vite roda **fora** do Docker (porta 5176). Build context dos workers
 Python é a raiz `webapp/` (por isso os Dockerfiles fazem `COPY engines/<nome> …`).
+
+> ⚠️ **As engines Python são copiadas para dentro da imagem** (`COPY engines/<nome> …`),
+> não montadas por volume. Editar um arquivo em `engines/` no host **não muda nada**
+> no container até o rebuild — sintoma típico: a alteração passa nos testes locais
+> mas o job continua com o comportamento antigo. Rebuild só do necessário:
+> `docker compose --profile sped up -d --build api worker-sped worker-sped-merge`.
 
 > ⚠️ **Sempre use `--build`** ao subir. Imagens antigas anteriores ao refactor
 > `engines/` (2026-06-22) ainda têm a árvore `/app/webapp-0X`; com o compose novo

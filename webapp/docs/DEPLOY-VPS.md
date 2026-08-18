@@ -30,9 +30,10 @@ Browser → OneClick web → OneClick API (gateway ferramentas, por tenant)
 # 0) espaço para o build (as imagens têm engines Python; o cache pode ser grande)
 docker builder prune -f
 
-# 1) código — vendorizado dentro do OneClick V2 (subpasta `webapp/`).
-#    O checkout do OneClick já traz esta pasta; entre nela:
-cd "$ONECLICK_SRC/webapp"      # ex.: /opt/oneclick-src/webapp
+# 1) código
+cd /opt
+git clone https://github.com/Bruno-1990/Webapp.git webapp
+cd /opt/webapp
 
 # 2) .env (baseado no .env.example)
 #    JWT_SECRET: obrigatório (assina tokens de download) — openssl rand -base64 48
@@ -90,5 +91,5 @@ Logar no OneClick com permissão `ferramentas-fiscal` (sub-perm `sped`) → **Fi
 
 ## Rollback
 
-`cd "$ONECLICK_SRC/webapp" && docker compose down` — a stack é 100% aditiva (rede própria + `fiscal_net`);
+`cd /opt/webapp && docker compose down` — a stack é 100% aditiva (rede própria + `fiscal_net`);
 remover `WEBAPP_API_URL` do `.env` do OneClick e recriar o `oneclick-api` desfaz a integração.

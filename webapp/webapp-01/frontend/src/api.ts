@@ -235,6 +235,16 @@ function defaultToolsManifest(): ToolManifestEntry[] {
       category: "fiscal",
       tag: { label: "NFS-e · Serviços", tone: "violet" },
     },
+    {
+      id: "concatenador-planilhas",
+      title: "Concatenador",
+      subtitle: "Planilhas SEFAZ",
+      description:
+        "Envie as planilhas quebradas em partes (mesmo layout) e receba uma só, na ordem certa. A coluna # define a sequência, o cabeçalho das partes seguintes é descartado e nenhuma linha em branco entra no meio.",
+      route: "/tools/concatenador-planilhas",
+      available: true,
+      category: "fiscal",
+    },
   ];
 }
 
@@ -701,6 +711,97 @@ export async function createGnreJob(files: File[]): Promise<{ id: string }> {
   return res.json() as Promise<{ id: string }>;
 }
 
+/** Lotes de upload do GNRE. Centenas de PDFs (muitas vezes lidos de um share de
+ * rede, ~0,4 s/arquivo) nao cabem numa unica requisicao dentro do timeout. */
+const GNRE_CHUNK_FILES = 40;
+const GNRE_CHUNK_BYTES = 20 * 1024 * 1024;
+
+async function gnreFetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(url, { ...init, signal: controller.signal });
+  } catch (e) {
+    const aborted =
+      (e instanceof DOMException && e.name === "AbortError") ||
+      (e instanceof Error && e.name === "AbortError");
+    if (aborted) {
+      throw new Error(
+        `Um lote excedeu ${Math.round(UPLOAD_TIMEOUT_MS / 60_000)} minutos. Verifique a rede (arquivos em pasta compartilhada demoram mais) e a API.`,
+      );
+    }
+    if (!baseUrl() && isFetchNetworkError(e)) {
+      throw new Error(apiOfflineMessage());
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    let msg = (err as { error?: string }).error ?? res.statusText;
+    if (
+      !baseUrl() &&
+      (res.status === 500 || res.status === 502 || res.status === 503) &&
+      (msg === "Internal Server Error" || msg.length < 3)
+    ) {
+      msg =
+        "API ou worker GNRE inativo. Na raiz do projeto: npm run redis:up e npm run dev (worker-gnre + engines/gnre).";
+    }
+    throw new Error(msg);
+  }
+  return res.json() as Promise<T>;
+}
+
+/** Divide os arquivos em lotes (por quantidade e por tamanho) e envia um por
+ * requisicao, reportando progresso de 0 a 1. */
+export async function createGnreJobChunked(
+  files: File[],
+  onProgress?: (fraction: number, sentFiles: number, totalFiles: number) => void,
+): Promise<{ id: string }> {
+  const { id } = await gnreFetchJson<{ id: string }>(
+    `${baseUrl()}${API_PREFIX}/tools/gnre/jobs/init`,
+    { method: "POST" },
+  );
+
+  const chunks: File[][] = [];
+  let current: File[] = [];
+  let currentBytes = 0;
+  for (const f of files) {
+    if (
+      current.length > 0 &&
+      (current.length >= GNRE_CHUNK_FILES || currentBytes + f.size > GNRE_CHUNK_BYTES)
+    ) {
+      chunks.push(current);
+      current = [];
+      currentBytes = 0;
+    }
+    current.push(f);
+    currentBytes += f.size;
+  }
+  if (current.length > 0) chunks.push(current);
+
+  let sent = 0;
+  for (const chunk of chunks) {
+    const fd = new FormData();
+    for (const f of chunk) fd.append("pdfs", f);
+    await gnreFetchJson<{ ok: boolean; saved: number }>(
+      `${baseUrl()}${API_PREFIX}/tools/gnre/jobs/${id}/chunk`,
+      { method: "POST", body: fd },
+    );
+    sent += chunk.length;
+    onProgress?.(sent / files.length, sent, files.length);
+  }
+
+  await gnreFetchJson<{ id: string }>(
+    `${baseUrl()}${API_PREFIX}/tools/gnre/jobs/${id}/start`,
+    { method: "POST" },
+  );
+  return { id };
+}
+
 export type GnreResult = {
   totais?: { ok?: number; dup?: number; fail?: number; total?: number };
   valorTotal?: number;
@@ -879,6 +980,94 @@ export function sciPortalNacionalDownloadUrl(id: string, token: string): string 
   return `${baseUrl()}${API_PREFIX}/tools/sci-portal-nacional/jobs/${id}/download?token=${encodeURIComponent(token)}`;
 }
 
+// ── Concatenador de Planilhas (engines/concatenador-planilhas) ───────────
+
+export type ConcatenadorAvisoUi = {
+  titulo: string;
+  detalhe?: string;
+  dica?: string;
+  /** `alerta` = pode faltar/sobrar dado. `info` = decisão nossa, sem perda. */
+  severidade?: "alerta" | "info";
+};
+
+export type ConcatenadorResult = {
+  arquivos?: number;
+  linhas?: number;
+  /** Achados da conferência — informativos, o job conclui mesmo assim. */
+  avisos?: ConcatenadorAvisoUi[];
+};
+
+export type ConcatenadorJobResponse = JobResponse & { result?: ConcatenadorResult };
+
+export async function createConcatenadorPlanilhasJob(
+  files: File[]
+): Promise<{ id: string }> {
+  const fd = new FormData();
+  for (const f of files) fd.append("planilhas", f);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl()}${API_PREFIX}/tools/concatenador-planilhas/jobs`, {
+      method: "POST",
+      body: fd,
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const aborted =
+      (e instanceof DOMException && e.name === "AbortError") ||
+      (e instanceof Error && e.name === "AbortError");
+    if (aborted) {
+      throw new Error(
+        `Envio excedeu ${Math.round(UPLOAD_TIMEOUT_MS / 60_000)} minutos. Verifique Redis, API e worker Concatenador.`
+      );
+    }
+    if (!baseUrl() && isFetchNetworkError(e)) {
+      throw new Error(apiOfflineMessage());
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    let msg = (err as { error?: string }).error ?? res.statusText;
+    const relative = !baseUrl();
+    if (
+      relative &&
+      (res.status === 500 || res.status === 502 || res.status === 503) &&
+      (msg === "Internal Server Error" || msg.length < 3)
+    ) {
+      msg =
+        "API ou worker Concatenador inativo. Na raiz do projeto: npm run redis:up e npm run dev (worker-concatenador-planilhas + engines/concatenador-planilhas).";
+    }
+    throw new Error(msg);
+  }
+  return res.json() as Promise<{ id: string }>;
+}
+
+export async function getConcatenadorPlanilhasJob(
+  id: string
+): Promise<ConcatenadorJobResponse> {
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl()}${API_PREFIX}/tools/concatenador-planilhas/jobs/${id}`);
+  } catch (e) {
+    if (!baseUrl() && isFetchNetworkError(e)) {
+      throw new Error(apiOfflineMessage());
+    }
+    throw e;
+  }
+  return res.json() as Promise<ConcatenadorJobResponse>;
+}
+
+export function concatenadorPlanilhasDownloadUrl(id: string, token: string): string {
+  return `${baseUrl()}${API_PREFIX}/tools/concatenador-planilhas/jobs/${id}/download?token=${encodeURIComponent(token)}`;
+}
+
 // ── Comparador NFS-e (PDF × XML) ─────────────────────────────────────────
 
 export type NfseEntry = {
@@ -886,7 +1075,8 @@ export type NfseEntry = {
   numeroNf?: string | null;
   chaveNf?: string | null;
   sourceFile: string;
-  method?: "local" | "ocr" | null;
+  /** "local" = texto nativo, "ocr-local" = OCR offline, "ocr" = Gemini. */
+  method?: "local" | "ocr-local" | "ocr" | null;
   cnpjPrestador?: string | null;
   razaoSocialPrestador?: string | null;
   razaoSocialTomador?: string | null;
@@ -896,9 +1086,12 @@ export type NfseFailure = { file: string; reason: string };
 
 export type NfseExtractStats = {
   local: number;
+  /** Resolvidos por OCR local (rasteriza e le). Opcional: backend antigo nao envia. */
+  ocr_local?: number;
   ocr: number;
   imagens: number;
   ocr_disponivel: boolean;
+  ocr_local_disponivel?: boolean;
 };
 
 export type NfseFailureKind = "quota" | "auth" | "timeout" | "internal";
