@@ -163,4 +163,17 @@ DO $$ BEGIN
     FOREIGN KEY ("reuniao_id") REFERENCES "reunioes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
+
+-- ── Defaults de `atualizado_em` ──────────────────────────────
+-- O `@updatedAt` do Prisma é aplicado pelo CLIENTE, não pelo banco: quando a
+-- tabela nasce do `prisma db push` (que é o que acontece no deploy, antes
+-- destes SQLs), a coluna vem NOT NULL e SEM default. Aí o CREATE TABLE
+-- IF NOT EXISTS acima vira no-op e o default definido nele nunca chega.
+--
+-- Resultado prático: qualquer INSERT cru — carga de legado, backfill, script
+-- de manutenção — quebra com "null value in column atualizado_em". Foi
+-- exatamente o que derrubou a importação dos documentos em 18/08/2026.
+ALTER TABLE "reunioes" ALTER COLUMN "atualizado_em" SET DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "reuniao_acoes" ALTER COLUMN "atualizado_em" SET DEFAULT CURRENT_TIMESTAMP;
+
 COMMIT;
