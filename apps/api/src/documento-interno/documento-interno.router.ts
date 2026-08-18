@@ -74,6 +74,10 @@ export function createDocumentoInternoRouter(service: DocumentoInternoService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.excluir(input.id, ctx.empresaId)),
 
+    /** Usuários para o seletor de elaboradores. */
+    listarUsuarios: readProcedure(MODULE)
+      .query(({ ctx }) => service.listarUsuarios(ctx.empresaId)),
+
     // ── Tipos de documento (cadastro) ──
     listarTipos: readProcedure(MODULE)
       .input(z.object({ incluirInativos: z.boolean().default(false) }).optional())

@@ -13,6 +13,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import { UserMultiPicker } from '@/components/user-multi-picker'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
@@ -42,6 +43,7 @@ interface Documento {
   criadoEm: string
 }
 interface Opcao { id: string; nome: string }
+interface Usuario { id: string; name: string; email: string | null; image: string | null }
 
 const dataBR = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
@@ -73,6 +75,7 @@ export default function DocumentoInternoDetalhePage() {
   const [acting, setActing] = useState(false)
   const [tipos, setTipos] = useState<Opcao[]>([])
   const [processos, setProcessos] = useState<Opcao[]>([])
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
 
   // Cabeçalho editável
   const [nome, setNome] = useState('')
@@ -86,6 +89,7 @@ export default function DocumentoInternoDetalhePage() {
   const [revAlteracao, setRevAlteracao] = useState('')
   const [revJustificativa, setRevJustificativa] = useState('')
   const [arquivo, setArquivo] = useState<File | null>(null)
+  const [revElaboradores, setRevElaboradores] = useState<string[]>([])
   const [enviando, setEnviando] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -110,6 +114,7 @@ export default function DocumentoInternoDetalhePage() {
   useEffect(() => {
     ;(trpc.documentoInterno as any).listarTipos.query({}).then(setTipos).catch(() => setTipos([]))
     ;(trpc.documentoInterno as any).listarProcessos.query({}).then(setProcessos).catch(() => setProcessos([]))
+    ;(trpc.documentoInterno as any).listarUsuarios.query().then(setUsuarios).catch(() => setUsuarios([]))
   }, [])
 
   async function acao(fn: () => Promise<unknown>, msg: string) {
@@ -150,10 +155,11 @@ export default function DocumentoInternoDetalhePage() {
         bytes: arquivo.size,
         alteracao: revAlteracao || undefined,
         justificativa: revJustificativa || undefined,
-        elaboradores: [],
+        elaboradores: revElaboradores.map((id) => ({ usuarioId: id })),
       })
       alerts.success('Revisão publicada', 'A anterior passou a Substituída.')
-      setRevAberta(false); setArquivo(null); setRevAlteracao(''); setRevJustificativa(''); setRevData(hoje())
+      setRevAberta(false); setArquivo(null); setRevAlteracao(''); setRevJustificativa('')
+      setRevData(hoje()); setRevElaboradores([])
       carregar()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setEnviando(false) }
@@ -271,7 +277,7 @@ export default function DocumentoInternoDetalhePage() {
 
                   {v.elaboradores.length > 0 && (
                     <p className="mt-2 text-[11px] text-muted-foreground">
-                      Elaborado por: {v.elaboradores.map((e) => e.nome ?? 'colaborador').join(', ')}
+                      Elaborado por: {v.elaboradores.map((e) => e.nome ?? usuarios.find((u) => u.id === e.usuarioId)?.name ?? 'colaborador').join(', ')}
                     </p>
                   )}
                   {/* Quem aprovou e quando — o dado que o v1 nunca gravou. */}
@@ -378,6 +384,17 @@ export default function DocumentoInternoDetalhePage() {
                     onChange={(e) => { setArquivo(e.target.files?.[0] ?? null); e.target.value = '' }} />
                 </div>
               </div>
+            </div>
+            <div>
+              <Label className="text-[13px] font-semibold">Elaboradores</Label>
+              <div className="mt-1.5">
+                <UserMultiPicker users={usuarios} value={revElaboradores} onChange={setRevElaboradores}
+                  placeholder="Quem elaborou esta revisão" accentClass="bg-amber-500 border-amber-500" />
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Vínculo por pessoa, e não texto solto — é o que permite responder depois
+                &ldquo;que documentos o fulano elaborou&rdquo;.
+              </p>
             </div>
             <div>
               <Label className="text-[13px] font-semibold">O que mudou</Label>

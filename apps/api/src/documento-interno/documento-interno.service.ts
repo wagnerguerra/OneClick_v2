@@ -277,6 +277,18 @@ export class DocumentoInternoService {
     return { id }
   }
 
+  /**
+   * Usuários para o seletor de elaboradores. Endpoint próprio do módulo, e não
+   * emprestado de outro: quem cadastra documento não precisa ter Orçamentos.
+   */
+  async listarUsuarios(empresaId?: string | null) {
+    return prisma.user.findMany({
+      where: empresaId ? { empresaId } : {},
+      select: { id: true, name: true, email: true, image: true },
+      orderBy: { name: 'asc' },
+    })
+  }
+
   // ── Tipos de documento (cadastro) ─────────────────────────
 
   async listarTipos(empresaId?: string | null, incluirInativos = false) {

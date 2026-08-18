@@ -9,6 +9,7 @@ import {
   RichEditor,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { UserMultiPicker } from '@/components/user-multi-picker'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
@@ -16,6 +17,7 @@ import { alerts } from '@/lib/alerts'
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 
 interface Opcao { id: string; nome: string }
+interface Usuario { id: string; name: string; email: string | null; image: string | null }
 
 /**
  * Cadastro do documento — que já nasce com a revisão 0 e o seu arquivo.
@@ -26,6 +28,8 @@ export default function NovoDocumentoInternoPage() {
   const router = useRouter()
   const [tipos, setTipos] = useState<Opcao[]>([])
   const [processos, setProcessos] = useState<Opcao[]>([])
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [elaboradores, setElaboradores] = useState<string[]>([])
 
   const [nome, setNome] = useState('')
   const [tipoId, setTipoId] = useState('')
@@ -40,6 +44,7 @@ export default function NovoDocumentoInternoPage() {
   useEffect(() => {
     ;(trpc.documentoInterno as any).listarTipos.query({}).then(setTipos).catch(() => setTipos([]))
     ;(trpc.documentoInterno as any).listarProcessos.query({}).then(setProcessos).catch(() => setProcessos([]))
+    ;(trpc.documentoInterno as any).listarUsuarios.query().then(setUsuarios).catch(() => setUsuarios([]))
   }, [])
 
   async function salvar() {
@@ -64,7 +69,7 @@ export default function NovoDocumentoInternoPage() {
         bytes: arquivo.size,
         alteracao: alteracao || undefined,
         justificativa: justificativa || undefined,
-        elaboradores: [],
+        elaboradores: elaboradores.map((id) => ({ usuarioId: id })),
       }) as { id: string }
 
       alerts.success('Documento cadastrado', 'A revisão 0 foi criada.')
@@ -133,6 +138,13 @@ export default function NovoDocumentoInternoPage() {
               <span className="text-xs text-muted-foreground truncate">{arquivo?.name ?? 'Nenhum arquivo escolhido'}</span>
               <input ref={fileRef} type="file" className="hidden"
                 onChange={(e) => { setArquivo(e.target.files?.[0] ?? null); e.target.value = '' }} />
+            </div>
+          </div>
+          <div className="col-span-12">
+            <Label className="text-[13px] font-semibold">Elaboradores</Label>
+            <div className="mt-1.5">
+              <UserMultiPicker users={usuarios} value={elaboradores} onChange={setElaboradores}
+                placeholder="Quem elaborou o documento" accentClass="bg-amber-500 border-amber-500" />
             </div>
           </div>
           <div className="col-span-12">

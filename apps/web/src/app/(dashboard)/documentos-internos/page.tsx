@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, FileText, Trash2, Pencil, Download, Loader2,
+  Plus, FileText, Trash2, Pencil, Download, Loader2, Settings,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
@@ -130,6 +130,11 @@ export default function DocumentosInternosPage() {
           {podeGerenciar && (
             <Button variant="success" size="sm" asChild>
               <Link href="/documentos-internos/new"><Plus className="h-4 w-4" />Novo Documento</Link>
+            </Button>
+          )}
+          {podeGerenciar && (
+            <Button variant="outline" size="icon-sm" asChild title="Tipos e processos">
+              <Link href="/documentos-internos/configuracoes"><Settings className="h-4 w-4" /></Link>
             </Button>
           )}
         </div>
