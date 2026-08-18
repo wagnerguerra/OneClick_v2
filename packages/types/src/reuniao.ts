@@ -8,15 +8,16 @@ import { paginationSchema } from './pagination'
  * plano de ação que saiu dela. Ver docs/migracao-reunioes-v1.md.
  */
 
-/** Os três valores que o v1 tinha chumbados no `<select>`, sem tabela de apoio. */
-export const reuniaoTipoSchema = z.enum(['ANALISE_CRITICA', 'SETORIAL', 'OUTROS'])
-export type ReuniaoTipo = z.infer<typeof reuniaoTipoSchema>
+// O tipo da reunião (Análise Crítica, Setorial, Outros…) é CADASTRO, e não
+// lista fixa — mesma decisão dos tipos de documento e dos métodos de
+// capacitação. Por isso entra e sai daqui como `tipoId`.
 
-export const REUNIAO_TIPO_LABEL: Record<ReuniaoTipo, string> = {
-  ANALISE_CRITICA: 'Análise Crítica',
-  SETORIAL: 'Setorial',
-  OUTROS: 'Outros',
-}
+/** Cadastro de tipo — mesmo formato dos outros módulos da Qualidade. */
+export const reuniaoTipoInputSchema = z.object({
+  nome: z.string().min(2).max(160),
+  ordem: z.number().int().nonnegative().default(0),
+  ativo: z.boolean().default(true),
+})
 
 export const reuniaoAcaoStatusSchema = z.enum(['PENDENTE', 'CONCLUIDA'])
 export type ReuniaoAcaoStatus = z.infer<typeof reuniaoAcaoStatusSchema>
@@ -39,7 +40,7 @@ export const reuniaoParticipanteSchema = z.object({
 )
 
 export const criarReuniaoSchema = z.object({
-  tipo: reuniaoTipoSchema.default('OUTROS'),
+  tipoId: z.string().optional().nullable(),
   titulo: z.string().min(3, 'Dê um título à reunião.').max(200),
   clienteId: z.string().optional().nullable(),
   areaId: z.string().optional().nullable(),
@@ -61,7 +62,7 @@ export const atualizarReuniaoSchema = criarReuniaoSchema.partial().extend({
 })
 
 export const listarReunioesSchema = paginationSchema.extend({
-  tipo: reuniaoTipoSchema.optional(),
+  tipoId: z.string().optional(),
   clienteId: z.string().optional(),
   areaId: z.string().optional(),
   /** Recorte por período da reunião — o filtro que o v1 não tinha. */
@@ -107,6 +108,7 @@ export const listarMinhasAcoesSchema = paginationSchema.extend({
 export type CriarReuniaoInput = z.infer<typeof criarReuniaoSchema>
 export type AtualizarReuniaoInput = z.infer<typeof atualizarReuniaoSchema>
 export type ListarReunioesInput = z.infer<typeof listarReunioesSchema>
+export type ReuniaoTipoInput = z.infer<typeof reuniaoTipoInputSchema>
 export type CriarReuniaoAcaoInput = z.infer<typeof criarReuniaoAcaoSchema>
 export type AtualizarReuniaoAcaoInput = z.infer<typeof atualizarReuniaoAcaoSchema>
 export type ConcluirReuniaoAcaoInput = z.infer<typeof concluirReuniaoAcaoSchema>

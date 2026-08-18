@@ -266,4 +266,19 @@ export class UploadController {
     }
     res.sendFile(filePath)
   }
+
+  /** Serve os anexos das reuniões migradas do v1 (`sgq_reu_arq` → /files/sgq_reunioes). */
+  @Get('reunioes-legado/:filename')
+  serveReuniaoLegado(@Param('filename') filename: string, @Res() res: Response) {
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      res.status(400).json({ message: 'Nome inválido.' })
+      return
+    }
+    const filePath = join(UPLOADS_DIR, 'reunioes-legado', filename)
+    if (!existsSync(filePath)) {
+      res.status(404).json({ message: 'Arquivo não encontrado.' })
+      return
+    }
+    res.sendFile(filePath)
+  }
 }

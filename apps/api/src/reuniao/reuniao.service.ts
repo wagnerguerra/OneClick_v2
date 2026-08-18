@@ -3,7 +3,7 @@ import { prisma, getPrismaSkipTake, buildPaginatedResponse } from '@saas/db'
 import type {
   CriarReuniaoInput, AtualizarReuniaoInput, ListarReunioesInput,
   CriarReuniaoAcaoInput, AtualizarReuniaoAcaoInput, ConcluirReuniaoAcaoInput,
-  ListarMinhasAcoesInput,
+  ListarMinhasAcoesInput, ReuniaoTipoInput,
 } from '@saas/types'
 
 /**
@@ -40,7 +40,7 @@ export class ReuniaoService {
 
     const filtros: Record<string, unknown>[] = []
 
-    if (input.tipo) filtros.push({ tipo: input.tipo })
+    if (input.tipoId) filtros.push({ tipoId: input.tipoId })
     if (input.clienteId) filtros.push({ clienteId: input.clienteId })
     if (input.areaId) filtros.push({ areaId: input.areaId })
 
@@ -89,7 +89,8 @@ export class ReuniaoService {
         skip,
         take,
         select: {
-          id: true, numero: true, tipo: true, titulo: true, data: true,
+          id: true, numero: true, titulo: true, data: true,
+          tipo: { select: { id: true, nome: true } },
           horaInicio: true, horaFim: true, local: true,
           cliente: { select: { id: true, razaoSocial: true } },
           area: { select: { id: true, name: true } },
@@ -160,6 +161,7 @@ export class ReuniaoService {
     const r = await prisma.reuniao.findFirst({
       where: { id, empresaId: empresaId ?? null },
       include: {
+        tipo: { select: { id: true, nome: true } },
         cliente: { select: { id: true, razaoSocial: true, documento: true } },
         area: { select: { id: true, name: true } },
         autor: { select: { id: true, name: true, image: true } },
@@ -186,7 +188,7 @@ export class ReuniaoService {
     const reuniao = await prisma.reuniao.create({
       data: {
         empresaId: empresaId ?? null,
-        tipo: input.tipo,
+        tipoId: input.tipoId || null,
         titulo: input.titulo.trim(),
         clienteId: input.clienteId || null,
         areaId: input.areaId || null,
@@ -213,7 +215,7 @@ export class ReuniaoService {
       await tx.reuniao.update({
         where: { id },
         data: {
-          ...(campos.tipo !== undefined ? { tipo: campos.tipo } : {}),
+          ...(campos.tipoId !== undefined ? { tipoId: campos.tipoId || null } : {}),
           ...(campos.titulo !== undefined ? { titulo: campos.titulo.trim() } : {}),
           ...(campos.clienteId !== undefined ? { clienteId: campos.clienteId || null } : {}),
           ...(campos.areaId !== undefined ? { areaId: campos.areaId || null } : {}),
@@ -406,6 +408,59 @@ export class ReuniaoService {
     if (m.autorId !== usuarioId) throw new Error('Só o autor pode apagar a própria mensagem.')
     await prisma.reuniaoMensagem.delete({ where: { id } })
     return { id }
+  }
+
+  // ── Tipos (cadastro) ──────────────────────────────────────
+
+  async listarTipos(empresaId?: string | null, incluirInativos = false) {
+    return prisma.reuniaoTipo.findMany({
+      where: { empresaId: empresaId ?? null, ...(incluirInativos ? {} : { ativo: true }) },
+      orderBy: [{ ordem: 'asc' }, { nome: 'asc' }],
+    })
+  }
+
+  async criarTipo(input: ReuniaoTipoInput, empresaId?: string | null) {
+    return prisma.reuniaoTipo.create({
+      data: { empresaId: empresaId ?? null, nome: input.nome.trim(), ordem: input.ordem, ativo: input.ativo },
+      select: { id: true },
+    })
+  }
+
+  async atualizarTipo(id: string, input: Partial<ReuniaoTipoInput>, empresaId?: string | null) {
+    const t = await prisma.reuniaoTipo.findFirst({ where: { id, empresaId: empresaId ?? null }, select: { id: true } })
+    if (!t) throw new Error('Tipo não encontrado.')
+    return prisma.reuniaoTipo.update({
+      where: { id },
+      data: {
+        ...(input.nome !== undefined ? { nome: input.nome.trim() } : {}),
+        ...(input.ordem !== undefined ? { ordem: input.ordem } : {}),
+        ...(input.ativo !== undefined ? { ativo: input.ativo } : {}),
+      },
+      select: { id: true },
+    })
+  }
+
+  /** Clientes para o seletor — 264 das 281 reuniões do v1 tinham cliente. */
+  async listarClientes(empresaId?: string | null) {
+    return prisma.cliente.findMany({
+      where: {
+        // Mesmo escopo frouxo do import: no snapshot de dev parte das linhas da
+        // Central ainda esta com empresa_id nulo.
+        OR: [{ empresaId: empresaId ?? undefined }, { empresaId: null }],
+        status: { not: 'INATIVA' },
+      },
+      select: { id: true, razaoSocial: true, documento: true },
+      orderBy: { razaoSocial: 'asc' },
+    })
+  }
+
+  /** Usuários para os seletores de participante e de responsável pela ação. */
+  async listarUsuarios(empresaId?: string | null) {
+    return prisma.user.findMany({
+      where: empresaId ? { empresaId } : {},
+      select: { id: true, name: true, email: true, image: true },
+      orderBy: { name: 'asc' },
+    })
   }
 
   // ── Internos ──────────────────────────────────────────────

@@ -82,6 +82,14 @@ const chaveNome = (s) => String(s || '')
   })
   const prisma = new PrismaClient()
 
+  // Escopo do tenant: `empresaId` da Central OU nulo. Nao e frouxidao — no
+  // snapshot de dev parte das linhas da Central ainda esta com empresa_id
+  // NULO (backfill antigo pela metade), enquanto em producao esta etiquetada.
+  // Filtrar so por EMP perde metade dos usuarios no dev; incluir NULO cobre os
+  // dois ambientes e nunca alcanca outro tenant, que sempre tem id proprio.
+  // Prisma nao aceita null dentro de `in` — daí o OR.
+  const ESCOPO_EMPRESA = { OR: [{ empresaId: EMP }, { empresaId: null }] }
+
   // ── Mapa de usuários: v1 (ger_cad_usu) → v2 (users), casado por nome ──
   const [usuariosV1] = await my.query('SELECT CAD_USU_ID id, CAD_USU_NOME nome, CAD_USU_EMAIL email FROM ger_cad_usu')
   // SÓ os usuários da empresa de destino. Sem este filtro o casamento por nome
@@ -90,7 +98,7 @@ const chaveNome = (s) => String(s || '')
   // estes ids são soltos (sem FK), o registro entraria apontando para o nada,
   // sem erro nenhum: pior que falhar.
   const usuariosV2 = await prisma.user.findMany({
-    where: { empresaId: EMP },
+    where: ESCOPO_EMPRESA,
     select: { id: true, name: true, email: true },
   })
   const porNome = new Map(usuariosV2.map((u) => [chaveNome(u.name), u.id]))

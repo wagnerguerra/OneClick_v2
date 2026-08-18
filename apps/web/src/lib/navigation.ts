@@ -283,7 +283,7 @@ export const navigation: NavGroup[] = [
       { label: 'Não Conformidades', href: '/nao-conformidades', icon: AlertTriangle, wip: true },
       { label: 'Painel da Qualidade', href: '/qualidade', icon: BarChart3, wip: true },
       { label: 'Reclamações', href: '/reclamacoes', icon: MessageSquare },
-      { label: 'Reuniões', href: '/reunioes', icon: Video, wip: true },
+      { label: 'Reuniões', href: '/reunioes', icon: Video },
       { label: 'Sugestões', href: '/sugestoes', icon: Lightbulb },
       { label: 'Tabelas de Registros', href: '/tabelas-registros', icon: Table2, wip: true },
     ],

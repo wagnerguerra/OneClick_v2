@@ -9,6 +9,21 @@
 
 BEGIN;
 
+-- ── Tipos de reunião ────────────────────────────────────────
+-- Cadastro, e nao lista fixa: no v1 os tres valores estavam chumbados no
+-- <select> do create.asp e acrescentar um exigia mexer no codigo.
+CREATE TABLE IF NOT EXISTS "reuniao_tipos" (
+  "id"         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  "empresa_id" TEXT,
+  "legacy_id"  INTEGER,
+  "nome"       TEXT NOT NULL,
+  "ordem"      INTEGER NOT NULL DEFAULT 0,
+  "ativo"      BOOLEAN NOT NULL DEFAULT true,
+  "criado_em"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS "reuniao_tipos_empresa_id_ativo_idx" ON "reuniao_tipos" ("empresa_id", "ativo");
+CREATE INDEX IF NOT EXISTS "reuniao_tipos_legacy_id_idx"        ON "reuniao_tipos" ("legacy_id");
+
 -- ── Reunião (sgq_reu) ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "reunioes" (
   "id"            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -16,8 +31,7 @@ CREATE TABLE IF NOT EXISTS "reunioes" (
   -- Número visível. Nos migrados é o sgq_reu.id do v1, para o pessoal continuar
   -- achando a reunião pelo número que já conhece.
   "numero"        INTEGER,
-  -- ANALISE_CRITICA | SETORIAL | OUTROS (os 3 valores chumbados no <select> do v1)
-  "tipo"          TEXT NOT NULL DEFAULT 'OUTROS',
+  "tipo_id"       TEXT,
   "titulo"        TEXT NOT NULL,
   "cliente_id"    TEXT,
   "area_id"       TEXT,
@@ -32,8 +46,13 @@ CREATE TABLE IF NOT EXISTS "reunioes" (
   "atualizado_em" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Convergência: ambiente que rodou a versao anterior, com `tipo` como texto.
+ALTER TABLE "reunioes" ADD COLUMN IF NOT EXISTS "tipo_id" TEXT;
+ALTER TABLE "reunioes" DROP COLUMN IF EXISTS "tipo";
+DROP INDEX IF EXISTS "reunioes_empresa_id_tipo_data_idx";
+
 CREATE INDEX IF NOT EXISTS "reunioes_empresa_id_data_idx"      ON "reunioes" ("empresa_id", "data");
-CREATE INDEX IF NOT EXISTS "reunioes_empresa_id_tipo_data_idx" ON "reunioes" ("empresa_id", "tipo", "data");
+CREATE INDEX IF NOT EXISTS "reunioes_empresa_id_tipo_id_data_idx" ON "reunioes" ("empresa_id", "tipo_id", "data");
 CREATE INDEX IF NOT EXISTS "reunioes_cliente_id_idx"           ON "reunioes" ("cliente_id");
 
 -- ── Participantes ────────────────────────────────────────────
@@ -163,6 +182,14 @@ DO $$ BEGIN
     FOREIGN KEY ("reuniao_id") REFERENCES "reunioes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
+
+-- ── Convergência ────────────────────────────────────────────
+-- Cobre ambiente que rodou a versao anterior deste script, quando `tipo` era
+-- texto. Nada e migrado aqui: o modulo nao tem dado em producao ainda.
+DO $$ BEGIN
+  ALTER TABLE "reunioes" ADD CONSTRAINT "reunioes_tipo_id_fkey"
+    FOREIGN KEY ("tipo_id") REFERENCES "reuniao_tipos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- ── Defaults de `atualizado_em` ──────────────────────────────
 -- O `@updatedAt` do Prisma é aplicado pelo CLIENTE, não pelo banco: quando a

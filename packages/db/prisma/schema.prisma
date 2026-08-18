@@ -7818,6 +7818,29 @@ model ManifestacaoLog {
 // Ver docs/migracao-reunioes-v1.md para o levantamento do legado.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Tipo de reunião: Análise Crítica, Setorial, Outros…
+///
+/// Virou cadastro pela mesma razão dos tipos de documento e dos métodos de
+/// capacitação: no v1 os três valores estavam chumbados no `<select>` do
+/// `create.asp`, sem tabela, e acrescentar um exigia mexer no código.
+model ReuniaoTipo {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  /// 1 = Análise Crítica, 2 = Setorial, 3 = Outros (os valores do v1).
+  legacyId  Int?    @map("legacy_id")
+  nome      String
+  ordem     Int     @default(0)
+  ativo     Boolean @default(true)
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  reunioes Reuniao[]
+
+  @@index([empresaId, ativo])
+  @@index([legacyId])
+  @@map("reuniao_tipos")
+}
+
 /// Reunião registrada pela Qualidade: pauta, ata, participantes e plano de ação.
 model Reuniao {
   id        String  @id @default(cuid())
@@ -7826,9 +7849,7 @@ model Reuniao {
   /// pessoal continue achando a reunião pelo número que já usa.
   numero    Int?
 
-  /// ANALISE_CRITICA | SETORIAL | OUTROS — os três valores que o v1 tinha
-  /// chumbados no `<select>`, sem tabela de apoio.
-  tipo   String  @default("OUTROS")
+  tipoId String? @map("tipo_id")
   titulo String
   /// 264 das 281 reuniões do v1 têm cliente: este módulo é, na prática,
   /// registro de reunião COM cliente, não só de reunião interna.
@@ -7850,6 +7871,7 @@ model Reuniao {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
+  tipo          ReuniaoTipo?          @relation(fields: [tipoId], references: [id], onDelete: SetNull)
   cliente       Cliente?              @relation(fields: [clienteId], references: [id], onDelete: SetNull)
   area          Area?                 @relation(fields: [areaId], references: [id], onDelete: SetNull)
   autor         User?                 @relation("ReuniaoAutor", fields: [autorId], references: [id], onDelete: SetNull)
@@ -7860,7 +7882,7 @@ model Reuniao {
   logs          ReuniaoLog[]
 
   @@index([empresaId, data])
-  @@index([empresaId, tipo, data])
+  @@index([empresaId, tipoId, data])
   @@index([clienteId])
   @@map("reunioes")
 }

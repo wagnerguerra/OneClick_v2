@@ -6,7 +6,7 @@ import {
 import {
   criarReuniaoSchema, atualizarReuniaoSchema, listarReunioesSchema,
   criarReuniaoAcaoSchema, atualizarReuniaoAcaoSchema, concluirReuniaoAcaoSchema,
-  listarMinhasAcoesSchema,
+  listarMinhasAcoesSchema, reuniaoTipoInputSchema,
 } from '@saas/types'
 import { ReuniaoService } from './reuniao.service'
 
@@ -107,6 +107,28 @@ export function createReuniaoRouter(service: ReuniaoService) {
           isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster,
         }),
       })),
+
+    // ── Tipos (cadastro) ──
+    listarTipos: readProcedure(MODULE)
+      .input(z.object({ incluirInativos: z.boolean().default(false) }).optional())
+      .query(({ input, ctx }) => service.listarTipos(ctx.empresaId, input?.incluirInativos ?? false)),
+
+    criarTipo: writeSubProcedure(MODULE, 'registrar', 'Registrar reunioes')
+      .input(reuniaoTipoInputSchema)
+      .mutation(({ input, ctx }) => service.criarTipo(input, ctx.empresaId)),
+
+    atualizarTipo: writeProcedure(MODULE)
+      .input(reuniaoTipoInputSchema.partial().extend({ id: z.string().min(1) }))
+      .mutation(({ input, ctx }) => {
+        const { id, ...resto } = input
+        return service.atualizarTipo(id, resto, ctx.empresaId)
+      }),
+
+    listarUsuarios: readProcedure(MODULE)
+      .query(({ ctx }) => service.listarUsuarios(ctx.empresaId)),
+
+    listarClientes: readProcedure(MODULE)
+      .query(({ ctx }) => service.listarClientes(ctx.empresaId)),
 
     // ── Mensagens ──
     adicionarMensagem: writeProcedure(MODULE)

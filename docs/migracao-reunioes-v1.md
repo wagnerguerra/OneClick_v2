@@ -101,36 +101,42 @@ O mesmo padrão aparece nas ações: `sgq_reu_aca.responsavel` é `varchar` pree
 `ReuniaoMensagem`, `ReuniaoLog`) + `packages/db/prisma/sql/add_reunioes.sql`, aditivo e
 idempotente (aplicado 2× no dev, 6 tabelas e 10 FKs).
 
-### Fase 2 — Backend
+### Fase 2 — Backend ✅ (17/08/2026)
 Módulo NestJS + router tRPC: CRUD da reunião, participantes, ações (com conclusão), mensagens,
-anexos e log. Permissão `reunioes` no catálogo, no mesmo formato de `elogios`/`reclamacoes`/
-`sugestoes`. Listagem paginada server-side pelo helper padrão.
+anexos e log. Sub-permissões `registrar` / `ver_todas` / `gerenciar_acoes` / `excluir`.
 
-### Fase 3 — Interface
-Listagem no padrão dos módulos (header inline de `/orcamentos`, tabela server-side, filtros por
-tipo/cliente/período) e detalhe com as abas Geral / Ações / Mensagens / Anexos / Atividades, no
-padrão de sub-abas com pills laterais. Pauta e ata em `RichEditor`.
+### Fase 3 — Interface ✅ (19/08/2026)
+Listagem (filtro por tipo e "Com ação pendente", com farol de vencidas derivado no backend),
+cadastro (participantes por ID + convidados externos por nome), detalhe (pauta/ata em
+`RichEditor`, plano de ação com concluir/reabrir, mensagens, anexos, trilha) e o cadastro de
+tipos em `/reunioes/configuracoes`. Item saiu de `wip` no menu.
 
-### Fase 4 — Painel de ações
-A contagem de ações vencidas que o v1 mostrava no menu, agora como indicador de verdade: ações
-por responsável, farol de prazo e a pergunta que o v1 não respondia — *o que ficou pendente das
-últimas reuniões*.
+### Fase 4 — Painel de ações ✅ (19/08/2026)
+`/reunioes/acoes`: a contagem que o v1 mostrava como número solto no menu, agora respondendo
+*de quem* e *de qual reunião*. Por padrão as ações do próprio usuário; `ver_todas` abre para a
+equipe; concluir direto da lista.
 
-### Fase 5 — Migração dos dados
-Importa as 262 reuniões ativas, ações, anexos, mensagens e log. Participantes por ID quando der
-match; o resto como nome, com relatório de não-casados. Só depois disso o v1 é desativado, pelo
-procedimento de [[v1-desativacao-sempre-com-alert]] (aviso na tela + botão desabilitado +
-bloqueio server-side em `create.asp`).
+### Fase 5 — Migração dos dados ✅ (19/08/2026)
+262 reuniões, 1.291 participantes (636 por ID, 655 por nome — juntando os DOIS mecanismos do
+v1: a tabela `sgq_reu_par` e o longtext, com dedupe por pessoa), 26 ações (as outras 114 do
+total estão soft-deletadas no v1 e ficam de fora), 2 anexos com arquivo em disco (10 dos 12
+apontam para arquivo que sumiu), 1 mensagem. Cliente casado por CNPJ em 221; área herdada do
+setor do autor em todas as 262 — que era exatamente como o v1 derivava a área.
 
 ---
 
-## 5. Pontos a decidir com o Wagner
+## 5. Decisões aplicadas
 
-1. **Área da reunião.** O v1 derivava do setor de quem registrou (`ger_cad_set` via
-   `ger_cad_usu.cad_usu_setor`). Deixei `area_id` explícito no modelo — na migração, herdar do
-   autor ou deixar vazio?
-2. **Ligação com a Agenda.** O v2 já tem `/agenda` com tipos de evento. Uma reunião registrada
-   poderia gerar (ou casar com) um evento da agenda. Não está na Fase 1; é ganho real, mas muda
-   o escopo.
-3. **Tipos de reunião.** Mantive os três do v1 como valor de texto. Se a ideia é o pessoal
-   cadastrar tipos novos, vira tabela de apoio — melhor decidir antes da Fase 3.
+1. **Área da reunião** — herdada do setor do autor na migração (como o v1 derivava), casando o
+   nome do `ger_cad_set` contra as Áreas do v2. Na tela nova o campo é explícito.
+2. **Tipos de reunião** — viraram cadastro (`reuniao_tipos`), pela mesma decisão do Wagner nos
+   tipos de documento e métodos de capacitação. Os três do v1 entram pela migração.
+3. **Ligação com a Agenda** — fora do escopo deste port; fica como evolução futura.
+
+## 6. Achado importante do snapshot de dev
+
+O escopo por empresa nos imports precisa ser `empresaId = EMP **ou nulo**`: no snapshot de dev
+parte das linhas da Central (30 usuários, todas as áreas, 761 clientes) ainda está com
+`empresa_id` nulo — backfill antigo pela metade — enquanto em produção está tudo etiquetado.
+Filtrar só por EMP perdia metade dos casamentos no dev (área ficava 0/262, cliente 90/247) sem
+nunca falhar. Vale para os três scripts de import de legado.

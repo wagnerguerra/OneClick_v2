@@ -78,11 +78,19 @@ const MIME = { pdf: 'application/pdf', doc: 'application/msword', png: 'image/pn
   })
   const prisma = new PrismaClient()
 
+  // Escopo do tenant: `empresaId` da Central OU nulo. Nao e frouxidao — no
+  // snapshot de dev parte das linhas da Central ainda esta com empresa_id
+  // NULO (backfill antigo pela metade), enquanto em producao esta etiquetada.
+  // Filtrar so por EMP perde metade dos usuarios no dev; incluir NULO cobre os
+  // dois ambientes e nunca alcanca outro tenant, que sempre tem id proprio.
+  // Prisma nao aceita null dentro de `in` — daí o OR.
+  const ESCOPO_EMPRESA = { OR: [{ empresaId: EMP }, { empresaId: null }] }
+
   // Mapa de usuários v1 → v2, SÓ da empresa de destino (sem este filtro o
   // casamento por nome pega gente de outro tenant — ver o incidente de 18/08).
   const [usuariosV1] = await my.query('SELECT CAD_USU_ID id, CAD_USU_NOME nome, CAD_USU_EMAIL email FROM ger_cad_usu')
   const usuariosV2 = await prisma.user.findMany({
-    where: { empresaId: EMP },
+    where: ESCOPO_EMPRESA,
     select: { id: true, name: true, email: true },
   })
   const chave = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
