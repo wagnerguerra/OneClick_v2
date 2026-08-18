@@ -436,6 +436,7 @@ model Area {
   @@map("areas")
   manifestacoes Manifestacao[]
   reunioes      Reuniao[]
+  melhorias     Melhoria[]
 }
 
 // ============================================================
@@ -8341,4 +8342,47 @@ model CapacitacaoLog {
 
   @@index([capacitacaoId])
   @@map("capacitacao_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MELHORIAS (Qualidade) — port do `sgq_melhorias` do OneClick v1.
+// Ver docs/migracao-melhorias-v1.md.
+//
+// Módulo deliberadamente pequeno: o v1 tem UMA tabela sem satélites (nem log,
+// nem anexo), 2 registros ativos, e a listagem soma as compras marcadas como
+// melhoria — que já vivem aqui em `Compra.melhoria`. Dimensionar mais que isso
+// seria inventar sistema que ninguém pediu.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Oportunidade de melhoria registrada pela Qualidade.
+model Melhoria {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+
+  titulo    String
+  /// HTML do RichEditor (no v1, CKEditor).
+  descricao String? @db.Text
+
+  /// "Área de Aplicação" — no v1, o setor.
+  areaId String? @map("area_id")
+
+  /// Data prevista para a melhoria acontecer ("dt_melhoria" do v1).
+  previstaPara DateTime? @map("prevista_para") @db.Date
+
+  /// REGISTRADA | IMPLEMENTADA | CANCELADA. O v1 não tinha ciclo nenhum: a
+  /// data prevista existia e ninguém conseguia dizer "feito". É o único
+  /// acréscimo de comportamento do port.
+  status          String    @default("REGISTRADA")
+  implementadaEm  DateTime? @map("implementada_em") @db.Date
+
+  autorId  String?  @map("autor_id")
+  criadoEm DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  area Area? @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
+  @@index([empresaId, status])
+  @@index([legacyId])
+  @@map("melhorias")
 }
