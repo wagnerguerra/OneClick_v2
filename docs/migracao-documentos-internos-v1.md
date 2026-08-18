@@ -155,7 +155,25 @@ procedimento de [[v1-desativacao-sempre-com-alert]].
    *cabeçalho* do documento (nome, tipo, processo). É o que a ISO espera — corrigir por baixo
    apagaria a rastreabilidade de quem aprovou o quê. Revisão aprovada também não se cancela.
 
-## 7. Ainda em aberto
+## 7. Desativação do v1 ✅ (18/08/2026)
+
+Feita depois de a carga estar validada em produção (67 documentos, 265 revisões, 265 arquivos
+baixando). Pelo procedimento de [[v1-desativacao-sempre-com-alert]]: aviso na tela, botões
+desabilitados e bloqueio server-side.
+
+Foram **sete** pontos de gravação, e não dois: além de `create.asp`/`create-send.asp`, a
+**revisão** (`revisar.asp`/`revisar-send.asp`, em `adm/` e `apr/`) também cria registro novo em
+`sgq_doc` — é justamente como o v1 versiona. Bloquear só a criação deixaria a porta principal
+aberta.
+
+Na interface: o botão "Novo Documento" e o link de revisar de cada linha da tabela, nos dois
+perfis. Nenhuma outra raiz do site grava em `sgq_doc`.
+
+> Achado do caminho: **`adm/create.asp` tem 0 bytes**. O botão "Novo Documento" do perfil de
+> administração já apontava para uma página em branco — quem criava documento pelo v1 usava o
+> perfil `apr/`. Não é dano da desativação; é o estado em que o módulo estava.
+
+## 8. Ainda em aberto
 
 - **Os 7 documentos com número de revisão repetido** (§4). São provavelmente erro de
   lançamento do v1; vale o Wagner olhar e decidir se corrige na origem antes do corte.
