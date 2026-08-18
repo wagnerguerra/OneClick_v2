@@ -243,4 +243,27 @@ export class UploadController {
     }
     res.sendFile(filePath)
   }
+
+  /**
+   * Serve os anexos das capacitações migradas do v1 (`sgq_cap_arq.LINK` →
+   * `wwwroot/files/sgq_capacitacoes`). Nome do v1 preservado, como nas demais
+   * pastas de legado.
+   *
+   * Cada pasta de legado precisa da SUA rota: o `:filename` da rota genérica
+   * não casa caminho com barra, então sem este método o anexo existe em disco
+   * e a tela recebe 404 — foi o que aconteceu na carga de 18/08/2026.
+   */
+  @Get('capacitacoes-legado/:filename')
+  serveCapacitacaoLegado(@Param('filename') filename: string, @Res() res: Response) {
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      res.status(400).json({ message: 'Nome inválido.' })
+      return
+    }
+    const filePath = join(UPLOADS_DIR, 'capacitacoes-legado', filename)
+    if (!existsSync(filePath)) {
+      res.status(404).json({ message: 'Arquivo não encontrado.' })
+      return
+    }
+    res.sendFile(filePath)
+  }
 }
