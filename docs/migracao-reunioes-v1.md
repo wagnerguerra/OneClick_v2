@@ -133,7 +133,24 @@ setor do autor em todas as 262 — que era exatamente como o v1 derivava a área
    tipos de documento e métodos de capacitação. Os três do v1 entram pela migração.
 3. **Ligação com a Agenda** — fora do escopo deste port; fica como evolução futura.
 
-## 6. Achado importante do snapshot de dev
+## 6. Produção e desativação do v1 ✅ (19/08/2026)
+
+Carga aplicada e conferida em produção: 3 tipos, 262 reuniões (**237 com cliente** — mais que
+no dev, porque produção tem mais clientes cadastrados), 262 com área, 1.291 participantes,
+26 ações (17 pendentes), 2 anexos, 1 mensagem. Zero órfãos de usuário, cliente ou área.
+
+O **cliente é resolvido no ambiente de destino** por subselect de CNPJ, e não embutido no SQL:
+sete clientes existiam no snapshot de dev com um id e em produção com outro — o id embutido
+entraria apontando para o nada, sem erro nenhum.
+
+**v1 desativado** pelo procedimento padrão: aviso na tela, botão desabilitado e bloqueio
+server-side no `create.asp` (único ponto de gravação em `sgq_reu`; o módulo não tem
+subpastas de perfil e nenhuma outra raiz do site grava na tabela).
+
+> Os 2 anexos migrados só baixam em produção **depois do próximo deploy** — a rota
+> `reunioes-legado` é código novo (commit 51b8b8f2).
+
+## 7. Achado importante do snapshot de dev
 
 O escopo por empresa nos imports precisa ser `empresaId = EMP **ou nulo**`: no snapshot de dev
 parte das linhas da Central (30 usuários, todas as áreas, 761 clientes) ainda está com

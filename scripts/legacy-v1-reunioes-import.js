@@ -111,16 +111,18 @@ const chave = (s) => String(s || '')
   }
   const setorDoUsuarioV1 = new Map(usuariosV1.map((u) => [Number(u.id), Number(u.setor)]))
 
-  // Clientes, casados por CNPJ (o v1 guarda o id do ger_cad_cli).
+  // Clientes: o v1 guarda o id do ger_cad_cli; daqui sai o CNPJ, e o SQL
+  // resolve o cliente NO AMBIENTE DE DESTINO por subselect. Embutir o id
+  // resolvido no dev quebrou em 19/08: sete clientes existiam no snapshot com
+  // um id e em producao com outro — o registro entraria apontando pro nada.
+  // Limpeza mantem alfanumericos (regra do CNPJ alfanumerico), nao so digitos.
   const [clientesV1] = await my.query("SELECT id, cad_cli_cnpj cnpj FROM ger_cad_cli")
-  const clientesV2 = await prisma.cliente.findMany({ where: ESCOPO_EMPRESA, select: { id: true, documento: true } })
-  const soDigitos = (s) => String(s || '').replace(/\D/g, '')
-  const cliPorDoc = new Map(clientesV2.map((c) => [soDigitos(c.documento), c.id]))
-  const cliV1ParaV2 = new Map()
-  for (const c of clientesV1) {
-    const id = cliPorDoc.get(soDigitos(c.cnpj))
-    if (id) cliV1ParaV2.set(Number(c.id), id)
-  }
+  const limpaDoc = (s) => String(s || '').toUpperCase().replace(/[^0-9A-Z]/g, '')
+  const cnpjDoClienteV1 = new Map(clientesV1.map((c) => [Number(c.id), limpaDoc(c.cnpj)]))
+  const subCliente = (cnpj) => cnpj
+    ? `(SELECT id FROM clientes WHERE regexp_replace(upper(coalesce(documento,'')),'[^0-9A-Z]','','g') = '${cnpj}'` +
+      ` AND (empresa_id = ${S(EMP)} OR empresa_id IS NULL) ORDER BY (empresa_id IS NOT NULL) DESC LIMIT 1)`
+    : 'NULL'
 
   const [reus] = await my.query(`
     SELECT id, tipo, cliente, titulo, usu_registro, dt_registro, data_reuniao, hora_inicio, hora_fim,
@@ -175,15 +177,15 @@ const chave = (s) => String(s || '')
     const setor = setorDoUsuarioV1.get(Number(r.usu_registro))
     const areaId = setor ? setorParaArea.get(setor) || null : null
     if (areaId) comArea++
-    const clienteId = cliV1ParaV2.get(Number(r.cliente)) || null
-    if (clienteId) comCliente++
+    const cnpjCli = Number(r.cliente) > 0 ? cnpjDoClienteV1.get(Number(r.cliente)) || null : null
+    if (cnpjCli) comCliente++
 
     sql.push(
       `INSERT INTO reunioes (id, empresa_id, numero, tipo_id, titulo, cliente_id, area_id, data,` +
       ` hora_inicio, hora_fim, local, pauta, ata, autor_id)` +
       ` SELECT gen_random_uuid()::text, ${S(EMP)}, ${N(r.id)},` +
       ` (SELECT id FROM reuniao_tipos WHERE legacy_id = ${N(r.tipo || 3)} AND empresa_id = ${S(EMP)}),` +
-      ` ${S(titulo)}, ${S(clienteId)}, ${S(areaId)}, ${S(data)}::date,` +
+      ` ${S(titulo)}, ${subCliente(cnpjCli)}, ${S(areaId)}, ${S(data)}::date,` +
       ` ${S(String(r.hora_inicio || '').slice(0, 5) || null)}, ${S(String(r.hora_fim || '').slice(0, 5) || null)},` +
       ` ${S(r.local)}, ${S(r.pauta)}, ${S(r.ata)}, ${S(uid(r.usu_registro))}` +
       ` WHERE NOT EXISTS (SELECT 1 FROM reunioes WHERE numero = ${N(r.id)} AND empresa_id = ${S(EMP)});`)
@@ -311,7 +313,7 @@ const chave = (s) => String(s || '')
   console.log('=== Reuniões — v1 → v2 ===')
   console.log(`tipos ........... ${TIPOS.length}`)
   console.log(`reuniões ........ ${reus.length - semData}${semData ? ` (${semData} sem data, puladas)` : ''}${semTitulo ? `  (${semTitulo} sem título no v1)` : ''}`)
-  console.log(`  com cliente ... ${comCliente} · com área herdada do setor do autor: ${comArea}`)
+  console.log(`  com CNPJ p/ resolver no destino: ${comCliente} · com área herdada do setor do autor: ${comArea}`)
   console.log(`participantes ... ${parPorId + parPorNome}  (${parPorId} por ID, ${parPorNome} só com nome)`)
   console.log(`ações ........... ${acoesOk}  (${acPorId} responsável por ID, ${acPorNome} só com nome)`)
   console.log(`anexos .......... ${arqOk}${arqSem ? `  (${arqSem} SEM arquivo em disco — fora da carga)` : ''}`)
