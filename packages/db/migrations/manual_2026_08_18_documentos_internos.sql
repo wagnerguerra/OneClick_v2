@@ -58,7 +58,12 @@ CREATE TABLE IF NOT EXISTS "documento_interno_versoes" (
   "criado_em"         TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "atualizado_em"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE UNIQUE INDEX IF NOT EXISTS "documento_interno_versoes_documento_id_revisao_key" ON "documento_interno_versoes" ("documento_id", "revisao");
+-- Indice NAO unico de proposito: em 7 documentos o v1 gravou duas linhas com o
+-- mesmo numero de revisao, e esse numero e o que sai impresso no documento em
+-- papel — renumerar quebraria a correspondencia com as copias que circulam.
+-- O drop cobre ambiente que chegou a receber a versao unique deste script.
+DROP INDEX IF EXISTS "documento_interno_versoes_documento_id_revisao_key";
+CREATE INDEX IF NOT EXISTS "documento_interno_versoes_documento_id_revisao_idx" ON "documento_interno_versoes" ("documento_id", "revisao");
 CREATE INDEX IF NOT EXISTS "documento_interno_versoes_documento_id_situacao_idx" ON "documento_interno_versoes" ("documento_id", "situacao");
 CREATE INDEX IF NOT EXISTS "documento_interno_versoes_legacy_id_idx" ON "documento_interno_versoes" ("legacy_id");
 

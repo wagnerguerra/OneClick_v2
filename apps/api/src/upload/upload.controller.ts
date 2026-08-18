@@ -223,4 +223,24 @@ export class UploadController {
     }
     res.sendFile(filePath)
   }
+
+  /**
+   * Serve os arquivos das revisões de documentos internos migrados do v1
+   * (`sgq_doc.link` → `wwwroot/files/sgq_documentos`). O nome do v1 é
+   * preservado (`sgq_doc_<hash>.<ext>`): já é único, deixa a importação
+   * idempotente e mantém o rastro até a linha de origem.
+   */
+  @Get('documentos-legado/:filename')
+  serveDocumentoLegado(@Param('filename') filename: string, @Res() res: Response) {
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      res.status(400).json({ message: 'Nome inválido.' })
+      return
+    }
+    const filePath = join(UPLOADS_DIR, 'documentos-legado', filename)
+    if (!existsSync(filePath)) {
+      res.status(404).json({ message: 'Arquivo não encontrado.' })
+      return
+    }
+    res.sendFile(filePath)
+  }
 }

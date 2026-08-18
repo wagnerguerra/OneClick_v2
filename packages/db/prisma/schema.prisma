@@ -8083,7 +8083,12 @@ model DocumentoInternoVersao {
   vigenteDe    DocumentoInterno?           @relation("VersaoVigente")
   elaboradores DocumentoInternoElaborador[]
 
-  @@unique([documentoId, revisao])
+  // NAO e unique de proposito. Em 7 documentos o v1 gravou duas linhas com o
+  // mesmo numero de revisao (ex.: mestre 10, revisao 0, linhas 10 e 24). Esse
+  // numero e o que sai impresso no rodape do documento em papel — renumerar
+  // aqui quebraria a correspondencia com as copias que circulam na empresa.
+  // Revisao criada pelo v2 nunca repete: o service numera pela ultima + 1.
+  @@index([documentoId, revisao])
   @@index([documentoId, situacao])
   @@index([legacyId])
   @@map("documento_interno_versoes")
