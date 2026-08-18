@@ -17,23 +17,46 @@ CREATE TABLE IF NOT EXISTS "documento_processos" (
 CREATE INDEX IF NOT EXISTS "documento_processos_empresa_id_ativo_idx" ON "documento_processos" ("empresa_id", "ativo");
 CREATE INDEX IF NOT EXISTS "documento_processos_legacy_id_idx"        ON "documento_processos" ("legacy_id");
 
+-- ── Tipo do documento (sgq_doc_cod) ─────────────────────────
+-- Cadastro, e não lista fixa: a relação cresce (Instrução de Trabalho,
+-- Política, Manual) e o pessoal precisa acrescentar sem passar por deploy.
+CREATE TABLE IF NOT EXISTS "documento_tipos" (
+  "id"         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  "empresa_id" TEXT,
+  "legacy_id"  INTEGER,
+  "nome"       TEXT NOT NULL,
+  "ordem"      INTEGER NOT NULL DEFAULT 0,
+  "ativo"      BOOLEAN NOT NULL DEFAULT true,
+  "criado_em"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS "documento_tipos_empresa_id_ativo_idx" ON "documento_tipos" ("empresa_id", "ativo");
+CREATE INDEX IF NOT EXISTS "documento_tipos_legacy_id_idx"        ON "documento_tipos" ("legacy_id");
+
 -- ── Documento (a identidade que atravessa as revisões) ───────
 CREATE TABLE IF NOT EXISTS "documentos_internos" (
   "id"              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "empresa_id"      TEXT,
   "legacy_id"       INTEGER,
   "nome"            TEXT NOT NULL,
-  -- PROCEDIMENTO | FORMULARIO | CORPORATIVO (sgq_doc_cod)
-  "tipo"            TEXT NOT NULL DEFAULT 'PROCEDIMENTO',
+  "tipo_id"         TEXT,
   "processo_id"     TEXT,
-  "responsavel_id"  TEXT,
   -- Ponteiro para a revisão vigente: é o que a listagem mostra e o que se baixa.
   "versao_atual_id" TEXT,
   "criado_em"       TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "atualizado_em"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+-- ── Convergência ────────────────────────────────────────────
+-- Cobre o ambiente que chegou a rodar a versão anterior deste script, quando
+-- `tipo` era texto e existia `responsavel_id`. O campo de responsável saiu por
+-- decisão do Wagner: no v1 ele estava zerado nas 265 linhas e ninguém sentiu
+-- falta em oito anos.
+ALTER TABLE "documentos_internos" ADD COLUMN IF NOT EXISTS "tipo_id" TEXT;
+ALTER TABLE "documentos_internos" DROP COLUMN IF EXISTS "tipo";
+ALTER TABLE "documentos_internos" DROP COLUMN IF EXISTS "responsavel_id";
+DROP INDEX IF EXISTS "documentos_internos_empresa_id_tipo_idx";
+
 CREATE UNIQUE INDEX IF NOT EXISTS "documentos_internos_versao_atual_id_key" ON "documentos_internos" ("versao_atual_id");
-CREATE INDEX IF NOT EXISTS "documentos_internos_empresa_id_tipo_idx" ON "documentos_internos" ("empresa_id", "tipo");
+CREATE INDEX IF NOT EXISTS "documentos_internos_empresa_id_tipo_id_idx" ON "documentos_internos" ("empresa_id", "tipo_id");
 CREATE INDEX IF NOT EXISTS "documentos_internos_processo_id_idx"     ON "documentos_internos" ("processo_id");
 CREATE INDEX IF NOT EXISTS "documentos_internos_legacy_id_idx"       ON "documentos_internos" ("legacy_id");
 
@@ -91,6 +114,11 @@ CREATE INDEX IF NOT EXISTS "documento_interno_logs_documento_id_idx" ON "documen
 -- ── Chaves estrangeiras ──────────────────────────────────────
 -- Em bloco DO por causa do IF NOT EXISTS: o Postgres não aceita esse
 -- modificador em ADD CONSTRAINT, e sem ele reaplicar o script quebraria.
+DO $$ BEGIN
+  ALTER TABLE "documentos_internos" ADD CONSTRAINT "documentos_internos_tipo_id_fkey"
+    FOREIGN KEY ("tipo_id") REFERENCES "documento_tipos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
 DO $$ BEGIN
   ALTER TABLE "documentos_internos" ADD CONSTRAINT "documentos_internos_processo_id_fkey"
     FOREIGN KEY ("processo_id") REFERENCES "documento_processos"("id") ON DELETE SET NULL ON UPDATE CASCADE;

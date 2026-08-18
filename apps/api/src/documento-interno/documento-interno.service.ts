@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { prisma, getPrismaSkipTake, buildPaginatedResponse } from '@saas/db'
 import type {
   CriarDocumentoInput, AtualizarDocumentoInput, NovaRevisaoInput,
-  ListarDocumentosInput, AprovarRevisaoInput, DocumentoProcessoInput,
+  ListarDocumentosInput, AprovarRevisaoInput, DocumentoProcessoInput, DocumentoTipoInput,
 } from '@saas/types'
 
 /**
@@ -33,9 +33,8 @@ export class DocumentoInternoService {
     const { skip, take } = getPrismaSkipTake(page, limit)
 
     const filtros: Record<string, unknown>[] = []
-    if (input.tipo) filtros.push({ tipo: input.tipo })
+    if (input.tipoId) filtros.push({ tipoId: input.tipoId })
     if (input.processoId) filtros.push({ processoId: input.processoId })
-    if (input.responsavelId) filtros.push({ responsavelId: input.responsavelId })
     if (input.situacao) filtros.push({ versaoAtual: { situacao: input.situacao } })
     if (search) filtros.push({ nome: { contains: search, mode: 'insensitive' } })
 
@@ -56,7 +55,8 @@ export class DocumentoInternoService {
         skip,
         take,
         select: {
-          id: true, legacyId: true, nome: true, tipo: true, responsavelId: true,
+          id: true, legacyId: true, nome: true,
+          tipo: { select: { id: true, nome: true } },
           processo: { select: { id: true, nome: true } },
           versaoAtual: {
             select: {
@@ -77,6 +77,7 @@ export class DocumentoInternoService {
     const d = await prisma.documentoInterno.findFirst({
       where: { id, empresaId: empresaId ?? null },
       include: {
+        tipo: { select: { id: true, nome: true } },
         processo: { select: { id: true, nome: true } },
         versaoAtual: { select: { id: true, revisao: true } },
         // Histórico completo: é o que a ISO pede e o que o v1 mostrava em
@@ -97,7 +98,7 @@ export class DocumentoInternoService {
     const v = await prisma.documentoInternoVersao.findFirst({
       where: { id: versaoId, documento: { empresaId: empresaId ?? null } },
       include: {
-        documento: { select: { id: true, nome: true, tipo: true } },
+        documento: { select: { id: true, nome: true, tipo: { select: { id: true, nome: true } } } },
         elaboradores: true,
       },
     })
@@ -114,9 +115,8 @@ export class DocumentoInternoService {
         data: {
           empresaId: empresaId ?? null,
           nome: input.nome.trim(),
-          tipo: input.tipo,
+          tipoId: input.tipoId || null,
           processoId: input.processoId || null,
-          responsavelId: input.responsavelId || null,
         },
         select: { id: true },
       })
@@ -157,9 +157,8 @@ export class DocumentoInternoService {
       where: { id },
       data: {
         ...(campos.nome !== undefined ? { nome: campos.nome.trim() } : {}),
-        ...(campos.tipo !== undefined ? { tipo: campos.tipo } : {}),
+        ...(campos.tipoId !== undefined ? { tipoId: campos.tipoId || null } : {}),
         ...(campos.processoId !== undefined ? { processoId: campos.processoId || null } : {}),
-        ...(campos.responsavelId !== undefined ? { responsavelId: campos.responsavelId || null } : {}),
       },
     })
     await this.registrarLog(id, usuarioId, 'DOCUMENTO_EDITADO')
@@ -276,6 +275,38 @@ export class DocumentoInternoService {
     await prisma.documentoInterno.update({ where: { id }, data: { versaoAtualId: null } })
     await prisma.documentoInterno.delete({ where: { id } })
     return { id }
+  }
+
+  // ── Tipos de documento (cadastro) ─────────────────────────
+
+  async listarTipos(empresaId?: string | null, incluirInativos = false) {
+    return prisma.documentoTipo.findMany({
+      where: { empresaId: empresaId ?? null, ...(incluirInativos ? {} : { ativo: true }) },
+      orderBy: [{ ordem: 'asc' }, { nome: 'asc' }],
+    })
+  }
+
+  async criarTipo(input: DocumentoTipoInput, empresaId?: string | null) {
+    return prisma.documentoTipo.create({
+      data: { empresaId: empresaId ?? null, nome: input.nome.trim(), ordem: input.ordem, ativo: input.ativo },
+      select: { id: true },
+    })
+  }
+
+  async atualizarTipo(id: string, input: Partial<DocumentoTipoInput>, empresaId?: string | null) {
+    const t = await prisma.documentoTipo.findFirst({
+      where: { id, empresaId: empresaId ?? null }, select: { id: true },
+    })
+    if (!t) throw new Error('Tipo não encontrado.')
+    return prisma.documentoTipo.update({
+      where: { id },
+      data: {
+        ...(input.nome !== undefined ? { nome: input.nome.trim() } : {}),
+        ...(input.ordem !== undefined ? { ordem: input.ordem } : {}),
+        ...(input.ativo !== undefined ? { ativo: input.ativo } : {}),
+      },
+      select: { id: true },
+    })
   }
 
   // ── Processos (mapa da ISO) ───────────────────────────────

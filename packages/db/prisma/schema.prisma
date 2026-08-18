@@ -8002,6 +8002,27 @@ model DocumentoProcesso {
   @@map("documento_processos")
 }
 
+/// Tipo do documento (o `sgq_doc_cod` do v1): Procedimento, Formulário,
+/// Doc Corporativo… Virou cadastro por decisão do Wagner: a lista cresce
+/// (Instrução de Trabalho, Política, Manual) e não cabia num enum de código.
+model DocumentoTipo {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  /// Id do `sgq_doc_cod` de origem, para a migração casar sem depender do nome.
+  legacyId  Int?    @map("legacy_id")
+  nome      String
+  ordem     Int     @default(0)
+  ativo     Boolean @default(true)
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  documentos DocumentoInterno[]
+
+  @@index([empresaId, ativo])
+  @@index([legacyId])
+  @@map("documento_tipos")
+}
+
 /// O documento em si — a identidade que atravessa as revisões.
 ///
 /// No v1 isso não existia: cada revisão era uma linha nova em `sgq_doc` que
@@ -8016,13 +8037,9 @@ model DocumentoInterno {
   legacyId  Int?    @map("legacy_id")
 
   nome String
-  /// PROCEDIMENTO | FORMULARIO | CORPORATIVO (o `sgq_doc_cod` do v1).
-  tipo String  @default("PROCEDIMENTO")
 
+  tipoId     String? @map("tipo_id")
   processoId String? @map("processo_id")
-  /// Sempre nulo nos 265 registros migrados: o campo existe no v1 e nunca foi
-  /// preenchido. Fica aqui porque a tela nova deve pedi-lo — ver o doc.
-  responsavelId String? @map("responsavel_id")
 
   /// Aponta para a revisão vigente. É o que a listagem mostra e o que o
   /// pessoal baixa; sem este ponteiro, achar "a versão atual" viraria uma
@@ -8032,12 +8049,13 @@ model DocumentoInterno {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
+  tipo       DocumentoTipo?           @relation(fields: [tipoId], references: [id], onDelete: SetNull)
   processo   DocumentoProcesso?       @relation(fields: [processoId], references: [id], onDelete: SetNull)
   versaoAtual DocumentoInternoVersao? @relation("VersaoVigente", fields: [versaoAtualId], references: [id], onDelete: SetNull)
   versoes    DocumentoInternoVersao[] @relation("VersoesDoDocumento")
   logs       DocumentoInternoLog[]
 
-  @@index([empresaId, tipo])
+  @@index([empresaId, tipoId])
   @@index([processoId])
   @@index([legacyId])
   @@map("documentos_internos")

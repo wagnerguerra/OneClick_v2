@@ -94,6 +94,10 @@ E um que é usado do jeito errado:
 - **`dt_versao` como `varchar`** em `d/m/aaaa` sem zero à esquerda (`"1/8/2018"`,
   `"10/12/2021"`) — vira coluna `DATE`. A migração parseia os três formatos de comprimento
   (8, 9 e 10 caracteres) que existem hoje.
+- **Número de revisão único** — em 7 documentos o v1 gravou duas linhas com o mesmo número
+  (ex.: mestre 10, revisão 0, linhas 10 e 24). O número sai impresso no rodapé do documento
+  em papel, então renumerar quebraria a correspondência com as cópias que circulam: o índice
+  ficou não-único de propósito. Revisão criada pelo v2 nunca repete (numera pela última + 1).
 - **`processo` apontando para o `sgq_proc`** — vira `documento_processos`, tabela própria.
   Não usei as **Áreas** do v2: só 7 dos 13 processos casam por nome, e as Áreas se repetem
   por empresa (43 registros, com "Comercial", "Legalização" e "Financeiro" duplicados) — o
@@ -132,12 +136,22 @@ procedimento de [[v1-desativacao-sempre-com-alert]].
 
 ---
 
-## 6. A decidir com o Wagner
+## 6. Decidido com o Wagner (18/08/2026)
 
-1. **Tipo do documento** — mantive como texto com os três valores do v1. Se a ideia é
-   cadastrar tipos novos (Instrução de Trabalho, Política, Manual…), vira tabela de apoio;
-   melhor decidir antes da Fase 3.
-2. **Responsável** — o campo existe no v1 e nunca foi preenchido. A tela nova deve exigir?
-3. **Quem aprova** — hoje o perfil `apr/` aprova sem deixar rastro. Confirmo que o v2 passa
-   a registrar quem aprovou e quando (é o que a ISO cobra), e que revisão aprovada não pode
-   mais ser editada?
+1. **Tipo do documento vira cadastro.** Deixou de ser lista fixa no código e virou
+   `documento_tipos`, no mesmo formato do mapa de processos. A relação cresce (Instrução de
+   Trabalho, Política, Manual) e o pessoal precisa acrescentar sem passar por deploy. Os 4
+   valores do `sgq_doc_cod` entram pela migração, com o "Não informado" já inativo.
+
+2. **Responsável sai.** O campo existia no v1 e estava zerado nas 265 linhas — ninguém sentiu
+   falta em oito anos. Saiu do modelo em vez de virar mais um campo em branco na tela nova.
+
+3. **Revisão nunca se edita: sempre gera nova versão.** Mudou o documento, publica-se uma
+   revisão. Não existe endpoint que reescreva o conteúdo de uma revisão; o que se edita é o
+   *cabeçalho* do documento (nome, tipo, processo). É o que a ISO espera — corrigir por baixo
+   apagaria a rastreabilidade de quem aprovou o quê. Revisão aprovada também não se cancela.
+
+## 7. Ainda em aberto
+
+- **Os 7 documentos com número de revisão repetido** (§4). São provavelmente erro de
+  lançamento do v1; vale o Wagner olhar e decidir se corrige na origem antes do corte.

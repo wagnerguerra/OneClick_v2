@@ -5,7 +5,7 @@ import {
 } from '../trpc/trpc.service'
 import {
   criarDocumentoSchema, atualizarDocumentoSchema, novaRevisaoSchema,
-  listarDocumentosSchema, aprovarRevisaoSchema, documentoProcessoSchema,
+  listarDocumentosSchema, aprovarRevisaoSchema, documentoProcessoSchema, documentoTipoInputSchema,
 } from '@saas/types'
 import { DocumentoInternoService } from './documento-interno.service'
 
@@ -73,6 +73,22 @@ export function createDocumentoInternoRouter(service: DocumentoInternoService) {
     excluir: deleteSubProcedure(MODULE, 'excluir', 'Excluir documentos')
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => service.excluir(input.id, ctx.empresaId)),
+
+    // ── Tipos de documento (cadastro) ──
+    listarTipos: readProcedure(MODULE)
+      .input(z.object({ incluirInativos: z.boolean().default(false) }).optional())
+      .query(({ input, ctx }) => service.listarTipos(ctx.empresaId, input?.incluirInativos ?? false)),
+
+    criarTipo: writeSubProcedure(MODULE, 'gerenciar', 'Cadastrar documentos')
+      .input(documentoTipoInputSchema)
+      .mutation(({ input, ctx }) => service.criarTipo(input, ctx.empresaId)),
+
+    atualizarTipo: writeProcedure(MODULE)
+      .input(documentoTipoInputSchema.partial().extend({ id: z.string().min(1) }))
+      .mutation(({ input, ctx }) => {
+        const { id, ...resto } = input
+        return service.atualizarTipo(id, resto, ctx.empresaId)
+      }),
 
     // ── Mapa de processos ──
     listarProcessos: readProcedure(MODULE)

@@ -1,5 +1,6 @@
 // Importa do OneClick v1 (db_intranet) o módulo de Documentos Internos da Qualidade:
 //   • sgq_proc            → documento_processos      (mapa de processos da ISO)
+//   • sgq_doc_cod         → documento_tipos          (tipo do documento)
 //   • sgq_doc (mestres)   → documentos_internos      (a identidade do documento)
 //   • sgq_doc (todas)     → documento_interno_versoes (as revisões)
 //   • sgq_doc.elaborado   → documento_interno_elaboradores (casado por nome)
@@ -52,8 +53,6 @@ function dataISO(txt) {
 
 /** sgq_doc_sit → situação do v2. "Excluído" (6) não vira situação: some. */
 const SITUACAO = { 1: 'NOVO', 2: 'EM_APROVACAO', 3: 'APROVADO', 4: 'SUBSTITUIDO', 5: 'CANCELADO', 6: null, 7: 'REJEITADO' }
-/** sgq_doc_cod → tipo do v2. O "Não informado" (1) cai em PROCEDIMENTO. */
-const TIPO = { 1: 'PROCEDIMENTO', 2: 'PROCEDIMENTO', 3: 'FORMULARIO', 4: 'CORPORATIVO' }
 
 const MIME = {
   pdf: 'application/pdf',
@@ -97,8 +96,9 @@ const chaveNome = (s) => String(s || '')
   }
   const naoCasados = usuariosV1.filter((u) => !v1ParaV2.has(Number(u.id)))
 
-  // ── Processos ──
+  // ── Processos e tipos ──
   const [processos] = await my.query('SELECT id, processo FROM sgq_proc ORDER BY id')
+  const [tipos] = await my.query('SELECT id, codigo, ativo FROM sgq_doc_cod ORDER BY id')
 
   // ── Documentos e revisões ──
   const [linhas] = await my.query(`
@@ -130,6 +130,14 @@ const chaveNome = (s) => String(s || '')
       ` WHERE NOT EXISTS (SELECT 1 FROM documento_processos WHERE legacy_id = ${N(p.id)} AND empresa_id = ${S(EMP)});`)
   }
   sql.push('')
+  sql.push('-- ── Tipos de documento ──')
+  for (const t of tipos) {
+    sql.push(
+      `INSERT INTO documento_tipos (id, empresa_id, legacy_id, nome, ordem, ativo)` +
+      ` SELECT gen_random_uuid()::text, ${S(EMP)}, ${N(t.id)}, ${S(t.codigo)}, ${N(t.id)}, ${Number(t.ativo) === 1}` +
+      ` WHERE NOT EXISTS (SELECT 1 FROM documento_tipos WHERE legacy_id = ${N(t.id)} AND empresa_id = ${S(EMP)});`)
+  }
+  sql.push('')
 
   let totDocs = 0, totVers = 0, totElab = 0, elabCasados = 0, elabSoltos = 0, semData = 0, pulados = 0
   const arquivosACopiar = []
@@ -140,12 +148,12 @@ const chaveNome = (s) => String(s || '')
     // O cabeçalho do documento vem da linha vigente (ativo=1); sem ela, da
     // última revisão — é a que carrega o nome e o processo mais recentes.
     const vigente = versoes.find((v) => Number(v.ativo) === 1) || versoes[versoes.length - 1]
-    const tipo = TIPO[Number(vigente.codigo)] || 'PROCEDIMENTO'
 
     sql.push(`-- Documento #${mestre} — ${String(vigente.documento || '').slice(0, 60)} (${versoes.length} revisão/ões)`)
     sql.push(
-      `INSERT INTO documentos_internos (id, empresa_id, legacy_id, nome, tipo, processo_id)` +
-      ` SELECT gen_random_uuid()::text, ${S(EMP)}, ${N(mestre)}, ${S(vigente.documento)}, ${S(tipo)},` +
+      `INSERT INTO documentos_internos (id, empresa_id, legacy_id, nome, tipo_id, processo_id)` +
+      ` SELECT gen_random_uuid()::text, ${S(EMP)}, ${N(mestre)}, ${S(vigente.documento)},` +
+      ` (SELECT id FROM documento_tipos WHERE legacy_id = ${N(vigente.codigo)} AND empresa_id = ${S(EMP)}),` +
       ` (SELECT id FROM documento_processos WHERE legacy_id = ${N(vigente.processo)} AND empresa_id = ${S(EMP)})` +
       ` WHERE NOT EXISTS (SELECT 1 FROM documentos_internos WHERE legacy_id = ${N(mestre)} AND empresa_id = ${S(EMP)});`)
     totDocs++
@@ -230,6 +238,7 @@ const chaveNome = (s) => String(s || '')
   console.log(`revisões ........ ${totVers}${pulados ? ` (${pulados} puladas)` : ''}`)
   console.log(`elaboradores .... ${totElab}  (${elabCasados} casados por ID, ${elabSoltos} só com nome)`)
   console.log(`processos ....... ${processos.length}`)
+  console.log(`tipos ........... ${tipos.length}`)
   console.log(`datas ilegíveis . ${semData}`)
   console.log(`usuários v1 sem par no v2: ${naoCasados.length}`)
   if (COPIAR) {

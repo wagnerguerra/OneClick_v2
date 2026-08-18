@@ -9,15 +9,9 @@ import { paginationSchema } from './pagination'
  * Ver docs/migracao-documentos-internos-v1.md.
  */
 
-/** Os três valores ativos do `sgq_doc_cod` do v1. */
-export const documentoTipoSchema = z.enum(['PROCEDIMENTO', 'FORMULARIO', 'CORPORATIVO'])
-export type DocumentoTipo = z.infer<typeof documentoTipoSchema>
-
-export const DOCUMENTO_TIPO_LABEL: Record<DocumentoTipo, string> = {
-  PROCEDIMENTO: 'Procedimento',
-  FORMULARIO: 'Formulário',
-  CORPORATIVO: 'Doc Corporativo',
-}
+// O tipo do documento (Procedimento, Formulário, Doc Corporativo…) é CADASTRO,
+// e não lista fixa: a relação cresce e o pessoal acrescenta sem passar por
+// deploy. Por isso ele entra e sai daqui como `tipoId`.
 
 /**
  * Situações do `sgq_doc_sit`. "Excluído" de lá não entra: no v1 ele convivia
@@ -61,9 +55,8 @@ export const documentoArquivoSchema = z.object({
 
 export const criarDocumentoSchema = z.object({
   nome: z.string().min(3, 'Dê um nome ao documento.').max(200),
-  tipo: documentoTipoSchema.default('PROCEDIMENTO'),
+  tipoId: z.string().optional().nullable(),
   processoId: z.string().optional().nullable(),
-  responsavelId: z.string().optional().nullable(),
 
   // ── Primeira revisão, criada junto com o documento ──
   dataVersao: dataISO,
@@ -72,13 +65,18 @@ export const criarDocumentoSchema = z.object({
   elaboradores: z.array(documentoElaboradorSchema).default([]),
 }).merge(documentoArquivoSchema)
 
-/** Edita só o cabeçalho: o conteúdo de uma revisão publicada não se reescreve. */
+/**
+ * Edita só o CABEÇALHO do documento (nome, tipo, processo).
+ *
+ * O conteúdo de uma revisão não se reescreve: mudou o documento, publica-se uma
+ * revisão nova. É a regra do Wagner e o que a ISO espera — corrigir por baixo
+ * apagaria a rastreabilidade de quem aprovou o quê.
+ */
 export const atualizarDocumentoSchema = z.object({
   id: z.string().min(1),
   nome: z.string().min(3).max(200).optional(),
-  tipo: documentoTipoSchema.optional(),
+  tipoId: z.string().optional().nullable(),
   processoId: z.string().optional().nullable(),
-  responsavelId: z.string().optional().nullable(),
 })
 
 /**
@@ -95,10 +93,9 @@ export const novaRevisaoSchema = z.object({
 }).merge(documentoArquivoSchema)
 
 export const listarDocumentosSchema = paginationSchema.extend({
-  tipo: documentoTipoSchema.optional(),
+  tipoId: z.string().optional(),
   processoId: z.string().optional(),
   situacao: documentoSituacaoSchema.optional(),
-  responsavelId: z.string().optional(),
 })
 
 export const aprovarRevisaoSchema = z.object({
@@ -110,6 +107,13 @@ export const aprovarRevisaoSchema = z.object({
   v => v.aprovar || Boolean(v.observacao?.trim()),
   { message: 'Diga o motivo da rejeição.', path: ['observacao'] },
 )
+
+/** Cadastro de tipo — mesmo formato do processo. */
+export const documentoTipoInputSchema = z.object({
+  nome: z.string().min(2).max(160),
+  ordem: z.number().int().nonnegative().default(0),
+  ativo: z.boolean().default(true),
+})
 
 export const documentoProcessoSchema = z.object({
   nome: z.string().min(2).max(160),
@@ -123,3 +127,4 @@ export type NovaRevisaoInput = z.infer<typeof novaRevisaoSchema>
 export type ListarDocumentosInput = z.infer<typeof listarDocumentosSchema>
 export type AprovarRevisaoInput = z.infer<typeof aprovarRevisaoSchema>
 export type DocumentoProcessoInput = z.infer<typeof documentoProcessoSchema>
+export type DocumentoTipoInput = z.infer<typeof documentoTipoInputSchema>
