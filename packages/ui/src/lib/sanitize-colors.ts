@@ -73,10 +73,10 @@ export function isThemeUnsafeColor(value: string): boolean {
 }
 
 /**
- * Remove de `html` as cores de texto quase-pretas/quase-brancas — inclusive o
- * atributo legado `<font color="...">`. Use ao renderizar HTML já gravado
- * (`dangerouslySetInnerHTML`); dentro do editor a limpeza acontece no parse da
- * extensão de cor, sem passar por aqui.
+ * Núcleo compartilhado das duas variantes abaixo: percorre `html` e remove a cor
+ * de texto inline (propriedade `color` do style + atributo legado `<font color>`)
+ * de cada elemento cujo valor de cor satisfaz `shouldRemove`. As variantes só
+ * diferem nesse predicado (extremos-de-tema vs. tudo).
  *
  * Usa o DOM em vez de regex: o parser de CSS do browser entende `hsl()`,
  * `rgb(0 0 0 / 50%)`, nomes de cor, aspas e `!important`, e não há risco de
@@ -86,7 +86,7 @@ export function isThemeUnsafeColor(value: string): boolean {
  * ⚠️ Sem DOM (SSR/Node puro) retorna o HTML inalterado — é um ajuste de leitura,
  * não de segurança, então degradar silenciosamente é aceitável.
  */
-export function sanitizeInlineTextColors(html: string): string {
+function removeInlineTextColors(html: string, shouldRemove: (color: string) => boolean): string {
   if (!html || !html.includes('color')) return html
   if (typeof DOMParser === 'undefined') return html
 
@@ -95,7 +95,7 @@ export function sanitizeInlineTextColors(html: string): string {
 
   doc.body.querySelectorAll<HTMLElement>('[style]').forEach((el) => {
     const color = el.style.color
-    if (!color || !isThemeUnsafeColor(color)) return
+    if (!color || !shouldRemove(color)) return
     el.style.removeProperty('color')
     changed = true
     // Era só a cor no style — não deixa `style=""` sobrando.
@@ -104,10 +104,36 @@ export function sanitizeInlineTextColors(html: string): string {
 
   doc.body.querySelectorAll('font[color]').forEach((el) => {
     const color = el.getAttribute('color')
-    if (!color || !isThemeUnsafeColor(color)) return
+    if (!color || !shouldRemove(color)) return
     el.removeAttribute('color')
     changed = true
   })
 
   return changed ? doc.body.innerHTML : html
+}
+
+/**
+ * Remove de `html` só as cores de texto quase-pretas/quase-brancas (os extremos
+ * que somem em algum tema) — inclusive o atributo legado `<font color>`. Use ao
+ * renderizar HTML já gravado (`dangerouslySetInnerHTML`); dentro do editor a
+ * limpeza do LOAD acontece no parse da extensão de cor (`ThemeSafeColor`).
+ * Cores intencionais da paleta são preservadas (ver `isThemeUnsafeColor`).
+ */
+export function sanitizeInlineTextColors(html: string): string {
+  return removeInlineTextColors(html, isThemeUnsafeColor)
+}
+
+/**
+ * Remove TODA cor de texto inline (sem condição de tema). Usada no caminho de
+ * COLAGEM do RichEditor (`transformPastedHTML`).
+ *
+ * #HLP0195: o `sanitizeInlineTextColors`/`ThemeSafeColor` só descartam os
+ * extremos neutros. Decidiu-se que texto COLADO nunca deve herdar cor da origem
+ * (Word, Google Docs, Outlook, sites) — sempre cai no `currentColor` do tema;
+ * quem quiser cor aplica manualmente pelo seletor do editor. Vale só pra colagem:
+ * cores aplicadas à mão continuam persistindo no load (o parse só descarta os
+ * extremos). `background-color` (marca-texto) é preservado — é intencional.
+ */
+export function stripAllInlineTextColors(html: string): string {
+  return removeInlineTextColors(html, () => true)
 }

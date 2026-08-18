@@ -19,7 +19,7 @@ import {
   Minus, Undo, Redo, Highlighter, Palette, Code2,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { isThemeUnsafeColor } from '../lib/sanitize-colors'
+import { isThemeUnsafeColor, stripAllInlineTextColors } from '../lib/sanitize-colors'
 
 /**
  * #HLP0178 — Color com filtro de cores "presas" a um tema.
@@ -196,6 +196,12 @@ export function RichEditor({
         // que renderiza esse HTML depois de salvo).
         class: 'max-w-none px-3 py-2 focus:outline-none text-sm',
       },
+      // #HLP0195: texto colado NUNCA herda cor da origem — remove toda cor de
+      // texto inline do HTML colado (Word/Docs/Outlook/sites) antes do parse, pra
+      // sempre cair no currentColor do tema. Cores intencionais aplicadas à mão
+      // pelo toolbar continuam funcionando (não passam por aqui). Roda antes do
+      // handlePaste/parse; o ThemeSafeColor segue cuidando do caminho de load.
+      transformPastedHTML: (html: string) => stripAllInlineTextColors(html),
       handlePaste: (_view, event) => {
         const handler = pasteFilesRef.current
         if (!handler) return false
