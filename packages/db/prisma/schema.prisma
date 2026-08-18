@@ -8019,6 +8019,7 @@ model DocumentoProcesso {
   criadoEm DateTime @default(now()) @map("criado_em")
 
   documentos DocumentoInterno[]
+  tabelasRegistros TabelaRegistro[]
 
   @@index([empresaId, ativo])
   @@index([legacyId])
@@ -8385,4 +8386,77 @@ model Melhoria {
   @@index([empresaId, status])
   @@index([legacyId])
   @@map("melhorias")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TABELAS DE REGISTROS (Qualidade) — port do `sgq_tabelas` do OneClick v1.
+// Ver docs/migracao-tabelas-registros-v1.md.
+//
+// É o controle de registros da ISO: para cada registro da empresa, COMO ele é
+// armazenado, protegido, recuperado, por quanto tempo retido e o que se faz ao
+// descartá-lo — com histórico de versões, no mesmo desenho de Documentos
+// Internos (identidade + versões + ponteiro para a vigente). Sem arquivos e
+// sem fluxo de aprovação: o v1 não tinha e o conteúdo é normativo, não anexo.
+//
+// O `processo` REUSA o mapa de processos dos Documentos Internos
+// (`documento_processos`): no v1 os dois módulos apontam para a MESMA
+// `sgq_proc` — duplicar o cadastro aqui criaria duas listas para a mesma coisa.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TabelaRegistro {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  /// Id da cadeia no v1 (o mestre de `sgq_reg`).
+  legacyId  Int?    @map("legacy_id")
+
+  nome       String
+  processoId String? @map("processo_id")
+
+  /// Versão vigente — o que a listagem mostra.
+  versaoAtualId String? @unique @map("versao_atual_id")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  processo    DocumentoProcesso?      @relation(fields: [processoId], references: [id], onDelete: SetNull)
+  versaoAtual TabelaRegistroVersao?   @relation("TabelaVersaoVigente", fields: [versaoAtualId], references: [id], onDelete: SetNull)
+  versoes     TabelaRegistroVersao[]  @relation("VersoesDaTabela")
+
+  @@index([empresaId])
+  @@index([processoId])
+  @@index([legacyId])
+  @@map("tabelas_registros")
+}
+
+/// Uma versão do controle: os cinco campos da ISO naquele momento.
+model TabelaRegistroVersao {
+  id       String @id @default(cuid())
+  tabelaId String @map("tabela_id")
+  legacyId Int?   @map("legacy_id")
+
+  versao     Int      @default(0)
+  dataVersao DateTime @map("data_versao") @db.Date
+
+  /// HTML do RichEditor — os cinco campos clássicos do controle de registros.
+  armazenamento String? @db.Text
+  protecao      String? @db.Text
+  recuperacao   String? @db.Text
+  retencao      String? @db.Text
+  disposicao    String? @db.Text
+
+  registradoPorId String? @map("registrado_por_id")
+  /// Nome do autor no v1 quando a pessoa não existe mais no v2 (ex-colaborador).
+  registradoPorNome String? @map("registrado_por_nome")
+  criadoEm        DateTime @default(now()) @map("criado_em")
+  atualizadoEm    DateTime @updatedAt @map("atualizado_em")
+
+  tabela    TabelaRegistro  @relation("VersoesDaTabela", fields: [tabelaId], references: [id], onDelete: Cascade)
+  vigenteDe TabelaRegistro? @relation("TabelaVersaoVigente")
+
+  // NÃO é unique de propósito, pela mesma razão dos Documentos Internos: o
+  // número da versão vem do legado e pode repetir dentro da cadeia; versão
+  // criada pelo v2 numera pela última + 1.
+  @@index([tabelaId, versao])
+  @@index([legacyId])
+  @@map("tabela_registro_versoes")
 }

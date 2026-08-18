@@ -285,7 +285,7 @@ export const navigation: NavGroup[] = [
       { label: 'Reclamações', href: '/reclamacoes', icon: MessageSquare },
       { label: 'Reuniões', href: '/reunioes', icon: Video },
       { label: 'Sugestões', href: '/sugestoes', icon: Lightbulb },
-      { label: 'Tabelas de Registros', href: '/tabelas-registros', icon: Table2, wip: true },
+      { label: 'Tabelas de Registros', href: '/tabelas-registros', icon: Table2 },
     ],
   },
   {
