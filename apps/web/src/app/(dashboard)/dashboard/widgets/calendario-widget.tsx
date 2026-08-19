@@ -399,6 +399,11 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
               <span className="text-[11px] text-foreground/80">{cfg.label}</span>
             </div>
           ))}
+          {/* Comemorações (aniversários e tempo de empresa) usam o ponto rosa na grade */}
+          <div className="flex items-center gap-1.5" title={`${comemoracoes.length} no mês`}>
+            <span className="h-2 w-2 rounded-full bg-pink-500" />
+            <span className="text-[11px] text-foreground/80">Aniversariantes</span>
+          </div>
         </div>
       </CardContent>
 
