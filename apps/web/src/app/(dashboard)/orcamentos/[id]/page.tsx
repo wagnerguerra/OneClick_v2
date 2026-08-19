@@ -2375,7 +2375,7 @@ export default function OrcamentoDetailPage() {
                                 <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
                                 <TableCell>
                                   <Select value={editTipo} onValueChange={v => { setEditTipo(v); setEditCatalogoId(''); setEditTextoId(''); setEditSubservicoId('') }}>
-                                    <SelectTrigger className="h-7 text-[11px] w-[85px]"><SelectValue /></SelectTrigger>
+                                    <SelectTrigger className="h-9 text-xs w-[100px]"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="SERVICO">Serviço</SelectItem>
                                       <SelectItem value="TAXA">Taxa</SelectItem>
@@ -2384,80 +2384,84 @@ export default function OrcamentoDetailPage() {
                                   </Select>
                                 </TableCell>
                                 <TableCell>
-                                  {/* Busca no catálogo — mesma da inclusão (#HLP0088). currentLabel
-                                      preserva a descrição atual quando não há item de catálogo casado. */}
-                                  <CatalogoCombobox
-                                    catalogo={catalogo}
-                                    tipo={editTipo}
-                                    selectedId={editCatalogoId}
-                                    currentLabel={editDescricao}
-                                    onSelect={handleSelecionarDescricaoEdit}
-                                    disabled={!editTipo}
-                                  />
-                                  {(() => {
-                                    const cat = catalogo.find(c => c.id === editCatalogoId)
-                                    if (!cat?.subservicos?.length) return null
-                                    return (
-                                      <Select value={editSubservicoId || undefined} onValueChange={handleSelecionarSubservicoEdit}>
-                                        {/* Sem asterisco: na edição o subserviço só é exigido se o
-                                            serviço estiver sendo trocado. */}
-                                        <SelectTrigger className="h-7 text-[11px] mt-1"><SelectValue placeholder="Subserviço" /></SelectTrigger>
-                                        <SelectContent>
-                                          {cat.subservicos.map(sub => (
-                                            <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    )
-                                  })()}
-                                  {(() => {
-                                    const cat = catalogo.find(c => c.id === editCatalogoId)
-                                    const dono = editSubservicoId
-                                      ? cat?.subservicos?.find(x => x.id === editSubservicoId)
-                                      : cat
-                                    if (!dono?.textos?.length) return null
-                                    return (
-                                      <Select value={editTextoId || '__none__'} onValueChange={v => handleSelecionarTextoEdit(v === '__none__' ? '' : v)}>
-                                        <SelectTrigger className="h-7 text-[11px] mt-1"><SelectValue placeholder="Variação" /></SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="__none__">Nenhuma variação</SelectItem>
-                                          {dono.textos.map(t => (
-                                            <SelectItem key={t.id} value={t.id}>{t.titulo}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    )
-                                  })()}
-                                </TableCell>
-                                <TableCell>
-                                  <Input type="number" value={editQtde} onChange={e => setEditQtde(e.target.value)} className="h-7 w-[60px] text-xs text-center" min="1" />
-                                </TableCell>
-                                <TableCell>
-                                  {/* Rótulo em cima, e não dentro do campo: o texto de dentro
-                                      some ao digitar e não cabia na largura da coluna — sobrava
-                                      "% de" e "R$ d". Em cima ele fica, e o campo respira. */}
-                                  <div className="space-y-1">
-                                    <div className="flex flex-col items-end gap-0.5">
-                                      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Valor unit.</span>
-                                      <Input type="number" value={editValor} onChange={e => setEditValor(e.target.value)}
-                                        className="h-7 w-[104px] text-xs text-right" step="0.01" />
+                                  {/* Tudo na mesma linha (pedido de 19/08): combobox ocupa o
+                                      espaço livre; subserviço/variação, quando existem, entram
+                                      ao lado com largura fixa. */}
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="flex-1 min-w-[180px]">
+                                      {/* Busca no catálogo — mesma da inclusão (#HLP0088). currentLabel
+                                          preserva a descrição atual quando não há item de catálogo casado. */}
+                                      <CatalogoCombobox
+                                        catalogo={catalogo}
+                                        tipo={editTipo}
+                                        selectedId={editCatalogoId}
+                                        currentLabel={editDescricao}
+                                        onSelect={handleSelecionarDescricaoEdit}
+                                        disabled={!editTipo}
+                                      />
                                     </div>
-                                    {/* Desconto por item — só serviço (#HLP0302). % e R$ somam. */}
+                                    {(() => {
+                                      const cat = catalogo.find(c => c.id === editCatalogoId)
+                                      if (!cat?.subservicos?.length) return null
+                                      return (
+                                        <Select value={editSubservicoId || undefined} onValueChange={handleSelecionarSubservicoEdit}>
+                                          {/* Sem asterisco: na edição o subserviço só é exigido se o
+                                              serviço estiver sendo trocado. */}
+                                          <SelectTrigger className="h-9 text-xs w-[150px] shrink-0"><SelectValue placeholder="Subserviço" /></SelectTrigger>
+                                          <SelectContent>
+                                            {cat.subservicos.map(sub => (
+                                              <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      )
+                                    })()}
+                                    {(() => {
+                                      const cat = catalogo.find(c => c.id === editCatalogoId)
+                                      const dono = editSubservicoId
+                                        ? cat?.subservicos?.find(x => x.id === editSubservicoId)
+                                        : cat
+                                      if (!dono?.textos?.length) return null
+                                      return (
+                                        <Select value={editTextoId || '__none__'} onValueChange={v => handleSelecionarTextoEdit(v === '__none__' ? '' : v)}>
+                                          <SelectTrigger className="h-9 text-xs w-[150px] shrink-0"><SelectValue placeholder="Variação" /></SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="__none__">Nenhuma variação</SelectItem>
+                                            {dono.textos.map(t => (
+                                              <SelectItem key={t.id} value={t.id}>{t.titulo}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      )
+                                    })()}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Input type="number" value={editQtde} onChange={e => setEditQtde(e.target.value)} className="h-9 w-[60px] text-xs text-center" min="1" />
+                                </TableCell>
+                                <TableCell>
+                                  {/* Uma linha só (pedido de 19/08): o prefixo identifica cada
+                                      campo — R$ = valor unitário; % e desc. R$ = descontos do
+                                      item (#HLP0302, só serviço). Rótulo dentro do campo não cabia. */}
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <div className="flex" title="Valor unitário">
+                                      <span className="inline-flex items-center px-1.5 h-9 border border-r-0 border-input bg-muted text-[10px] text-muted-foreground rounded-l-md">R$</span>
+                                      <Input type="number" value={editValor} onChange={e => setEditValor(e.target.value)}
+                                        className="h-9 w-[80px] text-xs text-right rounded-l-none" step="0.01" />
+                                    </div>
                                     {editTipo === 'SERVICO' && (
-                                      <div className="flex items-end justify-end gap-1.5">
-                                        <div className="flex flex-col items-end gap-0.5">
-                                          <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Desc %</span>
+                                      <>
+                                        <div className="flex" title="Desconto em percentual">
+                                          <span className="inline-flex items-center px-1.5 h-9 border border-r-0 border-input bg-muted text-[10px] text-muted-foreground rounded-l-md">-%</span>
                                           <Input type="number" value={editDescPct} onChange={e => setEditDescPct(e.target.value)}
-                                            className="h-6 w-[62px] text-[11px] text-right" step="0.01" min="0" max="100"
-                                            placeholder="0" title="Desconto em percentual" />
+                                            className="h-9 w-[52px] text-xs text-right rounded-l-none" step="0.01" min="0" max="100" placeholder="0" />
                                         </div>
-                                        <div className="flex flex-col items-end gap-0.5">
-                                          <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Desc R$</span>
+                                        <div className="flex" title="Desconto em reais">
+                                          <span className="inline-flex items-center px-1.5 h-9 border border-r-0 border-input bg-muted text-[10px] text-muted-foreground rounded-l-md">-R$</span>
                                           <Input type="number" value={editDescValor} onChange={e => setEditDescValor(e.target.value)}
-                                            className="h-6 w-[80px] text-[11px] text-right" step="0.01" min="0"
-                                            placeholder="0,00" title="Desconto em reais" />
+                                            className="h-9 w-[64px] text-xs text-right rounded-l-none" step="0.01" min="0" placeholder="0,00" />
                                         </div>
-                                      </div>
+                                      </>
                                     )}
                                   </div>
                                 </TableCell>
@@ -2466,10 +2470,7 @@ export default function OrcamentoDetailPage() {
                                     const bruto = (parseFloat(editQtde) || 0) * (parseFloat(editValor) || 0)
                                     const desc = editTipo === 'SERVICO' ? Math.min(bruto, bruto * (parseFloat(editDescPct) || 0) / 100 + (parseFloat(editDescValor) || 0)) : 0
                                     return desc > 0 ? (
-                                      <>
-                                        <div className="text-[10px] text-muted-foreground line-through">{formatCurrency(bruto)}</div>
-                                        <div className="text-emerald-600">{formatCurrency(bruto - desc)}</div>
-                                      </>
+                                      <span className="text-emerald-600" title={`Sem desconto: ${formatCurrency(bruto)}`}>{formatCurrency(bruto - desc)}</span>
                                     ) : formatCurrency(bruto)
                                   })()}
                                 </TableCell>
