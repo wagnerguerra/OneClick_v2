@@ -1733,9 +1733,12 @@ export default function OrcamentoDetailPage() {
                 #{String(orc.numero).padStart(4, '0')}
                 {orc.cliente?.documento && (<>&nbsp;&nbsp;|&nbsp;&nbsp;{masks.cpfCnpj(orc.cliente.documento)}</>)}
                 &nbsp;&nbsp;|&nbsp;&nbsp;Criado em: {new Date(orc.createdAt).toLocaleDateString('pt-BR')}, {new Date(orc.createdAt).toLocaleTimeString('pt-BR')}
+                &nbsp;&nbsp;|&nbsp;&nbsp;<span className="align-middle"><StatusBadge status={orc.status} /></span>
               </p>
+              {/* Sem o status (que subiu pra linha do cabeçalho), a linha de
+                  badges só existe quando tem algo a mostrar — evita margem fantasma. */}
+              {(orc.paralizado || orc.arquivado || (orc.reaberturasCount ?? 0) > 0 || pesquisaResumo?.respondida) && (
               <div className="flex flex-wrap gap-2 mt-2.5">
-                <StatusBadge status={orc.status} />
                 {orc.paralizado && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-3 py-1 text-xs font-medium uppercase">
                     <Pause className="h-3 w-3" /> Paralizado
@@ -1766,6 +1769,7 @@ export default function OrcamentoDetailPage() {
                   </button>
                 )}
               </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
