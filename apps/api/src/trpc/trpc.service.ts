@@ -171,6 +171,8 @@ import { AnaliseContextoService } from '../analise-contexto/analise-contexto.ser
 import { createAnaliseContextoRouter } from '../analise-contexto/analise-contexto.router'
 import { NaoConformidadeService } from '../nao-conformidade/nao-conformidade.service'
 import { createNaoConformidadeRouter } from '../nao-conformidade/nao-conformidade.router'
+import { DocumentoExternoService } from '../documento-externo/documento-externo.service'
+import { createDocumentoExternoRouter } from '../documento-externo/documento-externo.router'
 import { createManifestacaoRouter } from '../manifestacao/manifestacao.router'
 import { MinhasObrigacoesService } from '../minhas-obrigacoes/minhas-obrigacoes.service'
 import { AtivoService } from '../ativo/ativo.service'
@@ -740,6 +742,7 @@ export class TrpcService {
     @Inject(TabelaRegistroService) private readonly tabelaRegistroService: TabelaRegistroService,
     @Inject(AnaliseContextoService) private readonly analiseContextoService: AnaliseContextoService,
     @Inject(NaoConformidadeService) private readonly naoConformidadeService: NaoConformidadeService,
+    @Inject(DocumentoExternoService) private readonly documentoExternoService: DocumentoExternoService,
     @Inject(ClientErrorService) private readonly clientErrorService: ClientErrorService,
     @Inject(ThemeService) private readonly themeService: ThemeService,
     @Inject(DanfeService) private readonly danfeService: DanfeService,
@@ -853,6 +856,7 @@ export class TrpcService {
       tabelaRegistro: createTabelaRegistroRouter(this.tabelaRegistroService),
       analiseContexto: createAnaliseContextoRouter(this.analiseContextoService),
       naoConformidade: createNaoConformidadeRouter(this.naoConformidadeService),
+      documentoExterno: createDocumentoExternoRouter(this.documentoExternoService),
       minhasObrigacoes: createMinhasObrigacoesRouter(this.minhasObrigacoesService),
     })
   }

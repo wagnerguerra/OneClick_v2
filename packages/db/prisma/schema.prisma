@@ -8020,6 +8020,7 @@ model DocumentoProcesso {
 
   documentos DocumentoInterno[]
   tabelasRegistros TabelaRegistro[]
+  documentosExternos DocumentoExterno[]
 
   @@index([empresaId, ativo])
   @@index([legacyId])
@@ -8729,4 +8730,71 @@ model NaoConformidadeLog {
 
   @@index([ncId])
   @@map("nao_conformidade_logs")
+}
+
+// ============================================================
+// DOCUMENTOS EXTERNOS (Qualidade) — port do sgq_externos do v1.
+// Normas, leis e documentos de terceiros que o SGQ controla: identidade +
+// revisões + ponteiro da vigente (mesmo desenho de Documentos Internos e
+// Tabelas de Registros). Sem arquivos (o v1 nunca teve — o "link" aponta o
+// site ou a pasta de rede onde o documento mora).
+// Levantamento: docs/migracao-documentos-externos-v1.md
+// ============================================================
+
+model DocumentoExterno {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+
+  nome String
+  /// Mapa compartilhado com Documentos Internos (mesma sgq_proc de origem).
+  processoId String? @map("processo_id")
+
+  /// A revisão vigente. SET NULL: apagar a vigente não pode levar o histórico.
+  versaoAtualId String? @unique @map("versao_atual_id")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  processo    DocumentoProcesso?       @relation(fields: [processoId], references: [id], onDelete: SetNull)
+  versaoAtual DocumentoExternoVersao?  @relation("DocExtVigente", fields: [versaoAtualId], references: [id], onDelete: SetNull)
+  versoes     DocumentoExternoVersao[] @relation("DocExtVersoes")
+
+  @@index([empresaId])
+  @@index([processoId])
+  @@index([legacyId])
+  @@map("documentos_externos")
+}
+
+model DocumentoExternoVersao {
+  id          String @id @default(cuid())
+  documentoId String @map("documento_id")
+  legacyId    Int?   @map("legacy_id")
+
+  revisao      Int      @default(0)
+  dataRegistro DateTime @map("data_registro") @db.Date
+
+  /// Quem emite o documento (ABNT, Receita Federal...).
+  emissor    String?
+  /// Onde o documento físico/arquivo mora (pasta de rede, site...).
+  local      String? @db.Text
+  /// URL ou caminho — clicável quando for http(s).
+  link       String? @db.Text
+  observacao String? @db.Text
+
+  registradoPorId   String? @map("registrado_por_id")
+  registradoPorNome String? @map("registrado_por_nome")
+  responsavelId     String? @map("responsavel_id")
+  responsavelNome   String? @map("responsavel_nome")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  documento     DocumentoExterno  @relation("DocExtVersoes", fields: [documentoId], references: [id], onDelete: Cascade)
+  vigenteDe     DocumentoExterno? @relation("DocExtVigente")
+
+  // `revisao` NÃO é único por documento: o legado repete números; o v2 numera última+1.
+  @@index([documentoId, revisao])
+  @@index([legacyId])
+  @@map("documento_externo_versoes")
 }

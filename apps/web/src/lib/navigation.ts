@@ -276,7 +276,7 @@ export const navigation: NavGroup[] = [
       { label: 'Análise de Contexto', href: '/analise-contexto', icon: Search },
       { label: 'Aquisições', href: '/aquisicoes', icon: ShoppingCart },
       { label: 'Capacitações', href: '/capacitacoes', icon: GraduationCap },
-      { label: 'Documentos Externos', href: '/documentos-externos', icon: FileBox, wip: true },
+      { label: 'Documentos Externos', href: '/documentos-externos', icon: FileBox },
       { label: 'Documentos Internos', href: '/documentos-internos', icon: FileCheck },
       { label: 'Elogios', href: '/elogios', icon: ThumbsUp },
       { label: 'Melhorias', href: '/melhorias', icon: TrendingUp },
