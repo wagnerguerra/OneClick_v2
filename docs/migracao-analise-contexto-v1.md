@@ -66,11 +66,14 @@ Resultado (dev, 19/08): **39 registros + 45 ações**, 0 órfãs; responsável 3
 por id + 8 por resíduo; 11 avaliados; 31 ações concluídas. Registros e ações
 inativos no v1 ficam lá.
 
-## 5. Produção
+## 5. Produção — ✅ aplicada em 19/08
 
-Mesmo runbook dos módulos anteriores: DDL + carga **como `-U oneclick`** no
-`n8n-postgres-1` (db `oneclick`), validar os contadores do §4 e os IDs de
-usuário embutidos antes de aplicar.
+- IDs embutidos validados antes (empresa + 6/6 usuários).
+- DDL e carga aplicados **como `-U oneclick`** (owner conferido nas duas
+  tabelas). Resultado idêntico ao dev: **39 registros + 45 ações**, 0 órfãs,
+  31 responsáveis por id, 11 avaliados, 31 ações concluídas.
+- O `add_analise_contexto.sql` segue no stage 4.5 do deploy (idempotente).
+  A UI entra no ar com o commit `3ac67387`.
 
 ## 6. Desativação no v1
 
