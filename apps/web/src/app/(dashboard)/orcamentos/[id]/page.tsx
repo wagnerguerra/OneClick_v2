@@ -1746,13 +1746,15 @@ export default function OrcamentoDetailPage() {
                 &nbsp;&nbsp;|&nbsp;&nbsp;Criado em: {new Date(orc.createdAt).toLocaleDateString('pt-BR')}, {new Date(orc.createdAt).toLocaleTimeString('pt-BR')}
                 &nbsp;&nbsp;|&nbsp;&nbsp;<span className="align-middle"><StatusBadge status={orc.status} /></span>
                 {chipsAreas.length > 0 && (
-                  <span className="inline-flex flex-wrap gap-1.5 align-middle ml-3">
+                  <span className="inline-flex flex-wrap gap-1.5 align-middle ml-2">
+                    {/* Mesmo desenho do StatusBadge (pílula sólida uppercase) — só muda a cor. */}
                     {chipsAreas.map(a => (
-                      <Badge key={a.id} variant={a.derivada ? 'secondary' : 'outline'}
-                        className={cn('text-[10px] h-5 px-2 font-medium', !a.derivada && 'bg-white/50 dark:bg-white/10')}
+                      <span key={a.id}
+                        className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white whitespace-nowrap uppercase"
+                        style={{ backgroundColor: '#94a3b8' }}
                         title={a.derivada ? 'Área dos serviços da aba Itens' : 'Área notificada'}>
                         {a.nome}
-                      </Badge>
+                      </span>
                     ))}
                   </span>
                 )}
