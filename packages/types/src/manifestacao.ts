@@ -60,6 +60,27 @@ export const criarManifestacaoSchema = z.object({
   publica: z.boolean().default(false),
 })
 
+/**
+ * Registro vindo do PORTAL PÚBLICO (fase 5) — o subconjunto que um visitante
+ * pode preencher. `website` é o campo-isca: humano não o vê (fica oculto por
+ * CSS); robô preenche e o registro é recusado.
+ */
+export const criarManifestacaoPublicaSchema = z.object({
+  tipo: manifestacaoTipoSchema,
+  anonima: z.boolean().default(false),
+  informanteNome: z.string().max(160).optional().nullable(),
+  informanteEmail: z.string().email('E-mail inválido.').optional().nullable().or(z.literal('')),
+  informanteTelefone: z.string().max(40).optional().nullable(),
+  titulo: z.string().max(200).optional().nullable(),
+  descricao: z.string().min(10, 'Conte com um pouco mais de detalhe.').max(8000),
+  dataOcorrido: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  website: z.string().max(0, 'Registro recusado.').optional().or(z.literal('')),
+}).refine((v) => v.anonima || (v.informanteNome ?? '').trim().length >= 2, {
+  message: 'Diga seu nome — ou marque a opção de anonimato.',
+  path: ['informanteNome'],
+})
+export type CriarManifestacaoPublicaInput = z.infer<typeof criarManifestacaoPublicaSchema>
+
 export const atualizarManifestacaoSchema = criarManifestacaoSchema.partial().extend({
   id: z.string().min(1),
 })

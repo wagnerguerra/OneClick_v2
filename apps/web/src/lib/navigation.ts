@@ -273,15 +273,15 @@ export const navigation: NavGroup[] = [
     items: [
       // ⚠️ Módulo Qualidade ainda não publicado — todas as rotas 404 em produção
       // (F-006). Marcado wip p/ esconder do menu até as páginas existirem.
-      { label: 'Análise de Contexto', href: '/analise-contexto', icon: Search, wip: true },
+      { label: 'Análise de Contexto', href: '/analise-contexto', icon: Search },
       { label: 'Aquisições', href: '/aquisicoes', icon: ShoppingCart },
       { label: 'Capacitações', href: '/capacitacoes', icon: GraduationCap },
-      { label: 'Documentos Externos', href: '/documentos-externos', icon: FileBox, wip: true },
+      { label: 'Documentos Externos', href: '/documentos-externos', icon: FileBox },
       { label: 'Documentos Internos', href: '/documentos-internos', icon: FileCheck },
       { label: 'Elogios', href: '/elogios', icon: ThumbsUp },
       { label: 'Melhorias', href: '/melhorias', icon: TrendingUp },
-      { label: 'Não Conformidades', href: '/nao-conformidades', icon: AlertTriangle, wip: true },
-      { label: 'Painel da Qualidade', href: '/qualidade', icon: BarChart3, wip: true },
+      { label: 'Não Conformidades', href: '/nao-conformidades', icon: AlertTriangle },
+      { label: 'Painel da Qualidade', href: '/qualidade', icon: BarChart3 },
       { label: 'Reclamações', href: '/reclamacoes', icon: MessageSquare },
       { label: 'Reuniões', href: '/reunioes', icon: Video },
       { label: 'Sugestões', href: '/sugestoes', icon: Lightbulb },

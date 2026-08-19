@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common'
 import { ManifestacaoService } from './manifestacao.service'
+import { ManifestacaoPublicController } from './manifestacao-public.controller'
 
-// Sem controller: por enquanto tudo passa por tRPC. O portal público da fase 5
-// trará um controller próprio, com as proteções que uma rota aberta exige.
+// O portal público (fase 5) vive num controller próprio, fora do tRPC, com
+// as proteções que uma rota aberta exige (limite por IP, campo-isca).
 @Module({
+  controllers: [ManifestacaoPublicController],
   providers: [ManifestacaoService],
   exports: [ManifestacaoService],
 })

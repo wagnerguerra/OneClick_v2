@@ -7690,6 +7690,11 @@ model RelatorioTiConfig {
 model Manifestacao {
   id        String  @id @default(cuid())
   empresaId String? @map("empresa_id")
+  /// Origem no v1: 'elo' | 'rec' | 'sug' + id (os ids dos três colidem entre si).
+  legacySource String? @map("legacy_source")
+  legacyId     Int?    @map("legacy_id")
+  /// Resíduo do v1: elogiados em texto livre quando não casaram com usuário.
+  elogiadosTexto String? @map("elogiados_texto")
   /// Código que a pessoa leva embora: ELO-7K3M-92QF. É por ele que se
   /// acompanha a tratativa sem se identificar.
   protocolo String  @unique
@@ -7761,6 +7766,7 @@ model Manifestacao {
   @@index([empresaId, tipo, status])
   @@index([empresaId, tipo, criadoEm])
   @@index([autorId])
+  @@unique([legacySource, legacyId])
   @@map("manifestacoes")
 }
 
@@ -8018,6 +8024,7 @@ model DocumentoProcesso {
 
   documentos DocumentoInterno[]
   tabelasRegistros TabelaRegistro[]
+  documentosExternos DocumentoExterno[]
 
   @@index([empresaId, ativo])
   @@index([legacyId])
@@ -8457,4 +8464,341 @@ model TabelaRegistroVersao {
   @@index([tabelaId, versao])
   @@index([legacyId])
   @@map("tabela_registro_versoes")
+}
+
+// ============================================================
+// ANÁLISE DE CONTEXTO (Qualidade) — port do sgq_contexto do v1.
+// A análise SWOT do contexto da organização (ISO 9001 §4.1): cada registro é
+// uma oportunidade/ameaça/força/fraqueza com risco (gravidade × probabilidade),
+// plano de ação e avaliação de eficácia. Tipos são enums fixos da metodologia,
+// não cadastro. Levantamento: docs/migracao-analise-contexto-v1.md
+// ============================================================
+
+model AnaliseContexto {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+
+  /// EXTERNA | INTERNA
+  analise String
+  /// OPORTUNIDADE | AMEACA | FORCA | FRAQUEZA (Ext: oportunidade/ameaça; Int: força/fraqueza)
+  tipo String
+
+  identificacao String
+  /// Texto livre no v1 (Estratégico, Trabalhista...) — não é o mapa sgq_proc.
+  processo         String?
+  parteInteressada String? @map("parte_interessada") @db.Text
+
+  /// Gravidade (ameaça/fraqueza) ou benefício (oportunidade/força), 1–3.
+  gravidade     Int?
+  /// 1–3. O grau de risco (gravidade × probabilidade) é derivado no service.
+  probabilidade Int?
+
+  responsavelId   String?   @map("responsavel_id")
+  /// Resíduo do v1 quando o responsável não existe mais no v2.
+  responsavelNome String?   @map("responsavel_nome")
+  prazo           DateTime? @db.Date
+
+  // Avaliação de eficácia (o fechamento do registro no v1)
+  avaliadoPorId   String?   @map("avaliado_por_id")
+  avaliadoPorNome String?   @map("avaliado_por_nome")
+  avaliadoEm      DateTime? @map("avaliado_em") @db.Date
+  avaliacao       String?   @db.Text
+  eficaz          Boolean?
+
+  ativo Boolean @default(true)
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  acoes AnaliseContextoAcao[]
+
+  @@index([empresaId])
+  @@index([analise, tipo])
+  @@index([legacyId])
+  @@map("analises_contexto")
+}
+
+model AnaliseContextoAcao {
+  id        String  @id @default(cuid())
+  analiseId String  @map("analise_id")
+  legacyId  Int?    @map("legacy_id")
+
+  /// IMEDIATA | CORRETIVA | AVALIACAO_EFICACIA
+  tipo      String
+  descricao String @db.Text
+
+  responsavelId   String? @map("responsavel_id")
+  /// No v1 o responsável da ação era TEXTO LIVRE (às vezes vários nomes) —
+  /// quando não casa com um usuário, o texto fica aqui.
+  responsavelNome String? @map("responsavel_nome")
+
+  prazo         DateTime? @db.Date
+  concluida     Boolean   @default(false)
+  finalizadoEm  DateTime? @map("finalizado_em") @db.Date
+  finalizadoPorId String? @map("finalizado_por_id")
+  observacao    String?   @db.Text
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  analise AnaliseContexto @relation(fields: [analiseId], references: [id], onDelete: Cascade)
+
+  @@index([analiseId])
+  @@index([legacyId])
+  @@map("analise_contexto_acoes")
+}
+
+// ============================================================
+// NÃO CONFORMIDADES (Qualidade) — port do sgq_rnc/sgq_nc do v1.
+// Fluxo: registro → causa → plano de ação → forma de avaliação →
+// avaliação de eficácia (não eficaz gera REINCIDÊNCIA automática, como o
+// v1 fazia). Processo compartilhado com Documentos Internos (sgq_proc).
+// Levantamento: docs/migracao-nao-conformidades-v1.md
+// ============================================================
+
+/// Origem da NC (Auditoria, Reclamação de Cliente...) — cadastro gerenciável.
+model NaoConformidadeOrigem {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+  nome      String
+  ordem     Int     @default(0)
+  ativo     Boolean @default(true)
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  naoConformidades NaoConformidade[]
+
+  @@index([empresaId])
+  @@map("nao_conformidade_origens")
+}
+
+model NaoConformidade {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+
+  /// AGUARDANDO_CAUSA | AGUARDANDO_ACOES | EM_TRATAMENTO | AGUARDANDO_CONCLUSAO | FINALIZADA | CANCELADA
+  situacao String @default("AGUARDANDO_CAUSA")
+  /// NAO_CONFORMIDADE | OPORTUNIDADE_MELHORIA (o tipo 2 é herança do legado)
+  tipo String @default("NAO_CONFORMIDADE")
+
+  clienteId   String? @map("cliente_id")
+  clienteNome String? @map("cliente_nome")
+  areaId      String? @map("area_id")
+  /// Resíduo do v1 quando o setor não casa com uma área do v2.
+  areaNome    String? @map("area_nome")
+  /// Mapa compartilhado com Documentos Internos (mesma sgq_proc de origem).
+  processoId  String? @map("processo_id")
+  origemId    String? @map("origem_id")
+
+  registradoPorId   String? @map("registrado_por_id")
+  registradoPorNome String? @map("registrado_por_nome")
+  responsavelId     String? @map("responsavel_id")
+  responsavelNome   String? @map("responsavel_nome")
+
+  registradoEm DateTime  @default(now()) @map("registrado_em")
+  prazo        DateTime? @db.Date
+
+  /// Fato gerador da não conformidade.
+  detalhamento String @db.Text
+
+  // NC similar (aponta outra NC) e reincidência (gerada por avaliação não eficaz)
+  ncSimilarId    String?  @map("nc_similar_id")
+  ncSimilarTexto String?  @map("nc_similar_texto") @db.Text
+  reincidencia   Boolean  @default(false)
+  ncAnteriorId   String?  @map("nc_anterior_id")
+
+  // Análise da causa
+  causa      String?   @db.Text
+  causaEm    DateTime? @map("causa_em") @db.Date
+  causaPorId String?   @map("causa_por_id")
+
+  // Forma de avaliação da eficácia (etapa intermediária do v1)
+  eficaciaDetalhes       String?   @map("eficacia_detalhes") @db.Text
+  eficaciaResponsavelId  String?   @map("eficacia_responsavel_id")
+  eficaciaPrazo          DateTime? @map("eficacia_prazo") @db.Date
+  eficaciaRegistrada     Boolean   @default(false) @map("eficacia_registrada")
+
+  // Avaliação final
+  avaliacao       String?   @db.Text
+  eficaz          Boolean?
+  avaliadoPorId   String?   @map("avaliado_por_id")
+  avaliadoPorNome String?   @map("avaliado_por_nome")
+  avaliadoEm      DateTime? @map("avaliado_em") @db.Date
+
+  // Pós-avaliação: o fechamento atualiza o sistema da qualidade?
+  atualizaSwot        Boolean? @map("atualiza_swot")
+  atualizaSwotDesc    String?  @map("atualiza_swot_desc") @db.Text
+  atualizaRevisao     Boolean? @map("atualiza_revisao")
+  atualizaRevisaoDesc String?  @map("atualiza_revisao_desc") @db.Text
+
+  /// Reclamação do v1 que originou a NC (vínculo simbólico até o módulo existir no v2).
+  legacyReclamacaoId Int? @map("legacy_reclamacao_id")
+
+  ativo Boolean @default(true)
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  origem     NaoConformidadeOrigem? @relation(fields: [origemId], references: [id], onDelete: SetNull)
+  ncAnterior NaoConformidade?       @relation("Reincidencia", fields: [ncAnteriorId], references: [id], onDelete: SetNull)
+  reincidencias NaoConformidade[]   @relation("Reincidencia")
+
+  acoes     NaoConformidadeAcao[]
+  mensagens NaoConformidadeMensagem[]
+  arquivos  NaoConformidadeArquivo[]
+  logs      NaoConformidadeLog[]
+
+  @@index([empresaId])
+  @@index([situacao])
+  @@index([clienteId])
+  @@index([legacyId])
+  @@map("nao_conformidades")
+}
+
+model NaoConformidadeAcao {
+  id       String  @id @default(cuid())
+  ncId     String  @map("nc_id")
+  legacyId Int?    @map("legacy_id")
+
+  /// IMEDIATA | CORRETIVA | AVALIACAO_EFICACIA
+  tipo      String @default("CORRETIVA")
+  descricao String @db.Text
+
+  responsavelId   String? @map("responsavel_id")
+  /// Texto livre do v1 quando não casa com um usuário.
+  responsavelNome String? @map("responsavel_nome")
+
+  prazo           DateTime? @db.Date
+  concluida       Boolean   @default(false)
+  finalizadoEm    DateTime? @map("finalizado_em") @db.Date
+  finalizadoPorId String?   @map("finalizado_por_id")
+  observacao      String?   @db.Text
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  nc NaoConformidade @relation(fields: [ncId], references: [id], onDelete: Cascade)
+
+  @@index([ncId])
+  @@index([legacyId])
+  @@map("nao_conformidade_acoes")
+}
+
+model NaoConformidadeMensagem {
+  id       String  @id @default(cuid())
+  ncId     String  @map("nc_id")
+  legacyId Int?    @map("legacy_id")
+  texto    String  @db.Text
+  autorId   String? @map("autor_id")
+  autorNome String? @map("autor_nome")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  nc NaoConformidade @relation(fields: [ncId], references: [id], onDelete: Cascade)
+
+  @@index([ncId])
+  @@map("nao_conformidade_mensagens")
+}
+
+model NaoConformidadeArquivo {
+  id       String  @id @default(cuid())
+  ncId     String  @map("nc_id")
+  legacyId Int?    @map("legacy_id")
+  nome     String
+  path     String
+  autorId  String? @map("autor_id")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  nc NaoConformidade @relation(fields: [ncId], references: [id], onDelete: Cascade)
+
+  @@index([ncId])
+  @@map("nao_conformidade_arquivos")
+}
+
+/// Trilha de eventos — o v1 gravava frases prontas; o v2 grava códigos + detalhe.
+model NaoConformidadeLog {
+  id       String  @id @default(cuid())
+  ncId     String  @map("nc_id")
+  legacyId Int?    @map("legacy_id")
+  evento   String
+  usuarioId   String? @map("usuario_id")
+  usuarioNome String? @map("usuario_nome")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  nc NaoConformidade @relation(fields: [ncId], references: [id], onDelete: Cascade)
+
+  @@index([ncId])
+  @@map("nao_conformidade_logs")
+}
+
+// ============================================================
+// DOCUMENTOS EXTERNOS (Qualidade) — port do sgq_externos do v1.
+// Normas, leis e documentos de terceiros que o SGQ controla: identidade +
+// revisões + ponteiro da vigente (mesmo desenho de Documentos Internos e
+// Tabelas de Registros). Sem arquivos (o v1 nunca teve — o "link" aponta o
+// site ou a pasta de rede onde o documento mora).
+// Levantamento: docs/migracao-documentos-externos-v1.md
+// ============================================================
+
+model DocumentoExterno {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+
+  nome String
+  /// Mapa compartilhado com Documentos Internos (mesma sgq_proc de origem).
+  processoId String? @map("processo_id")
+
+  /// A revisão vigente. SET NULL: apagar a vigente não pode levar o histórico.
+  versaoAtualId String? @unique @map("versao_atual_id")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  processo    DocumentoProcesso?       @relation(fields: [processoId], references: [id], onDelete: SetNull)
+  versaoAtual DocumentoExternoVersao?  @relation("DocExtVigente", fields: [versaoAtualId], references: [id], onDelete: SetNull)
+  versoes     DocumentoExternoVersao[] @relation("DocExtVersoes")
+
+  @@index([empresaId])
+  @@index([processoId])
+  @@index([legacyId])
+  @@map("documentos_externos")
+}
+
+model DocumentoExternoVersao {
+  id          String @id @default(cuid())
+  documentoId String @map("documento_id")
+  legacyId    Int?   @map("legacy_id")
+
+  revisao      Int      @default(0)
+  dataRegistro DateTime @map("data_registro") @db.Date
+
+  /// Quem emite o documento (ABNT, Receita Federal...).
+  emissor    String?
+  /// Onde o documento físico/arquivo mora (pasta de rede, site...).
+  local      String? @db.Text
+  /// URL ou caminho — clicável quando for http(s).
+  link       String? @db.Text
+  observacao String? @db.Text
+
+  registradoPorId   String? @map("registrado_por_id")
+  registradoPorNome String? @map("registrado_por_nome")
+  responsavelId     String? @map("responsavel_id")
+  responsavelNome   String? @map("responsavel_nome")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  documento     DocumentoExterno  @relation("DocExtVersoes", fields: [documentoId], references: [id], onDelete: Cascade)
+  vigenteDe     DocumentoExterno? @relation("DocExtVigente")
+
+  // `revisao` NÃO é único por documento: o legado repete números; o v2 numera última+1.
+  @@index([documentoId, revisao])
+  @@index([legacyId])
+  @@map("documento_externo_versoes")
 }

@@ -167,6 +167,14 @@ import { MelhoriaService } from '../melhoria/melhoria.service'
 import { createMelhoriaRouter } from '../melhoria/melhoria.router'
 import { TabelaRegistroService } from '../tabela-registro/tabela-registro.service'
 import { createTabelaRegistroRouter } from '../tabela-registro/tabela-registro.router'
+import { AnaliseContextoService } from '../analise-contexto/analise-contexto.service'
+import { createAnaliseContextoRouter } from '../analise-contexto/analise-contexto.router'
+import { NaoConformidadeService } from '../nao-conformidade/nao-conformidade.service'
+import { createNaoConformidadeRouter } from '../nao-conformidade/nao-conformidade.router'
+import { DocumentoExternoService } from '../documento-externo/documento-externo.service'
+import { createDocumentoExternoRouter } from '../documento-externo/documento-externo.router'
+import { QualidadeService } from '../qualidade/qualidade.service'
+import { createQualidadeRouter } from '../qualidade/qualidade.router'
 import { createManifestacaoRouter } from '../manifestacao/manifestacao.router'
 import { MinhasObrigacoesService } from '../minhas-obrigacoes/minhas-obrigacoes.service'
 import { AtivoService } from '../ativo/ativo.service'
@@ -734,6 +742,10 @@ export class TrpcService {
     @Inject(CapacitacaoService) private readonly capacitacaoService: CapacitacaoService,
     @Inject(MelhoriaService) private readonly melhoriaService: MelhoriaService,
     @Inject(TabelaRegistroService) private readonly tabelaRegistroService: TabelaRegistroService,
+    @Inject(AnaliseContextoService) private readonly analiseContextoService: AnaliseContextoService,
+    @Inject(NaoConformidadeService) private readonly naoConformidadeService: NaoConformidadeService,
+    @Inject(DocumentoExternoService) private readonly documentoExternoService: DocumentoExternoService,
+    @Inject(QualidadeService) private readonly qualidadeService: QualidadeService,
     @Inject(ClientErrorService) private readonly clientErrorService: ClientErrorService,
     @Inject(ThemeService) private readonly themeService: ThemeService,
     @Inject(DanfeService) private readonly danfeService: DanfeService,
@@ -845,6 +857,10 @@ export class TrpcService {
       capacitacao: createCapacitacaoRouter(this.capacitacaoService),
       melhoria: createMelhoriaRouter(this.melhoriaService),
       tabelaRegistro: createTabelaRegistroRouter(this.tabelaRegistroService),
+      analiseContexto: createAnaliseContextoRouter(this.analiseContextoService),
+      naoConformidade: createNaoConformidadeRouter(this.naoConformidadeService),
+      documentoExterno: createDocumentoExternoRouter(this.documentoExternoService),
+      qualidade: createQualidadeRouter(this.qualidadeService),
       minhasObrigacoes: createMinhasObrigacoesRouter(this.minhasObrigacoesService),
     })
   }
