@@ -53,12 +53,12 @@ const moedaBR = (v: number | string | null) =>
  * Não confundir com "Áreas envolvidas" (derivadas dos serviços dos itens,
  * #HLP0266): este vínculo é o de NOTIFICAÇÃO, escolhido na criação.
  */
-export function AreasDetalhamentoSection({ orcamentoId, accent, onCountChange }: {
+export function AreasDetalhamentoSection({ orcamentoId, accent, onAreasChange }: {
   orcamentoId: string
   /** Cor do módulo, para o título da seção. */
   accent: string
-  /** Avisa o pai quantas áreas de notificação existem (ajusta o card vizinho). */
-  onCountChange?: (n: number) => void
+  /** Entrega as áreas notificadas ao pai — o card "Áreas envolvidas" as soma às derivadas. */
+  onAreasChange?: (areas: Array<{ areaId: string; areaNome: string }>) => void
 }) {
   const { profile } = useCurrentUserProfile()
   const { isMaster, isEmpresaMaster } = useUserPermissions()
@@ -80,10 +80,10 @@ export function AreasDetalhamentoSection({ orcamentoId, accent, onCountChange }:
 
   const carregar = useCallback(() => {
     ;(trpc.orcamento as any).listAreasDoOrcamento.query({ orcamentoId })
-      .then((r: OrcamentoAreaRow[]) => { setRows(r); onCountChange?.(r.length) })
-      .catch(() => { setRows([]); onCountChange?.(0) })
+      .then((r: OrcamentoAreaRow[]) => { setRows(r); onAreasChange?.(r.map(x => ({ areaId: x.areaId, areaNome: x.areaNome }))) })
+      .catch(() => { setRows([]); onAreasChange?.([]) })
       .finally(() => setCarregado(true))
-  }, [orcamentoId, onCountChange])
+  }, [orcamentoId, onAreasChange])
   useEffect(() => { carregar() }, [carregar])
 
   if (!carregado || rows.length === 0) return null

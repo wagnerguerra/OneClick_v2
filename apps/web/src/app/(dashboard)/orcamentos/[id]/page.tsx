@@ -623,10 +623,15 @@ export default function OrcamentoDetailPage() {
   // o cadastro do serviço.
   const areasDerivadas = orc?.areas ?? []
 
-  // Quantas áreas de NOTIFICAÇÃO (workflow OrcamentoArea) o orçamento tem — a
-  // seção "Detalhamento por área" reporta; o card acima usa para não afirmar
-  // "não há áreas" quando existe pendência de detalhamento logo abaixo.
-  const [qtdAreasNotificadas, setQtdAreasNotificadas] = useState(0)
+  // Áreas de NOTIFICAÇÃO (workflow OrcamentoArea) — a seção "Detalhamento por
+  // área" reporta a lista; o card "Áreas envolvidas" soma essas às derivadas.
+  const [areasNotificadas, setAreasNotificadas] = useState<Array<{ areaId: string; areaNome: string }>>([])
+  const chipsAreas = useMemo(() => {
+    const m = new Map<string, { nome: string; derivada: boolean }>()
+    for (const a of areasDerivadas) m.set(a.id, { nome: a.nome, derivada: true })
+    for (const a of areasNotificadas) if (!m.has(a.areaId)) m.set(a.areaId, { nome: a.areaNome, derivada: false })
+    return [...m.entries()].map(([id, v]) => ({ id, ...v }))
+  }, [areasDerivadas, areasNotificadas])
 
   // Form fields
   const [formTipo, setFormTipo] = useState('')
@@ -2203,44 +2208,50 @@ export default function OrcamentoDetailPage() {
                           />
                         </div>
 
-                        {/* Linha 4: Áreas — derivadas, não editáveis (#HLP0266) */}
-                        <div className="col-span-12 space-y-2.5">
+                      </div>
+
+                      {/* ── Seção: Áreas — envolvidas (itens + notificadas) e o workflow
+                          de detalhamento. Divisória própria para a pill não virar uma
+                          pilha embolada de campos. ── */}
+                      <div className="px-5 py-3 border-y border-[rgba(0,0,0,0.08)]">
+                        <h4 className="text-[13px] font-semibold text-foreground">Áreas</h4>
+                      </div>
+                      <div className="p-5 space-y-5">
+                        <div className="space-y-2.5">
                           <Label className="text-[13px] font-semibold text-foreground">Áreas envolvidas</Label>
-                          {areasDerivadas.length > 0 ? (
+                          {chipsAreas.length > 0 ? (
                             <>
                               <div className="flex flex-wrap gap-2">
-                                {areasDerivadas.map(a => (
-                                  <Badge key={a.id} variant="secondary" className="text-[11px] h-6 px-2.5 font-medium">
+                                {chipsAreas.map(a => (
+                                  <Badge key={a.id} variant={a.derivada ? 'secondary' : 'outline'} className="text-[11px] h-6 px-2.5 font-medium"
+                                    title={a.derivada ? 'Área dos serviços da aba Itens' : 'Notificada para detalhamento'}>
                                     {a.nome}
                                   </Badge>
                                 ))}
                               </div>
                               <p className="text-[11px] text-muted-foreground">
-                                O orçamento pertence às áreas dos serviços listados na aba &quot;Itens&quot;.
+                                Áreas dos serviços da aba &quot;Itens&quot; e áreas notificadas para detalhamento.
                               </p>
                             </>
                           ) : (
                             <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
                               <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500 mt-0.5" />
                               <p className="text-[12px] leading-relaxed text-amber-800 dark:text-amber-300">
-                                {qtdAreasNotificadas > 0
-                                  ? <>Nenhum serviço com área definida ainda — as áreas listadas em &quot;Detalhamento por área&quot;, abaixo, foram notificadas para detalhar. Adicione os serviços na aba &quot;Itens&quot;.</>
-                                  : <>Este orçamento não possui nenhum serviço com área definida. Adicione serviços na aba &quot;Itens&quot;.</>}
+                                Este orçamento não possui nenhum serviço com área definida. Adicione serviços na aba &quot;Itens&quot;.
                               </p>
                             </div>
                           )}
                         </div>
 
-                        {/* Linha 4b: Detalhamento por área (workflow OrcamentoArea) — a
-                            contraparte das notificações "Detalhe a área X"; some quando o
-                            orçamento não tem áreas de notificação. */}
-                        <div className="col-span-12">
-                          <AreasDetalhamentoSection orcamentoId={id} accent={MODULE_COLOR} onCountChange={setQtdAreasNotificadas} />
-                        </div>
+                        <AreasDetalhamentoSection orcamentoId={id} accent={MODULE_COLOR} onAreasChange={setAreasNotificadas} />
+                      </div>
 
-                        {/* Linha 5: CRM vinculado — o inverso do forward CRM→orçamento */}
-                        <div className="col-span-12 space-y-1.5">
-                          <Label className="text-[13px] font-semibold text-foreground">CRM vinculado</Label>
+                      {/* ── Seção: CRM vinculado — o inverso do forward CRM→orçamento ── */}
+                      <div className="px-5 py-3 border-y border-[rgba(0,0,0,0.08)]">
+                        <h4 className="text-[13px] font-semibold text-foreground">CRM vinculado</h4>
+                      </div>
+                      <div className="p-5">
+                        <div className="space-y-1.5">
                           {(orc as any)?.oportunidade ? (
                             <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/20 px-3 py-2">
                               <div className="min-w-0">
