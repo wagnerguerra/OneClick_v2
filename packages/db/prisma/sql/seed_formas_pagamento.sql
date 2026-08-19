@@ -9,14 +9,14 @@
 INSERT INTO opcoes_cadastro (id, tipo, valor, ordem, ativo, empresa_id)
 SELECT gen_random_uuid()::text, 'FORMA_PAGAMENTO', v.valor, v.ordem, true, NULL
 FROM (VALUES
-  ('A Vista', 1),
+  ('À Vista', 1),
   ('Boleto', 2),
   ('30 Dias', 3),
-  ('50% a vista e 50% para 30 dias', 4),
-  ('02 Parcelas - 1ª parcela A Vista e 2ª parcela 30 dias', 5),
-  ('03 Parcelas (A Vista, 30 dias e 60 dias)', 6),
-  ('04 Parcelas (A Vista - 30 - 60 - 90 dias)', 7),
-  ('06 Parcelas (a vista - 30 - 60 - 90 - 120 dias)', 8),
+  ('50% à vista e 50% para 30 dias', 4),
+  ('02 Parcelas - 1ª parcela à vista e 2ª parcela 30 dias', 5),
+  ('03 Parcelas (à vista, 30 dias e 60 dias)', 6),
+  ('04 Parcelas (à vista - 30 - 60 - 90 dias)', 7),
+  ('06 Parcelas (à vista - 30 - 60 - 90 - 120 dias)', 8),
   ('A Combinar Com o Financeiro', 9),
   ('Na entrega do serviço', 10),
   ('Mensal - Vencimento do boleto no último dia útil do mês', 11),
