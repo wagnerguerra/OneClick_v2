@@ -35,6 +35,52 @@ const SUSPEITO = /[ÃÂ][-¿]|Ã[€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“�
 
 const decodificador = new TextDecoder('utf-8', { fatal: true })
 
+// ── Entidades HTML do CKEditor do v1 (&atilde; etc.) gravadas como texto ──
+// Decodifica só o que é inequívoco: letras acentuadas e pontuação. NUNCA
+// &amp;/&lt;/&gt; — esses são escapes legítimos de conteúdo do usuário.
+const ENTIDADES = {
+  nbsp: ' ', quot: '"', ndash: '–', mdash: '—', hellip: '…',
+  lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', bull: '•',
+  ordm: 'º', ordf: 'ª', deg: '°', sect: '§', middot: '·',
+  laquo: '«', raquo: '»', copy: '©', reg: '®', trade: '™',
+  frac12: '½', sup2: '²', sup3: '³',
+  aacute: 'á', agrave: 'à', acirc: 'â', atilde: 'ã', auml: 'ä', aring: 'å',
+  ccedil: 'ç', eacute: 'é', egrave: 'è', ecirc: 'ê', euml: 'ë',
+  iacute: 'í', igrave: 'ì', icirc: 'î', iuml: 'ï', ntilde: 'ñ',
+  oacute: 'ó', ograve: 'ò', ocirc: 'ô', otilde: 'õ', ouml: 'ö',
+  uacute: 'ú', ugrave: 'ù', ucirc: 'û', uuml: 'ü', yacute: 'ý',
+  Aacute: 'Á', Agrave: 'À', Acirc: 'Â', Atilde: 'Ã', Auml: 'Ä', Aring: 'Å',
+  Ccedil: 'Ç', Eacute: 'É', Egrave: 'È', Ecirc: 'Ê', Euml: 'Ë',
+  Iacute: 'Í', Igrave: 'Ì', Icirc: 'Î', Iuml: 'Ï', Ntilde: 'Ñ',
+  Oacute: 'Ó', Ograve: 'Ò', Ocirc: 'Ô', Otilde: 'Õ', Ouml: 'Ö',
+  Uacute: 'Ú', Ugrave: 'Ù', Ucirc: 'Û', Uuml: 'Ü', Yacute: 'Ý',
+}
+
+function decodificarEntidades(s) {
+  if (!s || !/&(#\d+|#x[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]{1,8});/.test(s)) return null
+  let mudou = false
+  let out = s.replace(/&([a-zA-Z][a-zA-Z0-9]{1,8});/g, (m, nome) => {
+    if (nome in ENTIDADES) { mudou = true; return ENTIDADES[nome] }
+    return m // amp/lt/gt e desconhecidas ficam como estão
+  })
+  out = out.replace(/&#(\d+);|&#x([0-9a-fA-F]+);/g, (m, dec, hex) => {
+    const cp = dec != null && dec !== '' ? parseInt(dec, 10) : parseInt(hex, 16)
+    if (!cp || cp === 38 || cp === 60 || cp === 62 || cp < 32) return m // & < > e controles ficam
+    mudou = true
+    return String.fromCodePoint(cp)
+  })
+  return mudou && out !== s ? out : null
+}
+
+/** As duas correções em sequência: primeiro o mojibake, depois as entidades. */
+function corrigir(s) {
+  const semMojibake = desfazer(s)
+  const base = semMojibake ?? s
+  const semEntidades = decodificarEntidades(base)
+  const final = semEntidades ?? semMojibake
+  return final != null && final !== s ? final : null
+}
+
 /** Desfaz UMA rodada de dupla codificação; null se não é caso ou não fecha. */
 function desfazer(s) {
   if (!s || !SUSPEITO.test(s)) return null
@@ -90,7 +136,7 @@ function desfazer(s) {
     for (const linha of linhas) {
       const sets = []
       for (const col of cols) {
-        const corrigido = desfazer(linha[col])
+        const corrigido = corrigir(linha[col])
         if (corrigido != null) sets.push(`"${col}" = ${S(corrigido)}`)
       }
       if (!sets.length) continue
