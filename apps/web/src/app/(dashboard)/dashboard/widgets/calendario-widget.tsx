@@ -333,7 +333,7 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
                       !isValid && 'text-muted-foreground/40 cursor-default',
                       isValid && temConteudo && 'cursor-pointer hover:bg-muted/60',
                       isValid && !temConteudo && 'cursor-default',
-                      isToday && 'bg-sky-600 text-white font-bold hover:bg-sky-600 shadow-sm',
+                      isToday && 'border-2 border-sky-500 text-sky-700 dark:text-sky-300 font-bold',
                       isValid && !isToday && especial?.tipo === 'feriado' && 'text-rose-600 dark:text-rose-400 font-semibold',
                       isValid && !isToday && especial?.tipo === 'comemorativa' && 'text-fuchsia-600 dark:text-fuchsia-400 font-medium',
                     )}
@@ -343,13 +343,13 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
                     {isValid && (tiposDoDia.length > 0 || dayComemoracoes.length > 0) && (
                       <span className="mt-1 flex items-center gap-0.5">
                         {tiposDoDia.map(tp => (
-                          <span key={tp} className={cn('h-1.5 w-1.5 rounded-full', isToday ? 'bg-white/80' : TIPO_CONFIG[tp].dotClass)} />
+                          <span key={tp} className={cn('h-1.5 w-1.5 rounded-full', TIPO_CONFIG[tp].dotClass)} />
                         ))}
                         {dayComemoracoes.some(c => c.tipo === 'aniversario') && (
-                          <span className={cn('h-1.5 w-1.5 rounded-full', isToday ? 'bg-white/80' : 'bg-pink-500')} />
+                          <span className='h-1.5 w-1.5 rounded-full bg-pink-500' />
                         )}
                         {dayComemoracoes.some(c => c.tipo === 'admissao') && (
-                          <span className={cn('h-1.5 w-1.5 rounded-full', isToday ? 'bg-white/80' : 'bg-teal-500')} />
+                          <span className='h-1.5 w-1.5 rounded-full bg-teal-500' />
                         )}
                       </span>
                     )}
