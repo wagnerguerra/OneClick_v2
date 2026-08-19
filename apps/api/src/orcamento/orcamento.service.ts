@@ -326,6 +326,23 @@ export class OrcamentoService {
       })),
     )
 
+    // Áreas de notificação ainda sem detalhamento (workflow OrcamentoArea) —
+    // viram flag no payload pro indicador do card do kanban (estado derivado
+    // mora no backend; o front só compõe).
+    const areasSemDetalhe = orcIds.length
+      ? await prisma.orcamentoArea.findMany({
+          where: { orcamentoId: { in: orcIds }, status: { in: ['PENDENTE', 'ATRASADO'] } },
+          select: { orcamentoId: true, status: true },
+        }).catch(() => [] as Array<{ orcamentoId: string; status: string }>)
+      : []
+    const detalhePendentes = new Map<string, { pendentes: number; atrasadas: number }>()
+    for (const oa of areasSemDetalhe) {
+      const agg = detalhePendentes.get(oa.orcamentoId) ?? { pendentes: 0, atrasadas: 0 }
+      if (oa.status === 'ATRASADO') agg.atrasadas++
+      else agg.pendentes++
+      detalhePendentes.set(oa.orcamentoId, agg)
+    }
+
     // Nº do card de CRM vinculado — alimenta o chip "CRM #N" no card do kanban.
     // try/catch defende snapshots antigos sem a coluna oportunidades.numero.
     const oportIds = [...new Set(data.map(o => o.oportunidadeId).filter(Boolean))] as string[]
@@ -348,6 +365,9 @@ export class OrcamentoService {
       itensDescricoes: (itensPorOrcamento.get(o.id) ?? []).map(i => i.descricao),
       // Card de CRM vinculado (presença via oportunidadeId; nº quando disponível).
       oportunidadeNumero: o.oportunidadeId ? (oportMap.get(o.oportunidadeId) ?? null) : null,
+      // Áreas notificadas que ainda não detalharam a sua parte (0 = todas em dia).
+      areasDetalhePendentes: detalhePendentes.get(o.id)?.pendentes ?? 0,
+      areasDetalheAtrasadas: detalhePendentes.get(o.id)?.atrasadas ?? 0,
     }))
 
     return { data: enriched, total, page, limit, totalPages: Math.ceil(total / limit) }
