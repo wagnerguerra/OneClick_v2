@@ -127,8 +127,10 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
   const [calMonth, setCalMonth] = useState(() => today.getMonth())
   const [prazos, setPrazos] = useState<PrazoItem[]>([])
   const [comemoracoes, setComemoracoes] = useState<Comemoracao[]>([])
-  const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [modalDay, setModalDay] = useState<number | null>(null)
+  // Visão do widget (padrão 19/08, espelhando o desenho do v1): Mês = grade
+  // limpa só com números; Dia = lista dos compromissos de hoje.
+  const [view, setView] = useState<'dia' | 'mes'>('mes')
 
   useEffect(() => {
     const inicio = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-01`
@@ -196,7 +198,7 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
     let m = calMonth + dir, y = calYear
     if (m < 0) { m = 11; y-- }
     if (m > 11) { m = 0; y++ }
-    setCalMonth(m); setCalYear(y); setSelectedDay(null)
+    setCalMonth(m); setCalYear(y)
   }
 
   const numRows = calTotalCells / 7
@@ -205,7 +207,6 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
   function irHoje() {
     setCalMonth(today.getMonth())
     setCalYear(today.getFullYear())
-    setSelectedDay(today.getDate())
   }
 
   if (expanded) {
@@ -229,191 +230,175 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
     )
   }
 
+  const dataExtensoHoje = today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const prevMonthDays = new Date(calYear, calMonth, 0).getDate()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const prazosHoje = isCurrentMonth ? (prazosPorDia[today.getDate()] ?? []) : []
+  const comemoracoesHoje = isCurrentMonth ? (comemoracoesPorDia[today.getDate()] ?? []) : []
+  const feriadoHoje = feriadoMap[todayStr]
+
   return (
     <Card className="h-full flex flex-col overflow-hidden">
-      <CardHeader className="pb-3 shrink-0 border-b border-border/50 bg-gradient-to-br from-sky-50/50 via-transparent to-transparent dark:from-sky-950/20">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-900/30">
-              <Calendar className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-            </div>
-            <div className="min-w-0">
-              <CardTitle className="text-base font-bold leading-tight capitalize">{title ?? MESES_NOME[calMonth]?.toLowerCase()}</CardTitle>
-              <p className="text-[11px] text-muted-foreground tabular-nums leading-tight">
-                {calYear}
-                {isCurrentMonth && (
-                  <span className="ml-1.5 inline-flex items-center rounded-sm bg-sky-100 dark:bg-sky-900/40 px-1 py-0 text-[9px] font-semibold text-sky-700 dark:text-sky-300 uppercase tracking-wider">
-                    Atual
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            {!isCurrentMonth && (
-              <Button variant="ghost" size="sm" onClick={irHoje} className="h-7 px-2 text-[11px] font-medium">
-                Hoje
-              </Button>
+      <CardHeader className="pb-0 shrink-0">
+        <CardTitle className="text-base font-bold leading-tight">{title ?? 'Agenda'}</CardTitle>
+        {/* Data de hoje por extenso — como no desenho de referência. */}
+        <p className="text-sm text-muted-foreground capitalize mt-0.5">{dataExtensoHoje}</p>
+        {/* Toggle Dia | Mês */}
+        <div className="mt-3 inline-flex w-fit rounded-lg border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => { setView('dia'); irHoje() }}
+            className={cn(
+              'px-4 py-1 text-xs font-semibold transition-colors',
+              view === 'dia' ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300' : 'bg-card text-muted-foreground hover:text-foreground',
             )}
-            <Button variant="ghost" size="icon-xs" onClick={() => nav(-1)} title="Mês anterior" className="h-7 w-7">
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon-xs" onClick={() => nav(1)} title="Próximo mês" className="h-7 w-7">
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          >
+            Dia
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('mes')}
+            className={cn(
+              'px-4 py-1 text-xs font-semibold transition-colors border-l border-border',
+              view === 'mes' ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300' : 'bg-card text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Mês
+          </button>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col min-h-0 pb-3 pt-3">
-        <div className="grid grid-cols-7 mb-1.5 shrink-0">
-          {DIAS_SEMANA_MINI.map((d, i) => (
-            <div
-              key={i}
-              className={cn(
-                'text-center text-[10px] font-bold uppercase tracking-wider py-1',
-                (i === 0 || i === 6) ? 'text-rose-400/70' : 'text-muted-foreground',
-              )}
-            >
-              {d}
+      <CardContent className="flex-1 flex flex-col min-h-0 pt-3 pb-4">
+        {view === 'mes' ? (
+          <>
+            {/* Linha do mês + navegação */}
+            <div className="flex items-center justify-between shrink-0 mb-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-semibold lowercase">{MESES_NOME[calMonth]?.toLowerCase()} {calYear}</span>
+                {!isCurrentMonth && (
+                  <Button variant="ghost" size="sm" onClick={irHoje} className="h-6 px-2 text-[11px] font-medium">
+                    Hoje
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-0.5">
+                <Button variant="ghost" size="icon-xs" onClick={() => nav(-1)} title="Mês anterior" className="h-7 w-7">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon-xs" onClick={() => nav(1)} title="Próximo mês" className="h-7 w-7">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          ))}
-        </div>
-        <div
-          className="grid grid-cols-7 flex-1 min-h-0 gap-1"
-          style={{ gridTemplateRows: `repeat(${numRows}, minmax(0, 1fr))` }}
-        >
-          {Array.from({ length: calTotalCells }, (_, i) => {
-            const dayNum = i - calFirstDay + 1
-            const isValid = dayNum >= 1 && dayNum <= calDaysInMonth
-            const isToday = isValid && today.getDate() === dayNum && today.getMonth() === calMonth && today.getFullYear() === calYear
-            const dateStr = isValid ? `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}` : ''
-            const dayPrazos = isValid ? (prazosPorDia[dayNum] ?? []) : []
-            const dayComemoracoes = isValid ? (comemoracoesPorDia[dayNum] ?? []) : []
-            const especial = isValid ? feriadoMap[dateStr] : undefined
-            const isSelected = selectedDay === dayNum
-            const colIdx = i % 7
-            const isFds = colIdx === 0 || colIdx === 6
+            <div className="grid grid-cols-7 shrink-0">
+              {DIAS_SEMANA_MINI.map((d, i) => (
+                <div key={i} className="text-center text-[11px] font-medium text-muted-foreground py-1.5">
+                  {d}
+                </div>
+              ))}
+            </div>
+            {/* Grade limpa: só números; dias de meses vizinhos esmaecidos; hoje
+                em quadrado azul. Os eventos viram pontinhos sob o número e a
+                lista completa abre no modal ao clicar. */}
+            <div
+              className="grid grid-cols-7 flex-1 min-h-0"
+              style={{ gridTemplateRows: `repeat(${numRows}, minmax(0, 1fr))` }}
+            >
+              {Array.from({ length: calTotalCells }, (_, i) => {
+                const dayNum = i - calFirstDay + 1
+                const isValid = dayNum >= 1 && dayNum <= calDaysInMonth
+                const vizinho = !isValid ? (dayNum < 1 ? prevMonthDays + dayNum : dayNum - calDaysInMonth) : 0
+                const isToday = isValid && today.getDate() === dayNum && today.getMonth() === calMonth && today.getFullYear() === calYear
+                const dateStr = isValid ? `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}` : ''
+                const dayPrazos = isValid ? (prazosPorDia[dayNum] ?? []) : []
+                const dayComemoracoes = isValid ? (comemoracoesPorDia[dayNum] ?? []) : []
+                const especial = isValid ? feriadoMap[dateStr] : undefined
+                const temConteudo = dayPrazos.length > 0 || dayComemoracoes.length > 0 || !!especial
+                const tiposDoDia = [...new Set(dayPrazos.map(pz => pz.tipo))].slice(0, 4)
 
-            const tituloHover = [
-              dayPrazos.length > 0 ? `${dayPrazos.length} pendência${dayPrazos.length > 1 ? 's' : ''}` : null,
-              dayComemoracoes.length > 0 ? dayComemoracoes.map(c => `${c.tipo === 'aniversario' ? '🎂' : '🎉'} ${c.nome}`).join(', ') : null,
-              especial?.nome,
-            ].filter(Boolean).join(' · ')
+                const tituloHover = [
+                  dayPrazos.length > 0 ? `${dayPrazos.length} pendência${dayPrazos.length > 1 ? 's' : ''}` : null,
+                  dayComemoracoes.length > 0 ? dayComemoracoes.map(c => `${c.tipo === 'aniversario' ? '🎂' : '🎉'} ${c.nome}`).join(', ') : null,
+                  especial?.nome,
+                ].filter(Boolean).join(' · ')
 
-            return (
-              <button
-                key={i}
-                type="button"
-                disabled={!isValid}
-                onClick={() => {
-                  if (!isValid) return
-                  // Selection visual + abre modal se há conteúdo no dia
-                  setSelectedDay(prev => prev === dayNum ? null : dayNum)
-                  if (dayPrazos.length > 0 || dayComemoracoes.length > 0 || especial) {
-                    setModalDay(dayNum)
-                  }
-                }}
-                title={tituloHover || undefined}
-                className={cn(
-                  'relative rounded-sm text-xs transition-all overflow-hidden border border-border/40',
-                  !isValid && 'invisible',
-                  isValid && 'hover:bg-muted/60 hover:border-border cursor-pointer hover:scale-105 hover:z-10',
-                  isToday && !isSelected && 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 font-bold ring-1 ring-sky-300/50 border-sky-200 dark:border-sky-800',
-                  isSelected && 'bg-sky-500 text-white font-bold hover:bg-sky-600 shadow-md border-sky-500',
-                  especial?.tipo === 'feriado' && !isSelected && !isToday && 'text-rose-600 dark:text-rose-400 font-semibold',
-                  especial?.tipo === 'comemorativa' && !isSelected && !isToday && 'text-violet-500 dark:text-violet-400 font-medium',
-                  !dayPrazos.length && !dayComemoracoes.length && !especial && !isToday && !isSelected && isFds && 'text-foreground/40',
-                )}
-              >
-                {/* Número do dia — canto superior direito */}
-                {isValid && (
-                  <span className="absolute top-1 right-1.5 text-[13px] font-bold tabular-nums leading-none">
-                    {dayNum}
-                  </span>
-                )}
-                {/* Lista de eventos do dia + comemorações — chips empilhados
-                    com truncate. Eventos primeiro, comemorações abaixo. */}
-                {isValid && (dayPrazos.length > 0 || dayComemoracoes.length > 0 || especial) && (
-                  <div className="absolute inset-x-1 top-7 bottom-1 flex flex-col gap-1 pointer-events-none overflow-hidden">
-                    {especial && (
-                      <span
-                        className={cn(
-                          'flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-tight truncate',
-                          especial.tipo === 'feriado'
-                            ? (isSelected ? 'bg-white/90 text-rose-700' : 'bg-rose-500 text-white')
-                            : (isSelected ? 'bg-white/90 text-violet-700' : 'bg-violet-400 text-white'),
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    disabled={!isValid}
+                    onClick={() => { if (isValid && temConteudo) setModalDay(dayNum) }}
+                    title={tituloHover || undefined}
+                    className={cn(
+                      'relative flex flex-col items-center justify-center rounded-md text-[13px] tabular-nums transition-colors',
+                      !isValid && 'text-muted-foreground/40 cursor-default',
+                      isValid && temConteudo && 'cursor-pointer hover:bg-muted/60',
+                      isValid && !temConteudo && 'cursor-default',
+                      isToday && 'bg-sky-600 text-white font-bold hover:bg-sky-600 shadow-sm',
+                      isValid && !isToday && especial?.tipo === 'feriado' && 'text-rose-600 dark:text-rose-400 font-semibold',
+                      isValid && !isToday && especial?.tipo === 'comemorativa' && 'text-violet-500 dark:text-violet-400 font-medium',
+                    )}
+                  >
+                    <span className="leading-none">{isValid ? dayNum : String(vizinho).padStart(2, '0')}</span>
+                    {/* Pontinhos por tipo de evento (a legenda dá a chave) */}
+                    {isValid && (tiposDoDia.length > 0 || dayComemoracoes.length > 0) && (
+                      <span className="mt-1 flex items-center gap-0.5">
+                        {tiposDoDia.map(tp => (
+                          <span key={tp} className={cn('h-1.5 w-1.5 rounded-full', isToday ? 'bg-white/80' : TIPO_CONFIG[tp].dotClass)} />
+                        ))}
+                        {dayComemoracoes.length > 0 && (
+                          <span className={cn('h-1.5 w-1.5 rounded-full', isToday ? 'bg-white/80' : 'bg-pink-500')} />
                         )}
-                        title={especial.nome}
-                      >
-                        <span className="truncate">{especial.nome}</span>
                       </span>
                     )}
-                    {/* Cada evento numa linha própria. Excedentes ficam cortados
-                        pelo overflow-hidden — abrir o modal mostra a lista
-                        completa. */}
-                    {dayPrazos.map((p) => {
-                      const cfg = TIPO_CONFIG[p.tipo]
-                      return (
-                        <span
-                          key={p.id}
-                          className={cn(
-                            'block rounded px-1.5 py-0.5 text-[11px] font-medium truncate border-l-2 shrink-0',
-                            isSelected
-                              ? 'bg-white/90 text-foreground'
-                              : cn(cfg.bgClass, cfg.textClass),
-                            !isSelected && cfg.borderClass,
-                          )}
-                          title={`${cfg.label}: ${p.titulo}${p.subtitulo ? ` · ${p.subtitulo}` : ''}`}
-                        >
-                          {p.titulo}
-                        </span>
-                      )
-                    })}
-                    {/* Comemorações — abaixo dos eventos. Mesmo padrão visual,
-                        cores específicas (pink/amber) + ícone de bolo/party. */}
-                    {dayComemoracoes.map((c) => (
-                      <span
-                        key={c.id}
-                        className={cn(
-                          'flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium truncate border-l-2 shrink-0',
-                          isSelected
-                            ? 'bg-white/90 text-foreground'
-                            : c.tipo === 'aniversario'
-                              ? 'bg-pink-50 dark:bg-pink-950/40 text-pink-800 dark:text-pink-200 border-pink-500'
-                              : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border-amber-500',
-                        )}
-                        title={`${c.tipo === 'aniversario' ? 'Aniversário' : `${c.anos ?? '?'} ano${c.anos === 1 ? '' : 's'} de empresa`}: ${c.nome}`}
-                      >
-                        {c.tipo === 'aniversario'
-                          ? <Cake className="h-3 w-3 shrink-0" />
-                          : <PartyPopper className="h-3 w-3 shrink-0" />}
-                        <span className="truncate">{c.nome.split(' ')[0]}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </button>
-            )
-          })}
-        </div>
-        {/* Legenda — só mostra os tipos com prazos no mês (compacto) */}
-        <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-border/40 flex-wrap shrink-0">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {(Object.entries(totaisPorTipo) as [PrazoTipo, number][])
-              .filter(([, n]) => n > 0)
-              .map(([tp, n]) => {
-                const cfg = TIPO_CONFIG[tp]
-                return (
-                  <div key={tp} className="flex items-center gap-1" title={`${n} ${cfg.label}${n > 1 ? 's' : ''}`}>
-                    <span className={cn('h-1.5 w-1.5 rounded-full', cfg.dotClass)} />
-                    <span className="text-[10px] text-muted-foreground tabular-nums">{cfg.label.slice(0, 4)} {n}</span>
-                  </div>
+                  </button>
                 )
               })}
+            </div>
+          </>
+        ) : (
+          /* ── Visão Dia: os compromissos de hoje, em lista ── */
+          <div className="flex-1 min-h-0 overflow-y-auto nice-scrollbar space-y-1.5">
+            {feriadoHoje && (
+              <div className="rounded-md bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                {feriadoHoje.nome}
+              </div>
+            )}
+            {prazosHoje.length === 0 && comemoracoesHoje.length === 0 && !feriadoHoje && (
+              <p className="text-xs text-muted-foreground italic py-6 text-center">Nenhum compromisso para hoje.</p>
+            )}
+            {prazosHoje.map(pz => {
+              const cfg = TIPO_CONFIG[pz.tipo]
+              return (
+                <button
+                  key={pz.id}
+                  type="button"
+                  onClick={() => { if (pz.link) router.push(pz.link) }}
+                  className="w-full flex items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                >
+                  <span className={cn('h-2 w-2 rounded-full shrink-0', cfg.dotClass)} />
+                  {pz.horaInicio && <span className="text-[11px] font-semibold tabular-nums shrink-0">{formatHora(pz.horaInicio)}</span>}
+                  <span className="text-xs truncate flex-1">{pz.titulo}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">{cfg.label}</span>
+                </button>
+              )
+            })}
+            {comemoracoesHoje.map(c => (
+              <div key={c.id} className="flex items-center gap-2 rounded-md border border-border/60 bg-pink-50/50 dark:bg-pink-950/20 px-3 py-2">
+                {c.tipo === 'aniversario' ? <Cake className="h-3.5 w-3.5 text-pink-500 shrink-0" /> : <PartyPopper className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
+                <span className="text-xs truncate">{c.nome}</span>
+              </div>
+            ))}
           </div>
-          {prazos.length === 0 && (
-            <span className="text-[10px] text-muted-foreground italic">Sem prazos no mês</span>
-          )}
+        )}
+
+        {/* Legenda — divisória + bolinhas com rótulo, como na referência */}
+        <div className="flex items-center gap-x-4 gap-y-1.5 flex-wrap mt-3 pt-3 border-t border-border/40 shrink-0">
+          {(Object.entries(TIPO_CONFIG) as [PrazoTipo, typeof TIPO_CONFIG[PrazoTipo]][]).map(([tp, cfg]) => (
+            <div key={tp} className="flex items-center gap-1.5" title={`${totaisPorTipo[tp]} no mês`}>
+              <span className={cn('h-2 w-2 rounded-full', cfg.dotClass)} />
+              <span className="text-[11px] text-foreground/80">{cfg.label}</span>
+            </div>
+          ))}
         </div>
       </CardContent>
 
