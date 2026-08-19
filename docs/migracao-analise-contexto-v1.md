@@ -75,15 +75,19 @@ inativos no v1 ficam lá.
 - O `add_analise_contexto.sql` segue no stage 4.5 do deploy (idempotente).
   A UI entra no ar com o commit `3ac67387`.
 
-## 6. Desativação no v1
+## 6. Desativação no v1 — ✅ aplicada em 19/08
 
-`\\192.168.0.7\wwwroot\central\modules\sgq_contexto\adm\` — pontos de
-gravação a bloquear (padrão: aviso + botão desabilitado + redirect
-server-side, **com `.bak` antes de cada edição**):
-- `modal-create.asp` — INSERT do registro;
-- `details.asp` — os 2 UPDATEs (edição e avaliação);
-- `modal-acao-new.asp` / `modal-acao-editar.asp` / `modal-acao-finalizar.asp` /
-  `modal-acao-delete.asp` — plano de ação;
-- `modal-delete.asp` — exclusão;
-- msg/arq: tabelas vazias, mas os modais gravam — bloquear junto.
-- O módulo `sgq_swot` (lê as mesmas tabelas) ganha só o banner informativo.
+Todos os arquivos editados ganharam **`.bak-2026-08-19`** ao lado antes da
+edição (lição do incidente das Tabelas de Registros).
+
+- `sgq_contexto/adm/`: os 15 modais de gravação (create, delete, ações,
+  msg, arq, analise, finalizar) bloqueados por redirect no topo; no
+  `details.asp` só os 2 branches de POST foram guardados (a página segue
+  como consulta, com banner); `index.asp` com banner + botão Novo
+  desabilitado.
+- `sgq_swot/` (grava nas MESMAS tabelas): os 10 processadores
+  (`acao_*.asp`, `edit.asp`, `modal-acao-*`) bloqueados por inteiro; em
+  `index.asp`/`index2.asp` os 3 branches de POST (insert/update/delete)
+  guardados + banner.
+- Conferido logado: banner no topo, Novo esmaecido, listagem de consulta
+  intacta.
