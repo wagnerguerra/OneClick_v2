@@ -27,7 +27,6 @@ import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserMultiPicker } from '@/components/user-multi-picker'
 import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
-import { AreasDetalhamentoSection } from '@/components/orcamento/areas-detalhamento-section'
 import { OrcamentoIaSection } from '@/components/orcamento/orcamento-ia-section'
 import { masks } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
@@ -623,9 +622,16 @@ export default function OrcamentoDetailPage() {
   // o cadastro do serviço.
   const areasDerivadas = orc?.areas ?? []
 
-  // Áreas de NOTIFICAÇÃO (workflow OrcamentoArea) — a seção "Detalhamento por
-  // área" reporta a lista; o card "Áreas envolvidas" soma essas às derivadas.
+  // Áreas de NOTIFICAÇÃO (OrcamentoArea, escolhidas na criação) — somadas às
+  // derivadas no card "Áreas envolvidas". O workflow de detalhamento pelos
+  // líderes foi descontinuado (imagem em _backups/modulo-orcamentos-2026-08-19);
+  // o vínculo continua existindo só para compor os badges.
   const [areasNotificadas, setAreasNotificadas] = useState<Array<{ areaId: string; areaNome: string }>>([])
+  useEffect(() => {
+    ;(trpc.orcamento as any).listAreasDoOrcamento.query({ orcamentoId: id })
+      .then((r: Array<{ areaId: string; areaNome: string }>) => setAreasNotificadas(r.map(x => ({ areaId: x.areaId, areaNome: x.areaNome }))))
+      .catch(() => setAreasNotificadas([]))
+  }, [id])
   const chipsAreas = useMemo(() => {
     const m = new Map<string, { nome: string; derivada: boolean }>()
     for (const a of areasDerivadas) m.set(a.id, { nome: a.nome, derivada: true })
@@ -1739,6 +1745,17 @@ export default function OrcamentoDetailPage() {
                 {orc.cliente?.documento && (<>&nbsp;&nbsp;|&nbsp;&nbsp;{masks.cpfCnpj(orc.cliente.documento)}</>)}
                 &nbsp;&nbsp;|&nbsp;&nbsp;Criado em: {new Date(orc.createdAt).toLocaleDateString('pt-BR')}, {new Date(orc.createdAt).toLocaleTimeString('pt-BR')}
                 &nbsp;&nbsp;|&nbsp;&nbsp;<span className="align-middle"><StatusBadge status={orc.status} /></span>
+                {chipsAreas.length > 0 && (
+                  <span className="inline-flex flex-wrap gap-1.5 align-middle ml-3">
+                    {chipsAreas.map(a => (
+                      <Badge key={a.id} variant={a.derivada ? 'secondary' : 'outline'}
+                        className={cn('text-[10px] h-5 px-2 font-medium', !a.derivada && 'bg-white/50 dark:bg-white/10')}
+                        title={a.derivada ? 'Área dos serviços da aba Itens' : 'Área notificada'}>
+                        {a.nome}
+                      </Badge>
+                    ))}
+                  </span>
+                )}
               </p>
               {/* Sem o status (que subiu pra linha do cabeçalho), a linha de
                   badges só existe quando tem algo a mostrar — evita margem fantasma. */}
@@ -2210,42 +2227,6 @@ export default function OrcamentoDetailPage() {
                           />
                         </div>
 
-                      </div>
-
-                      {/* ── Seção: Áreas — envolvidas (itens + notificadas) e o workflow
-                          de detalhamento. Divisória própria para a pill não virar uma
-                          pilha embolada de campos. ── */}
-                      <div className="px-5 py-3 border-y border-[rgba(0,0,0,0.08)]">
-                        <h4 className="text-[13px] font-semibold text-foreground">Áreas</h4>
-                      </div>
-                      <div className="p-5 space-y-5">
-                        <div className="space-y-2.5">
-                          <Label className="text-[13px] font-semibold text-foreground">Áreas envolvidas</Label>
-                          {chipsAreas.length > 0 ? (
-                            <>
-                              <div className="flex flex-wrap gap-2">
-                                {chipsAreas.map(a => (
-                                  <Badge key={a.id} variant={a.derivada ? 'secondary' : 'outline'} className="text-[11px] h-6 px-2.5 font-medium"
-                                    title={a.derivada ? 'Área dos serviços da aba Itens' : 'Notificada para detalhamento'}>
-                                    {a.nome}
-                                  </Badge>
-                                ))}
-                              </div>
-                              <p className="text-[11px] text-muted-foreground">
-                                Áreas dos serviços da aba &quot;Itens&quot; e áreas notificadas para detalhamento.
-                              </p>
-                            </>
-                          ) : (
-                            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
-                              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500 mt-0.5" />
-                              <p className="text-[12px] leading-relaxed text-amber-800 dark:text-amber-300">
-                                Este orçamento não possui nenhum serviço com área definida. Adicione serviços na aba &quot;Itens&quot;.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        <AreasDetalhamentoSection orcamentoId={id} accent={MODULE_COLOR} onAreasChange={setAreasNotificadas} />
                       </div>
 
                     </div>

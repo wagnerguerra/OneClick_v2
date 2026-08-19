@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
   Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
   MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target,
-  Download, FileSpreadsheet, FileDown, ClipboardList,
+  Download, FileSpreadsheet, FileDown,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card,
@@ -91,9 +91,6 @@ interface OrcamentoRow {
   /** Card de CRM vinculado — presença via oportunidadeId; nº quando disponível. */
   oportunidadeId?: string | null
   oportunidadeNumero?: number | null
-  /** Áreas notificadas que ainda não detalharam (workflow OrcamentoArea). */
-  areasDetalhePendentes?: number
-  areasDetalheAtrasadas?: number
   createdAt: string
   updatedAt: string
   arquivado?: boolean
@@ -1681,26 +1678,6 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
           <PrazoBadge orc={orc} />
         </div>
         <div className="flex items-center gap-2">
-          {/* Indicador de detalhamento por área pendente: âmbar = no prazo, vermelho = atrasado. */}
-          {((orc.areasDetalhePendentes ?? 0) + (orc.areasDetalheAtrasadas ?? 0)) > 0 && (() => {
-            const total = (orc.areasDetalhePendentes ?? 0) + (orc.areasDetalheAtrasadas ?? 0)
-            const atrasada = (orc.areasDetalheAtrasadas ?? 0) > 0
-            return (
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1 text-[10px] font-medium rounded-sm px-1.5 py-0.5',
-                  atrasada
-                    ? 'text-rose-700 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-400'
-                    : 'text-amber-700 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-400',
-                )}
-                title={atrasada
-                  ? `${total} ${total === 1 ? 'área ainda não detalhou' : 'áreas ainda não detalharam'} a sua parte (com atraso)`
-                  : `${total} ${total === 1 ? 'área ainda não detalhou' : 'áreas ainda não detalharam'} a sua parte`}
-              >
-                <ClipboardList className="h-3 w-3" /> {total}
-              </span>
-            )
-          })()}
           {orc.oportunidadeId && (
             <span className="inline-flex items-center gap-1 text-[10px] font-medium text-fuchsia-700 bg-fuchsia-50 dark:bg-fuchsia-900/30 dark:text-fuchsia-400 rounded-sm px-1.5 py-0.5" title="Card de CRM vinculado">
               <Target className="h-3 w-3" /> CRM{orc.oportunidadeNumero != null ? ` #${orc.oportunidadeNumero}` : ''}

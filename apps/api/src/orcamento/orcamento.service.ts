@@ -326,23 +326,6 @@ export class OrcamentoService {
       })),
     )
 
-    // Áreas de notificação ainda sem detalhamento (workflow OrcamentoArea) —
-    // viram flag no payload pro indicador do card do kanban (estado derivado
-    // mora no backend; o front só compõe).
-    const areasSemDetalhe = orcIds.length
-      ? await prisma.orcamentoArea.findMany({
-          where: { orcamentoId: { in: orcIds }, status: { in: ['PENDENTE', 'ATRASADO'] } },
-          select: { orcamentoId: true, status: true },
-        }).catch(() => [] as Array<{ orcamentoId: string; status: string }>)
-      : []
-    const detalhePendentes = new Map<string, { pendentes: number; atrasadas: number }>()
-    for (const oa of areasSemDetalhe) {
-      const agg = detalhePendentes.get(oa.orcamentoId) ?? { pendentes: 0, atrasadas: 0 }
-      if (oa.status === 'ATRASADO') agg.atrasadas++
-      else agg.pendentes++
-      detalhePendentes.set(oa.orcamentoId, agg)
-    }
-
     // Nº do card de CRM vinculado — alimenta o chip "CRM #N" no card do kanban.
     // try/catch defende snapshots antigos sem a coluna oportunidades.numero.
     const oportIds = [...new Set(data.map(o => o.oportunidadeId).filter(Boolean))] as string[]
@@ -365,9 +348,6 @@ export class OrcamentoService {
       itensDescricoes: (itensPorOrcamento.get(o.id) ?? []).map(i => i.descricao),
       // Card de CRM vinculado (presença via oportunidadeId; nº quando disponível).
       oportunidadeNumero: o.oportunidadeId ? (oportMap.get(o.oportunidadeId) ?? null) : null,
-      // Áreas notificadas que ainda não detalharam a sua parte (0 = todas em dia).
-      areasDetalhePendentes: detalhePendentes.get(o.id)?.pendentes ?? 0,
-      areasDetalheAtrasadas: detalhePendentes.get(o.id)?.atrasadas ?? 0,
     }))
 
     return { data: enriched, total, page, limit, totalPages: Math.ceil(total / limit) }
@@ -1300,17 +1280,19 @@ export class OrcamentoService {
     }
   }
 
-  /** Notifica (sino + e-mail) os responsáveis por detalhar uma área. */
-  private async notificarAreaPendente(oaId: string, _areaId: string, areaNome: string, leaderId: string | null, substitutoId: string | null, prazo: Date, numero: number, cfg: { canais: unknown; areaComercialId: string | null }) {
+  /** Notifica (sino + e-mail) o líder/substituto de que a área está envolvida
+   *  no orçamento. O workflow de DETALHAMENTO pelos líderes foi descontinuado
+   *  (imagem em _backups/modulo-orcamentos-2026-08-19) — o vínculo hoje só
+   *  informa o envolvimento e compõe os badges de "Áreas envolvidas". */
+  private async notificarAreaPendente(oaId: string, _areaId: string, areaNome: string, leaderId: string | null, substitutoId: string | null, _prazo: Date, numero: number, cfg: { canais: unknown; areaComercialId: string | null }) {
     const canais = (cfg.canais as any) ?? { sino: true, email: true }
     let destinatarios = [leaderId, substitutoId].filter(Boolean) as string[]
     if (!destinatarios.length) destinatarios = await this.resolverComercial(cfg.areaComercialId) // sem líder/substituto → comercial
     destinatarios = [...new Set(destinatarios)]
     if (!destinatarios.length) return
     const link = `/orcamentos/${(await prisma.orcamentoArea.findUnique({ where: { id: oaId }, select: { orcamentoId: true } }))?.orcamentoId ?? ''}`
-    const titulo = `Detalhe a área ${areaNome} no orçamento #${numero}`
-    const prazoStr = prazo.toLocaleDateString('pt-BR')
-    const mensagem = `Você foi indicado para detalhar a parte de ${areaNome}. Prazo: ${prazoStr}.`
+    const titulo = `Área ${areaNome} envolvida no orçamento #${numero}`
+    const mensagem = `A área ${areaNome} foi indicada como envolvida neste orçamento.`
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
     for (const uid of destinatarios) {
       if (canais.sino !== false) await this.notificationService.criar({ userId: uid, titulo, mensagem, tipo: 'warning', link, origem: 'orcamento' }).catch(() => {})

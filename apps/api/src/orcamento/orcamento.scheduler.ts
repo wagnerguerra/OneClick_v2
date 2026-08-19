@@ -37,13 +37,9 @@ export class OrcamentoScheduler implements OnModuleInit, OnModuleDestroy {
     } catch (e) {
       console.error('[OrcamentoScheduler] Erro:', (e as Error).message)
     }
-    // Áreas com detalhamento em atraso → marca ATRASADO e avisa o comercial.
-    try {
-      const r = await this.orcamentoService.verificarAtrasosAreas()
-      if (r.processados > 0) console.log(`[OrcamentoScheduler] Áreas em atraso processadas=${r.processados}`)
-    } catch (e) {
-      console.error('[OrcamentoScheduler] Erro (atrasos de área):', (e as Error).message)
-    }
+    // O aviso de atraso de detalhamento por área foi descontinuado junto com o
+    // workflow de detalhamento pelos líderes (19/08/2026) — sem a ação de
+    // detalhar, a cobrança só gerava e-mail sem resposta possível.
     // [QA #46a] Lembrete de validade vencendo → agenda + sino + e-mail.
     try {
       const v = await this.orcamentoService.notificarValidadeVencendo()
