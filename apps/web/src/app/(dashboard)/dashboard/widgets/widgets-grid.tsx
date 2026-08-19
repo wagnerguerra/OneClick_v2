@@ -86,17 +86,13 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
   const [areasOpcoes, setAreasOpcoes] = useState<Array<{ id: string; name: string }>>([])
   const [pickersLoaded, setPickersLoaded] = useState(false)
 
-  // Carrega layout salvo no mount. Ordem de prioridade:
-  //   1. Layout pessoal do user (getMine) — se ele já personalizou
-  //   2. Layout empresarial (get) — padrão configurado pelo master
-  //   3. DEFAULT_LAYOUT (hardcoded)
+  // Carrega o layout da EMPRESA (ou o DEFAULT). A personalização por usuário
+  // foi descontinuada em 19/08: cada um montava (ou não montava) o próprio
+  // dashboard e o resultado era um painel largado. Agora só o master edita e
+  // a edição replica para todos — os layouts pessoais antigos ficam no banco,
+  // mas não são mais lidos.
   const fetchLayout = useCallback(async () => {
     try {
-      const mine = await (trpc.dashboardLayout as any).getMine.query()
-      if (mine && mine.layout && mine.layout.length > 0) {
-        setLayout(mine.layout as SavedItem[])
-        return
-      }
       const empresa = await (trpc.dashboardLayout as any).get.query(empresaIdAtual ? { empresaId: empresaIdAtual } : undefined)
       setLayout(empresa && empresa.layout && empresa.layout.length > 0 ? empresa.layout : DEFAULT_LAYOUT)
     } catch {
@@ -201,17 +197,17 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
     setEditing(false)
   }
 
-  /** Apaga a personalização pessoal e volta pro padrão da empresa (ou DEFAULT). */
+  /** Remove a configuração da empresa e volta pro DEFAULT — para todos. */
   async function handleRestaurarPadrao() {
     const ok = await alerts.confirm({
-      title: 'Restaurar padrão da empresa?',
-      text: 'Sua personalização pessoal será apagada e o dashboard volta pro padrão configurado pela empresa.',
+      title: 'Restaurar o dashboard padrão?',
+      text: 'A configuração da empresa será apagada e TODOS os usuários voltam a ver o dashboard padrão do sistema.',
       confirmText: 'Restaurar', icon: 'warning',
     })
     if (!ok) return
     setSaving(true)
     try {
-      await (trpc.dashboardLayout as any).resetMine.mutate()
+      await (trpc.dashboardLayout as any).reset.mutate(empresaIdAtual ? { empresaId: empresaIdAtual } : undefined)
       setDraftLayout(null)
       setEditing(false)
       await fetchLayout()
@@ -334,11 +330,11 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
         if (visibility) item.visibility = visibility
         return item
       })
-      await (trpc.dashboardLayout as any).saveMine.mutate({ layout: payload })
+      await (trpc.dashboardLayout as any).save.mutate({ layout: payload, ...(empresaIdAtual ? { empresaId: empresaIdAtual } : {}) })
       setLayout(payload)
       setDraftLayout(null)
       setEditing(false)
-      await alerts.success('Layout salvo', 'Sua personalização foi salva e sincroniza entre máquinas ao fazer login.')
+      await alerts.success('Dashboard salvo', 'O novo layout vale para todos os usuários da empresa.')
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally {
@@ -359,15 +355,16 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
       {/* Header + Toolbar de edição — botões alinhados ao topo (com o título) */}
       <div className="flex items-start justify-between gap-2 mb-3 flex-wrap">
         <div className="min-w-0 flex-1">{header}</div>
-        {/* Edição liberada pra TODO usuário do dashboard — cada um cuida do próprio.
-            Master continua tendo a opção de editar o padrão da empresa via outra rota. */}
+        {/* Edição restrita ao master/empresa-master (19/08): a personalização
+            individual deixava dashboards largados — agora um layout único,
+            editado pelo master, replica para todos (SSE atualiza ao vivo). */}
         <div className="flex items-center gap-2 pt-1">
           {!editing ? (
-            <>
+            isAdmin && (
               <Button size="sm" variant="outline" onClick={handleEntrarEdicao} className="gap-1.5">
-                <Pencil className="h-4 w-4" /> Editar meu Dashboard
+                <Pencil className="h-4 w-4" /> Editar Dashboard
               </Button>
-            </>
+            )
           ) : (
             <>
               {widgetsDisponiveis.length > 0 && (
@@ -390,7 +387,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
                 </DropdownMenu>
               )}
               <Button size="sm" variant="ghost" onClick={handleRestaurarPadrao} disabled={saving} className="gap-1.5 text-muted-foreground hover:text-foreground">
-                Restaurar padrão da empresa
+                Restaurar padrão do sistema
               </Button>
               <Button size="sm" variant="ghost" onClick={handleCancelar} disabled={saving} className="gap-1.5">
                 <X className="h-4 w-4" /> Cancelar
