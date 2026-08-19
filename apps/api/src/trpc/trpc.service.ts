@@ -173,6 +173,8 @@ import { NaoConformidadeService } from '../nao-conformidade/nao-conformidade.ser
 import { createNaoConformidadeRouter } from '../nao-conformidade/nao-conformidade.router'
 import { DocumentoExternoService } from '../documento-externo/documento-externo.service'
 import { createDocumentoExternoRouter } from '../documento-externo/documento-externo.router'
+import { QualidadeService } from '../qualidade/qualidade.service'
+import { createQualidadeRouter } from '../qualidade/qualidade.router'
 import { createManifestacaoRouter } from '../manifestacao/manifestacao.router'
 import { MinhasObrigacoesService } from '../minhas-obrigacoes/minhas-obrigacoes.service'
 import { AtivoService } from '../ativo/ativo.service'
@@ -743,6 +745,7 @@ export class TrpcService {
     @Inject(AnaliseContextoService) private readonly analiseContextoService: AnaliseContextoService,
     @Inject(NaoConformidadeService) private readonly naoConformidadeService: NaoConformidadeService,
     @Inject(DocumentoExternoService) private readonly documentoExternoService: DocumentoExternoService,
+    @Inject(QualidadeService) private readonly qualidadeService: QualidadeService,
     @Inject(ClientErrorService) private readonly clientErrorService: ClientErrorService,
     @Inject(ThemeService) private readonly themeService: ThemeService,
     @Inject(DanfeService) private readonly danfeService: DanfeService,
@@ -857,6 +860,7 @@ export class TrpcService {
       analiseContexto: createAnaliseContextoRouter(this.analiseContextoService),
       naoConformidade: createNaoConformidadeRouter(this.naoConformidadeService),
       documentoExterno: createDocumentoExternoRouter(this.documentoExternoService),
+      qualidade: createQualidadeRouter(this.qualidadeService),
       minhasObrigacoes: createMinhasObrigacoesRouter(this.minhasObrigacoesService),
     })
   }

@@ -281,7 +281,7 @@ export const navigation: NavGroup[] = [
       { label: 'Elogios', href: '/elogios', icon: ThumbsUp },
       { label: 'Melhorias', href: '/melhorias', icon: TrendingUp },
       { label: 'Não Conformidades', href: '/nao-conformidades', icon: AlertTriangle },
-      { label: 'Painel da Qualidade', href: '/qualidade', icon: BarChart3, wip: true },
+      { label: 'Painel da Qualidade', href: '/qualidade', icon: BarChart3 },
       { label: 'Reclamações', href: '/reclamacoes', icon: MessageSquare },
       { label: 'Reuniões', href: '/reunioes', icon: Video },
       { label: 'Sugestões', href: '/sugestoes', icon: Lightbulb },
