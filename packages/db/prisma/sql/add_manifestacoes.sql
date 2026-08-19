@@ -123,3 +123,8 @@ ALTER TABLE "manifestacoes" ADD COLUMN IF NOT EXISTS "legacy_id" INTEGER;
 ALTER TABLE "manifestacoes" ADD COLUMN IF NOT EXISTS "elogiados_texto" TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS "manifestacoes_legacy_source_legacy_id_key"
   ON "manifestacoes" ("legacy_source", "legacy_id");
+
+-- Default de atualizado_em (lição de 18/08, §3.3 do runbook): o @updatedAt é
+-- do cliente Prisma; em produção a tabela nasceu do db push SEM default e o
+-- INSERT cru da carga quebrava.
+ALTER TABLE "manifestacoes"           ALTER COLUMN "atualizado_em" SET DEFAULT CURRENT_TIMESTAMP;
