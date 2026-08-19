@@ -1,7 +1,7 @@
 'use client'
 
 import { ComponentType } from 'react'
-import { Mail, Shield, FileLock, ListChecks, Landmark, Calendar, Phone, FileText, Megaphone } from 'lucide-react'
+import { Mail, Shield, FileLock, ListChecks, Landmark, Calendar, CalendarClock, Phone, FileText, Megaphone } from 'lucide-react'
 import { CaixaPostalWidget } from './caixa-postal-widget'
 import { CndFederaisWidget } from './cnd-federais-widget'
 import { CertificadosWidget } from './certificados-widget'
@@ -11,6 +11,7 @@ import { CalendarioWidget } from './calendario-widget'
 import { RamaisWidget } from './ramais-widget'
 import { OrcamentosWidget } from './orcamentos-widget'
 import { NovidadesWidget } from './novidades-widget'
+import { HojeWidget } from './hoje-widget'
 
 export type WidgetColor = 'sky' | 'indigo' | 'fuchsia' | 'violet' | 'emerald' | 'amber'
 
@@ -83,6 +84,17 @@ export const WIDGET_REGISTRY: Record<string, WidgetDef> = {
     color: 'sky',
     Component: CalendarioWidget,
     defaultLayout: { w: 8, h: 10, minW: 1, minH: 1 },
+    requiresModule: 'agenda',
+  },
+  'hoje': {
+    id: 'hoje',
+    label: 'Eventos e Tarefas do Dia',
+    icon: CalendarClock,
+    color: 'sky',
+    Component: HojeWidget,
+    defaultLayout: { w: 4, h: 8, minW: 1, minH: 1 },
+    // A visibilidade fina (particular / membro da tarefa) é do backend da
+    // agenda; aqui só exigimos o módulo.
     requiresModule: 'agenda',
   },
   'ramais': {
