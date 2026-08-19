@@ -65,7 +65,7 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
       <CardHeader className="pb-2 shrink-0 border-b-0">
         <div className="flex items-center gap-2">
           <CalendarClock className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-          <CardTitle className="text-base font-bold leading-tight">{title ?? 'Meu dia'}</CardTitle>
+          <CardTitle className="text-base font-bold leading-tight">{title ?? 'Eventos do dia'}</CardTitle>
         </div>
         <p className="text-[11px] text-muted-foreground">Eventos e tarefas de hoje, da agenda</p>
       </CardHeader>
