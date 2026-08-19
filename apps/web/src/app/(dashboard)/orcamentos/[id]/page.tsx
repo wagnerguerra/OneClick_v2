@@ -27,6 +27,7 @@ import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserMultiPicker } from '@/components/user-multi-picker'
 import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
+import { AreasDetalhamentoSection } from '@/components/orcamento/areas-detalhamento-section'
 import { OrcamentoIaSection } from '@/components/orcamento/orcamento-ia-section'
 import { masks } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
@@ -560,7 +561,7 @@ export default function OrcamentoDetailPage() {
   const STATUS_LOCKED = new Set(['APROVADO', 'LIBERADO', 'FINALIZADO', 'ENCERRADO'])
   const isLocked = !!orc && STATUS_LOCKED.has(orc.status)
   // Pills internas da aba Detalhes (organizacao em sub-card vertical)
-  type PillKey = 'dados' | 'itens' | 'desconto' | 'textos'
+  type PillKey = 'dados' | 'itens' | 'textos'
   const [activePill, setActivePill] = useState<PillKey>('dados')
   // Auto-save: status visivel + ref para evitar disparar no primeiro load
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -621,6 +622,11 @@ export default function OrcamentoDetailPage() {
   // dos itens. Somente leitura: não há campo de área no orçamento, quem define é
   // o cadastro do serviço.
   const areasDerivadas = orc?.areas ?? []
+
+  // Quantas áreas de NOTIFICAÇÃO (workflow OrcamentoArea) o orçamento tem — a
+  // seção "Detalhamento por área" reporta; o card acima usa para não afirmar
+  // "não há áreas" quando existe pendência de detalhamento logo abaixo.
+  const [qtdAreasNotificadas, setQtdAreasNotificadas] = useState(0)
 
   // Form fields
   const [formTipo, setFormTipo] = useState('')
@@ -2084,7 +2090,6 @@ export default function OrcamentoDetailPage() {
                     {([
                       { key: 'dados', icon: FileText, label: 'Dados Gerais' },
                       { key: 'itens', icon: Package, label: 'Itens', badge: orc.itens.length },
-                      { key: 'desconto', icon: DollarSign, label: 'Desconto e Pagamento' },
                       { key: 'textos', icon: Type, label: 'Textos' },
                     ] as Array<{ key: PillKey; icon: typeof FileText; label: string; badge?: number }>).map(p => {
                       const Icon = p.icon
@@ -2214,10 +2219,19 @@ export default function OrcamentoDetailPage() {
                             <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
                               <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500 mt-0.5" />
                               <p className="text-[12px] leading-relaxed text-amber-800 dark:text-amber-300">
-                                Este orçamento não possui nenhum serviço com área definida. Adicione serviços na aba &quot;Itens&quot;.
+                                {qtdAreasNotificadas > 0
+                                  ? <>Nenhum serviço com área definida ainda — as áreas listadas em &quot;Detalhamento por área&quot;, abaixo, foram notificadas para detalhar. Adicione os serviços na aba &quot;Itens&quot;.</>
+                                  : <>Este orçamento não possui nenhum serviço com área definida. Adicione serviços na aba &quot;Itens&quot;.</>}
                               </p>
                             </div>
                           )}
+                        </div>
+
+                        {/* Linha 4b: Detalhamento por área (workflow OrcamentoArea) — a
+                            contraparte das notificações "Detalhe a área X"; some quando o
+                            orçamento não tem áreas de notificação. */}
+                        <div className="col-span-12">
+                          <AreasDetalhamentoSection orcamentoId={id} accent={MODULE_COLOR} onCountChange={setQtdAreasNotificadas} />
                         </div>
 
                         {/* Linha 5: CRM vinculado — o inverso do forward CRM→orçamento */}
@@ -2561,12 +2575,11 @@ export default function OrcamentoDetailPage() {
                           ))}
                         </TableBody>
                       </Table>
-                    </div>
-                  )}
 
-                  {activePill === 'desconto' && (
-                    <div className="-m-5">
-                      <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                      {/* Desconto e Pagamento — era uma pill própria; agora fecha a
+                          aba Itens, porque desconto e forma de pagamento são a
+                          continuação natural da lista de itens. */}
+                      <div className="px-5 py-3 border-y border-[rgba(0,0,0,0.08)] mt-4">
                         <h4 className="text-[13px] font-semibold text-foreground">Desconto e Pagamento</h4>
                       </div>
                       {apenasDescontoItem && (
