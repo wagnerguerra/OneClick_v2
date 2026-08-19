@@ -167,6 +167,8 @@ import { MelhoriaService } from '../melhoria/melhoria.service'
 import { createMelhoriaRouter } from '../melhoria/melhoria.router'
 import { TabelaRegistroService } from '../tabela-registro/tabela-registro.service'
 import { createTabelaRegistroRouter } from '../tabela-registro/tabela-registro.router'
+import { AnaliseContextoService } from '../analise-contexto/analise-contexto.service'
+import { createAnaliseContextoRouter } from '../analise-contexto/analise-contexto.router'
 import { createManifestacaoRouter } from '../manifestacao/manifestacao.router'
 import { MinhasObrigacoesService } from '../minhas-obrigacoes/minhas-obrigacoes.service'
 import { AtivoService } from '../ativo/ativo.service'
@@ -734,6 +736,7 @@ export class TrpcService {
     @Inject(CapacitacaoService) private readonly capacitacaoService: CapacitacaoService,
     @Inject(MelhoriaService) private readonly melhoriaService: MelhoriaService,
     @Inject(TabelaRegistroService) private readonly tabelaRegistroService: TabelaRegistroService,
+    @Inject(AnaliseContextoService) private readonly analiseContextoService: AnaliseContextoService,
     @Inject(ClientErrorService) private readonly clientErrorService: ClientErrorService,
     @Inject(ThemeService) private readonly themeService: ThemeService,
     @Inject(DanfeService) private readonly danfeService: DanfeService,
@@ -845,6 +848,7 @@ export class TrpcService {
       capacitacao: createCapacitacaoRouter(this.capacitacaoService),
       melhoria: createMelhoriaRouter(this.melhoriaService),
       tabelaRegistro: createTabelaRegistroRouter(this.tabelaRegistroService),
+      analiseContexto: createAnaliseContextoRouter(this.analiseContextoService),
       minhasObrigacoes: createMinhasObrigacoesRouter(this.minhasObrigacoesService),
     })
   }

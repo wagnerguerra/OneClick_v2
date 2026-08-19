@@ -8460,3 +8460,86 @@ model TabelaRegistroVersao {
   @@index([legacyId])
   @@map("tabela_registro_versoes")
 }
+
+// ============================================================
+// ANÁLISE DE CONTEXTO (Qualidade) — port do sgq_contexto do v1.
+// A análise SWOT do contexto da organização (ISO 9001 §4.1): cada registro é
+// uma oportunidade/ameaça/força/fraqueza com risco (gravidade × probabilidade),
+// plano de ação e avaliação de eficácia. Tipos são enums fixos da metodologia,
+// não cadastro. Levantamento: docs/migracao-analise-contexto-v1.md
+// ============================================================
+
+model AnaliseContexto {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+
+  /// EXTERNA | INTERNA
+  analise String
+  /// OPORTUNIDADE | AMEACA | FORCA | FRAQUEZA (Ext: oportunidade/ameaça; Int: força/fraqueza)
+  tipo String
+
+  identificacao String
+  /// Texto livre no v1 (Estratégico, Trabalhista...) — não é o mapa sgq_proc.
+  processo         String?
+  parteInteressada String? @map("parte_interessada") @db.Text
+
+  /// Gravidade (ameaça/fraqueza) ou benefício (oportunidade/força), 1–3.
+  gravidade     Int?
+  /// 1–3. O grau de risco (gravidade × probabilidade) é derivado no service.
+  probabilidade Int?
+
+  responsavelId   String?   @map("responsavel_id")
+  /// Resíduo do v1 quando o responsável não existe mais no v2.
+  responsavelNome String?   @map("responsavel_nome")
+  prazo           DateTime? @db.Date
+
+  // Avaliação de eficácia (o fechamento do registro no v1)
+  avaliadoPorId   String?   @map("avaliado_por_id")
+  avaliadoPorNome String?   @map("avaliado_por_nome")
+  avaliadoEm      DateTime? @map("avaliado_em") @db.Date
+  avaliacao       String?   @db.Text
+  eficaz          Boolean?
+
+  ativo Boolean @default(true)
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  acoes AnaliseContextoAcao[]
+
+  @@index([empresaId])
+  @@index([analise, tipo])
+  @@index([legacyId])
+  @@map("analises_contexto")
+}
+
+model AnaliseContextoAcao {
+  id        String  @id @default(cuid())
+  analiseId String  @map("analise_id")
+  legacyId  Int?    @map("legacy_id")
+
+  /// IMEDIATA | CORRETIVA | AVALIACAO_EFICACIA
+  tipo      String
+  descricao String @db.Text
+
+  responsavelId   String? @map("responsavel_id")
+  /// No v1 o responsável da ação era TEXTO LIVRE (às vezes vários nomes) —
+  /// quando não casa com um usuário, o texto fica aqui.
+  responsavelNome String? @map("responsavel_nome")
+
+  prazo         DateTime? @db.Date
+  concluida     Boolean   @default(false)
+  finalizadoEm  DateTime? @map("finalizado_em") @db.Date
+  finalizadoPorId String? @map("finalizado_por_id")
+  observacao    String?   @db.Text
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  analise AnaliseContexto @relation(fields: [analiseId], references: [id], onDelete: Cascade)
+
+  @@index([analiseId])
+  @@index([legacyId])
+  @@map("analise_contexto_acoes")
+}
