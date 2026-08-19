@@ -507,7 +507,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
                       onClick={() => !editing && setExpandedWidget(item.i)}
                       disabled={editing}
                       className={cn(
-                        'group/btn relative h-full w-full flex flex-col items-center justify-center gap-2 rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow border-l-4 overflow-hidden',
+                        'group/btn relative h-full w-full flex flex-col items-center justify-center gap-2 rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow overflow-hidden',
                         editing ? 'pointer-events-none opacity-95' : 'cursor-pointer',
                       )}
                       style={{ borderLeftColor: blocoHex }}

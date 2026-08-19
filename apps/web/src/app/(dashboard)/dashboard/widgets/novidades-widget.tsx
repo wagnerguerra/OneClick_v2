@@ -71,8 +71,8 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
   }
 
   return (
-    <Card className="@container/widget h-full overflow-hidden border-l-4 border-l-cyan-500"
-      style={bloco ? { borderLeftColor: bloco } : undefined}>
+    <Card className="@container/widget h-full overflow-hidden"
+     >
       <CardContent className="flex h-full flex-col gap-2.5 overflow-hidden p-4">
         <Link href="/relatorios-ti" className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-50 dark:bg-cyan-900/20">

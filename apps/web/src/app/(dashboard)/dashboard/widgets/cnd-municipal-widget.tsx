@@ -25,7 +25,7 @@ export function CndMunicipalWidget({ title, bloco }: { canRead?: boolean; title?
   if (t.total === 0) return <EmptyState color="violet" Icon={Landmark} title={titulo} message="Nenhuma certidão consultada" href="/certidoes-cnd?aba=municipal" bloco={bloco} />
 
   return (
-    <Card className="h-full border-l-4 border-l-violet-500 overflow-hidden @container/widget" style={bloco ? { borderLeftColor: bloco } : undefined}>
+    <Card className="h-full overflow-hidden @container/widget">
       <CardContent className="p-3 @sm:p-4 h-full overflow-hidden flex flex-col gap-3">
         <div className="flex flex-col @[420px]:flex-row @[420px]:items-center @[420px]:justify-between gap-3">
           <Link href="/certidoes-cnd?aba=municipal" className="flex items-center gap-3 hover:opacity-80 transition-opacity min-w-0">

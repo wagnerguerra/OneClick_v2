@@ -42,8 +42,8 @@ export function OrcamentosWidget({ title, bloco }: { canRead?: boolean; title?: 
   if (!s.permitido) {
     return (
       <Card
-        className="h-full border-l-4 border-l-amber-500 overflow-hidden @container/widget"
-        style={bloco ? { borderLeftColor: bloco } : undefined}
+        className="h-full overflow-hidden @container/widget"
+       
       >
         <CardContent className="p-3 @sm:p-4 h-full overflow-hidden">
           <div className="flex items-center justify-between gap-3 h-full">
@@ -81,8 +81,8 @@ export function OrcamentosWidget({ title, bloco }: { canRead?: boolean; title?: 
 
   return (
     <Card
-      className="h-full border-l-4 border-l-amber-500 overflow-hidden @container/widget"
-      style={bloco ? { borderLeftColor: bloco } : undefined}
+      className="h-full overflow-hidden @container/widget"
+     
     >
       <CardContent className="p-3 @sm:p-4 h-full overflow-hidden">
         <div className="flex flex-col @[460px]:flex-row @[460px]:items-center @[460px]:justify-between gap-3">

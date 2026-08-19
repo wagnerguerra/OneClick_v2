@@ -20,7 +20,7 @@ export function CndFederaisWidget({ title, bloco }: { canRead?: boolean; title?:
   if (t.total === 0) return <EmptyState color="indigo" Icon={Shield} title={titulo} message="Nenhuma certidão consultada" href="/certidoes-cnd" bloco={bloco} />
 
   return (
-    <Card className="h-full border-l-4 border-l-indigo-500 overflow-hidden @container/widget" style={bloco ? { borderLeftColor: bloco } : undefined}>
+    <Card className="h-full overflow-hidden @container/widget">
       <CardContent className="p-3 @sm:p-4 h-full overflow-hidden">
         <div className="flex flex-col @[420px]:flex-row @[420px]:items-center @[420px]:justify-between gap-3">
           <Link href="/certidoes-cnd" className="flex items-center gap-3 hover:opacity-80 transition-opacity min-w-0">

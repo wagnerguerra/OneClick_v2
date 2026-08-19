@@ -25,7 +25,7 @@ const COLORS: Record<Props['color'], { border: string; bg: string; iconText: str
   amber:    { border: 'border-l-amber-500',   bg: 'bg-amber-50 dark:bg-amber-900/20',     iconText: 'text-amber-600' },
 }
 
-export function EmptyState({ color, Icon, title, message, href, showCheck, bloco }: Props) {
+export function EmptyState({ color, Icon, title, message, href, showCheck }: Props) {
   const c = COLORS[color]
   const inner = (
     <div className="flex items-center justify-between gap-3 h-full">
@@ -43,8 +43,8 @@ export function EmptyState({ color, Icon, title, message, href, showCheck, bloco
   )
   return (
     <Card
-      className={`h-full border-l-4 ${c.border} overflow-hidden @container/widget`}
-      style={bloco ? { borderLeftColor: bloco } : undefined}
+      className={`h-full overflow-hidden @container/widget`}
+     
     >
       <CardContent className="p-3 @sm:p-4 h-full overflow-hidden">
         {href ? <Link href={href} className="block h-full hover:opacity-80 transition-opacity">{inner}</Link> : inner}

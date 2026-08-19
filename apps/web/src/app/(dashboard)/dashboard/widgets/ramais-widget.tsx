@@ -140,7 +140,7 @@ export function RamaisWidget({ title, expanded, bloco }: { canRead?: boolean; ti
 
   // Modo compacto (widget no dashboard)
   return (
-    <Card className="h-full flex flex-col overflow-hidden border-l-4 border-l-emerald-500 @container/widget" style={bloco ? { borderLeftColor: bloco } : undefined}>
+    <Card className="h-full flex flex-col overflow-hidden @container/widget">
       <CardHeader className="pb-3 shrink-0">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">

@@ -452,8 +452,8 @@ function ServicosInitial({ title, bloco }: { title?: string; bloco?: string }) {
 
   return (
     <Card
-      className="h-full border-l-4 border-l-sky-500 overflow-hidden @container/widget"
-      style={bloco ? { borderLeftColor: bloco } : undefined}
+      className="h-full overflow-hidden @container/widget"
+     
     >
       <CardContent className="p-3 @sm:p-4 h-full flex flex-col overflow-hidden gap-2.5">
         {/* Header — icone + titulo + contagem total. Bloco clicavel leva pra
