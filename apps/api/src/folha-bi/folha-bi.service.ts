@@ -123,7 +123,7 @@ export class FolhaBiService {
       where: {
         deletedAt: null,
         situacao: 'MENSAL',
-        status: { not: 'INATIVA' },
+        status: { not: 'INATIVO' },
         idSistema: { not: null },
         NOT: { idSistema: '' },
         ...(isMaster ? {} : { empresaId: empresaId ?? '' }),

@@ -287,7 +287,7 @@ export class BulkImportCertService {
             razaoSocial: pfxInfo.titular.trim(),
             empresaId,
             situacao: 'MENSAL',
-            status: 'ATIVA',
+            status: 'ATIVO',
             observacoes: 'Cadastrado automaticamente durante importação em lote de certificado.',
           },
           select: { id: true, razaoSocial: true },

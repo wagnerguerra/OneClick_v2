@@ -83,14 +83,16 @@ function dataNossa(v: Date | null | undefined): string | null {
   const d = new Date(v)
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10)
 }
-/** "Ativa"/"Inativa" do Acessórias → o enum do nosso cadastro. */
+/**
+ * Status do Acessórias → o enum do nosso cadastro. #HLP0209: nosso status agora é
+ * só ATIVO/INATIVO; Suspensa/Baixada do Acessórias colapsam em INATIVO.
+ */
 function statusDeles(v: unknown): string | null {
   const s = semAcento(v)
   if (!s) return null
-  if (s.startsWith('ativ')) return 'ATIVA'
-  if (s.startsWith('inativ')) return 'INATIVA'
-  if (s.startsWith('suspens')) return 'SUSPENSA'
-  if (s.startsWith('baixad')) return 'BAIXADA'
+  if (s.startsWith('ativ')) return 'ATIVO'
+  if (s.startsWith('inativ')) return 'INATIVO'
+  if (s.startsWith('suspens') || s.startsWith('baixad')) return 'INATIVO'
   return null
 }
 
@@ -116,7 +118,7 @@ export class DivergenciaAcessoriasService {
       // Mesmo recorte da sincronização: ativo e mensal. Comparar prospect e
       // avulso encheria o relatório de divergência que ninguém vai conciliar.
       where: {
-        deletedAt: null, status: 'ATIVA', situacao: 'MENSAL',
+        deletedAt: null, status: 'ATIVO', situacao: 'MENSAL',
         ...(empresaId ? { empresaId } : {}),
       },
       select: {

@@ -675,13 +675,11 @@ enum ClienteSituacao {
   PROSPECT
 }
 
+// #HLP0209 — status = soft-delete do cliente (só Ativo/Inativo, masculino).
+// SUSPENSA/BAIXADA/INAPTA/NULA foram colapsados em INATIVO na migração.
 enum ClienteStatus {
-  ATIVA
-  INATIVA
-  SUSPENSA
-  BAIXADA
-  INAPTA
-  NULA
+  ATIVO
+  INATIVO
 }
 
 enum TipoDocumento {
@@ -729,7 +727,7 @@ model Cliente {
 
   // Comercial
   situacao    ClienteSituacao @default(MENSAL)
-  status      ClienteStatus   @default(ATIVA)
+  status      ClienteStatus   @default(ATIVO)
   grupo       String?
   categoria   String?         @default("NAO_INFORMADO")
   origem      String?

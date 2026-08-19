@@ -37,32 +37,26 @@ export const SITUACAO_COLORS: Record<ClienteSituacao, { bg: string; color: strin
   PROSPECT: { bg: '#10b981', color: '#ffffff' },
 }
 
+// #HLP0209/0211 — `status` é o indicador de soft-delete do cliente: só Ativo/Inativo
+// (masculino, refere-se a "cliente"). Os valores antigos SUSPENSA/BAIXADA/INAPTA/NULA
+// entraram por engano e foram colapsados em INATIVO. "Ex-cliente" é estado DERIVADO
+// (situacao=MENSAL ∧ status=INATIVO ∧ dataSaida), não um valor aqui.
 export const ClienteStatus = {
-  ATIVA: 'ATIVA',
-  INATIVA: 'INATIVA',
-  SUSPENSA: 'SUSPENSA',
-  BAIXADA: 'BAIXADA',
-  INAPTA: 'INAPTA',
-  NULA: 'NULA',
+  ATIVO: 'ATIVO',
+  INATIVO: 'INATIVO',
 } as const
 export type ClienteStatus = (typeof ClienteStatus)[keyof typeof ClienteStatus]
 
 export const STATUS_LABELS: Record<ClienteStatus, string> = {
-  ATIVA: 'Ativa',
-  INATIVA: 'Inativa',
-  SUSPENSA: 'Suspensa',
-  BAIXADA: 'Baixada',
-  INAPTA: 'Inapta',
-  NULA: 'Nula',
+  ATIVO: 'Ativo',
+  INATIVO: 'Inativo',
 }
 
+// Hex do badge SÓLIDO do cabeçalho do detalhe. Alinhado à convenção do frontend
+// (ver apps/web/.../clientes/_components/cliente-status-ui.ts): Ativo=emerald, Inativo=amber.
 export const STATUS_COLORS: Record<ClienteStatus, { bg: string; color: string }> = {
-  ATIVA: { bg: '#10b981', color: '#ffffff' },
-  INATIVA: { bg: '#64748b', color: '#ffffff' },
-  SUSPENSA: { bg: '#f59e0b', color: '#ffffff' },
-  BAIXADA: { bg: '#ef4444', color: '#ffffff' },
-  INAPTA: { bg: '#f97316', color: '#ffffff' },
-  NULA: { bg: '#9ca3af', color: '#ffffff' },
+  ATIVO: { bg: '#10b981', color: '#ffffff' },
+  INATIVO: { bg: '#d97706', color: '#ffffff' },
 }
 
 export const TipoDocumento = {
@@ -122,7 +116,7 @@ export const createClienteSchema = z.object({
 
   // Comercial
   situacao: z.enum(['MENSAL', 'EM_CONSTITUICAO', 'POTENCIAL', 'AVULSO', 'PARALIZADO', 'PRE_OPERACIONAL', 'PROSPECT']).default('MENSAL'),
-  status: z.enum(['ATIVA', 'INATIVA', 'SUSPENSA', 'BAIXADA', 'INAPTA', 'NULA']).default('ATIVA'),
+  status: z.enum(['ATIVO', 'INATIVO']).default('ATIVO'),
   grupo: z.coerce.string().optional().or(z.literal('')),
   categoria: z.coerce.string().optional().or(z.literal('')),
   origem: z.coerce.string().optional().or(z.literal('')),
@@ -174,7 +168,9 @@ export const updateClienteSchema = createClienteSchema.partial()
 
 export const listClienteSchema = paginationSchema.extend({
   situacao: z.enum(['MENSAL', 'EM_CONSTITUICAO', 'POTENCIAL', 'AVULSO', 'PARALIZADO', 'PRE_OPERACIONAL', 'PROSPECT']).optional(),
-  status: z.enum(['ATIVA', 'INATIVA', 'SUSPENSA', 'BAIXADA', 'INAPTA', 'NULA']).optional(),
+  status: z.enum(['ATIVO', 'INATIVO']).optional(),
+  // #HLP0209 — "Todos": lista ativos E inativos (sem o filtro-padrão que oculta INATIVO).
+  incluirInativos: z.coerce.boolean().optional(),
   tributacao: z.enum(['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI', 'IMUNE', 'ISENTA']).optional(),
   grupo: z.string().optional(),
   cidade: z.string().optional(),

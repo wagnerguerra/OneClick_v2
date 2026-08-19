@@ -797,7 +797,7 @@ export class LegacyImportCertService {
             razaoSocial: row.razao.trim(),
             empresaId,
             situacao: 'MENSAL',
-            status: 'ATIVA',
+            status: 'ATIVO',
             idOneClick: String(row.id_cliente),
             observacoes: 'Cadastrado automaticamente durante importação de certificado do OneClick V1.',
           },

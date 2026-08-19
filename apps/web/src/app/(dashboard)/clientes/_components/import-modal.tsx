@@ -106,7 +106,7 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
         tipoDocumento: mapTipoDocumento(r.data.tipoDocumento ?? 'CNPJ'),
         tipoCliente: r.data.tipoCliente ?? '',
         situacao: mapSituacao(r.data.situacao ?? ''),
-        status: 'ATIVA',
+        status: 'ATIVO',
         grupo: r.data.grupo ?? '',
         origem: '',
         dataEntrada: '',

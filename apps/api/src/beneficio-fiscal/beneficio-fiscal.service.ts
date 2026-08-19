@@ -86,7 +86,7 @@ export class BeneficioFiscalService {
     return (await prisma.$queryRawUnsafe(
       `SELECT id, razao_social AS "razaoSocial", documento
          FROM clientes
-        WHERE deleted_at IS NULL AND status <> 'INATIVA'
+        WHERE deleted_at IS NULL AND status <> 'INATIVO'
           AND ($1::text IS NULL OR empresa_id = $1)
         ORDER BY razao_social ASC`,
       empresaId ?? null,
