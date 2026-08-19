@@ -7692,6 +7692,11 @@ model RelatorioTiConfig {
 model Manifestacao {
   id        String  @id @default(cuid())
   empresaId String? @map("empresa_id")
+  /// Origem no v1: 'elo' | 'rec' | 'sug' + id (os ids dos três colidem entre si).
+  legacySource String? @map("legacy_source")
+  legacyId     Int?    @map("legacy_id")
+  /// Resíduo do v1: elogiados em texto livre quando não casaram com usuário.
+  elogiadosTexto String? @map("elogiados_texto")
   /// Código que a pessoa leva embora: ELO-7K3M-92QF. É por ele que se
   /// acompanha a tratativa sem se identificar.
   protocolo String  @unique
@@ -7763,6 +7768,7 @@ model Manifestacao {
   @@index([empresaId, tipo, status])
   @@index([empresaId, tipo, criadoEm])
   @@index([autorId])
+  @@unique([legacySource, legacyId])
   @@map("manifestacoes")
 }
 

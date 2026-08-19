@@ -115,3 +115,11 @@ BEGIN
       FOREIGN KEY (manifestacao_id) REFERENCES manifestacoes(id) ON DELETE CASCADE ON UPDATE CASCADE;
   END IF;
 END $$;
+
+-- Convergência (19/08): colunas de rastreio do legado para a carga do v1
+-- (elo/rec/sug têm ids que colidem entre si — o par source+id identifica).
+ALTER TABLE "manifestacoes" ADD COLUMN IF NOT EXISTS "legacy_source" TEXT;
+ALTER TABLE "manifestacoes" ADD COLUMN IF NOT EXISTS "legacy_id" INTEGER;
+ALTER TABLE "manifestacoes" ADD COLUMN IF NOT EXISTS "elogiados_texto" TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS "manifestacoes_legacy_source_legacy_id_key"
+  ON "manifestacoes" ("legacy_source", "legacy_id");
