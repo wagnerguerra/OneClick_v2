@@ -72,15 +72,26 @@ Finalizadas), **127 ações**, 2 arquivos, 465 logs, 1 vínculo NC→NC; 0 órf�
 área e processo 100% resolvidos; 15 NCs sem cliente casado no snapshot de dev
 (razão social preservada no resíduo — produção tende a casar mais).
 
-## 5. Produção
+## 5. Produção — ✅ aplicada em 19/08
 
-Runbook padrão: validar IDs embutidos, DDL + carga **como `-U oneclick`**,
-copiar os arquivos de `uploads/nc-legado/` para o volume da VPS, validar os
-contadores do §4.
+- IDs embutidos validados antes: 18/18 (11 usuários + 7 áreas).
+- DDL e carga aplicados **como `-U oneclick`** (owner conferido nas 6
+  tabelas). Resultado: **7 origens, 88 NCs, 127 ações, 465 logs, 2
+  arquivos**, 0 órfãos; área e processo 100%; só 8 NCs sem cliente casado
+  (menos que os 15 do dev — a produção tem a base de clientes completa).
+- Arquivos físicos copiados para o volume (`uploads/nc-legado/`).
+- O `add_nao_conformidades.sql` segue no stage 4.5 do deploy. A UI entra no
+  ar com o commit `60affd0b`.
 
-## 6. Desativação no v1
+## 6. Desativação no v1 — ✅ aplicada em 19/08
 
-`\\192.168.0.7\wwwroot\central\modules\sgq_rnc\` (adm/ e usu/) — bloquear com
-`.bak` antes: `create.asp`/`create-send.asp`, os branches de POST do
-`details.asp`, os modais de ação/msg/arq/finalizar/delete, os `st_*.asp`
-(transições) e `envia_fim.asp`; banner + botão Novo desabilitado nos index.
+Todos os arquivos editados ganharam **`.bak-2026-08-19`** antes da edição.
+
+- **49 processadores bloqueados** por redirect no topo (adm/ + usu/):
+  create/create-send, envia_fim, acao_*_pla, st_* (transições), todos os
+  modais de ação/msg/arq/finalizar/delete, settings e o create-old.
+- `details.asp` (adm e usu): os **4 branches de POST** guardados (detalhes,
+  forma de avaliação, avaliação de eficácia, atualização da qualidade) — a
+  página continua como consulta.
+- Banner + botão "Nova Não Conformidade" desabilitado nos dois index.
+- Conferido logado: banner no topo, listagem de consulta intacta.
