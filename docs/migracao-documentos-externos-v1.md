@@ -47,14 +47,17 @@ Resultado (dev, 19/08): **35 documentos + 49 revisões**, 0 sem vigente, 0 sem
 processo, 0 órfãs; 3 cadeias mortas ficam no v1. Muitos autores são
 ex-colaboradores — nome preservado no resíduo.
 
-## 5. Produção
+## 5. Produção — ✅ aplicada em 19/08
 
-Runbook padrão: DDL + carga **como `-U oneclick`**, validar contadores do §4
-e IDs de usuário embutidos antes.
+- IDs embutidos validados (3/3 usuários). DDL + carga **como `-U oneclick`**
+  (owner conferido). Resultado idêntico ao dev: **35 documentos + 49
+  revisões**, 0 pendências.
+- O `add_documentos_externos.sql` segue no stage 4.5 do deploy. A UI entra no
+  ar com o commit `46c4a857`.
 
-## 6. Desativação no v1
+## 6. Desativação no v1 — ✅ aplicada em 19/08
 
-`\\192.168.0.7\wwwroot\central\modules\sgq_externos\` — bloquear com `.bak`:
-`create.asp` (página inteira) e o branch de POST do `details.asp` (o INSERT
-de lá é revisão nova, como nas Tabelas); banner + botão desabilitado no
-`index.asp`.
+Com `.bak-2026-08-19` de cada arquivo: `create.asp`, `excluir.asp` e
+`arquivo_excluir.asp` bloqueados por inteiro; o branch de POST do
+`details.asp` guardado (o INSERT de lá é revisão nova — a consulta segue
+viva, com banner); banner + "Novo Registro" desabilitado no `index.asp`.
