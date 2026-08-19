@@ -1932,8 +1932,10 @@ export default function OrcamentoDetailPage() {
       </div>
 
       {/* Tabs principais (estilo pills) — dentro do mesmo wrapper de imagem.
-          Classes !-prefixadas vencem as regras globais de [role="tablist"] do globals.css. */}
-      <div className="relative z-10 px-4 sm:px-6 pb-2 overflow-x-auto flex justify-center">
+          Classes !-prefixadas vencem as regras globais de [role="tablist"] do globals.css.
+          O -mt compensa a altura do avatar (88px): sem a linha de badges (status
+          subiu pro cabeçalho), sobrava um vão grande até as abas. */}
+      <div className="relative z-10 px-4 sm:px-6 pb-2 -mt-4 overflow-x-auto flex justify-center">
         <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
           <TabsTrigger value="detalhes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5">
             <FileText className="h-3.5 w-3.5" /> Detalhes
