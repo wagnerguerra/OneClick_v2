@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import {
-  Bug, Lightbulb, MessageSquare, X, Send, Loader2, Check, ExternalLink,
+  Bug, X, Send, Loader2, Check, ExternalLink,
   ImagePlus, Paperclip, Plus, ChevronLeft, LifeBuoy, FileText, Search, Building2,
   CalendarPlus, Clock, Users, Video, Monitor, DoorOpen, MapPin,
   Maximize2, Minimize2, ArrowLeftToLine, ArrowRightToLine,
@@ -15,6 +15,7 @@ import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { renderConflitosHtml, type ConflitoAgenda, type ConflitoModo } from '@/lib/agenda-conflitos'
 import { AreasNotificarPicker, useAreasNotificaveis } from '@/components/orcamento/areas-notificar-picker'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { useTicketForm, TicketFormFields } from '@/app/(dashboard)/helpdesk/_components/ticket-form'
 
 /**
  * FAB ("Fale com a TI") — sempre visível no canto inferior direito.
@@ -23,14 +24,7 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
  *   • Orçamento → solicita um novo orçamento ao comercial (cliente + detalhamento).
  */
 
-type Tipo = 'INCIDENTE' | 'MELHORIA' | 'DUVIDA'
 type Mode = 'menu' | 'ticket' | 'orcamento' | 'evento'
-
-const TIPOS: Array<{ valor: Tipo; label: string; icon: typeof Bug; cor: string }> = [
-  { valor: 'INCIDENTE', label: 'Erro',     icon: Bug,         cor: '#dc2626' },
-  { valor: 'MELHORIA',  label: 'Sugestão', icon: Lightbulb,   cor: '#f59e0b' },
-  { valor: 'DUVIDA',    label: 'Outro',    icon: MessageSquare, cor: '#3b82f6' },
-]
 
 interface AnexoPendente {
   id: string
@@ -109,15 +103,23 @@ export function FloatingFeedbackButton() {
     setDir(next === 'menu' ? 'back' : 'fwd')
     setMode(next)
   }
-  // Começa SEM tipo — o usuário é obrigado a escolher um (nada vem marcado).
-  const [tipo, setTipo] = useState<Tipo | null>(null)
-  const [texto, setTexto] = useState('')
-  const [anexos, setAnexos] = useState<AnexoPendente[]>([])
-  const [enviando, setEnviando] = useState(false)
   const [ticketCriado, setTicketCriado] = useState<{ numero: number; id: string; hash: string } | null>(null)
 
+  // #HLP0330: os campos e a submissão do ticket vêm do formulário COMPARTILHADO
+  // (o mesmo da NovoTicketModal). Aqui só ligamos as especificidades do balão:
+  // rodapé com a página atual (hyperlink) e a tag 'fab-feedback'; no sucesso,
+  // mostramos a tela de "ticket criado".
+  const ticketForm = useTicketForm({
+    active: open && mode === 'ticket',
+    pageUrl: pathname || '/',
+    tags: ['fab-feedback'],
+    // Título opcional no balão: se vazio, gera do tipo + início da descrição
+    // (comportamento original do FAB, restaurado).
+    autoTitulo: true,
+    onCreated: (t) => setTicketCriado({ numero: t.numero, id: t.id, hash: t.hash }),
+  })
+
   const popoverRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   /** Toggle com animação de entrada/saída — atrasa o unmount em 200ms pra rolar o fade-out. */
   function setOpenAnimated(next: boolean) {
@@ -169,11 +171,9 @@ export function FloatingFeedbackButton() {
           // Volta ao tamanho de balão: reabrir ampliado surpreenderia quem só
           // quer o atalho rápido.
           setAmpliado(false)
-          setTexto('')
-          setTipo(null)
-          setAnexos([])
           setTicketCriado(null)
-          setEnviando(false)
+          // Os campos do ticket vivem no hook compartilhado — ele reseta sozinho
+          // quando `active` (open && mode==='ticket') fica false ao fechar.
         }
       }, 250)
       return () => clearTimeout(t)
@@ -181,157 +181,13 @@ export function FloatingFeedbackButton() {
   }, [open])
 
   /**
-   * Upload de um arquivo (imagem do paste ou file picker) → POST /api/upload.
-   * Aceita File ou Blob (paste do clipboard vem como Blob sem nome).
-   */
-  async function uploadFile(file: File | Blob, fallbackName?: string): Promise<AnexoPendente | null> {
-    const fileName = (file as File).name || fallbackName || `print-${Date.now()}.png`
-    const mimeType = file.type || 'image/png'
-    const placeholderId = crypto.randomUUID()
-    // Adiciona placeholder com flag uploading=true (mostra spinner no thumbnail)
-    setAnexos(prev => [...prev, {
-      id: placeholderId,
-      fileName,
-      fileUrl: '',
-      mimeType,
-      tamanho: file.size,
-      uploading: true,
-    }])
-    try {
-      const fd = new FormData()
-      fd.append('file', file, fileName)
-      const res = await fetch(`${getApiUrl()}/api/upload`, {
-        method: 'POST',
-        credentials: 'include',
-        body: fd,
-      })
-      if (!res.ok) throw new Error(`Upload falhou (HTTP ${res.status})`)
-      const data = await res.json() as { url: string; filename: string }
-      const final: AnexoPendente = {
-        id: placeholderId,
-        fileName,
-        fileUrl: data.url,
-        mimeType,
-        tamanho: file.size,
-      }
-      setAnexos(prev => prev.map(a => a.id === placeholderId ? final : a))
-      return final
-    } catch (e) {
-      setAnexos(prev => prev.filter(a => a.id !== placeholderId))
-      alerts.error('Erro ao enviar imagem', (e as Error).message)
-      return null
-    }
-  }
-
-  /** Captura Ctrl+V de imagem do clipboard (prints colados direto no editor).
-   *  #HLP0160: com o RichEditor no lugar do textarea, o print precisa continuar
-   *  virando ANEXO — sem isso o TipTap embutiria a imagem em base64 no corpo do
-   *  chamado, inchando a descrição e sumindo da lista de anexos. Retornar `true`
-   *  consome o evento e impede o comportamento padrão do editor. */
-  function handlePasteFiles(files: File[]) {
-    const imagens = files.filter(f => f.type.startsWith('image/'))
-    if (imagens.length === 0) return false
-    for (const blob of imagens) {
-      const ext = blob.type.split('/')[1] || 'png'
-      uploadFile(blob, `print-${Date.now()}.${ext}`)
-    }
-    return true
-  }
-
-  /**
    * #HLP0161 — volta do "ticket criado" para um formulário limpo, sem fechar o
-   * balão. Zera os mesmos campos do reset-ao-fechar, exceto `mode`: continua no
-   * fluxo de chamado. Não precisa focar aqui — o efeito de autofoco tem
-   * `ticketCriado` nas dependências, então volta o cursor pro editor sozinho.
+   * balão. Reseta o formulário compartilhado e some com a tela de sucesso. O
+   * autofoco tem `ticketCriado` nas dependências, então o cursor volta ao editor.
    */
   function abrirOutroChamado() {
     setTicketCriado(null)
-    setTexto('')
-    setTipo(null)
-    setAnexos([])
-    setEnviando(false)
-  }
-
-  /** Ctrl/Cmd+Enter envia — atalho que já existia no textarea. */
-  function handleEditorKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault()
-      handleEnviar()
-      return true
-    }
-    return false
-  }
-
-  /** Botão "anexar imagem" pra quem não sabe usar Ctrl+V. */
-  function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || [])
-    for (const f of files) uploadFile(f)
-    e.target.value = ''  // permite re-selecionar o mesmo arquivo
-  }
-
-  function removerAnexo(id: string) {
-    setAnexos(prev => prev.filter(a => a.id !== id))
-  }
-
-  async function handleEnviar() {
-    if (!tipo) {
-      alerts.error('Selecione o tipo do chamado (Erro, Sugestão ou Outro)')
-      return
-    }
-    // #HLP0160: o RichEditor devolve HTML — valida pelo texto puro, senão um
-    // "<p></p>" vazio passaria pela checagem.
-    const textoPuro = texto.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
-    if (!textoPuro) {
-      alerts.error('Descreva o que aconteceu')
-      return
-    }
-    // Bloqueia envio enquanto upload de algum anexo está em andamento
-    if (anexos.some(a => a.uploading)) {
-      alerts.error('Aguarde', 'Ainda enviando imagem(ns) anexada(s)...')
-      return
-    }
-    setEnviando(true)
-    try {
-      const tipoLabel = TIPOS.find((t) => t.valor === tipo)?.label ?? 'Outro'
-      // Título: primeira linha truncada (máx 80 chars) — depois o time da TI ajusta no triagem.
-      // Mínimo 3 chars exigido pelo schema.
-      const tituloBase = textoPuro.slice(0, 80) || 'Sem título'
-      const titulo = `[${tipoLabel}] ${tituloBase}`
-      // Corpo: o HTML do editor já vem pronto (#HLP0160) + contexto da URL atual.
-      const url = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/'
-      const descricao = `${texto.trim()}<hr><p><small>📍 Página: <code>${escapeHtml(url)}</code></small></p>`
-
-      const ticket = await trpc.helpdesk.create.mutate({
-        titulo,
-        descricao,
-        tipo,
-        prioridade: 'MEDIA',
-        tags: ['fab-feedback'],
-      }) as { id: string; numero: number; hash: string }
-
-      // Anexa as imagens enviadas (paste/upload) ao ticket recém-criado.
-      // Roda em paralelo — falhas são logadas mas não impedem o sucesso geral.
-      const anexosProntos = anexos.filter(a => !a.uploading && a.fileUrl)
-      if (anexosProntos.length > 0) {
-        await Promise.allSettled(
-          anexosProntos.map(a =>
-            trpc.helpdesk.addAnexo.mutate({
-              ticketId: ticket.id,
-              fileName: a.fileName,
-              fileUrl: a.fileUrl,
-              mimeType: a.mimeType,
-              tamanho: a.tamanho,
-            }),
-          ),
-        )
-      }
-
-      setTicketCriado({ numero: ticket.numero, id: ticket.id, hash: ticket.hash })
-    } catch (e) {
-      alerts.error('Erro ao enviar: ' + (e as Error).message)
-    } finally {
-      setEnviando(false)
-    }
+    ticketForm.reset()
   }
 
   // Cor do header/ícones por serviço selecionado
@@ -528,124 +384,30 @@ export function FloatingFeedbackButton() {
               />
             ) : (
               <>
-                {/* Chips */}
-                <div className="px-4 py-3 flex gap-2 border-b border-border">
-                  {TIPOS.map(({ valor, label, icon: Icon, cor }) => (
-                    <button
-                      key={valor}
-                      type="button"
-                      onClick={() => setTipo(valor)}
-                      className={cn(
-                        'flex-1 flex items-center justify-center gap-1.5 h-8 px-2 rounded-md border text-[12px] font-medium transition-colors',
-                        tipo === valor
-                          ? 'border-foreground/30 bg-muted'
-                          : 'border-border hover:bg-muted/60',
-                      )}
-                      style={tipo === valor ? { color: cor } : undefined}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Editor + anexos — #HLP0160: toolbar básico (negrito/itálico e
-                    tópicos) para o usuário formatar o chamado ao abrir. */}
+                {/* Campos do ticket — MESMOS da modal completa (#HLP0330), via
+                    componente compartilhado. `variant="fab"` deixa mais denso e
+                    mantém o toolbar básico do editor (especificidade do balão);
+                    onSubmitShortcut liga o Ctrl+Enter que já existia no balão. */}
                 <div className="px-4 py-3">
-                  <RichEditor
-                    value={texto}
-                    onChange={setTexto}
-                    toolbar="basico"
-                    minHeight={110}
-                    maxHeight={240}
-                    onPasteFiles={handlePasteFiles}
-                    onKeyDown={handleEditorKeyDown}
-                    placeholder="Descreva o que aconteceu ou sua sugestão... (cole prints com Ctrl+V)"
-                    className="rounded-md border-border"
-                  />
-
-                  {/* Thumbnails dos anexos */}
-                  {anexos.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {anexos.map(a => (
-                        <div
-                          key={a.id}
-                          className="relative h-16 w-16 rounded-md border border-border bg-muted/40 overflow-hidden group/anexo"
-                          title={a.fileName}
-                        >
-                          {a.uploading ? (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                            </div>
-                          ) : a.mimeType.startsWith('image/') ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={resolveAssetUrl(a.fileUrl)}
-                              alt={a.fileName}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-1">
-                              <Paperclip className="h-5 w-5" />
-                              <span className="text-[8px] truncate w-full text-center mt-0.5">
-                                {a.fileName.split('.').pop()?.toUpperCase()}
-                              </span>
-                            </div>
-                          )}
-                          {!a.uploading && (
-                            <button
-                              type="button"
-                              onClick={() => removerAnexo(a.id)}
-                              className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover/anexo:opacity-100 transition-opacity"
-                              title="Remover"
-                            >
-                              <X className="h-2.5 w-2.5" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between mt-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                      title="Anexar imagem"
-                    >
-                      <ImagePlus className="h-3 w-3" /> Anexar imagem
-                    </button>
-                    <span className="text-[10px] text-muted-foreground">Ctrl+Enter pra enviar</span>
-                  </div>
-                  <div className="mt-1 text-[10px] text-muted-foreground">
+                  <TicketFormFields form={ticketForm} variant="fab" onSubmitShortcut={ticketForm.submit} />
+                  <div className="mt-2 text-[10px] text-muted-foreground">
                     📍 Inclui automaticamente: <code className="bg-muted px-1 rounded">{pathname || '/'}</code>
                   </div>
-
-                  {/* Input file invisível controlado pelo botão acima */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleFilePick}
-                    className="hidden"
-                  />
                 </div>
 
                 {/* Footer */}
                 <div className="px-4 py-3 border-t border-border bg-muted/30 flex items-center justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setOpenAnimated(false)} disabled={enviando}>
+                  <Button variant="outline" size="sm" onClick={() => setOpenAnimated(false)} disabled={ticketForm.salvando}>
                     Cancelar
                   </Button>
                   <Button
                     size="sm"
-                    onClick={handleEnviar}
-                    disabled={enviando || !texto.trim() || !tipo}
+                    onClick={ticketForm.submit}
+                    disabled={ticketForm.salvando || !ticketForm.canSubmit}
                     className="gap-1.5 text-white"
                     style={{ background: 'var(--mod-ti, #22d3ee)' }}
                   >
-                    {enviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    {ticketForm.salvando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                     Enviar
                   </Button>
                 </div>
@@ -1428,8 +1190,4 @@ function SuccessState({
       )}
     </div>
   )
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }

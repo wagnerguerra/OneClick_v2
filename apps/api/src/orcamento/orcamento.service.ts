@@ -3044,20 +3044,47 @@ export class OrcamentoService {
       })
     }
 
-    // Atualizar status para ENVIADO se ainda nao estiver
-    if (orc.status !== 'ENVIADO') {
+    // #348: se o cliente havia solicitado revisão, o reenvio "devolve a bola"
+    // pra ele — limpa a decisão pra os botões (Aprovar/Revisar/Recusar)
+    // reaparecerem no link público (`decidido = !!decisaoTipo`) e pra destravar
+    // o registrarDecisao (guard `if (orc.decisaoTipo) throw 'Decisao ja registrada'`).
+    // Restrito a REVISAO_SOLICITADA: APROVADO/RECUSADO são terminais e congelam
+    // o orçamento (edição exige duplicar), então não caem por aqui.
+    const eraRevisaoSolicitada = orc.decisaoTipo === 'REVISAO_SOLICITADA'
+    const precisaEnviado = orc.status !== 'ENVIADO'
+
+    // Atualizar status para ENVIADO se ainda nao estiver, e/ou limpar a decisão
+    // de revisão. A revisão mantém o status em ENVIADO, então sem o OR abaixo o
+    // reenvio pós-revisão não entraria neste bloco e decisaoTipo nunca seria limpo.
+    if (precisaEnviado || eraRevisaoSolicitada) {
       await prisma.orcamento.update({
         where: { id },
-        // Grava o marco "Enviado" (dt_enviado) — sem isso o "Enviado" some da
-        // timeline (Datas Importantes). Preserva a 1a data em re-envios.
-        data: { status: 'ENVIADO', ...(orc.dtEnviado ? {} : { dtEnviado: new Date() }) },
+        data: {
+          // Grava o marco "Enviado" (dt_enviado) — sem isso o "Enviado" some da
+          // timeline (Datas Importantes). Preserva a 1a data em re-envios.
+          ...(precisaEnviado ? { status: 'ENVIADO', ...(orc.dtEnviado ? {} : { dtEnviado: new Date() }) } : {}),
+          ...(eraRevisaoSolicitada ? {
+            decisaoTipo: null, decisaoEm: null, decisaoNome: null,
+            decisaoCpf: null, decisaoObs: null,
+          } : {}),
+        },
       })
       // Registra o marco de status na timeline (alem do evento 'envio' abaixo),
       // pra a aba Timeline e o painel Datas Importantes mostrarem "Enviado".
-      await this.addEvento(
-        id, userId, 'status_change', orc.status, 'ENVIADO',
-        `Status alterado de ${STATUS_LABELS[orc.status] || orc.status} para Enviado`,
-      )
+      if (precisaEnviado) {
+        await this.addEvento(
+          id, userId, 'status_change', orc.status, 'ENVIADO',
+          `Status alterado de ${STATUS_LABELS[orc.status] || orc.status} para Enviado`,
+        )
+      }
+      // Deixa rastro de que a revisão foi atendida e a proposta reenviada — o
+      // cliente pode decidir de novo pelo mesmo link.
+      if (eraRevisaoSolicitada) {
+        await this.addEvento(
+          id, userId, 'revisao_reenviada', null, null,
+          'Proposta revisada e reenviada ao cliente após solicitação de revisão',
+        )
+      }
     }
 
     const descricaoEvento = emails.size > 0
