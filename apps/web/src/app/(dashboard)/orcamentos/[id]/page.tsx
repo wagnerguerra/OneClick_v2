@@ -8,7 +8,7 @@ import {
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
   Package, History, Type, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock, Globe,
-  Sparkles, Star,
+  Sparkles, Star, Link2,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label,
@@ -2248,43 +2248,6 @@ export default function OrcamentoDetailPage() {
                         <AreasDetalhamentoSection orcamentoId={id} accent={MODULE_COLOR} onAreasChange={setAreasNotificadas} />
                       </div>
 
-                      {/* ── Seção: CRM vinculado — o inverso do forward CRM→orçamento ── */}
-                      <div className="px-5 py-3 border-y border-[rgba(0,0,0,0.08)]">
-                        <h4 className="text-[13px] font-semibold text-foreground">CRM vinculado</h4>
-                      </div>
-                      <div className="p-5">
-                        <div className="space-y-1.5">
-                          {(orc as any)?.oportunidade ? (
-                            <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/20 px-3 py-2">
-                              <div className="min-w-0">
-                                <div className="text-sm font-medium truncate">
-                                  {(orc as any).oportunidade.numero != null ? `#${(orc as any).oportunidade.numero} · ` : ''}{(orc as any).oportunidade.titulo}
-                                </div>
-                                {(orc as any).oportunidade.etapa && (
-                                  <div className="text-[11px] text-muted-foreground truncate">Etapa: {(orc as any).oportunidade.etapa}</div>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px]" onClick={() => setCrmResumoOpen(true)} title="Ver resumo do CRM">
-                                  <ExternalLink className="h-3.5 w-3.5" /> Ver resumo
-                                </Button>
-                                {(orc as any)?.podeVincularCrm && (
-                                  <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px] text-rose-600 dark:text-rose-400" onClick={handleDesvincularCrm} title="Desvincular">
-                                    <X className="h-3.5 w-3.5" /> Desvincular
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          ) : (orc as any)?.podeVincularCrm ? (
-                            <>
-                              <OportunidadeCombobox onSelect={handleVincularCrm} />
-                              <p className="text-[11px] text-muted-foreground">Vincule um card do CRM a este orçamento. Se o card estiver numa etapa anterior, ele é movido para &quot;Orçamento Criado&quot;.</p>
-                            </>
-                          ) : (
-                            <p className="text-[12px] text-muted-foreground italic">Nenhum card de CRM vinculado.</p>
-                          )}
-                        </div>
-                      </div>
                     </div>
                   )}
 
@@ -2900,6 +2863,49 @@ export default function OrcamentoDetailPage() {
               <div className="border-t border-border/60 pt-2 mt-2 flex items-center justify-between">
                 <span className="text-sm font-semibold">Total Geral</span>
                 <span className="text-base font-bold" style={{ color: MODULE_COLOR }}>{formatCurrency(totalGeral)}</span>
+              </div>
+            </div>
+          </Card>
+
+          {/* Vínculos — hoje o card de CRM; eventos da agenda, outros
+              orçamentos etc. entram como novas subseções deste card. */}
+          <Card className="p-5">
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Link2 className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              Vínculos
+            </h4>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">CRM</p>
+                {(orc as any)?.oportunidade ? (
+                  <div className="rounded-md border border-border bg-muted/20 px-3 py-2 space-y-1">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">
+                        {(orc as any).oportunidade.numero != null ? `#${(orc as any).oportunidade.numero} · ` : ''}{(orc as any).oportunidade.titulo}
+                      </div>
+                      {(orc as any).oportunidade.etapa && (
+                        <div className="text-[11px] text-muted-foreground truncate">Etapa: {(orc as any).oportunidade.etapa}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 -ml-1.5">
+                      <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px]" onClick={() => setCrmResumoOpen(true)} title="Ver resumo do CRM">
+                        <ExternalLink className="h-3.5 w-3.5" /> Ver resumo
+                      </Button>
+                      {(orc as any)?.podeVincularCrm && (
+                        <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px] text-rose-600 dark:text-rose-400" onClick={handleDesvincularCrm} title="Desvincular">
+                          <X className="h-3.5 w-3.5" /> Desvincular
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : (orc as any)?.podeVincularCrm ? (
+                  <>
+                    <OportunidadeCombobox onSelect={handleVincularCrm} />
+                    <p className="text-[11px] text-muted-foreground">Vincule um card do CRM. Se estiver numa etapa anterior, ele é movido para &quot;Orçamento Criado&quot;.</p>
+                  </>
+                ) : (
+                  <p className="text-[12px] text-muted-foreground italic">Nenhum card de CRM vinculado.</p>
+                )}
               </div>
             </div>
           </Card>
