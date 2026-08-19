@@ -510,7 +510,6 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
                         'group/btn relative h-full w-full flex flex-col items-center justify-center gap-2 rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow overflow-hidden',
                         editing ? 'pointer-events-none opacity-95' : 'cursor-pointer',
                       )}
-                      style={{ borderLeftColor: blocoHex }}
                       title={`Abrir ${labelBotao}`}
                     >
                       <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', c.bgIcon)}>
