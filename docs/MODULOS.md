@@ -14,21 +14,25 @@ Lista canônica dos módulos do SaaS ERP/CRM, agrupados por bloco. Referenciada 
 - Sócios
 - Usuários
 
-## CORPORATIVO / COMERCIAL
-- Agenda Corporativa
-- Coleta e Recebimento de Documentos
-- Contatos
-- Gestão de Ativos
-- Controle de Estoque
+## COMERCIAL
 - CRM
+- Gestão de Ativos
 - Gestão de Benefícios Fiscais
 - Gestão de Certificados
 - Gestão de Contratos
 - HelpDesk
 - Obrigações e Serviços
 - Orçamentos
-- Processos
 - Quadro Societário
+
+## ADMINISTRATIVO
+- Agenda Corporativa
+- Acessórias
+- Coleta e Recebimento de Documentos
+- Gerenciador de Serviços
+- Minhas Obrigações
+- Organograma
+- Processos
 
 ## FISCAL
 - NFe Distribuição (SEFAZ NFeDistribuicaoDFe)

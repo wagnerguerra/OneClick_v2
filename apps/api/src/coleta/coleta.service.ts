@@ -247,7 +247,7 @@ export class ColetaService {
 
   async listarClientes(empresaId?: string | null) {
     return prisma.cliente.findMany({
-      where: { status: { not: 'INATIVA' }, OR: [{ empresaId: empresaId ?? null }, { empresaId: null }] },
+      where: { status: { not: 'INATIVO' }, OR: [{ empresaId: empresaId ?? null }, { empresaId: null }] },
       orderBy: { razaoSocial: 'asc' },
       select: { id: true, razaoSocial: true, documento: true },
     })
