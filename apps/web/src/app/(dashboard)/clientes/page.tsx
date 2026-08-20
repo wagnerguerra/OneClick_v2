@@ -323,7 +323,8 @@ export default function ClientesPage() {
   function clearFilters() {
     setFilterSituacao(''); setFilterStatus('ATIVO'); setFilterTributacao(''); setFilterGrupo(''); setFilterCidade(''); setFilterUf('')
     setFilterNumero(''); setFilterTipo(''); setFilterAtividade(''); setFilterArea(''); setFilterBeneficio('')
-    setExCliente(false) // Ex-cliente? volta para "Não"
+    setExCliente(false) // Ex-cliente volta para "Não"
+    setOnlyMensal(false); localStorage.setItem('clientes_only_mensal', '0') // desliga "Somente Mensais"
     setSearch(''); setPage(1)
   }
 
