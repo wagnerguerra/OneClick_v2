@@ -8,8 +8,8 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
   MoreVertical, FileUp, FileDown, Plug, BarChart3,
-  ChevronDown, RotateCcw, Archive, X, Database, Loader2, Sparkles, UserCog,
-  Building2, ExternalLink, Copy,
+  ChevronDown, X, Database, Loader2, Sparkles, UserCog,
+  Ban, RotateCcw, Building2, ExternalLink, Copy,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
   ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
   type LucideIcon,
@@ -29,6 +29,9 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
 import { IntegracoesModal } from './_components/integracoes-modal'
+import { InativarClienteModal } from './_components/inativar-cliente-modal'
+import { ReativarClienteModal } from './_components/reativar-cliente-modal'
+import { STATUS_BADGE_CLASS } from './_components/cliente-status-ui'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
 import { SITUACAO_LABELS, SITUACAO_COLORS } from '@saas/types'
 import { masks } from '@/lib/masks'
@@ -183,8 +186,8 @@ export default function ClientesPage() {
   // Filtros
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filterSituacao, setFilterSituacao] = useState('')
-  // Status (ativo/inativo/...). Vazio = padrão (backend oculta INATIVA).
-  const [filterStatus, setFilterStatus] = useState('')
+  // Status do cliente (#HLP0209): 'ATIVO' (padrão) · 'INATIVO' · 'TODOS' (ativos+inativos).
+  const [filterStatus, setFilterStatus] = useState('ATIVO')
   const [filterTributacao, setFilterTributacao] = useState('')
   const [filterGrupo, setFilterGrupo] = useState('')
   const [filterCidade, setFilterCidade] = useState('')
@@ -204,7 +207,7 @@ export default function ClientesPage() {
     setFiliaisLoading(true)
     // Vai o mesmo filtro Ativo/Inativo da lista: o modal mostra as filiais que o
     // selo contou, nem uma a mais.
-    ;(trpc.cliente as any).listFiliais.query({ documento: filiaisModal.documento, status: filterStatus || undefined })
+    ;(trpc.cliente as any).listFiliais.query({ documento: filiaisModal.documento, status: filterStatus === 'TODOS' ? undefined : filterStatus })
       .then((r: Filial[]) => { if (!cancelled) setFiliais(r) })
       .catch(() => { if (!cancelled) setFiliais([]) })
       .finally(() => { if (!cancelled) setFiliaisLoading(false) })
@@ -226,8 +229,11 @@ export default function ClientesPage() {
     })
   }
 
-  // Lixeira
-  const [trashMode, setTrashMode] = useState(false)
+  // Inativação (#HLP0209/0211) — modal único (data de saída opcional + motivo).
+  // `ids` cobre tanto a linha (1 id) quanto o lote (vários). A Lixeira foi
+  // aposentada: inativo agora é status=INATIVO, visível pelo filtro "Inativo".
+  const [inativarAlvo, setInativarAlvo] = useState<{ ids: string[]; nome: string } | null>(null)
+  const [reativarAlvo, setReativarAlvo] = useState<{ id: string; nome: string } | null>(null)
 
   // Importação legado
   const [legacyImporting, setLegacyImporting] = useState(false)
@@ -258,7 +264,8 @@ export default function ClientesPage() {
     return {
       page, limit, search: debouncedSearch || undefined, sortBy: sort.column, sortDir: sort.dir,
       ...(situacaoFinal ? { situacao: situacaoFinal as 'MENSAL' } : {}),
-      ...(filterStatus ? { status: filterStatus as 'ATIVA' } : {}),
+      // 'TODOS' = ativos+inativos (backend não filtra por status); senão filtra pelo valor.
+      ...(filterStatus === 'TODOS' ? { incluirInativos: true } : { status: filterStatus as 'ATIVO' }),
       ...(filterTributacao ? { tributacao: filterTributacao as 'SIMPLES_NACIONAL' } : {}),
       ...(filterGrupo ? { grupo: filterGrupo } : {}),
       ...(filterCidade ? { cidade: filterCidade } : {}),
@@ -275,13 +282,11 @@ export default function ClientesPage() {
     setLoading(true)
     try {
       const input = buildListInput()
-      const result = trashMode
-        ? await trpc.cliente.listTrash.query(input)
-        : await trpc.cliente.list.query(input)
+      const result = await trpc.cliente.list.query(input)
       setData(result)
       setSelected(new Set())
     } catch { /* silent */ } finally { setLoading(false) }
-  }, [buildListInput, trashMode])
+  }, [buildListInput])
 
   useEffect(() => { fetchClientes() }, [fetchClientes])
 
@@ -296,7 +301,7 @@ export default function ClientesPage() {
   }
 
   function clearFilters() {
-    setFilterSituacao(''); setFilterStatus(''); setFilterTributacao(''); setFilterGrupo(''); setFilterCidade(''); setFilterUf('')
+    setFilterSituacao(''); setFilterStatus('ATIVO'); setFilterTributacao(''); setFilterGrupo(''); setFilterCidade(''); setFilterUf('')
     setFilterNumero(''); setFilterTipo(''); setFilterAtividade(''); setFilterArea(''); setFilterBeneficio('')
     setSearch(''); setPage(1)
   }
@@ -331,37 +336,36 @@ export default function ClientesPage() {
     finally { setExporting(false) }
   }
 
-  async function handleDelete(id: string, name: string) {
-    const confirmed = await alerts.confirmDelete(name)
-    if (!confirmed) return
-    try {
-      await trpc.cliente.delete.mutate({ id })
-      await alerts.success('Movido para lixeira', `"${name}" foi movido para a lixeira.`)
-      fetchClientes()
-    } catch { alerts.error('Erro', 'Não foi possível excluir.') }
+  // Abre o modal de inativação (linha ou lote). O modal cuida dos próprios
+  // campos (data de saída opcional + motivo).
+  function openInativar(ids: string[], nome: string) {
+    if (ids.length === 0) return
+    setInativarAlvo({ ids, nome })
   }
 
-  async function handleRestore(id: string, name: string) {
-    try {
-      await trpc.cliente.restore.mutate({ id })
-      await alerts.success('Restaurado', `"${name}" foi restaurado com sucesso.`)
-      fetchClientes()
-    } catch { alerts.error('Erro', 'Não foi possível restaurar.') }
-  }
-
-  // Exclusão PERMANENTE removida (decisão de produto): cliente só é inativado
-  // (lixeira) e restaurado — nunca apagado da base.
-
-  async function handleBulkDelete() {
-    if (selected.size === 0) return
-    const confirmed = await alerts.confirmDelete(`${selected.size} clientes selecionados`)
-    if (!confirmed) return
+  // Confirma a inativação de 1..N clientes com a MESMA data de saída + motivo.
+  async function inativarConfirmado(dataSaida: string, motivo: string) {
+    if (!inativarAlvo) return
     let ok = 0
-    for (const id of selected) {
-      try { await trpc.cliente.delete.mutate({ id }); ok++ } catch { /* skip */ }
+    for (const id of inativarAlvo.ids) {
+      try {
+        await trpc.cliente.inativar.mutate({ id, dataSaida: dataSaida || undefined, motivo })
+        ok++
+      } catch { /* skip */ }
     }
-    await alerts.success('Lixeira', `${ok} clientes movidos para a lixeira.`)
+    const n = inativarAlvo.ids.length
+    await alerts.success('Cliente inativado', n === 1 ? `"${inativarAlvo.nome}" foi inativado.` : `${ok} de ${n} clientes inativados.`)
     fetchClientes()
+  }
+
+  // Reativação também registra motivo (obrigatório) — usa o mesmo modal do detalhe.
+  async function reativarConfirmado(motivo: string) {
+    if (!reativarAlvo) return
+    try {
+      await trpc.cliente.reativar.mutate({ id: reativarAlvo.id, motivo })
+      await alerts.success('Cliente reativado', `"${reativarAlvo.nome}" voltou a ser ativo.`)
+      fetchClientes()
+    } catch { alerts.error('Erro', 'Não foi possível reativar.') }
   }
 
   async function handleLegacyImport() {
@@ -438,7 +442,7 @@ export default function ClientesPage() {
     return pages
   }
 
-  const hasActiveFilters = filterSituacao || filterStatus || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || onlyMensal
+  const hasActiveFilters = filterSituacao || (filterStatus !== 'ATIVO') || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || onlyMensal
 
   return (
     <div className="space-y-6">
@@ -448,16 +452,12 @@ export default function ClientesPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/materiais/icon_clients.png" alt="Clientes" className="h-12 w-12 object-contain shrink-0" />
           <div>
-            <h1>{trashMode ? 'Lixeira — Clientes' : 'Clientes'}</h1>
-            <p className="text-sm text-muted-foreground">
-              {trashMode ? 'Lista de Clientes inativos.' : 'Gerencie os clientes cadastrados'}
-            </p>
+            <h1>Clientes</h1>
+            <p className="text-sm text-muted-foreground">Gerencie os clientes cadastrados</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {!trashMode && (
-            <>
-              {canCreate && (
+          {canCreate && (
                 <Button variant="success" size="sm" asChild>
                   <Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link>
                 </Button>
@@ -491,30 +491,19 @@ export default function ClientesPage() {
                       <Copy className="h-4 w-4 text-amber-600" />Cadastros repetidos
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem onClick={() => { setTrashMode(true); setPage(1) }}><Archive className="h-4 w-4" />Lixeira</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </>
-          )}
-          {trashMode && (
-            <>
-              <Button variant="outline" size="sm" onClick={() => { setTrashMode(false); setPage(1) }}>
-                <ArrowUp className="h-4 w-4" />Voltar aos ativos
-              </Button>
-            </>
-          )}
         </div>
       </div>
 
       {/* Filtros colapsáveis */}
-      {!trashMode && (
-        <Card className={cn('overflow-hidden transition-all', filtersOpen ? '' : 'cursor-pointer')} onClick={() => !filtersOpen && setFiltersOpen(true)}>
+      <Card className={cn('overflow-hidden transition-all', filtersOpen ? '' : 'cursor-pointer')} onClick={() => !filtersOpen && setFiltersOpen(true)}>
           <div className="flex items-center justify-between px-4 py-3 bg-muted/20" onClick={(e) => { e.stopPropagation(); setFiltersOpen(!filtersOpen) }}>
             <div className="flex items-center gap-3 text-sm font-medium cursor-pointer">
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 Filtros
-                {hasActiveFilters && (() => { const count = [filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, filterNumero, filterTipo, filterAtividade, filterArea, filterBeneficio].filter(Boolean).length + (onlyMensal ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
+                {hasActiveFilters && (() => { const count = [filterSituacao, (filterStatus !== 'ATIVO'), filterTributacao, filterGrupo, filterCidade, filterUf, filterNumero, filterTipo, filterAtividade, filterArea, filterBeneficio].filter(Boolean).length + (onlyMensal ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
               </div>
               <button
                 type="button"
@@ -642,13 +631,13 @@ export default function ClientesPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Cliente Ativo / Inativo</label>
-                  {/* Padrão (vazio) já oculta INATIVA no backend; "Inativo" mostra só inativos. */}
-                  <Select value={filterStatus || '__all__'} onValueChange={(v) => { setFilterStatus(v === '__all__' ? '' : v); setPage(1) }}>
+                  {/* #HLP0209 — Ativos (padrão) · Inativos · Todos (ativos+inativos). */}
+                  <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1) }}>
                     <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__all__">Todos (ativos)</SelectItem>
-                      <SelectItem value="ATIVA">Ativo</SelectItem>
-                      <SelectItem value="INATIVA">Inativo</SelectItem>
+                      <SelectItem value="ATIVO">Ativos</SelectItem>
+                      <SelectItem value="INATIVO">Inativos</SelectItem>
+                      <SelectItem value="TODOS">Todos</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -656,14 +645,13 @@ export default function ClientesPage() {
             </div>
           )}
         </Card>
-      )}
 
       {/* Seleção em lote */}
-      {selected.size > 0 && !trashMode && (
+      {selected.size > 0 && (
         <div className="flex items-center gap-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 px-4 py-2.5 text-sm">
           <span className="font-medium text-emerald-700 dark:text-emerald-400">{selected.size} selecionado{selected.size > 1 ? 's' : ''}</span>
-          <Button variant="soft-destructive" size="sm" onClick={handleBulkDelete}>
-            <Trash2 className="h-3.5 w-3.5" />Excluir selecionados
+          <Button variant="soft-warning" size="sm" onClick={() => openInativar(Array.from(selected), `${selected.size} clientes selecionados`)}>
+            <Ban className="h-3.5 w-3.5" />Inativar selecionados
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Limpar seleção</Button>
         </div>
@@ -688,11 +676,9 @@ export default function ClientesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              {!trashMode && (
-                <TableHead className="w-[40px]">
-                  <Checkbox checked={!!(data?.data && data.data.length > 0 && selected.size === data.data.length)} onCheckedChange={toggleSelectAll} />
-                </TableHead>
-              )}
+              <TableHead className="w-[40px]">
+                <Checkbox checked={!!(data?.data && data.data.length > 0 && selected.size === data.data.length)} onCheckedChange={toggleSelectAll} />
+              </TableHead>
               <TableHead className="w-[60px]">
                 <button onClick={() => toggleSort('code')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   Nº <SortIcon column="code" />
@@ -722,7 +708,7 @@ export default function ClientesPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={trashMode ? 10 : 11} className="text-center py-10">
+                <TableCell colSpan={11} className="text-center py-10">
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />Carregando...
                   </div>
@@ -730,18 +716,16 @@ export default function ClientesPage() {
               </TableRow>
             ) : !data?.data.length ? (
               <TableRow>
-                <TableCell colSpan={trashMode ? 10 : 11} className="text-center py-10 text-muted-foreground">
-                  {trashMode ? 'Nenhum cliente na lixeira' : 'Nenhum cliente encontrado'}
+                <TableCell colSpan={11} className="text-center py-10 text-muted-foreground">
+                  Nenhum cliente encontrado
                 </TableCell>
               </TableRow>
             ) : (
               data.data.map((cliente) => (
-                <TableRow key={cliente.id} className="cursor-pointer" onClick={() => !trashMode && router.push(`/clientes/${cliente.id}`)}>
-                  {!trashMode && (
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Checkbox checked={selected.has(cliente.id)} onCheckedChange={() => toggleSelect(cliente.id)} />
-                    </TableCell>
-                  )}
+                <TableRow key={cliente.id} className="cursor-pointer" onClick={() => router.push(`/clientes/${cliente.id}`)}>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox checked={selected.has(cliente.id)} onCheckedChange={() => toggleSelect(cliente.id)} />
+                  </TableCell>
                   <TableCell className="font-mono text-muted-foreground text-xs">{cliente.code}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <InlineSituacaoSelect
@@ -762,6 +746,9 @@ export default function ClientesPage() {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-sm">{cliente.razaoSocial}</p>
+                        {cliente.status === 'INATIVO' && (
+                          <Badge className={cn('text-[10px] px-1.5 py-0 border-transparent', STATUS_BADGE_CLASS.INATIVO)}>Inativo</Badge>
+                        )}
                         {(cliente.filiaisCount ?? 0) > 0 && (
                           <button
                             type="button"
@@ -788,21 +775,17 @@ export default function ClientesPage() {
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{cliente.uf || '—'}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                      {trashMode ? (
-                        <>
-                          <Button variant="soft" size="icon-sm" onClick={() => handleRestore(cliente.id, cliente.razaoSocial)}>
-                            <RotateCcw className="h-3.5 w-3.5" />
-                          </Button>
-                        </>
+                      <Button variant="soft-info" size="icon-sm" title="Editar" onClick={() => router.push(`/clientes/${cliente.id}`)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      {cliente.status === 'INATIVO' ? (
+                        <Button variant="soft-success" size="icon-sm" title="Reativar" onClick={() => setReativarAlvo({ id: cliente.id, nome: cliente.razaoSocial })}>
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
                       ) : (
-                        <>
-                          <Button variant="soft-info" size="icon-sm" onClick={() => router.push(`/clientes/${cliente.id}`)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="soft-destructive" size="icon-sm" onClick={() => handleDelete(cliente.id, cliente.razaoSocial)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </>
+                        <Button variant="soft-warning" size="icon-sm" title="Inativar" onClick={() => openInativar([cliente.id], cliente.razaoSocial)}>
+                          <Ban className="h-3.5 w-3.5" />
+                        </Button>
                       )}
                     </div>
                   </TableCell>
@@ -848,6 +831,23 @@ export default function ClientesPage() {
         open={responsaveisOpen}
         onOpenChange={setResponsaveisOpen}
         onAfterRun={fetchClientes}
+      />
+
+      {/* Inativar cliente(s) (#HLP0209/0211) — modal reutilizável (data opcional + motivo). */}
+      <InativarClienteModal
+        open={!!inativarAlvo}
+        count={inativarAlvo?.ids.length ?? 0}
+        nome={inativarAlvo?.nome}
+        onOpenChange={o => { if (!o) setInativarAlvo(null) }}
+        onConfirm={inativarConfirmado}
+      />
+
+      {/* Reativar cliente (#HLP0209) — mesmo modal usado no detalhe. */}
+      <ReativarClienteModal
+        open={!!reativarAlvo}
+        nome={reativarAlvo?.nome}
+        onOpenChange={o => { if (!o) setReativarAlvo(null) }}
+        onConfirm={reativarConfirmado}
       />
 
       {/* Modal de filiais do grupo (CNPJ raiz comum, ordem != 0001) */}

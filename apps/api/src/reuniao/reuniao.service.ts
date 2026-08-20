@@ -447,7 +447,7 @@ export class ReuniaoService {
         // Mesmo escopo frouxo do import: no snapshot de dev parte das linhas da
         // Central ainda esta com empresa_id nulo.
         OR: [{ empresaId: empresaId ?? undefined }, { empresaId: null }],
-        status: { not: 'INATIVA' },
+        status: { not: 'INATIVO' },
       },
       select: { id: true, razaoSocial: true, documento: true },
       orderBy: { razaoSocial: 'asc' },

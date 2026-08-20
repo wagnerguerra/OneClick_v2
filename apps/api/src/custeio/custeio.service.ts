@@ -131,7 +131,7 @@ export class CusteioService {
       where: {
         empresaId: emp,
         deletedAt: null,
-        status: { not: 'INATIVA' },
+        status: { not: 'INATIVO' },
         ...(clienteId ? { id: clienteId } : {}),
       },
       select: {

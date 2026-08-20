@@ -1045,7 +1045,7 @@ export class OrcamentoService {
         tipoDocumento: 'CNPJ',
         isLead: true,
         situacao: 'PROSPECT',
-        status: 'ATIVA',
+        status: 'ATIVO',
         origem: 'Cadastro via orçamento',
         empresaId: empresaId || null,
       },
@@ -1134,7 +1134,7 @@ export class OrcamentoService {
     // Alinha com a lista de clientes: não oferece clientes INATIVA nem
     // soft-deletados pra abrir orçamento (era o que trazia a duplicata inativa
     // que some do cadastro).
-    const where: any = { deletedAt: null, status: { not: 'INATIVA' } }
+    const where: any = { deletedAt: null, status: { not: 'INATIVO' } }
     if (!isMaster && empresaId) where.empresaId = empresaId
     if (search && search.trim()) {
       const term = search.trim()

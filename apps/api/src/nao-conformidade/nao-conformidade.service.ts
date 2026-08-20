@@ -430,7 +430,7 @@ export class NaoConformidadeService {
   async listarClientes(empresaId?: string | null) {
     return prisma.cliente.findMany({
       where: {
-        status: { not: 'INATIVA' },
+        status: { not: 'INATIVO' },
         OR: [{ empresaId: empresaId ?? null }, { empresaId: null }],
       },
       orderBy: { razaoSocial: 'asc' },

@@ -393,7 +393,7 @@ export class CrmService {
             tipoDocumento: (input.cpfCnpj?.replace(/\D/g, '').length || 0) === 11 ? 'CPF' : 'CNPJ',
             isLead: true,
             situacao: 'PROSPECT',
-            status: 'ATIVA',
+            status: 'ATIVO',
             origem: input.origem || '',
             telefone: input.contatoTelefone || '',
             email: input.contatoEmail || '',

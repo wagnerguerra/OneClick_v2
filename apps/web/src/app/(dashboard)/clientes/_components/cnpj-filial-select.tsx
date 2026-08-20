@@ -78,7 +78,7 @@ export function CnpjFilialSelect({ clienteId, documento, tipoDocumento }: {
               <div className="flex items-center gap-1.5 font-mono text-xs">
                 <span>{masks.cnpj(f.documento)}</span>
                 {ehMatriz(f) && <span className="rounded border border-current px-1 text-[9px] font-semibold uppercase tracking-wide opacity-70">matriz</span>}
-                {f.status === 'INATIVA' && <span className="rounded border border-current px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">inativa</span>}
+                {f.status === 'INATIVO' && <span className="rounded border border-current px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">inativa</span>}
               </div>
               <div className="truncate text-[11px] opacity-70">{f.nomeFantasia || f.razaoSocial}</div>
             </div>

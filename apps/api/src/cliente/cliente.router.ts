@@ -43,11 +43,6 @@ export function createClienteRouter(
       .input(listClienteSchema)
       .query(({ input, ctx }) => clienteService.list(input, ctx.isMaster, ctx.empresaId)),
 
-    // Lixeira (soft-deleted)
-    listTrash: readProcedure(MODULE)
-      .input(listClienteSchema)
-      .query(({ input, ctx }) => clienteService.listTrash(input, ctx.isMaster, ctx.empresaId)),
-
     // Lista filiais (CNPJ ordem != 0001) de uma matriz, dado o documento dela.
     // Usado pelo modal de filiais na listagem de clientes.
     listFiliais: readProcedure(MODULE)
@@ -91,15 +86,17 @@ export function createClienteRouter(
         return clienteService.update(input.id, input.data, ctx.userId, ctx.isMaster, ctx.empresaId, podeComercial)
       }),
 
-    // Soft delete (mover para lixeira)
-    delete: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
-      .input(z.object({ id: z.string() }))
-      .mutation(({ input, ctx }) => clienteService.delete(input.id, ctx.userId, ctx.isMaster, ctx.empresaId)),
+    // Inativar (#HLP0209/0211) — status vira o soft-delete: exige dataSaida e
+    // aceita um motivo (texto livre) que vai pro aviso do detalhe e pro histórico.
+    inativar: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ id: z.string(), dataSaida: z.string().optional(), motivo: z.string().trim().min(1, 'Informe o motivo da inativação.') }))
+      .mutation(({ input, ctx }) => clienteService.inativar(input.id, input.dataSaida, input.motivo, ctx.userId, ctx.isMaster, ctx.empresaId)),
 
-    // Restaurar da lixeira
-    restore: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
-      .input(z.object({ id: z.string() }))
-      .mutation(({ input, ctx }) => clienteService.restore(input.id, ctx.userId, ctx.isMaster, ctx.empresaId)),
+    // Reativar (#HLP0209) — volta status=ATIVO, limpa a dataSaida e registra o
+    // motivo de reativação (texto livre) no histórico.
+    reativar: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ id: z.string(), motivo: z.string().trim().min(1, 'Informe o motivo da reativação.') }))
+      .mutation(({ input, ctx }) => clienteService.reativar(input.id, input.motivo, ctx.userId, ctx.isMaster, ctx.empresaId)),
 
     // Exclusão PERMANENTE de cliente foi removida do sistema (decisão de produto,
     // 08/07/2026): cliente só é inativado (lixeira) e restaurado — nunca apagado

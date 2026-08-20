@@ -134,7 +134,7 @@ export class LegacyImportService {
             tipoDocumento: row.tipo_documento === 1 ? 'CPF' as never : 'CNPJ' as never,
             tipoCliente: row.tipo_cliente || 'A DEFINIR',
             situacao: situacao as never,
-            status: 'ATIVA' as never,
+            status: 'ATIVO' as never,
             grupo: grupo !== 'NÃO INFORMADO' ? grupo : null,
             categoria: row.comercial_categoria !== 'NÃO INFORMADO' ? row.comercial_categoria : null,
             origem: row.comercial_origem !== 'NÃO INFORMADO' ? row.comercial_origem : null,

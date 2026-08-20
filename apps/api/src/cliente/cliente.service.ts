@@ -167,7 +167,7 @@ export class ClienteService {
   // Listagem (ativos)
   // ============================================================
   async list(input: ListClienteInput, isMaster?: boolean, empresaId?: string) {
-    const { page, limit, search, sortBy, sortDir, situacao, status, tributacao, grupo, cidade, uf, isLead, agruparMatriz, numero, tipoCliente, atividade, areaContratada, comBeneficio } = input
+    const { page, limit, search, sortBy, sortDir, situacao, status, incluirInativos, tributacao, grupo, cidade, uf, isLead, agruparMatriz, numero, tipoCliente, atividade, areaContratada, comBeneficio } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
     // Filtro de matriz quando agruparMatriz=true: oculta filiais (CNPJ ordem
@@ -252,13 +252,11 @@ export class ClienteService {
       ...(isLead !== undefined ? { isLead } : {}),
       ...empresaFilter(isMaster, empresaId),
       ...(situacao ? { situacao } : {}),
-      // Status: por padrão a lista OCULTA clientes INATIVA — eles só aparecem
-      // quando o usuário filtra explicitamente por um status (inclusive INATIVA).
-      // Clientes da LIXEIRA (deletedAt) são tratados como INATIVOS: entram no
-      // filtro "Inativo" junto com status=INATIVA e ficam fora dos demais casos.
-      ...(status === 'INATIVA'
-        ? { OR: [{ status: 'INATIVA' as never }, { deletedAt: { not: null } }] }
-        : { deletedAt: null, ...(status ? { status } : { status: { not: 'INATIVA' } }) }),
+      // #HLP0209 — status é o ÚNICO indicador de inativo (Lixeira aposentada; a
+      // coluna deletedAt continua existindo mas não filtra mais a lista).
+      // status='ATIVO'/'INATIVO' filtra pelo valor; sem status + incluirInativos
+      // mostra TODOS (ativos+inativos); sem nada, oculta INATIVO (padrão).
+      ...(status ? { status } : incluirInativos ? {} : { status: { not: 'INATIVO' } }),
       ...(tributacao ? { tributacao } : {}),
       ...(grupo ? { grupo } : {}),
       ...(cidade ? { cidade } : {}),
@@ -314,7 +312,7 @@ export class ClienteService {
       const params: unknown[] = [cnpjBases]
       let filtroEmpresa = ''
       if (!isMaster) { params.push(empresaId ?? ''); filtroEmpresa = `AND c.empresa_id = $${params.length}` }
-      let filtroStatus = `AND c.status::text <> 'INATIVA'`
+      let filtroStatus = `AND c.status::text <> 'INATIVO'`
       if (status) { params.push(status); filtroStatus = `AND c.status::text = $${params.length}` }
       const rows = await prisma.$queryRawUnsafe<Array<{ base: string; count: bigint }>>(
         `SELECT substring(c.documento, 1, 8) AS base, COUNT(*)::bigint AS count
@@ -390,7 +388,7 @@ export class ClienteService {
     const params: unknown[] = [doc.slice(0, 8)]
     let filtroEmpresa = ''
     if (!isMaster) { params.push(empresaId ?? ''); filtroEmpresa = `AND c.empresa_id = $${params.length}` }
-    let filtroStatus = `AND c.status::text <> 'INATIVA'`
+    let filtroStatus = `AND c.status::text <> 'INATIVO'`
     if (status) { params.push(status); filtroStatus = `AND c.status::text = $${params.length}` }
     return prisma.$queryRawUnsafe<Array<{
       id: string; documento: string; razaoSocial: string; nomeFantasia: string | null
@@ -442,30 +440,9 @@ export class ClienteService {
   }
 
   // ============================================================
-  // Lixeira (soft-deleted)
+  // Lixeira REMOVIDA (#HLP0209): o antigo listTrash (deletedAt) deu lugar ao
+  // filtro "Inativos" da própria lista (status=INATIVO). Ver list() + inativar().
   // ============================================================
-  async listTrash(input: ListClienteInput, isMaster?: boolean, empresaId?: string) {
-    const { page, limit, search, sortBy, sortDir } = input
-    const { skip, take } = getPrismaSkipTake(page, limit)
-
-    const where: Prisma.ClienteWhereInput = {
-      deletedAt: { not: null },
-      ...empresaFilter(isMaster, empresaId),
-      ...(search ? { OR: [
-        { razaoSocial: { contains: search, mode: 'insensitive' as const } },
-        { documento: { contains: search } },
-      ] } : {}),
-    }
-
-    const orderBy = sortBy ? { [sortBy]: sortDir } : { deletedAt: 'desc' as const }
-
-    const [data, total] = await Promise.all([
-      prisma.cliente.findMany({ where, orderBy, skip, take }),
-      prisma.cliente.count({ where }),
-    ])
-
-    return buildPaginatedResponse(data, total, page, limit)
-  }
 
   // ============================================================
   // Obter por ID
@@ -481,7 +458,20 @@ export class ClienteService {
     if (!isMaster && empresaId && cliente.empresaId !== empresaId) {
       throw new Error('Acesso negado: cliente pertence a outra empresa')
     }
-    return cliente
+    // #HLP0209/0211 — motivo da inativação é ESTADO DERIVADO (mora no histórico,
+    // não em coluna): quando o cliente está inativo, expõe o motivo do último
+    // evento 'inactivated' como flag no payload, pro aviso "Cliente inativado".
+    let motivoInativacao: string | null = null
+    if (cliente.status === ('INATIVO' as never)) {
+      const evt = await prisma.clienteEvent.findFirst({
+        where: { clienteId: id, type: 'inactivated' },
+        orderBy: { createdAt: 'desc' },
+        select: { changes: true },
+      })
+      const m = (evt?.changes as { motivo?: unknown } | null)?.motivo
+      motivoInativacao = typeof m === 'string' && m.trim() ? m : null
+    }
+    return { ...cliente, motivoInativacao }
   }
 
   // ============================================================
@@ -532,7 +522,7 @@ export class ClienteService {
           omieEmpresa: input.omieEmpresa || null,
           idOneClick: input.idOneClick || null,
           situacao: (input.situacao || 'MENSAL') as never,
-          status: (input.status || 'ATIVA') as never,
+          status: (input.status || 'ATIVO') as never,
           grupo: input.grupo || null,
           categoria: input.categoria || 'NAO_INFORMADO',
           origem: input.origem || null,
@@ -629,41 +619,65 @@ export class ClienteService {
   }
 
   // ============================================================
-  // Soft Delete (mover para lixeira)
+  // Inativar (#HLP0209/0211) — "status é o soft-delete": seta status=INATIVO +
+  // dataSaida + motivo (texto livre) e registra o motivo no histórico. Substitui
+  // a antiga Lixeira (deletedAt). dataSaida é OPCIONAL: só se preenche quando o
+  // cliente está virando ex-cliente; um prospect que nunca foi cliente não tem
+  // saída. O motivo NÃO é coluna — mora só no histórico (ClienteEvent).
   // ============================================================
-  async delete(id: string, userId?: string, isMaster?: boolean, empresaId?: string) {
+  async inativar(id: string, dataSaida: string | undefined, motivo: string | undefined, userId?: string, isMaster?: boolean, empresaId?: string) {
     return prisma.$transaction(async (tx) => {
       const cliente = await tx.cliente.findUniqueOrThrow({ where: { id } })
       if (!isMaster && empresaId && cliente.empresaId !== empresaId) {
         throw new Error('Acesso negado')
       }
-      await tx.clienteEvent.create({
-        data: { clienteId: id, userId: userId || null, type: 'deleted', version: cliente.version },
+      const saida = parseOptionalDate(dataSaida)   // null quando não informada
+      const motivoLimpo = (motivo ?? '').trim() || null
+      const newVersion = cliente.version + 1
+      const atualizado = await tx.cliente.update({
+        where: { id },
+        data: { status: 'INATIVO' as never, dataSaida: saida, version: newVersion },
       })
-      return tx.cliente.update({ where: { id }, data: { deletedAt: new Date() } })
+      await tx.clienteEvent.create({
+        data: {
+          clienteId: id, userId: userId || null, type: 'inactivated', version: newVersion,
+          changes: { motivo: motivoLimpo, dataSaida: saida ? saida.toISOString().slice(0, 10) : null } as Prisma.InputJsonValue,
+        },
+      })
+      return atualizado
     })
   }
 
   // ============================================================
-  // Restaurar da lixeira
+  // Reativar (#HLP0209) — volta status=ATIVO, LIMPA a dataSaida (o motivo de
+  // inativação vive só no log, então nada a limpar em coluna) e o deletedAt
+  // legado. Registra o motivo de REATIVAÇÃO no histórico.
   // ============================================================
-  async restore(id: string, userId?: string, isMaster?: boolean, empresaId?: string) {
+  async reativar(id: string, motivo: string | undefined, userId?: string, isMaster?: boolean, empresaId?: string) {
     return prisma.$transaction(async (tx) => {
       const cliente = await tx.cliente.findUniqueOrThrow({ where: { id } })
       if (!isMaster && empresaId && cliente.empresaId !== empresaId) {
         throw new Error('Acesso negado')
       }
-      await tx.clienteEvent.create({
-        data: { clienteId: id, userId: userId || null, type: 'restored', version: cliente.version },
+      const motivoLimpo = (motivo ?? '').trim() || null
+      const newVersion = cliente.version + 1
+      const atualizado = await tx.cliente.update({
+        where: { id },
+        data: { status: 'ATIVO' as never, dataSaida: null, deletedAt: null, version: newVersion },
       })
-      return tx.cliente.update({ where: { id }, data: { deletedAt: null } })
+      await tx.clienteEvent.create({
+        data: {
+          clienteId: id, userId: userId || null, type: 'reactivated', version: newVersion,
+          changes: { motivo: motivoLimpo } as Prisma.InputJsonValue,
+        },
+      })
+      return atualizado
     })
   }
 
   // ============================================================
   // Exclusão PERMANENTE removida (decisão de produto, 08/07/2026):
-  // cliente só é inativado (deletedAt → lixeira) e restaurado — nunca
-  // apagado da base. deletePermanent/emptyTrash deixaram de existir.
+  // cliente só é inativado (status=INATIVO) e reativado — nunca apagado da base.
   // ============================================================
 
   // ============================================================
@@ -1170,7 +1184,7 @@ export class ClienteService {
     let idx = 0
     const conds: string[] = [
       `c.deleted_at IS NULL`,
-      `c.status <> 'INATIVA'`,
+      `c.status <> 'INATIVO'`,
       `(p.cliente_id IS NOT NULL OR lm.cliente_id IS NOT NULL)`,
       `COALESCE(p.gestao_ignorar, false) = ${verIgnorados ? 'true' : 'false'}`,
     ]

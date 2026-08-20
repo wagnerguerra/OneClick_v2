@@ -48,6 +48,7 @@ export default function EditClientePage() {
       mode="edit"
       clienteId={params.id}
       defaultValues={defaultValues as Parameters<typeof ClienteForm>[0]['defaultValues']}
+      motivoInativacao={typeof cliente.motivoInativacao === 'string' ? cliente.motivoInativacao : null}
     />
   )
 }

@@ -13,7 +13,7 @@ import {
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
   Image as ImageIcon, Activity, Percent, ShieldCheck,
-  Lock,
+  Lock, RotateCcw, Ban,
 } from 'lucide-react'
 import {
   cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor, Badge,
@@ -30,6 +30,9 @@ import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
 import { ParametrosContratoModal } from '@/components/contrato/parametros-contrato-modal'
 import { VerificarErpModal } from '@/components/contrato/verificar-erp-modal'
 import { OrcamentosTab } from './orcamentos-tab'
+import { InativarClienteModal } from './inativar-cliente-modal'
+import { ReativarClienteModal } from './reativar-cliente-modal'
+import { EVENT_BADGE_CLASS } from './cliente-status-ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { toDateInputValue } from '@/lib/date'
@@ -113,6 +116,9 @@ interface ClienteFormProps {
   mode: 'create' | 'edit'
   clienteId?: string
   defaultValues?: Partial<CreateClienteInput> & { code?: number; version?: number; createdAt?: string }
+  // #HLP0209/0211 — motivo da inativação (estado derivado do getById, vindo do
+  // último evento 'inactivated'). Só usado no aviso "Cliente inativado".
+  motivoInativacao?: string | null
 }
 
 const PROGRESS_FIELDS = [
@@ -122,11 +128,20 @@ const PROGRESS_FIELDS = [
   'telefone', 'email', 'origem',
 ] as const
 
-export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps) {
+export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }: ClienteFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('detalhes')
+  // #HLP0209/0211 — motivo exibido no aviso "Cliente inativado". Estado local
+  // (não é campo do form): inativar seta, reativar limpa, sem recarregar.
+  const [motivoInativado, setMotivoInativado] = useState(motivoInativacao ?? '')
+  // Modal de inativação (só o próprio cliente, no detalhe). `inativarDataInicial`
+  // pré-preenche a data quando o gatilho vem do campo "Data de saída".
+  const [inativarAberto, setInativarAberto] = useState(false)
+  const [inativarDataInicial, setInativarDataInicial] = useState('')
+  const [reativarAberto, setReativarAberto] = useState(false)
+  function abrirInativar(dataInicial = '') { setInativarDataInicial(dataInicial); setInativarAberto(true) }
   const [clienteLogo, setClienteLogo] = useState<string | null>(defaultValues?.logoUrl || null)
   const [chatMsg, setChatMsg] = useState('')
   const [chatAsCliente, setChatAsCliente] = useState(false)
@@ -185,7 +200,7 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
     resolver: zodResolver(createClienteSchema),
     defaultValues: {
       razaoSocial: '', nomeFantasia: '', documento: '', tipoDocumento: 'CNPJ',
-      tipoCliente: 'A DEFINIR', situacao: 'MENSAL', status: 'ATIVA', grupo: '', origem: '',
+      tipoCliente: 'A DEFINIR', situacao: 'MENSAL', status: 'ATIVO', grupo: '', origem: '',
       dataEntrada: '', dataSaida: '', observacoes: '',
       tributacao: undefined, regime: undefined,
       inscricaoEstadual: '', inscricaoMunicipal: '',
@@ -362,6 +377,29 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
     }
   }
 
+  // #HLP0209 — reativar: volta status=ATIVO, limpa a saída e registra o motivo
+  // (obrigatório) de reativação. Vem do ReativarClienteModal (mesmo do /clientes).
+  // O banner some na hora, sem recarregar.
+  async function reativarConfirmado(motivo: string) {
+    if (!clienteId) return
+    await trpc.cliente.reativar.mutate({ id: clienteId, motivo })
+    setValue('status', 'ATIVO', { shouldDirty: false })
+    setValue('dataSaida', '', { shouldDirty: false })
+    setMotivoInativado('')
+    alerts.success('Cliente reativado', 'O cliente voltou a ser ativo.')
+  }
+
+  // #HLP0209/0211 — confirma a inativação vinda do modal do detalhe (data de
+  // saída opcional + motivo). Atualiza o form e o banner sem recarregar.
+  async function inativarConfirmado(dataSaida: string, motivo: string) {
+    if (!clienteId) return
+    await trpc.cliente.inativar.mutate({ id: clienteId, dataSaida: dataSaida || undefined, motivo })
+    setValue('status', 'INATIVO', { shouldDirty: false })
+    setValue('dataSaida', dataSaida, { shouldDirty: false })
+    setMotivoInativado(motivo)
+    alerts.success('Cliente inativado', 'O cliente foi inativado.')
+  }
+
   const isEdit = mode === 'edit' && defaultValues?.code
 
   return (
@@ -521,21 +559,11 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
                   <Controller control={control} name="status" render={({ field }) => {
                     const style = { backgroundColor: STATUS_COLORS[field.value as keyof typeof STATUS_COLORS]?.bg || 'var(--color-muted)', color: STATUS_COLORS[field.value as keyof typeof STATUS_COLORS]?.color || 'var(--color-foreground)' }
                     const conteudo = STATUS_LABELS[field.value as keyof typeof STATUS_LABELS] || field.value
-                    // Sem "Editar detalhes": badge de LEITURA (todos veem o status).
-                    if (!canEditDetails) return (
-                      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-black/5 dark:ring-white/10" style={style} title={'Editar o status requer a permissão "Editar detalhes do cliente"'}>{conteudo}</span>
-                    )
+                    // #HLP0209 — status é badge de LEITURA. Inativar/reativar passam pelos
+                    // fluxos dedicados (botão "Inativar" + aviso "Cliente inativado"),
+                    // que registram motivo — nunca por toggle silencioso.
                     return (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button type="button" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80 ring-1 ring-black/5 dark:ring-white/10" style={style}>{conteudo}</button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                          {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                            <DropdownMenuItem key={v} onClick={() => salvarCampoDoCabecalho('status', v, field.onChange)} className={field.value === v ? 'font-bold' : ''}>{l}</DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-black/5 dark:ring-white/10" style={style}>{conteudo}</span>
                     )
                   }} />
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 px-3 py-1 text-xs font-medium">
@@ -546,6 +574,11 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              {isEdit && canEditDetails && watchedValues.status === 'ATIVO' && (
+                <Button type="button" variant="soft-warning" size="sm" onClick={() => abrirInativar()} title="Inativar cliente">
+                  <Ban className="h-4 w-4" />Inativar
+                </Button>
+              )}
               {canEditDetails && <Button variant="success" size="icon-sm" type="submit" disabled={saving} title="Salvar"><Save className="h-4 w-4" /></Button>}
               <BackButton href="/clientes" />
             </div>
@@ -641,11 +674,12 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
               {/* ======================================================== */}
               <TabsContent value="comercial" className="mt-0">
                 <ComercialCard
-                  register={register} control={control} watch={watch} setValue={setValue} errors={errors}
+                  register={register} control={control} watch={watch} errors={errors}
                   chatMsg={chatMsg} setChatMsg={setChatMsg}
                   chatAsCliente={chatAsCliente} setChatAsCliente={setChatAsCliente}
                   clienteId={clienteId}
                   opcoesOrigem={opcoesOrigem} opcoesGrupo={opcoesGrupo} canEdit={canManageCommercial}
+                  onPedirInativar={abrirInativar}
                 />
               </TabsContent>
 
@@ -722,6 +756,30 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
             {/* ============================================================ */}
             {isEdit && (
               <div className="space-y-5">
+                {/* #HLP0209/0211 — card de cliente inativado (acima do Progresso): data de saída + motivo + reativar. */}
+                {watchedValues.status === 'INATIVO' && (
+                  <Card className="p-5 border-amber-200 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-950/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Ban className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500" />
+                      <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400">Cliente inativado</h4>
+                    </div>
+                    <dl className="space-y-1.5 text-[13px]">
+                      <div className="flex gap-2">
+                        <dt className="text-muted-foreground shrink-0">Data de saída:</dt>
+                        <dd className="font-medium">{watchedValues.dataSaida ? toDateInputValue(watchedValues.dataSaida).split('-').reverse().join('/') : '—'}</dd>
+                      </div>
+                      <div className="flex gap-2">
+                        <dt className="text-muted-foreground shrink-0">Motivo:</dt>
+                        <dd className="font-medium break-words">{motivoInativado || '—'}</dd>
+                      </div>
+                    </dl>
+                    {canEditDetails && (
+                      <Button type="button" variant="soft-success" size="sm" className="mt-3 w-full" onClick={() => setReativarAberto(true)}>
+                        <RotateCcw className="h-3.5 w-3.5" />Reativar cliente
+                      </Button>
+                    )}
+                  </Card>
+                )}
                 {/* Progresso */}
                 <Card className="p-5">
                   <div className="flex items-center justify-between mb-3">
@@ -789,6 +847,24 @@ export function ClienteForm({ mode, clienteId, defaultValues }: ClienteFormProps
           </div>
         </Tabs>
       </form>
+
+      {/* #HLP0209/0211 — inativação do cliente (data opcional + motivo). */}
+      <InativarClienteModal
+        open={inativarAberto}
+        count={1}
+        nome={defaultValues?.razaoSocial}
+        initialDataSaida={inativarDataInicial}
+        onOpenChange={setInativarAberto}
+        onConfirm={inativarConfirmado}
+      />
+
+      {/* #HLP0209 — reativação (mesmo modal usado no /clientes). */}
+      <ReativarClienteModal
+        open={reativarAberto}
+        nome={defaultValues?.razaoSocial}
+        onOpenChange={setReativarAberto}
+        onConfirm={reativarConfirmado}
+      />
     </TooltipProvider>
   )
 }
@@ -1433,11 +1509,10 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   )
 }
 
-function ComercialCard({ register, control, watch, setValue, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, opcoesGrupo, canEdit }: {
+function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, opcoesGrupo, canEdit, onPedirInativar }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
-  setValue: ReturnType<typeof useForm<CreateClienteInput>>['setValue']
   errors: ReturnType<typeof useForm<CreateClienteInput>>['formState']['errors']
   chatMsg: string; setChatMsg: (v: string) => void
   chatAsCliente: boolean; setChatAsCliente: (v: boolean) => void
@@ -1445,6 +1520,7 @@ function ComercialCard({ register, control, watch, setValue, chatMsg, setChatMsg
   opcoesOrigem: Array<{ id: string; valor: string }>
   opcoesGrupo: Array<{ id: string; valor: string }>
   canEdit: boolean
+  onPedirInativar: (dataSaida: string) => void
 }) {
   /**
    * Data de saída preenchida → oferece inativar o cliente (#HLP0329).
@@ -1453,34 +1529,14 @@ function ComercialCard({ register, control, watch, setValue, chatMsg, setChatMsg
    * o cliente segue aparecendo em listagem, cobrança e obrigação. Antes isso
    * dependia de lembrar de trocar a situação num campo do outro lado da tela.
    *
-   * É PERGUNTA, não automático: baixa e transferência têm trâmite, e há quem
-   * registre a data de saída antes de encerrar o serviço de fato. Decidir pelo
-   * usuário inativaria cliente que ainda está sendo atendido.
+   * #HLP0209 — em vez de um confirm cru, ABRE o modal de inativação já com a
+   * data preenchida (o modal coleta o motivo e chama o endpoint dedicado). É
+   * PERGUNTA, não automático: quem só registra a data pode cancelar.
    */
-  async function perguntarInativar(dataSaida: string) {
+  function perguntarInativar(dataSaida: string) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dataSaida)) return   // data incompleta
-    if (watch('status') === 'INATIVA') return
-
-    const ok = await alerts.confirm({
-      title: 'Inativar o cliente?',
-      text: 'Você informou a data de saída. Quer marcar o cliente como INATIVO? '
-        + 'Ele sai das listagens e da contagem de filiais, e o histórico é preservado.',
-      confirmText: 'Inativar',
-      icon: 'question',
-    })
-    if (!ok) return
-
-    setValue('status', 'INATIVA', { shouldDirty: true })
-    // Em edição grava na hora: a data de saída vai junto para as duas
-    // informações não contarem histórias diferentes se a pessoa sair da tela
-    // sem salvar.
-    if (clienteId) {
-      try {
-        await trpc.cliente.update.mutate({ id: clienteId, data: { status: 'INATIVA', dataSaida } as never })
-      } catch {
-        alerts.error('Erro', 'Não foi possível inativar agora — a alteração fica pendente no formulário.')
-      }
-    }
+    if (watch('status') === 'INATIVO') return
+    onPedirInativar(dataSaida)
   }
 
   const [activeTab, setActiveTab] = useState('cadastros')
@@ -2561,6 +2617,10 @@ function LogsTab({ clienteId }: { clienteId: string }) {
   const typeLabels: Record<string, { label: string; color: string }> = {
     created: { label: 'Criado', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
     updated: { label: 'Atualizado', color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' },
+    // #HLP0209 — inativação/reativação (status como soft-delete). Cores derivam da
+    // fonte única (cliente-status-ui). deleted/restored ficam para a antiga Lixeira.
+    inactivated: { label: 'Inativado', color: EVENT_BADGE_CLASS.inactivated },
+    reactivated: { label: 'Reativado', color: EVENT_BADGE_CLASS.reactivated },
     deleted: { label: 'Excluído', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
     restored: { label: 'Restaurado', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
   }
@@ -2584,15 +2644,30 @@ function LogsTab({ clienteId }: { clienteId: string }) {
                 <p className="text-xs text-muted-foreground">
                   {evt.user?.name || 'Sistema'} &middot; v{evt.version} &middot; {new Date(evt.createdAt).toLocaleDateString('pt-BR')} {new Date(evt.createdAt).toLocaleTimeString('pt-BR')}
                 </p>
-                {evt.changes && Object.keys(evt.changes).length > 0 && (
-                  <div className="mt-1.5 space-y-1">
-                    {Object.entries(evt.changes).map(([field, change]) => (
-                      <div key={field} className="text-xs">
-                        <span className="font-medium">{field}</span>: <span className="text-muted-foreground line-through">{String(change.from || '—')}</span> → <span className="text-foreground">{String(change.to || '—')}</span>
+                {evt.changes && Object.keys(evt.changes).length > 0 && (() => {
+                  // #HLP0209 — inativação/reativação guardam campos PLANOS (motivo,
+                  // dataSaida), não diffs {from,to}: renderiza como rótulos.
+                  if (evt.type === 'inactivated' || evt.type === 'reactivated') {
+                    const ch = evt.changes as unknown as Record<string, unknown>
+                    const motivo = typeof ch.motivo === 'string' ? ch.motivo : null
+                    const ds = typeof ch.dataSaida === 'string' ? ch.dataSaida : null
+                    return (
+                      <div className="mt-1.5 space-y-1 text-xs">
+                        {motivo && <div><span className="font-medium">Motivo</span>: <span className="text-muted-foreground">{motivo}</span></div>}
+                        {evt.type === 'inactivated' && ds && <div><span className="font-medium">Data de saída</span>: <span className="text-muted-foreground">{ds.split('-').reverse().join('/')}</span></div>}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    )
+                  }
+                  return (
+                    <div className="mt-1.5 space-y-1">
+                      {Object.entries(evt.changes!).map(([field, change]) => (
+                        <div key={field} className="text-xs">
+                          <span className="font-medium">{field}</span>: <span className="text-muted-foreground line-through">{String(change.from || '—')}</span> → <span className="text-foreground">{String(change.to || '—')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           )
