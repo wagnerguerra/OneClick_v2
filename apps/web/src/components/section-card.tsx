@@ -56,18 +56,29 @@ export function SectionCard({
               onClick={() => setOpen(v => !v)}
               className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', open && 'rotate-180')} />
+              <ChevronDown
+                className={cn('h-4 w-4 transition-transform duration-[250ms] ease-[cubic-bezier(.16,1,.3,1)]', open && 'rotate-180')}
+              />
             </button>
           )}
         </div>
       </div>
-      {open && (
-        <div className="overflow-hidden" style={{ animation: 'fadeSlideIn 0.2s ease-out' }}>
-          <div className={cn('relative border-t border-border p-5 text-sm', bodyClassName)}>
+      {/* Animação do modelo (framer-motion: height 0↔auto + opacity 0↔1, 0.25s,
+          ease cubic-bezier(.16,1,.3,1)) reproduzida em CSS puro: o grid anima
+          `grid-template-rows` de 0fr a 1fr — o único jeito de transicionar até
+          a altura automática sem JS — e a opacidade acompanha. O conteúdo fica
+          montado (estado de formulários preservado ao recolher/expandir). */}
+      <div
+        className="grid transition-[grid-template-rows,opacity] duration-[250ms] ease-[cubic-bezier(.16,1,.3,1)]"
+        style={{ gridTemplateRows: open ? '1fr' : '0fr', opacity: open ? 1 : 0 }}
+        aria-hidden={!open}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className={cn('relative border-t border-border p-5 text-sm', bodyClassName)} inert={open ? undefined : true}>
             {children}
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
