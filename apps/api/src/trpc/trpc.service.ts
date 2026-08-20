@@ -175,6 +175,8 @@ import { DocumentoExternoService } from '../documento-externo/documento-externo.
 import { createDocumentoExternoRouter } from '../documento-externo/documento-externo.router'
 import { QualidadeService } from '../qualidade/qualidade.service'
 import { createQualidadeRouter } from '../qualidade/qualidade.router'
+import { ControleFeriasService } from '../controle-ferias/controle-ferias.service'
+import { createControleFeriasRouter } from '../controle-ferias/controle-ferias.router'
 import { createManifestacaoRouter } from '../manifestacao/manifestacao.router'
 import { MinhasObrigacoesService } from '../minhas-obrigacoes/minhas-obrigacoes.service'
 import { AtivoService } from '../ativo/ativo.service'
@@ -746,6 +748,7 @@ export class TrpcService {
     @Inject(NaoConformidadeService) private readonly naoConformidadeService: NaoConformidadeService,
     @Inject(DocumentoExternoService) private readonly documentoExternoService: DocumentoExternoService,
     @Inject(QualidadeService) private readonly qualidadeService: QualidadeService,
+    @Inject(ControleFeriasService) private readonly controleFeriasService: ControleFeriasService,
     @Inject(ClientErrorService) private readonly clientErrorService: ClientErrorService,
     @Inject(ThemeService) private readonly themeService: ThemeService,
     @Inject(DanfeService) private readonly danfeService: DanfeService,
@@ -861,6 +864,7 @@ export class TrpcService {
       naoConformidade: createNaoConformidadeRouter(this.naoConformidadeService),
       documentoExterno: createDocumentoExternoRouter(this.documentoExternoService),
       qualidade: createQualidadeRouter(this.qualidadeService),
+      controleFerias: createControleFeriasRouter(this.controleFeriasService),
       minhasObrigacoes: createMinhasObrigacoesRouter(this.minhasObrigacoesService),
     })
   }

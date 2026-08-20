@@ -205,7 +205,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Banco de Horas', href: '/banco-horas', icon: Clock, wip: true },
       { label: 'Benefícios', href: '/beneficios', icon: Gift },
-      { label: 'Controle de Férias', href: '/controle-ferias', icon: CalendarDays, wip: true },
+      { label: 'Controle de Férias', href: '/controle-ferias', icon: CalendarDays },
       { label: 'FGTS Digital', href: '/fgts-digital', icon: Landmark, wip: true },
       { label: 'Importação de Folha', href: '/folha-pagamento', icon: FileSpreadsheet },
       { label: 'Espelho da Folha', href: '/folha-bi', icon: BarChart3 },

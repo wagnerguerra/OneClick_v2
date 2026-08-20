@@ -282,6 +282,21 @@ export class UploadController {
     res.sendFile(filePath)
   }
 
+  /** Serve os recibos de férias migrados do v1 (`crp_ferias_arquivos` → /files/crp_ferias). */
+  @Get('ferias-legado/:filename')
+  serveFeriasLegado(@Param('filename') filename: string, @Res() res: Response) {
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      res.status(400).json({ message: 'Nome inválido.' })
+      return
+    }
+    const filePath = join(UPLOADS_DIR, 'ferias-legado', filename)
+    if (!existsSync(filePath)) {
+      res.status(404).json({ message: 'Arquivo não encontrado.' })
+      return
+    }
+    res.sendFile(filePath)
+  }
+
   /** Serve os anexos das NCs migradas do v1 (`sgq_nc_arq` → /files/sgq_rnc). */
   @Get('nc-legado/:filename')
   serveNcLegado(@Param('filename') filename: string, @Res() res: Response) {

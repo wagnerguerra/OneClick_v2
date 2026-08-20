@@ -8804,3 +8804,91 @@ model DocumentoExternoVersao {
   @@index([legacyId])
   @@map("documento_externo_versoes")
 }
+
+// ============================================================
+// CONTROLE DE FÉRIAS (Trabalhista) — port do crp_ferias do v1.
+// Um registro por PERÍODO AQUISITIVO do colaborador (2025/2026), com os
+// gozos lançados dentro dele, até três datas de pagamento e os recibos.
+// O SALDO é derivado no service (dias + saldo anterior − gozados) e vai
+// pronto no payload — o front não refaz a conta.
+// Levantamento: docs/migracao-controle-ferias-v1.md
+// ============================================================
+
+model FeriasPeriodo {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+
+  colaboradorId   String? @map("colaborador_id")
+  /// Resíduo do v1 quando o colaborador não existe mais no v2.
+  colaboradorNome String? @map("colaborador_nome")
+
+  /// Anos do período aquisitivo (ex.: 2025 → 2026).
+  periodoInicial Int     @map("periodo_inicial")
+  periodoFinal   Int     @map("periodo_final")
+  descricao      String?
+
+  saldoAnterior Int @default(0) @map("saldo_anterior")
+  dias          Int @default(30)
+
+  previsao   DateTime? @db.Date
+  /// Até três pagamentos, como o v1 (gozo fracionado paga fracionado).
+  pagamento1 DateTime? @map("pagamento_1") @db.Date
+  pagamento2 DateTime? @map("pagamento_2") @db.Date
+  pagamento3 DateTime? @map("pagamento_3") @db.Date
+  pago       Boolean   @default(false)
+
+  /// Período consolidado (o "historico" do v1): fora das pendências.
+  historico Boolean @default(false)
+
+  registradoPorId String?  @map("registrado_por_id")
+  registradoEm    DateTime @default(now()) @map("registrado_em")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  eventos  FeriasEvento[]
+  arquivos FeriasArquivo[]
+
+  @@index([empresaId])
+  @@index([colaboradorId])
+  @@index([legacyId])
+  @@map("ferias_periodos")
+}
+
+/// Um gozo (ou abono) lançado dentro do período.
+model FeriasEvento {
+  id        String  @id @default(cuid())
+  periodoId String  @map("periodo_id")
+  legacyId  Int?    @map("legacy_id")
+
+  ordem     Int       @default(1)
+  dataInicio DateTime @map("data_inicio") @db.Date
+  dataFim    DateTime @map("data_fim") @db.Date
+  descricao  String?
+
+  registradoPorId String?  @map("registrado_por_id")
+  registradoEm    DateTime @default(now()) @map("registrado_em")
+
+  periodo FeriasPeriodo @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+
+  @@index([periodoId])
+  @@index([legacyId])
+  @@map("ferias_eventos")
+}
+
+model FeriasArquivo {
+  id        String  @id @default(cuid())
+  periodoId String  @map("periodo_id")
+  legacyId  Int?    @map("legacy_id")
+  nome      String
+  path      String
+  autorId   String? @map("autor_id")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  periodo FeriasPeriodo @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+
+  @@index([periodoId])
+  @@map("ferias_arquivos")
+}
