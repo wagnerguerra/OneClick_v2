@@ -50,13 +50,18 @@ Gerador: `scripts/legacy-v1-ferias-import.js` (read-only; idempotente por
 Resultado (dev, 19/08): **78 períodos** (8 com colaborador só no resíduo —
 ex-colaboradores), **197 gozos**, **24 arquivos**, 29 históricos; 0 órfãos.
 
-## 5. Produção
+## 5. Produção — ✅ aplicada em 20/08
 
-Runbook padrão: DDL + carga **como `-U oneclick`**, copiar
-`uploads/ferias-legado/` para o volume, validar os contadores do §4.
+- IDs embutidos validados (31/31 usuários). DDL + carga **como
+  `-U oneclick`** (owner conferido nas 3 tabelas). Resultado idêntico ao
+  dev: **78 períodos, 197 gozos, 24 recibos**, 0 órfãos.
+- Recibos copiados para o volume (`uploads/ferias-legado/`).
+- O `add_controle_ferias.sql` segue no stage 4.5 do deploy. A UI entra no
+  ar com o commit `e0f292e3`.
 
-## 6. Desativação no v1
+## 6. Desativação no v1 — ✅ aplicada em 20/08
 
-`\\192.168.0.7\wwwroot\central\modules\crp_ferias\` — bloquear com `.bak`:
-todos os `modal-*.asp` de escrita (create, delete, lancamento, periodo,
-pgto, movimento, pagamento, arq) + banner e botão desabilitado no index.
+Com `.bak-2026-08-20` de cada arquivo: os **17 modais de escrita**
+bloqueados por redirect no topo (create, delete, lançamento, período,
+pgto, movimento, pagamento e arquivos); banner + botão "Novo" desabilitado
+no `index.asp` — a consulta segue viva.
