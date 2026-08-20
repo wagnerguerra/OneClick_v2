@@ -85,13 +85,16 @@ export function TenantSwitcher() {
         type="button"
         onClick={() => setAberto(v => !v)}
         title="Empresa carregada — clique para trocar"
-        className="flex max-w-[260px] items-center gap-1.5 rounded-md border border-border/70 bg-muted/30 px-2 py-1 text-left transition-colors hover:bg-muted/60"
+        className={cn(
+          'flex max-w-[280px] items-center gap-1.5 rounded-lg px-2.5 h-9 text-sm font-medium text-left transition-colors outline-none',
+          aberto ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+        )}
       >
-        <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <span className="truncate text-[12.5px] font-medium">
+        <Building2 className="h-4 w-4 shrink-0" />
+        <span className="truncate">
           {empresa.razaoSocial}
         </span>
-        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 transition-transform', aberto && 'rotate-180')} />
       </button>
 
       {aberto && (
