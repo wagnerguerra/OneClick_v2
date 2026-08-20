@@ -74,15 +74,20 @@ Resultado (dev, 20/08): **19 categorias** (19 com área), **1.211 registros**
 (1.133 com cliente vinculado; 465 solicitantes só no resíduo —
 ex-colaboradores), **11.376 eventos de trilha**, 0 órfãos.
 
-## 5. Produção — pendente
+## 5. Produção — ✅ aplicada em 20/08
 
-Aplicar `add_coleta_documentos.sql` + `scripts/out/v1-coleta.sql` como
-`-U oneclick`, depois de validar os cuids embutidos (usuários e áreas) contra
-a produção. O cliente entra por subselect de CNPJ, então não embute id.
+`add_coleta_documentos.sql` + `v1-coleta.sql` aplicados como `-U oneclick`
+(29 cuids embutidos validados antes; todos existiam). Resultado: **19
+categorias, 1.211 registros, 11.376 eventos**, 1.143 com cliente vinculado
+(por CNPJ — mais que no dev, a produção tem a base completa), 0 órfãos.
+Módulo no ar após o deploy do meio-dia (bundle confere `coleta-documentos`).
 
-## 6. Desativação no v1 — pendente (COMBINAR O TIMING)
+## 6. Desativação no v1 — ✅ aplicada em 20/08
 
-O módulo está **em uso diário**. O corte (banner + bloqueio server-side nos
-`enviar*.asp` das três pastas, com `.bak` antes) só depois que o Wagner der o
-sinal — de preferência num fim de dia, com a carga de produção reaplicada na
-sequência para pegar os registros do intervalo.
+Com o sinal do Wagner ("pode cortar"): **19 processadores** bloqueados com
+`Response.Redirect` (usu/ 4: enviar, enviar_editar, add_msg, modal-delete ·
+adm/ 7: enviar + 5 transições + modal-delete · arq/ 8: enviar + 6 transições
++ modal-delete) + banner e botão Novo desabilitado nas três listagens. Tudo
+com `.bak-2026-08-20`; `fav_in/fav_out` preservados (favoritos do menu).
+Carga regenerada na sequência: números idênticos aos da produção
+(19 | 1.211 | 11.376) — **nenhum registro no intervalo**, ciclo fechado.
