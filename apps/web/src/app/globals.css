@@ -26,8 +26,8 @@
   --color-accent-foreground: #0f172a;
   --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
-  --color-border: #d4d4d4;
-  --color-input: #d4d4d4;
+  --color-border: #e5e8ee;  /* a borda suave do LuminAux */
+  --color-input: #e5e8ee;
   --color-ring: #0067ff;
   --radius: 0.5rem;
   --color-sidebar: #ffffff;
