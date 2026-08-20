@@ -25,6 +25,7 @@ import {
 import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { SectionCard } from '@/components/section-card'
 import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserMultiPicker } from '@/components/user-multi-picker'
@@ -563,7 +564,9 @@ export default function OrcamentoDetailPage() {
   const isLocked = !!orc && STATUS_LOCKED.has(orc.status)
   // Pills internas da aba Detalhes (organizacao em sub-card vertical)
   type PillKey = 'dados' | 'itens' | 'textos'
-  const [activePill, setActivePill] = useState<PillKey>('dados')
+  // Itens e Textos viraram tabs do hero (ao lado de Detalhes). A "pill" ativa
+  // é derivada da tab — o conteúdo abaixo continua igual.
+  const activePill: PillKey = activeTab === 'itens' ? 'itens' : activeTab === 'textos' ? 'textos' : 'dados'
   // Auto-save: status visivel + ref para evitar disparar no primeiro load
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const initialLoadRef = useRef(true)
@@ -1979,6 +1982,8 @@ export default function OrcamentoDetailPage() {
         <div className="flex gap-1.5 overflow-x-auto py-2">
           {([
             { value: 'detalhes', icon: FileText, label: 'Detalhes' },
+            { value: 'itens', icon: Package, label: 'Itens', badge: orc.itens.length },
+            { value: 'textos', icon: Type, label: 'Textos' },
             { value: 'mensagens', icon: MessageSquare, label: 'Mensagens', badge: orc.mensagens.length },
             { value: 'timeline', icon: History, label: 'Timeline' },
             ...((historicoCliente.length > 0 || temLegado) ? [{ value: 'historico', icon: Files, label: 'Outros orçamentos' }] : []),
@@ -2038,64 +2043,24 @@ export default function OrcamentoDetailPage() {
       {/* Layout 2 colunas: principal + sidebar */}
       <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1fr_20rem]">
         <div className="min-w-0">
-          {/* === TAB: DETALHES (Card com pills verticais) === */}
-          <TabsContent value="detalhes" className="mt-0">
-            <Card className="rounded-lg shadow-sm">
-              <CardHeader className="border-b border-border px-4 py-3 flex flex-row items-center gap-2">
-                <Layers className="h-4 w-4 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-sm font-semibold text-foreground">Detalhes do Orçamento</h3>
-                  <p className="truncate text-xs text-muted-foreground">Dados gerais, itens e textos da proposta.</p>
-                </div>
-              </CardHeader>
+          {/* === TABS: DETALHES / ITENS / TEXTOS (mesmo card, conteúdo pela tab) === */}
+          {(activeTab === 'detalhes' || activeTab === 'itens' || activeTab === 'textos') && (
+            <SectionCard
+              key={activePill}
+              title={activePill === 'itens' ? 'Itens do Orçamento' : activePill === 'textos' ? 'Textos da Proposta' : 'Detalhes do Orçamento'}
+              description={activePill === 'itens' ? 'Serviços, taxas e despesas que compõem o valor.' : activePill === 'textos' ? 'Introdução, condições e observações que vão na proposta.' : 'Dados gerais do orçamento.'}
+              icon={activePill === 'itens' ? <Package /> : activePill === 'textos' ? <Type /> : <Layers />}
+              bodyClassName="p-0"
+            >
               <div className="flex min-h-[450px]">
-                {/* Pills laterais */}
-                <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
-                  <div className="space-y-1">
-                    {([
-                      { key: 'dados', icon: FileText, label: 'Dados Gerais' },
-                      { key: 'itens', icon: Package, label: 'Itens', badge: orc.itens.length },
-                      { key: 'textos', icon: Type, label: 'Textos' },
-                    ] as Array<{ key: PillKey; icon: typeof FileText; label: string; badge?: number }>).map(p => {
-                      const Icon = p.icon
-                      const active = activePill === p.key
-                      return (
-                        <button
-                          key={p.key}
-                          type="button"
-                          onClick={() => setActivePill(p.key)}
-                          className={cn(
-                            'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
-                            active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-white hover:text-foreground'
-                          )}
-                          style={active ? { backgroundColor: MODULE_COLOR } : undefined}
-                        >
-                          <Icon className="h-3.5 w-3.5 shrink-0" />
-                          <span className="flex-1">{p.label}</span>
-                          {p.badge !== undefined && p.badge > 0 && (
-                            <span className={cn(
-                              'inline-flex items-center justify-center rounded-full text-[10px] font-bold min-w-[18px] h-[18px] px-1',
-                              active ? 'bg-white/30 text-white' : 'bg-muted text-foreground',
-                            )}>
-                              {p.badge}
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
                 {/* Conteudo — quando o orcamento esta locked (APROVADO+), aplica
                     data-locked="true" que bloqueia os controles via CSS (em
                     globals.css). Campos que devem permanecer editaveis usam
                     `data-editable` no wrapper para reabilitar a interacao.
                     Pills laterais ficam fora deste container, sempre navegaveis. */}
                 <div
-                  key={activePill}
                   data-locked={isLocked || undefined}
                   className="flex-1 min-w-0 p-5"
-                  style={{ animation: 'fadeSlideIn 0.25s ease-out' }}
                 >
                   {activePill === 'dados' && (
                     <div className="-m-5">
@@ -2549,21 +2514,20 @@ export default function OrcamentoDetailPage() {
                   )}
                 </div>
               </div>
-            </Card>
-          </TabsContent>
+            </SectionCard>
+          )}
 
           {/* === TAB: TIMELINE === */}
           <TabsContent value="timeline" className="mt-0">
           {/* Timeline de Eventos — feed vertical alimentado por TODOS os eventos
               do orçamento (orc.eventos), com ator (quem moveu) + data/hora. */}
-          <Card>
-            <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-              <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
-              <h3 className="text-sm font-semibold flex-1">Timeline de Eventos</h3>
-              {orc.eventos?.length ? (
-                <Badge variant="secondary" className="text-[10px]">{orc.eventos.length}</Badge>
-              ) : null}
-            </CardHeader>
+          <SectionCard
+            title="Timeline de Eventos"
+            description="Tudo que aconteceu com o orçamento, com autor e hora."
+            icon={<History />}
+            actions={orc.eventos?.length ? <Badge variant="secondary" className="text-[10px] mr-1">{orc.eventos.length}</Badge> : null}
+            bodyClassName="p-0"
+          >
 
             {/* Barra de ações contextuais (avança o status conforme permissões) */}
             {(() => {
@@ -2694,7 +2658,7 @@ export default function OrcamentoDetailPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </SectionCard>
           </TabsContent>
 
           {/* === TAB: HISTORICO (outros orcamentos + eventos) === */}
@@ -2702,12 +2666,13 @@ export default function OrcamentoDetailPage() {
             {/* Histórico do sistema legado (só leitura) */}
             <OrcamentosLegadoSection clienteId={orc.cliente?.id} />
             {historicoCliente.length > 0 && (
-              <Card>
-                <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-                  <FileText className="h-4 w-4" style={{ color: MODULE_COLOR }} />
-                  <h3 className="text-sm font-semibold flex-1">Outros orçamentos do cliente</h3>
-                  <Badge variant="secondary" className="text-[10px]">{historicoCliente.length}</Badge>
-                </CardHeader>
+              <SectionCard
+                title="Outros orçamentos do cliente"
+                description="Histórico de propostas deste cliente no sistema."
+                icon={<FileText />}
+                actions={<Badge variant="secondary" className="text-[10px] mr-1">{historicoCliente.length}</Badge>}
+                bodyClassName="p-0"
+              >
                 <CardContent className="p-0">
                   <div className="max-h-[280px] overflow-y-auto">
                     {historicoCliente.map(o => {
@@ -2737,7 +2702,7 @@ export default function OrcamentoDetailPage() {
                     })}
                   </div>
                 </CardContent>
-              </Card>
+              </SectionCard>
             )}
           </TabsContent>
 
