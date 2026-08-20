@@ -16,7 +16,6 @@ import {
 import { signOut } from '@/lib/auth-client'
 import { refreshCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { resolveAssetUrl } from '@/lib/api-url'
-import { useTabs } from '@/lib/tabs-store'
 
 interface UserMenuProps {
   name: string
@@ -41,7 +40,6 @@ function getFirstName(name: string) {
 
 export function UserMenu({ name, email, role, image, isMaster }: UserMenuProps) {
   const router = useRouter()
-  const { tabs, closeMultiple } = useTabs()
   // /configuracoes contém ajustes administrativos (Stripe, SMTP, S3, integrações,
   // etc.) — só master/empresa-master pode acessar.
   const canAccessConfig = !!isMaster
@@ -111,15 +109,6 @@ export function UserMenu({ name, email, role, image, isMaster }: UserMenuProps) 
         {/* Logout */}
         <DropdownMenuItem
           onClick={async () => {
-            // Dispara o fechamento das abas não fixadas em background — mutation
-            // tem optimistic update local e a chamada API é best-effort. NÃO usar
-            // await: se a tRPC demorar/falhar, não queremos bloquear o logout.
-            const unpinnedIds = tabs.filter(t => !t.pinned).map(t => t.id)
-            if (unpinnedIds.length > 0) {
-              closeMultiple(unpinnedIds).catch((e: unknown) =>
-                console.warn('[Logout] Falha ao fechar abas não fixadas:', (e as Error).message),
-              )
-            }
             // signOut tenta invalidar a sessão no servidor — mas se a API estiver
             // fora do ar/network falhar, ainda assim faz logout local (limpa
             // cache e redireciona) pra não deixar o user preso.

@@ -11,15 +11,12 @@ import { Sidebar } from '@/components/dashboard/sidebar'
 import { Header } from '@/components/dashboard/header'
 import { PageTransition } from '@/components/dashboard/page-transition'
 import { RouteProgress } from '@/components/dashboard/route-progress'
-import { TabBar } from '@/components/dashboard/tab-bar'
 import { ApiHealthMonitor } from '@/components/dashboard/api-health-monitor'
 import { FloatingFeedbackButton } from '@/components/dashboard/floating-feedback-button'
 import { TarefasRail } from '@/components/dashboard/tarefas-rail'
 import { NotesRail } from '@/components/dashboard/notes-rail'
 import { ChatToastListener } from '@/components/chat/chat-toast-listener'
 import { TabsProvider } from '@/lib/tabs-store'
-import { useSyncRouteTab } from '@/hooks/use-sync-route-tab'
-import { useTabShortcuts } from '@/hooks/use-tab-shortcuts'
 import { usePermissionsSse } from '@/hooks/use-permissions-sse'
 import { usePresencePing } from '@/hooks/use-presence-ping'
 import { useModuleScope } from '@/hooks/use-module-scope'
@@ -36,8 +33,6 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
   closeMobile: () => void
   trialDaysRemaining: number | null
 }) {
-  useSyncRouteTab()
-  useTabShortcuts()
   usePermissionsSse()
   usePresencePing()
   useModuleScope()
@@ -60,7 +55,6 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
         {/* lg:mr-11 reserva a faixa do rail de tarefas (direita) */}
         <div className="lg:mr-11">
           {trialDaysRemaining != null && <TrialBanner daysRemaining={trialDaysRemaining} />}
-          <TabBar />
           <main className="p-4 sm:p-6">
             <PageTransition>{children}</PageTransition>
           </main>

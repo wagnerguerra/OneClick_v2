@@ -366,6 +366,31 @@ function groupColorVar(label: string): string {
 }
 
 /**
+ * Retorna o LABEL do grupo ao qual a rota pertence (ex.: "Administrativo").
+ * Mesma resolução do getGroupHexForHref: match exato, depois prefixo.
+ * Usado como legenda dos itens do Acesso rápido.
+ */
+export function getGroupLabelForHref(href: string): string | null {
+  const pathClean = href.split('?')[0]!.split('#')[0]!
+  for (const group of navigation) {
+    for (const item of group.items) {
+      if (item.href === pathClean) return group.label
+      if (item.subItems?.some(s => s.href === pathClean)) return group.label
+    }
+  }
+  const segments = pathClean.split('/').filter(Boolean)
+  if (segments.length === 0) return null
+  const primeiroSegmento = `/${segments[0]}`
+  for (const group of navigation) {
+    for (const item of group.items) {
+      if (item.href === primeiroSegmento) return group.label
+      if (item.subItems?.some(s => s.href === primeiroSegmento)) return group.label
+    }
+  }
+  return null
+}
+
+/**
  * Retorna a cor hex do grupo ao qual a rota pertence (procura no `navigation`).
  * Faz match exato primeiro; depois prefix match (ex: /clientes/123 → /clientes).
  * Sub-itens (subItems) também são considerados — usam a cor do grupo pai.

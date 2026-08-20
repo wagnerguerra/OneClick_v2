@@ -15,6 +15,7 @@ import { UserMenu } from './user-menu'
 import { NotificationBell } from './notification-bell'
 import { ClientErrorBadge } from './client-error-badge'
 import { ChatHeaderButton } from '@/components/chat/chat-header-button'
+import { QuickAccessMenu } from './quick-access-menu'
 
 const TRUST_COOKIE = 'oc-trust-device'
 const TRUST_PENDING_KEY = 'oc-trust-device-pending'
@@ -110,6 +111,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
 
         {/* Só o master vê: diz qual tenant está carregada e deixa trocar. */}
         <TenantSwitcher />
+
+        {/* Acesso rápido — módulos fixados pelo usuário (sucessor da guia de abas) */}
+        {session?.user && <QuickAccessMenu />}
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">

@@ -17,7 +17,8 @@ interface TabsContextValue {
   loading: boolean
   maxTabs: number
   // Operações otimistas — atualizam UI imediatamente e sincronizam no backend
-  addOrFocus: (input: { href: string; label: string; icon?: string | null }) => Promise<Tab | null>
+  /** Fixa uma rota no Acesso rápido (cria o registro já pinado). */
+  fixar: (input: { href: string; label: string; icon?: string | null }) => Promise<Tab | null>
   updateLabel: (href: string, label: string) => Promise<void>
   close: (id: string) => Promise<void>
   closeMultiple: (ids: string[]) => Promise<void>
@@ -48,7 +49,14 @@ export function TabsProvider({ children, userId }: { children: React.ReactNode; 
         (trpc.tabs as any).listarMinhas.query() as Promise<Tab[]>,
         (trpc.tabs as any).getMaxTabs.query() as Promise<number>,
       ])
-      setTabs(list)
+      // Migração do modelo antigo (abas automáticas por navegação): itens
+      // não-fixados deixaram de existir — o Acesso rápido só conhece fixados.
+      // Limpa os resquícios uma única vez, em silêncio.
+      const sobras = list.filter(t => !t.pinned).map(t => t.id)
+      if (sobras.length > 0) {
+        ;(trpc.tabs as any).closeMultiple.mutate({ ids: sobras }).catch(() => { /* silent */ })
+      }
+      setTabs(list.filter(t => t.pinned))
       setMaxTabs(max)
     } catch {
       /* silent */
@@ -82,24 +90,24 @@ export function TabsProvider({ children, userId }: { children: React.ReactNode; 
     }
   }
 
-  const addOrFocus = useCallback(async (input: { href: string; label: string; icon?: string | null }) => {
+  const fixar = useCallback(async (input: { href: string; label: string; icon?: string | null }) => {
     if (!userId) return null
-    // Optimistic: se já existe, retorna sem mexer
+    // Se já está fixado, nada a fazer
     const existing = tabs.find(t => t.href === input.href)
-    if (existing) return existing
-    // Pré-checa limite
-    if (tabs.length >= maxTabs) {
-      // Erro suave — chamada do backend vai falhar mesmo, mas evitamos chamada desnecessária
-      throw new Error(`Limite de ${maxTabs} abas atingido. Feche alguma para abrir outra.`)
+    if (existing?.pinned) return existing
+    // Pré-checa limite (só itens fixados contam)
+    if (tabs.filter(t => t.pinned).length >= maxTabs) {
+      throw new Error(`Limite de ${maxTabs} itens no Acesso rápido. Remova algum para fixar outro.`)
     }
-    try {
-      const created = await (trpc.tabs as any).addOrGet.mutate(input) as Tab
-      setTabs(prev => prev.find(t => t.id === created.id) ? prev : [...prev, created])
-      broadcastChange()
-      return created
-    } catch (e) {
-      throw e
-    }
+    // Cria (ou recupera) o registro e fixa — o backend valida a permissão do módulo
+    const created = existing ?? await (trpc.tabs as any).addOrGet.mutate(input) as Tab
+    const pinned = await (trpc.tabs as any).setPinned.mutate({ id: created.id, pinned: true }) as Tab
+    setTabs(prev => {
+      const sem = prev.filter(t => t.id !== pinned.id)
+      return [...sem, pinned]
+    })
+    broadcastChange()
+    return pinned
   }, [tabs, maxTabs, userId])
 
   const updateLabel = useCallback(async (href: string, label: string) => {
@@ -169,7 +177,7 @@ export function TabsProvider({ children, userId }: { children: React.ReactNode; 
   }, [tabs])
 
   return (
-    <TabsContext.Provider value={{ tabs, loading, maxTabs, addOrFocus, updateLabel, close, closeMultiple, setPinned, reorder, refetch }}>
+    <TabsContext.Provider value={{ tabs, loading, maxTabs, fixar, updateLabel, close, closeMultiple, setPinned, reorder, refetch }}>
       {children}
     </TabsContext.Provider>
   )

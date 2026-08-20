@@ -1,8 +1,3 @@
-'use client'
-
-import { useEffect, useRef } from 'react'
-import { usePathname } from 'next/navigation'
-import { useTabs } from '@/lib/tabs-store'
 import { navigation } from '@/lib/navigation'
 
 // Plural → singular para rotas de detalhe (/{plural}/[id]).
@@ -25,17 +20,9 @@ const SINGULAR_LABELS: Record<string, string> = {
 }
 
 /**
- * Rotas que só encaminham para outra e não têm tela própria.
- *
- * `/acessorias` decide, pela permissão do usuário, qual das abas do módulo
- * abrir. Sem esta lista, entrar no módulo criava DUAS abas: uma ao pisar no
- * encaminhador e outra ao chegar no destino.
- */
-const ROTAS_ENCAMINHADORAS = new Set(['/acessorias'])
-
-/**
- * Rótulo das telas internas de um módulo de item único. Sem isto, todas cairiam
- * no prefixo e virariam abas homônimas — três "Acessórias" indistinguíveis.
+ * Rótulo das telas internas de um módulo de item único. Sem isto, todas
+ * cairiam no prefixo e virariam atalhos homônimos — três "Acessórias"
+ * indistinguíveis no Acesso rápido.
  */
 const LABELS_INTERNOS: Record<string, string> = {
   '/acessorias/indicadores': 'Acessórias · Indicadores',
@@ -53,7 +40,7 @@ const LABELS_INTERNOS: Record<string, string> = {
  * /orcamentos/parametros) NÃO são rotas de detalhe — caem no prefix match
  * com label do plural ou ignoram.
  */
-function resolveRouteMeta(pathname: string): { label: string; icon: string } | null {
+export function resolveRouteMeta(pathname: string): { label: string; icon: string } | null {
   const pathClean = pathname.split('?')[0]!.split('#')[0]!
   const interno = LABELS_INTERNOS[pathClean]
   if (interno) return { label: interno, icon: 'acessorias' }
@@ -84,48 +71,4 @@ function resolveRouteMeta(pathname: string): { label: string; icon: string } | n
     return { label: prefix.label, icon: segments[0]! }
   }
   return null
-}
-
-/**
- * Hook que sincroniza a rota atual com o sistema de abas:
- *  • Ao navegar para uma rota, se ainda não houver aba aberta para ela,
- *    cria automaticamente uma aba.
- *  • Se já existe aba para essa rota, ativa (apenas pelo `pathname`).
- *
- * Deve ser montado uma única vez no layout principal (após TabsProvider).
- */
-export function useSyncRouteTab() {
-  const pathname = usePathname()
-  const { tabs, addOrFocus } = useTabs()
-  const lastSyncedRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (!pathname) return
-    // Ignora rotas que não devem virar aba
-    if (
-      pathname === '/login'
-      || pathname === '/onboarding'
-      || pathname.startsWith('/login/')
-      || pathname.startsWith('/api/')
-      || ROTAS_ENCAMINHADORAS.has(pathname)
-    ) return
-
-    if (lastSyncedRef.current === pathname) return
-    lastSyncedRef.current = pathname
-
-    const pathClean = pathname.split('?')[0]!.split('#')[0]!
-    const existing = tabs.find(t => {
-      const tClean = t.href.split('?')[0]!.split('#')[0]
-      return tClean === pathClean
-    })
-    if (existing) return // já tem aba — ativação é puramente visual via pathname match
-
-    const meta = resolveRouteMeta(pathname)
-    if (!meta) return
-
-    // Cria aba (silenciosamente — se der erro de limite, o user verá no próximo addOrFocus)
-    addOrFocus({ href: pathClean, label: meta.label, icon: meta.icon }).catch(() => {
-      /* limite atingido — silent, evita poluir UX */
-    })
-  }, [pathname, tabs, addOrFocus])
 }
