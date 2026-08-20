@@ -14,7 +14,7 @@ import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Tabs, TabsList, TabsTrigger, TabsContent,
+  Tabs, TabsContent,
   RichEditor,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -1973,23 +1973,40 @@ export default function OrcamentoDetailPage() {
       </div>
       {/* /capa */}
       <div className="border-t border-border px-3">
-        <TabsList className="flex h-auto w-full justify-start gap-1.5 overflow-x-auto !rounded-none !border-0 !bg-transparent !p-0 py-2 !shadow-none">
-          <TabsTrigger value="detalhes" className="!inline-flex !shrink-0 !items-center !gap-2 !rounded-lg !border-0 !px-3.5 !py-2 !text-sm !font-medium !shadow-none !text-muted-foreground hover:!bg-muted hover:!text-foreground transition-colors data-[state=active]:!bg-primary data-[state=active]:!text-primary-foreground data-[state=active]:!shadow-sm">
-            <FileText className="h-4 w-4" /> Detalhes
-          </TabsTrigger>
-          <TabsTrigger value="mensagens" className="!inline-flex !shrink-0 !items-center !gap-2 !rounded-lg !border-0 !px-3.5 !py-2 !text-sm !font-medium !shadow-none !text-muted-foreground hover:!bg-muted hover:!text-foreground transition-colors data-[state=active]:!bg-primary data-[state=active]:!text-primary-foreground data-[state=active]:!shadow-sm">
-            <MessageSquare className="h-4 w-4" /> Mensagens
-            {orc.mensagens.length > 0 && <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{orc.mensagens.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="timeline" className="!inline-flex !shrink-0 !items-center !gap-2 !rounded-lg !border-0 !px-3.5 !py-2 !text-sm !font-medium !shadow-none !text-muted-foreground hover:!bg-muted hover:!text-foreground transition-colors data-[state=active]:!bg-primary data-[state=active]:!text-primary-foreground data-[state=active]:!shadow-sm">
-            <History className="h-4 w-4" /> Timeline
-          </TabsTrigger>
-          {(historicoCliente.length > 0 || temLegado) && (
-            <TabsTrigger value="historico" className="!inline-flex !shrink-0 !items-center !gap-2 !rounded-lg !border-0 !px-3.5 !py-2 !text-sm !font-medium !shadow-none !text-muted-foreground hover:!bg-muted hover:!text-foreground transition-colors data-[state=active]:!bg-primary data-[state=active]:!text-primary-foreground data-[state=active]:!shadow-sm">
-              <Files className="h-4 w-4" /> Outros orçamentos
-            </TabsTrigger>
-          )}
-        </TabsList>
+        {/* Tira de tabs do modelo: botoes simples (fora do [role=tablist] global,
+            que impoe borda inferior/raio 0/cores antigas). O estado continua no
+            <Tabs value={activeTab}> — os TabsContent abaixo reagem normalmente. */}
+        <div className="flex gap-1.5 overflow-x-auto py-2">
+          {([
+            { value: 'detalhes', icon: FileText, label: 'Detalhes' },
+            { value: 'mensagens', icon: MessageSquare, label: 'Mensagens', badge: orc.mensagens.length },
+            { value: 'timeline', icon: History, label: 'Timeline' },
+            ...((historicoCliente.length > 0 || temLegado) ? [{ value: 'historico', icon: Files, label: 'Outros orçamentos' }] : []),
+          ] as Array<{ value: string; icon: typeof FileText; label: string; badge?: number }>).map(t => {
+            const Icon = t.icon
+            const ativa = activeTab === t.value
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setActiveTab(t.value)}
+                aria-current={ativa ? 'page' : undefined}
+                className={cn(
+                  'inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors',
+                  ativa ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {t.label}
+                {(t.badge ?? 0) > 0 && (
+                  <span className={cn('inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums', ativa ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground')}>
+                    {t.badge}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
       </div>
       </div>
       {/* /hero */}
