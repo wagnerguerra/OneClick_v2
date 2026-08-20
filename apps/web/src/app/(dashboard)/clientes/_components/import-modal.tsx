@@ -39,9 +39,10 @@ const CLIENTE_COLUMNS: ColumnMapping[] = [
 // Mapeamento de valores do Excel para enums do Prisma
 function mapSituacao(val: string): CreateClienteInput['situacao'] {
   const map: Record<string, CreateClienteInput['situacao']> = {
-    'MENSAL': 'MENSAL', 'EM CONSTITUICAO': 'EM_CONSTITUICAO', 'EM CONSTITUIÇÃO': 'EM_CONSTITUICAO',
-    'POTENCIAL': 'POTENCIAL', 'AVULSO': 'AVULSO', 'PARALIZADO': 'PARALIZADO',
-    'PRE OPERACIONAL': 'PRE_OPERACIONAL', 'PRÉ OPERACIONAL': 'PRE_OPERACIONAL', 'PROSPECT': 'PROSPECT',
+    // #HLP0210 — Em Constituição / Potencial / Pré Operacional consolidados em PROSPECT.
+    'MENSAL': 'MENSAL', 'EM CONSTITUICAO': 'PROSPECT', 'EM CONSTITUIÇÃO': 'PROSPECT',
+    'POTENCIAL': 'PROSPECT', 'AVULSO': 'AVULSO', 'PARALIZADO': 'PARALIZADO',
+    'PRE OPERACIONAL': 'PROSPECT', 'PRÉ OPERACIONAL': 'PROSPECT', 'PROSPECT': 'PROSPECT',
   }
   return map[val?.toUpperCase()?.trim()] || 'MENSAL'
 }

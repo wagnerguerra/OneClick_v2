@@ -665,14 +665,14 @@ model UserPermission {
 // Módulo Cadastros — Clientes
 // ============================================================
 
+// #HLP0210 (Fase 2) — enxugado: EM_CONSTITUICAO/POTENCIAL/PRE_OPERACIONAL viraram
+// PROSPECT na migração. PARALIZADO fica (usado pelos clientes existentes; nada novo
+// grava mais — a "inativação" da Caixa Postal/CND foi removida).
 enum ClienteSituacao {
   MENSAL
-  EM_CONSTITUICAO
-  POTENCIAL
   AVULSO
-  PARALIZADO
-  PRE_OPERACIONAL
   PROSPECT
+  PARALIZADO
 }
 
 // #HLP0209 — status = soft-delete do cliente (só Ativo/Inativo, masculino).

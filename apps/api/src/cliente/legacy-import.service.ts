@@ -6,13 +6,14 @@ import * as mysql from 'mysql2/promise'
 // Mapeamento de situação comercial do legado → enum Prisma
 const SITUACAO_MAP: Record<string, string> = {
   'MENSAL': 'MENSAL',
-  'EM CONSTITUIÇÃO': 'EM_CONSTITUICAO',
-  'EM CONSTITUICAO': 'EM_CONSTITUICAO',
-  'POTENCIAL': 'POTENCIAL',
+  // #HLP0210 — Em Constituição / Potencial / Pré Operacional consolidados em PROSPECT.
+  'EM CONSTITUIÇÃO': 'PROSPECT',
+  'EM CONSTITUICAO': 'PROSPECT',
+  'POTENCIAL': 'PROSPECT',
   'AVULSO': 'AVULSO',
   'PARALIZADO': 'PARALIZADO',
-  'PRÉ OPERACIONAL': 'PRE_OPERACIONAL',
-  'PRE OPERACIONAL': 'PRE_OPERACIONAL',
+  'PRÉ OPERACIONAL': 'PROSPECT',
+  'PRE OPERACIONAL': 'PROSPECT',
   'PROSPECT': 'PROSPECT',
   'NÃO INFORMADO': 'MENSAL',
   'NAO INFORMADO': 'MENSAL',

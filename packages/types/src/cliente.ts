@@ -6,35 +6,28 @@ import { limparCnpj } from './documento'
 // Enums e Labels
 // ============================================================
 
+// #HLP0210 (Fase 2) — só MENSAL/AVULSO/PROSPECT/PARALIZADO. EM_CONSTITUICAO/POTENCIAL/
+// PRE_OPERACIONAL viraram PROSPECT. PARALIZADO fica (legado dos existentes).
 export const ClienteSituacao = {
   MENSAL: 'MENSAL',
-  EM_CONSTITUICAO: 'EM_CONSTITUICAO',
-  POTENCIAL: 'POTENCIAL',
   AVULSO: 'AVULSO',
-  PARALIZADO: 'PARALIZADO',
-  PRE_OPERACIONAL: 'PRE_OPERACIONAL',
   PROSPECT: 'PROSPECT',
+  PARALIZADO: 'PARALIZADO',
 } as const
 export type ClienteSituacao = (typeof ClienteSituacao)[keyof typeof ClienteSituacao]
 
 export const SITUACAO_LABELS: Record<ClienteSituacao, string> = {
   MENSAL: 'Mensal',
-  EM_CONSTITUICAO: 'Em Constituição',
-  POTENCIAL: 'Potencial',
   AVULSO: 'Avulso',
-  PARALIZADO: 'Paralizado',
-  PRE_OPERACIONAL: 'Pré Operacional',
   PROSPECT: 'Prospect',
+  PARALIZADO: 'Paralizado',
 }
 
 export const SITUACAO_COLORS: Record<ClienteSituacao, { bg: string; color: string }> = {
   MENSAL: { bg: '#5ea3cb', color: '#ffffff' },
-  EM_CONSTITUICAO: { bg: '#f59e0b', color: '#ffffff' },
-  POTENCIAL: { bg: '#8b5cf6', color: '#ffffff' },
   AVULSO: { bg: '#64748b', color: '#ffffff' },
-  PARALIZADO: { bg: '#ef4444', color: '#ffffff' },
-  PRE_OPERACIONAL: { bg: '#06b6d4', color: '#ffffff' },
   PROSPECT: { bg: '#10b981', color: '#ffffff' },
+  PARALIZADO: { bg: '#ef4444', color: '#ffffff' },
 }
 
 // #HLP0209/0211 — `status` é o indicador de soft-delete do cliente: só Ativo/Inativo
@@ -115,7 +108,7 @@ export const createClienteSchema = z.object({
   idOneClick: z.coerce.string().optional().or(z.literal('')),
 
   // Comercial
-  situacao: z.enum(['MENSAL', 'EM_CONSTITUICAO', 'POTENCIAL', 'AVULSO', 'PARALIZADO', 'PRE_OPERACIONAL', 'PROSPECT']).default('MENSAL'),
+  situacao: z.enum(['MENSAL', 'AVULSO', 'PROSPECT', 'PARALIZADO']).default('MENSAL'),
   status: z.enum(['ATIVO', 'INATIVO']).default('ATIVO'),
   grupo: z.coerce.string().optional().or(z.literal('')),
   categoria: z.coerce.string().optional().or(z.literal('')),
@@ -167,7 +160,7 @@ export const createClienteSchema = z.object({
 export const updateClienteSchema = createClienteSchema.partial()
 
 export const listClienteSchema = paginationSchema.extend({
-  situacao: z.enum(['MENSAL', 'EM_CONSTITUICAO', 'POTENCIAL', 'AVULSO', 'PARALIZADO', 'PRE_OPERACIONAL', 'PROSPECT']).optional(),
+  situacao: z.enum(['MENSAL', 'AVULSO', 'PROSPECT', 'PARALIZADO']).optional(),
   status: z.enum(['ATIVO', 'INATIVO']).optional(),
   // #HLP0209 — "Todos": lista ativos E inativos (sem o filtro-padrão que oculta INATIVO).
   incluirInativos: z.coerce.boolean().optional(),

@@ -53,12 +53,10 @@ function parseOptionalDate(value?: string | null): Date | null {
 
 const SITUACAO_SEARCH: Record<string, string[]> = {
   MENSAL: ['mensal'],
-  EM_CONSTITUICAO: ['constituicao', 'constituição', 'em constituição', 'em constituicao'],
-  POTENCIAL: ['potencial'],
   AVULSO: ['avulso'],
   PARALIZADO: ['paralizado', 'paralisado'],
-  PRE_OPERACIONAL: ['pre operacional', 'pré operacional', 'pre-operacional'],
-  PROSPECT: ['prospect'],
+  // #HLP0210 — "potencial"/"em constituição"/"pré operacional" agora são PROSPECT.
+  PROSPECT: ['prospect', 'potencial', 'constituicao', 'constituição', 'em constituição', 'em constituicao', 'pre operacional', 'pré operacional', 'pre-operacional'],
 }
 
 const TRIBUTACAO_SEARCH: Record<string, string[]> = {

@@ -497,7 +497,7 @@ export class IntegrationService {
         const razao = String(row.cad_cli_razao || doc)
         const situacaoLegado = String(row.situacao_nome || '').toUpperCase().trim()
 
-        // Detectar LEADs: prefixo (LEAD) na razão social, ou situação PROSPECT/POTENCIAL sem doc válido
+        // Detectar LEADs: prefixo (LEAD) na razão social, ou situação PROSPECT sem doc válido
         const isLead = razao.toUpperCase().startsWith('(LEAD)')
           || (situacaoLegado === 'PROSPECT' && (!doc || doc.length < 11))
 
@@ -1067,9 +1067,10 @@ export class IntegrationService {
 
   private mapSituacao(s: string): string {
     const map: Record<string, string> = {
-      'MENSAL': 'MENSAL', 'EM CONSTITUIÇÃO': 'EM_CONSTITUICAO', 'EM CONSTITUICAO': 'EM_CONSTITUICAO',
-      'POTENCIAL': 'POTENCIAL', 'AVULSO': 'AVULSO', 'PARALIZADO': 'PARALIZADO',
-      'PRÉ OPERACIONAL': 'PRE_OPERACIONAL', 'PRE OPERACIONAL': 'PRE_OPERACIONAL', 'PROSPECT': 'PROSPECT',
+      // #HLP0210 — Em Constituição / Potencial / Pré Operacional consolidados em PROSPECT.
+      'MENSAL': 'MENSAL', 'EM CONSTITUIÇÃO': 'PROSPECT', 'EM CONSTITUICAO': 'PROSPECT',
+      'POTENCIAL': 'PROSPECT', 'AVULSO': 'AVULSO', 'PARALIZADO': 'PARALIZADO',
+      'PRÉ OPERACIONAL': 'PROSPECT', 'PRE OPERACIONAL': 'PROSPECT', 'PROSPECT': 'PROSPECT',
     }
     return map[s.toUpperCase()] || 'MENSAL'
   }
