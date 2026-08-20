@@ -24,7 +24,7 @@ FROM (
   FROM clientes
   WHERE grupo IS NOT NULL
     AND TRIM(grupo) <> ''
-    AND deleted_at IS NULL
+    AND status = 'ATIVO'
   GROUP BY LOWER(TRIM(grupo))
 ) g
 WHERE NOT EXISTS (

@@ -148,9 +148,9 @@ export class MesclagemService {
     }
     const rows = await prisma.$queryRawUnsafe<Array<{
       id: string; code: number; razao_social: string; documento: string; empresa_id: string | null
-      doc: string; deleted_at: Date | null; is_active: boolean
+      doc: string; status: string; is_active: boolean
     }>>(
-      `SELECT id, code, razao_social, documento, empresa_id, deleted_at, is_active,
+      `SELECT id, code, razao_social, documento, empresa_id, status::text AS status, is_active,
               upper(regexp_replace(documento, '[^0-9A-Za-z]', '', 'g')) AS doc
          FROM clientes WHERE id IN ($1, $2)`,
       origemId, destinoId,
@@ -161,8 +161,9 @@ export class MesclagemService {
     if (!origem || !destino) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Cadastro não encontrado.' })
     }
-    if (origem.deleted_at || destino.deleted_at) {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Um dos cadastros está na lixeira.' })
+    // #HLP0209 — status é o indicador (não mais deletedAt): não mescla inativo.
+    if (origem.status === 'INATIVO' || destino.status === 'INATIVO') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Um dos cadastros está inativo.' })
     }
     if (!isMaster && empresaId && (origem.empresa_id !== empresaId || destino.empresa_id !== empresaId)) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Cadastro de outra empresa.' })
@@ -297,13 +298,14 @@ export class MesclagemService {
         }
       }
 
-      // Origem sai de cena: inativada e marcada na lixeira, com o rastro de para
-      // onde foi. Soft delete de propósito — mesclagem não tem desfazer, então o
-      // cadastro precisa continuar recuperável.
+      // Origem sai de cena: #HLP0209 — status=INATIVO é o indicador de que saiu
+      // (some dos filtros por status); mantemos deleted_at como marca histórica da
+      // mesclagem. Recuperável via "reativar". Mesclagem não tem desfazer.
       const marca = `[MESCLADO] Cadastro unificado no cliente #${plano.destino.code} — ${plano.destino.razaoSocial}.`
       await tx.$executeRawUnsafe(
         `UPDATE clientes
             SET is_active = false,
+                status = 'INATIVO',
                 deleted_at = NOW(),
                 observacoes = CASE WHEN COALESCE(observacoes, '') = '' THEN $2
                                    ELSE observacoes || E'\\n' || $2 END

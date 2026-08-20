@@ -1134,7 +1134,7 @@ export class OrcamentoService {
     // Alinha com a lista de clientes: não oferece clientes INATIVA nem
     // soft-deletados pra abrir orçamento (era o que trazia a duplicata inativa
     // que some do cadastro).
-    const where: any = { deletedAt: null, status: { not: 'INATIVO' } }
+    const where: any = { status: { not: 'INATIVO' } }
     if (!isMaster && empresaId) where.empresaId = empresaId
     if (search && search.trim()) {
       const term = search.trim()

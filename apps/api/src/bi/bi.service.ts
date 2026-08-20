@@ -748,11 +748,11 @@ export class BiService {
   // ══════════════════════════════════════════════════════════════
   async categoriasCopiar(documentoOrigem: string, documentoDestino: string) {
     const origem = await prisma.cliente.findFirst({
-      where: { documento: documentoOrigem, deletedAt: null },
+      where: { documento: documentoOrigem, status: 'ATIVO' },
       select: { id: true },
     })
     const destino = await prisma.cliente.findFirst({
-      where: { documento: documentoDestino, deletedAt: null },
+      where: { documento: documentoDestino, status: 'ATIVO' },
       select: { id: true },
     })
     if (!origem) throw new Error('Cliente de origem não encontrado.')
@@ -975,7 +975,7 @@ export class BiService {
   // ══════════════════════════════════════════════════════════════
   async categoriasBackup(documento: string) {
     const cliente = await prisma.cliente.findFirst({
-      where: { documento, deletedAt: null },
+      where: { documento, status: 'ATIVO' },
       select: { id: true },
     })
     if (!cliente) throw new Error('Cliente não encontrado.')
@@ -989,7 +989,7 @@ export class BiService {
 
   async categoriasRestaurar(documento: string, rawCategorias: Array<Record<string, unknown>>) {
     const cliente = await prisma.cliente.findFirst({
-      where: { documento, deletedAt: null },
+      where: { documento, status: 'ATIVO' },
       select: { id: true },
     })
     if (!cliente) throw new Error('Cliente não encontrado.')
@@ -1037,7 +1037,7 @@ export class BiService {
 
   async importarBackupCompleto(documento: string, backup: Record<string, unknown>) {
     const cliente = await prisma.cliente.findFirst({
-      where: { documento, deletedAt: null },
+      where: { documento, status: 'ATIVO' },
       select: { id: true },
     })
     if (!cliente) throw new Error('Cliente não encontrado.')
@@ -1161,7 +1161,7 @@ export class BiService {
 
   async categoriasLimpar(documento: string) {
     const cliente = await prisma.cliente.findFirst({
-      where: { documento, deletedAt: null },
+      where: { documento, status: 'ATIVO' },
       select: { id: true },
     })
     if (!cliente) throw new Error('Cliente não encontrado.')

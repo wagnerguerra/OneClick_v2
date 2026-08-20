@@ -190,7 +190,7 @@ export class DriveSyncService {
   /** Lista clientes com pasta local configurada. Consumida pelo daemon Electron. */
   async listarConfigsLocais() {
     return prisma.cliente.findMany({
-      where: { localSyncEnabled: true, localFolderPath: { not: null }, deletedAt: null },
+      where: { localSyncEnabled: true, localFolderPath: { not: null }, status: 'ATIVO' },
       select: {
         id: true,
         razaoSocial: true,
@@ -221,7 +221,7 @@ export class DriveSyncService {
   /** Lista clienteIds com sync solicitada — daemon pega no poll. */
   async listarSyncRequests(): Promise<string[]> {
     const rows = await prisma.cliente.findMany({
-      where: { localSyncRequestedAt: { not: null }, localSyncEnabled: true, deletedAt: null },
+      where: { localSyncRequestedAt: { not: null }, localSyncEnabled: true, status: 'ATIVO' },
       select: { id: true },
     })
     return rows.map(r => r.id)
@@ -678,7 +678,7 @@ export class DriveSyncService {
     detalhes: Array<{ clienteId: string; razaoSocial: string; resultado?: SyncResult; erro?: string }>
   }> {
     const clientes = await prisma.cliente.findMany({
-      where: { driveFolderId: { not: null }, deletedAt: null },
+      where: { driveFolderId: { not: null }, status: 'ATIVO' },
       select: { id: true, razaoSocial: true },
       orderBy: { razaoSocial: 'asc' },
     })

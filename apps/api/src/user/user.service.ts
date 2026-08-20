@@ -967,7 +967,7 @@ export class UserService {
               END AS role,
               ca.contratado, ca.data_encerramento
        FROM cliente_areas_contratadas ca
-       INNER JOIN clientes c ON c.id = ca.cliente_id AND c.deleted_at IS NULL
+       INNER JOIN clientes c ON c.id = ca.cliente_id AND c.status = 'ATIVO'
        INNER JOIN areas a ON a.id = ca.area_id
        WHERE (ca.responsavel_id = $1 OR ca.substituto_id = $1)
          AND ca.contratado = true
@@ -1098,7 +1098,7 @@ export class UserService {
         if (!doc || doc.length < 11) { ignoradosSemCliente++; continue }
 
         const cliente = await prisma.cliente.findFirst({
-          where: { documento: doc, deletedAt: null },
+          where: { documento: doc, status: 'ATIVO' },
           select: { id: true },
         })
         if (!cliente) { ignoradosSemCliente++; continue }

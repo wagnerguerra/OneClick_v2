@@ -183,10 +183,13 @@ export class ClienteService {
       // `eh_matriz=true` OU, quando o flag é NULL (numérico/legado), a ordem
       // '0001'. Para os dados atuais (eh_matriz sempre NULL) é IDÊNTICO ao antigo
       // `substring(9,4)='0001'` — nenhuma mudança de comportamento.
+      // #HLP0209 — este SQL é ESTRUTURAL (define matriz/filial); NÃO filtra por
+      // deleted_at/status. Quem oculta inativo é o `where` principal (por status).
+      // Antes filtrava deleted_at IS NULL e escondia da lista os clientes que
+      // estavam na Lixeira (hoje status=INATIVO) mesmo em Inativos/Todos.
       const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
         `SELECT c.id FROM clientes c
-         WHERE c.deleted_at IS NULL
-           AND (
+         WHERE (
              c.tipo_documento <> 'CNPJ'
              OR c.documento IS NULL
              OR c.documento = ''
@@ -197,7 +200,7 @@ export class ClienteService {
              -- base/escopo. Senão ficaria invisível (não tem onde aninhar).
              OR substring(c.documento, 1, 8) NOT IN (
                SELECT substring(documento, 1, 8) FROM clientes
-               WHERE deleted_at IS NULL AND tipo_documento = 'CNPJ'
+               WHERE tipo_documento = 'CNPJ'
                  AND length(documento) = 14
                  AND (eh_matriz = true OR (eh_matriz IS NULL AND substring(documento, 9, 4) = '0001'))
                  ${empresaId ? 'AND empresa_id = $1' : ''}
@@ -219,8 +222,7 @@ export class ClienteService {
       const term = `%${search.trim()}%`
       const ids = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
         `SELECT id FROM clientes
-         WHERE deleted_at IS NULL
-           AND (
+         WHERE (
              unaccent(razao_social)     ILIKE unaccent($1)
              OR unaccent(nome_fantasia) ILIKE unaccent($1)
              OR unaccent(cidade)        ILIKE unaccent($1)
@@ -323,8 +325,7 @@ export class ClienteService {
       const rows = await prisma.$queryRawUnsafe<Array<{ base: string; count: bigint }>>(
         `SELECT substring(c.documento, 1, 8) AS base, COUNT(*)::bigint AS count
          FROM clientes c
-         WHERE c.deleted_at IS NULL
-           AND c.tipo_documento = 'CNPJ'
+         WHERE c.tipo_documento = 'CNPJ'
            AND length(c.documento) = 14
            AND substring(c.documento, 1, 8) = ANY($1::text[])
            AND (c.eh_matriz = false OR (c.eh_matriz IS NULL AND substring(c.documento, 9, 4) <> '0001'))
@@ -404,8 +405,7 @@ export class ClienteService {
               c.nome_fantasia AS "nomeFantasia", c.cidade, c.uf,
               c.status::text AS status, c.situacao::text AS situacao
        FROM clientes c
-       WHERE c.deleted_at IS NULL
-         AND c.tipo_documento = 'CNPJ'
+       WHERE c.tipo_documento = 'CNPJ'
          AND length(c.documento) = 14
          AND substring(c.documento, 1, 8) = $1
          AND (c.eh_matriz = false OR (c.eh_matriz IS NULL AND substring(c.documento, 9, 4) <> '0001'))
@@ -434,7 +434,7 @@ export class ClienteService {
               c.nome_fantasia AS "nomeFantasia", c.eh_matriz AS "ehMatriz",
               c.status::text AS status, c.situacao::text AS situacao
        FROM clientes c
-       WHERE c.deleted_at IS NULL
+       WHERE c.status = 'ATIVO'
          AND c.tipo_documento = 'CNPJ'
          AND length(c.documento) = 14
          AND substring(c.documento, 1, 8) = $1
@@ -509,7 +509,7 @@ export class ClienteService {
     } else if (docLimpo.length === 14 && /[A-Z]/.test(docLimpo)) {
       const raiz = docLimpo.slice(0, 8)
       const jaExiste = await prisma.cliente.count({
-        where: { empresaId, tipoDocumento: 'CNPJ', documento: { startsWith: raiz }, deletedAt: null },
+        where: { empresaId, tipoDocumento: 'CNPJ', documento: { startsWith: raiz }, status: 'ATIVO' },
       }).catch(() => 0)
       ehMatriz = jaExiste === 0
     }
@@ -733,8 +733,8 @@ export class ClienteService {
   async listForSelect(isMaster?: boolean, empresaId?: string) {
     // Isolamento estrito: não-master só vê clientes da própria empresa (nunca NULL/global).
     const where: Prisma.ClienteWhereInput = isMaster
-      ? { deletedAt: null }
-      : { deletedAt: null, empresaId: empresaId ?? '__none__' }
+      ? { status: 'ATIVO' }
+      : { status: 'ATIVO', empresaId: empresaId ?? '__none__' }
     return prisma.cliente.findMany({
       where,
       select: { id: true, razaoSocial: true, nomeFantasia: true, code: true, documento: true, situacao: true },
@@ -746,7 +746,7 @@ export class ClienteService {
   // Opções de filtros (valores distintos para dropdowns)
   // ============================================================
   async getFilterOptions(isMaster?: boolean, empresaId?: string) {
-    const base = { deletedAt: null, ...empresaFilter(isMaster, empresaId) }
+    const base = { status: 'ATIVO' as const, ...empresaFilter(isMaster, empresaId) }
     const [grupos, cidades, estados, tipos, atividades, beneficios, areas] = await Promise.all([
       prisma.cliente.findMany({ where: { ...base, grupo: { not: null } }, select: { grupo: true }, distinct: ['grupo'], orderBy: { grupo: 'asc' } }),
       prisma.cliente.findMany({ where: { ...base, cidade: { not: null } }, select: { cidade: true }, distinct: ['cidade'], orderBy: { cidade: 'asc' } }),
@@ -768,13 +768,14 @@ export class ClienteService {
   }
 
   // ============================================================
-  // Guard de sub-recursos [QA #30 IDOR multi-tenant + #31 lixeira]
-  // Valida que o cliente dono é do tenant do requisitante E não está na lixeira,
-  // antes de qualquer mutação de sub-recurso. Master ignora a empresa.
+  // Guard de sub-recursos [QA #30 IDOR multi-tenant + #31]
+  // Valida que o cliente dono é do tenant do requisitante E está ATIVO
+  // (#HLP0209 — status é o indicador, não mais deletedAt), antes de qualquer
+  // mutação de sub-recurso. Master ignora a empresa.
   // ============================================================
-  /** Filtro do cliente PAI: fora da lixeira + do tenant (master ignora empresa). */
+  /** Filtro do cliente PAI: ATIVO + do tenant (master ignora empresa). */
   private clientePaiWhere(isMaster?: boolean, empresaId?: string | null): Prisma.ClienteWhereInput {
-    return { deletedAt: null, ...empresaFilter(isMaster, empresaId ?? undefined) }
+    return { status: 'ATIVO', ...empresaFilter(isMaster, empresaId ?? undefined) }
   }
   /** Para métodos que recebem clienteId (add). Lança se cliente ausente/inativo/de outro tenant. */
   private async assertClienteAtivo(clienteId: string, isMaster?: boolean, empresaId?: string | null): Promise<void> {
@@ -785,7 +786,7 @@ export class ClienteService {
    *  Retorna { sql, params } onde `sql` usa $base, $base+1 (empresa). */
   private tenantSqlGuard(base: number, isMaster?: boolean, empresaId?: string | null): { sql: string; empParam: string | null } {
     return {
-      sql: `AND c.deleted_at IS NULL AND ($${base}::text IS NULL OR c.empresa_id = $${base})`,
+      sql: `AND c.status = 'ATIVO' AND ($${base}::text IS NULL OR c.empresa_id = $${base})`,
       empParam: isMaster ? null : (empresaId ?? '__none__'),
     }
   }
@@ -1189,7 +1190,6 @@ export class ClienteService {
     const params: unknown[] = []
     let idx = 0
     const conds: string[] = [
-      `c.deleted_at IS NULL`,
       `c.status <> 'INATIVO'`,
       `(p.cliente_id IS NOT NULL OR lm.cliente_id IS NOT NULL)`,
       `COALESCE(p.gestao_ignorar, false) = ${verIgnorados ? 'true' : 'false'}`,
@@ -1620,7 +1620,10 @@ export class ClienteService {
     const ini = new Date(`${dataInicio}T00:00:00.000Z`)
     const fim = new Date(`${dataFim}T23:59:59.999Z`)
     const base: Prisma.ClienteWhereInput = {
-      ...empresaFilter(isMaster, empresaId), deletedAt: null,
+      // #HLP0209 — relatório de movimentação inclui as SAÍDAS (clientes que saíram,
+      // hoje status=INATIVO). Por isso NÃO filtra por status/deletedAt aqui; o
+      // escopo vem das datas (dataEntrada/dataSaida no período).
+      ...empresaFilter(isMaster, empresaId),
       ...(situacoes && situacoes.length ? { situacao: { in: situacoes as Prisma.EnumClienteSituacaoFilter['in'] } } : {}),
     }
     const sel = { id: true, code: true, documento: true, razaoSocial: true, grupo: true, situacao: true, dataEntrada: true, dataSaida: true } as const
@@ -1662,7 +1665,7 @@ export class ClienteService {
    *  com o responsável de cada área. Escopo por empresa. */
   async reportPorArea(isMaster?: boolean, empresaId?: string) {
     const cacs = await prisma.clienteAreaContratada.findMany({
-      where: { contratado: true, cliente: { ...empresaFilter(isMaster, empresaId), deletedAt: null } },
+      where: { contratado: true, cliente: { ...empresaFilter(isMaster, empresaId), status: 'ATIVO' } },
       select: {
         area: { select: { id: true, name: true } },
         responsavel: { select: { name: true } },
@@ -1685,7 +1688,7 @@ export class ClienteService {
    *  listando cliente × área. Escopo por empresa. */
   async reportPorResponsavel(isMaster?: boolean, empresaId?: string) {
     const cacs = await prisma.clienteAreaContratada.findMany({
-      where: { contratado: true, responsavelId: { not: null }, cliente: { ...empresaFilter(isMaster, empresaId), deletedAt: null } },
+      where: { contratado: true, responsavelId: { not: null }, cliente: { ...empresaFilter(isMaster, empresaId), status: 'ATIVO' } },
       select: {
         area: { select: { name: true } },
         responsavel: { select: { id: true, name: true, area: { select: { name: true } } } },
@@ -1851,7 +1854,7 @@ export class ClienteService {
     const clientes = await prisma.cliente.findMany({
       where: {
         id: { not: clienteId },
-        deletedAt: null,
+        status: 'ATIVO',
         ...(empresaId ? { empresaId } : {}),
         servicosContratados: { some: { parametros: { some: {} } } },
       },

@@ -83,7 +83,7 @@ export class DuplicidadeService {
                upper(regexp_replace(c.documento, '[^0-9A-Za-z]', '', 'g')) AS doc,
                ${contagens}
           FROM clientes c
-         WHERE c.deleted_at IS NULL
+         WHERE c.status = 'ATIVO'
            AND COALESCE(c.documento, '') <> ''
            ${filtroEmpresa}
       ),

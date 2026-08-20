@@ -59,7 +59,7 @@ export async function buscarClientePorDocumento(
     `SELECT id, code, razao_social, is_active
        FROM clientes
       WHERE empresa_id = $1
-        AND deleted_at IS NULL
+        AND status = 'ATIVO'
         AND ($3::text IS NULL OR id <> $3)
         AND upper(regexp_replace(documento, '[^0-9A-Za-z]', '', 'g')) = $2
       LIMIT 1`,
@@ -111,7 +111,7 @@ export async function buscarSimilaresPorNome(
     `SELECT id, code, razao_social, is_active
        FROM clientes
       WHERE empresa_id = $1
-        AND deleted_at IS NULL
+        AND status = 'ATIVO'
         AND ($3::text IS NULL OR id <> $3)
         AND regexp_replace(lower(unaccent(razao_social)), '[^a-z0-9]', '', 'g')
           = regexp_replace(lower(unaccent($2)), '[^a-z0-9]', '', 'g')
@@ -126,7 +126,7 @@ export async function buscarSimilaresPorNome(
       `SELECT id, code, razao_social, is_active
          FROM clientes
         WHERE empresa_id = $1
-          AND deleted_at IS NULL
+          AND status = 'ATIVO'
           AND ($3::text IS NULL OR id <> $3)
           AND regexp_replace(lower(razao_social), '[^a-z0-9]', '', 'g')
             = regexp_replace(lower($2), '[^a-z0-9]', '', 'g')

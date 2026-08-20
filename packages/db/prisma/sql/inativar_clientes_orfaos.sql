@@ -14,23 +14,26 @@
 -- → re-execução é no-op. O empresa_id vem da PRÓPRIA cópia real (não hardcoded),
 -- então funciona em qualquer ambiente (dev/prod).
 -- ============================================================
+-- #HLP0209 — "inativar" agora é status=INATIVO (indicador); mantém deleted_at por
+-- histórico. Guardas por status='ATIVO' (a cópia real precisa estar ativa).
 UPDATE clientes a
-   SET deleted_at = now(),
+   SET status = 'INATIVO',
+       deleted_at = now(),
        empresa_id = (
          SELECT b.empresa_id FROM clientes b
           WHERE b.documento = a.documento
             AND b.empresa_id IS NOT NULL
-            AND b.deleted_at IS NULL
+            AND b.status = 'ATIVO'
           ORDER BY b.created_at
           LIMIT 1
        ),
        updated_at = now()
  WHERE a.empresa_id IS NULL
-   AND a.deleted_at IS NULL
+   AND a.status = 'ATIVO'
    AND a.documento <> ''
    AND EXISTS (
      SELECT 1 FROM clientes b
       WHERE b.documento = a.documento
         AND b.empresa_id IS NOT NULL
-        AND b.deleted_at IS NULL
+        AND b.status = 'ATIVO'
    );

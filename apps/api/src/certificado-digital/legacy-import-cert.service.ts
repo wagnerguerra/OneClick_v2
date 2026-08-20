@@ -310,7 +310,7 @@ export class LegacyImportCertService {
       // Pre-carrega clientes do novo sistema
       this.log(jobId, 'info', 'Carregando clientes da empresa selecionada...')
       const clientesNovos = await prisma.cliente.findMany({
-        where: { empresaId, deletedAt: null },
+        where: { empresaId, status: 'ATIVO' },
         select: { id: true, documento: true, razaoSocial: true },
       })
       const byCnpj = new Map<string, typeof clientesNovos[0]>()
@@ -553,7 +553,7 @@ export class LegacyImportCertService {
 
       // Pre-carrega clientes do novo sistema da empresa
       const clientesNovos = await prisma.cliente.findMany({
-        where: { empresaId, deletedAt: null },
+        where: { empresaId, status: 'ATIVO' },
         select: { id: true, documento: true, razaoSocial: true },
       })
       const byCnpj = new Map<string, typeof clientesNovos[0]>()
@@ -813,7 +813,7 @@ export class LegacyImportCertService {
       } catch (e) {
         // Se falhou por unique constraint (CNPJ já existe globalmente), tenta buscar
         const existente = await prisma.cliente.findFirst({
-          where: { documento: cnpjLimpo, deletedAt: null },
+          where: { documento: cnpjLimpo, status: 'ATIVO' },
           select: { id: true, documento: true, razaoSocial: true, empresaId: true },
         })
         if (existente) {

@@ -121,7 +121,6 @@ export class FolhaBiService {
   async clientesElegiveis(isMaster?: boolean, empresaId?: string) {
     return prisma.cliente.findMany({
       where: {
-        deletedAt: null,
         situacao: 'MENSAL',
         status: { not: 'INATIVO' },
         idSistema: { not: null },
@@ -166,7 +165,7 @@ export class FolhaBiService {
    */
   async solicitarSync(clienteId: string, refInicio: number, refFim: number, userId?: string, isMaster?: boolean, empresaId?: string) {
     const cliente = await prisma.cliente.findFirst({
-      where: { id: clienteId, deletedAt: null, ...(isMaster ? {} : { empresaId: empresaId ?? '' }) },
+      where: { id: clienteId, status: 'ATIVO', ...(isMaster ? {} : { empresaId: empresaId ?? '' }) },
       select: { id: true, empresaId: true, idSistema: true, razaoSocial: true },
     })
     if (!cliente) throw new Error('Cliente nao encontrado neste tenant.')
