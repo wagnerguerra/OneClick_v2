@@ -8892,3 +8892,100 @@ model FeriasArquivo {
   @@index([periodoId])
   @@map("ferias_arquivos")
 }
+
+// ============================================================
+// COLETA E RECEBIMENTO (Administrativo) — port do crp_coleta do v1.
+// O trâmite físico de documentos entre cliente, recepção, arquivo e
+// setores. A LÓGICA DE QUEM FAZ O QUE E QUANDO é fiel ao original:
+// cada transição de situação é um método do service, gravando no log o
+// evento, o autor e o momento — como o crpcltlog fazia (11 mil linhas).
+// Papéis do v1 (adm=Recepção/rota, arq=Arquivo) viram sub-permissões.
+// Levantamento: docs/migracao-coleta-v1.md
+// ============================================================
+
+/// Categoria do documento (Notas Fiscais de Entrada, Extratos...), com a
+/// área dona — é ela que diz a que setor o documento pertence.
+model ColetaCategoria {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+  nome      String
+  areaId    String? @map("area_id")
+  ativo     Boolean @default(true)
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  coletas Coleta[]
+
+  @@index([empresaId])
+  @@map("coleta_categorias")
+}
+
+model Coleta {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+
+  /// ENTREGA | COLETA | RECEBIMENTO (tipo 1/2/3 do v1)
+  tipo String
+  /// A máquina de estados do v1 (crpcltsts): AGUARDANDO_ROTA |
+  /// ROTA_CONFIRMADA | RETIRADA_DISPONIVEL | ENTREGUE_CLIENTE | NA_RECEPCAO |
+  /// EM_TRIAGEM | NO_SETOR | DEVOLVIDO_ARQUIVO | DEVOLVIDO_CLIENTE |
+  /// PROTOCOLO_ARQUIVADO | ENTREGUE_ARQUIVO | PROTOCOLO_ENTREGUE
+  situacao String @default("AGUARDANDO_ROTA")
+
+  categoriaId String? @map("categoria_id")
+  /// Competência do documento (ex.: 07/2026).
+  competencia String?
+  prioridade  Int     @default(0)
+
+  clienteId   String? @map("cliente_id")
+  clienteNome String? @map("cliente_nome")
+  contato     String?
+
+  /// Quem pediu a coleta/entrega (o "usuario" do v1).
+  solicitanteId   String? @map("solicitante_id")
+  solicitanteNome String? @map("solicitante_nome")
+
+  descricao String? @db.Text
+  notifica  Boolean @default(true)
+
+  /// Soft-delete com motivo, fiel ao v1 (motivo_excluir).
+  ativo          Boolean @default(true)
+  motivoExclusao String? @map("motivo_exclusao")
+
+  registradoEm DateTime @default(now()) @map("registrado_em")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  categoria ColetaCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  logs      ColetaLog[]
+
+  @@index([empresaId, situacao])
+  @@index([clienteId])
+  @@index([solicitanteId])
+  @@index([legacyId])
+  @@map("coletas")
+}
+
+/// Quem fez o quê e quando — a trilha que o crpcltlog guardava.
+model ColetaLog {
+  id       String  @id @default(cuid())
+  coletaId String  @map("coleta_id")
+  legacyId Int?    @map("legacy_id")
+
+  /// Situação em que a ação deixou o registro (null p/ eventos sem transição).
+  situacao String?
+  evento   String
+
+  usuarioId   String? @map("usuario_id")
+  usuarioNome String? @map("usuario_nome")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  coleta Coleta @relation(fields: [coletaId], references: [id], onDelete: Cascade)
+
+  @@index([coletaId])
+  @@index([legacyId])
+  @@map("coleta_logs")
+}

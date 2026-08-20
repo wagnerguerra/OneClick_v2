@@ -267,6 +267,13 @@ export function resolveHelpdeskScope(
 }
 
 export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
+  // Coleta e Recebimento: os papéis do v1 viraram sub-permissões — adm/ era a
+  // Recepção (rota) e arq/ o Arquivo. Quem não tem nenhuma só cria e acompanha
+  // as próprias solicitações.
+  'coleta-documentos': [
+    { key: 'rota', label: 'Recepção/Rota (confirmar rota, receber, entregar ao arquivo)', group: 'Papéis' },
+    { key: 'arquivo', label: 'Arquivo (triagem, entregar ao setor, arquivar protocolo)', group: 'Papéis' },
+  ],
   // Ferramentas (integração webapp). Sub-permissão por tool = opt-out:
   // desmarcar bloqueia aquela ferramenta; marcado/ausente = liberado.
   'ferramentas-fiscal': [

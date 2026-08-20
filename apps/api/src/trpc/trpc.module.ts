@@ -69,6 +69,7 @@ import { NaoConformidadeModule } from '../nao-conformidade/nao-conformidade.modu
 import { DocumentoExternoModule } from '../documento-externo/documento-externo.module'
 import { QualidadeModule } from '../qualidade/qualidade.module'
 import { ControleFeriasModule } from '../controle-ferias/controle-ferias.module'
+import { ColetaModule } from '../coleta/coleta.module'
 import { ClientErrorModule } from '../client-error/client-error.module'
 import { ThemeModule } from '../theme/theme.module'
 import { DanfeModule } from '../danfe/danfe.module'
@@ -86,7 +87,7 @@ import { CusteioModule } from '../custeio/custeio.module'
 
 @Module({
   imports: [AreaModule, FerramentasModule, EmpresaModule, UserModule, CargoModule, OnboardingModule, ClienteModule, AdminModule, AdminTenantModule, AuthModule, StripeModule, ColaboradorModule, FornecedorModule, CompraModule, SocioModule, CnpjModule, SitfisModule, CaixaPostalModule, CndModule, DctfwebModule, BiModule, FolhaModule, FolhaBiModule, AgendaModule, DteModule, CrmModule, OrcamentoModule, BeneficioFiscalModule, ReformaTributariaModule, CusteioModule, NotaModule, WhatsappModule, FaqModule, ServicoModule, ProcessoModule, PesquisaModule, ContratoModule, NotificationModule, TabsModule, CertificadoDigitalModule, DashboardLayoutModule, PermissionsEventsModule, NotificationsEventsModule, DashboardCalendarioModule, HelpdeskModule, AcessoriasModule, NotificacaoModule, FeriadoModule, ClienteObrigacaoModule, ProjetoModule, MinhasObrigacoesModule, AtivoModule,
-    RelatorioTiModule, ManifestacaoModule, ReuniaoModule, DocumentoInternoModule, CapacitacaoModule, MelhoriaModule, TabelaRegistroModule, AnaliseContextoModule, NaoConformidadeModule, DocumentoExternoModule, QualidadeModule, ControleFeriasModule, ClientErrorModule, ThemeModule, DanfeModule, DriveSyncModule, NfeDistModule, NfseDistModule, AgendamentoModule, GoogleBackupModule, SignatureModule, OnlineUsersModule, ChatModule, PushModule, PainelTvModule, LeadModule, BeneficioModule, TratamentoLancamentosModule, QaModule, SqlConsoleModule],
+    RelatorioTiModule, ManifestacaoModule, ReuniaoModule, DocumentoInternoModule, CapacitacaoModule, MelhoriaModule, TabelaRegistroModule, AnaliseContextoModule, NaoConformidadeModule, DocumentoExternoModule, QualidadeModule, ControleFeriasModule, ColetaModule, ClientErrorModule, ThemeModule, DanfeModule, DriveSyncModule, NfeDistModule, NfseDistModule, AgendamentoModule, GoogleBackupModule, SignatureModule, OnlineUsersModule, ChatModule, PushModule, PainelTvModule, LeadModule, BeneficioModule, TratamentoLancamentosModule, QaModule, SqlConsoleModule],
   providers: [TrpcService],
   controllers: [TrpcController],
   exports: [TrpcService],
