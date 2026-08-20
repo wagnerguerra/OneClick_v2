@@ -23,3 +23,15 @@ export const EVENT_BADGE_CLASS: Record<'inactivated' | 'reactivated', string> = 
   inactivated: STATUS_BADGE_CLASS.INATIVO,
   reactivated: STATUS_BADGE_CLASS.ATIVO,
 }
+
+/**
+ * #HLP0210 (Fase 3) — "Ex-cliente" = mensal que virou inativo com data de saída.
+ * É um inativo específico (cliente recorrente perdido); ganha cor própria (rosé)
+ * para se distinguir do "Inativo" genérico (âmbar).
+ */
+export const EX_CLIENTE_BADGE_CLASS = 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+
+/** Regra derivada do "Ex-cliente" (espelha o backend). */
+export function isExCliente(c: { situacao?: string | null; status?: string | null; dataSaida?: string | null }): boolean {
+  return c.situacao === 'MENSAL' && c.status === 'INATIVO' && !!c.dataSaida
+}

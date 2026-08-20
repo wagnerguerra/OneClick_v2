@@ -167,7 +167,7 @@ export class ClienteService {
   // Listagem (ativos)
   // ============================================================
   async list(input: ListClienteInput, isMaster?: boolean, empresaId?: string) {
-    const { page, limit, search, sortBy, sortDir, situacao, status, incluirInativos, tributacao, grupo, cidade, uf, isLead, agruparMatriz, numero, tipoCliente, atividade, areaContratada, comBeneficio } = input
+    const { page, limit, search, sortBy, sortDir, situacao, status, incluirInativos, exCliente, tributacao, grupo, cidade, uf, isLead, agruparMatriz, numero, tipoCliente, atividade, areaContratada, comBeneficio } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
     // Filtro de matriz quando agruparMatriz=true: oculta filiais (CNPJ ordem
@@ -251,12 +251,18 @@ export class ClienteService {
     const where: Prisma.ClienteWhereInput = {
       ...(isLead !== undefined ? { isLead } : {}),
       ...empresaFilter(isMaster, empresaId),
-      ...(situacao ? { situacao } : {}),
-      // #HLP0209 — status é o ÚNICO indicador de inativo (Lixeira aposentada; a
-      // coluna deletedAt continua existindo mas não filtra mais a lista).
-      // status='ATIVO'/'INATIVO' filtra pelo valor; sem status + incluirInativos
-      // mostra TODOS (ativos+inativos); sem nada, oculta INATIVO (padrão).
-      ...(status ? { status } : incluirInativos ? {} : { status: { not: 'INATIVO' } }),
+      // #HLP0210 (Fase 3) — "Somente Ex-clientes": estado derivado (MENSAL ∧ INATIVO ∧
+      // dataSaida preenchida). Quando ligado, IGNORA situacao/status/incluirInativos.
+      ...(exCliente
+        ? { situacao: 'MENSAL' as never, status: 'INATIVO' as never, dataSaida: { not: null } }
+        : {
+            ...(situacao ? { situacao } : {}),
+            // #HLP0209 — status é o ÚNICO indicador de inativo (Lixeira aposentada; a
+            // coluna deletedAt continua existindo mas não filtra mais a lista).
+            // status='ATIVO'/'INATIVO' filtra pelo valor; sem status + incluirInativos
+            // mostra TODOS (ativos+inativos); sem nada, oculta INATIVO (padrão).
+            ...(status ? { status } : incluirInativos ? {} : { status: { not: 'INATIVO' } }),
+          }),
       ...(tributacao ? { tributacao } : {}),
       ...(grupo ? { grupo } : {}),
       ...(cidade ? { cidade } : {}),

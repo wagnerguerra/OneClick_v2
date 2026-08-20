@@ -171,6 +171,9 @@ export const listClienteSchema = paginationSchema.extend({
   status: z.enum(['ATIVO', 'INATIVO']).optional(),
   // #HLP0209 — "Todos": lista ativos E inativos (sem o filtro-padrão que oculta INATIVO).
   incluirInativos: z.coerce.boolean().optional(),
+  // #HLP0210 (Fase 3) — "Somente Ex-clientes": estado derivado = MENSAL ∧ INATIVO ∧ dataSaida
+  // preenchida. Quando true, ignora situacao/status/incluirInativos e aplica essa regra.
+  exCliente: z.coerce.boolean().optional(),
   tributacao: z.enum(['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI', 'IMUNE', 'ISENTA']).optional(),
   grupo: z.string().optional(),
   cidade: z.string().optional(),

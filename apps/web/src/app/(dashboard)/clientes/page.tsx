@@ -31,7 +31,7 @@ import { ImportModal } from './_components/import-modal'
 import { IntegracoesModal } from './_components/integracoes-modal'
 import { InativarClienteModal } from './_components/inativar-cliente-modal'
 import { ReativarClienteModal } from './_components/reativar-cliente-modal'
-import { STATUS_BADGE_CLASS } from './_components/cliente-status-ui'
+import { STATUS_BADGE_CLASS, EX_CLIENTE_BADGE_CLASS, isExCliente } from './_components/cliente-status-ui'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
 import { SITUACAO_LABELS, SITUACAO_COLORS } from '@saas/types'
 import { masks } from '@/lib/masks'
@@ -48,6 +48,7 @@ interface Cliente {
   documento: string; tipoDocumento: string; situacao: string; status: string
   grupo: string | null; tributacao: string | null; areasContratadas: string | null
   cidade: string | null; uf: string | null; isActive: boolean; deletedAt?: string | null
+  dataSaida?: string | null
   /** Qtd de filiais quando o cliente é matriz (CNPJ ordem 0001). 0 caso contrário. */
   filiaisCount?: number
   /** Status do certificado digital (maior validade entre os ativos). */
@@ -223,11 +224,25 @@ export default function ClientesPage() {
     setOnlyMensal(prev => {
       const next = !prev
       localStorage.setItem('clientes_only_mensal', next ? '1' : '0')
-      if (next) setFilterSituacao('')
+      if (next) { setFilterSituacao(''); setOnlyExCliente(false); localStorage.setItem('clientes_only_ex', '0') }
       setPage(1)
       return next
     })
   }
+
+  // #HLP0210 (Fase 3) — atalho "Somente Ex-clientes": estado derivado (mensal ∧ inativo ∧
+  // data de saída). Mutuamente exclusivo com "Somente Mensais". Trava os seletores.
+  const [onlyExCliente, setOnlyExCliente] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('clientes_only_ex') === '1'
+    return false
+  })
+  function setExCliente(next: boolean) {
+    localStorage.setItem('clientes_only_ex', next ? '1' : '0')
+    if (next) { setOnlyMensal(false); localStorage.setItem('clientes_only_mensal', '0') }
+    setOnlyExCliente(next)
+    setPage(1)
+  }
+  function toggleOnlyExCliente() { setExCliente(!onlyExCliente) }
 
   // Inativação (#HLP0209/0211) — modal único (data de saída opcional + motivo).
   // `ids` cobre tanto a linha (1 id) quanto o lote (vários). A Lixeira foi
@@ -263,9 +278,14 @@ export default function ClientesPage() {
     const situacaoFinal = onlyMensal ? 'MENSAL' : (filterSituacao || undefined)
     return {
       page, limit, search: debouncedSearch || undefined, sortBy: sort.column, sortDir: sort.dir,
-      ...(situacaoFinal ? { situacao: situacaoFinal as 'MENSAL' } : {}),
-      // 'TODOS' = ativos+inativos (backend não filtra por status); senão filtra pelo valor.
-      ...(filterStatus === 'TODOS' ? { incluirInativos: true } : { status: filterStatus as 'ATIVO' }),
+      // Ex-clientes: o backend aplica MENSAL ∧ INATIVO ∧ dataSaida; ignora situacao/status.
+      ...(onlyExCliente
+        ? { exCliente: true }
+        : {
+            ...(situacaoFinal ? { situacao: situacaoFinal as 'MENSAL' } : {}),
+            // 'TODOS' = ativos+inativos (backend não filtra por status); senão filtra pelo valor.
+            ...(filterStatus === 'TODOS' ? { incluirInativos: true } : { status: filterStatus as 'ATIVO' }),
+          }),
       ...(filterTributacao ? { tributacao: filterTributacao as 'SIMPLES_NACIONAL' } : {}),
       ...(filterGrupo ? { grupo: filterGrupo } : {}),
       ...(filterCidade ? { cidade: filterCidade } : {}),
@@ -276,7 +296,7 @@ export default function ClientesPage() {
       ...(filterArea ? { areaContratada: filterArea } : {}),
       ...(filterBeneficio ? { comBeneficio: filterBeneficio } : {}),
     }
-  }, [page, limit, debouncedSearch, sort, filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, debouncedNumero, filterTipo, filterAtividade, filterArea, filterBeneficio, onlyMensal])
+  }, [page, limit, debouncedSearch, sort, filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, debouncedNumero, filterTipo, filterAtividade, filterArea, filterBeneficio, onlyMensal, onlyExCliente])
 
   const fetchClientes = useCallback(async () => {
     setLoading(true)
@@ -442,7 +462,7 @@ export default function ClientesPage() {
     return pages
   }
 
-  const hasActiveFilters = filterSituacao || (filterStatus !== 'ATIVO') || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || onlyMensal
+  const hasActiveFilters = filterSituacao || (filterStatus !== 'ATIVO') || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || onlyMensal || onlyExCliente
 
   return (
     <div className="space-y-6">
@@ -503,7 +523,7 @@ export default function ClientesPage() {
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 Filtros
-                {hasActiveFilters && (() => { const count = [filterSituacao, (filterStatus !== 'ATIVO'), filterTributacao, filterGrupo, filterCidade, filterUf, filterNumero, filterTipo, filterAtividade, filterArea, filterBeneficio].filter(Boolean).length + (onlyMensal ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
+                {hasActiveFilters && (() => { const count = [filterSituacao, (filterStatus !== 'ATIVO'), filterTributacao, filterGrupo, filterCidade, filterUf, filterNumero, filterTipo, filterAtividade, filterArea, filterBeneficio].filter(Boolean).length + (onlyMensal ? 1 : 0) + (onlyExCliente ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
               </div>
               <button
                 type="button"
@@ -516,6 +536,19 @@ export default function ClientesPage() {
                 )}
               >
                 Somente Mensais
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); toggleOnlyExCliente() }}
+                title="Ex-clientes: mensais que foram inativados com data de saída"
+                className={cn(
+                  'flex items-center gap-1.5 rounded-[3px] px-2.5 py-[3px] text-[10px] font-semibold transition-all',
+                  onlyExCliente
+                    ? 'bg-rose-500 text-white shadow-sm'
+                    : 'bg-transparent text-muted-foreground border border-border/60 hover:border-rose-500 hover:text-rose-500',
+                )}
+              >
+                Somente Ex-clientes
               </button>
             </div>
             <div className="flex items-center gap-2">
@@ -609,7 +642,7 @@ export default function ClientesPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Situação</label>
-                  <Select value={onlyMensal ? 'MENSAL' : (filterSituacao || '__all__')} onValueChange={(v) => { setFilterSituacao(v === '__all__' ? '' : v); setPage(1) }} disabled={onlyMensal}>
+                  <Select value={(onlyMensal || onlyExCliente) ? 'MENSAL' : (filterSituacao || '__all__')} onValueChange={(v) => { setFilterSituacao(v === '__all__' ? '' : v); setPage(1) }} disabled={onlyMensal || onlyExCliente}>
                     <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
@@ -631,13 +664,25 @@ export default function ClientesPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Cliente Ativo / Inativo</label>
-                  {/* #HLP0209 — Ativos (padrão) · Inativos · Todos (ativos+inativos). */}
-                  <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1) }}>
+                  {/* #HLP0209 — Ativos (padrão) · Inativos · Todos (ativos+inativos). Ex-cliente trava em Inativos. */}
+                  <Select value={onlyExCliente ? 'INATIVO' : filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1) }} disabled={onlyExCliente}>
                     <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ATIVO">Ativos</SelectItem>
                       <SelectItem value="INATIVO">Inativos</SelectItem>
                       <SelectItem value="TODOS">Todos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* #HLP0210 (Fase 3) — filtro Ex-cliente (mensal ∧ inativo ∧ data de saída).
+                    O atalho "Somente Ex-clientes" no cabeçalho liga/desliga este mesmo filtro. */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Ex-cliente?</label>
+                  <Select value={onlyExCliente ? 'sim' : 'nao'} onValueChange={(v) => setExCliente(v === 'sim')}>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nao">Não</SelectItem>
+                      <SelectItem value="sim">Sim</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -747,7 +792,9 @@ export default function ClientesPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-sm">{cliente.razaoSocial}</p>
                         {cliente.status === 'INATIVO' && (
-                          <Badge className={cn('text-[10px] px-1.5 py-0 border-transparent', STATUS_BADGE_CLASS.INATIVO)}>Inativo</Badge>
+                          isExCliente(cliente)
+                            ? <Badge className={cn('text-[10px] px-1.5 py-0 border-transparent', EX_CLIENTE_BADGE_CLASS)}>Ex-cliente</Badge>
+                            : <Badge className={cn('text-[10px] px-1.5 py-0 border-transparent', STATUS_BADGE_CLASS.INATIVO)}>Inativo</Badge>
                         )}
                         {(cliente.filiaisCount ?? 0) > 0 && (
                           <button
