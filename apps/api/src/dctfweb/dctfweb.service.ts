@@ -277,7 +277,7 @@ export class DctfwebService {
       razaoSocial = cli?.razaoSocial || null
     } else {
       const cli = await prisma.$queryRawUnsafe<Array<{ razao_social: string }>>(
-        `SELECT razao_social FROM clientes WHERE deleted_at IS NULL
+        `SELECT razao_social FROM clientes WHERE status = 'ATIVO'
          AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
       )
       razaoSocial = cli[0]?.razao_social || null
@@ -395,7 +395,7 @@ export class DctfwebService {
 
   async sincronizarLote(competencia: string, userId?: string, clienteIds?: string[]) {
     await this.ensureTable()
-    const where: Record<string, unknown> = { deletedAt: null, situacao: 'MENSAL' }
+    const where: Record<string, unknown> = { status: 'ATIVO', situacao: 'MENSAL' }
     if (clienteIds && clienteIds.length > 0) where.id = { in: clienteIds }
     const clientes = await prisma.cliente.findMany({
       where,
@@ -650,7 +650,7 @@ export class DctfwebService {
 
   async listarClientesMensais() {
     return prisma.cliente.findMany({
-      where: { deletedAt: null, situacao: 'MENSAL' },
+      where: { status: 'ATIVO', situacao: 'MENSAL' },
       select: { id: true, razaoSocial: true, documento: true },
       orderBy: { razaoSocial: 'asc' },
     })

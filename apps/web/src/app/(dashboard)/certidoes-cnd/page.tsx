@@ -6,7 +6,7 @@ import {
   Search, Loader2, Trash2, CheckCircle2, XCircle, AlertTriangle, Clock,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText, Eye, RotateCcw,
   Download, X, Play, Users, FileOutput, CalendarClock,
-  MoreVertical, RefreshCw, Shield, DollarSign, UserX, MapPin, Flame, Landmark, Mail,
+  MoreVertical, RefreshCw, Shield, DollarSign, MapPin, Flame, Landmark, Mail,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card,
@@ -497,42 +497,9 @@ export default function CertidoesCndPage() {
     finally { setConsultaLoading(false) }
   }
 
-  // ── Inativar clientes ────────────────────────────────
-
-  async function handleInativarCliente(cliente: ClienteMensal | { id: string; razaoSocial: string }) {
-    const ok = await alerts.confirm({
-      title: 'Inativar cliente',
-      text: `Deseja inativar "${cliente.razaoSocial}"? O cliente será removido das consultas automáticas.`,
-      confirmText: 'Inativar',
-      icon: 'warning',
-    })
-    if (!ok) return
-    try {
-      await trpc.cnd.inativarCliente.mutate({ clienteId: cliente.id })
-      setClientes(prev => prev.filter(c => c.id !== cliente.id))
-      setLoteSelecionados(prev => { const n = new Set(prev); n.delete(cliente.id); return n })
-      alerts.success('Inativado', `${cliente.razaoSocial} foi inativado.`)
-    } catch (e) { alerts.error('Erro', (e as Error).message) }
-  }
-
-  /** Inativar por registro (busca clienteId pelo documento) */
-  async function handleInativarPorDocumento(documento: string, razaoSocial: string) {
-    const cli = clientes.find(c => c.documento.replace(/\D/g, '') === documento.replace(/\D/g, ''))
-    if (cli) return handleInativarCliente(cli)
-    // Buscar no banco
-    const ok = await alerts.confirm({ title: 'Inativar cliente', text: `Deseja inativar "${razaoSocial}"?`, confirmText: 'Inativar', icon: 'warning' })
-    if (!ok) return
-    try {
-      const all = await trpc.cnd.schedule.clientes.query() as ClienteMensal[]
-      const found = all.find(c => c.documento.replace(/\D/g, '') === documento.replace(/\D/g, ''))
-      if (found) {
-        await trpc.cnd.inativarCliente.mutate({ clienteId: found.id })
-        alerts.success('Inativado', `${razaoSocial} foi inativado.`)
-      } else {
-        alerts.warning('Aviso', 'Cliente não encontrado para inativação')
-      }
-    } catch (e) { alerts.error('Erro', (e as Error).message) }
-  }
+  // #HLP0209 — inativar cliente pelo CND foi REMOVIDO: esta tela não mexe mais no
+  // cadastro. Cliente inativado em /clientes já sai dos filtros de monitoramento;
+  // para não consultar um cliente, basta não o selecionar na consulta/agendamento.
 
   // ── Consulta em lote ────────────────────────────────
 
@@ -1348,10 +1315,6 @@ export default function CertidoesCndPage() {
                     <input type="radio" name="cliente-cnd" checked={clienteSelecionado === c.id} onChange={() => { setClienteSelecionado(c.id); setConsultaDoc(c.documento) }} className="h-3.5 w-3.5 accent-fuchsia-500 cursor-pointer" />
                     <span className="flex-1 truncate cursor-pointer" onClick={() => { setClienteSelecionado(c.id); setConsultaDoc(c.documento) }}>{c.razaoSocial}</span>
                     <span className="font-mono text-[10px] text-muted-foreground shrink-0">{formatDoc(c.documento)}</span>
-                    <button type="button" onClick={() => handleInativarCliente(c)} title="Inativar cliente"
-                      className="shrink-0 rounded p-1 text-muted-foreground/40 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                      <UserX className="h-3 w-3" />
-                    </button>
                   </div>
                 ))}
               </div>
@@ -1397,10 +1360,6 @@ export default function CertidoesCndPage() {
                   }} className="h-3.5 w-3.5 rounded accent-fuchsia-500 cursor-pointer" />
                   <span className="flex-1 truncate cursor-pointer" onClick={() => setLoteSelecionados(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n })}>{c.razaoSocial}</span>
                   <span className="font-mono text-[10px] text-muted-foreground shrink-0">{formatDoc(c.documento)}</span>
-                  <button type="button" onClick={() => handleInativarCliente(c)} title="Inativar cliente"
-                    className="shrink-0 rounded p-1 text-muted-foreground/40 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                    <UserX className="h-3 w-3" />
-                  </button>
                 </div>
               ))}
             </div>
@@ -1907,7 +1866,6 @@ export default function CertidoesCndPage() {
                           )}
                           <DropdownMenuItem onClick={() => handleConsultaEstadual(r.documento)} className="text-xs gap-2"><RefreshCw className="h-3.5 w-3.5" />Reconsultar</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDeleteEstadual(r.id)} className="text-xs gap-2 text-red-500 focus:text-red-500"><Trash2 className="h-3.5 w-3.5" />Excluir</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleInativarPorDocumento(r.documento, r.razaoSocial || r.documento)} className="text-xs gap-2 text-red-500 focus:text-red-500"><UserX className="h-3.5 w-3.5" />Inativar cliente</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -2242,7 +2200,6 @@ export default function CertidoesCndPage() {
                             finally { setMunConsultando(false) }
                           }} className="text-xs gap-2"><RefreshCw className="h-3.5 w-3.5" />Reconsultar</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDeleteMunicipal(r.id)} className="text-xs gap-2 text-red-500 focus:text-red-500"><Trash2 className="h-3.5 w-3.5" />Excluir</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleInativarPorDocumento(r.documento, r.razaoSocial || r.documento)} className="text-xs gap-2 text-red-500 focus:text-red-500"><UserX className="h-3.5 w-3.5" />Inativar cliente</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -2709,7 +2666,6 @@ export default function CertidoesCndPage() {
                           )}
                           <DropdownMenuItem onClick={() => handleConsultaAlvara(r.razaoSocial)} className="text-xs gap-2"><RefreshCw className="h-3.5 w-3.5" />Reconsultar</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDeleteAlvara(r.id)} className="text-xs gap-2 text-red-500 focus:text-red-500"><Trash2 className="h-3.5 w-3.5" />Excluir</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleInativarPorDocumento(r.documento || '', r.razaoSocial)} className="text-xs gap-2 text-red-500 focus:text-red-500"><UserX className="h-3.5 w-3.5" />Inativar cliente</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

@@ -52,7 +52,7 @@ export function ReativarClienteModal({
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={salvando}>Cancelar</Button>
-          <Button variant="soft-success" size="sm" onClick={confirmar} disabled={salvando || !motivo.trim()}>
+          <Button variant="success" size="sm" onClick={confirmar} disabled={salvando || !motivo.trim()}>
             {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
             Reativar
           </Button>

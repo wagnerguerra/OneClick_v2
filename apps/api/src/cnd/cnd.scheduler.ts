@@ -214,7 +214,7 @@ export class CndSchedulerService implements OnModuleInit, OnModuleDestroy {
         this.isRunning = false; return
       }
 
-      const where: Record<string, unknown> = { deletedAt: null, situacao: 'MENSAL', empresaId: empId }
+      const where: Record<string, unknown> = { status: 'ATIVO', situacao: 'MENSAL', empresaId: empId }
       if (realIds.length > 0) where.id = { in: realIds }
 
       const clientes = await prisma.cliente.findMany({
@@ -274,7 +274,7 @@ export class CndSchedulerService implements OnModuleInit, OnModuleDestroy {
 
   async listarClientesDisponiveis(empresaId: string) {
     return prisma.cliente.findMany({
-      where: { deletedAt: null, situacao: 'MENSAL', empresaId: empresaId || null },
+      where: { status: 'ATIVO', situacao: 'MENSAL', empresaId: empresaId || null },
       select: { id: true, razaoSocial: true, documento: true },
       orderBy: { razaoSocial: 'asc' },
     })

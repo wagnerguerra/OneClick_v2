@@ -1068,7 +1068,8 @@ export class SitfisService {
     // em empresaId do cliente — vem do ctx (sessão). O `select` (razaoSocial,
     // documento/CNPJ, alertaProcuracao) é PII de cliente — não pode vazar.
     const SELECT = { id: true, razaoSocial: true, documento: true, tipoDocumento: true, alertaProcuracao: true } as const
-    const baseWhere = { deletedAt: null, situacao: 'MENSAL' as const, empresaId: empresaId ?? null }
+    // #HLP0209 — só clientes ATIVOS entram na Caixa Postal (inativado sai do radar).
+    const baseWhere = { status: 'ATIVO' as const, situacao: 'MENSAL' as const, empresaId: empresaId ?? null }
 
     // Master vê todos os clientes mensais DA EMPRESA ATIVA.
     if (isMaster || !userId) {

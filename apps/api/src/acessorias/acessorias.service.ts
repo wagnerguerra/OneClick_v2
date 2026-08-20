@@ -44,7 +44,7 @@ export interface AcessoriasResponse<T = unknown> {
  * prospect, potencial, avulso e paralisado — gasta requisição, infla o
  * histórico e enche a lista de pendências com quem não deveria estar lá.
  */
-const CLIENTE_ATIVO_MENSAL = { status: 'ATIVO', situacao: 'MENSAL', deletedAt: null } as const
+const CLIENTE_ATIVO_MENSAL = { status: 'ATIVO', situacao: 'MENSAL' } as const
 
 /**
  * Silêncio a partir do qual uma sincronização "rodando" é dada como morta.

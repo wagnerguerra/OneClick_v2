@@ -6,13 +6,14 @@ import * as mysql from 'mysql2/promise'
 // Mapeamento de situação comercial do legado → enum Prisma
 const SITUACAO_MAP: Record<string, string> = {
   'MENSAL': 'MENSAL',
-  'EM CONSTITUIÇÃO': 'EM_CONSTITUICAO',
-  'EM CONSTITUICAO': 'EM_CONSTITUICAO',
-  'POTENCIAL': 'POTENCIAL',
+  // #HLP0210 — Em Constituição / Potencial / Pré Operacional consolidados em PROSPECT.
+  'EM CONSTITUIÇÃO': 'PROSPECT',
+  'EM CONSTITUICAO': 'PROSPECT',
+  'POTENCIAL': 'PROSPECT',
   'AVULSO': 'AVULSO',
   'PARALIZADO': 'PARALIZADO',
-  'PRÉ OPERACIONAL': 'PRE_OPERACIONAL',
-  'PRE OPERACIONAL': 'PRE_OPERACIONAL',
+  'PRÉ OPERACIONAL': 'PROSPECT',
+  'PRE OPERACIONAL': 'PROSPECT',
   'PROSPECT': 'PROSPECT',
   'NÃO INFORMADO': 'MENSAL',
   'NAO INFORMADO': 'MENSAL',
@@ -81,7 +82,8 @@ export class LegacyImportService {
     const results = { total: 0, imported: 0, updated: 0, skipped: 0, errors: [] as string[] }
 
     try {
-      // Buscar clientes ativos do legado com áreas contratadas
+      // #HLP0209 — traz TODOS os clientes do legado (inclusive os com deleted_at),
+      // por histórico. Os que vêm com deleted_at entram como status=INATIVO (abaixo).
       const [rows] = await conn.execute<mysql.RowDataPacket[]>(`
         SELECT
           c.*,
@@ -94,7 +96,6 @@ export class LegacyImportService {
           ) AS servicos_lista
         FROM clientes c
         LEFT JOIN grupos_empresariais ge ON ge.id = c.grupo_empresarial_id
-        WHERE c.deleted_at IS NULL
         ORDER BY c.id ASC
       `)
 
@@ -134,7 +135,10 @@ export class LegacyImportService {
             tipoDocumento: row.tipo_documento === 1 ? 'CPF' as never : 'CNPJ' as never,
             tipoCliente: row.tipo_cliente || 'A DEFINIR',
             situacao: situacao as never,
-            status: 'ATIVO' as never,
+            // #HLP0209 — legado deletado (na lixeira de origem) entra INATIVO;
+            // mantém o deleted_at por histórico. Demais entram ATIVO.
+            status: (row.deleted_at ? 'INATIVO' : 'ATIVO') as never,
+            deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
             grupo: grupo !== 'NÃO INFORMADO' ? grupo : null,
             categoria: row.comercial_categoria !== 'NÃO INFORMADO' ? row.comercial_categoria : null,
             origem: row.comercial_origem !== 'NÃO INFORMADO' ? row.comercial_origem : null,
@@ -192,7 +196,7 @@ export class LegacyImportService {
     const conn = await this.getLegacyConnection()
     try {
       const [countResult] = await conn.execute<mysql.RowDataPacket[]>(
-        'SELECT COUNT(*) as total FROM clientes WHERE deleted_at IS NULL'
+        'SELECT COUNT(*) as total FROM clientes'
       )
       const total = (countResult as Array<{ total: number }>)[0]?.total || 0
 
@@ -200,7 +204,6 @@ export class LegacyImportService {
         SELECT c.id, c.documento, c.tipo_documento, c.razao_social, c.comercial_situacao,
                c.fiscal_tributacao, c.cidade, c.estado
         FROM clientes c
-        WHERE c.deleted_at IS NULL
         ORDER BY c.id ASC
         LIMIT 10
       `)

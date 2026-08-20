@@ -242,7 +242,7 @@ export class CndMunicipalService {
       razaoSocial = cli?.razaoSocial ?? null
     } else {
       const cli = await prisma.$queryRawUnsafe<Array<{ id: string; razao_social: string }>>(
-        `SELECT id, razao_social FROM clientes WHERE deleted_at IS NULL AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
+        `SELECT id, razao_social FROM clientes WHERE status = 'ATIVO' AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
       ).then(rows => rows[0] ? { id: rows[0].id, razaoSocial: rows[0].razao_social } : null)
       if (cli) { razaoSocial = cli.razaoSocial; resolvedClienteId = cli.id }
     }
@@ -282,7 +282,7 @@ export class CndMunicipalService {
       inscricaoMunicipal = cli?.inscricaoMunicipal ?? null
     } else {
       const cli = await prisma.$queryRawUnsafe<Array<{ inscricao_municipal: string | null }>>(
-        `SELECT inscricao_municipal FROM clientes WHERE deleted_at IS NULL AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`,
+        `SELECT inscricao_municipal FROM clientes WHERE status = 'ATIVO' AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`,
         documento.replace(/\D/g, ''),
       )
       inscricaoMunicipal = cli[0]?.inscricao_municipal ?? null
@@ -507,7 +507,7 @@ export class CndMunicipalService {
         razaoSocial = cli?.razaoSocial ?? null
       } else {
         const cli = await prisma.$queryRawUnsafe<Array<{ id: string; razao_social: string }>>(
-          `SELECT id, razao_social FROM clientes WHERE deleted_at IS NULL AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
+          `SELECT id, razao_social FROM clientes WHERE status = 'ATIVO' AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
         ).then(rows => rows[0] ? { id: rows[0].id, razaoSocial: rows[0].razao_social } : null)
         if (cli) { razaoSocial = cli.razaoSocial; resolvedClienteId = cli.id }
       }
@@ -696,7 +696,7 @@ export class CndMunicipalService {
   async listarClientesMunicipio(municipio: string) {
     return prisma.cliente.findMany({
       where: {
-        deletedAt: null,
+        status: 'ATIVO',
         situacao: 'MENSAL',
         cidade: { equals: municipio, mode: 'insensitive' },
       },

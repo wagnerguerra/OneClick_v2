@@ -168,7 +168,7 @@ export class NfeDistScheduler implements OnModuleInit, OnModuleDestroy {
         where: {
           // @ts-ignore — coluna `nfeDistEnabled` será adicionada no schema Prisma em paralelo.
           nfeDistEnabled: true,
-          deletedAt: null,
+          status: 'ATIVO',
           empresaId: empresaIdHome, // default-deny: null → IS NULL, nunca "todos"
         },
         select: { id: true, razaoSocial: true },
@@ -243,7 +243,7 @@ export class NfeDistScheduler implements OnModuleInit, OnModuleDestroy {
         where: {
           // @ts-ignore — campos serão adicionados no schema Prisma em paralelo.
           nfeDistSyncRequestedAt: { not: null },
-          deletedAt: null,
+          status: 'ATIVO',
         },
         select: { id: true, razaoSocial: true },
       })

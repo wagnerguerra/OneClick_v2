@@ -266,7 +266,8 @@ export class CaixaPostalSchedulerService implements OnModuleInit, OnModuleDestro
         this.isRunning = false
         return
       }
-      const where: Record<string, unknown> = { deletedAt: null, empresaId: empId }
+      // #HLP0209 — nunca monitora cliente inativado (status=INATIVO sai do radar).
+      const where: Record<string, unknown> = { status: 'ATIVO', empresaId: empId }
       if (config.filter === 'MENSAL') where.situacao = 'MENSAL'
       if (realIds.length > 0) where.id = { in: realIds }
 
@@ -458,7 +459,7 @@ export class CaixaPostalSchedulerService implements OnModuleInit, OnModuleDestro
 
   async listarClientesDisponiveis(empresaId: string) {
     return prisma.cliente.findMany({
-      where: { deletedAt: null, situacao: 'MENSAL', empresaId: empresaId || null },
+      where: { status: 'ATIVO', situacao: 'MENSAL', empresaId: empresaId || null },
       select: { id: true, razaoSocial: true, documento: true },
       orderBy: { razaoSocial: 'asc' },
     })

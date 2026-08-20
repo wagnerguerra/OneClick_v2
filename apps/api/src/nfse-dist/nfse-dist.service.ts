@@ -522,7 +522,7 @@ export class NfseDistService {
 
   async listarSyncRequests(): Promise<string[]> {
     const rows = await prisma.cliente.findMany({
-      where: { nfseDistSyncRequestedAt: { not: null }, nfseDistEnabled: true, deletedAt: null },
+      where: { nfseDistSyncRequestedAt: { not: null }, nfseDistEnabled: true, status: 'ATIVO' },
       select: { id: true },
     })
     return rows.map(r => r.id)

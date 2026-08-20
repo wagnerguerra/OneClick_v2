@@ -118,7 +118,7 @@ export class DivergenciaAcessoriasService {
       // Mesmo recorte da sincronização: ativo e mensal. Comparar prospect e
       // avulso encheria o relatório de divergência que ninguém vai conciliar.
       where: {
-        deletedAt: null, status: 'ATIVO', situacao: 'MENSAL',
+        status: 'ATIVO', situacao: 'MENSAL',
         ...(empresaId ? { empresaId } : {}),
       },
       select: {

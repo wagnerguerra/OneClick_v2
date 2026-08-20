@@ -91,7 +91,7 @@ export class BiSyncController {
   async listarClientes(@Req() req: Request) {
     await this.assertAuth(req)
     const clientes = await prisma.cliente.findMany({
-      where: { deletedAt: null },
+      where: { status: 'ATIVO' },
       select: { id: true, razaoSocial: true, documento: true, idSistema: true, cidade: true },
       orderBy: { razaoSocial: 'asc' },
     })

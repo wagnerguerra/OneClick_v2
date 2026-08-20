@@ -732,7 +732,7 @@ export class CaixaPostalService {
     const clientes = contribuintes.length > 0
       ? await prisma.$queryRawUnsafe<Array<{ documento: string; razao_social: string; situacao: string }>>(
           `SELECT documento, razao_social, situacao FROM clientes
-           WHERE deleted_at IS NULL AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = ANY($1::text[])
+           WHERE status = 'ATIVO' AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = ANY($1::text[])
            ORDER BY CASE situacao WHEN 'MENSAL' THEN 0 ELSE 1 END, razao_social`,
           contribuintes,
         )
@@ -780,26 +780,10 @@ export class CaixaPostalService {
     return resultado
   }
 
-  // ============================================================
-  // Inativação de clientes
-  // ============================================================
-
-  async inativarCliente(clienteId: string) {
-    const cliente = await prisma.cliente.findUniqueOrThrow({ where: { id: clienteId } })
-    await prisma.cliente.update({
-      where: { id: clienteId },
-      data: { situacao: 'PARALIZADO' },
-    })
-    return { id: clienteId, razaoSocial: cliente.razaoSocial }
-  }
-
-  async inativarClientesLote(clienteIds: string[]) {
-    const result = await prisma.cliente.updateMany({
-      where: { id: { in: clienteIds }, situacao: 'MENSAL' },
-      data: { situacao: 'PARALIZADO' },
-    })
-    return { total: result.count }
-  }
+  // #HLP0209 — inativarCliente/inativarClientesLote REMOVIDOS: a Caixa Postal não
+  // mexe mais no cadastro do cliente. Cliente inativado (status=INATIVO) já sai
+  // dos filtros de monitoramento; para tirar do radar, inative em /clientes ou
+  // não selecione na consulta/agendamento.
 
   // ============================================================
   // Operações em lote
@@ -807,7 +791,7 @@ export class CaixaPostalService {
 
   async consultarNovasLote(empresaId: string | null) {
     const clientes = await prisma.cliente.findMany({
-      where: { deletedAt: null, ...(empresaId ? { empresaId } : {}) },
+      where: { status: 'ATIVO', ...(empresaId ? { empresaId } : {}) },
       select: { documento: true, tipoDocumento: true },
     })
     const resultados: Array<{ documento: string; sucesso: boolean; dados?: unknown; erro?: string }> = []
@@ -827,7 +811,7 @@ export class CaixaPostalService {
 
   async classificarLote(empresaId: string | null) {
     const clientes = await prisma.cliente.findMany({
-      where: { deletedAt: null, ...(empresaId ? { empresaId } : {}) },
+      where: { status: 'ATIVO', ...(empresaId ? { empresaId } : {}) },
       select: { documento: true, tipoDocumento: true },
     })
     const resultados: Array<{ documento: string; sucesso: boolean; total?: number; erro?: string }> = []

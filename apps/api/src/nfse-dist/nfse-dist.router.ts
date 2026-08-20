@@ -54,7 +54,7 @@ export function createNfseDistRouter(svc: NfseDistService) {
         const rows = await prisma.cliente.findMany({
           where: {
             nfseDistEnabled: true,
-            deletedAt: null,
+            status: 'ATIVO',
             ...(ctx.empresaId ? { empresaId: ctx.empresaId } : {}),
           },
           select: {

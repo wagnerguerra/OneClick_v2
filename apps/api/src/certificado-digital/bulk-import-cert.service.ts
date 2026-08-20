@@ -130,7 +130,7 @@ export class BulkImportCertService {
     // Pre-carrega clientes + empresa
     this.log(jobId, 'info', 'Carregando clientes da empresa...')
     const clientesNovos = await prisma.cliente.findMany({
-      where: { empresaId, deletedAt: null },
+      where: { empresaId, status: 'ATIVO' },
       select: { id: true, documento: true, razaoSocial: true },
     })
     const byCnpj = new Map<string, { id: string; razaoSocial: string | null }>()
@@ -297,7 +297,7 @@ export class BulkImportCertService {
       } catch (e) {
         // Tenta recuperar caso já exista globalmente
         const existente = await prisma.cliente.findFirst({
-          where: { documento: cnpjCert, empresaId, deletedAt: null },
+          where: { documento: cnpjCert, empresaId, status: 'ATIVO' },
           select: { id: true, razaoSocial: true },
         })
         if (existente) {

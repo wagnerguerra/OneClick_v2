@@ -405,7 +405,7 @@ export class ReformaTributariaService {
     const rows = await prisma.$queryRawUnsafe<Array<{ tributacao: string | null; total: number | bigint }>>(
       `SELECT tributacao, count(*) AS total
         FROM clientes
-        WHERE deleted_at IS NULL AND status <> 'INATIVO' AND situacao = 'MENSAL'
+        WHERE status <> 'INATIVO' AND situacao = 'MENSAL'
           AND ($1::text IS NULL OR empresa_id = $1)
         GROUP BY tributacao`,
       empresaId ?? null,
@@ -438,7 +438,7 @@ export class ReformaTributariaService {
               COALESCE((SELECT count(*) FROM danfes d WHERE d.cliente_id = c.id AND d.status = 'AUTORIZADA'), 0) AS danfes,
               COALESCE((SELECT count(*) FROM nfse_importadas n WHERE n.cliente_id = c.id AND n.status = 'EMITIDA'), 0) AS nfse
          FROM clientes c
-        WHERE c.deleted_at IS NULL AND c.status <> 'INATIVO' AND c.situacao = 'MENSAL'
+        WHERE c.status <> 'INATIVO' AND c.situacao = 'MENSAL'
           AND ($1::text IS NULL OR c.empresa_id = $1)
           AND ($2::text IS NULL OR c.razao_social ILIKE '%'||$2||'%' OR c.documento ILIKE '%'||$2||'%')
           AND ($3::boolean IS NOT TRUE OR c.tributacao = 'SIMPLES_NACIONAL')
@@ -936,7 +936,7 @@ export class ReformaTributariaService {
               documento, tributacao::text, regime::text, cnae_principal AS "cnaePrincipal",
               id_sistema AS "idSistema", uf, cidade
          FROM clientes
-        WHERE id = $1 AND deleted_at IS NULL AND status <> 'INATIVO' AND situacao = 'MENSAL'
+        WHERE id = $1 AND status <> 'INATIVO' AND situacao = 'MENSAL'
           AND ($2::text IS NULL OR empresa_id = $2)
         LIMIT 1`,
       clienteId,

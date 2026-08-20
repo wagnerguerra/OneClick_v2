@@ -112,7 +112,7 @@ export class IntegrationService {
     })
 
     const clientesExistentes = await prisma.cliente.findMany({
-      where: { deletedAt: null, ...(empresaId ? { empresaId } : {}) },
+      where: { status: 'ATIVO', ...(empresaId ? { empresaId } : {}) },
       select: { documento: true },
     })
     const docsExistentes = new Set(clientesExistentes.map(c => c.documento.replace(/\D/g, '')))
@@ -180,7 +180,7 @@ export class IntegrationService {
 
     // Verificar se já existe
     const existente = await prisma.cliente.findFirst({
-      where: { documento: doc, deletedAt: null },
+      where: { documento: doc, status: 'ATIVO' },
     })
     if (existente) throw new Error(`Cliente com CNPJ ${doc} já cadastrado: ${existente.razaoSocial}`)
 
@@ -256,7 +256,7 @@ export class IntegrationService {
       duplicados.add(doc)
 
       try {
-        const existente = await prisma.cliente.findFirst({ where: { documento: doc, deletedAt: null } })
+        const existente = await prisma.cliente.findFirst({ where: { documento: doc, status: 'ATIVO' } })
 
         let razaoSocial = c.razao_social || doc
         let dadosCnpj: CnpjResult | null = null
@@ -322,7 +322,7 @@ export class IntegrationService {
     empresaId?: string,
   ) {
     const where: Record<string, unknown> = {
-      deletedAt: null,
+      status: 'ATIVO',
       tipoDocumento: 'CNPJ',
       ...(empresaId ? { empresaId } : {}),
     }
@@ -497,7 +497,7 @@ export class IntegrationService {
         const razao = String(row.cad_cli_razao || doc)
         const situacaoLegado = String(row.situacao_nome || '').toUpperCase().trim()
 
-        // Detectar LEADs: prefixo (LEAD) na razão social, ou situação PROSPECT/POTENCIAL sem doc válido
+        // Detectar LEADs: prefixo (LEAD) na razão social, ou situação PROSPECT sem doc válido
         const isLead = razao.toUpperCase().startsWith('(LEAD)')
           || (situacaoLegado === 'PROSPECT' && (!doc || doc.length < 11))
 
@@ -522,7 +522,7 @@ export class IntegrationService {
 
         try {
           let existente = await prisma.cliente.findFirst({
-            where: { documento: doc, deletedAt: null, ...(empresaId ? { empresaId } : {}) },
+            where: { documento: doc, status: 'ATIVO', ...(empresaId ? { empresaId } : {}) },
           })
 
           if (opts.onlyNewFromOneclick && existente) {
@@ -755,7 +755,7 @@ export class IntegrationService {
     empresaId?: string,
   ) {
     const where: Record<string, unknown> = {
-      deletedAt: null,
+      status: 'ATIVO',
       tipoDocumento: 'CNPJ',
       ...(empresaId ? { empresaId } : {}),
     }
@@ -838,7 +838,7 @@ export class IntegrationService {
   async receitawsPreview(filtros: Record<string, string>, empresaId?: string) {
     const total = await prisma.cliente.count({
       where: {
-        deletedAt: null,
+        status: 'ATIVO',
         tipoDocumento: 'CNPJ',
         ...(empresaId ? { empresaId } : {}),
         ...this.buildFiltrosWhere(filtros),
@@ -850,7 +850,7 @@ export class IntegrationService {
   async receitawsIniciarJob(filtros: Record<string, string>, empresaId?: string) {
     const clientes = await prisma.cliente.findMany({
       where: {
-        deletedAt: null,
+        status: 'ATIVO',
         tipoDocumento: 'CNPJ',
         ...(empresaId ? { empresaId } : {}),
         ...this.buildFiltrosWhere(filtros),
@@ -937,7 +937,7 @@ export class IntegrationService {
   async serproCnpjPreview(filtros: Record<string, string>, empresaId?: string) {
     const total = await prisma.cliente.count({
       where: {
-        deletedAt: null,
+        status: 'ATIVO',
         tipoDocumento: 'CNPJ',
         ...(empresaId ? { empresaId } : {}),
         ...this.buildFiltrosWhere(filtros),
@@ -953,7 +953,7 @@ export class IntegrationService {
   ) {
     const clientes = await prisma.cliente.findMany({
       where: {
-        deletedAt: null,
+        status: 'ATIVO',
         tipoDocumento: 'CNPJ',
         ...(empresaId ? { empresaId } : {}),
         ...this.buildFiltrosWhere(filtros),
@@ -1067,9 +1067,10 @@ export class IntegrationService {
 
   private mapSituacao(s: string): string {
     const map: Record<string, string> = {
-      'MENSAL': 'MENSAL', 'EM CONSTITUIÇÃO': 'EM_CONSTITUICAO', 'EM CONSTITUICAO': 'EM_CONSTITUICAO',
-      'POTENCIAL': 'POTENCIAL', 'AVULSO': 'AVULSO', 'PARALIZADO': 'PARALIZADO',
-      'PRÉ OPERACIONAL': 'PRE_OPERACIONAL', 'PRE OPERACIONAL': 'PRE_OPERACIONAL', 'PROSPECT': 'PROSPECT',
+      // #HLP0210 — Em Constituição / Potencial / Pré Operacional consolidados em PROSPECT.
+      'MENSAL': 'MENSAL', 'EM CONSTITUIÇÃO': 'PROSPECT', 'EM CONSTITUICAO': 'PROSPECT',
+      'POTENCIAL': 'PROSPECT', 'AVULSO': 'AVULSO', 'PARALIZADO': 'PARALIZADO',
+      'PRÉ OPERACIONAL': 'PROSPECT', 'PRE OPERACIONAL': 'PROSPECT', 'PROSPECT': 'PROSPECT',
     }
     return map[s.toUpperCase()] || 'MENSAL'
   }

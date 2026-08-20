@@ -130,7 +130,6 @@ export class CusteioService {
     const clientes = await prisma.cliente.findMany({
       where: {
         empresaId: emp,
-        deletedAt: null,
         status: { not: 'INATIVO' },
         ...(clienteId ? { id: clienteId } : {}),
       },

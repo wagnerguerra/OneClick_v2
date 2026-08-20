@@ -55,7 +55,7 @@ export class AgendamentoService {
     const proximaExecucao = cfg.enabled ? this.calcularProximaExecucao(cfg.cron) : null
 
     // Conta clientes ativos pra esse scheduler — escopado por empresa (ISO-003)
-    const where: any = { deletedAt: null, empresaId: empresaId ?? null }
+    const where: any = { status: 'ATIVO', empresaId: empresaId ?? null }
     where[meta.clienteEnabledField] = true
     const clientesAtivos = await prisma.cliente.count({ where })
 
@@ -138,7 +138,7 @@ export class AgendamentoService {
     if (!meta) throw new BadRequestException(`Scheduler desconhecido: ${slug}`)
 
     // Escopo por empresa (ISO-003) — antes marcava clientes de TODOS os tenants.
-    const where: any = { deletedAt: null, empresaId: empresaId ?? null }
+    const where: any = { status: 'ATIVO', empresaId: empresaId ?? null }
     where[meta.clienteEnabledField] = true
 
     const r = await prisma.cliente.updateMany({

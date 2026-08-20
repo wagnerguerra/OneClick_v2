@@ -134,13 +134,13 @@ export function createClienteRouter(
           const col = input.tipo === 'GRUPO' ? 'grupo' : 'origem'
           counts = await prisma.$queryRawUnsafe<Array<{ chave: string; n: number }>>(
             `SELECT LOWER(TRIM(${col})) AS chave, COUNT(*)::int AS n
-             FROM clientes WHERE ${col} IS NOT NULL AND TRIM(${col}) <> '' AND deleted_at IS NULL
+             FROM clientes WHERE ${col} IS NOT NULL AND TRIM(${col}) <> '' AND status = 'ATIVO'
              GROUP BY LOWER(TRIM(${col}))`,
           )
         } else if (input.tipo === 'ATIVIDADE') {
           counts = await prisma.$queryRawUnsafe<Array<{ chave: string; n: number }>>(
             `SELECT LOWER(TRIM(ca.valor)) AS chave, COUNT(DISTINCT ca.cliente_id)::int AS n
-             FROM cliente_atividades ca JOIN clientes c ON c.id = ca.cliente_id AND c.deleted_at IS NULL
+             FROM cliente_atividades ca JOIN clientes c ON c.id = ca.cliente_id AND c.status = 'ATIVO'
              WHERE ca.valor IS NOT NULL AND TRIM(ca.valor) <> '' GROUP BY LOWER(TRIM(ca.valor))`,
           )
         } else {
@@ -189,13 +189,13 @@ export function createClienteRouter(
           if (o.tipo === 'GRUPO' || o.tipo === 'ORIGEM') {
             const col = o.tipo === 'GRUPO' ? 'grupo' : 'origem'
             const r = await prisma.$queryRawUnsafe<Array<{ n: number }>>(
-              `SELECT COUNT(*)::int AS n FROM clientes WHERE LOWER(TRIM(${col})) = LOWER(TRIM($1)) AND deleted_at IS NULL`, o.valor,
+              `SELECT COUNT(*)::int AS n FROM clientes WHERE LOWER(TRIM(${col})) = LOWER(TRIM($1)) AND status = 'ATIVO'`, o.valor,
             )
             n = Number(r[0]?.n || 0)
           } else if (o.tipo === 'ATIVIDADE') {
             const r = await prisma.$queryRawUnsafe<Array<{ n: number }>>(
               `SELECT COUNT(DISTINCT ca.cliente_id)::int AS n FROM cliente_atividades ca
-               JOIN clientes c ON c.id = ca.cliente_id AND c.deleted_at IS NULL
+               JOIN clientes c ON c.id = ca.cliente_id AND c.status = 'ATIVO'
                WHERE LOWER(TRIM(ca.valor)) = LOWER(TRIM($1))`, o.valor,
             )
             n = Number(r[0]?.n || 0)
