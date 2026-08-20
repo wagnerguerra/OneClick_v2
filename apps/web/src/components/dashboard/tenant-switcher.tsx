@@ -30,6 +30,12 @@ interface EmpresaOpcao {
  * página inteira — meia dúzia de telas já teriam carregado dados da empresa
  * anterior, e atualizá-las uma a uma deixaria sobras.
  */
+/** "CENTRAL CONTABIL LTDA" → "Central contabil ltda" (pedido do Wagner, 20/08). */
+function capitalizarNome(nome: string): string {
+  const baixo = nome.toLocaleLowerCase('pt-BR')
+  return baixo.charAt(0).toLocaleUpperCase('pt-BR') + baixo.slice(1)
+}
+
 export function TenantSwitcher() {
   const { isMaster } = useUserPermissions()
   const { empresa } = useEmpresaAtiva()
@@ -87,12 +93,12 @@ export function TenantSwitcher() {
         title="Empresa carregada — clique para trocar"
         className={cn(
           'flex max-w-[280px] items-center gap-1.5 rounded-lg px-2.5 h-9 text-sm font-medium text-left transition-colors outline-none',
-          aberto ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+          aberto ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary',
         )}
       >
         <Building2 className="h-4 w-4 shrink-0" />
         <span className="truncate">
-          {empresa.razaoSocial}
+          {capitalizarNome(empresa.razaoSocial)}
         </span>
         <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 transition-transform', aberto && 'rotate-180')} />
       </button>
