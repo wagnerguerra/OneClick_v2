@@ -27,11 +27,11 @@ interface Props {
 export function ArticleShell({ modulo, moduloColor, icon: Icon, titulo, descricao, children }: Props) {
   const router = useRouter()
   return (
-    // Altura fixa = viewport - Header (56px). Sangra até as bordas
+    // Altura fixa = viewport - Header (64px). Sangra até as bordas
     // do <main> (-mx/-mt/-mb). Header + índice ficam fixos; rola só o miolo.
     <div
       className="flex flex-col overflow-hidden -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 -mb-4 sm:-mb-6"
-      style={{ height: 'calc(100dvh - 56px)' }}
+      style={{ height: 'calc(100dvh - 64px)' }}
     >
       {/* Header padrão do sistema (PageHeader) — sem bleed (o container já sangra) */}
       <div className="shrink-0">

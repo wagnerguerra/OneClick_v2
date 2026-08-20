@@ -134,7 +134,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className={cn(
-          'relative flex h-14 items-center border-b border-sidebar-border shrink-0',
+          'relative flex h-16 items-center border-b border-sidebar-border shrink-0',
           collapsed && !mobileOpen ? 'justify-center px-2' : 'justify-center px-3',
         )}>
           {collapsed && !mobileOpen ? (

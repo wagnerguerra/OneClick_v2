@@ -103,7 +103,7 @@ export function NotesRail() {
       {/* Painel */}
       {open && (
         <div
-          className="hidden lg:flex fixed top-14 right-0 bottom-0 z-40 w-[380px] bg-muted border-l border-border shadow-xl flex-col"
+          className="hidden lg:flex fixed top-16 right-0 bottom-0 z-40 w-[380px] bg-muted border-l border-border shadow-xl flex-col"
           style={{ animation: 'fadeSlideIn 0.2s ease-out' }}
         >
           {/* Header */}

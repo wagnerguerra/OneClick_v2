@@ -395,7 +395,7 @@ export default function GestaoCertificadosPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 h-[calc(100vh-90px)]" suppressHydrationWarning>
+    <div className="flex flex-col gap-5 h-[calc(100vh-98px)]" suppressHydrationWarning>
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
         <div className="flex items-center gap-4">

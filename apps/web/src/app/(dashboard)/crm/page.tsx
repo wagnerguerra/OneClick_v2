@@ -897,7 +897,7 @@ export default function CrmPage() {
   // ============================================================
 
   return (
-    <div className="flex flex-col gap-5 h-[calc(100vh-90px)]" suppressHydrationWarning>
+    <div className="flex flex-col gap-5 h-[calc(100vh-98px)]" suppressHydrationWarning>
       {/* ── Header (padrão LuminAux, 20/08): barra full-bleed com título+trilha
           à esquerda e ações à direita — 1º módulo padronizado ── */}
       <PageHeaderBar className="mb-0 sm:mb-0"
