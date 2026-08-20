@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import { Providers } from '@/components/providers'
 import './globals.css'
 
@@ -9,7 +9,9 @@ import './globals.css'
 // não há benefício de SSG pra páginas internas.
 export const dynamic = 'force-dynamic'
 
-const inter = Inter({ subsets: ['latin'] })
+// Tipografia padrão do sistema (20/08/2026): Plus Jakarta Sans — fonte variável,
+// servida pelo next/font (self-hosted, sem request a CDN externo).
+const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-sans' })
 
 export const metadata: Metadata = {
   title: { default: 'OneClick', template: '%s · OneClick' },
@@ -28,7 +30,7 @@ export default function RootLayout({
   // injetam atributos no <html> antes da hidratação → mismatch benigno.
   return (
     <html lang="pt-BR" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={`${jakarta.variable} ${jakarta.className}`} suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

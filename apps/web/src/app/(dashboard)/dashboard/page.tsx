@@ -10,10 +10,12 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-4">
       <WidgetsGrid
         header={
-          <div>
-            <h1>Dashboard</h1>
-            <p className="text-sm text-muted-foreground">
-              Bem-vindo, {session?.user?.name?.split(' ')[0] || 'usuário'}.
+          <div className="min-w-0">
+            <h1 className="truncate">Dashboard</h1>
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <span>Página inicial</span>
+              <span className="text-muted-foreground/50">›</span>
+              <span>Bem-vindo, {session?.user?.name?.split(' ')[0] || 'usuário'}.</span>
             </p>
           </div>
         }
