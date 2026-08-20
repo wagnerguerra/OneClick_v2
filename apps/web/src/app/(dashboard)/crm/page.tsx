@@ -8,7 +8,7 @@ import {
   CheckSquare, MessageSquare, Trash2, Send, LayoutGrid, List,
   Download, FileText, Settings2, GripVertical, Save, Paperclip, UploadCloud, File, History, Archive, SlidersHorizontal, Tag, Layers, Sparkles,
   Flame, Thermometer, Snowflake, Megaphone, RotateCcw,
-  Square, Edit2, AlertCircle, Bell, Mail,
+  Square, Edit2, AlertCircle, Bell, Mail, Search as SearchIcon,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, RichEditor,
@@ -22,6 +22,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { DndContext, closestCenter, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DragOverEvent, useDroppable } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -897,23 +898,19 @@ export default function CrmPage() {
 
   return (
     <div className="flex flex-col gap-5 h-[calc(100vh-90px)]" suppressHydrationWarning>
-      {/* ── Header ── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/materiais/icon_crm.png" alt="CRM" className="h-12 w-12 object-contain shrink-0" />
-          <div>
-            <h1>CRM — Oportunidades</h1>
-            <p className="text-sm text-muted-foreground">Gerencie oportunidades de negocio</p>
+      {/* ── Header (padrão LuminAux, 20/08): barra full-bleed com título+trilha
+          à esquerda e ações à direita — 1º módulo padronizado ── */}
+      <PageHeaderBar className="mb-0 sm:mb-0"
+        actions={<>
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar oportunidades..."
+              className="h-9 w-56 pl-8 text-sm"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Buscar oportunidade..."
-            className="h-9 w-56 text-sm"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
           {campanhasList.length > 0 && (
             <select
               className="h-9 rounded-md border border-input bg-transparent px-2 text-sm max-w-[180px]"
@@ -925,7 +922,7 @@ export default function CrmPage() {
               {campanhasList.map(c => <option key={c.slug} value={c.slug}>{c.nome || c.slug}</option>)}
             </select>
           )}
-          <div className="flex items-center border rounded-[2px] overflow-hidden">
+          <div className="flex items-center border rounded-lg overflow-hidden">
             <button type="button" className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')} onClick={() => { setViewMode('kanban'); localStorage.setItem('crm-view-mode', 'kanban') }} title="Kanban">
               <LayoutGrid className="h-4 w-4" />
             </button>
@@ -974,11 +971,20 @@ export default function CrmPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={openCreate}>
+          <Button size="sm" onClick={openCreate} className="gap-1.5">
             <Plus className="h-4 w-4" /> Nova Oportunidade
           </Button>
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">CRM</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="hover:text-foreground transition-colors">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Comercial</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Oportunidades</span>
+        </p>
+      </PageHeaderBar>
 
       {/* ── Board / Table ── */}
       {loading && (
