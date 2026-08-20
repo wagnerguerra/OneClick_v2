@@ -12,6 +12,7 @@ import { alerts } from '@/lib/alerts'
 import { WIDGET_REGISTRY, DEFAULT_LAYOUT, COLOR_CLASSES } from './registry'
 import { CompactPendingFlag } from './compact-pending-flag'
 import { WidgetErrorBoundary } from '@/components/dashboard/widget-error-boundary'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useEmpresaAtiva } from '@/hooks/use-empresa-ativa'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -352,13 +353,13 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
 
   return (
     <div className="relative">
-      {/* Header + Toolbar de edição — botões alinhados ao topo (com o título) */}
-      <div className="flex items-start justify-between gap-2 mb-3 flex-wrap">
-        <div className="min-w-0 flex-1">{header}</div>
-        {/* Edição restrita ao master/empresa-master (19/08): a personalização
-            individual deixava dashboards largados — agora um layout único,
-            editado pelo master, replica para todos (SSE atualiza ao vivo). */}
-        <div className="flex items-center gap-2 pt-1">
+      {/* Barra de cabeçalho no padrão LuminAux: faixa full-bleed com borda
+          inferior; título+trilha à esquerda, toolbar à direita.
+          Edição restrita ao master/empresa-master (19/08): a personalização
+          individual deixava dashboards largados — agora um layout único,
+          editado pelo master, replica para todos (SSE atualiza ao vivo). */}
+      <PageHeaderBar
+        actions={<>
           {!editing ? (
             isAdmin && (
               <Button size="sm" variant="outline" onClick={handleEntrarEdicao} className="gap-1.5">
@@ -398,8 +399,10 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
               </Button>
             </>
           )}
-        </div>
-      </div>
+        </>}
+      >
+        {header}
+      </PageHeaderBar>
 
       <ResponsiveGrid
         className={cn('layout', editing && 'is-editing')}
