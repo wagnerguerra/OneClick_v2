@@ -276,7 +276,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
       <aside
         className={cn(
           'dark fixed inset-y-0 left-0 z-40 hidden lg:flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300',
-          collapsed ? 'w-[68px]' : 'w-[260px]',
+          collapsed ? 'w-[80px]' : 'w-[260px]',
         )}
       >
         {sidebarContent}

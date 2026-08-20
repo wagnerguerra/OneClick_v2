@@ -41,14 +41,14 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
   return (
     <div
       className="min-h-screen bg-background"
-      style={{ ['--sidebar-w' as string]: collapsed ? '68px' : '260px' }}
+      style={{ ['--sidebar-w' as string]: collapsed ? '80px' : '260px' }}
     >
       <RouteProgress />
       <Sidebar collapsed={collapsed} onToggle={toggle} mobileOpen={mobileOpen} onCloseMobile={closeMobile} />
       <div
         className={cn(
           'transition-all duration-300',
-          collapsed ? 'lg:ml-[68px]' : 'lg:ml-[260px]',
+          collapsed ? 'lg:ml-[80px]' : 'lg:ml-[260px]',
         )}
       >
         <Header onOpenMobile={openMobile} />

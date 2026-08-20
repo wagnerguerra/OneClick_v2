@@ -739,9 +739,9 @@
     --color-border: #2d3040;
     --color-input: #2d3040;
     --color-ring: #2b7fff;
-    --color-sidebar: #161820;
-    --color-sidebar-foreground: #e5e5e5;
-    --color-sidebar-border: #252830;
+    --color-sidebar: #111827;  /* surface dark do LuminAux (sidebar do modelo) */
+    --color-sidebar-foreground: #e5e7eb;
+    --color-sidebar-border: #1f2937;
     --color-overlay: rgba(0, 0, 0, 0.7);
   }
 }
