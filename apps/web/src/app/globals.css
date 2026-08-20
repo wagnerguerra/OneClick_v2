@@ -577,10 +577,7 @@
     margin-bottom: 0.2rem;
     font-size: .75rem;
     font-weight: 600;
-    color: #000;
-  }
-  .dark label, .dark [data-slot="label"] {
-    color: #e5e5e5;
+    color: var(--color-foreground);
   }
 
   /* Estilizacao base de inputs/textarea/select. SEM !important — componentes
@@ -593,14 +590,15 @@
     display: block;
     width: 100%;
     padding: 0.55rem 0.75rem;
-    font-size: .77rem;
+    font-size: 0.8125rem;
     line-height: 1.4285714286;
-    color: #212040;
-    background-color: #fff;
+    color: var(--color-foreground);
+    background-color: var(--color-card);
     background-clip: padding-box;
-    border: 1px solid #ced4da;
+    /* Padrao LuminAux (20/08): raio .5rem, borda #e5e8ee, foco azul primario */
+    border: 1px solid #e5e8ee;
     appearance: none;
-    border-radius: 0.25rem;
+    border-radius: 0.5rem;
     transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
     height: auto;
   }
@@ -616,22 +614,21 @@
     border-color: #363b47;
   }
 
-  /* Foco neutro (sem azul/glow) — claro: borda cinza um pouco mais definida. */
+  /* Foco no padrao do modelo: borda primaria + ring suave translucido. */
   input:focus, textarea:focus, select:focus,
   [role="combobox"]:focus, button[role="combobox"]:focus {
-    border-color: #9ca3af;
+    border-color: var(--color-primary);
     outline: 0;
-    box-shadow: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
   }
-  /* Foco no escuro: o fundo clareia (elevação) + borda sutilmente mais clara. */
+  /* No escuro mantem a elevacao do fundo ao focar. */
   .dark input:focus, .dark textarea:focus, .dark select:focus,
   .dark [role="combobox"]:focus, .dark button[role="combobox"]:focus {
     background-color: #2e323d;
-    border-color: #4b5263;
   }
 
   input::placeholder, textarea::placeholder {
-    color: #878a99 !important;
+    color: var(--color-muted-foreground) !important;
     opacity: 1;
   }
 
