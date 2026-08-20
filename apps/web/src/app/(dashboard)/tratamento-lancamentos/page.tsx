@@ -334,7 +334,7 @@ export default function TratamentoLancamentosPage() {
         {/* Painel de resultado (colapsável) — sempre após processar. No sucesso,
             é o próprio card de "arquivo gerado" (recolhido); na falha, as abas. */}
         {result && (
-          <div ref={pendenciasRef} className="scroll-mt-[110px]">
+          <div ref={pendenciasRef} className="scroll-mt-[var(--app-header-offset)]">
             <PendenciasPanel
               key={resultSeq}
               pendencias={pend}

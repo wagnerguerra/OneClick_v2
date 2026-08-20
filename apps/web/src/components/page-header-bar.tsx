@@ -28,7 +28,7 @@ export function PageHeaderBar({
   return (
     <div
       className={cn(
-        'sticky top-16 z-20 -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 mb-4 sm:mb-5',
+        'sticky top-[var(--app-header-offset)] z-20 -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 mb-4 sm:mb-5',
         'flex flex-wrap items-center justify-between gap-x-4 gap-y-2',
         'border-b border-border bg-background px-4 sm:px-6 py-3',
         className,
