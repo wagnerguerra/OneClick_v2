@@ -2051,7 +2051,7 @@ export default function OrcamentoDetailPage() {
               icon={activePill === 'itens' ? <Package /> : <Layers />}
               bodyClassName="p-0"
             >
-              <div className="flex min-h-[450px]">
+              <div className="flex">
                 {/* Conteudo — quando o orcamento esta locked (APROVADO+), aplica
                     data-locked="true" que bloqueia os controles via CSS (em
                     globals.css). Campos que devem permanecer editaveis usam
