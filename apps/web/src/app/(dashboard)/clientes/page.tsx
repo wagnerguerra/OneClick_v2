@@ -31,7 +31,7 @@ import { ImportModal } from './_components/import-modal'
 import { IntegracoesModal } from './_components/integracoes-modal'
 import { InativarClienteModal } from './_components/inativar-cliente-modal'
 import { ReativarClienteModal } from './_components/reativar-cliente-modal'
-import { STATUS_BADGE_CLASS, EX_CLIENTE_BADGE_CLASS, isExCliente } from './_components/cliente-status-ui'
+import { STATUS_BADGE_CLASS, EX_CLIENTE_BADGE_CLASS, INATIVAR_BTN_CLASS, isExCliente } from './_components/cliente-status-ui'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
 import { SITUACAO_LABELS, SITUACAO_COLORS } from '@saas/types'
 import { masks } from '@/lib/masks'
@@ -323,6 +323,7 @@ export default function ClientesPage() {
   function clearFilters() {
     setFilterSituacao(''); setFilterStatus('ATIVO'); setFilterTributacao(''); setFilterGrupo(''); setFilterCidade(''); setFilterUf('')
     setFilterNumero(''); setFilterTipo(''); setFilterAtividade(''); setFilterArea(''); setFilterBeneficio('')
+    setExCliente(false) // Ex-cliente? volta para "Não"
     setSearch(''); setPage(1)
   }
 
@@ -560,7 +561,15 @@ export default function ClientesPage() {
               <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', filtersOpen && 'rotate-180')} />
             </div>
           </div>
-          {filtersOpen && (
+          {/* Anima expandir/retrair via grid-template-rows (0fr↔1fr), como em /orcamentos.
+              Os SelectContent do Radix saem em portal, então o overflow:hidden do wrapper
+              da animação não os corta. */}
+          <div
+            className="grid transition-all duration-300 ease-out motion-reduce:transition-none"
+            style={{ gridTemplateRows: filtersOpen ? '1fr' : '0fr', opacity: filtersOpen ? 1 : 0 }}
+            aria-hidden={!filtersOpen}
+          >
+            <div className="min-h-0 overflow-hidden">
             <div className="px-4 py-3 border-t border-border/40">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 {/* Linha 1: Número · Grupo · Atividade · Município · Estado · Tributação */}
@@ -677,7 +686,7 @@ export default function ClientesPage() {
                 {/* #HLP0210 (Fase 3) — filtro Ex-cliente (mensal ∧ inativo ∧ data de saída).
                     O atalho "Somente Ex-clientes" no cabeçalho liga/desliga este mesmo filtro. */}
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Ex-cliente?</label>
+                  <label className="text-xs font-medium text-muted-foreground">Ex-cliente</label>
                   <Select value={onlyExCliente ? 'sim' : 'nao'} onValueChange={(v) => setExCliente(v === 'sim')}>
                     <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -688,14 +697,18 @@ export default function ClientesPage() {
                 </div>
               </div>
             </div>
-          )}
+            </div>
+          </div>
         </Card>
 
       {/* Seleção em lote */}
       {selected.size > 0 && (
         <div className="flex items-center gap-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 px-4 py-2.5 text-sm">
           <span className="font-medium text-emerald-700 dark:text-emerald-400">{selected.size} selecionado{selected.size > 1 ? 's' : ''}</span>
-          <Button variant="soft-warning" size="sm" onClick={() => openInativar(Array.from(selected), `${selected.size} clientes selecionados`)}>
+          {/* Âmbar soft com borda (tom do KPI "Backlog em aberto"): destaca sobre o fundo
+              esmeralda da barra, onde o soft-warning (tint 10%) sumia. O per-row segue
+              soft-warning (fica sobre a linha, homogêneo com o Editar/Reativar). */}
+          <Button variant="outline" className={INATIVAR_BTN_CLASS} size="sm" onClick={() => openInativar(Array.from(selected), `${selected.size} clientes selecionados`)}>
             <Ban className="h-3.5 w-3.5" />Inativar selecionados
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Limpar seleção</Button>

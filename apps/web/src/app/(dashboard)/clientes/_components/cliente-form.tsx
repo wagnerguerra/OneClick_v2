@@ -32,7 +32,7 @@ import { VerificarErpModal } from '@/components/contrato/verificar-erp-modal'
 import { OrcamentosTab } from './orcamentos-tab'
 import { InativarClienteModal } from './inativar-cliente-modal'
 import { ReativarClienteModal } from './reativar-cliente-modal'
-import { EVENT_BADGE_CLASS } from './cliente-status-ui'
+import { EVENT_BADGE_CLASS, INATIVAR_BTN_CLASS, INATIVADO_SURFACE_CLASS, REATIVAR_BTN_CLASS } from './cliente-status-ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { toDateInputValue } from '@/lib/date'
@@ -575,7 +575,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {isEdit && canEditDetails && watchedValues.status === 'ATIVO' && (
-                <Button type="button" variant="soft-warning" size="sm" onClick={() => abrirInativar()} title="Inativar cliente">
+                <Button type="button" variant="outline" className={INATIVAR_BTN_CLASS} size="sm" onClick={() => abrirInativar()} title="Inativar cliente">
                   <Ban className="h-4 w-4" />Inativar
                 </Button>
               )}
@@ -758,10 +758,10 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
               <div className="space-y-5">
                 {/* #HLP0209/0211 — card de cliente inativado (acima do Progresso): data de saída + motivo + reativar. */}
                 {watchedValues.status === 'INATIVO' && (
-                  <Card className="p-5 border-amber-200 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-950/20">
+                  <Card className={`p-5 ${INATIVADO_SURFACE_CLASS}`}>
                     <div className="flex items-center gap-2 mb-2">
-                      <Ban className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500" />
-                      <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400">Cliente inativado</h4>
+                      <Ban className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+                      <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-300">Cliente inativado</h4>
                     </div>
                     <dl className="space-y-1.5 text-[13px]">
                       <div className="flex gap-2">
@@ -774,7 +774,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                       </div>
                     </dl>
                     {canEditDetails && (
-                      <Button type="button" variant="soft-success" size="sm" className="mt-3 w-full" onClick={() => setReativarAberto(true)}>
+                      <Button type="button" variant="outline" className={`mt-3 w-full ${REATIVAR_BTN_CLASS}`} size="sm" onClick={() => setReativarAberto(true)}>
                         <RotateCcw className="h-3.5 w-3.5" />Reativar cliente
                       </Button>
                     )}
