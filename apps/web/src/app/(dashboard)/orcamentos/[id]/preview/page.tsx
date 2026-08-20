@@ -2011,51 +2011,6 @@ export default function OrcamentoDetailPage() {
       </div>
       {/* /hero */}
 
-      {/* Banner de "orcamento congelado" — exibido quando status >= APROVADO.
-          Edicoes sao bloqueadas; usuario deve duplicar para uma copia em NOVO. */}
-      {isLocked && (
-        <Card className="relative overflow-hidden border-slate-200/80 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900/40 dark:to-slate-900/10 dark:border-slate-700/40 shadow-sm mt-5">
-          {/* Faixa lateral colorida (cor do modulo) marcando o estado especial */}
-          <div className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: MODULE_COLOR }} />
-          <div className="flex items-center gap-4 p-4 pl-5">
-            {/* Icone em circulo destacado */}
-            <div
-              className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-slate-900 shadow-sm"
-              style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 8%, transparent)` }}
-            >
-              <Lock className="h-5 w-5" style={{ color: MODULE_COLOR }} />
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-sm font-semibold text-foreground">Orçamento congelado para edição</h4>
-                <span
-                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
-                  style={{ backgroundColor: STATUS_COLORS[orc.status] || '#94a3b8' }}
-                >
-                  {STATUS_LABELS[orc.status] || orc.status}
-                </span>
-              </div>
-              <p className="text-[12.5px] text-muted-foreground mt-1 leading-relaxed">
-                Para fazer ajustes, duplique este orçamento. A cópia voltará ao status <strong className="text-foreground/80">Novo</strong> e poderá ser editada livremente. Este permanecerá intacto e preservado para auditoria.
-              </p>
-            </div>
-
-            {/* CTA primario — filled com cor do modulo, mais convidativo */}
-            {canDuplicar && (
-              <Button
-                size="sm"
-                className="gap-1.5 text-white shadow-sm shrink-0"
-                style={{ backgroundColor: MODULE_COLOR }}
-                onClick={handleDuplicar}
-              >
-                <CopyIcon className="h-3.5 w-3.5" />
-                Duplicar para editar
-              </Button>
-            )}
-          </div>
-        </Card>
-      )}
 
       {/* Banner de paralizacao */}
       {orc.paralizado && (
@@ -2931,6 +2886,42 @@ export default function OrcamentoDetailPage() {
               </Card>
             )
           })()}
+
+          {/* Avisos — mesma família dos cards acima, em tom âmbar. Hoje só o
+              "congelado para edição" (status >= APROVADO); novos avisos entram
+              como itens deste card. Só renderiza quando há o que avisar. */}
+          {isLocked && (
+            <Card className="overflow-hidden rounded-2xl p-0">
+              <div className="flex items-center justify-between border-b border-border bg-gradient-to-br from-amber-500/10 to-amber-500/[0.03] px-5 py-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 text-white">
+                    <Lock className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Avisos</p>
+                    <p className="text-base font-bold text-foreground">Congelado para edição</p>
+                  </div>
+                </div>
+                <span
+                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                  style={{ backgroundColor: STATUS_COLORS[orc.status] || '#94a3b8' }}
+                >
+                  {STATUS_LABELS[orc.status] || orc.status}
+                </span>
+              </div>
+              <div className="space-y-3 p-5">
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Para fazer ajustes, duplique este orçamento. A cópia volta ao status <strong className="text-foreground">Novo</strong> e pode ser editada livremente; este permanece intacto, preservado para auditoria.
+                </p>
+                {canDuplicar && (
+                  <Button size="sm" variant="outline" className="w-full gap-1.5" onClick={handleDuplicar}>
+                    <CopyIcon className="h-3.5 w-3.5" />
+                    Duplicar para editar
+                  </Button>
+                )}
+              </div>
+            </Card>
+          )}
 
           {/* Vínculos — hoje o card de CRM; eventos da agenda, outros
               orçamentos etc. entram como novas subseções deste card. */}
