@@ -1047,10 +1047,10 @@ export default function CrmPage() {
         /* ── Visao Kanban ── */
         <DndContext sensors={kanbanSensors} collisionDetection={closestCenter} onDragStart={handleKanbanDragStart} onDragMove={handleKanbanDragMove} onDragOver={handleKanbanDragOver} onDragEnd={handleKanbanDragEnd} onDragCancel={handleKanbanDragCancel}>
         <div className="overflow-x-auto nice-scrollbar pb-4 -mx-1 flex-1">
-          <div className="flex gap-3 px-1 h-full" style={{ minWidth: etapas.length > 0 ? `${etapas.length * 240}px` : undefined, width: '100%' }}>
+          <div className="flex gap-4 px-1 h-full" style={{ minWidth: etapas.length > 0 ? `${etapas.length * 250}px` : undefined, width: '100%' }}>
             {etapas.map(etapa => {
               const ops = opsByEtapa[etapa.id] || []
-              return <KanbanColumn key={etapa.id} etapa={etapa} ops={ops} isOver={overColumnId === etapa.id} activeCardId={activeCardId} etapas={etapas} onOpenDetail={openDetail} onMover={moverPara} onDelete={handleDelete} diasDesde={diasDesde} declinioDias={declinioDias} />
+              return <KanbanColumn key={etapa.id} etapa={etapa} ops={ops} isOver={overColumnId === etapa.id} activeCardId={activeCardId} etapas={etapas} onOpenDetail={openDetail} onMover={moverPara} onDelete={handleDelete} diasDesde={diasDesde} declinioDias={declinioDias} onAdd={(etapaId) => { openCreate().then(() => setForm(f => ({ ...f, etapaId }))) }} />
             })}
           </div>
         </div>
@@ -1966,41 +1966,58 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
 // Kanban DnD Components
 // ============================================================
 
-function KanbanColumn({ etapa, ops, isOver, activeCardId, etapas, onOpenDetail, onMover, onDelete, diasDesde, declinioDias }: {
+function KanbanColumn({ etapa, ops, isOver, activeCardId, etapas, onOpenDetail, onMover, onDelete, diasDesde, declinioDias, onAdd }: {
   etapa: Etapa; ops: Oportunidade[]; isOver: boolean; activeCardId: string | null; etapas: Etapa[]
   onOpenDetail: (id: string) => void; onMover: (id: string, etapaId: string) => void; onDelete: (id: string, titulo: string) => void; diasDesde: (d: string) => number; declinioDias: number
+  onAdd: (etapaId: string) => void
 }) {
   const { setNodeRef } = useDroppable({ id: etapa.id })
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        // Mesma chrome das colunas do Helpdesk: sem borda, overlay sutil sobre o
-        // fundo do dashboard (light: sombra leve / dark: clareia o cinza base).
-        'flex-1 min-w-[240px] flex flex-col overflow-hidden rounded-lg transition-colors bg-black/[0.04] dark:bg-white/[0.04]',
-        isOver && 'ring-2 ring-offset-1',
+        // Padrão LuminAux (20/08): coluna ABERTA — sem caixa/fundo; os cards
+        // flutuam direto sobre o fundo da página. Só o drop-target ganha um
+        // véu sutil pra orientar o drag.
+        'flex-1 min-w-[250px] flex flex-col rounded-xl transition-colors',
+        isOver && 'bg-black/[0.03] dark:bg-white/[0.04]',
       )}
       style={isOver ? { boxShadow: `0 0 0 2px ${etapa.cor}55` } : undefined}
     >
-      {/* Header sem bg colorido nem border-b — só o dot da cor + nome + pill */}
-      <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+      {/* Header: dot da cor + nome + contador em pill TINTADA + botão "+" */}
+      <div className="px-1.5 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: etapa.cor }} />
+          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: etapa.cor }} />
           <span className="text-sm font-semibold truncate">{etapa.nome}</span>
           <span
-            className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold text-white shrink-0"
-            style={{ backgroundColor: etapa.cor }}
+            className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold tabular-nums shrink-0"
+            style={{ backgroundColor: `color-mix(in srgb, ${etapa.cor} 15%, transparent)`, color: etapa.cor }}
           >
             {ops.length}
           </span>
         </div>
+        <button
+          type="button"
+          onClick={() => onAdd(etapa.id)}
+          className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:text-foreground transition-colors shrink-0"
+          title="Adicionar oportunidade nesta etapa"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
       </div>
       <SortableContext items={ops.map(o => o.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 p-2 space-y-2 overflow-y-auto nice-scrollbar min-h-[120px]">
-          {ops.length === 0 && <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma oportunidade</p>}
+        <div className="flex-1 space-y-3 overflow-y-auto nice-scrollbar min-h-[120px] px-1.5 pt-0.5 pb-2">
           {ops.map(op => (
             <KanbanCard key={op.id} op={op} isDraggingAny={!!activeCardId} etapas={etapas} onOpenDetail={onOpenDetail} onMover={onMover} onDelete={onDelete} diasDesde={diasDesde} declinioDias={declinioDias} />
           ))}
+          {/* "+ Adicionar um cartão" do modelo, no fim da pilha */}
+          <button
+            type="button"
+            onClick={() => onAdd(etapa.id)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-black/[0.07] dark:hover:bg-white/[0.1] hover:text-foreground transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" /> Adicionar oportunidade
+          </button>
         </div>
       </SortableContext>
     </div>
@@ -2018,11 +2035,11 @@ function KanbanCard({ op, isDraggingAny, etapas, onOpenDetail, onMover, onDelete
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}
-      className={cn('rounded-sm bg-white dark:bg-card cursor-pointer active:cursor-grabbing group touch-none overflow-hidden', isDragging ? 'border border-transparent opacity-30' : 'border border-border/50', !isDragging && !isDraggingAny && 'hover:shadow-md transition-shadow')}
+      className={cn('rounded-xl bg-white dark:bg-card shadow-sm cursor-pointer active:cursor-grabbing group touch-none overflow-hidden', isDragging ? 'border border-transparent opacity-30' : 'border border-border/60', !isDragging && !isDraggingAny && 'hover:shadow-md transition-shadow')}
       onClick={() => { if (!isDraggingAny) onOpenDetail(op.id) }}
     >
       <div className="flex">
-        <div className="w-[3px] shrink-0" style={{ backgroundColor: etapaCor }} />
+        <div className="w-1 shrink-0" style={{ backgroundColor: etapaCor }} />
         <div className="flex-1 min-w-0">
           <KanbanCardContent op={op} etapas={etapas} onMover={onMover} onDelete={onDelete} diasDesde={diasDesde} showMenu={!isDraggingAny} declinioDias={declinioDias} />
         </div>
@@ -2071,7 +2088,7 @@ function KanbanCardOverlay({ op, diasDesde, velocityX, width }: { op: Oportunida
     <div
       // Largura dinamica capturada do card de origem (colunas usam flex-1).
       // Fallback 260px caso o measurement falhe.
-      className="rounded-sm bg-white dark:bg-card overflow-hidden"
+      className="rounded-xl bg-white dark:bg-card overflow-hidden"
       style={{
         width: width ?? 260,
         transform: `rotate(${rotation.toFixed(2)}deg) scale(1.02)`,
@@ -2080,7 +2097,7 @@ function KanbanCardOverlay({ op, diasDesde, velocityX, width }: { op: Oportunida
       }}
     >
       <div className="flex">
-        <div className="w-[3px] shrink-0" style={{ backgroundColor: etapaCor }} />
+        <div className="w-1 shrink-0" style={{ backgroundColor: etapaCor }} />
         <div className="flex-1 min-w-0">
           <KanbanCardContent op={op} etapas={[]} onMover={() => {}} onDelete={() => {}} diasDesde={diasDesde} showMenu={false} />
         </div>
@@ -2170,7 +2187,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
       </div>
 
       {/* ── Footer ── */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-t border-border/40 bg-muted/20">
+      <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
         <div className="flex items-center gap-2">
           {(op as any).responsavel ? (
             (op as any).responsavel.image ? (
