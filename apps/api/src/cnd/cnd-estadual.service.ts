@@ -86,7 +86,7 @@ export class CndEstadualService {
     } else {
       // Buscar pelo documento (CNPJ/CPF) — match exato com ou sem formatação
       const cli = await prisma.$queryRawUnsafe<Array<{ id: string; razao_social: string }>>(
-        `SELECT id, razao_social FROM clientes WHERE deleted_at IS NULL AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`,
+        `SELECT id, razao_social FROM clientes WHERE status = 'ATIVO' AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`,
         doc,
       ).then(rows => rows[0] ? { id: rows[0].id, razaoSocial: rows[0].razao_social } : null)
       if (cli) {

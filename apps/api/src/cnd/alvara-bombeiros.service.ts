@@ -159,7 +159,7 @@ export class AlvaraBombeirosService {
       // Tentar encontrar cliente pela razão social (sem acentos para match mais robusto)
       const searchTerms = razaoSocial.split('/')[0]!.trim().split(' ').slice(0, 3).join(' ')
       const cli = await prisma.$queryRawUnsafe<Array<{ id: string; documento: string }>>(
-        `SELECT id, documento FROM clientes WHERE deleted_at IS NULL AND razao_social ILIKE $1 LIMIT 1`,
+        `SELECT id, documento FROM clientes WHERE status = 'ATIVO' AND razao_social ILIKE $1 LIMIT 1`,
         `%${searchTerms.normalize('NFD').replace(/[\u0300-\u036f]/g, '')}%`,
       ).then(rows => rows[0] || null)
       if (cli) {

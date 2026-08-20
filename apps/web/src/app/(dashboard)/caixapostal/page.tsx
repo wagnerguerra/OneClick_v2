@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Search, Loader2, Trash2, RefreshCw, CheckCircle2, AlertTriangle, Clock,
   FileText, Eye, X, Mail, Play, Inbox, BookOpen, ArrowLeft, Send,
-  MailOpen, MailWarning, RotateCcw, Shield, UserX, Filter,
+  MailOpen, MailWarning, RotateCcw, Shield, Filter,
   User, History, MessageSquare, ClipboardList, Archive, ArchiveRestore,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Star,
   CalendarClock, ExternalLink, MoreVertical, PanelRightOpen, Maximize2,
@@ -17,7 +17,6 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Checkbox,
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
@@ -176,13 +175,8 @@ export default function CaixaPostalPage() {
   const [limitClientes, setLimitClientes] = useState(10)
   const PAGE_SIZES = [10, 20, 50, 100]
 
-  // Seleção para inativação em lote
-  const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
-  const [inativandoLote, setInativandoLote] = useState(false)
-
-  // Loading individual por cliente (atualizar / inativar)
+  // Loading individual por cliente (atualizar status)
   const [refreshingCliente, setRefreshingCliente] = useState<string | null>(null)
-  const [inativandoCliente, setInativandoCliente] = useState<string | null>(null)
 
   // Estado de detalhe do cliente
   const [selectedCliente, setSelectedCliente] = useState<ClienteMensal | null>(null)
@@ -375,7 +369,6 @@ export default function CaixaPostalPage() {
 
   const fetchClientes = useCallback(async () => {
     setLoading(true)
-    setSelecionados(new Set())
     try {
       const lista = await trpc.sitfis.listClientesMensal.query() as ClienteMensal[]
       setClientes(lista)
@@ -457,83 +450,9 @@ export default function CaixaPostalPage() {
     }
   }
 
-  // ============================================================
-  // Inativar cliente individual
-  // ============================================================
-
-  async function handleInativarCliente(cliente: ClienteMensal) {
-    const ok = await alerts.confirm({
-      title: 'Inativar cliente',
-      text: `Deseja inativar "${cliente.razaoSocial}"? O cliente será movido para a situação PARALIZADO e não aparecerá mais na caixa postal.`,
-      confirmText: 'Sim, inativar',
-      icon: 'warning',
-    })
-    if (!ok) return
-
-    setInativandoCliente(cliente.id)
-    try {
-      await trpc.caixaPostal.inativarCliente.mutate({ clienteId: cliente.id })
-      setClientes(prev => prev.filter(c => c.id !== cliente.id))
-      setSelecionados(prev => { const n = new Set(prev); n.delete(cliente.id); return n })
-      await alerts.success('Cliente inativado', `"${cliente.razaoSocial}" foi inativado com sucesso.`)
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message)
-    } finally {
-      setInativandoCliente(null)
-    }
-  }
-
-  // ============================================================
-  // Inativar clientes em lote
-  // ============================================================
-
-  async function handleInativarLote() {
-    if (selecionados.size === 0) return
-
-    const nomes = clientes.filter(c => selecionados.has(c.id)).map(c => c.razaoSocial)
-    const ok = await alerts.confirm({
-      title: `Inativar ${selecionados.size} cliente(s)`,
-      text: selecionados.size <= 5
-        ? `Deseja inativar: ${nomes.join(', ')}? Os clientes serão movidos para a situação PARALIZADO.`
-        : `Deseja inativar ${selecionados.size} clientes selecionados? Eles serão movidos para a situação PARALIZADO e não aparecerão mais na caixa postal.`,
-      confirmText: 'Sim, inativar todos',
-      icon: 'warning',
-    })
-    if (!ok) return
-
-    setInativandoLote(true)
-    try {
-      const ids = Array.from(selecionados)
-      const result = await trpc.caixaPostal.inativarClientesLote.mutate({ clienteIds: ids }) as { total: number }
-      setClientes(prev => prev.filter(c => !selecionados.has(c.id)))
-      setSelecionados(new Set())
-      await alerts.success('Inativação em lote', `${result.total} cliente(s) inativado(s) com sucesso.`)
-    } catch (e) {
-      alerts.error('Erro', (e as Error).message)
-    } finally {
-      setInativandoLote(false)
-    }
-  }
-
-  // ============================================================
-  // Seleção (checkbox)
-  // ============================================================
-
-  function toggleSelecionado(id: string) {
-    setSelecionados(prev => {
-      const n = new Set(prev)
-      if (n.has(id)) n.delete(id); else n.add(id)
-      return n
-    })
-  }
-
-  function toggleTodosSelecionados() {
-    if (selecionados.size >= clientesFiltrados.length && clientesFiltrados.length > 0) {
-      setSelecionados(new Set())
-    } else {
-      setSelecionados(new Set(clientesFiltrados.map(c => c.id)))
-    }
-  }
+  // #HLP0209 — inativar cliente (individual/lote) e a seleção por checkbox foram
+  // REMOVIDOS: a Caixa Postal não mexe mais no cadastro do cliente. Para tirar do
+  // radar, inative em /clientes ou não selecione na consulta/agendamento.
 
   // ============================================================
   // Voltar para lista de clientes (atualiza status)
@@ -1842,12 +1761,6 @@ export default function CaixaPostalPage() {
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
-              {canArchiveDelete && selecionados.size > 0 && (
-                <Button variant="destructive" size="sm" onClick={handleInativarLote} disabled={inativandoLote} className="gap-1.5">
-                  {inativandoLote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserX className="h-3.5 w-3.5" />}
-                  Inativar ({selecionados.size})
-                </Button>
-              )}
               {canBulkActions && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -2151,20 +2064,6 @@ export default function CaixaPostalPage() {
             })}
           </div>
 
-          {/* Seleção em lote */}
-          {selecionados.size > 0 && (
-            <div className="flex items-center gap-3 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 px-4 py-2.5 text-sm">
-              <span className="font-medium text-indigo-700 dark:text-indigo-400">{selecionados.size} selecionado{selecionados.size > 1 ? 's' : ''}</span>
-              {canArchiveDelete && (
-                <Button variant="soft-destructive" size="sm" onClick={handleInativarLote} disabled={inativandoLote}>
-                  {inativandoLote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserX className="h-3.5 w-3.5" />}
-                  Inativar selecionados
-                </Button>
-              )}
-              <Button variant="ghost" size="sm" onClick={() => setSelecionados(new Set())}>Limpar seleção</Button>
-            </div>
-          )}
-
           {/* DataTable */}
           <Card>
             <div className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
@@ -2183,12 +2082,6 @@ export default function CaixaPostalPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[40px]">
-                    <Checkbox
-                      checked={clientesPaginados.length > 0 && clientesPaginados.every(c => selecionados.has(c.id))}
-                      onCheckedChange={toggleTodosSelecionados}
-                    />
-                  </TableHead>
                   <TableHead className="whitespace-nowrap">Razão Social</TableHead>
                   <TableHead className="w-[160px] whitespace-nowrap hidden xl:table-cell">Documento</TableHead>
                   <TableHead className="hidden md:table-cell w-[100px] text-center whitespace-nowrap">Não Lidas</TableHead>
@@ -2212,18 +2105,14 @@ export default function CaixaPostalPage() {
                 ) : clientesPaginados.map(c => {
                   const st = statusMap[c.documento.replace(/\D/g, '')]
                   const isRefreshing = refreshingCliente === c.id
-                  const isInativando = inativandoCliente === c.id
                   const temNaoLidas = st && st.nao_lidas > 0
                   return (
                     <TableRow key={c.id} className={cn(
                       'cursor-pointer transition-colors',
-                      selecionados.has(c.id) && 'bg-sky-50/50 dark:bg-sky-900/10',
-                      !selecionados.has(c.id) && temNaoLidas && 'bg-white dark:bg-card hover:bg-gray-50 dark:hover:bg-muted/40 border-l-2 border-l-red-500',
-                      !selecionados.has(c.id) && !temNaoLidas && 'bg-transparent hover:bg-muted/30',
+                      temNaoLidas
+                        ? 'bg-white dark:bg-card hover:bg-gray-50 dark:hover:bg-muted/40 border-l-2 border-l-red-500'
+                        : 'bg-transparent hover:bg-muted/30',
                     )} onClick={() => handleConsultarCliente(c, true)}>
-                      <TableCell onClick={e => e.stopPropagation()}>
-                        <Checkbox checked={selecionados.has(c.id)} onCheckedChange={() => toggleSelecionado(c.id)} />
-                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <p className={cn('text-sm truncate', temNaoLidas ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}>{c.razaoSocial}</p>
@@ -2277,12 +2166,6 @@ export default function CaixaPostalPage() {
                               {isRefreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                               Atualizar status
                             </DropdownMenuItem>
-                            {canArchiveDelete && (
-                              <DropdownMenuItem onClick={() => handleInativarCliente(c)} disabled={isInativando} className="text-xs gap-2 text-red-500 focus:text-red-500">
-                                {isInativando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserX className="h-3.5 w-3.5" />}
-                                Inativar cliente
-                              </DropdownMenuItem>
-                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

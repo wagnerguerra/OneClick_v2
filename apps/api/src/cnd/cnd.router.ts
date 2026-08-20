@@ -62,7 +62,7 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         const rows = await prisma.$queryRawUnsafe<Array<{ email: string; nome: string | null }>>(
           `SELECT cc.email, cc.nome FROM cliente_contatos cc
            JOIN clientes c ON c.id = cc.cliente_id
-           WHERE c.deleted_at IS NULL AND cc.email IS NOT NULL AND cc.email != ''
+           WHERE c.status = 'ATIVO' AND cc.email IS NOT NULL AND cc.email != ''
            AND c.empresa_id = $2
            AND REPLACE(REPLACE(REPLACE(c.documento, '.', ''), '/', ''), '-', '') = $1
            ORDER BY cc.principal DESC, cc.nome ASC`, doc, ctx.empresaId ?? null,
@@ -75,7 +75,7 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
       .mutation(async ({ input }) => {
         const doc = input.documento.replace(/\D/g, '')
         const cli = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-          `SELECT id FROM clientes WHERE deleted_at IS NULL AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
+          `SELECT id FROM clientes WHERE status = 'ATIVO' AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
         )
         if (!cli[0]) throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado' })
         // Verificar se já existe
@@ -274,14 +274,8 @@ export function createCndRouter(service: CndService, scheduler: CndSchedulerServ
         .query(({ ctx }) => scheduler.listarClientesDisponiveis(ctx.empresaId ?? '')),
     }),
 
-    // ── Inativar cliente (compartilhado entre abas) ────────
-    inativarCliente: writeProcedure(MODULE)
-      .input(z.object({ clienteId: z.string() }))
-      .mutation(async ({ input }) => {
-        const cliente = await prisma.cliente.findUniqueOrThrow({ where: { id: input.clienteId } })
-        await prisma.cliente.update({ where: { id: input.clienteId }, data: { situacao: 'PARALIZADO' } })
-        return { id: input.clienteId, razaoSocial: cliente.razaoSocial }
-      }),
+    // #HLP0209 — inativar cliente pelo CND foi REMOVIDO (não mexe mais no cadastro).
+    // Cliente inativado em /clientes já sai dos filtros de monitoramento.
 
     // ── CND Estadual (SEFAZ ES) ───────────────────────────
     estadual: router({

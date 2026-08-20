@@ -191,15 +191,10 @@ export function createCaixaPostalRouter(service: CaixaPostalService, scheduler: 
       .input(z.object({ contribuinte: z.string() }))
       .query(({ input, ctx }) => service.listarArquivadas(input.contribuinte, ctx.empresaId ?? null)),
 
-    // ── Inativação de clientes ─────────────────────────────
-
-    inativarCliente: writeProcedure(MODULE)
-      .input(z.object({ clienteId: z.string() }))
-      .mutation(({ input }) => service.inativarCliente(input.clienteId)),
-
-    inativarClientesLote: writeProcedure(MODULE)
-      .input(z.object({ clienteIds: z.array(z.string()).min(1) }))
-      .mutation(({ input }) => service.inativarClientesLote(input.clienteIds)),
+    // #HLP0209 — inativar cliente pela Caixa Postal foi REMOVIDO: não faz sentido
+    // esta tela mexer no cadastro do cliente. Para tirar um cliente do radar,
+    // inative-o em /clientes (status=INATIVO, já excluído dos filtros aqui) ou
+    // simplesmente não o selecione na consulta/agendamento.
 
     // ── Limpeza (sub: archive_delete) ────────────────────────
 

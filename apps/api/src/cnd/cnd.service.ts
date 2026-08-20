@@ -255,7 +255,7 @@ export class CndService {
       razaoSocial = cli?.razaoSocial || null
     } else {
       const cli = await prisma.$queryRawUnsafe<Array<{ razao_social: string }>>(
-        `SELECT razao_social FROM clientes WHERE deleted_at IS NULL
+        `SELECT razao_social FROM clientes WHERE status = 'ATIVO'
          AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
       )
       razaoSocial = cli[0]?.razao_social || null
@@ -400,7 +400,7 @@ export class CndService {
     const docsLimpos = documentos.map(d => d.replace(/\D/g, ''))
     const clientesInfo = await prisma.$queryRawUnsafe<Array<{ documento: string; razao_social: string }>>(
       `SELECT REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') as documento, razao_social
-       FROM clientes WHERE deleted_at IS NULL
+       FROM clientes WHERE status = 'ATIVO'
        AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = ANY($1::text[])`,
       docsLimpos,
     )
@@ -614,7 +614,7 @@ export class CndService {
 
   async listarClientesMensais() {
     return prisma.cliente.findMany({
-      where: { deletedAt: null, situacao: 'MENSAL' },
+      where: { status: 'ATIVO', situacao: 'MENSAL' },
       select: { id: true, razaoSocial: true, documento: true, tipoDocumento: true },
       orderBy: { razaoSocial: 'asc' },
     })

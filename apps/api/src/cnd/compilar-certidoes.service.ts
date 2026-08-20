@@ -69,7 +69,7 @@ export class CompilarCertidoesService {
 
     // Resolver cliente
     const cli = await prisma.$queryRawUnsafe<Array<{ id: string; razao_social: string; cidade: string | null }>>(
-      `SELECT id, razao_social, cidade FROM clientes WHERE deleted_at IS NULL AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
+      `SELECT id, razao_social, cidade FROM clientes WHERE status = 'ATIVO' AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
     ).then(rows => rows[0] || null)
 
     const clienteId = cli?.id
@@ -130,7 +130,7 @@ export class CompilarCertidoesService {
     this.progress.current = itemIndex + 1
 
     const cli = await prisma.$queryRawUnsafe<Array<{ id: string; razao_social: string; cidade: string | null }>>(
-      `SELECT id, razao_social, cidade FROM clientes WHERE deleted_at IS NULL AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
+      `SELECT id, razao_social, cidade FROM clientes WHERE status = 'ATIVO' AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
     ).then(rows => rows[0] || null)
 
     const clienteId = cli?.id
@@ -323,7 +323,7 @@ export class CompilarCertidoesService {
 
     // Buscar PDFs do banco para os itens com sucesso (mais confiável que manter em memória)
     const cli = await prisma.$queryRawUnsafe<Array<{ cidade: string | null }>>(
-      `SELECT cidade FROM clientes WHERE deleted_at IS NULL AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
+      `SELECT cidade FROM clientes WHERE status = 'ATIVO' AND REPLACE(REPLACE(REPLACE(documento, '.', ''), '/', ''), '-', '') = $1 LIMIT 1`, doc,
     ).catch(() => [])
     const municipio = cli[0]?.cidade || 'VITÓRIA'
 
