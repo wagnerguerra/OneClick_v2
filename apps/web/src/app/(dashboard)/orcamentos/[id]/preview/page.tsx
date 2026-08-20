@@ -2083,64 +2083,6 @@ export default function OrcamentoDetailPage() {
       {/* Layout 2 colunas: principal + sidebar */}
       <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1fr_20rem]">
         <div className="min-w-0">
-          {/* Resposta do cliente pelo link público (nome/CPF/observação/quando) */}
-          {orc.decisaoTipo && (
-            <Card className={cn('mb-5 border', orc.decisaoTipo === 'APROVADO'
-              ? 'border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/40'
-              : orc.decisaoTipo === 'REVISAO_SOLICITADA'
-              ? 'border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/40'
-              : 'border-rose-200 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/40')}>
-              <CardHeader className="border-b border-border/40 px-5 py-3 flex flex-row items-center gap-2">
-                {orc.decisaoTipo === 'APROVADO'
-                  ? <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  : orc.decisaoTipo === 'REVISAO_SOLICITADA'
-                  ? <Pencil className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  : <ThumbsDown className="h-4 w-4 text-rose-600 dark:text-rose-400" />}
-                <h3 className="text-sm font-semibold flex-1">Resposta do cliente pelo link</h3>
-                <Badge className={cn('text-[10px]', orc.decisaoTipo === 'APROVADO'
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                  : orc.decisaoTipo === 'REVISAO_SOLICITADA'
-                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
-                  : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300')}>
-                  {orc.decisaoTipo === 'APROVADO' ? 'Aprovado' : orc.decisaoTipo === 'REVISAO_SOLICITADA' ? 'Revisão solicitada' : 'Recusado'}
-                </Badge>
-              </CardHeader>
-              <CardContent className="px-5 py-4 space-y-3 text-sm">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Nome</p>
-                    <p className="text-foreground font-medium">{orc.decisaoNome || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">CPF</p>
-                    <p className="text-foreground font-medium tabular-nums">{orc.decisaoCpf ? orc.decisaoCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Data / hora</p>
-                    <p className="text-foreground font-medium tabular-nums">{orc.decisaoEm ? new Date(orc.decisaoEm).toLocaleString('pt-BR') : '—'}</p>
-                  </div>
-                </div>
-                {(orc.decisaoCnpjFaturamento || orc.decisaoEmailFinanceiro) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">CPF / CNPJ p/ faturamento</p>
-                      <p className="text-foreground font-medium tabular-nums">{fmtDocFaturamento(orc.decisaoCnpjFaturamento)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">E-mail do financeiro</p>
-                      <p className="text-foreground font-medium break-all">{orc.decisaoEmailFinanceiro || '—'}</p>
-                    </div>
-                  </div>
-                )}
-                {orc.decisaoObs && (
-                  <div>
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Observação do cliente</p>
-                    <p className="text-foreground bg-background/60 rounded-md border border-border/60 p-2.5 whitespace-pre-wrap">{orc.decisaoObs}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
           {/* === TAB: DETALHES (Card com pills verticais) === */}
           <TabsContent value="detalhes" className="mt-0">
             <Card className="rounded-lg shadow-sm">
@@ -2896,6 +2838,99 @@ export default function OrcamentoDetailPage() {
               </div>
             </div>
           </Card>
+
+          {/* Respostas do cliente pelo link público — mesmo desenho do Resumo
+              Financeiro. A decisão vigente mora em orc.decisao*; o histórico
+              completo (aprovações, revisões, recusas ao longo dos reenvios) vem
+              dos eventos status_change sem usuário gravados pelo registrarDecisao. */}
+          {(() => {
+            type Tipo = 'APROVADO' | 'REVISAO_SOLICITADA' | 'REPROVADO'
+            const META: Record<Tipo, { label: string; hex: string; Icon: typeof CheckCircle2 }> = {
+              APROVADO: { label: 'Aprovado', hex: '#10b981', Icon: CheckCircle2 },
+              REVISAO_SOLICITADA: { label: 'Revisão solicitada', hex: '#f59e0b', Icon: Pencil },
+              REPROVADO: { label: 'Recusado', hex: '#ef4444', Icon: ThumbsDown },
+            }
+            const classifica = (d: string): Tipo | null =>
+              /solicitou revisão/i.test(d) ? 'REVISAO_SOLICITADA'
+              : /Aprovado\s*$/i.test(d) ? 'APROVADO'
+              : /Recusado\s*$/i.test(d) ? 'REPROVADO'
+              : null
+            const respostas = orc.eventos
+              .filter(e => e.tipo === 'status_change' && !e.usuario && classifica(e.descricao))
+              .map(e => ({ id: e.id, tipo: classifica(e.descricao) as Tipo, nome: (e.descricao.match(/\(([^)]+)\)/)?.[1] ?? '').trim(), em: e.createdAt }))
+              .sort((a, b) => new Date(b.em).getTime() - new Date(a.em).getTime())
+            const atual = (orc.decisaoTipo as Tipo | null) && META[orc.decisaoTipo as Tipo] ? (orc.decisaoTipo as Tipo) : null
+            const cab = atual ? META[atual] : (respostas[0] ? META[respostas[0].tipo] : null)
+            const HeadIcon = cab?.Icon ?? Globe
+            const hex = cab?.hex ?? 'var(--color-primary)'
+            return (
+              <Card className="overflow-hidden rounded-2xl p-0">
+                <div
+                  className="flex items-center justify-between border-b border-border px-5 py-4"
+                  style={{ background: `linear-gradient(to bottom right, color-mix(in srgb, ${hex} 10%, transparent), color-mix(in srgb, ${hex} 4%, transparent))` }}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ backgroundColor: hex }}>
+                      <HeadIcon className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Respostas do cliente</p>
+                      <p className="text-base font-bold text-foreground">{cab ? cab.label : 'Aguardando'}</p>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ backgroundColor: `color-mix(in srgb, ${hex} 12%, transparent)`, color: hex }}>
+                    {respostas.length} {respostas.length === 1 ? 'resposta' : 'respostas'}
+                  </span>
+                </div>
+                <div className="space-y-3 p-5">
+                  {respostas.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Nenhuma resposta pelo link público ainda.</p>
+                  )}
+                  {respostas.map(r => {
+                    const m = META[r.tipo]
+                    const RIcon = m.Icon
+                    return (
+                      <div key={r.id} className="flex items-start gap-2.5">
+                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ backgroundColor: `color-mix(in srgb, ${m.hex} 14%, transparent)`, color: m.hex }}>
+                          <RIcon className="h-3.5 w-3.5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-foreground">{m.label}{r.nome && <span className="font-normal text-muted-foreground"> · {r.nome}</span>}</p>
+                          <p className="text-[11px] text-muted-foreground tabular-nums">{new Date(r.em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {atual && (
+                    <div className="mt-1 space-y-2 border-t border-border pt-3">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">CPF</span>
+                        <span className="font-medium tabular-nums text-foreground">{orc.decisaoCpf ? orc.decisaoCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—'}</span>
+                      </div>
+                      {orc.decisaoCnpjFaturamento && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Faturamento</span>
+                          <span className="font-medium tabular-nums text-foreground">{fmtDocFaturamento(orc.decisaoCnpjFaturamento)}</span>
+                        </div>
+                      )}
+                      {orc.decisaoEmailFinanceiro && (
+                        <div className="flex justify-between gap-3 text-xs">
+                          <span className="shrink-0 text-muted-foreground">E-mail financeiro</span>
+                          <span className="truncate font-medium text-foreground" title={orc.decisaoEmailFinanceiro}>{orc.decisaoEmailFinanceiro}</span>
+                        </div>
+                      )}
+                      {orc.decisaoObs && (
+                        <div className="text-xs">
+                          <p className="mb-1 text-muted-foreground">Observação</p>
+                          <p className="whitespace-pre-wrap rounded-lg border border-border bg-muted/40 p-2.5 text-foreground">{orc.decisaoObs}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )
+          })()}
 
           {/* Vínculos — hoje o card de CRM; eventos da agenda, outros
               orçamentos etc. entram como novas subseções deste card. */}
