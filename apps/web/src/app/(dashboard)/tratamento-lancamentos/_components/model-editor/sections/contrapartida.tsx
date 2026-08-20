@@ -461,15 +461,15 @@ function ContrapartidaTabela<T extends CpItemComum>({
         </Table>
       </div>
 
+      {onAdd && (
+        <Button variant="soft" size="sm" onClick={handleAdd}><Plus className="h-4 w-4" /> {addLabel ?? 'Adicionar'}</Button>
+      )}
+
       {showPager && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
           <Paginador page={pageSafe} pageCount={pageCount} onGo={setPage} />
           <span className="text-muted-foreground">{filtered.length} {filtered.length === 1 ? 'linha' : 'linhas'}{query.trim() ? ' no filtro' : ''}</span>
         </div>
-      )}
-
-      {onAdd && (
-        <Button variant="soft" size="sm" onClick={handleAdd}><Plus className="h-4 w-4" /> {addLabel ?? 'Adicionar'}</Button>
       )}
     </div>
   )
@@ -559,7 +559,7 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
       <button
         type="button"
         onClick={() => { setSoSem(distintasSem > 0); setAberto(true) }}
-        className="group sticky top-[106px] z-10 flex w-full cursor-pointer items-center gap-5 rounded-[4px] border border-border bg-card px-4 py-2.5 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-fuchsia-400/60 hover:ring-fuchsia-400/20"
+        className="group sticky top-[calc(var(--app-header-offset)_+_8px)] z-10 flex w-full cursor-pointer items-center gap-5 rounded-[4px] border border-border bg-card px-4 py-2.5 text-left shadow-sm ring-1 ring-transparent transition-all hover:border-fuchsia-400/60 hover:ring-fuchsia-400/20"
       >
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">

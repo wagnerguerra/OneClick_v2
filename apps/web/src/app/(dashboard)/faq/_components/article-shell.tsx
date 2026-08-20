@@ -31,7 +31,7 @@ export function ArticleShell({ modulo, moduloColor, icon: Icon, titulo, descrica
     // do <main> (-mx/-mt/-mb). Header + índice ficam fixos; rola só o miolo.
     <div
       className="flex flex-col overflow-hidden -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 -mb-4 sm:-mb-6"
-      style={{ height: 'calc(100dvh - 64px)' }}
+      style={{ height: 'calc(100dvh - var(--app-header-offset))' }}
     >
       {/* Header padrão do sistema (PageHeader) — sem bleed (o container já sangra) */}
       <div className="shrink-0">

@@ -280,8 +280,8 @@ function AvaliacoesCompletasCard({ responsaveis, inicio, fim }: {
   const [lista, setLista] = useState<AvaliacoesLista | null>(null)
   const [carregando, setCarregando] = useState(false)
 
-  // UX: ao selecionar um filtro, traz o cabeçalho da seção para logo abaixo das
-  // abas fixas (scroll-mt-[110px] no wrapper). Pula o primeiro render.
+  // UX: ao selecionar um filtro, traz o cabeçalho da seção para logo abaixo do
+  // header fixo (scroll-mt-[var(--app-header-offset)] no wrapper). Pula o primeiro render.
   const cardRef = useRef<HTMLDivElement>(null)
   const primeiraRender = useRef(true)
   useEffect(() => {
@@ -318,7 +318,7 @@ function AvaliacoesCompletasCard({ responsaveis, inicio, fim }: {
   const slice = filtradas.slice((pagina - 1) * HIST_PAGE_SIZE, pagina * HIST_PAGE_SIZE)
 
   return (
-    <div ref={cardRef} className="scroll-mt-[110px]">
+    <div ref={cardRef} className="scroll-mt-[var(--app-header-offset)]">
     <Card><CardContent className="p-4">
       {/* Cabeçalho */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">

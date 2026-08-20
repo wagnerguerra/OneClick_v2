@@ -90,7 +90,7 @@ export function NotesRail() {
         onClick={() => setOpen(o => !o)}
         title="Notas rápidas"
         className={cn(
-          'hidden lg:flex fixed right-[4px] top-[112px] z-40 h-9 w-9 rounded-lg items-center justify-center transition-colors',
+          'hidden lg:flex fixed right-[4px] top-[calc(var(--app-header-offset)_+_48px)] z-40 h-9 w-9 rounded-lg items-center justify-center transition-colors',
           open ? 'bg-amber-500 text-white' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
         )}
       >
@@ -103,7 +103,7 @@ export function NotesRail() {
       {/* Painel */}
       {open && (
         <div
-          className="hidden lg:flex fixed top-16 right-0 bottom-0 z-40 w-[380px] bg-muted border-l border-border shadow-xl flex-col"
+          className="hidden lg:flex fixed top-[var(--app-header-offset)] right-0 bottom-0 z-40 w-[380px] bg-muted border-l border-border shadow-xl flex-col"
           style={{ animation: 'fadeSlideIn 0.2s ease-out' }}
         >
           {/* Header */}

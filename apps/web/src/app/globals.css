@@ -30,6 +30,11 @@
   --color-input: #e5e8ee;
   --color-ring: #0067ff;
   --radius: 0.5rem;
+  /* Altura do header fixo do dashboard (= h-16, 64px). Fonte única do offset
+     "logo abaixo do topo": usado pela própria altura do header, por headers
+     sticky de seção (top-[…]) e por alvos de autoscroll (scroll-mt-[…]).
+     Mudar SÓ aqui reflete em todos os consumidores. */
+  --app-header-offset: 4rem;
   --color-sidebar: #ffffff;
   --color-sidebar-foreground: #1a1a1a;
   --color-sidebar-border: #e5e5e5;
