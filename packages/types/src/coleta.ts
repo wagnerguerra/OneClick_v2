@@ -53,6 +53,11 @@ export const COLETA_TRANSICOES = {
 } as const
 export type ColetaTransicao = keyof typeof COLETA_TRANSICOES
 
+/** Escala do v1: 1=Baixa, 2=Média, 3=Alta (0 = não definida). */
+export const COLETA_PRIORIDADE_LABEL: Record<number, string> = {
+  0: '—', 1: 'Baixa', 2: 'Média', 3: 'Alta',
+}
+
 const anoMes = z.string().regex(/^\d{2}\/\d{4}$/, 'Use MM/AAAA.').optional().nullable()
 
 export const criarColetaSchema = z.object({

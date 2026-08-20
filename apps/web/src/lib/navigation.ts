@@ -176,7 +176,7 @@ export const navigation: NavGroup[] = [
     icon: Building2,
     items: [
       { label: 'Agenda Corporativa', href: '/agenda', icon: Calendar },
-      { label: 'Coleta e Recebimento', href: '/coleta-documentos', icon: FolderInput, wip: true },
+      { label: 'Coleta e Recebimento', href: '/coleta-documentos', icon: FolderInput },
       { label: 'Contatos', href: '/contatos', icon: Phone, wip: true },
       { label: 'Controle de Estoque', href: '/estoque', icon: Boxes, wip: true },
       { label: 'Gerenciador de Serviços', href: '/meus-servicos', icon: ListChecks },
