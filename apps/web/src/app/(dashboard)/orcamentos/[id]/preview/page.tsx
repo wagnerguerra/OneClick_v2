@@ -563,10 +563,10 @@ export default function OrcamentoDetailPage() {
   const STATUS_LOCKED = new Set(['APROVADO', 'LIBERADO', 'FINALIZADO', 'ENCERRADO'])
   const isLocked = !!orc && STATUS_LOCKED.has(orc.status)
   // Pills internas da aba Detalhes (organizacao em sub-card vertical)
-  type PillKey = 'dados' | 'itens' | 'textos'
+  type PillKey = 'dados' | 'itens'
   // Itens e Textos viraram tabs do hero (ao lado de Detalhes). A "pill" ativa
   // é derivada da tab — o conteúdo abaixo continua igual.
-  const activePill: PillKey = activeTab === 'itens' ? 'itens' : activeTab === 'textos' ? 'textos' : 'dados'
+  const activePill: PillKey = activeTab === 'itens' ? 'itens' : 'dados'
   // Auto-save: status visivel + ref para evitar disparar no primeiro load
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const initialLoadRef = useRef(true)
@@ -1983,7 +1983,6 @@ export default function OrcamentoDetailPage() {
           {([
             { value: 'detalhes', icon: FileText, label: 'Detalhes' },
             { value: 'itens', icon: Package, label: 'Itens', badge: orc.itens.length },
-            { value: 'textos', icon: Type, label: 'Textos' },
             { value: 'mensagens', icon: MessageSquare, label: 'Mensagens', badge: orc.mensagens.length },
             { value: 'timeline', icon: History, label: 'Timeline' },
             ...((historicoCliente.length > 0 || temLegado) ? [{ value: 'historico', icon: Files, label: 'Outros orçamentos' }] : []),
@@ -2044,12 +2043,12 @@ export default function OrcamentoDetailPage() {
       <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1fr_20rem]">
         <div className="min-w-0">
           {/* === TABS: DETALHES / ITENS / TEXTOS (mesmo card, conteúdo pela tab) === */}
-          {(activeTab === 'detalhes' || activeTab === 'itens' || activeTab === 'textos') && (
+          {(activeTab === 'detalhes' || activeTab === 'itens') && (
             <SectionCard
               key={activePill}
-              title={activePill === 'itens' ? 'Itens do Orçamento' : activePill === 'textos' ? 'Textos da Proposta' : 'Detalhes do Orçamento'}
-              description={activePill === 'itens' ? 'Serviços, taxas e despesas que compõem o valor.' : activePill === 'textos' ? 'Introdução, condições e observações que vão na proposta.' : 'Dados gerais do orçamento.'}
-              icon={activePill === 'itens' ? <Package /> : activePill === 'textos' ? <Type /> : <Layers />}
+              title={activePill === 'itens' ? 'Itens do Orçamento' : 'Detalhes do Orçamento'}
+              description={activePill === 'itens' ? 'Serviços, taxas e despesas que compõem o valor.' : 'Dados gerais do orçamento.'}
+              icon={activePill === 'itens' ? <Package /> : <Layers />}
               bodyClassName="p-0"
             >
               <div className="flex min-h-[450px]">
@@ -2064,9 +2063,6 @@ export default function OrcamentoDetailPage() {
                 >
                   {activePill === 'dados' && (
                     <div className="-m-5">
-                      <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
-                        <h4 className="text-[13px] font-semibold text-foreground">Dados Gerais</h4>
-                      </div>
                       <div className="p-5 grid grid-cols-12 gap-3">
                         {/* Linha 1: Cliente (8) + Validade (4) — identifica o "quê" e o prazo */}
                         <div className="col-span-12 sm:col-span-8 space-y-1.5">
@@ -2492,11 +2488,21 @@ export default function OrcamentoDetailPage() {
                     </div>
                   )}
 
-                  {activePill === 'textos' && (
+                </div>
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Textos da proposta — card próprio abaixo dos Detalhes, na mesma tab */}
+          {activeTab === 'detalhes' && (
+            <SectionCard
+              title="Textos da Proposta"
+              description="Introdução, condições e observações que vão na proposta."
+              icon={<Type />}
+              className="mt-6"
+            >
+              <div data-locked={isLocked || undefined}>
                     <div className="-m-5">
-                      <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
-                        <h4 className="text-[13px] font-semibold text-foreground">Textos</h4>
-                      </div>
                       <div className="p-5 space-y-4">
                         {/* `data-editable` re-habilita interacao mesmo com data-locked
                             no container pai. Texto Interno e anotacao da equipe e
@@ -2511,8 +2517,7 @@ export default function OrcamentoDetailPage() {
                         </div>
                       </div>
                     </div>
-                  )}
-                </div>
+                  
               </div>
             </SectionCard>
           )}
