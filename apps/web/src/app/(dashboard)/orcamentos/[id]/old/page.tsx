@@ -8,13 +8,13 @@ import {
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
   Package, History, Type, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock, Globe,
-  Sparkles, Star, Link2, Hash, Building2, Calendar, Layers,
+  Sparkles, Star, Link2,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Tabs, TabsContent,
+  Tabs, TabsTrigger, TabsContent, SlidingTabsList,
   RichEditor,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -24,8 +24,6 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
-import { PageHeaderBar } from '@/components/page-header-bar'
-import { SectionCard } from '@/components/section-card'
 import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserMultiPicker } from '@/components/user-multi-picker'
@@ -563,10 +561,8 @@ export default function OrcamentoDetailPage() {
   const STATUS_LOCKED = new Set(['APROVADO', 'LIBERADO', 'FINALIZADO', 'ENCERRADO'])
   const isLocked = !!orc && STATUS_LOCKED.has(orc.status)
   // Pills internas da aba Detalhes (organizacao em sub-card vertical)
-  type PillKey = 'dados' | 'itens'
-  // Itens e Textos viraram tabs do hero (ao lado de Detalhes). A "pill" ativa
-  // é derivada da tab — o conteúdo abaixo continua igual.
-  const activePill: PillKey = activeTab === 'itens' ? 'itens' : 'dados'
+  type PillKey = 'dados' | 'itens' | 'textos'
+  const [activePill, setActivePill] = useState<PillKey>('dados')
   // Auto-save: status visivel + ref para evitar disparar no primeiro load
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const initialLoadRef = useRef(true)
@@ -1064,21 +1060,7 @@ export default function OrcamentoDetailPage() {
   }
 
   // Avanca/regredi o status via mesmo endpoint usado pelo kanban
-  /** Textos do alerta de confirmação por status de destino (pedido do Wagner, 21/08:
-   *  toda troca de status passa por confirmação antes de efetivar). */
-  const CONFIRM_STATUS: Record<string, { title: string; text: string; confirmText: string; icon: 'warning' | 'question' }> = {
-    APROVADO:   { title: 'Aprovar orçamento?',   text: 'O orçamento será marcado como aprovado pelo cliente e ficará congelado para edição.', confirmText: 'Aprovar', icon: 'question' },
-    LIBERADO:   { title: 'Liberar para execução?', text: 'O orçamento será liberado para a área executar o serviço. As áreas envolvidas serão notificadas.', confirmText: 'Liberar', icon: 'question' },
-    FINALIZADO: { title: 'Finalizar orçamento?', text: 'Confirma que o serviço foi concluído? O orçamento será marcado como finalizado.', confirmText: 'Finalizar', icon: 'question' },
-    ENCERRADO:  { title: 'Encerrar orçamento?',  text: 'O orçamento será encerrado e sairá do fluxo ativo. Essa ação fica registrada na timeline.', confirmText: 'Encerrar', icon: 'warning' },
-    CANCELADO:  { title: 'Cancelar orçamento?',  text: 'O orçamento será cancelado. Essa ação fica registrada na timeline.', confirmText: 'Cancelar orçamento', icon: 'warning' },
-    ENVIADO:    { title: 'Marcar como enviado?', text: 'O status passará para enviado.', confirmText: 'Confirmar', icon: 'question' },
-  }
-
   async function handleStatusAction(novoStatus: string, mensagemSucesso: string) {
-    const c = CONFIRM_STATUS[novoStatus] ?? { title: 'Alterar status?', text: `O status do orçamento passará para ${STATUS_LABELS[novoStatus] || novoStatus}.`, confirmText: 'Confirmar', icon: 'question' as const }
-    const ok = await alerts.confirm({ title: c.title, text: c.text, confirmText: c.confirmText, icon: c.icon })
-    if (!ok) return
     try {
       await (trpc.orcamento as any).changeStatus.mutate({ id, status: novoStatus })
       alerts.success('Atualizado', mensagemSucesso)
@@ -1686,10 +1668,141 @@ export default function OrcamentoDetailPage() {
 
   return (
     <div className="space-y-0 pb-6">
+      {/* Layout ANTERIOR, mantido em /old durante a transição (21/08/2026). */}
+      <div className="mb-3 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+        <span>Você está no layout antigo desta página.</span>
+        <Link href={`/orcamentos/${id}`} className="font-semibold underline underline-offset-2">Ir para o layout novo</Link>
+      </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0">
-      {/* ── Barra de página (padrão LuminAux): título + trilha; ações à direita ── */}
-      <PageHeaderBar className="mb-0 sm:mb-0"
-        actions={<>
+      {/* Wrapper bleed-edge cobrindo Header + Tabs — espelha padrao /perfil:
+          imagem como <img> absoluto + overlay rosa por cima */}
+      <div
+        className="relative -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 overflow-hidden group/cover"
+        style={!headerCover ? { backgroundColor: 'rgba(251, 113, 133, .18)' } : undefined}
+      >
+        {/* Imagem de fundo personalizada — em tamanho natural; tile (repeat) quando menor que o wrapper */}
+        {headerCover && (
+          <div
+            aria-label="Capa do orcamento"
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url('${headerCover}')`,
+              backgroundRepeat: 'repeat',
+              backgroundSize: 'auto',
+              backgroundPosition: 'top left',
+              opacity: 0.2,
+            }}
+          />
+        )}
+        {/* Overlay rosa em gradiente: 0% na esquerda → 80% na direita (imagem revela-se a esquerda) */}
+        {headerCover && (
+          <div
+            className="absolute inset-0"
+            style={{ backgroundImage: 'linear-gradient(to right, rgba(251, 113, 133, 0) 0%, rgba(251, 113, 133, 0.8) 100%)' }}
+          />
+        )}
+        {/* Controles de capa — base do background, visiveis apenas para Master ao passar o mouse */}
+        {isMaster && (
+          <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
+            <button
+              type="button"
+              onClick={() => coverInputRef.current?.click()}
+              disabled={uploadingCover}
+              className="inline-flex items-center gap-1.5 rounded-md bg-white/90 hover:bg-white text-foreground px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60"
+              title={headerCover ? 'Trocar imagem de fundo' : 'Personalizar capa'}
+            >
+              {uploadingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{headerCover ? 'Trocar capa' : 'Personalizar capa'}</span>
+            </button>
+            {headerCover && (
+              <button
+                type="button"
+                onClick={handleCoverRemove}
+                disabled={uploadingCover}
+                className="inline-flex items-center gap-1.5 rounded-md bg-white/90 hover:bg-white text-rose-600 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60"
+                title="Remover capa"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) handleCoverUpload(file)
+                e.target.value = ''
+              }}
+            />
+          </div>
+        )}
+      <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 overflow-hidden shadow-lg" style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}>
+              <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold uppercase">{orc.cliente?.razaoSocial || 'Sem cliente'}</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                #{String(orc.numero).padStart(4, '0')}
+                {orc.cliente?.documento && (<>&nbsp;&nbsp;|&nbsp;&nbsp;{masks.cpfCnpj(orc.cliente.documento)}</>)}
+                &nbsp;&nbsp;|&nbsp;&nbsp;Criado em: {new Date(orc.createdAt).toLocaleDateString('pt-BR')}, {new Date(orc.createdAt).toLocaleTimeString('pt-BR')}
+                &nbsp;&nbsp;|&nbsp;&nbsp;<span className="align-middle"><StatusBadge status={orc.status} /></span>
+                {chipsAreas.length > 0 && (
+                  <span className="inline-flex flex-wrap gap-1.5 align-middle ml-2">
+                    {/* Mesmo desenho do StatusBadge (pílula sólida uppercase) — só muda a cor. */}
+                    {chipsAreas.map(a => (
+                      <span key={a.id}
+                        className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white whitespace-nowrap uppercase"
+                        style={{ backgroundColor: '#94a3b8' }}
+                        title={a.derivada ? 'Área dos serviços da aba Itens' : 'Área notificada'}>
+                        {a.nome}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </p>
+              {/* Sem o status (que subiu pra linha do cabeçalho), a linha de
+                  badges só existe quando tem algo a mostrar — evita margem fantasma. */}
+              {(orc.paralizado || orc.arquivado || (orc.reaberturasCount ?? 0) > 0 || pesquisaResumo?.respondida) && (
+              <div className="flex flex-wrap gap-2 mt-2.5">
+                {orc.paralizado && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-3 py-1 text-xs font-medium uppercase">
+                    <Pause className="h-3 w-3" /> Paralizado
+                  </span>
+                )}
+                {orc.arquivado && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 px-3 py-1 text-xs font-medium uppercase">
+                    Arquivado
+                  </span>
+                )}
+                {(orc.reaberturasCount ?? 0) > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-3 py-1 text-xs font-medium uppercase border border-amber-200 dark:border-amber-900/40"
+                    title={`Este orçamento já foi reaberto ${orc.reaberturasCount}x. Histórico disponível na timeline.`}
+                  >
+                    <RotateCcw className="h-3 w-3" /> Reaberto {orc.reaberturasCount}×
+                  </span>
+                )}
+                {pesquisaResumo?.respondida && (
+                  <button
+                    type="button"
+                    onClick={() => setPesquisaSheet(true)}
+                    title="O cliente respondeu a pesquisa de satisfação — clique para ver"
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border transition-colors hover:brightness-105"
+                    style={{ color: MODULE_COLOR, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)`, backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 12%, transparent)` }}
+                  >
+                    <Star className="h-3 w-3" /> Pesquisa respondida
+                  </button>
+                )}
+              </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
             {autoSaveStatus !== 'idle' && (
               <span className={cn(
                 'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md transition-opacity',
@@ -1839,161 +1952,6 @@ export default function OrcamentoDetailPage() {
               </Button>
             )}
             <BackButton href="/orcamentos" />
-        </>}
-      >
-        <div className="flex items-center gap-2">
-          <h1 className="truncate">Orçamento #{String(orc.numero).padStart(4, '0')}</h1>
-          <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">Prévia do novo layout</span>
-        </div>
-        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-          <Link href="/dashboard" className="hover:text-foreground transition-colors">Página inicial</Link>
-          <span className="text-muted-foreground/50">›</span>
-          <span>Comercial</span>
-          <span className="text-muted-foreground/50">›</span>
-          <Link href="/orcamentos" className="hover:text-foreground transition-colors">Orçamentos</Link>
-          <span className="text-muted-foreground/50">›</span>
-          <span className="truncate">{orc.cliente?.razaoSocial || 'Sem cliente'}</span>
-        </p>
-      </PageHeaderBar>
-
-      {/* ── Hero (modelo /settings): capa + identidade + stats, tabs na base ── */}
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
-      <div className="relative overflow-hidden group/cover">
-        {/* Capa: imagem em cover; sem imagem, gradiente na cor do módulo */}
-        {headerCover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={headerCover} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        ) : (
-          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
-        {/* Controles de capa — base do background, visiveis apenas para Master ao passar o mouse */}
-        {isMaster && (
-          <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => coverInputRef.current?.click()}
-              disabled={uploadingCover}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-white/30 disabled:opacity-60"
-              title={headerCover ? 'Trocar imagem de fundo' : 'Personalizar capa'}
-            >
-              {uploadingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">Alterar capa</span>
-            </button>
-            {headerCover && (
-              <button
-                type="button"
-                onClick={handleCoverRemove}
-                disabled={uploadingCover}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-2.5 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-rose-500/60 disabled:opacity-60"
-                title="Remover capa"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <input
-              ref={coverInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) handleCoverUpload(file)
-                e.target.value = ''
-              }}
-            />
-          </div>
-        )}
-      <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex items-end gap-4">
-            <div className="relative shrink-0">
-              <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
-                <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
-              </div>
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xl font-bold tracking-tight text-white drop-shadow">{orc.cliente?.razaoSocial || 'Sem cliente'}</p>
-                <StatusBadge status={orc.status} />
-                {chipsAreas.map(a => (
-                  <span key={a.id}
-                    className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur"
-                    title={a.derivada ? 'Área dos serviços da aba Itens' : 'Área notificada'}>
-                    {a.nome}
-                  </span>
-                ))}
-                {/* Badges de estado, na mesma linha do status e das áreas (vidro, como os chips) */}
-                {orc.paralizado && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur text-amber-200">
-                    <Pause className="h-3 w-3" /> Paralizado
-                  </span>
-                )}
-                {orc.arquivado && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur text-white/80">
-                    Arquivado
-                  </span>
-                )}
-                {(orc.reaberturasCount ?? 0) > 0 && (
-                  <span
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur text-amber-200"
-                    title={`Este orçamento já foi reaberto ${orc.reaberturasCount}x. Histórico disponível na timeline.`}
-                  >
-                    <RotateCcw className="h-3 w-3" /> Reaberto {orc.reaberturasCount}×
-                  </span>
-                )}
-                {pesquisaResumo?.respondida && (
-                  <button
-                    type="button"
-                    onClick={() => setPesquisaSheet(true)}
-                    title="O cliente respondeu a pesquisa de satisfação — clique para ver"
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur text-white transition-colors hover:bg-white/25"
-                  >
-                    <Star className="h-3 w-3" /> Pesquisa respondida
-                  </button>
-                )}
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/85">
-                <span className="inline-flex items-center gap-1"><Hash className="h-3.5 w-3.5" />{String(orc.numero).padStart(4, '0')}</span>
-                {orc.cliente?.documento && <span className="inline-flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />{masks.cpfCnpj(orc.cliente.documento)}</span>}
-                <span className="inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />Criado em {new Date(orc.createdAt).toLocaleDateString('pt-BR')}, {new Date(orc.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-6">
-            <div className="text-center">
-              <p className="text-lg font-bold tracking-tight text-white drop-shadow tabular-nums">{formatCurrency(totalGeral)}</p>
-              <p className="text-xs text-white/75">Total</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-bold tracking-tight text-white drop-shadow tabular-nums">{orc.itens.length}</p>
-              <p className="text-xs text-white/75">Itens</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-bold tracking-tight text-white drop-shadow tabular-nums">{orc.mensagens.length}</p>
-              <p className="text-xs text-white/75">Mensagens</p>
-            </div>
-            {/* Resposta do cliente pelo link — só aparece quando existe, com pulso
-                pra chamar o olho de quem abre o orçamento */}
-            {orc.decisaoTipo && (() => {
-              const m = orc.decisaoTipo === 'APROVADO'
-                ? { label: 'Aprovado', dot: 'bg-emerald-400', text: 'text-emerald-300' }
-                : orc.decisaoTipo === 'REVISAO_SOLICITADA'
-                ? { label: 'Revisão', dot: 'bg-amber-400', text: 'text-amber-300' }
-                : { label: 'Recusado', dot: 'bg-rose-400', text: 'text-rose-300' }
-              return (
-                <div className="text-center border-l border-white/25 pl-6" title={orc.decisaoEm ? `Respondido em ${new Date(orc.decisaoEm).toLocaleString('pt-BR')}` : undefined}>
-                  <p className={cn('flex items-center justify-center gap-1.5 text-lg font-bold tracking-tight drop-shadow', m.text)}>
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className={cn('absolute inline-flex h-full w-full animate-ping rounded-full opacity-70', m.dot)} />
-                      <span className={cn('relative inline-flex h-2.5 w-2.5 rounded-full', m.dot)} />
-                    </span>
-                    {m.label}
-                  </p>
-                  <p className="text-xs text-white/75">Resposta do cliente</p>
-                </div>
-              )
-            })()}
           </div>
         </div>
       </div>
@@ -2002,48 +1960,73 @@ export default function OrcamentoDetailPage() {
           Classes !-prefixadas vencem as regras globais de [role="tablist"] do globals.css.
           O -mt compensa a altura do avatar (88px): sem a linha de badges (status
           subiu pro cabeçalho), sobrava um vão grande até as abas. */}
-      </div>
-      {/* /capa */}
-      <div className="border-t border-border px-3">
-        {/* Tira de tabs do modelo: botoes simples (fora do [role=tablist] global,
-            que impoe borda inferior/raio 0/cores antigas). O estado continua no
-            <Tabs value={activeTab}> — os TabsContent abaixo reagem normalmente. */}
-        <div className="flex gap-1.5 overflow-x-auto py-2">
-          {([
-            { value: 'detalhes', icon: FileText, label: 'Detalhes' },
-            { value: 'itens', icon: Package, label: 'Itens', badge: orc.itens.length },
-            { value: 'mensagens', icon: MessageSquare, label: 'Mensagens', badge: orc.mensagens.length },
-            { value: 'timeline', icon: History, label: 'Timeline' },
-            ...((historicoCliente.length > 0 || temLegado) ? [{ value: 'historico', icon: Files, label: 'Outros orçamentos' }] : []),
-          ] as Array<{ value: string; icon: typeof FileText; label: string; badge?: number }>).map(t => {
-            const Icon = t.icon
-            const ativa = activeTab === t.value
-            return (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setActiveTab(t.value)}
-                aria-current={ativa ? 'page' : undefined}
-                className={cn(
-                  'inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors',
-                  ativa ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {t.label}
-                {(t.badge ?? 0) > 0 && (
-                  <span className={cn('inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums', ativa ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground')}>
-                    {t.badge}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
+      <div className="relative z-10 px-4 sm:px-6 pb-2 -mt-4 overflow-x-auto flex justify-center">
+        <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
+          <TabsTrigger value="detalhes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5">
+            <FileText className="h-3.5 w-3.5" /> Detalhes
+          </TabsTrigger>
+          <TabsTrigger value="mensagens" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5" /> Mensagens
+            {orc.mensagens.length > 0 && <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{orc.mensagens.length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="timeline" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5">
+            <History className="h-3.5 w-3.5" /> Timeline
+          </TabsTrigger>
+          {(historicoCliente.length > 0 || temLegado) && (
+            <TabsTrigger value="historico" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5">
+              <Files className="h-3.5 w-3.5" /> Outros orçamentos
+            </TabsTrigger>
+          )}
+        </SlidingTabsList>
       </div>
       </div>
-      {/* /hero */}
+      {/* /wrapper imagem */}
 
+      {/* Banner de "orcamento congelado" — exibido quando status >= APROVADO.
+          Edicoes sao bloqueadas; usuario deve duplicar para uma copia em NOVO. */}
+      {isLocked && (
+        <Card className="relative overflow-hidden border-slate-200/80 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900/40 dark:to-slate-900/10 dark:border-slate-700/40 shadow-sm mt-5">
+          {/* Faixa lateral colorida (cor do modulo) marcando o estado especial */}
+          <div className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: MODULE_COLOR }} />
+          <div className="flex items-center gap-4 p-4 pl-5">
+            {/* Icone em circulo destacado */}
+            <div
+              className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-slate-900 shadow-sm"
+              style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 8%, transparent)` }}
+            >
+              <Lock className="h-5 w-5" style={{ color: MODULE_COLOR }} />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-sm font-semibold text-foreground">Orçamento congelado para edição</h4>
+                <span
+                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                  style={{ backgroundColor: STATUS_COLORS[orc.status] || '#94a3b8' }}
+                >
+                  {STATUS_LABELS[orc.status] || orc.status}
+                </span>
+              </div>
+              <p className="text-[12.5px] text-muted-foreground mt-1 leading-relaxed">
+                Para fazer ajustes, duplique este orçamento. A cópia voltará ao status <strong className="text-foreground/80">Novo</strong> e poderá ser editada livremente. Este permanecerá intacto e preservado para auditoria.
+              </p>
+            </div>
+
+            {/* CTA primario — filled com cor do modulo, mais convidativo */}
+            {canDuplicar && (
+              <Button
+                size="sm"
+                className="gap-1.5 text-white shadow-sm shrink-0"
+                style={{ backgroundColor: MODULE_COLOR }}
+                onClick={handleDuplicar}
+              >
+                <CopyIcon className="h-3.5 w-3.5" />
+                Duplicar para editar
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Banner de paralizacao */}
       {orc.paralizado && (
@@ -2069,29 +2052,127 @@ export default function OrcamentoDetailPage() {
       )}
 
       {/* Layout 2 colunas: principal + sidebar */}
-      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1fr_20rem]">
+      <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0">
-          {/* === TABS: DETALHES / ITENS / TEXTOS (mesmo card, conteúdo pela tab) === */}
-          {(activeTab === 'detalhes' || activeTab === 'itens') && (
-            <SectionCard
-              key={activePill}
-              title={activePill === 'itens' ? 'Itens do Orçamento' : 'Detalhes do Orçamento'}
-              description={activePill === 'itens' ? 'Serviços, taxas e despesas que compõem o valor.' : 'Dados gerais do orçamento.'}
-              icon={activePill === 'itens' ? <Package /> : <Layers />}
-              bodyClassName="p-0"
-            >
-              <div className="flex">
+          {/* Resposta do cliente pelo link público (nome/CPF/observação/quando) */}
+          {orc.decisaoTipo && (
+            <Card className={cn('mb-5 border', orc.decisaoTipo === 'APROVADO'
+              ? 'border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/40'
+              : orc.decisaoTipo === 'REVISAO_SOLICITADA'
+              ? 'border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/40'
+              : 'border-rose-200 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/40')}>
+              <CardHeader className="border-b border-border/40 px-5 py-3 flex flex-row items-center gap-2">
+                {orc.decisaoTipo === 'APROVADO'
+                  ? <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  : orc.decisaoTipo === 'REVISAO_SOLICITADA'
+                  ? <Pencil className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  : <ThumbsDown className="h-4 w-4 text-rose-600 dark:text-rose-400" />}
+                <h3 className="text-sm font-semibold flex-1">Resposta do cliente pelo link</h3>
+                <Badge className={cn('text-[10px]', orc.decisaoTipo === 'APROVADO'
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  : orc.decisaoTipo === 'REVISAO_SOLICITADA'
+                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                  : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300')}>
+                  {orc.decisaoTipo === 'APROVADO' ? 'Aprovado' : orc.decisaoTipo === 'REVISAO_SOLICITADA' ? 'Revisão solicitada' : 'Recusado'}
+                </Badge>
+              </CardHeader>
+              <CardContent className="px-5 py-4 space-y-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-2">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Nome</p>
+                    <p className="text-foreground font-medium">{orc.decisaoNome || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">CPF</p>
+                    <p className="text-foreground font-medium tabular-nums">{orc.decisaoCpf ? orc.decisaoCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Data / hora</p>
+                    <p className="text-foreground font-medium tabular-nums">{orc.decisaoEm ? new Date(orc.decisaoEm).toLocaleString('pt-BR') : '—'}</p>
+                  </div>
+                </div>
+                {(orc.decisaoCnpjFaturamento || orc.decisaoEmailFinanceiro) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">CPF / CNPJ p/ faturamento</p>
+                      <p className="text-foreground font-medium tabular-nums">{fmtDocFaturamento(orc.decisaoCnpjFaturamento)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">E-mail do financeiro</p>
+                      <p className="text-foreground font-medium break-all">{orc.decisaoEmailFinanceiro || '—'}</p>
+                    </div>
+                  </div>
+                )}
+                {orc.decisaoObs && (
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Observação do cliente</p>
+                    <p className="text-foreground bg-background/60 rounded-md border border-border/60 p-2.5 whitespace-pre-wrap">{orc.decisaoObs}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          {/* === TAB: DETALHES (Card com pills verticais) === */}
+          <TabsContent value="detalhes" className="mt-0">
+            <Card>
+              <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
+                <FileText className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <h3 className="text-sm font-semibold flex-1">Detalhes do Orçamento</h3>
+              </CardHeader>
+              <div className="flex min-h-[450px]">
+                {/* Pills laterais */}
+                <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+                  <div className="space-y-1">
+                    {([
+                      { key: 'dados', icon: FileText, label: 'Dados Gerais' },
+                      { key: 'itens', icon: Package, label: 'Itens', badge: orc.itens.length },
+                      { key: 'textos', icon: Type, label: 'Textos' },
+                    ] as Array<{ key: PillKey; icon: typeof FileText; label: string; badge?: number }>).map(p => {
+                      const Icon = p.icon
+                      const active = activePill === p.key
+                      return (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => setActivePill(p.key)}
+                          className={cn(
+                            'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
+                            active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-white hover:text-foreground'
+                          )}
+                          style={active ? { backgroundColor: MODULE_COLOR } : undefined}
+                        >
+                          <Icon className="h-3.5 w-3.5 shrink-0" />
+                          <span className="flex-1">{p.label}</span>
+                          {p.badge !== undefined && p.badge > 0 && (
+                            <span className={cn(
+                              'inline-flex items-center justify-center rounded-full text-[10px] font-bold min-w-[18px] h-[18px] px-1',
+                              active ? 'bg-white/30 text-white' : 'bg-muted text-foreground',
+                            )}>
+                              {p.badge}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
                 {/* Conteudo — quando o orcamento esta locked (APROVADO+), aplica
                     data-locked="true" que bloqueia os controles via CSS (em
                     globals.css). Campos que devem permanecer editaveis usam
                     `data-editable` no wrapper para reabilitar a interacao.
                     Pills laterais ficam fora deste container, sempre navegaveis. */}
                 <div
+                  key={activePill}
                   data-locked={isLocked || undefined}
                   className="flex-1 min-w-0 p-5"
+                  style={{ animation: 'fadeSlideIn 0.25s ease-out' }}
                 >
                   {activePill === 'dados' && (
                     <div className="-m-5">
+                      <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                        <h4 className="text-[13px] font-semibold text-foreground">Dados Gerais</h4>
+                      </div>
                       <div className="p-5 grid grid-cols-12 gap-3">
                         {/* Linha 1: Cliente (8) + Validade (4) — identifica o "quê" e o prazo */}
                         <div className="col-span-12 sm:col-span-8 space-y-1.5">
@@ -2168,10 +2249,8 @@ export default function OrcamentoDetailPage() {
                             <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{orc.itens.length}</Badge>
                           )}
                         </h4>
-                        {/* data-editable: a barra fica viva mesmo com o orçamento congelado
-                            (Catálogo e Imprimir são navegação; Aplicar grupo já respeita canManageItens). */}
-                        <div className="flex items-center gap-2" data-editable>
-                          {canManageItens && !isLocked && (
+                        <div className="flex items-center gap-2">
+                          {canManageItens && (
                             <Button type="button" variant="outline" size="xs" className="gap-1" onClick={abrirGrupoOrc} title="Adicionar em lote os serviços de um grupo de orçamento">
                               <ListPlus className="h-3.5 w-3.5 text-emerald-600" /> Aplicar grupo
                             </Button>
@@ -2181,9 +2260,6 @@ export default function OrcamentoDetailPage() {
                               <Plus className="h-3.5 w-3.5" /> Catálogo
                             </Button>
                           )}
-                          <Button variant="outline" size="xs" className="gap-1" onClick={() => router.push(`/orcamentos/${id}/imprimir`)} title="Imprimir a proposta">
-                            <Printer className="h-3.5 w-3.5" /> Imprimir
-                          </Button>
                         </div>
                       </div>
                       {canManageItens && (
@@ -2522,21 +2598,11 @@ export default function OrcamentoDetailPage() {
                     </div>
                   )}
 
-                </div>
-              </div>
-            </SectionCard>
-          )}
-
-          {/* Textos da proposta — card próprio abaixo dos Detalhes, na mesma tab */}
-          {activeTab === 'detalhes' && (
-            <SectionCard
-              title="Textos da Proposta"
-              description="Introdução, condições e observações que vão na proposta."
-              icon={<Type />}
-              className="mt-6"
-            >
-              <div data-locked={isLocked || undefined}>
+                  {activePill === 'textos' && (
                     <div className="-m-5">
+                      <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                        <h4 className="text-[13px] font-semibold text-foreground">Textos</h4>
+                      </div>
                       <div className="p-5 space-y-4">
                         {/* `data-editable` re-habilita interacao mesmo com data-locked
                             no container pai. Texto Interno e anotacao da equipe e
@@ -2551,22 +2617,24 @@ export default function OrcamentoDetailPage() {
                         </div>
                       </div>
                     </div>
-                  
+                  )}
+                </div>
               </div>
-            </SectionCard>
-          )}
+            </Card>
+          </TabsContent>
 
           {/* === TAB: TIMELINE === */}
           <TabsContent value="timeline" className="mt-0">
           {/* Timeline de Eventos — feed vertical alimentado por TODOS os eventos
               do orçamento (orc.eventos), com ator (quem moveu) + data/hora. */}
-          <SectionCard
-            title="Timeline de Eventos"
-            description="Tudo que aconteceu com o orçamento, com autor e hora."
-            icon={<History />}
-            actions={orc.eventos?.length ? <Badge variant="secondary" className="text-[10px] mr-1">{orc.eventos.length}</Badge> : null}
-            bodyClassName="p-0"
-          >
+          <Card>
+            <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
+              <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <h3 className="text-sm font-semibold flex-1">Timeline de Eventos</h3>
+              {orc.eventos?.length ? (
+                <Badge variant="secondary" className="text-[10px]">{orc.eventos.length}</Badge>
+              ) : null}
+            </CardHeader>
 
             {/* Barra de ações contextuais (avança o status conforme permissões) */}
             {(() => {
@@ -2697,7 +2765,7 @@ export default function OrcamentoDetailPage() {
                 </div>
               )}
             </CardContent>
-          </SectionCard>
+          </Card>
           </TabsContent>
 
           {/* === TAB: HISTORICO (outros orcamentos + eventos) === */}
@@ -2705,13 +2773,12 @@ export default function OrcamentoDetailPage() {
             {/* Histórico do sistema legado (só leitura) */}
             <OrcamentosLegadoSection clienteId={orc.cliente?.id} />
             {historicoCliente.length > 0 && (
-              <SectionCard
-                title="Outros orçamentos do cliente"
-                description="Histórico de propostas deste cliente no sistema."
-                icon={<FileText />}
-                actions={<Badge variant="secondary" className="text-[10px] mr-1">{historicoCliente.length}</Badge>}
-                bodyClassName="p-0"
-              >
+              <Card>
+                <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
+                  <FileText className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                  <h3 className="text-sm font-semibold flex-1">Outros orçamentos do cliente</h3>
+                  <Badge variant="secondary" className="text-[10px]">{historicoCliente.length}</Badge>
+                </CardHeader>
                 <CardContent className="p-0">
                   <div className="max-h-[280px] overflow-y-auto">
                     {historicoCliente.map(o => {
@@ -2741,7 +2808,7 @@ export default function OrcamentoDetailPage() {
                     })}
                   </div>
                 </CardContent>
-              </SectionCard>
+              </Card>
             )}
           </TabsContent>
 
@@ -2755,22 +2822,14 @@ export default function OrcamentoDetailPage() {
         {/* ============================================================ */}
         {/* SIDEBAR direita — resumo financeiro + datas + arquivos        */}
         {/* ============================================================ */}
-        <div className="space-y-4">
-          {/* Resumo Financeiro — card "plano" do modelo: cabeçalho em gradiente + pill */}
-          <Card className="overflow-hidden rounded-2xl p-0">
-            <div className="flex items-center justify-between border-b border-border bg-gradient-to-br from-primary/10 to-sky-500/5 px-5 py-4">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <DollarSign className="h-4 w-4" />
-                </span>
-                <div>
-                  <p className="text-xs text-muted-foreground">Resumo financeiro</p>
-                  <p className="text-base font-bold text-foreground tabular-nums">{formatCurrency(totalGeral)}</p>
-                </div>
-              </div>
-              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{orc.itens.length} {orc.itens.length === 1 ? 'item' : 'itens'}</span>
-            </div>
-            <div className="space-y-2 p-5">
+        <div className="space-y-5">
+          {/* Resumo Financeiro */}
+          <Card className="p-5">
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <DollarSign className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              Resumo Financeiro
+            </h4>
+            <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Serviços</span>
                 <span className="font-medium">{formatCurrency(totalServicos)}</span>
@@ -2798,153 +2857,14 @@ export default function OrcamentoDetailPage() {
             </div>
           </Card>
 
-          {/* Respostas do cliente pelo link público — mesmo desenho do Resumo
-              Financeiro. A decisão vigente mora em orc.decisao*; o histórico
-              completo (aprovações, revisões, recusas ao longo dos reenvios) vem
-              dos eventos status_change sem usuário gravados pelo registrarDecisao. */}
-          {(() => {
-            type Tipo = 'APROVADO' | 'REVISAO_SOLICITADA' | 'REPROVADO'
-            const META: Record<Tipo, { label: string; hex: string; Icon: typeof CheckCircle2 }> = {
-              APROVADO: { label: 'Aprovado', hex: '#10b981', Icon: CheckCircle2 },
-              REVISAO_SOLICITADA: { label: 'Revisão solicitada', hex: '#f59e0b', Icon: Pencil },
-              REPROVADO: { label: 'Recusado', hex: '#ef4444', Icon: ThumbsDown },
-            }
-            const classifica = (d: string): Tipo | null =>
-              /solicitou revisão/i.test(d) ? 'REVISAO_SOLICITADA'
-              : /Aprovado\s*$/i.test(d) ? 'APROVADO'
-              : /Recusado\s*$/i.test(d) ? 'REPROVADO'
-              : null
-            const respostas = orc.eventos
-              .filter(e => e.tipo === 'status_change' && !e.usuario && classifica(e.descricao))
-              .map(e => ({ id: e.id, tipo: classifica(e.descricao) as Tipo, nome: (e.descricao.match(/\(([^)]+)\)/)?.[1] ?? '').trim(), em: e.createdAt }))
-              .sort((a, b) => new Date(b.em).getTime() - new Date(a.em).getTime())
-            const atual = (orc.decisaoTipo as Tipo | null) && META[orc.decisaoTipo as Tipo] ? (orc.decisaoTipo as Tipo) : null
-            const cab = atual ? META[atual] : (respostas[0] ? META[respostas[0].tipo] : null)
-            const HeadIcon = cab?.Icon ?? Globe
-            const hex = cab?.hex ?? 'var(--color-primary)'
-            return (
-              <Card className="overflow-hidden rounded-2xl p-0">
-                <div
-                  className="flex items-center justify-between border-b border-border px-5 py-4"
-                  style={{ background: `linear-gradient(to bottom right, color-mix(in srgb, ${hex} 10%, transparent), color-mix(in srgb, ${hex} 4%, transparent))` }}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ backgroundColor: hex }}>
-                      <HeadIcon className="h-4 w-4" />
-                    </span>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Respostas do cliente</p>
-                      <p className="text-base font-bold text-foreground">{cab ? cab.label : 'Aguardando'}</p>
-                    </div>
-                  </div>
-                  <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ backgroundColor: `color-mix(in srgb, ${hex} 12%, transparent)`, color: hex }}>
-                    {respostas.length} {respostas.length === 1 ? 'resposta' : 'respostas'}
-                  </span>
-                </div>
-                <div className="space-y-3 p-5">
-                  {respostas.length === 0 && (
-                    <p className="text-xs text-muted-foreground">Nenhuma resposta pelo link público ainda.</p>
-                  )}
-                  {respostas.map(r => {
-                    const m = META[r.tipo]
-                    const RIcon = m.Icon
-                    return (
-                      <div key={r.id} className="flex items-start gap-2.5">
-                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ backgroundColor: `color-mix(in srgb, ${m.hex} 14%, transparent)`, color: m.hex }}>
-                          <RIcon className="h-3.5 w-3.5" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-foreground">{m.label}{r.nome && <span className="font-normal text-muted-foreground"> · {r.nome}</span>}</p>
-                          <p className="text-[11px] text-muted-foreground tabular-nums">{new Date(r.em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {atual && (
-                    <div className="mt-1 space-y-2 border-t border-border pt-3">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">CPF</span>
-                        <span className="font-medium tabular-nums text-foreground">{orc.decisaoCpf ? orc.decisaoCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—'}</span>
-                      </div>
-                      {orc.decisaoCnpjFaturamento && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Faturamento</span>
-                          <span className="font-medium tabular-nums text-foreground">{fmtDocFaturamento(orc.decisaoCnpjFaturamento)}</span>
-                        </div>
-                      )}
-                      {orc.decisaoEmailFinanceiro && (
-                        <div className="flex justify-between gap-3 text-xs">
-                          <span className="shrink-0 text-muted-foreground">E-mail financeiro</span>
-                          <span className="truncate font-medium text-foreground" title={orc.decisaoEmailFinanceiro}>{orc.decisaoEmailFinanceiro}</span>
-                        </div>
-                      )}
-                      {orc.decisaoObs && (
-                        <div className="text-xs">
-                          <p className="mb-1 text-muted-foreground">Observação</p>
-                          <p className="whitespace-pre-wrap rounded-lg border border-border bg-muted/40 p-2.5 text-foreground">{orc.decisaoObs}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </Card>
-            )
-          })()}
-
-          {/* Avisos — mesma família dos cards acima, em tom âmbar. Hoje só o
-              "congelado para edição" (status >= APROVADO); novos avisos entram
-              como itens deste card. Só renderiza quando há o que avisar. */}
-          {isLocked && (
-            <Card className="overflow-hidden rounded-2xl p-0">
-              <div className="flex items-center justify-between border-b border-border bg-gradient-to-br from-amber-500/10 to-amber-500/[0.03] px-5 py-4">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 text-white">
-                    <Lock className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Avisos</p>
-                    <p className="text-base font-bold text-foreground">Congelado para edição</p>
-                  </div>
-                </div>
-                <span
-                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
-                  style={{ backgroundColor: STATUS_COLORS[orc.status] || '#94a3b8' }}
-                >
-                  {STATUS_LABELS[orc.status] || orc.status}
-                </span>
-              </div>
-              <div className="space-y-3 p-5">
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Para fazer ajustes, duplique este orçamento. A cópia volta ao status <strong className="text-foreground">Novo</strong> e pode ser editada livremente; este permanece intacto, preservado para auditoria.
-                </p>
-                {canDuplicar && (
-                  <Button size="sm" variant="outline" className="w-full gap-1.5" onClick={handleDuplicar}>
-                    <CopyIcon className="h-3.5 w-3.5" />
-                    Duplicar para editar
-                  </Button>
-                )}
-              </div>
-            </Card>
-          )}
-
           {/* Vínculos — hoje o card de CRM; eventos da agenda, outros
               orçamentos etc. entram como novas subseções deste card. */}
-          <Card className="overflow-hidden rounded-2xl p-0">
-            <div className="flex items-center justify-between border-b border-border bg-gradient-to-br from-primary/10 to-sky-500/5 px-5 py-4">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Link2 className="h-4 w-4" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Vínculos</p>
-                  <p className="truncate text-base font-bold text-foreground">{(orc as any)?.oportunidade ? `CRM #${(orc as any).oportunidade.numero ?? '—'}` : 'Sem vínculo'}</p>
-                </div>
-              </div>
-              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                {(orc as any)?.oportunidade ? '1 vínculo' : 'nenhum'}
-              </span>
-            </div>
-            <div className="space-y-4 p-5">
+          <Card className="p-5">
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Link2 className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              Vínculos
+            </h4>
+            <div className="space-y-4">
               <div className="space-y-1.5">
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">CRM</p>
                 {(orc as any)?.oportunidade ? (
@@ -2982,27 +2902,24 @@ export default function OrcamentoDetailPage() {
 
           {/* Arquivos — upload, lista e remocao */}
           <Card
-            className={cn('overflow-hidden rounded-2xl p-0 transition-all', dragActive && 'ring-2 ring-primary/40 bg-primary/5')}
+            className={cn('p-5 transition-all', dragActive && 'ring-2 ring-rose-300 bg-rose-50/30 dark:bg-rose-900/10')}
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <div className="flex items-center justify-between border-b border-border bg-gradient-to-br from-primary/10 to-sky-500/5 px-5 py-4">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Paperclip className="h-4 w-4" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Arquivos</p>
-                  <p className="truncate text-base font-bold text-foreground">{(orc.arquivos?.length ?? 0) > 0 ? `${orc.arquivos.length} ${orc.arquivos.length === 1 ? 'arquivo' : 'arquivos'}` : 'Nenhum arquivo'}</p>
-                </div>
-              </div>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <Paperclip className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                Arquivos
+                {(orc.arquivos?.length ?? 0) > 0 && (
+                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{orc.arquivos.length}</Badge>
+                )}
+              </h4>
               <Button type="button" variant="outline" size="sm" onClick={handleAddArquivo} className="gap-1 h-7 text-xs">
                 <Plus className="h-3.5 w-3.5" /> Adicionar
               </Button>
             </div>
-            <div className="p-5">
             <input
               ref={fileInputRef}
               type="file"
@@ -3060,27 +2977,15 @@ export default function OrcamentoDetailPage() {
                 ))}
               </div>
             )}
-            </div>
           </Card>
 
           {/* Datas Importantes — timeline vertical com marcadores coloridos por status.
               Cada item ocupa uma "celula" da timeline com dot + linha conectora. */}
-          <Card className="overflow-hidden rounded-2xl p-0">
-            <div className="flex items-center justify-between border-b border-border bg-gradient-to-br from-primary/10 to-sky-500/5 px-5 py-4">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Calendar className="h-4 w-4" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Datas importantes</p>
-                  <p className="truncate text-base font-bold text-foreground">{(() => { const n = [orc.createdAt, orc.dtEnviado, orc.dtAprovado, orc.dtLiberado, orc.dtFinalizado, orc.dtEncerrado, orc.dtCancelado].filter(Boolean).length; return `${n} ${n === 1 ? 'marco' : 'marcos'}` })()}</p>
-                </div>
-              </div>
-              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                {STATUS_LABELS[orc.status] || orc.status}
-              </span>
-            </div>
-            <div className="p-5">
+          <Card className="p-5">
+            <h4 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              Datas Importantes
+            </h4>
             {(() => {
               // Monta a lista de eventos cronologicos (somente os que aconteceram).
               // A ordem segue o fluxo natural do orcamento — Criado sempre primeiro,
@@ -3126,7 +3031,6 @@ export default function OrcamentoDetailPage() {
                 </div>
               )
             })()}
-            </div>
           </Card>
         </div>
       </div>
