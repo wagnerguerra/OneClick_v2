@@ -16,6 +16,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import { BADGE, TEXT, SURFACE, BORDER, type ColorName } from '@/lib/color-styles'
 import { useClientesPerms } from './use-clientes-perms'
 import { alerts } from '@/lib/alerts'
 
@@ -63,18 +64,22 @@ interface AreaResponsavel {
   substitutoNome: string | null
 }
 
-const CATEGORIA_CORES: Record<string, string> = {
-  Fiscal: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  Trabalhista: 'bg-lime-50 text-lime-700 border-lime-200',
-  'Contábil': 'bg-violet-50 text-violet-700 border-violet-200',
+/**
+ * Cor de cada área/categoria de serviço NESTE módulo → deriva de color-styles (fonte
+ * única, com tema escuro). Área = Categoria; a mesma cor vale para as pílulas de
+ * categoria e para o card de responsáveis. Ver apps/web/src/lib/color-styles.ts.
+ */
+const AREA_TONE: Record<string, ColorName> = {
+  Fiscal: 'indigo',
+  Trabalhista: 'lime',
+  'Contábil': 'violet',
+  'Legalização': 'fuchsia',
 }
 
-/** Cor da pílula de área (área = Categoria). Sempre a cor da categoria/area. */
-const AREA_CORES: Record<string, { bg: string; border: string; text: string }> = {
-  Fiscal:       { bg: 'bg-indigo-50',  border: 'border-indigo-200',  text: 'text-indigo-700' },
-  Trabalhista:  { bg: 'bg-lime-50',    border: 'border-lime-200',    text: 'text-lime-700' },
-  'Contábil':   { bg: 'bg-violet-50',  border: 'border-violet-200',  text: 'text-violet-700' },
-  Legalização:  { bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', text: 'text-fuchsia-700' },
+/** Classe de badge da categoria (via BADGE de color-styles); vazio quando a categoria não é mapeada. */
+function categoriaBadge(categoria: string): string {
+  const tone = AREA_TONE[categoria]
+  return tone ? BADGE[tone] : ''
 }
 
 function iniciais(nome: string): string {
@@ -311,24 +316,24 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             {areasResponsaveis.map((ar) => {
-              const cores = AREA_CORES[ar.areaNome] ?? { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700' }
+              const areaTone = AREA_TONE[ar.areaNome] ?? 'slate'
               return (
                 <div key={ar.areaId} className="relative">
                   <button
                     type="button"
                     disabled={!canManageResponsible}
                     onClick={() => { if (!canManageResponsible) return; setEditArea(editArea === ar.areaId ? null : ar.areaId) }}
-                    className={cn('group w-full text-left rounded-md border p-2.5 flex items-center gap-2.5 transition', canManageResponsible && 'hover:brightness-[0.97]', cores.bg, cores.border)}
+                    className={cn('group w-full text-left rounded-md border p-2.5 flex items-center gap-2.5 transition', canManageResponsible && 'hover:brightness-[0.97]', SURFACE[areaTone])}
                     title={canManageResponsible ? 'Clique para atribuir responsável/substituto' : 'Sem permissão para gerenciar responsáveis'}
                   >
                     <div className={cn(
                       'h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
-                      ar.responsavelNome ? 'bg-white text-foreground border-2 ' + cores.border : 'bg-white/60 text-muted-foreground border border-dashed',
+                      ar.responsavelNome ? 'bg-card text-foreground border-2 ' + BORDER[areaTone] : 'bg-muted/50 text-muted-foreground border border-dashed',
                     )}>
                       {ar.responsavelNome ? iniciais(ar.responsavelNome) : '?'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className={cn('text-[10px] uppercase tracking-wide font-semibold', cores.text)}>
+                      <div className={cn('text-[10px] uppercase tracking-wide font-semibold', TEXT[areaTone])}>
                         {ar.areaNome}
                       </div>
                       {ar.responsavelNome ? (
@@ -571,7 +576,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                 </TableCell>
                 <TableCell className="hidden sm:table-cell whitespace-nowrap">
                   {i.servico.categoria && (
-                    <Badge variant="outline" className={cn('h-5 px-1.5 text-[10px] font-medium border', CATEGORIA_CORES[i.servico.categoria] ?? 'bg-slate-50 text-slate-700 border-slate-200')}>
+                    <Badge variant="outline" className={cn('h-5 px-1.5 text-[10px] font-medium border', categoriaBadge(i.servico.categoria) || BADGE.slate)}>
                       {i.servico.categoria}
                     </Badge>
                   )}
@@ -735,7 +740,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                     >
                       <span className="flex-1 truncate font-medium">{o.nome}</span>
                       {o.categoria && (
-                        <Badge variant="outline" className={cn('h-4 text-[9px] font-normal', CATEGORIA_CORES[o.categoria])}>
+                        <Badge variant="outline" className={cn('h-4 text-[9px] font-normal', categoriaBadge(o.categoria))}>
                           {o.categoria}
                         </Badge>
                       )}
