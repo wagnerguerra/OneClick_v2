@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
   Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
   MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target,
-  Download, FileSpreadsheet, FileDown, CheckCircle2, Pencil, ThumbsDown,
+  Download, FileSpreadsheet, FileDown, CheckCircle2, Pencil, ThumbsDown, Search as SearchIcon,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card,
@@ -23,6 +23,9 @@ import { UserCombobox } from './_components/user-combobox'
 import { CatalogoCombobox } from './_components/catalogo-combobox'
 import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
 import { cn } from '@saas/ui'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
+import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { FormasPagamentoModal } from '@/components/orcamento/formas-pagamento-modal'
 import { AreasNotificarPicker, useAreasNotificaveis } from '@/components/orcamento/areas-notificar-picker'
@@ -799,26 +802,21 @@ export default function OrcamentosPage() {
 
   return (
     <TooltipProvider delayDuration={200}>
-    <div className="flex flex-col gap-5 h-[calc(100vh-90px)]" suppressHydrationWarning>
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <CircleDollarSign className="h-6 w-6" />
+    <div className="flex flex-col gap-5 h-[calc(100vh-98px)]" suppressHydrationWarning>
+      {/* Header (padrão LuminAux, como o /crm): barra full-bleed com título+trilha
+          à esquerda e ações à direita */}
+      <PageHeaderBar className="mb-0 sm:mb-0 shrink-0"
+        actions={<>
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar orçamentos..."
+              className="h-9 w-56 pl-8 text-sm"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
           </div>
-          <div>
-            <h1>Orçamentos</h1>
-            <p className="text-sm text-muted-foreground">Gerencie orçamentos e propostas comerciais</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Input
-            placeholder="Buscar orçamento..."
-            className="h-9 w-56 text-sm"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <div className="flex items-center border rounded-[2px] overflow-hidden">
+          <div className="flex items-center border rounded-lg overflow-hidden">
             <button type="button" className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')} onClick={() => { setViewMode('kanban'); localStorage.setItem('orcamentos-view-mode', 'kanban') }} title="Kanban">
               <LayoutGrid className="h-4 w-4" />
             </button>
@@ -827,7 +825,7 @@ export default function OrcamentosPage() {
             </button>
           </div>
           {viewMode === 'kanban' && (
-            <div className="flex items-center border rounded-[2px] overflow-hidden">
+            <div className="flex items-center border rounded-lg overflow-hidden">
               <button
                 type="button"
                 className={cn('p-1.5 transition-colors', allCollapsed ? 'opacity-40 cursor-default' : 'text-muted-foreground hover:bg-muted')}
@@ -852,7 +850,7 @@ export default function OrcamentosPage() {
             type="button"
             onClick={() => setFiltrosOpen(v => !v)}
             className={cn(
-              'inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-xs font-medium border transition-colors shrink-0',
+              'inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0',
               filtrosOpen || filtrosAtivos > 0
                 ? 'bg-muted border-border text-foreground'
                 : 'bg-card border-border text-muted-foreground hover:bg-muted/50',
@@ -868,7 +866,7 @@ export default function OrcamentosPage() {
           <button
             onClick={() => { setArquivado(!arquivado); setPage(1) }}
             className={cn(
-              'h-9 px-3 rounded-md text-xs font-medium border transition-colors shrink-0',
+              'h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0',
               arquivado
                 ? 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400'
                 : 'bg-card border-border text-muted-foreground hover:bg-muted/50',
@@ -907,11 +905,20 @@ export default function OrcamentosPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={openCreateModal}>
+          <Button size="sm" className="gap-1.5" onClick={openCreateModal}>
             <Plus className="h-4 w-4" /> Novo Orçamento
           </Button>
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Orçamentos</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="hover:text-foreground transition-colors">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Comercial</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Orçamentos</span>
+        </p>
+      </PageHeaderBar>
 
       {/* ── Painel de filtros (HLP0296) — espelha a lista do legado ──
           Anima expandir/retrair via grid-template-rows (0fr↔1fr). A margem
@@ -985,7 +992,7 @@ export default function OrcamentosPage() {
           <OrcConfigContext.Provider value={orcConfig}>
           <DndContext sensors={kanbanSensors} collisionDetection={closestCenter} onDragStart={handleKanbanDragStart} onDragMove={handleKanbanDragMove} onDragOver={handleKanbanDragOver} onDragEnd={handleKanbanDragEnd} onDragCancel={handleKanbanDragCancel}>
             <div className="overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1 nice-scrollbar">
-              <div className="flex gap-3 px-1 h-full w-max">
+              <div className="flex gap-4 px-1 h-full w-max">
                 {STATUS_ORDER.map(status => {
                   const items = orcByStatus[status] || []
                   // Sinaliza visualmente colunas que NÃO podem receber o card sendo arrastado.
@@ -1393,21 +1400,22 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
   const { setNodeRef } = useDroppable({ id: status, disabled: dropDisabled || !draggable })
   const color = STATUS_COLORS[status] || '#94a3b8'
   const label = STATUS_LABELS[status] || status
+  // Barra de rolagem da pilha só aparece enquanto o usuário rola
+  const scrollRef = useAutoHideScrollbar<HTMLDivElement>()
 
   if (collapsed) {
     return (
       <div
         ref={setNodeRef}
         className={cn(
-          'w-[44px] h-full shrink-0 flex flex-col border border-border/40 overflow-hidden transition-all duration-200 rounded cursor-pointer hover:border-border/80',
+          'w-[44px] h-full shrink-0 flex flex-col rounded-xl border border-border/60 bg-card overflow-hidden transition-all duration-200 cursor-pointer hover:border-border',
           isOver && !dropDisabled && 'crm-column-over',
           dropDisabled && 'opacity-40 grayscale cursor-not-allowed',
         )}
         onClick={onToggleCollapse}
         title={dropDisabled ? `Movimento bloqueado: não é possível mover para "${label}" a partir do status atual` : `Expandir coluna ${label}`}
-        style={{ backgroundColor: `${color}08` }}
       >
-        <div className="flex flex-col items-center gap-1.5 py-2 border-b" style={{ backgroundColor: `${color}12` }}>
+        <div className="flex flex-col items-center gap-1.5 py-2 border-b border-border/60">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onToggleCollapse() }}
@@ -1417,7 +1425,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
             <ChevronsRight className="h-3.5 w-3.5" />
           </button>
           <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 shrink-0">{items.length}</Badge>
+          <span className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold tabular-nums shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>{items.length}</span>
         </div>
         <div className="flex-1 flex items-center justify-center py-3">
           <span
@@ -1438,34 +1446,38 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
     <div
       ref={setNodeRef}
       className={cn(
-        'w-[360px] h-full shrink-0 flex flex-col border border-border/40 overflow-hidden transition-all duration-200 rounded relative',
-        isOver && !dropDisabled && 'crm-column-over',
+        // Padrão do /crm (LuminAux): coluna ABERTA — sem caixa/fundo; os cards
+        // flutuam sobre o fundo da página. Só o drop-target ganha um véu sutil.
+        'w-[340px] h-full shrink-0 flex flex-col rounded-xl transition-colors relative',
+        isOver && !dropDisabled && 'bg-black/[0.03] dark:bg-white/[0.04]',
         dropDisabled && 'opacity-40 grayscale',
       )}
+      style={isOver && !dropDisabled ? { boxShadow: `0 0 0 2px ${color}55` } : undefined}
       title={dropDisabled ? `Movimento bloqueado para "${label}". Para voltar a status anteriores, use a opção "Reabrir orçamento" no menu de ações.` : undefined}
     >
       {dropDisabled && (
-        <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center bg-rose-50/40 dark:bg-rose-900/20 backdrop-blur-[1px]">
+        <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center rounded-xl bg-rose-50/40 dark:bg-rose-900/20 backdrop-blur-[1px]">
           <div className="rounded-md bg-white/95 dark:bg-card/95 px-3 py-1.5 text-[11px] font-medium text-rose-700 dark:text-rose-300 shadow-sm border border-rose-200/60">
             🚫 Não permitido
           </div>
         </div>
       )}
-      <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ backgroundColor: `${color}12` }}>
+      {/* Header: dot da cor + nome + contador em pill tintada + ações */}
+      <div className="px-1.5 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
           <span className="text-sm font-semibold truncate">{label}</span>
+          <span className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold tabular-nums shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>{items.length}</span>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">{items.length}</Badge>
+        <div className="flex items-center gap-0.5 shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
                 title="Opções da coluna"
-                className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:text-foreground transition-colors"
               >
-                <MoreVertical className="h-3.5 w-3.5" />
+                <MoreVertical className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -1478,15 +1490,14 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
             type="button"
             onClick={onToggleCollapse}
             title="Recolher coluna"
-            className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:text-foreground transition-colors"
           >
-            <ChevronsLeft className="h-3.5 w-3.5" />
+            <ChevronsLeft className="h-4 w-4" />
           </button>
         </div>
       </div>
       <SortableContext items={items.map(o => o.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 p-2 space-y-2 overflow-y-auto nice-scrollbar min-h-[120px]">
-          {items.length === 0 && <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhum orçamento</p>}
+        <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto scrollbar-autohide min-h-[120px] px-1.5 pt-0.5 pb-2">
           {items.map(orc => (
             <KanbanCard
               key={orc.id}
@@ -1527,15 +1538,15 @@ function KanbanCard({ orc, isDraggingAny, clienteNome, draggable, onOpenDetail, 
       {...(draggable ? attributes : {})}
       {...(draggable ? listeners : {})}
       className={cn(
-        'rounded-sm bg-white dark:bg-card group touch-none overflow-hidden',
+        'rounded-xl bg-white dark:bg-card shadow-sm group touch-none overflow-hidden',
         draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
-        isDragging ? 'border border-transparent opacity-30' : 'border border-border/50',
+        isDragging ? 'border border-transparent opacity-30' : 'border border-border/60',
         !isDragging && !isDraggingAny && 'hover:shadow-md transition-shadow',
       )}
       onClick={() => { if (!isDraggingAny) onOpenDetail(orc.id) }}
     >
       <div className="flex">
-        <div className="w-[3px] shrink-0" style={{ backgroundColor: color }} />
+        <div className="w-1 shrink-0" style={{ backgroundColor: color }} />
         <div className="flex-1 min-w-0">
           <KanbanCardContent orc={orc} clienteNome={clienteNome} onDuplicar={onDuplicar} onArquivar={onArquivar} onCancelar={onCancelar} onOpenDetail={onOpenDetail} showMenu={!isDraggingAny} />
         </div>
@@ -1577,9 +1588,9 @@ function KanbanCardOverlay({ orc, clienteNome, velocityX }: { orc: OrcamentoRow;
 
   return (
     <div
-      // Largura casa com a coluna do kanban (w-[360px] - border 2px - padding p-2 16px = 342px),
+      // Largura casa com o card da coluna (w-[340px] - padding px-1.5 12px = 328px),
       // pra evitar o efeito "encolher" ao iniciar o drag e "voltar ao normal" ao soltar.
-      className="rounded-sm bg-white dark:bg-card w-[342px] overflow-hidden"
+      className="rounded-xl bg-white dark:bg-card w-[328px] overflow-hidden"
       style={{
         transform: `rotate(${rotation.toFixed(2)}deg) scale(1.02)`,
         transformOrigin: 'top center',
@@ -1587,7 +1598,7 @@ function KanbanCardOverlay({ orc, clienteNome, velocityX }: { orc: OrcamentoRow;
       }}
     >
       <div className="flex">
-        <div className="w-[3px] shrink-0" style={{ backgroundColor: color }} />
+        <div className="w-1 shrink-0" style={{ backgroundColor: color }} />
         <div className="flex-1 min-w-0">
           <KanbanCardContent orc={orc} clienteNome={clienteNome} onDuplicar={() => {}} onArquivar={() => {}} onCancelar={() => {}} onOpenDetail={() => {}} showMenu={false} />
         </div>
@@ -1689,8 +1700,8 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
           <p className="text-[11px] text-muted-foreground truncate">{stripHtml(orc.observacoes)}</p>
         )}
       </div>
-      {/* Footer */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-t border-border/40 bg-muted/20">
+      {/* Footer — ícones inline no corpo branco (sem faixa), como no /crm */}
+      <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
         <div className="flex items-center gap-2">
           {(orc.solicitante || orc.responsavel) && (
             <div className="flex items-center -space-x-1.5">
