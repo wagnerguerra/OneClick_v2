@@ -8923,9 +8923,10 @@ model Coleta {
   id        String  @id @default(cuid())
   empresaId String? @map("empresa_id")
   legacyId  Int?    @map("legacy_id")
-  /// Número legível (#1234): legado mantém o id do v1, novos seguem a sequência
-  /// (add_coleta_numero.sql cria a sequence/backfill; default por dbgenerated).
-  numero    Int     @unique @default(dbgenerated("nextval('coletas_numero_seq'::regclass)"))
+  /// Número legível (#1234): legado mantém o id do v1, novos seguem a sequência.
+  /// add_coleta_numero.sql cria a sequence (OWNED BY) e faz o backfill — pro
+  /// Prisma isso é um autoincrement comum, sem diff no db push.
+  numero    Int     @unique @default(autoincrement())
 
   /// ENTREGA | COLETA | RECEBIMENTO (tipo 1/2/3 do v1)
   tipo String
