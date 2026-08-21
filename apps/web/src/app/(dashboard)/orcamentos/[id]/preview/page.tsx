@@ -2150,6 +2150,9 @@ export default function OrcamentoDetailPage() {
                               <Plus className="h-3.5 w-3.5" /> Catálogo
                             </Button>
                           )}
+                          <Button variant="outline" size="xs" className="gap-1" onClick={() => router.push(`/orcamentos/${id}/imprimir`)} title="Imprimir a proposta">
+                            <Printer className="h-3.5 w-3.5" /> Imprimir
+                          </Button>
                         </div>
                       </div>
                       {canManageItens && (
