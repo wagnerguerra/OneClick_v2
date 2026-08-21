@@ -420,6 +420,30 @@
   button:not(:disabled), [role="button"]:not([aria-disabled="true"]), [role="tab"], summary { cursor: pointer; }
   button:disabled { cursor: not-allowed; }
 
+  /* ─── Scrollbar auto-hide (.scrollbar-autohide + useAutoHideScrollbar) ──
+   * Thumb transparente em repouso; aparece só enquanto o container tem
+   * data-scrolling (o hook liga no scroll e desliga ~700ms depois). */
+  .scrollbar-autohide {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color .25s ease;
+  }
+  .scrollbar-autohide[data-scrolling="true"] {
+    scrollbar-color: color-mix(in srgb, var(--color-muted-foreground) 35%, transparent) transparent;
+  }
+  .scrollbar-autohide::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scrollbar-autohide::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-autohide::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+    transition: background-color .25s ease;
+  }
+  .scrollbar-autohide[data-scrolling="true"]::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--color-muted-foreground) 35%, transparent);
+  }
+
   /* Scrollbar oculta mas funcional */
   .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }

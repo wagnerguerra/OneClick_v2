@@ -32,6 +32,7 @@ import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { moedaParaNumero, masks } from '@/lib/masks'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
 import { TarefaModal } from '../agenda/_components/tarefa-modal'
 
 // Temperatura do lead (vinda do funil de captação por IA).
@@ -1972,6 +1973,8 @@ function KanbanColumn({ etapa, ops, isOver, activeCardId, etapas, onOpenDetail, 
   onAdd: (etapaId: string) => void
 }) {
   const { setNodeRef } = useDroppable({ id: etapa.id })
+  // Barra de rolagem da pilha só aparece enquanto o usuário rola (some ao parar)
+  const scrollRef = useAutoHideScrollbar<HTMLDivElement>()
   return (
     <div
       ref={setNodeRef}
@@ -2006,7 +2009,7 @@ function KanbanColumn({ etapa, ops, isOver, activeCardId, etapas, onOpenDetail, 
         </button>
       </div>
       <SortableContext items={ops.map(o => o.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 space-y-3 overflow-y-auto nice-scrollbar min-h-[120px] px-1.5 pt-0.5 pb-2">
+        <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto scrollbar-autohide min-h-[120px] px-1.5 pt-0.5 pb-2">
           {ops.map(op => (
             <KanbanCard key={op.id} op={op} isDraggingAny={!!activeCardId} etapas={etapas} onOpenDetail={onOpenDetail} onMover={onMover} onDelete={onDelete} diasDesde={diasDesde} declinioDias={declinioDias} />
           ))}
