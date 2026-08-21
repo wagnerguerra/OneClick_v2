@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Bell, X, Info, AlertTriangle, AlertCircle, CheckCircle2, Loader2, Check, CheckCheck } from 'lucide-react'
 import { Button, cn } from '@saas/ui'
@@ -328,8 +329,10 @@ export function NotificationBell() {
         )}
       </button>
 
-      {/* Drawer de notificações (modelo LuminAux): painel fixo à direita */}
-      {open && (
+      {/* Drawer de notificações (modelo LuminAux): painel fixo à direita.
+          Vai por PORTAL no body: o <header> tem backdrop-blur, que vira
+          containing block de position:fixed e prenderia o drawer nos 64px. */}
+      {open && typeof document !== 'undefined' && createPortal(
         <>
           <div
             className={cn('fixed inset-0 z-[90] bg-black/30 transition-opacity duration-200', closing ? 'opacity-0' : 'opacity-100')}
@@ -390,7 +393,8 @@ export function NotificationBell() {
               </Button>
             </div>
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </>
   )
