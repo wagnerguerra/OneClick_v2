@@ -1064,7 +1064,21 @@ export default function OrcamentoDetailPage() {
   }
 
   // Avanca/regredi o status via mesmo endpoint usado pelo kanban
+  /** Textos do alerta de confirmação por status de destino (pedido do Wagner, 21/08:
+   *  toda troca de status passa por confirmação antes de efetivar). */
+  const CONFIRM_STATUS: Record<string, { title: string; text: string; confirmText: string; icon: 'warning' | 'question' }> = {
+    APROVADO:   { title: 'Aprovar orçamento?',   text: 'O orçamento será marcado como aprovado pelo cliente e ficará congelado para edição.', confirmText: 'Aprovar', icon: 'question' },
+    LIBERADO:   { title: 'Liberar para execução?', text: 'O orçamento será liberado para a área executar o serviço. As áreas envolvidas serão notificadas.', confirmText: 'Liberar', icon: 'question' },
+    FINALIZADO: { title: 'Finalizar orçamento?', text: 'Confirma que o serviço foi concluído? O orçamento será marcado como finalizado.', confirmText: 'Finalizar', icon: 'question' },
+    ENCERRADO:  { title: 'Encerrar orçamento?',  text: 'O orçamento será encerrado e sairá do fluxo ativo. Essa ação fica registrada na timeline.', confirmText: 'Encerrar', icon: 'warning' },
+    CANCELADO:  { title: 'Cancelar orçamento?',  text: 'O orçamento será cancelado. Essa ação fica registrada na timeline.', confirmText: 'Cancelar orçamento', icon: 'warning' },
+    ENVIADO:    { title: 'Marcar como enviado?', text: 'O status passará para enviado.', confirmText: 'Confirmar', icon: 'question' },
+  }
+
   async function handleStatusAction(novoStatus: string, mensagemSucesso: string) {
+    const c = CONFIRM_STATUS[novoStatus] ?? { title: 'Alterar status?', text: `O status do orçamento passará para ${STATUS_LABELS[novoStatus] || novoStatus}.`, confirmText: 'Confirmar', icon: 'question' as const }
+    const ok = await alerts.confirm({ title: c.title, text: c.text, confirmText: c.confirmText, icon: c.icon })
+    if (!ok) return
     try {
       await (trpc.orcamento as any).changeStatus.mutate({ id, status: novoStatus })
       alerts.success('Atualizado', mensagemSucesso)
