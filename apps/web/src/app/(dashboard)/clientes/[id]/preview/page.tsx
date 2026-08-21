@@ -1,0 +1,54 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
+import { trpc } from '@/lib/trpc'
+import { toDateInputValue } from '@/lib/date'
+import { ClienteForm } from '../../_components/cliente-form-preview'
+
+export default function EditClientePreviewPage() {
+  const params = useParams<{ id: string }>()
+  const [loading, setLoading] = useState(true)
+  const [cliente, setCliente] = useState<Record<string, unknown> | null>(null)
+
+  useEffect(() => {
+    trpc.cliente.getById.query({ id: params.id })
+      .then((data: unknown) => setCliente(data as Record<string, unknown>))
+      .catch(() => setCliente(null))
+      .finally(() => setLoading(false))
+  }, [params.id])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (!cliente) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <p>Cliente nao encontrado.</p>
+      </div>
+    )
+  }
+
+  // Converter datas e limpar nulls para compatibilidade com Zod (.optional() não aceita null)
+  const defaultValues = Object.fromEntries(
+    Object.entries({
+      ...cliente,
+      dataEntrada: toDateInputValue(cliente.dataEntrada as string),
+      dataSaida: toDateInputValue(cliente.dataSaida as string),
+    }).map(([k, v]) => [k, v === null ? undefined : v])
+  )
+
+  return (
+    <ClienteForm
+      mode="edit"
+      clienteId={params.id}
+      defaultValues={defaultValues as Parameters<typeof ClienteForm>[0]['defaultValues']}
+      motivoInativacao={typeof cliente.motivoInativacao === 'string' ? cliente.motivoInativacao : null}
+    />
+  )
+}
