@@ -162,7 +162,7 @@ export default function ColetaDocumentosPage() {
   return (
     <div className="space-y-6">
       {/* Header padrão (como o /crm): barra full-bleed, título + trilha, ações à direita */}
-      <PageHeaderBar className="mb-0 sm:mb-0"
+      <PageHeaderBar
         actions={<>
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -245,15 +245,15 @@ export default function ColetaDocumentosPage() {
         <Table className="table-fixed">
           <TableHeader>
             <TableRow className="[&_th]:whitespace-nowrap">
-              <TableHead className="w-[72px]">#</TableHead>
+              <TableHead className="w-[76px]">#</TableHead>
               <TableHead>Cliente</TableHead>
-              <TableHead className="w-[115px]">Tipo</TableHead>
-              <TableHead className="hidden md:table-cell w-[160px]">Categoria</TableHead>
-              <TableHead className="hidden sm:table-cell w-[95px] text-center">Competência</TableHead>
-              <TableHead className="w-[165px]">Situação</TableHead>
+              <TableHead className="w-[125px]">Tipo</TableHead>
+              <TableHead className="hidden md:table-cell w-[150px]">Categoria</TableHead>
+              <TableHead className="hidden sm:table-cell w-[125px] text-center">Competência</TableHead>
+              <TableHead className="w-[175px]">Situação</TableHead>
               <TableHead className="hidden lg:table-cell w-[150px]">Solicitante</TableHead>
-              <TableHead className="hidden sm:table-cell w-[95px] text-center">Registro</TableHead>
-              <TableHead className="w-[60px] text-right">Ações</TableHead>
+              <TableHead className="hidden sm:table-cell w-[110px] text-center">Registro</TableHead>
+              <TableHead className="w-[80px] pr-5 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -288,7 +288,7 @@ export default function ColetaDocumentosPage() {
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-xs text-muted-foreground truncate">{r.solicitanteNomeResolvido ?? '—'}</TableCell>
                   <TableCell className="hidden sm:table-cell text-center text-xs text-muted-foreground tabular-nums">{dataBR(r.registradoEm)}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="pr-5 text-right">
                     <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                       <Button variant="soft-info" size="icon-sm" onClick={() => router.push(`/coleta-documentos/${r.id}`)} title="Abrir">
                         <Pencil className="h-3.5 w-3.5" />
