@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
 import { toDateInputValue } from '@/lib/date'
-import { ClienteForm } from '../../_components/cliente-form-preview'
+import { ClienteForm } from '../../_components/cliente-form-old'
 
-export default function EditClientePreviewPage() {
+export default function EditClienteOldPage() {
   const params = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)
   const [cliente, setCliente] = useState<Record<string, unknown> | null>(null)

@@ -9,7 +9,7 @@ import {
   FileText, ShoppingCart, Receipt, Plus, Send,
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
-  ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2, Check,
+  ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2, Check, Hash, Calendar, ClipboardCheck, Sparkles, Paperclip,
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
   Image as ImageIcon, Activity, Percent, ShieldCheck,
@@ -19,11 +19,13 @@ import {
   cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor, Badge,
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Tabs, TabsTrigger, TabsContent, SlidingTabsList, TooltipProvider,
+  Tabs, TabsContent, TooltipProvider,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   RichContent,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
 import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
@@ -32,7 +34,7 @@ import { VerificarErpModal } from '@/components/contrato/verificar-erp-modal'
 import { OrcamentosTab } from './orcamentos-tab'
 import { InativarClienteModal } from './inativar-cliente-modal'
 import { ReativarClienteModal } from './reativar-cliente-modal'
-import { EVENT_BADGE_CLASS, INATIVAR_BTN_CLASS, INATIVADO_SURFACE_CLASS, REATIVAR_BTN_CLASS } from './cliente-status-ui'
+import { EVENT_BADGE_CLASS, INATIVAR_BTN_CLASS } from './cliente-status-ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { toDateInputValue } from '@/lib/date'
@@ -414,12 +416,43 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
         {/* ============================================================ */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
         {isEdit ? (
-          <div
-            className="relative -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 overflow-hidden group/cover"
-            style={!headerCover ? { backgroundColor: 'rgba(106, 218, 125, .18)' } : undefined}
+          <>
+          {/* ── Barra de página (padrão LuminAux): título + trilha; ações à direita ── */}
+          <PageHeaderBar className="mb-0 sm:mb-0"
+            actions={<>
+              {isEdit && canEditDetails && watchedValues.status === 'ATIVO' && (
+                <Button type="button" variant="outline" className={INATIVAR_BTN_CLASS} size="sm" onClick={() => abrirInativar()} title="Inativar cliente">
+                  <Ban className="h-4 w-4" />Inativar
+                </Button>
+              )}
+              {canEditDetails && <Button size="sm" type="submit" disabled={saving} className="gap-1.5"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>}
+              <BackButton href="/clientes" />
+            </>}
           >
-            {/* Imagem de fundo personalizada — tile + opacity 0.2 */}
-            {headerCover && (
+            <h1 className="truncate">Cliente #{defaultValues.code}</h1>
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <Link href="/dashboard" className="hover:text-foreground transition-colors">Página inicial</Link>
+              <span className="text-muted-foreground/50">›</span>
+              <span>Cadastros</span>
+              <span className="text-muted-foreground/50">›</span>
+              <Link href="/clientes" className="hover:text-foreground transition-colors">Clientes</Link>
+              <span className="text-muted-foreground/50">›</span>
+              <span className="truncate">{defaultValues?.razaoSocial || 'Cliente'}</span>
+            </p>
+          </PageHeaderBar>
+
+          {/* ── Hero (modelo /settings): capa + identidade, tabs na base ── */}
+          <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="relative overflow-hidden group/cover">
+            {/* Capa em cover; sem imagem, gradiente do módulo */}
+            {headerCover ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={headerCover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, var(--mod-cadastros, #10b981) 0%, var(--color-primary) 100%)' }} />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
+            {false && (
               <div
                 aria-label="Capa do cliente"
                 className="absolute inset-0"
@@ -432,8 +465,8 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 }}
               />
             )}
-            {/* Overlay verde em gradiente: 0% esq → 80% dir */}
-            {headerCover && (
+            {/* (overlay antigo desativado — o hero usa o degradê escuro acima) */}
+            {false && (
               <div
                 className="absolute inset-0"
                 style={{ backgroundImage: 'linear-gradient(to right, rgba(106, 218, 125, 0) 0%, rgba(106, 218, 125, 0.8) 100%)' }}
@@ -441,23 +474,23 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
             )}
             {/* Controles de capa — somente Master, hover, base direita */}
             {isMaster && (
-              <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
+              <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => coverInputRef.current?.click()}
                   disabled={uploadingCover}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-white/90 hover:bg-white text-foreground px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-white/30 disabled:opacity-60"
                   title={headerCover ? 'Trocar imagem de fundo' : 'Personalizar capa'}
                 >
                   {uploadingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
-                  <span className="hidden sm:inline">{headerCover ? 'Trocar capa' : 'Personalizar capa'}</span>
+                  <span className="hidden sm:inline">Alterar capa</span>
                 </button>
                 {headerCover && (
                   <button
                     type="button"
                     onClick={handleCoverRemove}
                     disabled={uploadingCover}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-white/90 hover:bg-white text-rose-600 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-2.5 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-rose-500/60 disabled:opacity-60"
                     title="Remover capa"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -476,17 +509,17 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 />
               </div>
             )}
-            <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="relative group">
-                <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 overflow-hidden shadow-lg" style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}>
+            <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex items-end gap-4">
+              <div className="relative shrink-0 group">
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-card overflow-hidden shadow-lg ring-4 ring-white/50">
                   {clienteLogo ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={resolveAssetUrl(clienteLogo.startsWith('http') || clienteLogo.startsWith('/') ? clienteLogo : `/api/upload/${clienteLogo}`)}
                       alt="Logo"
-                      className="h-[70px] w-[70px] object-contain rounded-full"
+                      className="h-20 w-20 object-contain rounded-xl"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                     />
                   ) : (
@@ -495,7 +528,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 </div>
                 <button
                   type="button"
-                  className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md hover:bg-emerald-600 transition-colors border-2 border-white dark:border-gray-800"
+                  className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white ring-1 ring-white/40 backdrop-blur transition-colors hover:bg-white/30"
                   onClick={() => {
                     const input = document.createElement('input')
                     input.type = 'file'
@@ -523,30 +556,21 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                   <Camera className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <div>
-                <h1 className="text-xl font-semibold">{defaultValues?.razaoSocial || 'Cliente'}</h1>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  #{defaultValues.code}
-                  &nbsp;&nbsp;|&nbsp;&nbsp;
-                  {clienteId
-                    ? <CnpjFilialSelect clienteId={clienteId} documento={defaultValues.documento || ''} tipoDocumento={tipoDocumento} />
-                    : <>CNPJ: {tipoDocumento === 'CPF' ? masks.cpf(defaultValues.documento || '') : masks.cnpj(defaultValues.documento || '')}</>}
-                  &nbsp;&nbsp;|&nbsp;&nbsp;
-                  Criado em: {defaultValues.createdAt ? new Date(defaultValues.createdAt).toLocaleDateString('pt-BR') + ', ' + new Date(defaultValues.createdAt).toLocaleTimeString('pt-BR') : '—'}
-                </p>
-                <div className="flex flex-wrap gap-2 mt-2.5">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xl font-bold tracking-tight text-white drop-shadow">{defaultValues?.razaoSocial || 'Cliente'}</p>
                   <Controller control={control} name="situacao" render={({ field }) => {
                     const style = { backgroundColor: SITUACAO_COLORS[field.value as keyof typeof SITUACAO_COLORS]?.bg || 'var(--color-muted)', color: SITUACAO_COLORS[field.value as keyof typeof SITUACAO_COLORS]?.color || 'var(--color-foreground)' }
                     const conteudo = <><ShoppingCart className="h-3 w-3" />{SITUACAO_LABELS[field.value as keyof typeof SITUACAO_LABELS] || field.value}</>
                     // Sem "Gerenciar aba comercial": o atalho vira badge de LEITURA
                     // (a situação é informação que todos veem; só o EDITAR é gateado).
                     if (!canManageCommercial) return (
-                      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-black/5 dark:ring-white/10" style={style} title={'Editar a situação requer a permissão "Gerenciar aba comercial"'}>{conteudo}</span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25" style={style} title={'Editar a situação requer a permissão "Gerenciar aba comercial"'}>{conteudo}</span>
                     )
                     return (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button type="button" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80 ring-1 ring-black/5 dark:ring-white/10" style={style}>{conteudo}</button>
+                          <button type="button" className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase cursor-pointer transition-opacity hover:opacity-80 ring-1 ring-white/25" style={style}>{conteudo}</button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
                           {Object.entries(SITUACAO_LABELS).map(([v, l]) => (
@@ -563,69 +587,83 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                     // fluxos dedicados (botão "Inativar" + aviso "Cliente inativado"),
                     // que registram motivo — nunca por toggle silencioso.
                     return (
-                      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-black/5 dark:ring-white/10" style={style}>{conteudo}</span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25" style={style}>{conteudo}</span>
                     )
                   }} />
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 px-3 py-1 text-xs font-medium">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
                     <Handshake className="h-3 w-3" />
                     {watchedValues.tipoCliente || 'A DEFINIR'}
                   </span>
                 </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/85 [&_button]:text-white [&_button]:hover:text-white">
+                  <span className="inline-flex items-center gap-1"><Hash className="h-3.5 w-3.5" />{defaultValues.code}</span>
+                  <span className="inline-flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />
+                    {clienteId
+                      ? <CnpjFilialSelect clienteId={clienteId} documento={defaultValues.documento || ''} tipoDocumento={tipoDocumento} />
+                      : <>{tipoDocumento === 'CPF' ? masks.cpf(defaultValues.documento || '') : masks.cnpj(defaultValues.documento || '')}</>}
+                  </span>
+                  <span className="inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />Criado em {defaultValues.createdAt ? new Date(defaultValues.createdAt).toLocaleDateString('pt-BR') : '—'}</span>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {isEdit && canEditDetails && watchedValues.status === 'ATIVO' && (
-                <Button type="button" variant="outline" className={INATIVAR_BTN_CLASS} size="sm" onClick={() => abrirInativar()} title="Inativar cliente">
-                  <Ban className="h-4 w-4" />Inativar
-                </Button>
-              )}
-              {canEditDetails && <Button variant="success" size="icon-sm" type="submit" disabled={saving} title="Salvar"><Save className="h-4 w-4" /></Button>}
-              <BackButton href="/clientes" />
+            {/* Stats do modelo */}
+            <div className="flex gap-6">
+              <div className="text-center">
+                <p className="text-lg font-bold tracking-tight text-white drop-shadow">{watchedValues.dataEntrada ? String(watchedValues.dataEntrada).slice(0, 4) : (defaultValues.createdAt ? new Date(defaultValues.createdAt).getFullYear() : '—')}</p>
+                <p className="text-xs text-white/75">Cliente desde</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold tracking-tight text-white drop-shadow tabular-nums">{progress.percent}%</p>
+                <p className="text-xs text-white/75">Cadastro</p>
+              </div>
+            </div>          </div>
             </div>
           </div>
-            </div>
-            {/* TabsList em pills — mesmo padrão de /orcamentos/[id] (cor do módulo: emerald) */}
-            <div className="relative z-10 px-4 sm:px-6 pb-2 overflow-x-auto flex justify-center">
-              <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
-                <TabsTrigger value="detalhes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
-                  <FileText className="h-3.5 w-3.5" /> Detalhes
-                </TabsTrigger>
-                <TabsTrigger value="comercial" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
-                  <Handshake className="h-3.5 w-3.5" /> Comercial
-                </TabsTrigger>
-                <TabsTrigger value="fiscal" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
-                  <Receipt className="h-3.5 w-3.5" /> Fiscal
-                </TabsTrigger>
-                <TabsTrigger value="contabil" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
-                  <Calculator className="h-3.5 w-3.5" /> Contábil
-                </TabsTrigger>
-                <TabsTrigger value="legalizacao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
-                  <Shield className="h-3.5 w-3.5" /> Legalização
-                </TabsTrigger>
-                <TabsTrigger value="obrigacoes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
-                  <ListChecks className="h-3.5 w-3.5" /> Obrigações
-                </TabsTrigger>
-                <TabsTrigger value="servicos" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
-                  <Briefcase className="h-3.5 w-3.5" /> Serviços
-                </TabsTrigger>
-                <TabsTrigger value="particularidades" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
-                  <StickyNote className="h-3.5 w-3.5" /> Particularidades
-                </TabsTrigger>
-                <TabsTrigger value="protocolos" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
-                  <FileInput className="h-3.5 w-3.5" /> Protocolos
-                </TabsTrigger>
-                <TabsTrigger value="reclamacoes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
-                  <MessageSquareQuote className="h-3.5 w-3.5" /> Reclamações
-                </TabsTrigger>
-                <TabsTrigger value="usuarios" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
-                  <Users className="h-3.5 w-3.5" /> Usuários
-                </TabsTrigger>
-                <TabsTrigger value="logs" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-emerald-400 gap-1.5">
-                  <ListTodo className="h-3.5 w-3.5" /> Log&apos;s
-                </TabsTrigger>
-              </SlidingTabsList>
+          {/* /capa */}
+          {/* Tira de tabs do modelo: botões simples (fora do [role=tablist] global) */}
+          <div className="border-t border-border px-3">
+            <div className="flex gap-1.5 overflow-x-auto py-2 nice-scrollbar">
+                <button type="button" onClick={() => setActiveTab('detalhes')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'detalhes' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  <FileText className="h-4 w-4" /> Detalhes
+                </button>
+                <button type="button" onClick={() => setActiveTab('comercial')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'comercial' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  <Handshake className="h-4 w-4" /> Comercial
+                </button>
+                <button type="button" onClick={() => setActiveTab('fiscal')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'fiscal' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  <Receipt className="h-4 w-4" /> Fiscal
+                </button>
+                <button type="button" onClick={() => setActiveTab('contabil')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'contabil' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  <Calculator className="h-4 w-4" /> Contábil
+                </button>
+                <button type="button" onClick={() => setActiveTab('legalizacao')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'legalizacao' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  <Shield className="h-4 w-4" /> Legalização
+                </button>
+                <button type="button" onClick={() => setActiveTab('obrigacoes')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'obrigacoes' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  <ListChecks className="h-4 w-4" /> Obrigações
+                </button>
+                <button type="button" onClick={() => setActiveTab('servicos')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'servicos' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  <Briefcase className="h-4 w-4" /> Serviços
+                </button>
+                <button type="button" onClick={() => setActiveTab('particularidades')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'particularidades' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  <StickyNote className="h-4 w-4" /> Particularidades
+                </button>
+                <button type="button" onClick={() => setActiveTab('protocolos')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'protocolos' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  <FileInput className="h-4 w-4" /> Protocolos
+                </button>
+                <button type="button" onClick={() => setActiveTab('reclamacoes')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'reclamacoes' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  <MessageSquareQuote className="h-4 w-4" /> Reclamações
+                </button>
+                <button type="button" onClick={() => setActiveTab('usuarios')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'usuarios' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  <Users className="h-4 w-4" /> Usuários
+                </button>
+                <button type="button" onClick={() => setActiveTab('logs')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'logs' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  <ListTodo className="h-4 w-4" /> Log&apos;s
+                </button>
             </div>
           </div>
+          </div>
+          {/* /hero */}
+          </>
         ) : (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
@@ -644,7 +682,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
           </div>
         )}
 
-        {error && <div className={cn('rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive', isEdit && 'mx-4 sm:mx-6 mt-4')}>{error}</div>}
+        {error && <div className={cn('rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive', isEdit && 'mt-4')}>{error}</div>}
 
         {/* No cadastro de novo cliente NÃO mostramos as abas de topo — a aba
             "Detalhes" (Dados Gerais) já reúne tudo o que é necessário p/ criar.
@@ -652,7 +690,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
             na edição de um cliente já salvo, então aparecem só no modo edição. */}
 
           {/* Layout 2 colunas */}
-          <div className={cn('mt-5', isEdit ? 'grid gap-5 lg:grid-cols-[1fr_320px]' : '')}>
+          <div className={cn('mt-6', isEdit ? 'grid items-start gap-6 lg:grid-cols-[1fr_20rem]' : '')}>
             <div className="min-w-0">
 
               {/* ======================================================== */}
@@ -755,14 +793,20 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
             {/* SIDEBAR (modo edit)                                          */}
             {/* ============================================================ */}
             {isEdit && (
-              <div className="space-y-5">
-                {/* #HLP0209/0211 — card de cliente inativado (acima do Progresso): data de saída + motivo + reativar. */}
+              <div className="space-y-4">
+                {/* Avisos — cliente inativado (cabeçalho em gradiente âmbar, como no orçamento) */}
                 {watchedValues.status === 'INATIVO' && (
-                  <Card className={`p-5 ${INATIVADO_SURFACE_CLASS}`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Ban className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
-                      <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-300">Cliente inativado</h4>
+                  <Card className="overflow-hidden rounded-2xl p-0">
+                    <div className="flex items-center justify-between border-b border-border bg-gradient-to-br from-amber-500/10 to-amber-500/[0.03] px-5 py-4">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 text-white"><Ban className="h-4 w-4" /></span>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Avisos</p>
+                          <p className="text-base font-bold text-foreground">Cliente inativado</p>
+                        </div>
+                      </div>
                     </div>
+                    <div className="p-5">
                     <dl className="space-y-1.5 text-[13px]">
                       <div className="flex gap-2">
                         <dt className="text-muted-foreground shrink-0">Data de saída:</dt>
@@ -774,20 +818,28 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                       </div>
                     </dl>
                     {canEditDetails && (
-                      <Button type="button" variant="outline" className={`mt-3 w-full ${REATIVAR_BTN_CLASS}`} size="sm" onClick={() => setReativarAberto(true)}>
+                      <Button type="button" variant="outline" className="mt-3 w-full gap-1.5" size="sm" onClick={() => setReativarAberto(true)}>
                         <RotateCcw className="h-3.5 w-3.5" />Reativar cliente
                       </Button>
                     )}
+                    </div>
                   </Card>
                 )}
-                {/* Progresso */}
-                <Card className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold">Progresso do cadastro</h4>
-                    <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{progress.percent}%</span>
+                {/* Progresso — card "plano" do modelo: cabeçalho em gradiente + pill + barra */}
+                <Card className="overflow-hidden rounded-2xl p-0">
+                  <div className="flex items-center justify-between border-b border-border bg-gradient-to-br from-primary/10 to-sky-500/5 px-5 py-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground"><ClipboardCheck className="h-4 w-4" /></span>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Progresso do cadastro</p>
+                        <p className="text-base font-bold text-foreground tabular-nums">{progress.percent}%</p>
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{progress.filled} / {progress.total}</span>
                   </div>
-                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-2">
-                    <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${progress.percent}%` }} />
+                  <div className="p-5">
+                  <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mb-2">
+                    <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${progress.percent}%` }} />
                   </div>
                   <p className="text-xs text-muted-foreground">{progress.filled} de {progress.total} campos preenchidos</p>
                   {progress.percent < 100 && (
@@ -834,6 +886,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                       </ul>
                     </details>
                   )}
+                  </div>
                 </Card>
 
                 {/* Atividades e Benefícios (#5/#6) — substitui o card de Áreas Contratadas */}
@@ -1494,7 +1547,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
               </a>
               <div className="flex gap-2">
                 <Button type="button" variant="success" size="sm" className="gap-1" onClick={() => { buscarCnpj(); setCnpjCard(null) }}>
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Completar no formulario
+                  <CheckCircle2 className="h-4 w-4" /> Completar no formulario
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setCnpjCard(null)}>
                   Fechar
@@ -2458,19 +2511,19 @@ function FiscalCard({ control, clienteId, isEdit, documento, canEdit }: {
               </div>
               <div className="p-5 space-y-2">
                 <Button type="button" variant="outline" size="sm" className="w-full justify-start text-xs" onClick={() => window.open('https://agenciavirtual.sefaz.es.gov.br', '_blank')}>
-                  <ExternalLink className="h-3.5 w-3.5" /> Agência Virtual — SEFAZ/ES
+                  <ExternalLink className="h-4 w-4" /> Agência Virtual — SEFAZ/ES
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="w-full justify-start text-xs" onClick={() => window.open('https://cav.receita.fazenda.gov.br', '_blank')}>
-                  <ExternalLink className="h-3.5 w-3.5" /> e-CAC — Receita Federal
+                  <ExternalLink className="h-4 w-4" /> e-CAC — Receita Federal
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="w-full justify-start text-xs" onClick={() => window.open('https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PJ/Emitir', '_blank')}>
-                  <ExternalLink className="h-3.5 w-3.5" /> Certidão Negativa — Receita Federal
+                  <ExternalLink className="h-4 w-4" /> Certidão Negativa — Receita Federal
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="w-full justify-start text-xs" onClick={() => window.open('https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf', '_blank')}>
-                  <ExternalLink className="h-3.5 w-3.5" /> CRF — FGTS (Caixa)
+                  <ExternalLink className="h-4 w-4" /> CRF — FGTS (Caixa)
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="w-full justify-start text-xs" onClick={() => window.open('https://cndt-certidao.tst.jus.br/inicio.faces', '_blank')}>
-                  <ExternalLink className="h-3.5 w-3.5" /> CNDT — Certidão Trabalhista
+                  <ExternalLink className="h-4 w-4" /> CNDT — Certidão Trabalhista
                 </Button>
               </div>
             </div>
@@ -2828,7 +2881,7 @@ function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
             <Input value={descricaoNova} onChange={(e) => setDescricaoNova(e.target.value)} placeholder="Opcional" className="h-9 text-sm" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd() } }} />
           </div>
           <Button type="button" size="sm" onClick={handleAdd} disabled={saving}>
-            <Plus className="h-3.5 w-3.5" /> Adicionar
+            <Plus className="h-4 w-4" /> Adicionar
           </Button>
         </div>
       )}
@@ -2962,27 +3015,28 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
   const temBeneficios = beneficios.length > 0 && (bfPerms.canRead || bfPerms.canWrite || canManageActivitiesBenefits)
 
   return (
-    <Card className="p-5">
+    <Card className="rounded-2xl p-5">
       <div className="flex items-center justify-between gap-2 mb-3">
-        {/* truncate + shrink-0 no botão: sem isso o título quebra em duas linhas
-            na coluna de 320px e o card abre um buraco no topo. */}
-        <h4 className="text-sm font-semibold truncate">Atividades e Benefícios</h4>
+        <h4 className="flex items-center gap-2 text-sm font-semibold truncate">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Sparkles className="h-4 w-4" /></span>
+          Atividades e Benefícios
+        </h4>
         {(canManageActivitiesBenefits || bfPerms.canWrite) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button type="button" variant="outline" size="sm" className="h-7 shrink-0 px-2 text-[11px]">
-                <Plus className="h-3.5 w-3.5" /> Adicionar <ChevronDown className="h-3 w-3 opacity-60" />
+                <Plus className="h-4 w-4" /> Adicionar <ChevronDown className="h-3 w-3 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {canManageAtiv && (
                 <DropdownMenuItem onClick={() => setModal({ kind: 'atividade', valor: '' })}>
-                  <Activity className="h-3.5 w-3.5" /> Atividade
+                  <Activity className="h-4 w-4" /> Atividade
                 </DropdownMenuItem>
               )}
               {bfPerms.canWrite && (
                 <DropdownMenuItem onClick={() => setModalBenef({ catalogoId: '', dataVencimento: '', portaria: '', processo: '', obs: '' })}>
-                  <Percent className="h-3.5 w-3.5" /> Benefício Fiscal
+                  <Percent className="h-4 w-4" /> Benefício Fiscal
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -3161,8 +3215,8 @@ function AtivBenefActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: 
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={onEdit}><Pencil className="h-3.5 w-3.5" /> Editar</DropdownMenuItem>
-        <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive"><Trash2 className="h-3.5 w-3.5" /> Excluir</DropdownMenuItem>
+        <DropdownMenuItem onClick={onEdit}><Pencil className="h-4 w-4" /> Editar</DropdownMenuItem>
+        <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4" /> Excluir</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -3341,12 +3395,15 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
     <Card
       id="arquivos"
       ref={cardRef}
-      className={cn('p-5 transition-shadow', destacado && 'ring-2 ring-emerald-500/60')}
+      className={cn('rounded-2xl p-5 transition-shadow', destacado && 'ring-2 ring-primary/40')}
     >
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-semibold">Arquivos</h4>
+        <h4 className="flex items-center gap-2 text-sm font-semibold">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Paperclip className="h-4 w-4" /></span>
+          Arquivos
+        </h4>
         {canManageFiles && (
-          <Button type="button" variant="outline" size="sm" onClick={handleUpload}><Plus className="h-3.5 w-3.5" /> Adicionar</Button>
+          <Button type="button" variant="outline" size="sm" onClick={handleUpload}><Plus className="h-4 w-4" /> Adicionar</Button>
         )}
       </div>
       {/* Certificados digitais — leitura + edição de observações (seção adicional).
@@ -3705,7 +3762,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
       <div className="px-5 py-3 border-b border-border flex items-center justify-between">
         <h4 className="text-[13px] font-semibold text-foreground">Contatos do Cliente</h4>
         <Button type="button" variant="outline" size="sm" onClick={startAdd}>
-          <Plus className="h-3.5 w-3.5" /> Novo Contato
+          <Plus className="h-4 w-4" /> Novo Contato
         </Button>
       </div>
 
@@ -3742,7 +3799,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
             </div>
             <div className="flex gap-2 mt-3">
               <Button type="button" size="sm" className="bg-emerald-500 text-white hover:bg-emerald-600" onClick={handleAdd} disabled={!fNome.trim()}>
-                <Plus className="h-3.5 w-3.5" /> Adicionar
+                <Plus className="h-4 w-4" /> Adicionar
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => { setAdding(false); resetForm() }}>Cancelar</Button>
             </div>
@@ -3781,7 +3838,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
             </div>
             <div className="flex gap-2 mt-3">
               <Button type="button" size="sm" className="bg-sky-500 text-white hover:bg-sky-600" onClick={handleUpdate} disabled={!fNome.trim()}>
-                <Save className="h-3.5 w-3.5" /> Salvar
+                <Save className="h-4 w-4" /> Salvar
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={cancelEdit}>Cancelar</Button>
             </div>
