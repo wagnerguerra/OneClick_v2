@@ -31,28 +31,6 @@ const TIPO_CONFIG: Record<string, { icon: typeof Info; color: string; bg: string
   error:   { icon: AlertCircle,  color: 'text-rose-600 dark:text-rose-400',       bg: 'bg-rose-50 dark:bg-rose-900/20',       border: 'border-rose-200 dark:border-rose-800' },
 }
 
-/**
- * Classifica notificação de certificado pelo `&estado=` no link.
- * Retorna 'vencido' (já expirou ou ≤7 dias), 'vencendo' (8-60 dias) ou null (não é cert).
- */
-function classificarCert(n: Notification): 'vencido' | 'vencendo' | null {
-  if (n.origem !== 'gestao-certificados' || !n.link) return null
-  const m = n.link.match(/[?&]estado=([^&]+)/)
-  const estado = m?.[1]
-  if (estado === 'VENCIDO' || estado === '7D') return 'vencido'
-  if (estado === '30D' || estado === '60D') return 'vencendo'
-  return null
-}
-
-/** Extrai a data de expiração (ISO YYYY-MM-DD) do parâmetro `&exp=` no link. */
-function getExpTime(n: Notification): number {
-  if (!n.link) return Number.MAX_SAFE_INTEGER
-  const m = n.link.match(/[?&]exp=(\d{4}-\d{2}-\d{2})/)
-  if (!m) return Number.MAX_SAFE_INTEGER
-  const t = new Date(m[1] + 'T00:00:00').getTime()
-  return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t
-}
-
 function formatRelativo(d: string): string {
   const dt = new Date(d).getTime()
   const diff = Date.now() - dt
@@ -246,10 +224,6 @@ export function NotificationBell() {
   // Aba ativa do painel (modelo LuminAux): Todos / Não lidas
   const [aba, setAba] = useState<'todas' | 'nao_lidas'>('todas')
   const visiveis = aba === 'nao_lidas' ? items.filter(n => !n.lida) : items
-  const sortByExp = (a: Notification, b: Notification) => getExpTime(a) - getExpTime(b)
-  const vencidos = visiveis.filter(n => classificarCert(n) === 'vencido').sort(sortByExp)
-  const vencendo = visiveis.filter(n => classificarCert(n) === 'vencendo').sort(sortByExp)
-  const outras = visiveis.filter(n => !classificarCert(n))
   const naoLidas = items.filter(n => !n.lida).length
 
   function renderItem(n: Notification) {
@@ -276,7 +250,7 @@ export function NotificationBell() {
               <span className="shrink-0 text-xs text-muted-foreground">{formatRelativo(n.createdAt)}</span>
             </span>
             {n.mensagem && <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{n.mensagem}</span>}
-            {n.origem && <span className="mt-1 inline-block rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{n.origem}</span>}
+            {n.origem && <span className="mt-1 inline-block rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{n.origem === 'gestao-certificados' ? 'Certificados digitais' : n.origem}</span>}
           </span>
           {!n.lida && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />}
           {/* Ações no hover: marcar lida / remover (quando o sistema permite) */}
@@ -295,16 +269,6 @@ export function NotificationBell() {
             )}
           </span>
         </div>
-      </li>
-    )
-  }
-
-  function renderSecao(titulo: string, lista: Notification[], tom: string) {
-    if (lista.length === 0) return null
-    return (
-      <li className="pt-2 first:pt-0">
-        <p className={cn('px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide', tom)}>{titulo} · {lista.length}</p>
-        <ul className="space-y-1">{lista.map(renderItem)}</ul>
       </li>
     )
   }
@@ -379,11 +343,7 @@ export function NotificationBell() {
                   <p className="mt-2 text-xs text-muted-foreground">{aba === 'nao_lidas' ? 'Nada por ler. Tudo em dia!' : 'Nenhuma notificação por aqui.'}</p>
                 </div>
               ) : (
-                <ul className="space-y-1">
-                  {renderSecao('Vencidos / Crítico', vencidos, 'text-rose-600 dark:text-rose-400')}
-                  {renderSecao('Vencendo', vencendo, 'text-amber-600 dark:text-amber-400')}
-                  {(vencidos.length > 0 || vencendo.length > 0) ? renderSecao('Outras', outras, 'text-muted-foreground') : outras.map(renderItem)}
-                </ul>
+                <ul className="space-y-1">{visiveis.map(renderItem)}</ul>
               )}
             </div>
             {/* Rodapé */}

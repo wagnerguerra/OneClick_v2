@@ -115,7 +115,13 @@ export default function GestaoCertificadosPage() {
   const [arquivados, setArquivados] = useState<Certificado[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [filtroStatus, setFiltroStatus] = useState<string>('__all__')
+  // `?filtro=VENCIDO|VENCENDO` — os alertas agregados do sino chegam aqui já filtrados
+  const filtroInicial = (() => {
+    if (typeof window === 'undefined') return '__all__'
+    const f = new URLSearchParams(window.location.search).get('filtro')
+    return f && ['ATIVO', 'VENCENDO', 'VENCIDO', 'REVOGADO', 'ARQUIVADO'].includes(f) ? f : '__all__'
+  })()
+  const [filtroStatus, setFiltroStatus] = useState<string>(filtroInicial)
   const [filtroBusca, setFiltroBusca] = useState('')
   // Anti-autofill do Chrome: o campo fica readonly sempre que NÃO está em foco
   // (é quando o autofill dispara — no load, ao tabular, na detecção de form).

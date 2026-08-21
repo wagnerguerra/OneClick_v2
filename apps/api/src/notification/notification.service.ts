@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { prisma } from '@saas/db'
+import { prisma, Prisma } from '@saas/db'
 import { NotificationsEventsService } from '../notifications-events/notifications-events.service'
 
 // Catálogo das origens conhecidas no sistema. Cada origem é um "tipo" de
@@ -58,6 +58,36 @@ export const NOTIFICATION_ORIGENS: OrigemCatalogo[] = [
 ]
 
 const CFG_KEY_REMOVABLE = 'notification.removable_origins'
+
+// ── Certificados: as notificações continuam 1 por certificado no banco (é o
+// que a Gestão de Certificados cria/remove), mas sino e painel as veem
+// AGREGADAS em dois alertas — "N vencidos" e "N vencendo" (decisão do Wagner,
+// 21/08: manter o alerta sem poluir o indicador). O bucket vem do `&estado=`
+// que o certificado-digital.service grava no link.
+const CERT_ORIGEM = 'gestao-certificados'
+type CertGrupoDef = { id: string; where: Prisma.NotificationWhereInput; tipo: string; link: string; titulo: (n: number) => string; mensagem: string }
+const CERT_GRUPOS: Record<'vencido' | 'vencendo', CertGrupoDef> = {
+  vencido: {
+    id: 'agg:cert:vencido',
+    where: { origem: CERT_ORIGEM, OR: [{ link: { contains: 'estado=VENCIDO' } }, { link: { contains: 'estado=7D' } }] },
+    tipo: 'error',
+    link: '/gestao-certificados?filtro=VENCIDO',
+    titulo: (n: number) => `${n} certificado${n === 1 ? '' : 's'} de cliente${n === 1 ? '' : 's'} vencido${n === 1 ? '' : 's'}`,
+    mensagem: 'Inclui os que vencem em até 7 dias. Abra a Gestão de Certificados para ver a lista.',
+  },
+  vencendo: {
+    id: 'agg:cert:vencendo',
+    where: { origem: CERT_ORIGEM, OR: [{ link: { contains: 'estado=30D' } }, { link: { contains: 'estado=60D' } }] },
+    tipo: 'warning',
+    link: '/gestao-certificados?filtro=VENCENDO',
+    titulo: (n: number) => `${n} certificado${n === 1 ? '' : 's'} de cliente${n === 1 ? '' : 's'} vencendo`,
+    mensagem: 'Vencem nos próximos 60 dias. Abra a Gestão de Certificados para ver a lista.',
+  },
+}
+type CertGrupo = keyof typeof CERT_GRUPOS
+function certGrupoPorId(id: string): CertGrupo | null {
+  return id === CERT_GRUPOS.vencido.id ? 'vencido' : id === CERT_GRUPOS.vencendo.id ? 'vencendo' : null
+}
 
 /**
  * Lê SystemConfig e retorna map { origem -> boolean }. Origens sem entrada
@@ -164,6 +194,7 @@ export class NotificationService {
     const items = await prisma.notification.findMany({
       where: {
         userId,
+        origem: { not: CERT_ORIGEM }, // certificados entram agregados abaixo
         ...(opts?.apenasNaoLidas ? { lida: false } : {}),
       },
       orderBy: { createdAt: 'desc' },
@@ -171,10 +202,37 @@ export class NotificationService {
     })
     // Carrega o mapa uma vez só (evita N+1 chamadas a SystemConfig)
     const removableMap = await carregarRemovableMap()
-    return items.map(n => ({
+    const lista: Array<Record<string, unknown>> = items.map(n => ({
       ...n,
       removivel: !n.origem ? true : (n.origem in removableMap ? !!removableMap[n.origem] : true),
     }))
+    // Dois alertas agregados de certificados (quando há o que alertar)
+    for (const g of Object.values(CERT_GRUPOS)) {
+      const [total, naoLidas, ultimo] = await Promise.all([
+        prisma.notification.count({ where: { userId, ...g.where } }),
+        prisma.notification.count({ where: { userId, ...g.where, lida: false } }),
+        prisma.notification.findFirst({ where: { userId, ...g.where }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
+      ])
+      if (total === 0) continue
+      if (opts?.apenasNaoLidas && naoLidas === 0) continue
+      lista.push({
+        id: g.id,
+        userId,
+        titulo: g.titulo(total),
+        mensagem: g.mensagem,
+        tipo: g.tipo,
+        link: g.link,
+        origem: CERT_ORIGEM,
+        lida: naoLidas === 0,
+        lidaEm: null,
+        createdAt: ultimo?.createdAt ?? new Date(),
+        removivel: false,
+        agregado: true,
+        quantidade: total,
+      })
+    }
+    lista.sort((a, b) => new Date(b.createdAt as Date).getTime() - new Date(a.createdAt as Date).getTime())
+    return lista
   }
 
   /** Quantidade de não lidas — mantido por compat. */
@@ -189,10 +247,26 @@ export class NotificationService {
    */
   async contarPendentes(userId: string): Promise<number> {
     await this.limparNotificacoesAgendaExpiradas(userId)
-    return prisma.notification.count({ where: { userId } })
+    // Certificados contam como no máximo 2 (um alerta por grupo), não 1 por certificado
+    const [outras, vencidos, vencendo] = await Promise.all([
+      prisma.notification.count({ where: { userId, origem: { not: CERT_ORIGEM } } }),
+      prisma.notification.count({ where: { userId, ...CERT_GRUPOS.vencido.where } }),
+      prisma.notification.count({ where: { userId, ...CERT_GRUPOS.vencendo.where } }),
+    ])
+    return outras + (vencidos > 0 ? 1 : 0) + (vencendo > 0 ? 1 : 0)
   }
 
   async marcarComoLida(id: string, userId: string) {
+    // Linha agregada de certificados: marca o grupo inteiro como lido
+    const grupo = certGrupoPorId(id)
+    if (grupo) {
+      await prisma.notification.updateMany({
+        where: { userId, ...CERT_GRUPOS[grupo].where, lida: false },
+        data: { lida: true, lidaEm: new Date() },
+      })
+      this.events.emit({ type: 'updated', userId, notificationIds: [id] })
+      return { ok: true }
+    }
     // Garante que só marca as próprias
     const n = await prisma.notification.findUnique({ where: { id }, select: { userId: true, lida: true } })
     if (!n || n.userId !== userId) throw new Error('Notificação não encontrada')
