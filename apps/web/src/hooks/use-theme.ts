@@ -35,13 +35,21 @@ export function useTheme() {
       }
     }
     mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
+    // Outra instância (ex.: painel "Configurações de layout") mudou o tema
+    const onPrefs = (e: Event) => {
+      if ((e as CustomEvent).detail?.chave !== 'theme') return
+      const t = (localStorage.getItem(THEME_KEY) as Theme | null) ?? 'system'
+      setThemeState(t); applyTheme(t)
+    }
+    window.addEventListener('oc-prefs', onPrefs)
+    return () => { mq.removeEventListener('change', handler); window.removeEventListener('oc-prefs', onPrefs) }
   }, [])
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next)
     localStorage.setItem(THEME_KEY, next)
     applyTheme(next)
+    window.dispatchEvent(new CustomEvent('oc-prefs', { detail: { chave: 'theme' } }))
   }, [])
 
   const toggleTheme = useCallback(() => {
@@ -50,6 +58,7 @@ export function useTheme() {
       const next = resolved === 'dark' ? 'light' : 'dark'
       localStorage.setItem(THEME_KEY, next)
       applyTheme(next)
+      window.dispatchEvent(new CustomEvent('oc-prefs', { detail: { chave: 'theme' } }))
       return next
     })
   }, [])

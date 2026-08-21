@@ -65,6 +65,19 @@
 @keyframes sheetOverlayOut { from { opacity: 1; } to { opacity: 0; } }
 
 /* Sino — efeito de "desenrolar" (roll down) e "reenrolar" (roll up) */
+/* ─── Skins de acento (painel "Configurações de layout") ───────────────────
+   Só o primário muda — módulos, status e semânticas continuam com suas cores. */
+[data-skin="esmeralda"] { --color-primary: #059669; --color-primary-hover: #047857; --color-ring: #059669; }
+[data-skin="ambar"]     { --color-primary: #d97706; --color-primary-hover: #b45309; --color-ring: #d97706; }
+[data-skin="coral"]     { --color-primary: #e11d48; --color-primary-hover: #be123c; --color-ring: #e11d48; }
+[data-skin="lilas"]     { --color-primary: #7c3aed; --color-primary-hover: #6d28d9; --color-ring: #7c3aed; }
+[data-skin="grafite"]   { --color-primary: #334155; --color-primary-hover: #1e293b; --color-ring: #334155; }
+.dark[data-skin="esmeralda"] { --color-primary: #34d399; --color-primary-hover: #6ee7b7; --color-ring: #34d399; }
+.dark[data-skin="ambar"]     { --color-primary: #fbbf24; --color-primary-hover: #fcd34d; --color-ring: #fbbf24; }
+.dark[data-skin="coral"]     { --color-primary: #fb7185; --color-primary-hover: #fda4af; --color-ring: #fb7185; }
+.dark[data-skin="lilas"]     { --color-primary: #a78bfa; --color-primary-hover: #c4b5fd; --color-ring: #a78bfa; }
+.dark[data-skin="grafite"]   { --color-primary: #94a3b8; --color-primary-hover: #cbd5e1; --color-ring: #94a3b8; }
+
 /* Pulso do badge do sino (modelo LuminAux: scale 1→1.15→1, 1.6s, infinito) e
    entrada do drawer de notificações pela direita. */
 @keyframes headerBadgePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }

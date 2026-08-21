@@ -16,6 +16,9 @@ import { NotificationBell } from './notification-bell'
 import { ClientErrorBadge } from './client-error-badge'
 import { ChatHeaderButton } from '@/components/chat/chat-header-button'
 import { QuickAccessMenu } from './quick-access-menu'
+import { LayoutCustomizer } from './layout-customizer'
+import { useLayoutPrefs } from '@/lib/layout-prefs'
+import { cn } from '@saas/ui'
 
 const TRUST_COOKIE = 'oc-trust-device'
 const TRUST_PENDING_KEY = 'oc-trust-device-pending'
@@ -33,6 +36,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const { profile } = useCurrentUserProfile()
   const { theme, toggleTheme, mounted: themeMounted } = useTheme()
   const { empresa } = useEmpresaAtiva()
+  const { prefs } = useLayoutPrefs()
 
   // Registra trust device pendente apos login com MFA (vem do sessionStorage setado em /login/2fa)
   useEffect(() => {
@@ -59,7 +63,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
       window.matchMedia('(prefers-color-scheme: dark)').matches)
 
   return (
-    <header className="sticky top-0 z-30 flex h-[var(--app-header-offset)] items-center justify-between border-b border-border bg-card/80 backdrop-blur-sm shadow-[0_2px_8px_rgba(15,23,42,0.04)] px-4 sm:px-6">
+    <header className={cn('z-30 flex h-[var(--app-header-offset)] items-center justify-between border-b border-border bg-card/80 backdrop-blur-sm shadow-[0_2px_8px_rgba(15,23,42,0.04)] px-4 sm:px-6', prefs.headerFixo ? 'sticky top-0' : 'relative')}>
       <div className="flex items-center gap-4 sm:gap-6">
         {/* Hamburger — mobile only */}
         <Button
@@ -113,11 +117,13 @@ export function Header({ onOpenMobile }: HeaderProps) {
         <TenantSwitcher />
 
         {/* Acesso rápido — módulos fixados pelo usuário (sucessor da guia de abas) */}
-        {session?.user && <QuickAccessMenu />}
+        {session?.user && prefs.acessoRapido && <QuickAccessMenu />}
       </div>
 
       {/* Grupo direito no padrão do modelo: ícones h-10 w-10 rounded-lg, gap-1 */}
       <div className="flex items-center gap-1">
+        {/* Configurações de layout (customizer do modelo) */}
+        {session?.user && <LayoutCustomizer />}
         {/* Theme toggle */}
         {themeMounted && (
           <button

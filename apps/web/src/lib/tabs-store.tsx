@@ -19,6 +19,8 @@ interface TabsContextValue {
   // Operações otimistas — atualizam UI imediatamente e sincronizam no backend
   /** Fixa uma rota no Acesso rápido (cria o registro já pinado). */
   fixar: (input: { href: string; label: string; icon?: string | null }) => Promise<Tab | null>
+  /** Abas de navegação (opcionais): cria/foca a aba da rota. */
+  addOrFocus: (input: { href: string; label: string; icon?: string | null }) => Promise<Tab | null>
   updateLabel: (href: string, label: string) => Promise<void>
   close: (id: string) => Promise<void>
   closeMultiple: (ids: string[]) => Promise<void>
@@ -52,11 +54,14 @@ export function TabsProvider({ children, userId }: { children: React.ReactNode; 
       // Migração do modelo antigo (abas automáticas por navegação): itens
       // não-fixados deixaram de existir — o Acesso rápido só conhece fixados.
       // Limpa os resquícios uma única vez, em silêncio.
-      const sobras = list.filter(t => !t.pinned).map(t => t.id)
+      // Com as abas de navegação LIGADAS (Configurações de layout), as não-fixadas
+      // são as abas abertas do usuário — ficam.
+      const abasLigadas = (() => { try { return !!JSON.parse(localStorage.getItem('oc-layout-prefs') ?? '{}').abas } catch { return false } })()
+      const sobras = abasLigadas ? [] : list.filter(t => !t.pinned).map(t => t.id)
       if (sobras.length > 0) {
         ;(trpc.tabs as any).closeMultiple.mutate({ ids: sobras }).catch(() => { /* silent */ })
       }
-      setTabs(list.filter(t => t.pinned))
+      setTabs(abasLigadas ? list : list.filter(t => t.pinned))
       setMaxTabs(max)
     } catch {
       /* silent */
@@ -89,6 +94,17 @@ export function TabsProvider({ children, userId }: { children: React.ReactNode; 
       channelRef.current.postMessage({ type: 'tabs-changed', userId })
     }
   }
+
+  const addOrFocus = useCallback(async (input: { href: string; label: string; icon?: string | null }) => {
+    if (!userId) return null
+    const existing = tabs.find(t => t.href === input.href)
+    if (existing) return existing
+    if (tabs.length >= maxTabs) throw new Error(`Limite de ${maxTabs} abas atingido. Feche alguma para abrir outra.`)
+    const created = await (trpc.tabs as any).addOrGet.mutate(input) as Tab
+    setTabs(prev => prev.find(t => t.id === created.id) ? prev : [...prev, created])
+    broadcastChange()
+    return created
+  }, [tabs, maxTabs, userId])
 
   const fixar = useCallback(async (input: { href: string; label: string; icon?: string | null }) => {
     if (!userId) return null
@@ -177,7 +193,7 @@ export function TabsProvider({ children, userId }: { children: React.ReactNode; 
   }, [tabs])
 
   return (
-    <TabsContext.Provider value={{ tabs, loading, maxTabs, fixar, updateLabel, close, closeMultiple, setPinned, reorder, refetch }}>
+    <TabsContext.Provider value={{ tabs, loading, maxTabs, fixar, addOrFocus, updateLabel, close, closeMultiple, setPinned, reorder, refetch }}>
       {children}
     </TabsContext.Provider>
   )

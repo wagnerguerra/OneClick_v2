@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@saas/ui'
+import { useLayoutPrefs } from '@/lib/layout-prefs'
 
 /**
  * Barra de cabeçalho de página — padrão LuminAux (20/08/2026).
@@ -25,10 +26,12 @@ export function PageHeaderBar({
   actions?: React.ReactNode
   className?: string
 }) {
+  const { prefs } = useLayoutPrefs()
   return (
     <div
       className={cn(
-        'sticky top-[var(--app-header-offset)] z-20 -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 mb-4 sm:mb-5',
+        prefs.barraPaginaFixa && prefs.headerFixo && 'sticky top-[var(--app-header-offset)] z-20',
+        '-mx-4 sm:-mx-6 -mt-4 sm:-mt-6 mb-4 sm:mb-5',
         'flex flex-wrap items-center justify-between gap-x-4 gap-y-2',
         'border-b border-border bg-background px-4 sm:px-6 py-3',
         className,

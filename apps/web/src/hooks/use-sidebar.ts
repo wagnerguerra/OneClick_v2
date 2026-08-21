@@ -17,6 +17,13 @@ export function useSidebar() {
       setCollapsed(true)
     }
     setMounted(true)
+    // Painel "Configurações de layout" muda a preferência por fora
+    const onPrefs = (e: Event) => {
+      if ((e as CustomEvent).detail?.chave !== 'sidebar') return
+      setCollapsed(localStorage.getItem(SIDEBAR_KEY) === 'true')
+    }
+    window.addEventListener('oc-prefs', onPrefs)
+    return () => window.removeEventListener('oc-prefs', onPrefs)
   }, [])
 
   // Fechar sidebar mobile ao navegar
@@ -28,6 +35,7 @@ export function useSidebar() {
     setCollapsed((prev) => {
       const next = !prev
       localStorage.setItem(SIDEBAR_KEY, String(next))
+      window.dispatchEvent(new CustomEvent('oc-prefs', { detail: { chave: 'sidebar' } }))
       return next
     })
   }, [])

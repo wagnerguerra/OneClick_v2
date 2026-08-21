@@ -17,6 +17,9 @@ import { TarefasRail } from '@/components/dashboard/tarefas-rail'
 import { NotesRail } from '@/components/dashboard/notes-rail'
 import { ChatToastListener } from '@/components/chat/chat-toast-listener'
 import { TabsProvider } from '@/lib/tabs-store'
+import { LayoutPrefsProvider, useLayoutPrefs } from '@/lib/layout-prefs'
+import { TabBar } from '@/components/dashboard/tab-bar'
+import { useSyncRouteTab } from '@/hooks/use-sync-route-tab'
 import { usePermissionsSse } from '@/hooks/use-permissions-sse'
 import { usePresencePing } from '@/hooks/use-presence-ping'
 import { useModuleScope } from '@/hooks/use-module-scope'
@@ -33,10 +36,16 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
   closeMobile: () => void
   trialDaysRemaining: number | null
 }) {
+  useSyncRouteTab()
   usePermissionsSse()
   usePresencePing()
   useModuleScope()
   useAgendaLembreteSse()
+  // Sidebar reduzida que expande ao passar o mouse (Configurações de layout):
+  // abre POR CIMA do conteúdo — a margem do conteúdo não muda.
+  const { prefs } = useLayoutPrefs()
+  const [hoverSidebar, setHoverSidebar] = useState(false)
+  const sidebarAberta = !collapsed || (prefs.sidebarHover && hoverSidebar)
 
   return (
     <div
@@ -44,7 +53,9 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
       style={{ ['--sidebar-w' as string]: collapsed ? '80px' : '260px' }}
     >
       <RouteProgress />
-      <Sidebar collapsed={collapsed} onToggle={toggle} mobileOpen={mobileOpen} onCloseMobile={closeMobile} />
+      <div onMouseEnter={() => collapsed && setHoverSidebar(true)} onMouseLeave={() => setHoverSidebar(false)}>
+        <Sidebar collapsed={!sidebarAberta} onToggle={toggle} mobileOpen={mobileOpen} onCloseMobile={closeMobile} />
+      </div>
       <div
         className={cn(
           'transition-all duration-300',
@@ -55,6 +66,7 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
         {/* lg:mr-11 reserva a faixa do rail de tarefas (direita) */}
         <div className="lg:mr-11">
           {trialDaysRemaining != null && <TrialBanner daysRemaining={trialDaysRemaining} />}
+          <TabBar />
           <main className="p-4 sm:p-6">
             <PageTransition>{children}</PageTransition>
           </main>
@@ -140,6 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
+    <LayoutPrefsProvider>
     <TabsProvider userId={session.user.id}>
       <DashboardLayoutInner
         collapsed={collapsed}
@@ -152,5 +165,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {children}
       </DashboardLayoutInner>
     </TabsProvider>
+    </LayoutPrefsProvider>
   )
 }
