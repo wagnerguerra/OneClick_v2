@@ -415,6 +415,11 @@
 
   thead th, thead th * { text-transform: uppercase; }
 
+  /* Tailwind v4 reseta <button> para cursor:default — toda ação clicável volta
+     ao ponteiro de mão (21/08). Desabilitado segue com not-allowed. */
+  button:not(:disabled), [role="button"]:not([aria-disabled="true"]), [role="tab"], summary { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+
   /* Scrollbar oculta mas funcional */
   .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
