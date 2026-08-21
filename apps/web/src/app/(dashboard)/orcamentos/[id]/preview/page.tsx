@@ -1909,29 +1909,20 @@ export default function OrcamentoDetailPage() {
                     {a.nome}
                   </span>
                 ))}
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/85">
-                <span className="inline-flex items-center gap-1"><Hash className="h-3.5 w-3.5" />{String(orc.numero).padStart(4, '0')}</span>
-                {orc.cliente?.documento && <span className="inline-flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />{masks.cpfCnpj(orc.cliente.documento)}</span>}
-                <span className="inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />Criado em {new Date(orc.createdAt).toLocaleDateString('pt-BR')}, {new Date(orc.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-              {/* Sem o status (que subiu pra linha do cabeçalho), a linha de
-                  badges só existe quando tem algo a mostrar — evita margem fantasma. */}
-              {(orc.paralizado || orc.arquivado || (orc.reaberturasCount ?? 0) > 0 || pesquisaResumo?.respondida) && (
-              <div className="flex flex-wrap gap-2 mt-2.5">
+                {/* Badges de estado, na mesma linha do status e das áreas (vidro, como os chips) */}
                 {orc.paralizado && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-3 py-1 text-xs font-medium uppercase">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur text-amber-200">
                     <Pause className="h-3 w-3" /> Paralizado
                   </span>
                 )}
                 {orc.arquivado && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 px-3 py-1 text-xs font-medium uppercase">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur text-white/80">
                     Arquivado
                   </span>
                 )}
                 {(orc.reaberturasCount ?? 0) > 0 && (
                   <span
-                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-3 py-1 text-xs font-medium uppercase border border-amber-200 dark:border-amber-900/40"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur text-amber-200"
                     title={`Este orçamento já foi reaberto ${orc.reaberturasCount}x. Histórico disponível na timeline.`}
                   >
                     <RotateCcw className="h-3 w-3" /> Reaberto {orc.reaberturasCount}×
@@ -1942,14 +1933,17 @@ export default function OrcamentoDetailPage() {
                     type="button"
                     onClick={() => setPesquisaSheet(true)}
                     title="O cliente respondeu a pesquisa de satisfação — clique para ver"
-                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border transition-colors hover:brightness-105"
-                    style={{ color: MODULE_COLOR, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)`, backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 12%, transparent)` }}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur text-white transition-colors hover:bg-white/25"
                   >
                     <Star className="h-3 w-3" /> Pesquisa respondida
                   </button>
                 )}
               </div>
-              )}
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/85">
+                <span className="inline-flex items-center gap-1"><Hash className="h-3.5 w-3.5" />{String(orc.numero).padStart(4, '0')}</span>
+                {orc.cliente?.documento && <span className="inline-flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />{masks.cpfCnpj(orc.cliente.documento)}</span>}
+                <span className="inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />Criado em {new Date(orc.createdAt).toLocaleDateString('pt-BR')}, {new Date(orc.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
             </div>
           </div>
           <div className="flex gap-6">
