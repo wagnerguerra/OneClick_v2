@@ -84,7 +84,7 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
           </span>
         </Link>
 
-        <div className="nice-scrollbar -mx-2 min-h-0 flex-1 divide-y divide-border overflow-y-auto">
+        <div className="nice-scrollbar -mx-2 min-h-0 flex-1 divide-y divide-border overflow-y-auto overflow-x-hidden px-2">
           {itens.map(n => {
             const t = TIPOS[n.tipo] ?? TIPOS.NOVO!
             const Icone = t.icon

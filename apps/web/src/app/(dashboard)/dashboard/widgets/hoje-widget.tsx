@@ -129,11 +129,11 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
         </div>
 
         {/* Lista: uma linha por evento/tarefa, ordenada pelo horário */}
-        <div className="min-h-0 flex-1 overflow-y-auto nice-scrollbar widget-no-drag">
+        <div className="-mx-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 nice-scrollbar widget-no-drag">
           {!loaded ? null : linhas.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">Nada agendado para hoje. Dia livre!</p>
           ) : (
-            <ul className="-mx-2 divide-y divide-border">
+            <ul className="divide-y divide-border">
               {linhas.map(l => {
                 const Icon = l.icone
                 return (
@@ -144,7 +144,7 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
                   >
                     <span
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-inset ring-current/15"
-                      style={{ backgroundColor: `color-mix(in srgb, ${l.cor} 10%, transparent)`, color: l.cor }}
+                      style={{ backgroundColor: `color-mix(in srgb, ${l.cor} 18%, transparent)`, color: `color-mix(in srgb, ${l.cor} 70%, #0f172a)` }}
                     >
                       <Icon className="h-4 w-4" />
                     </span>
@@ -154,8 +154,8 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
                           {l.titulo}
                         </p>
                         <span
-                          className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px text-[11px] font-medium"
-                          style={{ backgroundColor: `color-mix(in srgb, ${l.cor} 10%, transparent)`, color: l.cor }}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px text-[11px] font-semibold"
+                          style={{ backgroundColor: `color-mix(in srgb, ${l.cor} 18%, transparent)`, color: `color-mix(in srgb, ${l.cor} 70%, #0f172a)` }}
                         >
                           {l.pill}
                         </span>
