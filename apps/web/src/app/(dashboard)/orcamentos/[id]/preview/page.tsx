@@ -1904,7 +1904,7 @@ export default function OrcamentoDetailPage() {
                 <StatusBadge status={orc.status} />
                 {chipsAreas.map(a => (
                   <span key={a.id}
-                    className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium text-white ring-1 ring-white/25 backdrop-blur"
+                    className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur"
                     title={a.derivada ? 'Área dos serviços da aba Itens' : 'Área notificada'}>
                     {a.nome}
                   </span>
