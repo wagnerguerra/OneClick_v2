@@ -71,11 +71,11 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
   }
 
   return (
-    <Card className="@container/widget h-full overflow-hidden"
+    <Card className="@container/widget h-full overflow-hidden transition-shadow hover:shadow-md"
      >
-      <CardContent className="flex h-full flex-col gap-2.5 overflow-hidden p-4">
+      <CardContent className="flex h-full flex-col gap-3 overflow-hidden p-4 @sm:p-5">
         <Link href="/relatorios-ti" className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-50 dark:bg-cyan-900/20">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-50 dark:bg-cyan-900/20">
             <Megaphone className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
           </span>
           <span className="min-w-0">
@@ -84,24 +84,24 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
           </span>
         </Link>
 
-        <div className="nice-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
+        <div className="nice-scrollbar -mx-2 min-h-0 flex-1 divide-y divide-border overflow-y-auto">
           {itens.map(n => {
             const t = TIPOS[n.tipo] ?? TIPOS.NOVO!
             const Icone = t.icon
             const corpo = (
-              <div className="rounded-lg border border-border/60 px-2.5 py-2 transition-colors hover:bg-muted/30">
-                <div className="flex items-center gap-1.5">
-                  <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${t.fundo} ${t.cor}`}>
-                    <Icone className="h-2.5 w-2.5" />{t.label}
-                  </span>
-                  <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">{quando(n.publicadoEm)}</span>
-                </div>
-                <p className="mt-1 text-[13px] font-medium leading-snug">{n.titulo}</p>
-                {n.descricao && (
-                  <p className="mt-0.5 text-[11.5px] leading-snug text-muted-foreground line-clamp-2">
-                    {n.descricao}
+              <div className="flex gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-muted/50">
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-inset ring-current/15 ${t.fundo} ${t.cor}`}>
+                  <Icone className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-sm font-semibold text-foreground">{n.titulo}</p>
+                    <span className={`inline-flex shrink-0 items-center rounded-full px-2 py-px text-[11px] font-medium ${t.fundo} ${t.cor}`}>{t.label}</span>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {n.descricao ? <>{n.descricao}<span className="px-1">·</span></> : null}{quando(n.publicadoEm)}
                   </p>
-                )}
+                </div>
               </div>
             )
             // Com módulo, a novidade leva até ele — ler "agora dá para dividir

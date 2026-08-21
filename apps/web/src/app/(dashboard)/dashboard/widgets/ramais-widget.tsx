@@ -141,15 +141,15 @@ export function RamaisWidget({ title, expanded, bloco }: { canRead?: boolean; ti
   // Modo compacto (widget no dashboard)
   return (
     <Card className="h-full flex flex-col overflow-hidden @container/widget">
-      <CardHeader className="pb-3 shrink-0">
+      <CardHeader className="shrink-0 border-b-0 p-5 pb-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
-              <Phone className="h-4 w-4 text-emerald-600" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+              <Phone className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <CardTitle className="text-sm font-bold leading-tight truncate">{titulo}</CardTitle>
-              <p className="text-[11px] text-muted-foreground leading-tight truncate">
+              <CardTitle className="text-sm font-semibold leading-tight truncate">{titulo}</CardTitle>
+              <p className="text-xs text-muted-foreground leading-tight truncate">
                 {items.length} colaborador(es)
               </p>
             </div>
@@ -160,12 +160,12 @@ export function RamaisWidget({ title, expanded, bloco }: { canRead?: boolean; ti
               value={busca}
               onChange={e => setBusca(e.target.value)}
               placeholder="Buscar..."
-              className="h-7 pl-7 text-xs"
+              className="h-8 rounded-lg pl-7 text-xs"
             />
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 min-h-0 overflow-y-auto p-0 pt-2 mt-1 border-t border-border/40">
+      <CardContent className="flex-1 min-h-0 overflow-y-auto nice-scrollbar px-3 pb-3 pt-0">
         {filtered.length === 0 ? (
           <p className="text-center text-xs text-muted-foreground py-6">Nenhum resultado</p>
         ) : (

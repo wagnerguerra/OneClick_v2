@@ -452,7 +452,7 @@ function ServicosInitial({ title, bloco }: { title?: string; bloco?: string }) {
 
   return (
     <Card
-      className="h-full overflow-hidden @container/widget"
+      className="h-full overflow-hidden transition-shadow hover:shadow-md @container/widget"
      
     >
       <CardContent className="p-3 @sm:p-4 h-full flex flex-col overflow-hidden gap-2.5">
@@ -462,12 +462,12 @@ function ServicosInitial({ title, bloco }: { title?: string; bloco?: string }) {
           href="/meus-servicos"
           className="flex items-center gap-3 hover:opacity-80 transition-opacity min-w-0 shrink-0"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-50 dark:bg-sky-900/20">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 dark:bg-sky-900/20">
             <ListChecks className="h-4 w-4 text-sky-600" />
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-semibold truncate">{titulo}</h3>
-            <p className="text-[11px] text-muted-foreground truncate">{sub}</p>
+            <p className="text-xs text-muted-foreground truncate">{sub}</p>
           </div>
           <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
             <span className="font-semibold text-foreground">{s.emAberto}</span>{' '}

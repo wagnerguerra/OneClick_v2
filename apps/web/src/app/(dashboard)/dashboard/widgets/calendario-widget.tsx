@@ -238,36 +238,34 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
   const feriadoHoje = feriadoMap[todayStr]
 
   return (
-    <Card className="h-full flex flex-col overflow-hidden">
-      <CardHeader className="pb-0 shrink-0 border-b-0">
-        <CardTitle className="text-base font-bold leading-tight">{title ?? 'Agenda'}</CardTitle>
-        {/* Data de hoje por extenso — como no desenho de referência. */}
-        <p className="text-sm text-muted-foreground capitalize mt-0.5">{dataExtensoHoje}</p>
-        {/* Toggle Dia | Mês */}
-        <div className="mt-3 inline-flex w-fit rounded-lg border border-border overflow-hidden">
-          <button
-            type="button"
-            onClick={() => { setView('dia'); irHoje() }}
-            className={cn(
-              'px-4 py-1 text-xs font-semibold transition-colors',
-              view === 'dia' ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300' : 'bg-card text-muted-foreground hover:text-foreground',
-            )}
-          >
-            Dia
-          </button>
-          <button
-            type="button"
-            onClick={() => setView('mes')}
-            className={cn(
-              'px-4 py-1 text-xs font-semibold transition-colors border-l border-border',
-              view === 'mes' ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300' : 'bg-card text-muted-foreground hover:text-foreground',
-            )}
-          >
-            Mês
-          </button>
+    <Card className="h-full flex flex-col overflow-hidden transition-shadow hover:shadow-md">
+      <CardHeader className="shrink-0 border-b-0 p-5 pb-0">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="truncate text-sm font-semibold text-foreground">{title ?? 'Agenda'}</CardTitle>
+            {/* Data de hoje por extenso — como no desenho de referência. */}
+            <p className="mt-0.5 truncate text-xs capitalize text-muted-foreground">{dataExtensoHoje}</p>
+          </div>
+          {/* Toggle Dia | Mês — pills do modelo */}
+          <div className="flex shrink-0 gap-1 rounded-lg bg-muted/60 p-0.5">
+            <button
+              type="button"
+              onClick={() => { setView('dia'); irHoje() }}
+              className={cn('rounded-md px-3 py-1 text-xs font-medium transition-colors', view === 'dia' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+            >
+              Dia
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('mes')}
+              className={cn('rounded-md px-3 py-1 text-xs font-medium transition-colors', view === 'mes' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+            >
+              Mês
+            </button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col min-h-0 pt-3 pb-4">
+      <CardContent className="flex-1 flex flex-col min-h-0 px-5 pb-5 pt-3">
         {view === 'mes' ? (
           <>
             {/* Linha do mês + navegação */}

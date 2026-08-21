@@ -16,38 +16,35 @@ interface Props {
   bloco?: string
 }
 
-const COLORS: Record<Props['color'], { border: string; bg: string; iconText: string }> = {
-  sky:      { border: 'border-l-sky-500',     bg: 'bg-sky-50 dark:bg-sky-900/20',         iconText: 'text-sky-600' },
-  indigo:   { border: 'border-l-indigo-500',  bg: 'bg-indigo-50 dark:bg-indigo-900/20',   iconText: 'text-indigo-600' },
-  fuchsia:  { border: 'border-l-fuchsia-500', bg: 'bg-fuchsia-50 dark:bg-fuchsia-900/20', iconText: 'text-fuchsia-600' },
-  violet:   { border: 'border-l-violet-500',  bg: 'bg-violet-50 dark:bg-violet-900/20',   iconText: 'text-violet-600' },
-  emerald:  { border: 'border-l-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20', iconText: 'text-emerald-600' },
-  amber:    { border: 'border-l-amber-500',   bg: 'bg-amber-50 dark:bg-amber-900/20',     iconText: 'text-amber-600' },
+const COLORS: Record<Props['color'], string> = {
+  sky:     'bg-sky-500/10 text-sky-600 dark:text-sky-300',
+  indigo:  'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300',
+  fuchsia: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-300',
+  violet:  'bg-violet-500/10 text-violet-600 dark:text-violet-300',
+  emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+  amber:   'bg-amber-500/10 text-amber-600 dark:text-amber-300',
 }
 
 export function EmptyState({ color, Icon, title, message, href, showCheck }: Props) {
-  const c = COLORS[color]
   const inner = (
-    <div className="flex items-center justify-between gap-3 h-full">
-      <div className="flex items-center gap-3 min-w-0">
-        <div className={`flex h-9 w-9 @sm:h-10 @sm:w-10 shrink-0 items-center justify-center rounded-lg ${c.bg}`}>
-          <Icon className={`h-4 w-4 @sm:h-5 @sm:w-5 ${c.iconText}`} />
+    <div className="flex h-full items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-3">
+        {/* Tile do modelo (stat card): quadrado rounded-xl tintado */}
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${COLORS[color]}`}>
+          <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold truncate">{title}</h3>
-          {message && <p className="text-xs text-muted-foreground truncate">{message}</p>}
+          <h3 className="truncate text-sm font-semibold text-foreground">{title}</h3>
+          {message && <p className="mt-0.5 truncate text-xs text-muted-foreground">{message}</p>}
         </div>
       </div>
-      {showCheck && <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />}
+      {showCheck && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />}
     </div>
   )
   return (
-    <Card
-      className={`h-full overflow-hidden @container/widget`}
-     
-    >
-      <CardContent className="p-3 @sm:p-4 h-full overflow-hidden">
-        {href ? <Link href={href} className="block h-full hover:opacity-80 transition-opacity">{inner}</Link> : inner}
+    <Card className="h-full overflow-hidden transition-shadow hover:shadow-md @container/widget">
+      <CardContent className="h-full overflow-hidden p-4 @sm:p-5">
+        {href ? <Link href={href} className="block h-full">{inner}</Link> : inner}
       </CardContent>
     </Card>
   )

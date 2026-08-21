@@ -27,11 +27,11 @@ export function CertificadosWidget({ canRead, title, bloco }: { canRead: boolean
   const vencendo = s.vencendo60 + s.vencendo30
 
   return (
-    <Card className="h-full overflow-hidden @container/widget">
-      <CardContent className="p-3 @sm:p-4 h-full overflow-hidden">
+    <Card className="h-full overflow-hidden transition-shadow hover:shadow-md @container/widget">
+      <CardContent className="p-4 @sm:p-5 h-full overflow-hidden">
         <div className="flex flex-col @[420px]:flex-row @[420px]:items-center @[420px]:justify-between gap-3">
           <Link href="/gestao-certificados" className="flex items-center gap-3 hover:opacity-80 transition-opacity min-w-0">
-            <div className="flex h-9 w-9 @sm:h-10 @sm:w-10 shrink-0 items-center justify-center rounded-lg bg-fuchsia-50 dark:bg-fuchsia-900/20">
+            <div className="flex h-9 w-9 @sm:h-10 @sm:w-10 shrink-0 items-center justify-center rounded-xl bg-fuchsia-50 dark:bg-fuchsia-900/20">
               <FileLock className="h-4 w-4 @sm:h-5 @sm:w-5 text-fuchsia-600" />
             </div>
             <div className="min-w-0">
