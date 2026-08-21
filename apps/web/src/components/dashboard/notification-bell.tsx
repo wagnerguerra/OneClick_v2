@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, BellRing, X, Info, AlertTriangle, AlertCircle, CheckCircle2, XCircle, Clock, Loader2, Check, CheckCheck } from 'lucide-react'
+import { Bell, X, Info, AlertTriangle, AlertCircle, CheckCircle2, Loader2, Check, CheckCheck } from 'lucide-react'
 import { Button, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { useSession } from '@/lib/auth-client'
@@ -242,217 +242,156 @@ export function NotificationBell() {
     }
   }
 
+  // Aba ativa do painel (modelo LuminAux): Todos / Não lidas
+  const [aba, setAba] = useState<'todas' | 'nao_lidas'>('todas')
+  const visiveis = aba === 'nao_lidas' ? items.filter(n => !n.lida) : items
+  const sortByExp = (a: Notification, b: Notification) => getExpTime(a) - getExpTime(b)
+  const vencidos = visiveis.filter(n => classificarCert(n) === 'vencido').sort(sortByExp)
+  const vencendo = visiveis.filter(n => classificarCert(n) === 'vencendo').sort(sortByExp)
+  const outras = visiveis.filter(n => !classificarCert(n))
+  const naoLidas = items.filter(n => !n.lida).length
+
+  function renderItem(n: Notification) {
+    const cfg = TIPO_CONFIG[n.tipo] ?? TIPO_CONFIG.info!
+    const Icon = cfg.icon
+    return (
+      <li key={n.id}>
+        <div
+          role={n.link ? 'link' : undefined}
+          onClick={() => handleClickItem(n)}
+          className={cn(
+            'group/item relative flex w-full items-start gap-3 overflow-hidden rounded-xl px-3 py-3 text-left transition-colors hover:bg-muted',
+            n.link && 'cursor-pointer',
+            !n.lida && 'bg-primary/[0.06]',
+          )}
+        >
+          {/* Ícone circular por tipo (o modelo usa bg-primary/10 + text-primary) */}
+          <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full', cfg.bg, cfg.color)}>
+            <Icon className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-baseline justify-between gap-2">
+              <span className={cn('truncate text-sm', n.lida ? 'font-medium text-foreground/80' : 'font-semibold text-foreground')}>{n.titulo}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">{formatRelativo(n.createdAt)}</span>
+            </span>
+            {n.mensagem && <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{n.mensagem}</span>}
+            {n.origem && <span className="mt-1 inline-block rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{n.origem}</span>}
+          </span>
+          {!n.lida && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />}
+          {/* Ações no hover: marcar lida / remover (quando o sistema permite) */}
+          <span className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:opacity-100">
+            {!n.lida && (
+              <button type="button" onClick={(e) => handleMarcarLida(n, e)} title="Marcar como lida"
+                className="flex h-6 w-6 items-center justify-center rounded-md bg-card/90 text-muted-foreground shadow-sm hover:text-primary">
+                <Check className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {n.removivel && (
+              <button type="button" onClick={(e) => handleExcluir(n, e)} disabled={removendo === n.id} title="Remover"
+                className="flex h-6 w-6 items-center justify-center rounded-md bg-card/90 text-muted-foreground shadow-sm hover:text-rose-600">
+                {removendo === n.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+              </button>
+            )}
+          </span>
+        </div>
+      </li>
+    )
+  }
+
+  function renderSecao(titulo: string, lista: Notification[], tom: string) {
+    if (lista.length === 0) return null
+    return (
+      <li className="pt-2 first:pt-0">
+        <p className={cn('px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide', tom)}>{titulo} · {lista.length}</p>
+        <ul className="space-y-1">{lista.map(renderItem)}</ul>
+      </li>
+    )
+  }
+
   return (
-    <div className="relative">
+    <>
+      {/* Gatilho — ícone do header no padrão do modelo (h-10 w-10, ícone h-5) */}
       <button
         ref={buttonRef}
         type="button"
         onClick={toggleOpen}
-        className={cn(
-          'relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted transition-colors',
-          pendentes > 0 && 'text-sky-600',
-        )}
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted"
         aria-label={`${pendentes} pendência(s)`}
         title="Notificações"
       >
-        {pendentes > 0 ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+        <Bell className="h-5 w-5" />
         {pendentes > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-bold px-1 border-2 border-card">
-            {pendentes > 99 ? '99+' : pendentes}
+          // Pulso do modelo: scale 1 → 1.15 → 1, 1.6s, infinito, ease-in-out
+          <span className="header-badge-pulse absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#dc2626] px-1 text-[10px] font-bold text-white ring-2 ring-card dark:bg-[#f87171]">
+            {pendentes > 9 ? '9+' : pendentes}
           </span>
         )}
       </button>
 
+      {/* Drawer de notificações (modelo LuminAux): painel fixo à direita */}
       {open && (
-        <div
-          ref={popoverRef}
-          data-state={closing ? 'closing' : 'open'}
-          className="bell-popover absolute right-0 top-full mt-2 z-50 w-[360px] sm:w-[400px] rounded-lg border bg-card shadow-xl overflow-hidden"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b bg-muted/20">
-            <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-semibold">Pendências</span>
-              {pendentes > 0 && (
-                <span className="inline-flex items-center justify-center rounded-full bg-rose-500 text-white text-[10px] font-bold px-1.5 h-4 min-w-4">
-                  {pendentes}
-                </span>
+        <>
+          <div
+            className={cn('fixed inset-0 z-[90] bg-black/30 transition-opacity duration-200', closing ? 'opacity-0' : 'opacity-100')}
+            onClick={animatedClose}
+            aria-hidden
+          />
+          <div
+            ref={popoverRef}
+            role="dialog"
+            aria-label="Notificações"
+            className={cn(
+              'fixed inset-y-0 right-0 z-[100] flex w-[26rem] max-w-[90vw] flex-col bg-card shadow-xl transition-transform duration-200 ease-[cubic-bezier(.16,1,.3,1)]',
+              closing ? 'translate-x-full' : 'translate-x-0 animate-[drawerIn_.25s_cubic-bezier(.16,1,.3,1)]',
+            )}
+          >
+            {/* Cabeçalho */}
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-foreground">Notificações</h2>
+                {naoLidas > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">{naoLidas}</span>
+                )}
+              </div>
+              <button type="button" onClick={animatedClose} aria-label="Fechar" className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {/* Abas */}
+            <div className="flex gap-1 border-b border-border px-3 py-2">
+              {([['todas', 'Todos'], ['nao_lidas', 'Não lidas']] as const).map(([k, label]) => (
+                <button key={k} type="button" onClick={() => setAba(k)}
+                  className={cn('rounded-lg px-3 py-1.5 text-xs font-medium transition-colors', aba === k ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                  {label}{k === 'nao_lidas' && naoLidas > 0 ? ` (${naoLidas})` : ''}
+                </button>
+              ))}
+            </div>
+            {/* Lista */}
+            <div className="flex-1 overflow-y-auto p-2 nice-scrollbar">
+              {loading && items.length === 0 ? (
+                <div className="flex items-center justify-center py-10 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
+              ) : visiveis.length === 0 ? (
+                <div className="px-4 py-12 text-center">
+                  <CheckCheck className="mx-auto h-6 w-6 text-muted-foreground/50" />
+                  <p className="mt-2 text-xs text-muted-foreground">{aba === 'nao_lidas' ? 'Nada por ler. Tudo em dia!' : 'Nenhuma notificação por aqui.'}</p>
+                </div>
+              ) : (
+                <ul className="space-y-1">
+                  {renderSecao('Vencidos / Crítico', vencidos, 'text-rose-600 dark:text-rose-400')}
+                  {renderSecao('Vencendo', vencendo, 'text-amber-600 dark:text-amber-400')}
+                  {(vencidos.length > 0 || vencendo.length > 0) ? renderSecao('Outras', outras, 'text-muted-foreground') : outras.map(renderItem)}
+                </ul>
               )}
             </div>
-            <div className="flex items-center gap-1">
-              {items.some(n => !n.lida) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleMarcarTodasLidas}
-                  className="h-7 text-[11px] gap-1 px-2"
-                  title="Marcar todas como lidas"
-                >
-                  <CheckCheck className="h-3.5 w-3.5" />
-                  Marcar todas
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={animatedClose}
-                className="h-7 w-7"
-                title="Fechar"
-              >
-                <X className="h-3.5 w-3.5" />
+            {/* Rodapé */}
+            <div className="border-t border-border p-4">
+              <Button variant="outline" className="w-full gap-2" onClick={handleMarcarTodasLidas} disabled={naoLidas === 0}>
+                <CheckCheck className="h-4 w-4" /> Marcar tudo como lido
               </Button>
             </div>
           </div>
-
-          {/* Lista — agrupada por categoria (vencidos / vencendo / outros) */}
-          <div className="max-h-[480px] overflow-y-auto">
-            {loading ? (
-              <div className="flex items-center justify-center py-12 text-xs text-muted-foreground">
-                Carregando...
-              </div>
-            ) : items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <CheckCircle2 className="h-8 w-8 text-emerald-400 opacity-50 mb-2" />
-                <p className="text-xs">Nenhuma pendência por aqui</p>
-                <p className="text-[10px] text-muted-foreground/70 mt-1">Tudo em dia!</p>
-              </div>
-            ) : (() => {
-              // Ordena ASC por data de expiração — mais próximo do vencimento primeiro
-              const sortByExp = (a: Notification, b: Notification) => getExpTime(a) - getExpTime(b)
-              const vencidos = items.filter(n => classificarCert(n) === 'vencido').sort(sortByExp)
-              const vencendo = items.filter(n => classificarCert(n) === 'vencendo').sort(sortByExp)
-              const outros = items.filter(n => classificarCert(n) === null)
-
-              const renderItem = (n: Notification) => {
-                const cfg = TIPO_CONFIG[n.tipo] ?? TIPO_CONFIG.info!
-                const Icon = cfg.icon
-                return (
-                  <li
-                    key={n.id}
-                    onClick={() => handleClickItem(n)}
-                    className={cn(
-                      'group/item flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40 relative',
-                      // Lidas ficam atenuadas — usuário diferencia rapidamente quais ainda exigem atenção
-                      n.lida && 'opacity-60',
-                    )}
-                  >
-                    {/* Pontinho azul à esquerda nas não lidas */}
-                    {!n.lida && (
-                      <span className="absolute left-1 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-sky-500" />
-                    )}
-                    <div className={cn('shrink-0 flex h-7 w-7 items-center justify-center rounded-full border', cfg.bg, cfg.border)}>
-                      <Icon className={cn('h-3.5 w-3.5', cfg.color)} />
-                    </div>
-                    <div className="flex-1 min-w-0 pr-12">
-                      <p className={cn('text-[13px] leading-tight text-foreground', n.lida ? 'font-medium' : 'font-semibold')}>
-                        {n.titulo}
-                      </p>
-                      {n.mensagem && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{n.mensagem}</p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-muted-foreground tabular-nums">{formatRelativo(n.createdAt)}</span>
-                        {n.origem && (
-                          <span className="inline-flex items-center rounded-sm px-1 py-0 text-[9px] uppercase tracking-wider bg-muted text-muted-foreground">
-                            {n.origem}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {/* Botões de ação — aparecem no hover */}
-                    <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                      {!n.lida && (
-                        <button
-                          type="button"
-                          onClick={(e) => handleMarcarLida(n, e)}
-                          title="Marcar como lida"
-                          aria-label="Marcar como lida"
-                          className="inline-flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      {n.removivel && (
-                        <button
-                          type="button"
-                          onClick={(e) => handleExcluir(n, e)}
-                          disabled={removendo === n.id}
-                          title="Remover notificação"
-                          aria-label="Remover notificação"
-                          className="inline-flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 transition-colors disabled:opacity-40"
-                        >
-                          {removendo === n.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                )
-              }
-
-              return (
-                <div>
-                  {/* Seção: Vencidos (já expiraram ou vencem em ≤7 dias) */}
-                  {vencidos.length > 0 && (
-                    <>
-                      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-4 py-1.5 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-200 dark:border-rose-900">
-                        <div className="flex items-center gap-1.5">
-                          <XCircle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">
-                            Vencidos / Crítico
-                          </span>
-                        </div>
-                        <span className="inline-flex items-center justify-center rounded-full bg-rose-600 text-white text-[10px] font-bold px-1.5 h-4 min-w-4">
-                          {vencidos.length}
-                        </span>
-                      </div>
-                      <ul className="divide-y divide-border/60">{vencidos.map(renderItem)}</ul>
-                    </>
-                  )}
-
-                  {/* Seção: Próximos a vencer (30 ou 60 dias) */}
-                  {vencendo.length > 0 && (
-                    <>
-                      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-4 py-1.5 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900">
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                            Próximos a vencer
-                          </span>
-                        </div>
-                        <span className="inline-flex items-center justify-center rounded-full bg-amber-600 text-white text-[10px] font-bold px-1.5 h-4 min-w-4">
-                          {vencendo.length}
-                        </span>
-                      </div>
-                      <ul className="divide-y divide-border/60">{vencendo.map(renderItem)}</ul>
-                    </>
-                  )}
-
-                  {/* Seção: Outras pendências (não relacionadas a certificados) */}
-                  {outros.length > 0 && (
-                    <>
-                      {(vencidos.length > 0 || vencendo.length > 0) && (
-                        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-4 py-1.5 bg-muted/40 border-b">
-                          <div className="flex items-center gap-1.5">
-                            <Bell className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                              Outras pendências
-                            </span>
-                          </div>
-                          <span className="inline-flex items-center justify-center rounded-full bg-muted-foreground/80 text-white text-[10px] font-bold px-1.5 h-4 min-w-4">
-                            {outros.length}
-                          </span>
-                        </div>
-                      )}
-                      <ul className="divide-y divide-border/60">{outros.map(renderItem)}</ul>
-                    </>
-                  )}
-                </div>
-              )
-            })()}
-          </div>
-        </div>
+        </>
       )}
-    </div>
+    </>
   )
 }

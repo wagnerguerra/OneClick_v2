@@ -776,14 +776,11 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={cn(
-          'relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-muted transition-colors',
-          totalUnread > 0 && 'text-sky-600',
-        )}
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted"
         aria-label={`${totalUnread} mensagem(ns) não lida(s)`}
         title="Chat interno"
       >
-        <MessageSquare className="h-4 w-4" />
+        <MessageSquare className="h-5 w-5" />
         <span
           className={cn(
             'absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full ring-2 ring-card transition-colors',
@@ -795,8 +792,8 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
           title={`Status: ${STATUS_LABEL[meuStatus ?? minhaPresenca]}`}
         />
         {totalUnread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-bold px-1 border-2 border-card">
-            {totalUnread > 99 ? '99+' : totalUnread}
+          <span className="header-badge-pulse absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#dc2626] px-1 text-[10px] font-bold text-white ring-2 ring-card dark:bg-[#f87171]">
+            {totalUnread > 9 ? '9+' : totalUnread}
           </span>
         )}
       </button>

@@ -116,22 +116,20 @@ export function Header({ onOpenMobile }: HeaderProps) {
         {session?.user && <QuickAccessMenu />}
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-3">
+      {/* Grupo direito no padrão do modelo: ícones h-10 w-10 rounded-lg, gap-1 */}
+      <div className="flex items-center gap-1">
         {/* Theme toggle */}
         {themeMounted && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
+          <button
+            type="button"
             onClick={toggleTheme}
+            aria-label="Alternar tema"
+            className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg text-foreground transition-colors hover:bg-muted"
           >
-            {resolvedDark ? (
-              <Sun className="h-4 w-4" />
-            ) : (
-              <Moon className="h-4 w-4" />
-            )}
-            <span className="sr-only">Alternar tema</span>
-          </Button>
+            <span key={resolvedDark ? 'sun' : 'moon'} className="flex animate-[fadeSlideIn_.15s_ease-out]">
+              {resolvedDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </span>
+          </button>
         )}
 
         {/* Chat interno — ícone com indicador de status próprio */}

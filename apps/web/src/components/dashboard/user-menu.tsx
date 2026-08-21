@@ -47,11 +47,11 @@ export function UserMenu({ name, email, role, image, isMaster }: UserMenuProps) 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted transition-colors outline-none">
+        <button className="ml-1 flex items-center gap-2 rounded-lg p-1 pr-2 hover:bg-muted transition-colors outline-none">
           <div className="relative">
-            <Avatar className="h-9 w-9">
+            <Avatar className="h-8 w-8">
               {image && <AvatarImage src={resolveAssetUrl(image)} alt={name} />}
-              <AvatarFallback className="bg-[#5ea3cb] text-white text-xs font-medium">
+              <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
                 {getInitials(name)}
               </AvatarFallback>
             </Avatar>
@@ -70,9 +70,9 @@ export function UserMenu({ name, email, role, image, isMaster }: UserMenuProps) 
               </span>
             )}
           </div>
-          <div className="hidden sm:block text-left">
-            <p className="text-sm font-medium leading-tight text-foreground">{getFirstName(name)}</p>
-            <p className="text-[11px] leading-tight text-muted-foreground">{role ? (ROLE_LABELS[role] ?? role) : email}</p>
+          <div className="hidden max-w-[10rem] flex-col text-left leading-tight sm:flex">
+            <p className="truncate text-sm font-medium text-foreground">{getFirstName(name)}</p>
+            <p className="truncate text-xs text-muted-foreground">{role ? (ROLE_LABELS[role] ?? role) : email}</p>
           </div>
         </button>
       </DropdownMenuTrigger>
