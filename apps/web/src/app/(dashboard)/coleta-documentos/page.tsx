@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, FolderInput, Loader2, Pencil, Trash2, Flag, Settings2,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreVertical,
+  Plus, Loader2, Pencil, Trash2, Flag, Settings2,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search as SearchIcon,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn, Checkbox,
@@ -13,7 +13,9 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
+import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { COLETA_TIPO_LABEL, COLETA_SITUACAO_LABEL, COLETA_SITUACOES, COLETA_TIPOS, COLETA_PRIORIDADE_LABEL } from '@saas/types'
 import { trpc } from '@/lib/trpc'
@@ -21,10 +23,10 @@ import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { SITUACAO_BADGE, TIPO_BADGE } from './_components/badges'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
 const PAGE_SIZES = [10, 20, 50]
 
 interface Row {
+  numero: number
   id: string
   tipo: string
   situacao: string
@@ -159,27 +161,17 @@ export default function ColetaDocumentosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <FolderInput className="h-6 w-6" />
+      {/* Header padrão (como o /crm): barra full-bleed, título + trilha, ações à direita */}
+      <PageHeaderBar className="mb-0 sm:mb-0"
+        actions={<>
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Buscar por nº, cliente, contato..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 w-60 pl-8 text-sm" />
           </div>
-          <div>
-            <h1>Coleta e Recebimento</h1>
-            <p className="text-sm text-muted-foreground">Trâmite de documentos entre cliente, rota, arquivo e setores</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {podeEscrever && (
-            <Button variant="success" size="sm" onClick={() => setAberta(true)}>
-              <Plus className="h-4 w-4" />Novo Registro
-            </Button>
-          )}
           {podeEscrever && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
+                <Button variant="outline" size="sm" className="gap-1.5"><Settings2 className="h-4 w-4" /></Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setCatAberta(true)}>
@@ -188,8 +180,22 @@ export default function ColetaDocumentosPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-        </div>
-      </div>
+          {podeEscrever && (
+            <Button size="sm" className="gap-1.5" onClick={() => setAberta(true)}>
+              <Plus className="h-4 w-4" />Novo Registro
+            </Button>
+          )}
+        </>}
+      >
+        <h1 className="truncate">Coleta e Recebimento</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="hover:text-foreground transition-colors">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Coleta e Recebimento</span>
+        </p>
+      </PageHeaderBar>
 
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -229,14 +235,17 @@ export default function ColetaDocumentosPage() {
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por cliente, contato..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
-          </div>
+          {!search && !fSituacao && (
+            <p className="text-[11px] text-muted-foreground">
+              Protocolos arquivados ficam ocultos — busque ou filtre pela situação para vê-los.
+            </p>
+          )}
         </div>
 
         <Table className="table-fixed">
           <TableHeader>
-            <TableRow>
+            <TableRow className="[&_th]:whitespace-nowrap">
+              <TableHead className="w-[72px]">#</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead className="w-[115px]">Tipo</TableHead>
               <TableHead className="hidden md:table-cell w-[160px]">Categoria</TableHead>
@@ -249,24 +258,23 @@ export default function ColetaDocumentosPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={8} className="py-10 text-center">
+              <TableRow><TableCell colSpan={9} className="py-10 text-center">
                 <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
               </TableCell></TableRow>
             ) : !data || data.data.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
                 Nenhum registro encontrado.
               </TableCell></TableRow>
             ) : (
               data.data.map((r) => (
-                <TableRow key={r.id} className="cursor-pointer" onClick={() => router.push(`/coleta-documentos/${r.id}`)}>
+                <TableRow key={r.id} className="cursor-pointer [&_td]:whitespace-nowrap [&_td]:py-2" onClick={() => router.push(`/coleta-documentos/${r.id}`)}>
+                  <TableCell className="text-xs font-semibold tabular-nums text-muted-foreground">#{r.numero}</TableCell>
                   <TableCell className="text-sm">
                     <span className="flex items-center gap-1.5 min-w-0">
                       {r.prioridade === 3 && <Flag className="h-3.5 w-3.5 shrink-0 text-rose-500" aria-label="Prioridade alta" />}
-                      <span className="truncate font-medium">{r.clienteNomeResolvido ?? r.contato ?? '—'}</span>
+                      <span className="truncate font-medium" title={r.contato ?? undefined}>{r.clienteNomeResolvido ?? r.contato ?? '—'}</span>
+                      {r.clienteNomeResolvido && r.contato && <span className="truncate text-[11px] text-muted-foreground">· {r.contato}</span>}
                     </span>
-                    {r.clienteNomeResolvido && r.contato && (
-                      <span className="block truncate text-[11px] text-muted-foreground">{r.contato}</span>
-                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={cn('text-[10px]', TIPO_BADGE[r.tipo])}>{COLETA_TIPO_LABEL[r.tipo] ?? r.tipo}</Badge>

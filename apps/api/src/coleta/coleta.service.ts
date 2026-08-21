@@ -49,11 +49,18 @@ export class ColetaService {
     if (input.categoriaId) filtros.push({ categoriaId: input.categoriaId })
     if (input.clienteId) filtros.push({ clienteId: input.clienteId })
     if (input.somenteMinhas) filtros.push({ solicitanteId: ctx.userId })
+    // "Protocolo Arquivado" é o fim da vida útil do registro: sai da lista
+    // padrão e só aparece quando o usuário busca, filtra a situação ou pede.
+    const revelaArquivados = !!search || !!input.situacao || !!input.incluirArquivados
+    if (!revelaArquivados) filtros.push({ situacao: { not: 'PROTOCOLO_ARQUIVADO' } })
     if (search) {
+      const termo = search.trim()
+      const numero = /^#?\d+$/.test(termo) ? Number(termo.replace('#', '')) : null
       filtros.push({ OR: [
-        { descricao: { contains: search, mode: 'insensitive' } },
-        { clienteNome: { contains: search, mode: 'insensitive' } },
-        { contato: { contains: search, mode: 'insensitive' } },
+        ...(numero != null ? [{ numero }] : []),
+        { descricao: { contains: termo, mode: 'insensitive' } },
+        { clienteNome: { contains: termo, mode: 'insensitive' } },
+        { contato: { contains: termo, mode: 'insensitive' } },
       ] })
     }
 

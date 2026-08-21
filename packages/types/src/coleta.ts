@@ -107,6 +107,8 @@ export const listarColetasSchema = paginationSchema.extend({
   categoriaId: z.string().optional(),
   clienteId: z.string().optional(),
   somenteMinhas: z.boolean().optional(),
+  /** Por padrão os "Protocolo Arquivado" ficam fora da lista; busca/filtro os revelam. */
+  incluirArquivados: z.boolean().optional(),
 })
 
 export type CriarColetaInput = z.infer<typeof criarColetaSchema>

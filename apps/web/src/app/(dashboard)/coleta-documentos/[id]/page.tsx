@@ -49,6 +49,7 @@ interface Log {
 interface Detalhe {
   id: string
   legacyId: number | null
+  numero: number
   tipo: string
   situacao: string
   competencia: string | null
@@ -184,10 +185,10 @@ export default function ColetaDetalhePage() {
               {detalhe.prioridade === 3 && <Flag className="h-4 w-4 text-rose-500" aria-label="Prioridade alta" />}
             </h1>
             <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-semibold tabular-nums text-foreground">#{detalhe.numero}</span>
               <Badge variant="outline" className={cn('text-[10px]', TIPO_BADGE[detalhe.tipo])}>{COLETA_TIPO_LABEL[detalhe.tipo] ?? detalhe.tipo}</Badge>
               <Badge variant="outline" className={cn('text-[10px]', SITUACAO_BADGE[detalhe.situacao])}>{COLETA_SITUACAO_LABEL[detalhe.situacao] ?? detalhe.situacao}</Badge>
               <span>Registrado em {dataHoraBR(detalhe.registradoEm)}</span>
-              {detalhe.legacyId && <span className="text-[11px]">· OneClick v1 #{detalhe.legacyId}</span>}
             </p>
           </div>
         </div>
