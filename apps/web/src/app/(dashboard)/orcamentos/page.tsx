@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, ChevronsUpDown,
   Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
   MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target,
-  Download, FileSpreadsheet, FileDown,
+  Download, FileSpreadsheet, FileDown, CheckCircle2, Pencil, ThumbsDown,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card,
@@ -91,6 +91,9 @@ interface OrcamentoRow {
   /** Card de CRM vinculado — presença via oportunidadeId; nº quando disponível. */
   oportunidadeId?: string | null
   oportunidadeNumero?: number | null
+  /** Resposta do cliente pelo link público (APROVADO | REVISAO_SOLICITADA | REPROVADO). */
+  decisaoTipo?: string | null
+  decisaoEm?: string | null
   createdAt: string
   updatedAt: string
   arquivado?: boolean
@@ -1629,6 +1632,26 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
           )}
         </div>
       </div>
+      {/* Resposta do cliente pelo link — faixa de destaque pra ninguém deixar passar */}
+      {orc.decisaoTipo && (() => {
+        const meta = orc.decisaoTipo === 'APROVADO'
+          ? { label: 'Cliente aprovou pelo link', Icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300', dot: 'bg-emerald-500' }
+          : orc.decisaoTipo === 'REVISAO_SOLICITADA'
+          ? { label: 'Cliente pediu revisão', Icon: Pencil, cls: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300', dot: 'bg-amber-500' }
+          : { label: 'Cliente recusou pelo link', Icon: ThumbsDown, cls: 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300', dot: 'bg-rose-500' }
+        const Icon = meta.Icon
+        return (
+          <div className={cn('mx-3 mb-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium', meta.cls)}
+               title={orc.decisaoEm ? `Respondido em ${new Date(orc.decisaoEm).toLocaleString('pt-BR')}` : undefined}>
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className={cn('absolute inline-flex h-full w-full animate-ping rounded-full opacity-60', meta.dot)} />
+              <span className={cn('relative inline-flex h-2 w-2 rounded-full', meta.dot)} />
+            </span>
+            <Icon className="h-3 w-3 shrink-0" />
+            <span className="truncate">{meta.label}</span>
+          </div>
+        )
+      })()}
       {/* Body */}
       <div className="px-3 pb-2 space-y-1">
         {valor > 0 && (

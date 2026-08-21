@@ -1965,6 +1965,27 @@ export default function OrcamentoDetailPage() {
               <p className="text-lg font-bold tracking-tight text-white drop-shadow tabular-nums">{orc.mensagens.length}</p>
               <p className="text-xs text-white/75">Mensagens</p>
             </div>
+            {/* Resposta do cliente pelo link — só aparece quando existe, com pulso
+                pra chamar o olho de quem abre o orçamento */}
+            {orc.decisaoTipo && (() => {
+              const m = orc.decisaoTipo === 'APROVADO'
+                ? { label: 'Aprovado', dot: 'bg-emerald-400', text: 'text-emerald-300' }
+                : orc.decisaoTipo === 'REVISAO_SOLICITADA'
+                ? { label: 'Revisão', dot: 'bg-amber-400', text: 'text-amber-300' }
+                : { label: 'Recusado', dot: 'bg-rose-400', text: 'text-rose-300' }
+              return (
+                <div className="text-center border-l border-white/25 pl-6" title={orc.decisaoEm ? `Respondido em ${new Date(orc.decisaoEm).toLocaleString('pt-BR')}` : undefined}>
+                  <p className={cn('flex items-center justify-center gap-1.5 text-lg font-bold tracking-tight drop-shadow', m.text)}>
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className={cn('absolute inline-flex h-full w-full animate-ping rounded-full opacity-70', m.dot)} />
+                      <span className={cn('relative inline-flex h-2.5 w-2.5 rounded-full', m.dot)} />
+                    </span>
+                    {m.label}
+                  </p>
+                  <p className="text-xs text-white/75">Resposta do cliente</p>
+                </div>
+              )
+            })()}
           </div>
         </div>
       </div>
