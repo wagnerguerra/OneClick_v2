@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2, Search, Filter, Settings2,
@@ -468,22 +469,9 @@ export default function ClientesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/materiais/icon_clients.png" alt="Clientes" className="h-12 w-12 object-contain shrink-0" />
-          <div>
-            <h1>Clientes</h1>
-            <p className="text-sm text-muted-foreground">Gerencie os clientes cadastrados</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {canCreate && (
-                <Button variant="success" size="sm" asChild>
-                  <Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link>
-                </Button>
-              )}
+      {/* Header padrão (como o /crm): barra full-bleed, título + trilha, ações à direita */}
+      <PageHeaderBar
+        actions={<>
               <Button variant="outline" size="sm" onClick={openOpcoesModal} className="gap-1.5">
                 <Settings2 className="h-4 w-4" /> Opcoes
               </Button>
@@ -515,8 +503,22 @@ export default function ClientesPage() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-        </div>
-      </div>
+          {canCreate && (
+            <Button size="sm" asChild className="gap-1.5">
+              <Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link>
+            </Button>
+          )}
+        </>}
+      >
+        <h1 className="truncate">Clientes</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="hover:text-foreground transition-colors">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Clientes</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Filtros colapsáveis */}
       <Card className={cn('overflow-hidden transition-all', filtersOpen ? '' : 'cursor-pointer')} onClick={() => !filtersOpen && setFiltersOpen(true)}>
