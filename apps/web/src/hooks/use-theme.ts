@@ -53,15 +53,18 @@ export function useTheme() {
   }, [])
 
   const toggleTheme = useCallback(() => {
-    setThemeState((prev) => {
-      const resolved = prev === 'system' ? getSystemTheme() : prev
-      const next = resolved === 'dark' ? 'light' : 'dark'
-      localStorage.setItem(THEME_KEY, next)
-      applyTheme(next)
-      window.dispatchEvent(new CustomEvent('oc-prefs', { detail: { chave: 'theme' } }))
-      return next
-    })
-  }, [])
+    // Efeitos (localStorage/applyTheme/dispatch) FORA do updater: dispará-los
+    // dentro do updater de setState os executa na fase de render, e o
+    // dispatch de `oc-prefs` é síncrono → o listener do LayoutCustomizer daria
+    // setState durante o render do Header ("Cannot update a component while
+    // rendering a different component"). Espelha o setTheme acima.
+    const resolved = theme === 'system' ? getSystemTheme() : theme
+    const next = resolved === 'dark' ? 'light' : 'dark'
+    setThemeState(next)
+    localStorage.setItem(THEME_KEY, next)
+    applyTheme(next)
+    window.dispatchEvent(new CustomEvent('oc-prefs', { detail: { chave: 'theme' } }))
+  }, [theme])
 
   return { theme, setTheme, toggleTheme, mounted }
 }
