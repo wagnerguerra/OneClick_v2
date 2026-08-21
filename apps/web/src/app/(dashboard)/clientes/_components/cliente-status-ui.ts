@@ -5,7 +5,8 @@
 //   • Inativo → âmbar (amber)
 //
 // TUDO que pinta status/ação de cliente deriva daqui — não hardcode cores soltas:
-//   • Badges "soft" (lista de clientes, badges do log) → STATUS_BADGE_CLASS / EVENT_BADGE_CLASS.
+//   • Badges de status (lista de clientes, badges do log) → STATUS_BADGE_CLASS /
+//     EVENT_BADGE_CLASS, que derivam do papel STRONG de @/lib/color-styles.
 //   • Botões de AÇÃO em GRUPO (ícones por linha na tabela) → variants `soft-warning`
 //     (âmbar) e `soft-success` (verde) do <Button>, p/ ficarem homogêneos com o Editar.
 //   • Botões de AÇÃO em DESTAQUE / sobre fundo colorido (barra de lote, capa do
@@ -16,6 +17,7 @@
 //   • Badge SÓLIDO do cabeçalho do detalhe → STATUS_COLORS (hex) em `@saas/types`,
 //     mantido alinhado (ATIVO emerald, INATIVO amber).
 import type { ClienteStatus } from '@saas/types'
+import { STRONG } from '@/lib/color-styles'
 
 /**
  * Botão de "Inativar" em destaque — âmbar soft COM BORDA, alinhado ao tom `amber`
@@ -49,10 +51,10 @@ export const REATIVAR_BTN_CLASS =
   'text-emerald-600 dark:text-emerald-300 ' +
   'hover:bg-emerald-100 hover:text-emerald-700 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200'
 
-/** Classes Tailwind do badge "soft" de status (fundo pastel + texto na cor principal). */
+/** Classes do badge de status — derivam do papel STRONG (fonte única): Ativo=verde, Inativo=âmbar. */
 export const STATUS_BADGE_CLASS: Record<ClienteStatus, string> = {
-  ATIVO: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  INATIVO: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  ATIVO: STRONG.emerald,
+  INATIVO: STRONG.amber,
 }
 
 /** Badges de evento do histórico espelham o status resultante da ação. */
@@ -66,7 +68,7 @@ export const EVENT_BADGE_CLASS: Record<'inactivated' | 'reactivated', string> = 
  * É um inativo específico (cliente recorrente perdido); ganha cor própria (rosé)
  * para se distinguir do "Inativo" genérico (âmbar).
  */
-export const EX_CLIENTE_BADGE_CLASS = 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+export const EX_CLIENTE_BADGE_CLASS = STRONG.rose
 
 /** Regra derivada do "Ex-cliente" (espelha o backend). */
 export function isExCliente(c: { situacao?: string | null; status?: string | null; dataSaida?: string | null }): boolean {

@@ -1,8 +1,8 @@
 /**
  * Cores de CONCEITO / acento do sistema (claro + escuro) — fonte única.
  *
- * Um export nomeado por PAPEL (BADGE / TEXT / SURFACE / BORDER / DOT), cada um
- * um `Record<ColorName, string>`. A ordem `PAPEL.cor` espelha o Tailwind
+ * Um export nomeado por PAPEL (BADGE / STRONG / TEXT / SURFACE / BORDER / DOT),
+ * cada um um `Record<ColorName, string>`. A ordem `PAPEL.cor` espelha o Tailwind
  * (`bg-emerald`, `text-rose`): `BADGE.emerald`, `TEXT.rose`, `SURFACE[cor]`.
  * Importe só os papéis que usar: `import { BADGE, TEXT } from '@/lib/color-styles'`
  * (ou `import * as tone from ...` para todos numa linha).
@@ -64,6 +64,28 @@ export const BADGE: Record<ColorName, string> = {
   red: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800',
   purple: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-800',
   slate: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800/50 dark:text-slate-300 dark:border-slate-700',
+}
+
+/**
+ * Etiqueta FORTE/sólida: fundo + texto + borda, mais saturada que a BADGE
+ * (fundo `-100`/`-900` sólido no dark). Para status de alta ênfase (kanban,
+ * pílulas de estado do chamado). Difere da BADGE (pastel `-50`) só na saturação.
+ */
+export const STRONG: Record<ColorName, string> = {
+  emerald: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900 dark:text-emerald-200 dark:border-emerald-700',
+  rose: 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900 dark:text-rose-200 dark:border-rose-700',
+  amber: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700',
+  sky: 'bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-900 dark:text-sky-200 dark:border-sky-700',
+  indigo: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900 dark:text-indigo-200 dark:border-indigo-700',
+  lime: 'bg-lime-100 text-lime-700 border-lime-200 dark:bg-lime-900 dark:text-lime-200 dark:border-lime-700',
+  violet: 'bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900 dark:text-violet-200 dark:border-violet-700',
+  cyan: 'bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-900 dark:text-cyan-200 dark:border-cyan-700',
+  fuchsia: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-900 dark:text-fuchsia-200 dark:border-fuchsia-700',
+  orange: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700',
+  blue: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700',
+  red: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900 dark:text-red-200 dark:border-red-700',
+  purple: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900 dark:text-purple-200 dark:border-purple-700',
+  slate: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600',
 }
 
 /** Texto colorido (claro -600 / escuro -400). */
