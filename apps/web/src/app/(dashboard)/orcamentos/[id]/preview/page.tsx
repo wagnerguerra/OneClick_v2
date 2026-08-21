@@ -2896,15 +2896,21 @@ export default function OrcamentoDetailPage() {
           {/* Vínculos — hoje o card de CRM; eventos da agenda, outros
               orçamentos etc. entram como novas subseções deste card. */}
           <Card className="overflow-hidden rounded-2xl p-0">
-            <div className="relative overflow-hidden bg-gradient-to-br from-primary to-sky-500 px-5 py-4 text-white">
-              <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/15 blur-2xl" />
-              <span className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-white/20 ring-1 ring-white/30">
-                <Link2 className="h-4 w-4" />
+            <div className="flex items-center justify-between border-b border-border bg-gradient-to-br from-primary/10 to-sky-500/5 px-5 py-4">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <Link2 className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Vínculos</p>
+                  <p className="truncate text-base font-bold text-foreground">{(orc as any)?.oportunidade ? `CRM #${(orc as any).oportunidade.numero ?? '—'}` : 'Sem vínculo'}</p>
+                </div>
+              </div>
+              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                {(orc as any)?.oportunidade ? '1 vínculo' : 'nenhum'}
               </span>
-              <p className="relative mt-2.5 text-sm font-semibold">Vínculos</p>
-              <p className="relative mt-0.5 text-xs text-white/85">CRM, agenda e outros orçamentos ligados a este.</p>
             </div>
-            <div className="space-y-4 p-4">
+            <div className="space-y-4 p-5">
               <div className="space-y-1.5">
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">CRM</p>
                 {(orc as any)?.oportunidade ? (
@@ -2942,26 +2948,27 @@ export default function OrcamentoDetailPage() {
 
           {/* Arquivos — upload, lista e remocao */}
           <Card
-            className={cn('rounded-2xl p-5 transition-all', dragActive && 'ring-2 ring-primary/40 bg-primary/5')}
+            className={cn('overflow-hidden rounded-2xl p-0 transition-all', dragActive && 'ring-2 ring-primary/40 bg-primary/5')}
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 14%, transparent)`, color: MODULE_COLOR }}>
+            <div className="flex items-center justify-between border-b border-border bg-gradient-to-br from-primary/10 to-sky-500/5 px-5 py-4">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Paperclip className="h-4 w-4" />
                 </span>
-                Arquivos
-                {(orc.arquivos?.length ?? 0) > 0 && (
-                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{orc.arquivos.length}</Badge>
-                )}
-              </h4>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Arquivos</p>
+                  <p className="truncate text-base font-bold text-foreground">{(orc.arquivos?.length ?? 0) > 0 ? `${orc.arquivos.length} ${orc.arquivos.length === 1 ? 'arquivo' : 'arquivos'}` : 'Nenhum arquivo'}</p>
+                </div>
+              </div>
               <Button type="button" variant="outline" size="sm" onClick={handleAddArquivo} className="gap-1 h-7 text-xs">
                 <Plus className="h-3.5 w-3.5" /> Adicionar
               </Button>
             </div>
+            <div className="p-5">
             <input
               ref={fileInputRef}
               type="file"
@@ -3019,17 +3026,27 @@ export default function OrcamentoDetailPage() {
                 ))}
               </div>
             )}
+            </div>
           </Card>
 
           {/* Datas Importantes — timeline vertical com marcadores coloridos por status.
               Cada item ocupa uma "celula" da timeline com dot + linha conectora. */}
-          <Card className="rounded-2xl p-5">
-            <h4 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 14%, transparent)`, color: MODULE_COLOR }}>
-                <Calendar className="h-4 w-4" />
+          <Card className="overflow-hidden rounded-2xl p-0">
+            <div className="flex items-center justify-between border-b border-border bg-gradient-to-br from-primary/10 to-sky-500/5 px-5 py-4">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <Calendar className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Datas importantes</p>
+                  <p className="truncate text-base font-bold text-foreground">{(() => { const n = [orc.createdAt, orc.dtEnviado, orc.dtAprovado, orc.dtLiberado, orc.dtFinalizado, orc.dtEncerrado, orc.dtCancelado].filter(Boolean).length; return `${n} ${n === 1 ? 'marco' : 'marcos'}` })()}</p>
+                </div>
+              </div>
+              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                {STATUS_LABELS[orc.status] || orc.status}
               </span>
-              Datas Importantes
-            </h4>
+            </div>
+            <div className="p-5">
             {(() => {
               // Monta a lista de eventos cronologicos (somente os que aconteceram).
               // A ordem segue o fluxo natural do orcamento — Criado sempre primeiro,
@@ -3075,6 +3092,7 @@ export default function OrcamentoDetailPage() {
                 </div>
               )
             })()}
+            </div>
           </Card>
         </div>
       </div>
