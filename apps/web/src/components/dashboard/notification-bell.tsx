@@ -223,21 +223,34 @@ export function NotificationBell() {
 
   // Aba ativa do painel (modelo LuminAux): Todos / Não lidas
   const [aba, setAba] = useState<'todas' | 'nao_lidas'>('todas')
-  const visiveis = aba === 'nao_lidas' ? items.filter(n => !n.lida) : items
+  // Ordem por prioridade: crítico (error) → atenção (warning) → demais; dentro
+  // de cada faixa, não lidas primeiro e mais recentes no topo.
+  const PRIORIDADE: Record<string, number> = { error: 0, warning: 1, info: 2, success: 3 }
+  const visiveis = (aba === 'nao_lidas' ? items.filter(n => !n.lida) : items)
+    .slice()
+    .sort((a, b) =>
+      (PRIORIDADE[a.tipo] ?? 2) - (PRIORIDADE[b.tipo] ?? 2)
+      || Number(a.lida) - Number(b.lida)
+      || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   const naoLidas = items.filter(n => !n.lida).length
 
   function renderItem(n: Notification) {
     const cfg = TIPO_CONFIG[n.tipo] ?? TIPO_CONFIG.info!
     const Icon = cfg.icon
+    const critico = n.tipo === 'error'
     return (
       <li key={n.id}>
         <div
           role={n.link ? 'link' : undefined}
           onClick={() => handleClickItem(n)}
           className={cn(
-            'group/item relative flex w-full items-start gap-3 overflow-hidden rounded-xl px-3 py-3 text-left transition-colors hover:bg-muted',
+            'group/item relative flex w-full items-start gap-3 overflow-hidden rounded-xl px-3 py-3 text-left transition-colors',
             n.link && 'cursor-pointer',
-            !n.lida && 'bg-primary/[0.06]',
+            // Crítico (ex.: certificados vencidos): destaque em vermelho, com
+            // listra à esquerda — lido ou não, continua saltando aos olhos.
+            critico
+              ? cn('border-l-[3px] border-rose-500 hover:bg-rose-100/70 dark:hover:bg-rose-950/40', n.lida ? 'bg-rose-50/50 dark:bg-rose-950/15' : 'bg-rose-50 dark:bg-rose-950/25')
+              : cn('hover:bg-muted', !n.lida && 'bg-primary/[0.06]'),
           )}
         >
           {/* Ícone circular por tipo (o modelo usa bg-primary/10 + text-primary) */}
@@ -246,13 +259,16 @@ export function NotificationBell() {
           </span>
           <span className="min-w-0 flex-1">
             <span className="flex items-baseline justify-between gap-2">
-              <span className={cn('truncate text-sm', n.lida ? 'font-medium text-foreground/80' : 'font-semibold text-foreground')}>{n.titulo}</span>
+              <span className={cn('flex min-w-0 items-center gap-1.5', )}>
+                <span className={cn('truncate text-sm', n.lida ? 'font-medium text-foreground/80' : 'font-semibold text-foreground')}>{n.titulo}</span>
+                {critico && <span className="shrink-0 rounded-md bg-rose-600 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white">Crítico</span>}
+              </span>
               <span className="shrink-0 text-xs text-muted-foreground">{formatRelativo(n.createdAt)}</span>
             </span>
             {n.mensagem && <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{n.mensagem}</span>}
             {n.origem && <span className="mt-1 inline-block rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{n.origem === 'gestao-certificados' ? 'Certificados digitais' : n.origem}</span>}
           </span>
-          {!n.lida && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />}
+          {!n.lida && <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', critico ? 'bg-rose-500' : 'bg-primary')} />}
           {/* Ações no hover: marcar lida / remover (quando o sistema permite) */}
           <span className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:opacity-100">
             {!n.lida && (
