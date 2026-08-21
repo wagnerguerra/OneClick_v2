@@ -2160,8 +2160,10 @@ export default function OrcamentoDetailPage() {
                             <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{orc.itens.length}</Badge>
                           )}
                         </h4>
-                        <div className="flex items-center gap-2">
-                          {canManageItens && (
+                        {/* data-editable: a barra fica viva mesmo com o orçamento congelado
+                            (Catálogo e Imprimir são navegação; Aplicar grupo já respeita canManageItens). */}
+                        <div className="flex items-center gap-2" data-editable>
+                          {canManageItens && !isLocked && (
                             <Button type="button" variant="outline" size="xs" className="gap-1" onClick={abrirGrupoOrc} title="Adicionar em lote os serviços de um grupo de orçamento">
                               <ListPlus className="h-3.5 w-3.5 text-emerald-600" /> Aplicar grupo
                             </Button>
