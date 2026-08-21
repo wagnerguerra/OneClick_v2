@@ -90,6 +90,53 @@ export class ColetaService {
     return buildPaginatedResponse(rows, total, page, limit)
   }
 
+  /**
+   * Board: todos os registros ativos fora do "Protocolo Arquivado" (a não ser
+   * que a situação seja filtrada), sem paginação, com as transições que o
+   * usuário logado pode fazer em CADA card — o front só desenha/bloqueia
+   * colunas, a regra mora aqui (padrão de estados derivados).
+   */
+  async listarKanban(
+    input: { search?: string; tipo?: string; situacao?: string; categoriaId?: string; somenteMinhas?: boolean },
+    ctx: { userId: string; empresaId?: string | null },
+    papeis: Papeis,
+  ) {
+    const filtros: Record<string, unknown>[] = [{ ativo: true }]
+    if (input.tipo) filtros.push({ tipo: input.tipo })
+    if (input.situacao) filtros.push({ situacao: input.situacao })
+    else filtros.push({ situacao: { not: 'PROTOCOLO_ARQUIVADO' } })
+    if (input.categoriaId) filtros.push({ categoriaId: input.categoriaId })
+    if (input.somenteMinhas) filtros.push({ solicitanteId: ctx.userId })
+    if (input.search) {
+      const termo = input.search.trim()
+      const numero = /^#?\d+$/.test(termo) ? Number(termo.replace('#', '')) : null
+      filtros.push({ OR: [
+        ...(numero != null ? [{ numero }] : []),
+        { descricao: { contains: termo, mode: 'insensitive' } },
+        { clienteNome: { contains: termo, mode: 'insensitive' } },
+        { contato: { contains: termo, mode: 'insensitive' } },
+      ] })
+    }
+    const data = await prisma.coleta.findMany({
+      where: { empresaId: ctx.empresaId ?? null, AND: filtros },
+      orderBy: [{ prioridade: 'desc' }, { registradoEm: 'desc' }],
+      take: 500,
+      include: { categoria: { select: { id: true, nome: true } }, _count: { select: { logs: true } } },
+    })
+    const clienteIds = [...new Set(data.map((d) => d.clienteId).filter((x): x is string => !!x))]
+    const [clientes, nomes] = await Promise.all([
+      clienteIds.length ? prisma.cliente.findMany({ where: { id: { in: clienteIds } }, select: { id: true, razaoSocial: true } }) : [],
+      this.nomesPorId(data.map((d) => d.solicitanteId)),
+    ])
+    const cMap = new Map(clientes.map((c) => [c.id, c.razaoSocial]))
+    return data.map((d) => ({
+      ...d,
+      clienteNomeResolvido: d.clienteId ? cMap.get(d.clienteId) ?? d.clienteNome : d.clienteNome,
+      solicitanteNomeResolvido: d.solicitanteId ? nomes.get(d.solicitanteId) ?? d.solicitanteNome : d.solicitanteNome,
+      transicoesDisponiveis: this.transicoesPara(d.situacao, d.ativo, papeis),
+    }))
+  }
+
   async getById(id: string, papeis: Papeis, empresaId?: string | null) {
     const c = await prisma.coleta.findFirst({
       where: { id, empresaId: empresaId ?? null },

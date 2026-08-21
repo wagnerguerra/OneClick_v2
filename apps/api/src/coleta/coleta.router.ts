@@ -31,6 +31,14 @@ export function createColetaRouter(service: ColetaService) {
       .input(listarColetasSchema)
       .query(({ input, ctx }) => service.listar(input, { userId: ctx.userId, empresaId: ctx.empresaId })),
 
+    listarKanban: readProcedure(MODULE)
+      .input(z.object({
+        search: z.string().optional(), tipo: z.string().optional(), situacao: z.string().optional(),
+        categoriaId: z.string().optional(), somenteMinhas: z.boolean().optional(),
+      }))
+      .query(async ({ input, ctx }) =>
+        service.listarKanban(input, { userId: ctx.userId, empresaId: ctx.empresaId }, await papeisDe(ctx))),
+
     getById: readProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .query(async ({ input, ctx }) =>

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus, Loader2, Pencil, Trash2, Flag, Settings2,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search as SearchIcon,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search as SearchIcon, LayoutGrid, List,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn, Checkbox,
@@ -22,6 +22,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { SITUACAO_BADGE, TIPO_BADGE } from './_components/badges'
+import { ColetaKanban, type KanbanRow } from './_components/kanban'
 
 const PAGE_SIZES = [10, 20, 50]
 
@@ -116,6 +117,30 @@ export default function ColetaDocumentosPage() {
   }, [page, limit, debounced, fTipo, fSituacao, fCategoria, fMinhas])
   useEffect(() => { fetchData() }, [fetchData])
 
+  // ── Kanban (como no /crm): preferência persistida; mesmas filtragens da lista ──
+  const [viewMode, setViewMode] = useState<'lista' | 'kanban'>('lista')
+  useEffect(() => {
+    const v = typeof window !== 'undefined' ? localStorage.getItem('coleta-view-mode') : null
+    if (v === 'kanban') setViewMode('kanban')
+  }, [])
+  const [kanbanRows, setKanbanRows] = useState<KanbanRow[]>([])
+  const [kanbanLoading, setKanbanLoading] = useState(false)
+  const fetchKanban = useCallback(async () => {
+    setKanbanLoading(true)
+    try {
+      const res = await (trpc as any).coleta.listarKanban.query({
+        search: debounced || undefined,
+        tipo: fTipo || undefined,
+        situacao: fSituacao || undefined,
+        categoriaId: fCategoria || undefined,
+        somenteMinhas: fMinhas || undefined,
+      })
+      setKanbanRows(res ?? [])
+    } catch { /* silencioso */ }
+    finally { setKanbanLoading(false) }
+  }, [debounced, fTipo, fSituacao, fCategoria, fMinhas])
+  useEffect(() => { if (viewMode === 'kanban') fetchKanban() }, [viewMode, fetchKanban])
+
   async function salvar() {
     if (!mCliente && !mContato.trim()) { alerts.error('Falta o cliente', 'Informe o cliente ou ao menos o contato.'); return }
     setSalvando(true)
@@ -167,6 +192,14 @@ export default function ColetaDocumentosPage() {
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Buscar por nº, cliente, contato..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 w-60 pl-8 text-sm" />
+          </div>
+          <div className="flex items-center border rounded-lg overflow-hidden">
+            <button type="button" className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')} onClick={() => { setViewMode('kanban'); localStorage.setItem('coleta-view-mode', 'kanban') }} title="Kanban">
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button type="button" className={cn('p-1.5 transition-colors', viewMode === 'lista' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')} onClick={() => { setViewMode('lista'); localStorage.setItem('coleta-view-mode', 'lista') }} title="Lista">
+              <List className="h-4 w-4" />
+            </button>
           </div>
           {podeEscrever && (
             <DropdownMenu>
@@ -242,6 +275,11 @@ export default function ColetaDocumentosPage() {
           )}
         </div>
 
+        {viewMode === 'kanban' ? (
+          <div className="px-4 pt-4">
+            <ColetaKanban rows={kanbanRows} loading={kanbanLoading} onChanged={() => { fetchKanban(); fetchData() }} />
+          </div>
+        ) : (
         <Table className="table-fixed">
           <TableHeader>
             <TableRow className="[&_th]:whitespace-nowrap">
@@ -300,8 +338,9 @@ export default function ColetaDocumentosPage() {
             )}
           </TableBody>
         </Table>
+        )}
 
-        {data && (
+        {viewMode === 'lista' && data && (
           <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               {data.total === 0 ? 'Mostrando 0 registros' : (<>Mostrando <span className="font-medium">{startRecord}</span> a <span className="font-medium">{endRecord}</span> de <span className="font-medium">{data.total}</span> registros</>)}
