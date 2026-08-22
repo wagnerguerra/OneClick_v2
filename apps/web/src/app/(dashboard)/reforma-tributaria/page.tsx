@@ -46,6 +46,7 @@ import {
   TooltipTrigger,
   cn,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, Tooltip as ReTooltip, CartesianGrid, ReferenceLine, Cell,
@@ -823,7 +824,7 @@ export default function ReformaTributariaPage() {
                       </td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{money(r.cargaAtual)}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{money(r.cargaReforma)}</td>
-                      <td className={cn('px-2 py-1.5 text-right font-medium tabular-nums', r.delta > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400')}>
+                      <td className={cn('px-2 py-1.5 text-right font-medium tabular-nums', r.delta > 0 ? TEXT.red : TEXT.emerald)}>
                         {r.delta > 0 ? '+' : ''}{money(r.delta)}
                       </td>
                     </tr>
@@ -1130,7 +1131,7 @@ export default function ReformaTributariaPage() {
                               <tr key={a.ano} className="border-t border-border/60">
                                 <td className="py-1.5 pr-3 font-medium tabular-nums">{a.ano}</td>
                                 <td className="py-1.5 pr-3 text-right tabular-nums">{money(a.cargaReforma)}</td>
-                                <td className={cn('py-1.5 pr-3 text-right tabular-nums', a.delta > 0 ? 'text-red-600 dark:text-red-400' : a.delta < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
+                                <td className={cn('py-1.5 pr-3 text-right tabular-nums', a.delta > 0 ? TEXT.red : a.delta < 0 ? TEXT.emerald : 'text-muted-foreground')}>
                                   {a.delta > 0 ? '+' : ''}{money(a.delta)}
                                 </td>
                                 <td className="py-1.5 text-right text-[11px] text-muted-foreground tabular-nums">
@@ -1148,7 +1149,7 @@ export default function ReformaTributariaPage() {
                   {narrativaIA && (
                     <div className="rounded-[6px] border border-violet-300/40 bg-violet-50/30 p-4 dark:bg-violet-950/15">
                       <div className="mb-2 flex flex-wrap items-center gap-2 text-sm font-medium">
-                        <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                        <Sparkles className={cn('h-4 w-4', TEXT.violet)} />
                         Parecer para o cliente (IA)
                         <span className="text-[11px] font-normal text-muted-foreground">revise/edite antes de enviar — entra no PDF exportado</span>
                       </div>

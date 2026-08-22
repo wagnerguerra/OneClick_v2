@@ -16,6 +16,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
@@ -60,11 +61,11 @@ function loginCorClass(iso: string): string {
   const now = new Date()
   const mesmoDia = (a: Date, b: Date) =>
     a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-  if (mesmoDia(d, now)) return 'text-emerald-600 dark:text-emerald-400 font-medium'
+  if (mesmoDia(d, now)) return cn(TEXT.emerald, 'font-medium')
   const ontem = new Date(now)
   ontem.setDate(now.getDate() - 1)
-  if (mesmoDia(d, ontem)) return 'text-amber-600 dark:text-amber-400 font-medium'
-  return 'text-rose-600 dark:text-rose-400 font-medium'
+  if (mesmoDia(d, ontem)) return cn(TEXT.amber, 'font-medium')
+  return cn(TEXT.rose, 'font-medium')
 }
 
 const ROLE_CONFIG: Record<string, { label: string; color: string }> = {

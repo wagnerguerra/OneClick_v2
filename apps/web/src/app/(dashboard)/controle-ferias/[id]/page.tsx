@@ -15,6 +15,7 @@ import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
 
@@ -235,7 +236,7 @@ export default function ControleFeriasDetalhePage() {
             <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Saldo do período</span>
               <span className={cn('font-bold tabular-nums text-sm',
-                p.saldo <= 0 ? 'text-emerald-600 dark:text-emerald-400' : p.saldo < 10 ? 'text-amber-600 dark:text-amber-400' : 'text-sky-600 dark:text-sky-400')}>
+                p.saldo <= 0 ? TEXT.emerald : p.saldo < 10 ? TEXT.amber : TEXT.sky)}>
                 {p.saldo} {Math.abs(p.saldo) === 1 ? 'dia' : 'dias'}
               </span>
             </div>

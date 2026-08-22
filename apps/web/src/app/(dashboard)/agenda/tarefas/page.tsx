@@ -12,6 +12,7 @@ import {
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { TEXT } from '@/lib/color-styles'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { TarefaModal } from '../_components/tarefa-modal'
 
@@ -261,8 +262,8 @@ export default function TarefasPage() {
                     <div className="flex items-center gap-3 mt-1.5 text-[11px]">
                       <span className={cn(
                         'inline-flex items-center gap-1 font-medium',
-                        atrasada && 'text-rose-600 dark:text-rose-400',
-                        hojeFlag && 'text-amber-600 dark:text-amber-400',
+                        atrasada && TEXT.rose,
+                        hojeFlag && TEXT.amber,
                         !atrasada && !hojeFlag && 'text-muted-foreground',
                       )}>
                         <Calendar className="h-3 w-3" />
@@ -289,7 +290,7 @@ export default function TarefasPage() {
                               </span>
                             ))}
                           </span>
-                          <span className={cn(cientes === membros.length ? 'text-emerald-600 dark:text-emerald-400 font-medium' : '')}>{cientes}/{membros.length} cientes</span>
+                          <span className={cn(cientes === membros.length ? cn(TEXT.emerald, 'font-medium') : '')}>{cientes}/{membros.length} cientes</span>
                         </span>
                       )}
                       {t.oportunidade && (

@@ -5,7 +5,9 @@ import { PenLine, Loader2, Upload, Download, ChevronLeft, ChevronRight, Eraser, 
 import {
   Button,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  cn,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { trpc } from '@/lib/trpc'
@@ -323,7 +325,7 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
               <div className="nice-scrollbar max-h-[220px] divide-y divide-border/60 overflow-y-auto rounded-lg border border-border">
                 {historico.map((h) => (
                   <div key={h.id} className="flex items-center gap-3 px-3 py-2">
-                    <FileCheck2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    <FileCheck2 className={cn('h-4 w-4 shrink-0', TEXT.emerald)} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px]" title={h.nome}>{h.nome}</p>
                       <p className="text-[11px] text-muted-foreground">
@@ -493,7 +495,7 @@ export function AssinarPdfModal({ onClose }: { onClose: () => void }) {
           {/* O motivo do bloqueio fica à vista. Botão desabilitado sem
               explicação é o que fez "marquei a área e nada acontece". */}
           {arquivo && !certificadoId && certificados.length > 0 && (
-            <span className="mr-auto text-[12px] text-amber-600 dark:text-amber-400">
+            <span className={cn('mr-auto text-[12px]', TEXT.amber)}>
               Escolha o certificado para assinar
             </span>
           )}

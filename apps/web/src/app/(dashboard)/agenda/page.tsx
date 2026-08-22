@@ -21,6 +21,7 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ModuloAcessoButton } from '@/components/modulo-acesso-button'
 import { AgendaTipoHistoricoButton } from '@/components/agenda-tipo-historico-button'
@@ -1692,7 +1693,7 @@ export default function AgendaPage() {
                             <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }} />
                             <span className="text-[11px] text-muted-foreground">{dataHoje}</span>
                           </div>
-                          <div className="flex items-center gap-1 text-[11px] text-sky-600 dark:text-sky-400 shrink-0">
+                          <div className={cn('flex items-center gap-1 text-[11px] shrink-0', TEXT.sky)}>
                             <Clock className="h-3 w-3" />
                             {ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio} às ${ev.horaFim}`}
                           </div>
@@ -1942,7 +1943,7 @@ export default function AgendaPage() {
                         {dayEvents.length > 3 && (
                           <button
                             type="button"
-                            className="shrink-0 mt-[10px] text-[10px] text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 hover:underline pl-1.5 font-medium cursor-pointer w-full text-left leading-none"
+                            className={cn('shrink-0 mt-[10px] text-[10px] hover:text-sky-700 dark:hover:text-sky-300 hover:underline pl-1.5 font-medium cursor-pointer w-full text-left leading-none', TEXT.sky)}
                             onClick={(e) => {
                               e.stopPropagation()
                               setDayModalDate(dateStr)
@@ -2111,7 +2112,7 @@ export default function AgendaPage() {
                         </span>
                       )}
                       {ev.arrumarSala && (
-                        <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                        <span className={cn('inline-flex items-center gap-1.5', TEXT.amber)}>
                           <Sparkles className="h-3.5 w-3.5 shrink-0" />Arrumar sala
                         </span>
                       )}
@@ -2341,7 +2342,7 @@ export default function AgendaPage() {
                           onClick={() => setViewTab(t.value as typeof viewTab)}
                           className={cn(
                             'px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5',
-                            viewTab === t.value ? 'border-sky-500 text-sky-600 dark:text-sky-400' : 'border-transparent text-muted-foreground hover:text-foreground'
+                            viewTab === t.value ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground'
                           )}
                         >
                           <t.icon className="h-3.5 w-3.5 shrink-0" />{t.label}
@@ -2379,7 +2380,7 @@ export default function AgendaPage() {
 
                       {ev.arrumarSala && (
                         <FieldRow icon={Sparkles} label="Preparação">
-                          <span className="text-amber-600 dark:text-amber-400">Arrumar a sala</span>
+                          <span className={TEXT.amber}>Arrumar a sala</span>
                         </FieldRow>
                       )}
 
@@ -2395,7 +2396,7 @@ export default function AgendaPage() {
                             href={ev.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-sky-600 dark:text-sky-400 hover:underline truncate max-w-full"
+                            className={cn('inline-flex items-center gap-1.5 hover:underline truncate max-w-full', TEXT.sky)}
                           >
                             <span className="truncate">{ev.link}</span>
                             <ExternalLink className="h-3.5 w-3.5 shrink-0" />
@@ -2528,7 +2529,7 @@ export default function AgendaPage() {
                           >
                             <div className="flex items-center gap-2">
                               {card.numero != null && (
-                                <span className="shrink-0 text-[12px] font-bold tabular-nums text-violet-600 dark:text-violet-400">#{card.numero}</span>
+                                <span className={cn('shrink-0 text-[12px] font-bold tabular-nums', TEXT.violet)}>#{card.numero}</span>
                               )}
                               <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-foreground">{card.titulo}</span>
                               {card.id === deckPrincipalId && (
@@ -2549,12 +2550,12 @@ export default function AgendaPage() {
                         style={{ marginTop: deckBack.length ? -18 : 0, zIndex: 50, animation: deckCards.length > 1 ? 'deckCardForward 0.3s cubic-bezier(0.22, 1, 0.36, 1)' : undefined }}
                         className="relative rounded-xl border border-violet-500/40 bg-card shadow-lg overflow-hidden">
                         <div className="px-4 py-2.5 border-b border-violet-500/20 flex items-center gap-2 bg-violet-500/10">
-                          <Target className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
+                          <Target className={cn('h-4 w-4', TEXT.violet, 'shrink-0')} />
                           <span className="text-[11px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider">
                             Detalhes da oportunidade
                           </span>
                           {op.numero != null && (
-                            <span className="ml-auto text-[11px] font-bold tabular-nums text-violet-600 dark:text-violet-400">#{op.numero}</span>
+                            <span className={cn('ml-auto text-[11px] font-bold tabular-nums', TEXT.violet)}>#{op.numero}</span>
                           )}
                         </div>
                         <div className="px-4 py-3.5 space-y-3.5 bg-violet-500/5 dark:bg-violet-500/[0.07]">
@@ -2642,7 +2643,7 @@ export default function AgendaPage() {
                             {op.motivoPerda && (
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-muted-foreground shrink-0">Motivo da perda</span>
-                                <span className="text-rose-600 dark:text-rose-400 font-medium truncate text-right">{op.motivoPerda}</span>
+                                <span className={cn(TEXT.rose, 'font-medium truncate text-right')}>{op.motivoPerda}</span>
                               </div>
                             )}
                           </div>
@@ -2809,7 +2810,7 @@ export default function AgendaPage() {
                   {/* Campos especiais — regras configuráveis por tipo (Agenda › Configurações) */}
                   {temConfigEvento && (
                     <div className="space-y-3 rounded-lg border bg-sky-50/50 dark:bg-sky-950/10 p-3">
-                      <p className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">Configurações do evento</p>
+                      <p className={cn('text-[10px] font-medium', TEXT.sky)}>Configurações do evento</p>
 
                       {/* Modalidade */}
                       {permiteModalidade && (
@@ -3425,11 +3426,11 @@ export default function AgendaPage() {
                       <div className="space-y-1.5">
                         {oportunidadesVinc.map((card, idx) => (
                           <div key={card.id} className="flex items-center gap-2 rounded-md border border-violet-500/30 bg-violet-500/5 dark:bg-violet-500/10 px-2.5 py-1.5">
-                            <Target className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
+                            <Target className={cn('h-3.5 w-3.5', TEXT.violet, 'shrink-0')} />
                             <div className="flex-1 min-w-0">
                               <p className="text-[12px] font-medium truncate flex items-center gap-1.5">
                                 {card.numero != null && (
-                                  <span className="text-violet-600 dark:text-violet-400 font-bold tabular-nums shrink-0">#{card.numero}</span>
+                                  <span className={cn(TEXT.violet, 'font-bold tabular-nums shrink-0')}>#{card.numero}</span>
                                 )}
                                 <span className="truncate">{card.titulo}</span>
                                 {idx === 0 && (
@@ -3510,7 +3511,7 @@ export default function AgendaPage() {
                                   <Target className="h-3.5 w-3.5 text-violet-500 shrink-0" />
                                   <span className="min-w-0 flex-1">
                                     <span className="block truncate font-medium">
-                                      {op.numero != null && <span className="text-violet-600 dark:text-violet-400 font-bold">#{op.numero} </span>}
+                                      {op.numero != null && <span className={cn(TEXT.violet, 'font-bold')}>#{op.numero} </span>}
                                       {op.titulo}
                                     </span>
                                     {(op.razaoSocial || op.etapa) && (
@@ -3529,7 +3530,7 @@ export default function AgendaPage() {
 
                     {oportunidadesVinc.length > 1 && (
                       <p className="text-[10px] text-muted-foreground leading-snug">
-                        O card <strong className="text-violet-600 dark:text-violet-400">Principal</strong> (primeiro) compartilha as abas <strong>Anotações</strong> e <strong>Anexos</strong> com o evento. Os demais são vínculos de referência.
+                        O card <strong className={TEXT.violet}>Principal</strong> (primeiro) compartilha as abas <strong>Anotações</strong> e <strong>Anexos</strong> com o evento. Os demais são vínculos de referência.
                       </p>
                     )}
                   </div>
@@ -3640,7 +3641,7 @@ export default function AgendaPage() {
                           {t.nome}
                         </span>
                         {t.bloqueiaAgenda && (
-                          <span className="text-[9px] text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded-[2px] shrink-0">
+                          <span className={cn('text-[9px] bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-[2px] shrink-0', TEXT.amber)}>
                             Bloqueia
                           </span>
                         )}

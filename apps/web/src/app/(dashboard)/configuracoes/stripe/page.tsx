@@ -11,6 +11,7 @@ import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { MasterGate } from '@/components/auth/master-gate'
+import { TEXT } from '@/lib/color-styles'
 
 /* ── Sub-abas (pills laterais) ─────────────────────────── */
 
@@ -505,7 +506,7 @@ function TabWebhooks({ values }: { values: Record<string, string> }) {
               >
                 <div className="flex items-center gap-3">
                   <div className="flex items-center justify-center h-7 w-7 rounded bg-violet-100 dark:bg-violet-900/30">
-                    <Webhook className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                    <Webhook className={cn('h-3.5 w-3.5', TEXT.violet)} />
                   </div>
                   <div>
                     <p className="text-xs font-mono font-medium text-foreground">{item.event}</p>

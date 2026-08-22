@@ -23,7 +23,8 @@ import {
   DownloadCloud,
   Server,
 } from 'lucide-react'
-import { Button, Card } from '@saas/ui'
+import { Button, Card, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 
 /* ------------------------------------------------------------------ */
 /* Tipos                                                               */
@@ -173,7 +174,7 @@ export default function DownloadsPage() {
         {/* ============================================================ */}
         <Card className="p-6 flex flex-col gap-4 bg-card border-border">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <div className={cn('flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-500/10', TEXT.emerald)}>
               <Smartphone className="h-6 w-6" />
             </div>
             <div>
@@ -206,7 +207,7 @@ export default function DownloadsPage() {
               {/* ---- Android ---- */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
-                  <Smartphone className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <Smartphone className={cn('h-4 w-4', TEXT.emerald)} />
                   Android (APK)
                 </div>
 
@@ -215,7 +216,7 @@ export default function DownloadsPage() {
                     {latest && (
                       <div className="flex flex-wrap items-center gap-2">
                         {latest.version && (
-                          <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          <span className={cn('inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-[12px] font-semibold', TEXT.emerald)}>
                             v{latest.version}
                             {latest.build != null && ` (build ${latest.build})`}
                           </span>
@@ -332,7 +333,7 @@ export default function DownloadsPage() {
         {/* ============================================================ */}
         <Card className="p-6 flex flex-col gap-4 bg-card border-border">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
+            <div className={cn('flex h-11 w-11 items-center justify-center rounded-lg bg-sky-500/10', TEXT.sky)}>
               <MonitorDown className="h-6 w-6" />
             </div>
             <div>
@@ -372,7 +373,7 @@ export default function DownloadsPage() {
                 O build do aplicativo ainda não foi publicado. Volte em breve.
               </p>
               {chat?.error && (
-                <p className="text-[11px] text-rose-600 dark:text-rose-400">
+                <p className={cn('text-[11px]', TEXT.rose)}>
                   Detalhe técnico: {chat.error}
                 </p>
               )}
@@ -391,7 +392,7 @@ export default function DownloadsPage() {
         {/* ============================================================ */}
         <Card className="p-6 flex flex-col gap-4 bg-card border-border">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
+            <div className={cn('flex h-11 w-11 items-center justify-center rounded-lg bg-violet-500/10', TEXT.violet)}>
               <Server className="h-6 w-6" />
             </div>
             <div>

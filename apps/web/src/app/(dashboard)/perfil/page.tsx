@@ -17,6 +17,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -772,7 +773,7 @@ export default function MeuPerfilPage() {
               type="button"
               onClick={handleCoverRemove}
               disabled={uploadingCover}
-              className="inline-flex items-center gap-1.5 rounded-md bg-card/95 hover:bg-card text-rose-600 dark:text-rose-400 border border-border/40 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60"
+              className={cn('inline-flex items-center gap-1.5 rounded-md bg-card/95 hover:bg-card', TEXT.rose, 'border border-border/40 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors disabled:opacity-60')}
               title="Remover capa"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -1252,7 +1253,7 @@ export default function MeuPerfilPage() {
                       className="flex items-center gap-3 px-5 py-3 hover:bg-muted/30 transition-colors group"
                     >
                       <div className="h-9 w-9 rounded-md bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center shrink-0">
-                        <Building2 className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                        <Building2 className={cn('h-4 w-4', TEXT.sky)} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate" title={c.razaoSocial}>{c.razaoSocial}</p>

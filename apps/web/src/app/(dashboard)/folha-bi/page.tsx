@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BarChart3, Database, Loader2, RefreshCw, Table2, LayoutGrid, Landmark, PiggyBank, Receipt, Settings2, X, Plus, Trash2, ChevronUp, ChevronDown, Pencil, Coins, FileSpreadsheet } from 'lucide-react'
 import { Button, Card, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -314,7 +315,7 @@ export default function FolhaBiPage() {
       </Card>
 
       {erroClientes && (
-        <Card className="border-dashed p-4 text-sm text-amber-600 dark:text-amber-400">
+        <Card className={cn('border-dashed p-4 text-sm', TEXT.amber)}>
           Não foi possível carregar os clientes: {erroClientes}
         </Card>
       )}

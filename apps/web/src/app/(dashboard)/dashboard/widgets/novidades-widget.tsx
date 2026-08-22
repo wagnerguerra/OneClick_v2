@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Sparkles, Wrench, Bug, Megaphone } from 'lucide-react'
-import { Card, CardContent } from '@saas/ui'
+import { Card, CardContent, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
 import { EmptyState } from './empty-state'
 
 interface Novidade {
@@ -76,7 +77,7 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
       <CardContent className="flex h-full flex-col gap-3 overflow-hidden p-4 @sm:p-5">
         <Link href="/relatorios-ti" className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-50 dark:bg-cyan-900/20">
-            <Megaphone className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+            <Megaphone className={cn('h-4 w-4', TEXT.cyan)} />
           </span>
           <span className="min-w-0">
             <h3 className="truncate text-sm font-semibold">{titulo}</h3>

@@ -9,6 +9,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
 
@@ -163,7 +164,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
                   disabled={fase === 'processando'}
                   onClick={() => setFonte(f.k)}
                   className={cn('inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors disabled:opacity-50',
-                    active ? 'border-sky-500 text-sky-600 dark:text-sky-400' : 'border-transparent text-muted-foreground hover:text-foreground')}
+                    active ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground')}
                 >
                   <f.icon className="h-3.5 w-3.5" /> {f.label}
                 </button>
@@ -237,10 +238,10 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
               )}
               <div>
                 <p className="text-sm font-medium">{sel?.razaoSocial}</p>
-                <p className={cn('text-sm mt-1', resultado.ok ? 'text-muted-foreground' : 'text-rose-600 dark:text-rose-400')}>{resultado.mensagem}</p>
+                <p className={cn('text-sm mt-1', resultado.ok ? 'text-muted-foreground' : TEXT.rose)}>{resultado.mensagem}</p>
               </div>
               {resultado.ok && sel && (
-                <Link href={`/danfe/galeria?cliente=${sel.id}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-sky-600 dark:text-sky-400 hover:underline">
+                <Link href={`/danfe/galeria?cliente=${sel.id}`} className={cn('inline-flex items-center gap-1.5 text-sm font-semibold hover:underline', TEXT.sky)}>
                   Ver notas na galeria <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
               )}

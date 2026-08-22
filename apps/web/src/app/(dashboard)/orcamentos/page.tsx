@@ -23,6 +23,7 @@ import { UserCombobox } from './_components/user-combobox'
 import { CatalogoCombobox } from './_components/catalogo-combobox'
 import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
@@ -1748,9 +1749,9 @@ function PrazoBadge({ orc }: { orc: OrcamentoRow }) {
   const config = useContext(OrcConfigContext)
   const prazo = calcularPrazoCard(orc, config)
   const colorClasses: Record<typeof prazo.variant, string> = {
-    ok: 'text-emerald-600 dark:text-emerald-400',
-    warning: 'text-amber-600 dark:text-amber-400',
-    danger: 'text-rose-600 dark:text-rose-400 font-semibold',
+    ok: TEXT.emerald,
+    warning: TEXT.amber,
+    danger: cn(TEXT.rose, 'font-semibold'),
     neutral: 'text-muted-foreground',
   }
   return (

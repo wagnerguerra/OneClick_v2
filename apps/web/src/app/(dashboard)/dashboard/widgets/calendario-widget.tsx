@@ -7,6 +7,7 @@ import { resolveAssetUrl } from '@/lib/api-url'
 import { Card, CardContent, CardHeader, CardTitle, Button, cn, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
 
 const DIAS_SEMANA_MINI = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 const DIAS_SEMANA_FULL = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -332,8 +333,8 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
                       isValid && temConteudo && 'cursor-pointer hover:bg-muted/60',
                       isValid && !temConteudo && 'cursor-default',
                       isToday && 'border-2 border-sky-500 text-sky-700 dark:text-sky-300 font-bold',
-                      isValid && !isToday && especial?.tipo === 'feriado' && 'text-rose-600 dark:text-rose-400 font-semibold',
-                      isValid && !isToday && especial?.tipo === 'comemorativa' && 'text-fuchsia-600 dark:text-fuchsia-400 font-medium',
+                      isValid && !isToday && especial?.tipo === 'feriado' && cn(TEXT.rose, 'font-semibold'),
+                      isValid && !isToday && especial?.tipo === 'comemorativa' && cn(TEXT.fuchsia, 'font-medium'),
                     )}
                   >
                     <span className="leading-none">{isValid ? dayNum : String(vizinho).padStart(2, '0')}</span>
@@ -411,11 +412,11 @@ export function CalendarioWidget({ title, expanded }: { canRead?: boolean; title
           {/* Feriados e comemorativas pintam o NÚMERO do dia — a amostra da
               legenda é um número, não bolinha, para ler igual à grade. */}
           <div className="flex items-center gap-1.5" title="O número do dia fica vermelho">
-            <span className="text-[11px] font-bold tabular-nums text-rose-600 dark:text-rose-400 leading-none">7</span>
+            <span className={cn('text-[11px] font-bold tabular-nums leading-none', TEXT.rose)}>7</span>
             <span className="text-[11px] text-foreground/80">Feriado</span>
           </div>
           <div className="flex items-center gap-1.5" title="O número do dia fica fúcsia">
-            <span className="text-[11px] font-bold tabular-nums text-fuchsia-600 dark:text-fuchsia-400 leading-none">24</span>
+            <span className={cn('text-[11px] font-bold tabular-nums leading-none', TEXT.fuchsia)}>24</span>
             <span className="text-[11px] text-foreground/80">Data comemorativa</span>
           </div>
         </div>
@@ -577,7 +578,7 @@ function DiaDetalheModal(props: {
                             {cfg.label}
                           </span>
                           {p.atrasado && (
-                            <span className="ml-auto text-[9px] uppercase tracking-wider font-bold text-rose-600 dark:text-rose-400">
+                            <span className={cn('ml-auto text-[9px] uppercase tracking-wider font-bold', TEXT.rose)}>
                               Atrasado
                             </span>
                           )}
@@ -817,8 +818,8 @@ function CalendarioExpandido(props: {
                         className={cn(
                           'absolute top-1.5 right-1.5 z-[1] inline-flex items-center justify-center h-6 min-w-[24px] rounded-full text-[11px] font-bold tabular-nums px-1.5',
                           isToday && 'bg-sky-500 text-white shadow-sm',
-                          !isToday && especial?.tipo === 'feriado' && 'text-rose-600 dark:text-rose-400',
-                          !isToday && especial?.tipo === 'comemorativa' && 'text-fuchsia-600 dark:text-fuchsia-400',
+                          !isToday && especial?.tipo === 'feriado' && TEXT.rose,
+                          !isToday && especial?.tipo === 'comemorativa' && TEXT.fuchsia,
                           !isToday && !especial && isFds && 'text-foreground/50',
                           !isToday && !especial && !isFds && 'text-foreground',
                         )}
@@ -1060,7 +1061,7 @@ function CalendarioExpandido(props: {
                               {cfg.label}
                             </span>
                             {p.atrasado && (
-                              <span className="ml-auto text-[9px] uppercase tracking-wider font-bold text-rose-600 dark:text-rose-400">
+                              <span className={cn('ml-auto text-[9px] uppercase tracking-wider font-bold', TEXT.rose)}>
                                 Atrasado
                               </span>
                             )}

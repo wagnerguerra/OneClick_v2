@@ -13,6 +13,7 @@ import {
   Button, Card, Badge, cn, Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { PageHeader } from '@/components/page-header'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { alerts } from '@/lib/alerts'
@@ -180,13 +181,13 @@ export default function ExtratoEditPage() {
                       <span className="flex items-center gap-1.5 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Vinculando CNPJ por <b>{cnpjInfo?.label}</b>…</span>
                     ) : semCadastro ? (
                       <>
-                        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        <AlertTriangle className={cn('h-4 w-4', TEXT.amber)} />
                         <span className="text-amber-700 dark:text-amber-400">Coluna <b>CNPJ</b> criada por <b>{cnpjInfo?.label}</b>, mas não há {tipoLabel(codigoCol.tipo).toLowerCase()} cadastrados. Envie a planilha de cadastro para preencher.</span>
                         <Button size="sm" className="ml-auto gap-1.5 rounded-lg text-white" style={accent} onClick={() => setCadastroOpen(true)}><Users className="h-4 w-4" /> Enviar planilha de {tipoLabel(codigoCol.tipo).toLowerCase()}</Button>
                       </>
                     ) : (
                       <>
-                        <Link2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <Link2 className={cn('h-4 w-4', TEXT.emerald)} />
                         <span className="text-emerald-700 dark:text-emerald-400"><b>CNPJ vinculado:</b> {cnpjInfo?.matched ?? 0} de {cnpjInfo?.total ?? 0} códigos</span>
                         <Button size="sm" variant="outline" className="ml-auto gap-1.5 rounded-lg" onClick={() => setCadastroOpen(true)}><Users className="h-4 w-4" /> Atualizar cadastro</Button>
                       </>

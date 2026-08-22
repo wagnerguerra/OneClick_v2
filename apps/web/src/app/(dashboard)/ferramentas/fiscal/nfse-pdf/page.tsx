@@ -6,6 +6,7 @@ import {
   CheckCircle2, AlertTriangle, Sparkles, ArrowRight,
 } from 'lucide-react'
 import { Button, Card, Badge, cn, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { PageHeader } from '@/components/page-header'
 import { alerts } from '@/lib/alerts'
 import { generateDanfseZip, type GenResult } from './_lib/generateZip'
@@ -151,7 +152,7 @@ export default function NfsePdfPage() {
                   </p>
                   {result.ignorados.length > 0 && (
                     <details className="text-xs text-muted-foreground">
-                      <summary className="cursor-pointer text-amber-600 dark:text-amber-400">
+                      <summary className={cn('cursor-pointer', TEXT.amber)}>
                         <AlertTriangle className="inline h-3.5 w-3.5" /> {result.ignorados.length} ignorado(s)
                       </summary>
                       <ul className="mt-1 space-y-0.5 pl-4">

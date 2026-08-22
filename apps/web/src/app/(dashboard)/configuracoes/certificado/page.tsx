@@ -10,6 +10,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import { MasterGate } from '@/components/auth/master-gate'
+import { TEXT } from '@/lib/color-styles'
 import Swal from 'sweetalert2'
 
 interface CertInfo {
@@ -370,7 +371,7 @@ function CertificadoSettingsPageInner() {
                       {/* Aviso se não conseguiu ler */}
                       {!certInfo.validTo && certInfo.exists && (
                         <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.08)]">
-                          <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+                          <div className={cn('flex items-center gap-2 text-xs', TEXT.amber)}>
                             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                             <span>Não foi possível ler os dados do certificado. Verifique se a senha está correta.</span>
                           </div>
@@ -551,7 +552,7 @@ function CertificadoSettingsPageInner() {
 
                       {!certPfInfo.validTo && certPfInfo.exists && (
                         <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.08)]">
-                          <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+                          <div className={cn('flex items-center gap-2 text-xs', TEXT.amber)}>
                             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                             <span>Nao foi possivel ler os dados do certificado. Verifique se a senha esta correta.</span>
                           </div>

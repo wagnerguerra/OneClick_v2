@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MessageSquare, X, Users } from 'lucide-react'
 import { cn } from '@saas/ui'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { TEXT } from '@/lib/color-styles'
 
 interface ToastPayload {
   conversaId: string
@@ -132,7 +133,7 @@ export function ChatToastListener() {
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <MessageSquare className="h-3 w-3 text-sky-600 dark:text-sky-400 shrink-0" />
+                <MessageSquare className={cn('h-3 w-3 shrink-0', TEXT.sky)} />
                 <span className="text-[10px] font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider">Nova mensagem</span>
               </div>
               <div className="text-[13px] font-semibold leading-tight mt-0.5 truncate flex items-center gap-1">

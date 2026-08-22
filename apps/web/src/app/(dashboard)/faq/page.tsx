@@ -6,7 +6,9 @@ import { HelpCircle, Search, ArrowRight, Plus, MoreVertical, Pencil, Trash2, Eye
 import {
   Card, CardContent, Input, Button,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  cn,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { useState, useMemo, useEffect, useCallback, type ComponentType } from 'react'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { trpc } from '@/lib/trpc'
@@ -225,7 +227,7 @@ function ArticleCard({ artigo: a, isMaster, onEditar, onExcluir }: {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEditar}><Pencil className="h-3.5 w-3.5 mr-2" /> Editar</DropdownMenuItem>
               {a.fonte === 'banco' && (
-                <DropdownMenuItem onClick={onExcluir} className="text-rose-600 dark:text-rose-400 focus:text-rose-600 dark:focus:text-rose-400">
+                <DropdownMenuItem onClick={onExcluir} className={cn(TEXT.rose, 'focus:text-rose-600 dark:focus:text-rose-400')}>
                   <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                 </DropdownMenuItem>
               )}

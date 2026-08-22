@@ -23,8 +23,9 @@ import type { FlowPlan } from '@saas/types'
 import {
   Dialog, DialogContent, DialogTitle, DialogDescription,
   Input, Label, Button, Checkbox,
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { WizardShell, type WizardStep } from '@/components/ui/wizard-shell'
 import { trpc } from '@/lib/trpc'
@@ -237,7 +238,7 @@ export function FluxoAssistant({ open, onOpenChange, servicoId, servicoNome, ser
               onClick={() => setAiOpen(o => !o)}
               className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
             >
-              <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              <Sparkles className={cn('h-4 w-4', TEXT.violet)} />
               <span className="text-[13px] font-semibold">Gerar com IA</span>
               <span className="text-[11px] text-muted-foreground">descreva o serviço e a IA monta um rascunho</span>
               <ChevronDown className={`ml-auto h-4 w-4 text-muted-foreground transition-transform ${aiOpen ? 'rotate-180' : ''}`} />

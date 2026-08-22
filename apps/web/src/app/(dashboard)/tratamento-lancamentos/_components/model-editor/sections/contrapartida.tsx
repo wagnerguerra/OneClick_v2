@@ -8,6 +8,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { Trash2, Plus, Search, Wand2, ChevronLeft, ChevronRight, ListChecks, ExternalLink, AlertTriangle, CheckCircle2, MoreVertical, Braces } from 'lucide-react'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
 import { matchPalavraChaveIndex, HISTORICO_DATA_VARS, historicoToken } from '@saas/types'
@@ -497,7 +498,7 @@ function BadgeRegra({ n }: { n: number }) {
   // à mesma distância vertical do input que a de texto puro (o inline-flex ganhava um
   // leadinho na baseline e caía uns pixels mais pra baixo).
   return (
-    <p className={cn('flex items-center gap-1 text-[10px] tabular-nums', n > 0 ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400')}>
+    <p className={cn('flex items-center gap-1 text-[10px] tabular-nums', n > 0 ? 'text-muted-foreground' : TEXT.amber)}>
       {n > 0
         ? <>corresponde a {n.toLocaleString('pt-BR')} {n === 1 ? 'lançamento' : 'lançamentos'}</>
         : <><AlertTriangle className="h-2.5 w-2.5 shrink-0" /> não corresponde a nenhum lançamento</>}
@@ -643,7 +644,7 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
                         {d.idx >= 0 ? (
                           <span className="text-muted-foreground">{itens[d.idx]!.palavraChave}</span>
                         ) : clicavel ? (
-                          <span className="inline-flex items-center gap-1 font-medium text-fuchsia-600 dark:text-fuchsia-400"><Plus className="h-3 w-3 shrink-0" /> criar palavra-chave</span>
+                          <span className={cn('inline-flex items-center gap-1 font-medium', TEXT.fuchsia)}><Plus className="h-3 w-3 shrink-0" /> criar palavra-chave</span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}

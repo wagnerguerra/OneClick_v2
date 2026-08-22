@@ -11,6 +11,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   RichEditor, RichContent,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
@@ -299,7 +300,7 @@ export default function ReuniaoDetalhePage() {
                       </div>
                       <p className="mt-1 text-[11px] text-muted-foreground">
                         {nomeResp(a)}
-                        {a.prazo && <> · prazo {dataBR(a.prazo)}{vencida && <span className="text-rose-600 dark:text-rose-400 font-semibold"> (vencido)</span>}</>}
+                        {a.prazo && <> · prazo {dataBR(a.prazo)}{vencida && <span className={cn(TEXT.rose, 'font-semibold')}> (vencido)</span>}</>}
                         {a.concluidoEm && <> · concluída em {dataBR(a.concluidoEm)}</>}
                       </p>
                     </div>

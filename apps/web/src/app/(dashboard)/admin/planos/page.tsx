@@ -18,6 +18,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { MODULE_GROUPS, MODULE_LABELS } from '@saas/types'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -266,7 +267,7 @@ export default function AdminPlanosPage() {
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-foreground truncate">{p.name}</span>
-                        {p.highlight && <Badge variant="outline" className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400"><Star className="mr-1 h-3 w-3" />Destaque</Badge>}
+                        {p.highlight && <Badge variant="outline" className={cn('border-amber-500/20 bg-amber-500/10', TEXT.amber)}><Star className="mr-1 h-3 w-3" />Destaque</Badge>}
                       </div>
                       {p.description && <div className="text-xs text-muted-foreground truncate">{p.description}</div>}
                     </td>

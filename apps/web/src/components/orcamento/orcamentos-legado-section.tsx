@@ -5,6 +5,7 @@ import { Archive, Loader2, MessageSquare, History as HistoryIcon, Receipt } from
 import { cn, Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, RichContent } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
 
 interface ItemLegado { descricao: string | null; tipo: string | null; quantidade: string | number | null; valorUnitario: string | number | null }
 interface MsgLegado { conteudo: string; data: string | null }
@@ -115,7 +116,7 @@ export function OrcamentosLegadoSection({ clienteId, className }: { clienteId?: 
                   {Number(sel.valorDesconto) > 0 ? (
                     <>
                       <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">{fmtMoeda(Number(sel.valorTotal || 0) + Number(sel.valorDesconto || 0))}</span></div>
-                      <div className="flex justify-between text-rose-600 dark:text-rose-400"><span>Desconto</span><span className="tabular-nums">− {fmtMoeda(sel.valorDesconto)}</span></div>
+                      <div className={cn('flex justify-between', TEXT.rose)}><span>Desconto</span><span className="tabular-nums">− {fmtMoeda(sel.valorDesconto)}</span></div>
                       <div className="flex justify-between font-semibold border-t border-border/60 pt-1"><span>Total</span><span className="tabular-nums text-emerald-700 dark:text-emerald-400">{fmtMoeda(sel.valorTotal)}</span></div>
                     </>
                   ) : (

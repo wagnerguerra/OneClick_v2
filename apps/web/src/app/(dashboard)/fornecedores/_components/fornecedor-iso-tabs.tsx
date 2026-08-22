@@ -10,6 +10,7 @@ import {
   Button, Card, Input, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { TIPO_FORNECEDOR_LABELS } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -257,7 +258,7 @@ export function QualificacaoTab({ fornecedorId }: { fornecedorId: string }) {
     <div className="space-y-4">
       {!loading && rows.length > 0 && (
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-muted-foreground">Atende <strong className="text-emerald-600 dark:text-emerald-400">{atendidos}</strong> de <strong>{rows.length}</strong> critérios</span>
+          <span className="text-muted-foreground">Atende <strong className={TEXT.emerald}>{atendidos}</strong> de <strong>{rows.length}</strong> critérios</span>
           <span className="text-muted-foreground">·</span>
           <span className="text-muted-foreground">{respondidos} respondidos</span>
         </div>
@@ -315,9 +316,9 @@ interface AvalFornecimento {
   pedidos: Array<{ id: string; code: number; dataAvaliacao: string | null; nfNumero: string | null; pct: number | null }>
 }
 const FAIXA_COR: Record<string, string> = {
-  verde: 'text-emerald-600 dark:text-emerald-400',
-  amarelo: 'text-amber-600 dark:text-amber-400',
-  vermelho: 'text-rose-600 dark:text-rose-400',
+  verde: TEXT.emerald,
+  amarelo: TEXT.amber,
+  vermelho: TEXT.rose,
 }
 const FAIXA_LABEL: Record<string, string> = { verde: 'Aprovado', amarelo: 'Atenção', vermelho: 'Crítico' }
 const corPct = (p: number) => (p >= 90 ? FAIXA_COR.verde : p >= 60 ? FAIXA_COR.amarelo : FAIXA_COR.vermelho)

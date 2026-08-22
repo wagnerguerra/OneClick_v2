@@ -22,6 +22,7 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   cn,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 
 type CellValue = string | number | boolean | null
 type Direcao = 'DEBITO' | 'CREDITO' | null
@@ -212,7 +213,7 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
         <div className="rounded-lg border border-border bg-card">
           {/* margin-inline alinha o conteúdo com os elementos do fluxo principal. */}
           <div className="flex items-center gap-3 p-5" style={{ marginInline: '15rem' }}>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+            <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40', TEXT.emerald)}>
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">
@@ -256,7 +257,7 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
           onClick={() => setAberto((a) => !a)}
           className="flex w-full items-center gap-3 p-5 text-left"
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
+          <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950/40', TEXT.rose)}>
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
@@ -336,10 +337,10 @@ export function PendenciasPanel({ pendencias, totalLancamentos, headers, rows, t
                     )}
                     <span className="text-xs text-muted-foreground">
                       {temModelo && (
-                        <>Pendências <span className="font-medium text-rose-600 dark:text-rose-400">de modelo</span> (mapeamentos faltando){canManage ? ' são corrigidas no editor.' : ' — solicite a correção a quem gerencia os modelos.'} </>
+                        <>Pendências <span className={cn('font-medium', TEXT.rose)}>de modelo</span> (mapeamentos faltando){canManage ? ' são corrigidas no editor.' : ' — solicite a correção a quem gerencia os modelos.'} </>
                       )}
                       {temArquivo && (
-                        <>Pendências <span className="font-medium text-amber-600 dark:text-amber-400">de arquivo</span> (campos em branco, datas ou valores inválidos) precisam ser corrigidas no próprio arquivo.</>
+                        <>Pendências <span className={cn('font-medium', TEXT.amber)}>de arquivo</span> (campos em branco, datas ou valores inválidos) precisam ser corrigidas no próprio arquivo.</>
                       )}
                     </span>
                   </div>
@@ -476,9 +477,9 @@ function DadosProcessados({
     <div className="space-y-2">
       {(traceTotal > MAX_RENDER || temPendencias) && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-          {temPendencias && <span>Clique numa linha de <span className="font-medium text-rose-600 dark:text-rose-400">Pendência</span> para vê-la na aba Pendências.</span>}
+          {temPendencias && <span>Clique numa linha de <span className={cn('font-medium', TEXT.rose)}>Pendência</span> para vê-la na aba Pendências.</span>}
           {traceTotal > MAX_RENDER && (
-            <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+            <span className={cn('inline-flex items-center gap-1.5', TEXT.amber)}>
               <FileWarning className="h-3.5 w-3.5" /> Exibindo as primeiras {MAX_RENDER} de {traceTotal} linhas.
             </span>
           )}

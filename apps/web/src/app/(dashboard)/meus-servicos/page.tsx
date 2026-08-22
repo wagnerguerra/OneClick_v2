@@ -15,6 +15,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -1093,7 +1094,7 @@ export default function MeusServicosPage() {
                   <div key={exec.id} className="border-l-4 border-l-orange-400 bg-orange-50/30 dark:bg-orange-900/10 px-4 py-3 space-y-3">
                     <div className="flex items-start gap-3">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40">
-                        <HelpCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                        <HelpCircle className={cn('h-4 w-4', TEXT.orange)} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">

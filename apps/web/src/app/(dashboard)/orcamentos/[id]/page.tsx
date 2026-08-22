@@ -23,6 +23,7 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { SectionCard } from '@/components/section-card'
@@ -401,7 +402,7 @@ function EmailChipsInput({ value, onChange, suggestions, placeholder }: {
           className={cn(
             'flex-1 min-w-[140px] border-none bg-transparent outline-none shadow-none p-0 py-1 h-auto rounded-none focus:border-none focus:shadow-none focus:outline-none text-sm',
             // Feedback visual: texto vermelho quando o draft não é um e-mail válido
-            draft.trim() && !EMAIL_RE.test(draft.trim()) && 'text-rose-600 dark:text-rose-400',
+            draft.trim() && !EMAIL_RE.test(draft.trim()) && TEXT.rose,
           )}
           style={{ width: 'auto', display: 'inline-block' }}
         />
@@ -2051,7 +2052,7 @@ export default function OrcamentoDetailPage() {
               <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Orçamento Paralizado</p>
               <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">{orc.paralizadoMotivo}</p>
               {orc.paralizadoEm && (
-                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                <p className={cn('text-[10px]', TEXT.amber, 'mt-1')}>
                   Desde {new Date(orc.paralizadoEm).toLocaleString('pt-BR')}
                 </p>
               )}
@@ -2786,7 +2787,7 @@ export default function OrcamentoDetailPage() {
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Desconto ({descontoPercentCalc.toFixed(1)}%)</span>
-                <span className="font-medium text-orange-600 dark:text-orange-400">- {formatCurrency(descontoAplicado)}</span>
+                <span className={cn('font-medium', TEXT.orange)}>- {formatCurrency(descontoAplicado)}</span>
               </div>
               <div className="border-t border-border/60 pt-2 mt-2 flex items-center justify-between">
                 <span className="text-sm font-semibold">Total Geral</span>
@@ -2959,7 +2960,7 @@ export default function OrcamentoDetailPage() {
                         <ExternalLink className="h-3.5 w-3.5" /> Ver resumo
                       </Button>
                       {(orc as any)?.podeVincularCrm && (
-                        <Button type="button" variant="ghost" size="xs" className="h-7 gap-1 text-[11px] text-rose-600 dark:text-rose-400" onClick={handleDesvincularCrm} title="Desvincular">
+                        <Button type="button" variant="ghost" size="xs" className={cn('h-7 gap-1 text-[11px]', TEXT.rose)} onClick={handleDesvincularCrm} title="Desvincular">
                           <X className="h-3.5 w-3.5" /> Desvincular
                         </Button>
                       )}

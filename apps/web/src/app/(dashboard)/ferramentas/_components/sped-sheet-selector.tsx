@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { Loader2, CheckSquare, Square } from 'lucide-react'
 import { inspectSped } from '@/lib/ferramentas-api'
 import type { ToolExtrasProps } from '../_config/tools'
@@ -126,7 +127,7 @@ export function SpedSheetSelector({ files, color, onFields, onBlock }: ToolExtra
       </div>
 
       {selected.size === 0 && !inspecting && (
-        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">Selecione ao menos uma aba para gerar a planilha.</p>
+        <p className={cn('mt-2 text-xs', TEXT.amber)}>Selecione ao menos uma aba para gerar a planilha.</p>
       )}
       {notice && <p className="mt-2 text-xs text-muted-foreground">{notice}</p>}
     </div>

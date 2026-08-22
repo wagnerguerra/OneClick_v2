@@ -4,10 +4,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Loader2, Check, Calendar, User as UserIcon, Flag, Palette } from 'lucide-react'
 import { resolveAssetUrl } from '@/lib/api-url'
 import {
-  Input, Label, Card,
+  Input, Label, Card, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   RichEditor,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { type ProjetoStatus } from '@saas/types'
@@ -274,7 +275,7 @@ function SaveIndicator({ state }: { state: 'idle' | 'saving' | 'saved' | 'error'
   }
   if (state === 'saved') {
     return (
-      <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+      <span className={cn('flex items-center gap-1 text-[11px]', TEXT.emerald)}>
         <Check className="h-3 w-3" /> Salvo
       </span>
     )

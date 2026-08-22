@@ -20,6 +20,7 @@ import {
   Checkbox, RichEditor,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ServicoWizard } from './_components/servico-wizard'
 import { trpc } from '@/lib/trpc'
@@ -1076,7 +1077,7 @@ export default function ServicosPage() {
                   title="Filtrar por templates ativos"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-900/20 shrink-0">
-                    <ClipboardCheck className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                    <ClipboardCheck className={cn('h-4 w-4', TEXT.sky)} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none mb-1">Templates Ativos</p>
@@ -1091,7 +1092,7 @@ export default function ServicosPage() {
                   title="Filtrar execuções em andamento"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 dark:bg-amber-900/20 shrink-0">
-                    <Play className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <Play className={cn('h-4 w-4', TEXT.amber)} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none mb-1">Em Andamento</p>
@@ -1106,7 +1107,7 @@ export default function ServicosPage() {
                   title="Filtrar execuções concluídas"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/20 shrink-0">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <CheckCircle2 className={cn('h-4 w-4', TEXT.emerald)} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none mb-1">Concluídas</p>
@@ -1121,7 +1122,7 @@ export default function ServicosPage() {
                   title="Mostrar todas as execuções"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-md bg-violet-50 dark:bg-violet-900/20 shrink-0">
-                    <Clock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                    <Clock className={cn('h-4 w-4', TEXT.violet)} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none mb-1">Total Execuções</p>

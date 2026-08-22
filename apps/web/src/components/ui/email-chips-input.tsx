@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 
 /**
  * Campo de múltiplos e-mails em chips, com sugestões e validação leve.
@@ -124,7 +125,7 @@ export function EmailChipsInput({ value, onChange, suggestions = [], placeholder
           placeholder={emails.length === 0 ? placeholder : ''}
           className={cn(
             'flex-1 min-w-[140px] border-none bg-transparent outline-none shadow-none p-0 py-1 h-auto rounded-none focus:outline-none text-sm',
-            draft.trim() && !EMAIL_RE.test(draft.trim()) && 'text-rose-600 dark:text-rose-400',
+            draft.trim() && !EMAIL_RE.test(draft.trim()) && TEXT.rose,
           )}
           style={{ width: 'auto', display: 'inline-block' }}
         />

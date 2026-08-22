@@ -16,6 +16,7 @@ import { renderConflitosHtml, type ConflitoAgenda, type ConflitoModo } from '@/l
 import { AreasNotificarPicker, useAreasNotificaveis } from '@/components/orcamento/areas-notificar-picker'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useTicketForm, TicketFormFields } from '@/app/(dashboard)/helpdesk/_components/ticket-form'
+import { TEXT } from '@/lib/color-styles'
 
 /**
  * FAB ("Fale com a TI") — sempre visível no canto inferior direito.
@@ -1000,7 +1001,7 @@ function EventoRequestForm({
         {/* Configurações do evento — regras por tipo (sala, garagem, modalidade...) */}
         {temConfigEvento && (
           <div className="space-y-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
-            <p className="text-[10px] font-medium text-sky-600 dark:text-sky-400">Configurações do evento</p>
+            <p className={cn('text-[10px] font-medium', TEXT.sky)}>Configurações do evento</p>
 
             {/* Modalidade */}
             {permiteModalidade && (
@@ -1014,7 +1015,7 @@ function EventoRequestForm({
                       onClick={() => setPresenca(v)}
                       className={cn(
                         'flex items-center justify-center gap-1 h-8 rounded-md border text-[11px] font-medium transition-colors',
-                        presenca === v ? 'border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400' : 'border-border hover:bg-muted/60',
+                        presenca === v ? cn('border-sky-500/40 bg-sky-500/10', TEXT.sky) : 'border-border hover:bg-muted/60',
                       )}
                     >
                       <I className="h-3.5 w-3.5" />{l}
@@ -1030,12 +1031,12 @@ function EventoRequestForm({
                 <label className="text-[12px] font-medium text-foreground">Sala</label>
                 <div className="space-y-1">
                   {salasDisponiveis.map(s => (
-                    <label key={s.id} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', salaId === s.id ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400' : 'hover:bg-muted/50')}>
+                    <label key={s.id} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', salaId === s.id ? cn('bg-sky-500/10', TEXT.sky) : 'hover:bg-muted/50')}>
                       <input type="radio" name="fab-sala" checked={salaId === s.id} onChange={() => { setSalaId(s.id); setSala(s.nome); setLocal('') }} className="accent-sky-500" />
                       <DoorOpen className="h-3.5 w-3.5" />{s.nome}
                     </label>
                   ))}
-                  <label className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', sala === 'Outro' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400' : 'hover:bg-muted/50')}>
+                  <label className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', sala === 'Outro' ? cn('bg-sky-500/10', TEXT.sky) : 'hover:bg-muted/50')}>
                     <input type="radio" name="fab-sala" checked={sala === 'Outro'} onChange={() => { setSalaId(''); setSala('Outro') }} className="accent-sky-500" />
                     <MapPin className="h-3.5 w-3.5" />Outro local
                   </label>
@@ -1158,7 +1159,7 @@ function SuccessState({
 }) {
   return (
     <div className="px-4 py-6 flex flex-col items-center text-center gap-3">
-      <div className="h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+      <div className={cn('h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center', TEXT.emerald)}>
         <Check className="h-6 w-6" />
       </div>
       <div>

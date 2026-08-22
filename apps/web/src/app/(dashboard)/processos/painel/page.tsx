@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -707,7 +708,7 @@ function ExecucaoCard({ exec, onClick }: { exec: Execucao; onClick?: () => void 
           <Link
             href={`/processos/${exec.processoId}`}
             onClick={ev => ev.stopPropagation()}
-            className="text-[9px] text-violet-600 dark:text-violet-400 hover:underline truncate max-w-[120px]"
+            className={cn('text-[9px]', TEXT.violet, 'hover:underline truncate max-w-[120px]')}
             title={`Processo: ${exec.processoNome}`}
           >
             ↗ {exec.processoNome}
@@ -915,7 +916,7 @@ function ChecklistDialog({ execucaoId, onClose, onChanged }: {
         <DialogFooter className="flex items-center justify-between gap-2">
           <Link
             href={`/meus-servicos?exec=${execucaoId}`}
-            className="text-xs text-violet-600 dark:text-violet-400 hover:underline"
+            className={cn('text-xs', TEXT.violet, 'hover:underline')}
           >
             Abrir checklist completo →
           </Link>

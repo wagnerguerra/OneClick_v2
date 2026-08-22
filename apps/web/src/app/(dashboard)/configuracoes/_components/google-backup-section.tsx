@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Button, Input, Card, cn, Badge } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
 
@@ -238,7 +239,7 @@ export function GoogleBackupSection() {
           <p className="text-[10px] text-muted-foreground leading-relaxed">
             Crie uma pasta no Drive (que já recebe arquivos de clientes), cole a URL ou só o ID.
             {status.driveMode === 'service-account' && (
-              <span className="text-amber-600 dark:text-amber-400 font-medium">
+              <span className={cn(TEXT.amber, 'font-medium')}>
                 {' '}⚠ Em modo Service Account, compartilhe a pasta com <code>{status.accountEmail}</code> (papel: Editor).
               </span>
             )}

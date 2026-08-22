@@ -8,6 +8,7 @@ import {
   Avatar, AvatarImage, AvatarFallback,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import type { TreatmentDefinition } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -193,7 +194,7 @@ export function VersionHistoryDialog({ modelId, modelNome, open, onOpenChange, c
                   </Select>
                   {comparing && !loadingView && (
                     totalChanges === 0 ? (
-                      <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                      <span className={cn('flex items-center gap-1 text-[11px]', TEXT.emerald)}>
                         <Check className="h-3.5 w-3.5" /> Sem diferenças
                       </span>
                     ) : (

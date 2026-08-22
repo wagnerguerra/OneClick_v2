@@ -9,6 +9,8 @@
 import { useEffect, useState } from 'react'
 import { getApiUrl } from '@/lib/api-url'
 import { Download, MonitorDown, Loader2, AlertTriangle } from 'lucide-react'
+import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 
 interface UpdatesList {
   ok: boolean
@@ -92,7 +94,7 @@ npm run build
 # → dist/OneClick-Chat-Setup-X.X.X.exe`}
             </pre>
             {data?.error && (
-              <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-2">
+              <p className={cn('text-[11px] mt-2', TEXT.rose)}>
                 Detalhe técnico: {data.error}
               </p>
             )}

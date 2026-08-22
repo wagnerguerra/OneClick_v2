@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, Badge, Button, cn } from '@saas/ui'
 import { ClipboardList, Copy, Check, CheckCircle2 } from 'lucide-react'
+import { TEXT } from '@/lib/color-styles'
 
 export type ChangeStatus = 'proposta' | 'processada'
 export type ProposedChange = {
@@ -127,7 +128,7 @@ export function ChangesPanel() {
         {/* Cabeçalho do painel */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-violet-500/15 text-violet-600 dark:text-violet-400">
+            <div className={cn('h-9 w-9 rounded-lg flex items-center justify-center bg-violet-500/15', TEXT.violet)}>
               <ClipboardList className="h-4.5 w-4.5" style={{ width: 18, height: 18 }} />
             </div>
             <div>
@@ -177,11 +178,11 @@ export function ChangesPanel() {
                     <Badge variant="secondary" className="h-5 text-[10px]">{ch.area}</Badge>
                     <span className="text-sm font-semibold text-foreground">{ch.titulo}</span>
                     {processada ? (
-                      <Badge className="h-5 text-[10px] gap-1 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-0">
+                      <Badge className={cn('h-5 text-[10px] gap-1 bg-emerald-500/15', TEXT.emerald, 'border-0')}>
                         <CheckCircle2 className="h-3 w-3" /> Processada
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="h-5 text-[10px] border-amber-400/50 text-amber-600 dark:text-amber-400">
+                      <Badge variant="outline" className={cn('h-5 text-[10px] border-amber-400/50', TEXT.amber)}>
                         Proposta
                       </Badge>
                     )}
@@ -199,7 +200,7 @@ export function ChangesPanel() {
         <p className="text-[11px] text-muted-foreground leading-relaxed border-t border-border pt-3">
           Depois de marcar, clique em <strong>Marcar p/ processar</strong> (copia a lista) e cole no chat,
           ou apenas diga ao assistente quais marcou. As aplicadas no app real ficam como
-          <span className="text-emerald-600 dark:text-emerald-400 font-medium"> Processada</span>.
+          <span className={cn(TEXT.emerald, 'font-medium')}> Processada</span>.
         </p>
       </CardContent>
     </Card>

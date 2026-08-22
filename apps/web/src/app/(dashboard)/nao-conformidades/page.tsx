@@ -12,6 +12,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { NC_SITUACAO_LABEL, NC_SITUACOES } from '@saas/types'
@@ -219,11 +220,11 @@ export default function NaoConformidadesPage() {
                     <span className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
                       {r.origem?.nome && <span>{r.origem.nome}</span>}
                       {r.reincidencia && (
-                        <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400 font-medium">
+                        <span className={cn('inline-flex items-center gap-0.5 font-medium', TEXT.amber)}>
                           <RotateCcw className="h-3 w-3" />Reincidência
                         </span>
                       )}
-                      {r.eficaz === false && <span className="text-rose-600 dark:text-rose-400">Não eficaz</span>}
+                      {r.eficaz === false && <span className={TEXT.rose}>Não eficaz</span>}
                     </span>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-xs text-muted-foreground truncate">{r.clienteNomeResolvido ?? '—'}</TableCell>
@@ -237,7 +238,7 @@ export default function NaoConformidadesPage() {
                   <TableCell className="hidden sm:table-cell text-xs text-muted-foreground tabular-nums">{dataBR(r.prazo)}</TableCell>
                   <TableCell className="text-center text-xs tabular-nums">
                     {r.acoesTotal === 0 ? '—' : (
-                      <span className={r.acoesAbertas > 0 ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-emerald-600 dark:text-emerald-400'}>
+                      <span className={r.acoesAbertas > 0 ? cn('font-medium', TEXT.amber) : TEXT.emerald}>
                         {r.acoesTotal - r.acoesAbertas}/{r.acoesTotal}
                       </span>
                     )}

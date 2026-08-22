@@ -19,6 +19,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { MODULE_ICONS, GROUP_ICONS } from '@/lib/navigation'
 import { masks, moedaParaNumero, numeroParaMoeda, dataParaISO, isoParaData } from '@/lib/masks'
@@ -44,25 +45,25 @@ const GROUP_COLORS: Record<string, {
   hoverBg: string; hoverBorder: string; decoration: string
 }> = {
   'Cadastros': {
-    bar: 'bg-emerald-500', title: 'text-emerald-700 dark:text-emerald-400', toggle: 'bg-emerald-500', icon: 'text-emerald-600 dark:text-emerald-400',
+    bar: 'bg-emerald-500', title: 'text-emerald-700 dark:text-emerald-400', toggle: 'bg-emerald-500', icon: TEXT.emerald,
     activeBg: 'bg-emerald-50 dark:bg-emerald-950/30', activeBorder: 'border-emerald-200 dark:border-emerald-800/50',
     hoverBg: 'hover:bg-emerald-50/50 dark:hover:bg-emerald-950/10', hoverBorder: 'hover:border-emerald-200/60',
     decoration: 'decoration-emerald-400/40',
   },
   'Comercial': {
-    bar: 'bg-sky-500', title: 'text-sky-700 dark:text-sky-400', toggle: 'bg-sky-500', icon: 'text-sky-600 dark:text-sky-400',
+    bar: 'bg-sky-500', title: 'text-sky-700 dark:text-sky-400', toggle: 'bg-sky-500', icon: TEXT.sky,
     activeBg: 'bg-sky-50 dark:bg-sky-950/30', activeBorder: 'border-sky-200 dark:border-sky-800/50',
     hoverBg: 'hover:bg-sky-50/50 dark:hover:bg-sky-950/10', hoverBorder: 'hover:border-sky-200/60',
     decoration: 'decoration-sky-400/40',
   },
   'Administrativo': {
-    bar: 'bg-indigo-500', title: 'text-indigo-700 dark:text-indigo-400', toggle: 'bg-indigo-500', icon: 'text-indigo-600 dark:text-indigo-400',
+    bar: 'bg-indigo-500', title: 'text-indigo-700 dark:text-indigo-400', toggle: 'bg-indigo-500', icon: TEXT.indigo,
     activeBg: 'bg-indigo-50 dark:bg-indigo-950/30', activeBorder: 'border-indigo-200 dark:border-indigo-800/50',
     hoverBg: 'hover:bg-indigo-50/50 dark:hover:bg-indigo-950/10', hoverBorder: 'hover:border-indigo-200/60',
     decoration: 'decoration-indigo-400/40',
   },
   'Legalização': {
-    bar: 'bg-violet-500', title: 'text-violet-700 dark:text-violet-400', toggle: 'bg-violet-500', icon: 'text-violet-600 dark:text-violet-400',
+    bar: 'bg-violet-500', title: 'text-violet-700 dark:text-violet-400', toggle: 'bg-violet-500', icon: TEXT.violet,
     activeBg: 'bg-violet-50 dark:bg-violet-950/30', activeBorder: 'border-violet-200 dark:border-violet-800/50',
     hoverBg: 'hover:bg-violet-50/50 dark:hover:bg-violet-950/10', hoverBorder: 'hover:border-violet-200/60',
     decoration: 'decoration-violet-400/40',
@@ -74,25 +75,25 @@ const GROUP_COLORS: Record<string, {
     decoration: 'decoration-teal-400/40',
   },
   'Fiscal': {
-    bar: 'bg-rose-500', title: 'text-rose-700 dark:text-rose-400', toggle: 'bg-rose-500', icon: 'text-rose-600 dark:text-rose-400',
+    bar: 'bg-rose-500', title: 'text-rose-700 dark:text-rose-400', toggle: 'bg-rose-500', icon: TEXT.rose,
     activeBg: 'bg-rose-50 dark:bg-rose-950/30', activeBorder: 'border-rose-200 dark:border-rose-800/50',
     hoverBg: 'hover:bg-rose-50/50 dark:hover:bg-rose-950/10', hoverBorder: 'hover:border-rose-200/60',
     decoration: 'decoration-rose-400/40',
   },
   'Contábil': {
-    bar: 'bg-cyan-500', title: 'text-cyan-700 dark:text-cyan-400', toggle: 'bg-cyan-500', icon: 'text-cyan-600 dark:text-cyan-400',
+    bar: 'bg-cyan-500', title: 'text-cyan-700 dark:text-cyan-400', toggle: 'bg-cyan-500', icon: TEXT.cyan,
     activeBg: 'bg-cyan-50 dark:bg-cyan-950/30', activeBorder: 'border-cyan-200 dark:border-cyan-800/50',
     hoverBg: 'hover:bg-cyan-50/50 dark:hover:bg-cyan-950/10', hoverBorder: 'hover:border-cyan-200/60',
     decoration: 'decoration-cyan-400/40',
   },
   'TI': {
-    bar: 'bg-slate-500', title: 'text-slate-700 dark:text-slate-400', toggle: 'bg-slate-500', icon: 'text-slate-600 dark:text-slate-400',
+    bar: 'bg-slate-500', title: 'text-slate-700 dark:text-slate-400', toggle: 'bg-slate-500', icon: TEXT.slate,
     activeBg: 'bg-slate-50 dark:bg-slate-950/30', activeBorder: 'border-slate-200 dark:border-slate-800/50',
     hoverBg: 'hover:bg-slate-50/50 dark:hover:bg-slate-950/10', hoverBorder: 'hover:border-slate-200/60',
     decoration: 'decoration-slate-400/40',
   },
   'Qualidade': {
-    bar: 'bg-amber-500', title: 'text-amber-700 dark:text-amber-400', toggle: 'bg-amber-500', icon: 'text-amber-600 dark:text-amber-400',
+    bar: 'bg-amber-500', title: 'text-amber-700 dark:text-amber-400', toggle: 'bg-amber-500', icon: TEXT.amber,
     activeBg: 'bg-amber-50 dark:bg-amber-950/30', activeBorder: 'border-amber-200 dark:border-amber-800/50',
     hoverBg: 'hover:bg-amber-50/50 dark:hover:bg-amber-950/10', hoverBorder: 'hover:border-amber-200/60',
     decoration: 'decoration-amber-400/40',
@@ -628,7 +629,7 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
                 </div>
                 {isMaster && (
                   <div className="col-span-12">
-                    <div className="rounded-lg bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+                    <div className={cn('rounded-lg bg-amber-500/10 px-4 py-3 text-sm', TEXT.amber)}>
                       Este é o usuário MASTER. Ele possui acesso total ao sistema independente das permissões.
                     </div>
                   </div>
@@ -651,7 +652,7 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
               </div>
               <div>
                 {isMaster ? (
-                  <div className="p-5 rounded-lg bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+                  <div className={cn('p-5 rounded-lg bg-amber-500/10 px-4 py-3 text-sm', TEXT.amber)}>
                     O usuário MASTER possui acesso total. As permissões não se aplicam.
                   </div>
                 ) : (

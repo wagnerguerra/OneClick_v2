@@ -20,6 +20,7 @@ import {
   RichContent,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { MarkdownView } from '@/components/ui/markdown-view'
 import { BackButton } from '@/components/ui/back-button'
@@ -1320,7 +1321,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => excluirMensagem(msg)}
-                                  className="text-rose-600 dark:text-rose-400 focus:text-rose-600 dark:focus:text-rose-400"
+                                  className={cn(TEXT.rose, 'focus:text-rose-600 dark:focus:text-rose-400')}
                                 >
                                   <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
                                 </DropdownMenuItem>

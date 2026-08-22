@@ -12,6 +12,7 @@ import { BarChart3, Loader2, ArrowUpCircle, ArrowDownCircle, FileSpreadsheet, Fi
 import { trpc } from '@/lib/trpc'
 import { SITUACAO_LABELS } from '@saas/types'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
+import { TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
 const COR_ENTRADA = '#10b981'
@@ -240,11 +241,11 @@ export default function RelatoriosClientesPage() {
                 <div className="ml-auto flex items-center gap-2">
                   <div className="rounded-md border border-border px-3 py-1.5 flex items-center gap-2">
                     <ArrowUpCircle className="h-4 w-4 text-emerald-500" />
-                    <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">Entradas</p><p className="text-lg font-bold tabular-nums leading-tight text-emerald-600 dark:text-emerald-400">{mov.totalEntradas}</p></div>
+                    <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">Entradas</p><p className={cn('text-lg font-bold tabular-nums leading-tight', TEXT.emerald)}>{mov.totalEntradas}</p></div>
                   </div>
                   <div className="rounded-md border border-border px-3 py-1.5 flex items-center gap-2">
                     <ArrowDownCircle className="h-4 w-4 text-rose-500" />
-                    <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">Saídas</p><p className="text-lg font-bold tabular-nums leading-tight text-rose-600 dark:text-rose-400">{mov.totalSaidas}</p></div>
+                    <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">Saídas</p><p className={cn('text-lg font-bold tabular-nums leading-tight', TEXT.rose)}>{mov.totalSaidas}</p></div>
                   </div>
                 </div>
               )}

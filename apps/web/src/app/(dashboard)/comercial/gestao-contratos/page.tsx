@@ -16,6 +16,7 @@ import {
 } from '@saas/ui'
 import { alerts } from '@/lib/alerts'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { StatCard } from '@/components/stat-card'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
@@ -107,8 +108,8 @@ function StatusIcon({ icon: Icon, active, title, count, tone = 'ok', onClick }: 
   tone?: 'ok' | 'alert'; onClick?: () => void
 }) {
   const onCls = tone === 'alert'
-    ? 'text-rose-600 dark:text-rose-400'
-    : 'text-emerald-600 dark:text-emerald-400'
+    ? TEXT.rose
+    : TEXT.emerald
   const conteudo = (
     <>
       <Icon className={cn('h-4 w-4', active ? onCls : 'text-muted-foreground/30')} />
@@ -160,9 +161,9 @@ const CARDS: Array<{ key: FiltroCard; label: string; icon: typeof FileText; cor:
 ]
 
 const SITUACAO_BADGE: Record<Registro['situacao'], { label: string; cls: string }> = {
-  em_dia: { label: 'Em dia', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
-  defasado: { label: 'Defasado', cls: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' },
-  sem_consulta: { label: 'Sem consulta ERP', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' },
+  em_dia: { label: 'Em dia', cls: cn('bg-emerald-500/10 border-emerald-500/20', TEXT.emerald) },
+  defasado: { label: 'Defasado', cls: cn('bg-rose-500/10 border-rose-500/20', TEXT.rose) },
+  sem_consulta: { label: 'Sem consulta ERP', cls: cn('bg-amber-500/10 border-amber-500/20', TEXT.amber) },
   sem_parametro: { label: 'Sem parâmetro', cls: 'bg-muted text-muted-foreground border-border' },
 }
 
@@ -381,7 +382,7 @@ export default function GestaoContratosPage() {
         </div>
 
         {erro ? (
-          <div className="p-8 text-center text-sm text-rose-600 dark:text-rose-400">{erro}</div>
+          <div className={cn('p-8 text-center text-sm', TEXT.rose)}>{erro}</div>
         ) : (
           <div className="relative">
             {loading && (
@@ -465,8 +466,8 @@ export default function GestaoContratosPage() {
                             <button type="button" onClick={(e) => { e.stopPropagation(); setComparativo(r) }}>
                               <Badge variant="outline" className={cn('font-medium cursor-pointer',
                                 r.recomendacao === 'forte'
-                                  ? 'border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                  : 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400')}>
+                                  ? cn('border-rose-500/40 bg-rose-500/10', TEXT.rose)
+                                  : cn('border-amber-500/40 bg-amber-500/10', TEXT.amber))}>
                                 Reavaliar
                               </Badge>
                             </button>
@@ -572,7 +573,7 @@ export default function GestaoContratosPage() {
                             <button
                               type="button"
                               onClick={() => { setComparativo(detalheFarol); setDetalheFarol(null) }}
-                              className="inline-flex items-center gap-1 text-left text-sky-600 hover:underline dark:text-sky-400"
+                              className={cn('inline-flex items-center gap-1 text-left hover:underline', TEXT.sky)}
                             >
                               {it.titulo}
                               <ChevronRight className="h-3.5 w-3.5" />
@@ -581,7 +582,7 @@ export default function GestaoContratosPage() {
                         </td>
                         <td className="py-2 text-right whitespace-nowrap">
                           {it.ok
-                            ? <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><Check className="h-3.5 w-3.5" />OK</span>
+                            ? <span className={cn('inline-flex items-center gap-1', TEXT.emerald)}><Check className="h-3.5 w-3.5" />OK</span>
                             : <span className="inline-flex items-center gap-1 text-rose-500"><X className="h-3.5 w-3.5" />−{it.desconto} pts</span>}
                         </td>
                       </tr>
@@ -640,7 +641,7 @@ export default function GestaoContratosPage() {
                         ))}
                         <td className={cn('py-2 pl-4 whitespace-nowrap',
                           l.status === 'defasado' ? 'text-rose-500'
-                            : l.status === 'ok' ? 'text-emerald-600 dark:text-emerald-400'
+                            : l.status === 'ok' ? TEXT.emerald
                               : 'text-muted-foreground')}>
                           {l.status === 'defasado' ? 'Acima do contrato'
                             : l.status === 'ok' ? 'Dentro da referência'
@@ -649,7 +650,7 @@ export default function GestaoContratosPage() {
                         </td>
                         <td className={cn('py-2 text-right tabular-nums',
                           l.variacaoPct == null ? 'text-muted-foreground'
-                            : l.variacaoPct > 0 ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400')}>
+                            : l.variacaoPct > 0 ? 'text-rose-500' : TEXT.emerald)}>
                           {l.variacaoPct == null ? '—' : `${l.variacaoPct > 0 ? '+' : ''}${l.variacaoPct.toString().replace('.', ',')} %`}
                         </td>
                       </tr>

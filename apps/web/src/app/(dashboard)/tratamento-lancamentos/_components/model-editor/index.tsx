@@ -7,8 +7,9 @@ import {
   Tag, Columns3, ArrowLeftRight, Network, ArrowLeft, ArrowRight, History, Landmark, AlertTriangle, X,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Checkbox, Card, TooltipProvider,
+  Button, Input, Label, Checkbox, Card, TooltipProvider, cn,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import type { TreatmentDefinition } from '@saas/types'
 import { EMPTY_TREATMENT_DEFINITION, formatValorExibicao, extrairMarcadorDC, matchPalavraChaveIndex } from '@saas/types'
 import { normalizeDefinition } from '../treatment-definition'
@@ -70,7 +71,7 @@ function CampoDocumento({
           <ColumnSelect headers={headers} value={coluna} optional onChange={onColuna}
             className={foraCol ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
           {foraCol && (
-            <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+            <p className={cn('flex items-center gap-1 text-[11px]', TEXT.amber)}>
               <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{foraCol}&quot; não está no arquivo enviado.
             </p>
           )}
@@ -628,7 +629,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   if (!canManage) {
     return (
       <Card className="mx-auto max-w-md p-8 text-center space-y-3">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
+        <div className={cn('mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/40', TEXT.amber)}>
           <Info className="h-6 w-6" />
         </div>
         <h2 className="text-base font-semibold text-foreground">Acesso restrito</h2>
@@ -712,7 +713,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         </span>
       </div>
       {!preview && headers.length > 0 && (
-        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+        <p className={cn('text-xs flex items-center gap-1.5', TEXT.amber)}>
           <Info className="h-3.5 w-3.5" /> Mostrando o mapeamento salvo. Envie o arquivo para revisar valores e distinções.
         </p>
       )}
@@ -744,7 +745,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
                 </Label>
                 <ColumnSelect headers={headers} value={value} optional={!f.req} onChange={(v) => setMap(f.key, v)} className={foraCol ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
                 {foraCol && (
-                  <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                  <p className={cn('flex items-center gap-1 text-[11px]', TEXT.amber)}>
                     <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{foraCol}&quot; não está no arquivo enviado.
                   </p>
                 )}
@@ -812,7 +813,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
               <Label className="text-[13px] font-semibold">Coluna que identifica a conta <span className="text-destructive">*</span></Label>
               <ColumnSelect headers={headers} value={def.contasCorrentes.coluna} onChange={setCcColuna} className={fora.cc ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
               {fora.cc && (
-                <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                <p className={cn('flex items-center gap-1 text-[11px]', TEXT.amber)}>
                   <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{fora.cc}&quot; não está no arquivo enviado.
                 </p>
               )}
@@ -854,7 +855,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
             <Label className="text-[13px] font-semibold">Coluna de Débito/Crédito <span className="text-destructive">*</span></Label>
             <ColumnSelect headers={headers} value={def.debitoCredito.coluna} onChange={setDcColuna} className={fora.dc ? 'border-amber-400 ring-1 ring-amber-400/40' : undefined} />
             {fora.dc && (
-              <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+              <p className={cn('flex items-center gap-1 text-[11px]', TEXT.amber)}>
                 <AlertTriangle className="h-3 w-3 shrink-0" /> A coluna &quot;{fora.dc}&quot; não está no arquivo enviado.
               </p>
             )}
@@ -1033,7 +1034,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
           <div className="flex items-start gap-2 rounded-[4px] border border-border bg-muted/40 px-3 py-2.5 text-xs">
             <Info className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
             <span className="flex-1 text-muted-foreground">
-              Revisando este modelo. <span className="font-medium text-rose-600 dark:text-rose-400">Vermelho</span> = pendência do modelo a corrigir; <span className="font-medium text-amber-600 dark:text-amber-400">âmbar</span> = coluna que não está no arquivo enviado. O destaque some conforme você ajusta.
+              Revisando este modelo. <span className={cn('font-medium', TEXT.rose)}>Vermelho</span> = pendência do modelo a corrigir; <span className={cn('font-medium', TEXT.amber)}>âmbar</span> = coluna que não está no arquivo enviado. O destaque some conforme você ajusta.
             </span>
             <button type="button" onClick={() => setModoRevisao(false)} className="shrink-0 text-muted-foreground/60 hover:text-foreground" aria-label="Encerrar revisão">
               <X className="h-4 w-4" />

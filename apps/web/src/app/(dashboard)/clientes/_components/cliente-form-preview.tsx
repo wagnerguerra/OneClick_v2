@@ -23,6 +23,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   RichContent,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -431,7 +432,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
           >
             <div className="flex items-center gap-2">
               <h1 className="truncate">Cliente #{defaultValues.code}</h1>
-              <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">Prévia do novo layout</span>
+              <span className={cn('inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', TEXT.amber)}>Prévia do novo layout</span>
             </div>
             <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
               <Link href="/dashboard" className="hover:text-foreground transition-colors">Página inicial</Link>
@@ -3238,8 +3239,8 @@ type CertSidebarItem = {
 /** Cor do prazo, igual à do certificado: vencido grita, perto de vencer avisa. */
 function corDoVencimento(dias: number | null) {
   if (dias === null) return 'text-muted-foreground'
-  if (dias < 0) return 'text-rose-600 dark:text-rose-400 font-semibold'
-  if (dias < 30) return 'text-amber-600 dark:text-amber-400 font-semibold'
+  if (dias < 0) return cn(TEXT.rose, 'font-semibold')
+  if (dias < 30) return cn(TEXT.amber, 'font-semibold')
   return 'text-muted-foreground'
 }
 function diasAte(data: string | null) {
@@ -3427,7 +3428,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                   className="flex items-start gap-2 text-xs group rounded-md border border-border p-2 bg-muted/30 cursor-pointer hover:bg-muted/50 hover:border-fuchsia-300 dark:hover:border-fuchsia-800 transition-colors"
                   title="Ver detalhes do certificado"
                 >
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-fuchsia-600 dark:text-fuchsia-400 mt-0.5" />
+                  <ShieldCheck className={cn('h-4 w-4 shrink-0', TEXT.fuchsia, 'mt-0.5')} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate font-medium">

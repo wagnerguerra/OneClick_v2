@@ -16,6 +16,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { TEXT } from '@/lib/color-styles'
 import {
   ANALISE_CONTEXTO_ANALISE_LABEL, ANALISE_CONTEXTO_TIPO_LABEL, TIPOS_POR_ANALISE,
 } from '@saas/types'
@@ -245,7 +246,7 @@ export default function AnaliseContextoPage() {
                     <span className="block truncate" title={r.identificacao}>{r.identificacao}</span>
                     <span className="text-[11px] text-muted-foreground">
                       {r.processo ?? ''}{r.avaliado && (r.processo ? ' · ' : '')}{r.avaliado && (
-                        <span className={r.eficaz ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+                        <span className={r.eficaz ? TEXT.emerald : TEXT.rose}>
                           {r.eficaz ? 'Avaliado: eficaz' : 'Avaliado: não eficaz'}
                         </span>
                       )}
@@ -271,7 +272,7 @@ export default function AnaliseContextoPage() {
                   <TableCell className="hidden sm:table-cell text-xs text-muted-foreground tabular-nums">{dataBR(r.prazo)}</TableCell>
                   <TableCell className="text-center text-xs tabular-nums">
                     {r.acoesTotal === 0 ? '—' : (
-                      <span className={r.acoesAbertas > 0 ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-emerald-600 dark:text-emerald-400'}>
+                      <span className={r.acoesAbertas > 0 ? cn(TEXT.amber, 'font-medium') : TEXT.emerald}>
                         {r.acoesTotal - r.acoesAbertas}/{r.acoesTotal}
                         {r.acoesAbertas === 0 && <Check className="inline h-3 w-3 ml-0.5 -mt-0.5" />}
                       </span>

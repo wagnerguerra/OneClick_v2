@@ -16,6 +16,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   cn,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { extractClient } from '../lib/extract-client'
 
@@ -98,7 +99,7 @@ export function DebugViewer({ fileBase64, filename, modelId, competenciaAno }: P
         </Button>
       </div>
 
-      {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
+      {error && <p className={cn('text-xs', TEXT.rose)}>{error}</p>}
 
       {data && (
         <Tabs defaultValue="raw">
@@ -224,7 +225,7 @@ function PendTable({ trace, pendencias }: { trace: TraceRow[]; pendencias: Debug
   for (const p of pendencias) if (!motivoPorLinha.has(p.linha)) motivoPorLinha.set(p.linha, p.mensagem)
 
   if (problemas.length === 0) {
-    return <p className="text-xs text-emerald-600 dark:text-emerald-400 py-4">Nenhuma pendência ou linha pulada — todas as linhas viraram lançamento.</p>
+    return <p className={cn('text-xs py-4', TEXT.emerald)}>Nenhuma pendência ou linha pulada — todas as linhas viraram lançamento.</p>
   }
   return (
     <ScrollFrame>

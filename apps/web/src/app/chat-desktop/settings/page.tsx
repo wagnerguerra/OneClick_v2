@@ -22,6 +22,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { signOut } from '@/lib/auth-client'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { TEXT } from '@/lib/color-styles'
 
 type ChatStatus = 'online' | 'ausente' | 'dnd' | 'invisible' | null
 type ThemeMode = 'auto' | 'dark' | 'light'
@@ -239,7 +240,7 @@ export default function ChatSettingsPage() {
               type="button"
               onClick={sair}
               disabled={saindo}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-rose-500/[0.08] transition-colors text-rose-600 dark:text-rose-400 disabled:opacity-60"
+              className={cn('w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-rose-500/[0.08] transition-colors disabled:opacity-60', TEXT.rose)}
             >
               {saindo ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <LogOut className="h-4 w-4 shrink-0" />}
               <div className="flex-1 min-w-0">

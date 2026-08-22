@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Button, Input, Label, RichEditor,
+  Button, Input, Label, RichEditor, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { Pencil, Loader2, ExternalLink, Save } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
@@ -144,7 +145,7 @@ export function ServicoDetalheModal({ servicoId, open, onClose }: Props) {
 
               <p className="text-[11px] text-muted-foreground">
                 Etapas, passos, fluxo e texto padrão são editados na tela completa do serviço.{' '}
-                <button type="button" onClick={() => window.open(`/servicos/${servicoId}`, '_blank')} className="inline-flex items-center gap-1 font-medium text-sky-600 dark:text-sky-400 hover:underline">
+                <button type="button" onClick={() => window.open(`/servicos/${servicoId}`, '_blank')} className={cn('inline-flex items-center gap-1 font-medium', TEXT.sky, 'hover:underline')}>
                   Abrir edição completa <ExternalLink className="h-3 w-3" />
                 </button>
               </p>

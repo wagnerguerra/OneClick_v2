@@ -7,6 +7,7 @@ import {
   ThumbsUp, MessageSquare, Lightbulb, FileText, ThumbsDown,
 } from 'lucide-react'
 import { Card, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { NC_SITUACAO_LABEL } from '@saas/types'
 
@@ -66,9 +67,9 @@ const Linha = ({ rotulo, valor, destaque }: { rotulo: string; valor: number; des
   <div className="flex items-center justify-between text-xs">
     <span className="text-muted-foreground">{rotulo}</span>
     <span className={cn('font-semibold tabular-nums',
-      destaque === 'rose' && valor > 0 && 'text-rose-600 dark:text-rose-400',
-      destaque === 'amber' && valor > 0 && 'text-amber-600 dark:text-amber-400',
-      destaque === 'emerald' && valor > 0 && 'text-emerald-600 dark:text-emerald-400')}>{valor}</span>
+      destaque === 'rose' && valor > 0 && TEXT.rose,
+      destaque === 'amber' && valor > 0 && TEXT.amber,
+      destaque === 'emerald' && valor > 0 && TEXT.emerald)}>{valor}</span>
   </div>
 )
 
@@ -124,8 +125,8 @@ export default function PainelQualidadePage() {
             {(p.nc.eficazAno.sim + p.nc.eficazAno.nao) > 0 && (
               <p className="text-[11px] text-muted-foreground flex items-center gap-2">
                 Avaliadas no ano:
-                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium"><ThumbsUp className="h-3 w-3" />{p.nc.eficazAno.sim}</span>
-                <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 font-medium"><ThumbsDown className="h-3 w-3" />{p.nc.eficazAno.nao}</span>
+                <span className={cn('inline-flex items-center gap-1', TEXT.emerald, 'font-medium')}><ThumbsUp className="h-3 w-3" />{p.nc.eficazAno.sim}</span>
+                <span className={cn('inline-flex items-center gap-1', TEXT.rose, 'font-medium')}><ThumbsDown className="h-3 w-3" />{p.nc.eficazAno.nao}</span>
               </p>
             )}
           </CardModulo>
@@ -176,7 +177,7 @@ export default function PainelQualidadePage() {
                 <span className="flex items-center gap-2 text-xs text-muted-foreground group-hover:text-foreground">
                   <ThumbsUp className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />Elogios em triagem
                 </span>
-                <span className={cn('text-sm font-semibold tabular-nums', p.manifestacoes.elogiosNovos > 0 && 'text-amber-600 dark:text-amber-400')}>
+                <span className={cn('text-sm font-semibold tabular-nums', p.manifestacoes.elogiosNovos > 0 && TEXT.amber)}>
                   {p.manifestacoes.elogiosNovos}
                 </span>
               </Link>
@@ -184,7 +185,7 @@ export default function PainelQualidadePage() {
                 <span className="flex items-center gap-2 text-xs text-muted-foreground group-hover:text-foreground">
                   <Lightbulb className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />Sugestões sem resposta
                 </span>
-                <span className={cn('text-sm font-semibold tabular-nums', p.manifestacoes.sugestoesSemResposta > 0 && 'text-amber-600 dark:text-amber-400')}>
+                <span className={cn('text-sm font-semibold tabular-nums', p.manifestacoes.sugestoesSemResposta > 0 && TEXT.amber)}>
                   {p.manifestacoes.sugestoesSemResposta}
                 </span>
               </Link>
@@ -192,7 +193,7 @@ export default function PainelQualidadePage() {
                 <span className="flex items-center gap-2 text-xs text-muted-foreground group-hover:text-foreground">
                   <FileText className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />Revisões de documento em aprovação
                 </span>
-                <span className={cn('text-sm font-semibold tabular-nums', p.documentos.emAprovacao > 0 && 'text-amber-600 dark:text-amber-400')}>
+                <span className={cn('text-sm font-semibold tabular-nums', p.documentos.emAprovacao > 0 && TEXT.amber)}>
                   {p.documentos.emAprovacao}
                 </span>
               </Link>

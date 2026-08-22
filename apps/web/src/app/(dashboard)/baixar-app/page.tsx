@@ -18,7 +18,8 @@ import {
   Clock,
   History,
 } from 'lucide-react'
-import { Button, Card } from '@saas/ui'
+import { Button, Card, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 
 interface VersionEntry {
   url: string
@@ -133,7 +134,7 @@ export default function BaixarAppPage() {
           {/* ---------- Android ---------- */}
           <Card className="p-6 flex flex-col gap-4 bg-card border-border">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <div className={cn('flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-500/10', TEXT.emerald)}>
                 <Smartphone className="h-6 w-6" />
               </div>
               <div>
@@ -148,7 +149,7 @@ export default function BaixarAppPage() {
                 {latest && (
                   <div className="flex flex-wrap items-center gap-2">
                     {latest.version && (
-                      <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      <span className={cn('inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-[12px] font-semibold', TEXT.emerald)}>
                         v{latest.version}
                         {latest.build != null && ` (build ${latest.build})`}
                       </span>

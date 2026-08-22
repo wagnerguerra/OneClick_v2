@@ -20,6 +20,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
@@ -1341,7 +1342,7 @@ function TicketPanel({ titulo, icon: Icon, tickets, vazio, arquivado = false, cu
         'flex items-center gap-2 px-4 py-2.5 border-b border-border',
         arquivado ? 'bg-amber-50 dark:bg-amber-950/30' : 'bg-muted/30',
       )}>
-        <Icon className={cn('h-4 w-4', arquivado ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground')} />
+        <Icon className={cn('h-4 w-4', arquivado ? TEXT.amber : 'text-muted-foreground')} />
         <span className={cn('text-sm font-semibold', arquivado && 'text-amber-800 dark:text-amber-300')}>{titulo}</span>
         <span className={cn(
           'inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold',

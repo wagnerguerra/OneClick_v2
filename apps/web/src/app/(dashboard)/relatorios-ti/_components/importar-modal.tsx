@@ -6,6 +6,7 @@ import {
   Button, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -264,7 +265,7 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
 
           {semAutor > 0 && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <AlertCircle className={cn('mt-0.5 h-4 w-4 shrink-0', TEXT.amber)} />
               <p className="text-[12.5px] text-amber-900 dark:text-amber-300">
                 <b>{semAutor}</b> arquivo(s) sem autor reconhecido. Escolha quem escreveu, ou
                 remova da lista — eles não serão importados em branco.

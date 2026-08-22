@@ -17,6 +17,7 @@ import { trpc } from '@/lib/trpc'
 import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Recorte } from '../_components/periodos'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
+import { TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -91,13 +92,13 @@ const MEDIDAS = [
   { campo: 'pendenteNoPrazo',   label: 'Em aberto e no prazo',  ajuda: 'Ainda não entregues, com o prazo legal à frente.',
     cor: 'text-slate-600 dark:text-slate-300',    bg: 'bg-slate-100 dark:bg-slate-800/60',   hex: '#475569' },
   { campo: 'pendenteAtrasado',  label: 'Em aberto e em atraso', ajuda: 'Ainda não entregues, com o prazo legal já passado.',
-    cor: 'text-amber-600 dark:text-amber-400',    bg: 'bg-amber-100 dark:bg-amber-950/40',   hex: '#d97706' },
+    cor: TEXT.amber,    bg: 'bg-amber-100 dark:bg-amber-950/40',   hex: '#d97706' },
   { campo: 'pendenteComMulta',  label: 'Em aberto e passível de multa', ajuda: 'Das que estão em atraso, as que geram multa. É a exposição de hoje.',
-    cor: 'text-rose-600 dark:text-rose-400',      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#e11d48' },
+    cor: TEXT.rose,      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#e11d48' },
   { campo: 'entregueNoPrazo',   label: 'Entregues no prazo',   ajuda: 'Entregues dentro do prazo legal — inclui quem passou do prazo técnico, que o Acessórias considera em dia.',
-    cor: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-950/40', hex: '#059669' },
+    cor: TEXT.emerald, bg: 'bg-emerald-100 dark:bg-emerald-950/40', hex: '#059669' },
   { campo: 'entregueComAtraso', label: 'Entregues com atraso', ajuda: 'Entregues depois do prazo legal, junto ao órgão.',
-    cor: 'text-violet-600 dark:text-violet-400',  bg: 'bg-violet-100 dark:bg-violet-950/40', hex: '#7c3aed' },
+    cor: TEXT.violet,  bg: 'bg-violet-100 dark:bg-violet-950/40', hex: '#7c3aed' },
   { campo: 'entregueComMulta',  label: 'Entregues com multa',  ajuda: 'Das entregues com atraso, as que geram multa.',
     cor: 'text-rose-700 dark:text-rose-300',      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#be123c' },
 ] as const
@@ -692,7 +693,7 @@ function ListaPendentes({ pendentes }: { pendentes: Pendente[] }) {
                 <td className="px-3 py-2 text-[12px] tabular-nums">{fmtData(p.vencimento)}</td>
                 <td className="px-3 py-2">
                   <span className={cn('text-[12px]', p.atrasada
-                    ? 'font-semibold text-rose-600 dark:text-rose-400'
+                    ? cn('font-semibold', TEXT.rose)
                     : 'text-muted-foreground')}>
                     {p.atrasada ? 'em atraso' : 'no prazo'}
                   </span>

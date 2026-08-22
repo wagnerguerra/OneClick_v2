@@ -11,6 +11,7 @@ import { trpc } from '@/lib/trpc'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { alerts } from '@/lib/alerts'
+import { TEXT } from '@/lib/color-styles'
 
 // ============================================================
 // Tipos
@@ -1033,7 +1034,7 @@ function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa, onH
               <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem
                   onClick={e => { e.stopPropagation(); onHideConversa(c) }}
-                  className="text-xs gap-2 cursor-pointer text-rose-600 dark:text-rose-400"
+                  className={cn('text-xs gap-2 cursor-pointer', TEXT.rose)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Excluir conversa
@@ -1523,7 +1524,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-bold truncate leading-tight">{conversa.nome}</div>
           {typingNames.length > 0 ? (
-            <div className="text-[11px] text-sky-600 dark:text-sky-400 italic flex items-center gap-1 mt-0.5">
+            <div className={cn('text-[11px] italic flex items-center gap-1 mt-0.5', TEXT.sky)}>
               <span className="flex gap-0.5">
                 <span className="h-1 w-1 rounded-full bg-sky-500 animate-bounce" style={{ animationDelay: '0ms' }} />
                 <span className="h-1 w-1 rounded-full bg-sky-500 animate-bounce" style={{ animationDelay: '120ms' }} />

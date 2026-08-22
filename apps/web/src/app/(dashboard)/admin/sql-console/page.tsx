@@ -14,6 +14,7 @@ import { Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBo
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { TEXT } from '@/lib/color-styles'
 
 type DbInfo = {
   database: string; usuario: string; versao: string; host: string | null
@@ -439,7 +440,7 @@ function fmt(v: unknown): string {
 }
 function cell(v: unknown) {
   if (v === null || v === undefined) return <span className="text-muted-foreground/50 italic">null</span>
-  if (typeof v === 'boolean') return <span className={v ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>{String(v)}</span>
+  if (typeof v === 'boolean') return <span className={v ? TEXT.emerald : TEXT.rose}>{String(v)}</span>
   if (typeof v === 'number') return <span className="text-sky-700 dark:text-sky-300">{String(v)}</span>
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)

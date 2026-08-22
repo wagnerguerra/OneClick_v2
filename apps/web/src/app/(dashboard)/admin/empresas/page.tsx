@@ -17,6 +17,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-configuracoes, #f97316)'
 
@@ -37,10 +38,10 @@ interface TenantRow {
 }
 
 const STATE_META: Record<TenantState, { label: string; cls: string }> = {
-  ACTIVE: { label: 'Ativo', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
-  TRIAL: { label: 'Trial', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' },
-  TRIAL_EXPIRED: { label: 'Trial expirado', cls: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' },
-  SUSPENDED: { label: 'Suspenso', cls: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' },
+  ACTIVE: { label: 'Ativo', cls: cn('bg-emerald-500/10', TEXT.emerald, 'border-emerald-500/20') },
+  TRIAL: { label: 'Trial', cls: cn('bg-amber-500/10', TEXT.amber, 'border-amber-500/20') },
+  TRIAL_EXPIRED: { label: 'Trial expirado', cls: cn('bg-rose-500/10', TEXT.rose, 'border-rose-500/20') },
+  SUSPENDED: { label: 'Suspenso', cls: cn('bg-slate-500/10', TEXT.slate, 'border-slate-500/20') },
 }
 
 export default function AdminEmpresasPage() {

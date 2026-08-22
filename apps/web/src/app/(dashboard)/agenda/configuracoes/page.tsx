@@ -18,6 +18,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { trpc } from '@/lib/trpc'
@@ -753,7 +754,7 @@ export default function AgendaConfiguracoesPage() {
                                   <Edit2 className="h-3.5 w-3.5" />Editar
                                 </DropdownMenuItem>
                                 {s.ativo && (
-                                  <DropdownMenuItem onClick={() => deleteSala(s)} className="text-xs gap-2 cursor-pointer text-rose-600 dark:text-rose-400">
+                                  <DropdownMenuItem onClick={() => deleteSala(s)} className={cn('text-xs gap-2 cursor-pointer', TEXT.rose)}>
                                     <Trash2 className="h-3.5 w-3.5" />Desativar
                                   </DropdownMenuItem>
                                 )}
@@ -1046,11 +1047,11 @@ export default function AgendaConfiguracoesPage() {
                                 {modoLabel}
                               </span>
                               <span className="text-muted-foreground">disparado em {dataDispFmt}</span>
-                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1">
+                              <span className={cn(TEXT.emerald, 'font-semibold inline-flex items-center gap-1')}>
                                 <Check className="h-3 w-3" /> {log.enviados}
                               </span>
                               {log.falhas > 0 && (
-                                <span className="text-rose-600 dark:text-rose-400 font-semibold inline-flex items-center gap-1">
+                                <span className={cn(TEXT.rose, 'font-semibold inline-flex items-center gap-1')}>
                                   <X className="h-3 w-3" /> {log.falhas}
                                 </span>
                               )}
@@ -1098,7 +1099,7 @@ export default function AgendaConfiguracoesPage() {
                                 )}
                                 {log.erros && log.erros.length > 0 && (
                                   <div className="text-[11px]">
-                                    <div className="text-rose-600 dark:text-rose-400 font-semibold mb-1">{log.erros.length} falha(s):</div>
+                                    <div className={cn(TEXT.rose, 'font-semibold mb-1')}>{log.erros.length} falha(s):</div>
                                     <div className="space-y-1">
                                       {log.erros.map((er, idx) => {
                                         const u = usuarios.find(x => x.id === er.userId)

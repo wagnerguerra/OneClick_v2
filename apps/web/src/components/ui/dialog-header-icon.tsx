@@ -29,26 +29,29 @@ import { DialogHeader, DialogClose } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { X, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { TEXT } from '@/lib/color-styles'
 
 type IconColor =
   | 'sky' | 'emerald' | 'rose' | 'amber' | 'violet' | 'indigo'
   | 'cyan' | 'orange' | 'fuchsia' | 'lime' | 'slate' | 'red' | 'purple' | 'blue'
 
+// bg = superfície própria do quadrado do ícone (local); a cor do ícone deriva
+// do papel TEXT da fonte única. slate mantém literal (dark -300, não casa TEXT).
 const COLOR_CLASSES: Record<IconColor, string> = {
-  sky:      'bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400',
-  emerald:  'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
-  rose:     'bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400',
-  amber:    'bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
-  violet:   'bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400',
-  indigo:   'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400',
-  cyan:     'bg-cyan-100 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400',
-  orange:   'bg-orange-100 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400',
-  fuchsia:  'bg-fuchsia-100 dark:bg-fuchsia-950/40 text-fuchsia-600 dark:text-fuchsia-400',
-  lime:     'bg-lime-100 dark:bg-lime-950/40 text-lime-600 dark:text-lime-400',
+  sky:      cn('bg-sky-100 dark:bg-sky-950/40', TEXT.sky),
+  emerald:  cn('bg-emerald-100 dark:bg-emerald-950/40', TEXT.emerald),
+  rose:     cn('bg-rose-100 dark:bg-rose-950/40', TEXT.rose),
+  amber:    cn('bg-amber-100 dark:bg-amber-950/40', TEXT.amber),
+  violet:   cn('bg-violet-100 dark:bg-violet-950/40', TEXT.violet),
+  indigo:   cn('bg-indigo-100 dark:bg-indigo-950/40', TEXT.indigo),
+  cyan:     cn('bg-cyan-100 dark:bg-cyan-950/40', TEXT.cyan),
+  orange:   cn('bg-orange-100 dark:bg-orange-950/40', TEXT.orange),
+  fuchsia:  cn('bg-fuchsia-100 dark:bg-fuchsia-950/40', TEXT.fuchsia),
+  lime:     cn('bg-lime-100 dark:bg-lime-950/40', TEXT.lime),
   slate:    'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-  red:      'bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400',
-  purple:   'bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400',
-  blue:     'bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
+  red:      cn('bg-red-100 dark:bg-red-950/40', TEXT.red),
+  purple:   cn('bg-purple-100 dark:bg-purple-950/40', TEXT.purple),
+  blue:     cn('bg-blue-100 dark:bg-blue-950/40', TEXT.blue),
 }
 
 interface Props {

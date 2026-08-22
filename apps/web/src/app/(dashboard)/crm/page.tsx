@@ -21,6 +21,7 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { DndContext, closestCenter, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DragOverEvent, useDroppable } from '@dnd-kit/core'
@@ -1381,8 +1382,8 @@ export default function CrmPage() {
                                 </div>
                                 <div className="flex items-center gap-3 mt-1 text-[11px] flex-wrap">
                                   <span className={cn('inline-flex items-center gap-1 font-medium',
-                                    atrasada && 'text-rose-600 dark:text-rose-400',
-                                    hojeFlag && 'text-amber-600 dark:text-amber-400',
+                                    atrasada && TEXT.rose,
+                                    hojeFlag && TEXT.amber,
                                     !atrasada && !hojeFlag && 'text-muted-foreground')}>
                                     <Calendar className="h-3 w-3" />{dataFmt}{t.horaPrazo && ` · ${t.horaPrazo}`}{atrasada && ` · atrasada ${Math.abs(diffDias)}d`}{hojeFlag && ' · hoje'}
                                   </span>
@@ -2150,7 +2151,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
           </div>
           {(op._count?.agendaEventos ?? 0) > 0 && (
             <span
-              className="inline-flex items-center justify-center h-5 w-5 rounded-md text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 shrink-0"
+              className={cn('inline-flex items-center justify-center h-5 w-5 rounded-md bg-sky-50 dark:bg-sky-900/30 shrink-0', TEXT.sky)}
               title={`${op._count!.agendaEventos} evento(s) de agenda vinculado(s)`}
             >
               <Calendar className="h-3 w-3" />
@@ -2165,7 +2166,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
           <TemperaturaBadge temperatura={op.temperatura} score={op.score} />
           {(op as any).campanha && (
             <span
-              className="inline-flex items-center gap-1 text-[10px] font-medium text-rose-600 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-400 rounded-sm px-1.5 py-0.5"
+              className={cn('inline-flex items-center gap-1 text-[10px] font-medium bg-rose-50 dark:bg-rose-900/30 rounded-sm px-1.5 py-0.5', TEXT.rose)}
               title={`Campanha: ${(op as any).campanha.nome || (op as any).campanha.slug}`}
             >
               <Megaphone className="h-3 w-3" /> {(op as any).campanha.nome || (op as any).campanha.slug}
@@ -2175,7 +2176,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
             <Link
               href={`/orcamentos/${(op as any).orcamento.id}`}
               onClick={e => e.stopPropagation()}
-              className="inline-flex items-center gap-1 text-[10px] font-medium text-sky-600 bg-sky-50 dark:bg-sky-900/30 dark:text-sky-400 rounded-sm px-1.5 py-0.5 hover:bg-sky-100 dark:hover:bg-sky-900/50 hover:underline transition-colors"
+              className={cn('inline-flex items-center gap-1 text-[10px] font-medium bg-sky-50 dark:bg-sky-900/30 rounded-sm px-1.5 py-0.5 hover:bg-sky-100 dark:hover:bg-sky-900/50 hover:underline transition-colors', TEXT.sky)}
               title={`Abrir orçamento #${(op as any).orcamento.numero}`}
             >
               <FileText className="h-3 w-3" /> Orc. #{(op as any).orcamento.numero}
@@ -2444,13 +2445,13 @@ function SlaIndicator({ op, etapas, declinioDias = 30 }: { op: Oportunidade; eta
     const restantes = Math.max(0, declinioDias - dias)
     if (restantes === 0) {
       return (
-        <span className="text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20" title="Arquivamento automatico iminente">
+        <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20', TEXT.red)} title="Arquivamento automatico iminente">
           <Archive className="h-3 w-3 animate-pulse" /> Expirando
         </span>
       )
     }
     return (
-      <span className="text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20" title={`Arquivamento automatico em ${restantes} dia(s)`}>
+      <span className={cn('text-[10px] font-medium flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20', TEXT.amber)} title={`Arquivamento automatico em ${restantes} dia(s)`}>
         <Archive className="h-3 w-3" /> {restantes}d
       </span>
     )
@@ -2478,9 +2479,9 @@ function SlaIndicator({ op, etapas, declinioDias = 30 }: { op: Oportunidade; eta
   }
 
   const config = {
-    ok: { label: 'No prazo', text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', pulse: false },
-    warning: { label: 'Vencendo', text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', pulse: false },
-    expired: { label: 'Vencido', text: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', pulse: true },
+    ok: { label: 'No prazo', text: TEXT.emerald, bg: 'bg-emerald-50 dark:bg-emerald-900/20', pulse: false },
+    warning: { label: 'Vencendo', text: TEXT.amber, bg: 'bg-amber-50 dark:bg-amber-900/20', pulse: false },
+    expired: { label: 'Vencido', text: TEXT.red, bg: 'bg-red-50 dark:bg-red-900/20', pulse: true },
   }
   const c = config[sla.status]
 

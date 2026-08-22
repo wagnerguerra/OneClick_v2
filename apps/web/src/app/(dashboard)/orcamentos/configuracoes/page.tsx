@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Settings2, Loader2, Save, Clock, Hash, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2, Star, ArrowUp, ArrowDown, History } from 'lucide-react'
 import { Button, Card, Input, RichEditor, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Switch, Badge, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
@@ -852,7 +853,7 @@ function PesquisaConfigTab() {
     <div className="space-y-5">
       <p className="text-[12px] text-muted-foreground max-w-2xl">
         Esta é a pesquisa enviada aos clientes (versão <strong>v{versao}</strong> ativa).{' '}
-        {temRespostas && <span className="text-amber-600 dark:text-amber-400 font-medium">Já recebeu respostas — ao salvar, uma nova versão é criada e as respostas antigas ficam preservadas.</span>}
+        {temRespostas && <span className={cn(TEXT.amber, 'font-medium')}>Já recebeu respostas — ao salvar, uma nova versão é criada e as respostas antigas ficam preservadas.</span>}
       </p>
 
       <div className="space-y-1.5 max-w-xl">

@@ -11,6 +11,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { StatCard } from '@/components/stat-card'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
@@ -56,9 +57,9 @@ function MargemBadge({ pct }: { pct: number | null }) {
   if (pct == null) return <span className="text-muted-foreground">—</span>
   const neg = pct < 0
   const low = pct >= 0 && pct < 20
-  const cls = neg ? 'text-rose-600 dark:text-rose-400'
-    : low ? 'text-amber-600 dark:text-amber-400'
-      : 'text-emerald-600 dark:text-emerald-400'
+  const cls = neg ? TEXT.rose
+    : low ? TEXT.amber
+      : TEXT.emerald
   return (
     <span className={cn('inline-flex items-center gap-1 font-medium tabular-nums', cls)}>
       {neg ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />}
@@ -171,7 +172,7 @@ export default function CusteioPage() {
         <StatCard icon={Calculator} label="Margem média" value={margemMedia == null ? '—' : `${margemMedia}%`} color="#6366f1" loading={loading} />
       </div>
 
-      {erro && <div className="rounded border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-sm text-rose-600 dark:text-rose-400">{erro}</div>}
+      {erro && <div className={cn('rounded border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-sm', TEXT.rose)}>{erro}</div>}
 
       {/* Tabela */}
       <Card className="overflow-hidden">

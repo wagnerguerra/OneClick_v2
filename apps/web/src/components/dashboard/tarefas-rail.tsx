@@ -6,6 +6,7 @@ import { ListTodo, Plus, X, ExternalLink, Loader2, Check, Clock, Briefcase } fro
 import { Button, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { TarefaModal } from '@/app/(dashboard)/agenda/_components/tarefa-modal'
+import { TEXT } from '@/lib/color-styles'
 
 interface Tarefa {
   id: string
@@ -101,7 +102,7 @@ export function TarefasRail() {
             <div className="p-3 border-b border-border shrink-0 space-y-2">
               <button
                 onClick={() => { setEditando(null); setModalOpen(true) }}
-                className="w-full flex items-center gap-2 text-sm font-medium text-sky-600 dark:text-sky-400 hover:bg-muted/50 rounded-md px-2 py-1.5 transition-colors"
+                className={cn('w-full flex items-center gap-2 text-sm font-medium hover:bg-muted/50 rounded-md px-2 py-1.5 transition-colors', TEXT.sky)}
               >
                 <Plus className="h-4 w-4" /> Adicionar uma tarefa
               </button>
@@ -147,7 +148,7 @@ export function TarefasRail() {
                       </div>
                       <span className={cn(
                         'inline-flex items-center gap-1 mt-1 text-[11px]',
-                        p.atrasada ? 'text-rose-600 dark:text-rose-400 font-medium' : p.hojeMesmo ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
+                        p.atrasada ? cn(TEXT.rose, 'font-medium') : p.hojeMesmo ? TEXT.amber : 'text-muted-foreground',
                       )}>
                         <Clock className="h-3 w-3" />{p.atrasada ? `Atrasada · ${p.label}` : p.hojeMesmo ? `Hoje · ${p.label}` : p.label}
                       </span>

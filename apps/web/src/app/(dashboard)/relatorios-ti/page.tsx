@@ -11,6 +11,7 @@ import {
   Sheet, SheetContent, SheetTitle, SheetDescription,
   RichEditor, RichContent,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -537,7 +538,7 @@ export default function RelatoriosTiPage() {
       {/* Pendentes de hoje — a pergunta que o líder faz todo fim de tarde. */}
       {pendentesHoje.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
-          <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <AlertCircle className={cn('h-4 w-4 shrink-0', TEXT.amber)} />
           <span className="text-[13px] text-amber-900 dark:text-amber-300">
             Ainda sem relatório hoje:
           </span>

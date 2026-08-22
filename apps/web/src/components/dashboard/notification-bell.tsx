@@ -8,6 +8,7 @@ import { Button, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { useSession } from '@/lib/auth-client'
 import { getApiUrl } from '@/lib/api-url'
+import { TEXT } from '@/lib/color-styles'
 
 interface Notification {
   id: string
@@ -25,10 +26,10 @@ interface Notification {
 }
 
 const TIPO_CONFIG: Record<string, { icon: typeof Info; color: string; bg: string; border: string }> = {
-  info:    { icon: Info,         color: 'text-sky-600 dark:text-sky-400',         bg: 'bg-sky-50 dark:bg-sky-900/20',         border: 'border-sky-200 dark:border-sky-800' },
-  success: { icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800' },
-  warning: { icon: AlertTriangle,color: 'text-amber-600 dark:text-amber-400',     bg: 'bg-amber-50 dark:bg-amber-900/20',     border: 'border-amber-200 dark:border-amber-800' },
-  error:   { icon: AlertCircle,  color: 'text-rose-600 dark:text-rose-400',       bg: 'bg-rose-50 dark:bg-rose-900/20',       border: 'border-rose-200 dark:border-rose-800' },
+  info:    { icon: Info,         color: TEXT.sky,     bg: 'bg-sky-50 dark:bg-sky-900/20',         border: 'border-sky-200 dark:border-sky-800' },
+  success: { icon: CheckCircle2, color: TEXT.emerald, bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800' },
+  warning: { icon: AlertTriangle,color: TEXT.amber,   bg: 'bg-amber-50 dark:bg-amber-900/20',     border: 'border-amber-200 dark:border-amber-800' },
+  error:   { icon: AlertCircle,  color: TEXT.rose,    bg: 'bg-rose-50 dark:bg-rose-900/20',       border: 'border-rose-200 dark:border-rose-800' },
 }
 
 function formatRelativo(d: string): string {

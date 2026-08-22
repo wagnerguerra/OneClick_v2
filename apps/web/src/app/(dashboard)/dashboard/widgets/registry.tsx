@@ -2,6 +2,7 @@
 
 import { ComponentType } from 'react'
 import { Mail, Shield, FileLock, ListChecks, Landmark, Calendar, CalendarClock, Phone, FileText, Megaphone } from 'lucide-react'
+import { TEXT } from '@/lib/color-styles'
 import { CaixaPostalWidget } from './caixa-postal-widget'
 import { CndFederaisWidget } from './cnd-federais-widget'
 import { CertificadosWidget } from './certificados-widget'
@@ -139,12 +140,12 @@ export const WIDGET_REGISTRY: Record<string, WidgetDef> = {
 export const COLOR_CLASSES: Record<WidgetColor, {
   borderLeft: string; bgIcon: string; text: string
 }> = {
-  sky:     { borderLeft: 'border-l-sky-500',     bgIcon: 'bg-sky-50 dark:bg-sky-900/30',         text: 'text-sky-600 dark:text-sky-400' },
-  indigo:  { borderLeft: 'border-l-indigo-500',  bgIcon: 'bg-indigo-50 dark:bg-indigo-900/30',   text: 'text-indigo-600 dark:text-indigo-400' },
-  fuchsia: { borderLeft: 'border-l-fuchsia-500', bgIcon: 'bg-fuchsia-50 dark:bg-fuchsia-900/30', text: 'text-fuchsia-600 dark:text-fuchsia-400' },
-  violet:  { borderLeft: 'border-l-violet-500',  bgIcon: 'bg-violet-50 dark:bg-violet-900/30',   text: 'text-violet-600 dark:text-violet-400' },
-  emerald: { borderLeft: 'border-l-emerald-500', bgIcon: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400' },
-  amber:   { borderLeft: 'border-l-amber-500',   bgIcon: 'bg-amber-50 dark:bg-amber-900/30',     text: 'text-amber-600 dark:text-amber-400' },
+  sky:     { borderLeft: 'border-l-sky-500',     bgIcon: 'bg-sky-50 dark:bg-sky-900/30',         text: TEXT.sky },
+  indigo:  { borderLeft: 'border-l-indigo-500',  bgIcon: 'bg-indigo-50 dark:bg-indigo-900/30',   text: TEXT.indigo },
+  fuchsia: { borderLeft: 'border-l-fuchsia-500', bgIcon: 'bg-fuchsia-50 dark:bg-fuchsia-900/30', text: TEXT.fuchsia },
+  violet:  { borderLeft: 'border-l-violet-500',  bgIcon: 'bg-violet-50 dark:bg-violet-900/30',   text: TEXT.violet },
+  emerald: { borderLeft: 'border-l-emerald-500', bgIcon: 'bg-emerald-50 dark:bg-emerald-900/30', text: TEXT.emerald },
+  amber:   { borderLeft: 'border-l-amber-500',   bgIcon: 'bg-amber-50 dark:bg-amber-900/30',     text: TEXT.amber },
 }
 
 /** Layout padrão exibido quando ainda não foi customizado. */

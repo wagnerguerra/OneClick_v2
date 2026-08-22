@@ -22,6 +22,7 @@ import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Re
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
+import { TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -147,7 +148,7 @@ function situacao(l: Linha) {
         adiantada ? `antes do prazo técnico (${fmtData(l.prazo)})` : `prazo técnico ${fmtData(l.prazo)}`,
         `prazo legal ${fmtData(l.vencimento)}`,
       ].join(' · '),
-      cor: 'text-emerald-600 dark:text-emerald-400',
+      cor: TEXT.emerald,
     }
   }
   // Conta contra o prazo LEGAL, não contra o técnico: é a data em que o
@@ -157,9 +158,9 @@ function situacao(l: Linha) {
     ? `Guia entregue em ${fmtData(l.dtEntrega)}, cliente ainda não abriu · prazo legal ${fmtData(l.vencimento)}`
     : `Ainda não entregue · prazo legal ${fmtData(l.vencimento)} · prazo técnico ${fmtData(l.prazo)}`
   if (dias === null) return { texto: 'sem prazo', titulo: t, cor: 'text-muted-foreground' }
-  if (dias < 0) return { texto: `venceu há ${Math.abs(dias)}d`, titulo: t, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
-  if (dias === 0) return { texto: 'vence hoje', titulo: t, cor: 'text-rose-600 dark:text-rose-400 font-semibold' }
-  if (dias <= 3) return { texto: `vence em ${dias}d`, titulo: t, cor: 'text-amber-600 dark:text-amber-400 font-semibold' }
+  if (dias < 0) return { texto: `venceu há ${Math.abs(dias)}d`, titulo: t, cor: cn(TEXT.rose, 'font-semibold') }
+  if (dias === 0) return { texto: 'vence hoje', titulo: t, cor: cn(TEXT.rose, 'font-semibold') }
+  if (dias <= 3) return { texto: `vence em ${dias}d`, titulo: t, cor: cn(TEXT.amber, 'font-semibold') }
   return { texto: `vence em ${dias}d`, titulo: t, cor: 'text-muted-foreground' }
 }
 
@@ -357,28 +358,28 @@ export default function PainelEntregasPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <CartaoFoco
           ativo={foco === 'a_vencer'} onClick={() => setFoco('a_vencer')}
-          icone={<AlertTriangle className="h-4 w-4" />} cor="text-rose-600 dark:text-rose-400"
+          icone={<AlertTriangle className="h-4 w-4" />} cor={TEXT.rose}
           valor={resumo?.naoLidasCriticas ?? 0}
           titulo="Obrigações entregues e não lidas"
           nota={`Obrigações entregues, porém os clientes não abriram, vencendo em ${janelaDias} ${janelaDias === 1 ? 'dia' : 'dias'}`}
         />
         <CartaoFoco
           ativo={foco === 'atrasadas'} onClick={() => setFoco('atrasadas')}
-          icone={<Clock className="h-4 w-4" />} cor="text-orange-600 dark:text-orange-400"
+          icone={<Clock className="h-4 w-4" />} cor={TEXT.orange}
           valor={resumo?.atrasadas ?? 0}
           titulo="Entregas atrasadas"
           nota="não entregues com vencimento passado"
         />
         <CartaoFoco
           ativo={foco === 'nao_lidas'} onClick={() => setFoco('nao_lidas')}
-          icone={<MailWarning className="h-4 w-4" />} cor="text-amber-600 dark:text-amber-400"
+          icone={<MailWarning className="h-4 w-4" />} cor={TEXT.amber}
           valor={resumo?.naoLidas ?? 0}
           titulo="Obrigações entregues, porém não lidas pelo cliente"
           nota="em todo o período consultado"
         />
         <CartaoFoco
           ativo={foco === 'todas'} onClick={() => setFoco('todas')}
-          icone={<CheckCircle2 className="h-4 w-4" />} cor="text-emerald-600 dark:text-emerald-400"
+          icone={<CheckCircle2 className="h-4 w-4" />} cor={TEXT.emerald}
           valor={resumo?.lidas ?? 0}
           titulo="Guias abertas"
           nota={resumo ? `de ${resumo.comGuia} com guia · ver tudo` : 'ver tudo'}
@@ -563,7 +564,7 @@ export default function PainelEntregasPage() {
                         <div className="flex items-center gap-1.5">
                           {l.lida === false && (
                             <span title="Cliente ainda não abriu a guia" className="inline-flex">
-                              <MailWarning className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                              <MailWarning className={cn('h-4 w-4', TEXT.amber)} />
                             </span>
                           )}
                           {l.lida === true && (
@@ -571,7 +572,7 @@ export default function PainelEntregasPage() {
                               title={l.lidaEm ? `Cliente abriu a guia em ${fmtDataHora(l.lidaEm)}` : 'Cliente abriu a guia'}
                               className="inline-flex"
                             >
-                              <MailOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                              <MailOpen className={cn('h-4 w-4', TEXT.emerald)} />
                             </span>
                           )}
                           {l.multa && (

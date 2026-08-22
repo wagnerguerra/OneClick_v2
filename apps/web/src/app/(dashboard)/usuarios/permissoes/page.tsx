@@ -6,6 +6,7 @@ import {
   Circle, Wrench, type LucideIcon,
 } from 'lucide-react'
 import { Button, Card, Input, Badge, Checkbox, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { MODULE_GROUPS, MODULE_LABELS, PLATFORM_ADMIN_MODULES } from '@saas/types'
 import { BackButton } from '@/components/ui/back-button'
 import { MODULE_ICONS, GROUP_ICONS } from '@/lib/navigation'
@@ -344,8 +345,8 @@ export default function PermissoesEmMassaPage() {
                                 <span className={cn(
                                   'ml-2 rounded px-1.5 py-0.5 text-[10px]',
                                   pendentes[slug]
-                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                                    : 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+                                    ? cn('bg-emerald-500/15', TEXT.emerald)
+                                    : cn('bg-rose-500/15', TEXT.rose),
                                 )}>
                                   {pendentes[slug] ? 'liberar' : 'retirar'}
                                 </span>
@@ -358,7 +359,7 @@ export default function PermissoesEmMassaPage() {
                                 return (
                                   <span className="inline-flex items-center gap-2">
                                     {tri === 'parcial' && (
-                                      <span className="text-[10px] text-amber-600 dark:text-amber-400">{n} de {ids.length}</span>
+                                      <span className={cn('text-[10px]', TEXT.amber)}>{n} de {ids.length}</span>
                                     )}
                                     <button type="button" onClick={() => alternarModulo(slug)} disabled={ids.length === 0}
                                       title={tri === 'todos' ? 'Retirar acesso' : 'Liberar acesso'}

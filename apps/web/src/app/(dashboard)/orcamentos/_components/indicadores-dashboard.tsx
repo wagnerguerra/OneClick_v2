@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Send, ThumbsDown, Coins, CheckCircle2, FileDown, CalendarDays } from 'lucide-react'
 import { Button, Card, Input, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
@@ -197,9 +198,9 @@ const COR_BADGE: Record<string, string> = {
   rose: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
 }
 const COR_TITULO: Record<string, string> = {
-  emerald: 'text-emerald-600 dark:text-emerald-400',
-  sky: 'text-sky-600 dark:text-sky-400',
-  rose: 'text-rose-600 dark:text-rose-400',
+  emerald: TEXT.emerald,
+  sky: TEXT.sky,
+  rose: TEXT.rose,
 }
 
 function ListaColuna({ titulo, cor, itens, router }: { titulo: string; cor: 'emerald' | 'sky' | 'rose'; itens: ListaItem[]; router: ReturnType<typeof useRouter> }) {

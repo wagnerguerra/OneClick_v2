@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Button, Card } from '@saas/ui'
+import { Button, Card, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { BarChart3, FileSpreadsheet, FileText, Printer, Loader2, AlertCircle, X } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { ORCAMENTO_STATUS_LABELS } from '@saas/types'
@@ -74,7 +75,7 @@ function RelatorioInner() {
         {l.itens.map((it, i) => (
           <span key={i}>
             {it.servicoId ? (
-              <button type="button" onClick={() => setServicoModalId(it.servicoId)} className="text-sky-600 dark:text-sky-400 hover:underline" title="Editar serviço">{it.descricao}</button>
+              <button type="button" onClick={() => setServicoModalId(it.servicoId)} className={cn(TEXT.sky, 'hover:underline')} title="Editar serviço">{it.descricao}</button>
             ) : it.descricao}
             {i < l.itens.length - 1 ? '; ' : ''}
           </span>

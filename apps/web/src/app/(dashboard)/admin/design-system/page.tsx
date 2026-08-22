@@ -52,6 +52,7 @@ import {
   DialogFooter, DialogTitle, DialogDescription,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { PageHeaderIcon, type ModuleSlug } from '@/components/ui/page-header-icon'
 import { BackButton } from '@/components/ui/back-button'
@@ -521,9 +522,9 @@ function ModuleColorsEditor() {
                       <span className="text-muted-foreground tabular-nums">{l.ts}</span>
                       <span className={cn(
                         'font-semibold',
-                        l.tipo === 'ok'  && 'text-emerald-600 dark:text-emerald-400',
-                        l.tipo === 'err' && 'text-rose-600 dark:text-rose-400',
-                        l.tipo === 'info' && 'text-sky-600 dark:text-sky-400',
+                        l.tipo === 'ok'  && TEXT.emerald,
+                        l.tipo === 'err' && TEXT.rose,
+                        l.tipo === 'info' && TEXT.sky,
                       )}>{l.slug}</span>
                     </div>
                     <p className="ml-[68px] text-foreground/80 break-all">{l.msg}</p>
@@ -541,10 +542,10 @@ function ModuleColorsEditor() {
 function StatusChip({ status }: { status: 'idle' | 'pending' | 'saving' | 'saved' | 'error' }) {
   if (status === 'idle') return null
   const cfg = {
-    pending: { label: '●', cls: 'text-amber-600 dark:text-amber-400', title: 'Alterado, aguardando debounce' },
-    saving:  { label: '⟳', cls: 'text-sky-600 dark:text-sky-400 animate-spin inline-block', title: 'Salvando no servidor' },
-    saved:   { label: '✓', cls: 'text-emerald-600 dark:text-emerald-400', title: 'Salvo' },
-    error:   { label: '!', cls: 'text-rose-600 dark:text-rose-400', title: 'Erro ao salvar' },
+    pending: { label: '●', cls: TEXT.amber, title: 'Alterado, aguardando debounce' },
+    saving:  { label: '⟳', cls: cn(TEXT.sky, 'animate-spin inline-block'), title: 'Salvando no servidor' },
+    saved:   { label: '✓', cls: TEXT.emerald, title: 'Salvo' },
+    error:   { label: '!', cls: TEXT.rose, title: 'Erro ao salvar' },
   }[status]
   return <span className={cn('text-[12px] font-bold', cfg.cls)} title={cfg.title}>{cfg.label}</span>
 }
@@ -1256,20 +1257,20 @@ async function handleDelete(id: string) {
  *  pra não criar dependência circular import na página do design system. */
 function DialogHeaderIconDemo({ icon: Icon, color, children }: { icon: typeof Database; color: string; children: React.ReactNode }) {
   const COLOR_CLS: Record<string, string> = {
-    sky:      'bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400',
-    emerald:  'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
-    rose:     'bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400',
-    amber:    'bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
-    violet:   'bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400',
-    indigo:   'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400',
-    cyan:     'bg-cyan-100 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400',
-    orange:   'bg-orange-100 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400',
-    fuchsia:  'bg-fuchsia-100 dark:bg-fuchsia-950/40 text-fuchsia-600 dark:text-fuchsia-400',
-    lime:     'bg-lime-100 dark:bg-lime-950/40 text-lime-600 dark:text-lime-400',
+    sky:      cn('bg-sky-100 dark:bg-sky-950/40', TEXT.sky),
+    emerald:  cn('bg-emerald-100 dark:bg-emerald-950/40', TEXT.emerald),
+    rose:     cn('bg-rose-100 dark:bg-rose-950/40', TEXT.rose),
+    amber:    cn('bg-amber-100 dark:bg-amber-950/40', TEXT.amber),
+    violet:   cn('bg-violet-100 dark:bg-violet-950/40', TEXT.violet),
+    indigo:   cn('bg-indigo-100 dark:bg-indigo-950/40', TEXT.indigo),
+    cyan:     cn('bg-cyan-100 dark:bg-cyan-950/40', TEXT.cyan),
+    orange:   cn('bg-orange-100 dark:bg-orange-950/40', TEXT.orange),
+    fuchsia:  cn('bg-fuchsia-100 dark:bg-fuchsia-950/40', TEXT.fuchsia),
+    lime:     cn('bg-lime-100 dark:bg-lime-950/40', TEXT.lime),
     slate:    'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-    red:      'bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400',
-    purple:   'bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400',
-    blue:     'bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
+    red:      cn('bg-red-100 dark:bg-red-950/40', TEXT.red),
+    purple:   cn('bg-purple-100 dark:bg-purple-950/40', TEXT.purple),
+    blue:     cn('bg-blue-100 dark:bg-blue-950/40', TEXT.blue),
   }
   return (
     <DialogHeader>
@@ -1285,20 +1286,20 @@ function DialogHeaderIconDemo({ icon: Icon, color, children }: { icon: typeof Da
 
 function ColorDemo({ color }: { color: string }) {
   const COLOR_CLS: Record<string, string> = {
-    sky:      'bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400',
-    emerald:  'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
-    rose:     'bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400',
-    amber:    'bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
-    violet:   'bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400',
-    indigo:   'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400',
-    cyan:     'bg-cyan-100 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400',
-    orange:   'bg-orange-100 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400',
-    fuchsia:  'bg-fuchsia-100 dark:bg-fuchsia-950/40 text-fuchsia-600 dark:text-fuchsia-400',
-    lime:     'bg-lime-100 dark:bg-lime-950/40 text-lime-600 dark:text-lime-400',
+    sky:      cn('bg-sky-100 dark:bg-sky-950/40', TEXT.sky),
+    emerald:  cn('bg-emerald-100 dark:bg-emerald-950/40', TEXT.emerald),
+    rose:     cn('bg-rose-100 dark:bg-rose-950/40', TEXT.rose),
+    amber:    cn('bg-amber-100 dark:bg-amber-950/40', TEXT.amber),
+    violet:   cn('bg-violet-100 dark:bg-violet-950/40', TEXT.violet),
+    indigo:   cn('bg-indigo-100 dark:bg-indigo-950/40', TEXT.indigo),
+    cyan:     cn('bg-cyan-100 dark:bg-cyan-950/40', TEXT.cyan),
+    orange:   cn('bg-orange-100 dark:bg-orange-950/40', TEXT.orange),
+    fuchsia:  cn('bg-fuchsia-100 dark:bg-fuchsia-950/40', TEXT.fuchsia),
+    lime:     cn('bg-lime-100 dark:bg-lime-950/40', TEXT.lime),
     slate:    'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-    red:      'bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400',
-    purple:   'bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400',
-    blue:     'bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
+    red:      cn('bg-red-100 dark:bg-red-950/40', TEXT.red),
+    purple:   cn('bg-purple-100 dark:bg-purple-950/40', TEXT.purple),
+    blue:     cn('bg-blue-100 dark:bg-blue-950/40', TEXT.blue),
   }
   return (
     <div className="rounded-md border border-border p-2 flex items-center gap-2 bg-card">
@@ -1312,11 +1313,11 @@ function ColorDemo({ color }: { color: string }) {
 
 function ContextRow({ color, icon: Icon, when }: { color: string; icon: typeof Plus; when: string }) {
   const COLOR_CLS: Record<string, string> = {
-    sky:      'bg-sky-100 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400',
-    emerald:  'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
-    rose:     'bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400',
-    amber:    'bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
-    violet:   'bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400',
+    sky:      cn('bg-sky-100 dark:bg-sky-950/40', TEXT.sky),
+    emerald:  cn('bg-emerald-100 dark:bg-emerald-950/40', TEXT.emerald),
+    rose:     cn('bg-rose-100 dark:bg-rose-950/40', TEXT.rose),
+    amber:    cn('bg-amber-100 dark:bg-amber-950/40', TEXT.amber),
+    violet:   cn('bg-violet-100 dark:bg-violet-950/40', TEXT.violet),
     slate:    'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
   }
   return (
