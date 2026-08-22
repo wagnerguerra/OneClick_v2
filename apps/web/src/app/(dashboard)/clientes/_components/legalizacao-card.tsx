@@ -10,6 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
 import { ImportStatusModal, type ImportStep } from './import-status-modal'
@@ -419,7 +420,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     <Card>
       <div className="flex items-center justify-between border-b border-border px-5 py-3">
         <div className="flex items-center gap-2">
-          <Shield className="h-4 w-4 text-emerald-600" />
+          <Shield className={cn('h-4 w-4', TEXT.emerald)} />
           <h5 className="text-[13px] font-semibold">Legalização</h5>
         </div>
         {clienteId && (<div className="flex items-center gap-1.5">
@@ -518,7 +519,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     ? 'text-white shadow-sm'
                     : 'text-muted-foreground hover:bg-muted/60',
                 )}
-                style={activeTab === pill.id ? { backgroundColor: '#10b981' } : undefined}
+                style={activeTab === pill.id ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
                 <span className="flex-1 truncate">{pill.label}</span>
@@ -708,7 +709,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                                         alerts.success('Excluído', 'Sócio removido com sucesso.')
                                       } catch (err) { alerts.error('Erro', (err as Error).message) }
                                     }}
-                                    className="text-xs gap-2 cursor-pointer text-rose-600 dark:text-rose-400"
+                                    className={cn('text-xs gap-2 cursor-pointer', TEXT.rose)}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                     Excluir
@@ -845,13 +846,13 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           const vencido = diffDays !== null && diffDays < 0 && !v.concluido
                           const proximo = diffDays !== null && diffDays >= 0 && diffDays <= (v.alerta_dias || 30) && !v.concluido
                           return (
-                            <tr key={v.id} className={cn('border-b last:border-b-0 hover:bg-muted/20', vencido && 'bg-red-50/50', proximo && 'bg-amber-50/50', v.concluido && 'opacity-50')}>
+                            <tr key={v.id} className={cn('border-b last:border-b-0 hover:bg-muted/20', vencido && 'bg-red-50/50 dark:bg-red-950/30', proximo && 'bg-amber-50/50 dark:bg-amber-950/30', v.concluido && 'opacity-50')}>
                               <td className={cn('px-3 py-2 font-medium', v.concluido && 'line-through')}>{v.descricao}</td>
                               <td className="px-3 py-2 text-muted-foreground max-w-[150px] truncate" title={v.observacoes || ''}>{v.observacoes || '—'}</td>
                               <td className="px-3 py-2">
-                                {dt ? <span className={cn('font-medium', vencido && 'text-red-600', proximo && 'text-amber-600', !vencido && !proximo && 'text-emerald-600')}>{dt.toLocaleDateString('pt-BR')}</span> : '—'}
-                                {vencido && <span className="text-[9px] text-red-500 ml-1">(vencido)</span>}
-                                {proximo && !vencido && diffDays !== null && <span className="text-[9px] text-amber-500 ml-1">({diffDays}d)</span>}
+                                {dt ? <span className={cn('font-medium', vencido && TEXT.red, proximo && TEXT.amber, !vencido && !proximo && TEXT.emerald)}>{dt.toLocaleDateString('pt-BR')}</span> : '—'}
+                                {vencido && <span className="text-[9px] text-red-500 dark:text-red-400 ml-1">(vencido)</span>}
+                                {proximo && !vencido && diffDays !== null && <span className="text-[9px] text-amber-500 dark:text-amber-400 ml-1">({diffDays}d)</span>}
                               </td>
                               <td className="px-3 py-2 text-center">
                                 <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleVencimento(v.id) }} className={cn('h-5 w-5 rounded-full border-2 flex items-center justify-center mx-auto', v.concluido ? 'bg-emerald-500 border-emerald-500' : 'border-muted-foreground/40')}>
@@ -904,10 +905,10 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                             <td className="px-3 py-2">{a.descricao}</td>
                             <td className="px-3 py-2">
                               <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
-                                a.status === 'concluido' || a.status === 'Concluído' ? 'bg-emerald-100 text-emerald-700' :
-                                a.status === 'em_andamento' || a.status === 'Em andamento' ? 'bg-sky-100 text-sky-700' :
-                                a.status === 'cancelado' || a.status === 'Cancelado' ? 'bg-red-100 text-red-700' :
-                                'bg-amber-100 text-amber-700')}>
+                                a.status === 'concluido' || a.status === 'Concluído' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' :
+                                a.status === 'em_andamento' || a.status === 'Em andamento' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' :
+                                a.status === 'cancelado' || a.status === 'Cancelado' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                                'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300')}>
                                 {a.status || 'Pendente'}
                               </span>
                             </td>
@@ -955,7 +956,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           <tr key={c.id} className="border-b last:border-b-0 hover:bg-muted/20">
                             <td className="px-3 py-2">
                               <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border',
-                                c.principal ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-muted/50 border-border text-muted-foreground')}>
+                                c.principal ? BADGE.emerald : 'bg-muted/50 border-border text-muted-foreground')}>
                                 {c.principal ? 'Principal' : 'Secundário'}
                               </span>
                             </td>
@@ -1027,9 +1028,9 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           const val = new Date(c.dataValidade + 'T00:00:00')
                           const diff = Math.ceil((val.getTime() - Date.now()) / 86400000)
                           const formatted = val.toLocaleDateString('pt-BR')
-                          if (diff < 0) valBadge = <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] font-medium text-red-700">{formatted} <span className="text-[9px] opacity-70">(vencida)</span></span>
-                          else if (diff <= 15) valBadge = <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-700">{formatted} <span className="text-[9px] opacity-70">({diff}d)</span></span>
-                          else valBadge = <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-medium text-emerald-700">{formatted}</span>
+                          if (diff < 0) valBadge = <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.red)}>{formatted} <span className="text-[9px] opacity-70">(vencida)</span></span>
+                          else if (diff <= 15) valBadge = <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.amber)}>{formatted} <span className="text-[9px] opacity-70">({diff}d)</span></span>
+                          else valBadge = <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.emerald)}>{formatted}</span>
                         }
 
                         return (
@@ -1038,15 +1039,15 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                             <td className="px-2 py-2.5">
                               {c.sucesso ? (
                                 <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border',
-                                  isPositive ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
-                                  isWarning ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                                  isNeg ? 'bg-red-50 border-red-200 text-red-700' :
-                                  'bg-emerald-50 border-emerald-200 text-emerald-700')}>
+                                  isPositive ? BADGE.emerald :
+                                  isWarning ? BADGE.amber :
+                                  isNeg ? BADGE.red :
+                                  BADGE.emerald)}>
                                   {isPositive ? <CheckCircle2 className="h-3 w-3" /> : isNeg ? <XCircle className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
                                   {c.situacao || 'Emitida'}
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] font-medium text-red-700">
+                                <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', BADGE.red)}>
                                   <XCircle className="h-3 w-3" />{c.situacao || 'Não emitida'}
                                 </span>
                               )}
@@ -1122,10 +1123,10 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                       const expColor = diasParaExpirar === null
                         ? 'text-muted-foreground'
                         : diasParaExpirar < 0
-                          ? 'text-rose-600 dark:text-rose-400 font-semibold'
+                          ? cn(TEXT.rose, 'font-semibold')
                           : diasParaExpirar < 30
-                            ? 'text-amber-600 dark:text-amber-400 font-semibold'
-                            : 'text-emerald-600 dark:text-emerald-400'
+                            ? cn(TEXT.amber, 'font-semibold')
+                            : TEXT.emerald
                       return (
                         <div
                           key={cert.id}
@@ -1136,7 +1137,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-border hover:bg-muted/30 hover:border-fuchsia-300 dark:hover:border-fuchsia-800 cursor-pointer transition-colors"
                           title="Ver detalhes do certificado"
                         >
-                          <FileLock className="h-5 w-5 text-fuchsia-600 shrink-0" />
+                          <FileLock className={cn('h-5 w-5 shrink-0', TEXT.fuchsia)} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
                               {cert.titular || cert.nome || cert.id}
@@ -1272,7 +1273,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 rounded-lg border p-3 text-sm hover:bg-muted/40 transition-colors"
                   >
-                    <ExternalLink className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <ExternalLink className={cn('h-4 w-4 shrink-0', TEXT.emerald)} />
                     {link.label}
                   </a>
                 ))}

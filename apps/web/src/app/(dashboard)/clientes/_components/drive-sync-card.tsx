@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Button, Input, Badge } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -233,7 +234,7 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm dark:border-amber-900/40 dark:bg-amber-950/40">
         <div className="flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+          <AlertCircle className={cn('h-5 w-5 shrink-0', TEXT.amber)} />
           <div>
             <div className="font-semibold text-amber-900 dark:text-amber-200">Credenciais Google não configuradas</div>
             <p className="mt-1 text-amber-800 dark:text-amber-300">
@@ -259,8 +260,8 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
           className={cn(
             'px-3 py-2 text-xs font-medium flex items-center gap-1.5 border-b-2 -mb-px transition-colors',
             fonteAtiva === 'resumo'
-              ? 'border-sky-500 text-sky-600'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300',
+              ? cn('border-sky-500', TEXT.sky)
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
           )}
         >
           <Clock className="h-3.5 w-3.5" /> Resumo
@@ -271,8 +272,8 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
           className={cn(
             'px-3 py-2 text-xs font-medium flex items-center gap-1.5 border-b-2 -mb-px transition-colors',
             fonteAtiva === 'drive'
-              ? 'border-sky-500 text-sky-600'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300',
+              ? cn('border-sky-500', TEXT.sky)
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
           )}
         >
           <HardDriveDownload className="h-3.5 w-3.5" /> Google Drive
@@ -284,8 +285,8 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
           className={cn(
             'px-3 py-2 text-xs font-medium flex items-center gap-1.5 border-b-2 -mb-px transition-colors',
             fonteAtiva === 'local'
-              ? 'border-sky-500 text-sky-600'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300',
+              ? cn('border-sky-500', TEXT.sky)
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
           )}
         >
           <HardDrive className="h-3.5 w-3.5" /> Pasta local (PC)
@@ -297,8 +298,8 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
           className={cn(
             'px-3 py-2 text-xs font-medium flex items-center gap-1.5 border-b-2 -mb-px transition-colors',
             fonteAtiva === 'nfe-sefaz'
-              ? 'border-sky-500 text-sky-600'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300',
+              ? cn('border-sky-500', TEXT.sky)
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
           )}
         >
           <Receipt className="h-3.5 w-3.5" /> NFe SEFAZ
@@ -310,8 +311,8 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
           className={cn(
             'px-3 py-2 text-xs font-medium flex items-center gap-1.5 border-b-2 -mb-px transition-colors',
             fonteAtiva === 'nfse-nacional'
-              ? 'border-sky-500 text-sky-600'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300',
+              ? cn('border-sky-500', TEXT.sky)
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
           )}
         >
           <Briefcase className="h-3.5 w-3.5" /> NFS-e Nacional
@@ -372,7 +373,7 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <Folder className="h-4 w-4 text-emerald-600" />
+                <Folder className={cn('h-4 w-4', TEXT.emerald)} />
                 <span className="truncate text-sm font-semibold text-emerald-900 dark:text-emerald-200">
                   {cliente?.driveFolderName ?? '(sem nome)'}
                 </span>
@@ -413,7 +414,7 @@ export function DriveSyncCard({ clienteId }: DriveSyncCardProps) {
               >
                 <ExternalLink className="h-3.5 w-3.5" /> Abrir
               </Button>
-              <Button type="button" size="sm" variant="outline" onClick={handleDesvincular} className="text-red-600 hover:text-red-700">
+              <Button type="button" size="sm" variant="outline" onClick={handleDesvincular} className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
                 <Trash2 className="h-3.5 w-3.5" /> Desvincular
               </Button>
             </div>
@@ -699,15 +700,15 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
 
   function fonteBadge(tipo: string) {
     if (tipo === 'nfe-sefaz') {
-      return <Badge className="bg-violet-100 text-violet-800 border-0 text-[9px] py-0 px-1.5">NFe SEFAZ</Badge>
+      return <Badge className="bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300 border-0 text-[9px] py-0 px-1.5">NFe SEFAZ</Badge>
     }
     if (tipo === 'nfse-nacional') {
-      return <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[9px] py-0 px-1.5">NFS-e</Badge>
+      return <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-0 text-[9px] py-0 px-1.5">NFS-e</Badge>
     }
     if (tipo.startsWith('local')) {
-      return <Badge className="bg-amber-100 text-amber-800 border-0 text-[9px] py-0 px-1.5">Local</Badge>
+      return <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-0 text-[9px] py-0 px-1.5">Local</Badge>
     }
-    return <Badge className="bg-sky-100 text-sky-800 border-0 text-[9px] py-0 px-1.5">Drive</Badge>
+    return <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300 border-0 text-[9px] py-0 px-1.5">Drive</Badge>
   }
 
   function tipoLabel(tipo: string) {
@@ -749,7 +750,7 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
           <option value="running">Em andamento</option>
         </select>
         {periodo !== 'tudo' && (
-          <Badge className="bg-sky-100 text-sky-800 border-0 text-[9px] py-0 px-1.5">Notas filtradas por período · lista de syncs por status</Badge>
+          <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300 border-0 text-[9px] py-0 px-1.5">Notas filtradas por período · lista de syncs por status</Badge>
         )}
       </div>
 
@@ -757,7 +758,7 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <div className="rounded-md border bg-muted/40 p-3">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total importadas</div>
-          <div className="mt-1 text-2xl font-bold tabular-nums text-emerald-600">{totalArquivosOk}</div>
+          <div className={cn('mt-1 text-2xl font-bold tabular-nums', TEXT.emerald)}>{totalArquivosOk}</div>
         </div>
         <div className="rounded-md border bg-muted/40 p-3">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Drive</div>
@@ -772,8 +773,8 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
         <div className="rounded-md border bg-muted/40 p-3">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Erros / Ignorados</div>
           <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-2xl font-bold tabular-nums text-red-600">{totalArquivosErro}</span>
-            <span className="text-sm text-slate-500">/ {totalArquivosIgnorados}</span>
+            <span className={cn('text-2xl font-bold tabular-nums', TEXT.red)}>{totalArquivosErro}</span>
+            <span className="text-sm text-muted-foreground">/ {totalArquivosIgnorados}</span>
           </div>
         </div>
       </div>
@@ -788,14 +789,14 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
             </div>
             <Badge className={cn(
               'text-[9px] py-0 px-1.5 border-0',
-              cliente?.nfeDistSyncStatus === 'ok' && 'bg-emerald-100 text-emerald-800',
-              cliente?.nfeDistSyncStatus === 'erro' && 'bg-red-100 text-red-800',
-              cliente?.nfeDistSyncStatus === 'aguardando' && 'bg-amber-100 text-amber-800',
-              !cliente?.nfeDistSyncStatus && 'bg-slate-100 text-slate-800',
+              cliente?.nfeDistSyncStatus === 'ok' && 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+              cliente?.nfeDistSyncStatus === 'erro' && 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+              cliente?.nfeDistSyncStatus === 'aguardando' && 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+              !cliente?.nfeDistSyncStatus && 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
             )}>{cliente?.nfeDistEnabled ? nfeStatus.label : 'Desabilitado'}</Badge>
           </div>
           <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-2xl font-bold tabular-nums text-violet-600">{resumoView?.totalNfe ?? 0}</span>
+            <span className={cn('text-2xl font-bold tabular-nums', TEXT.violet)}>{resumoView?.totalNfe ?? 0}</span>
             <span className="text-[11px] text-muted-foreground">nota(s) baixada(s)</span>
           </div>
           <div className="grid grid-cols-2 gap-2 text-[11px] border-t border-border pt-2">
@@ -818,21 +819,21 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
             </div>
             <Badge className={cn(
               'text-[9px] py-0 px-1.5 border-0',
-              cliente?.nfseDistSyncStatus === 'ok' && 'bg-emerald-100 text-emerald-800',
-              cliente?.nfseDistSyncStatus === 'erro' && 'bg-red-100 text-red-800',
-              cliente?.nfseDistSyncStatus === 'aguardando' && 'bg-amber-100 text-amber-800',
-              !cliente?.nfseDistSyncStatus && 'bg-slate-100 text-slate-800',
+              cliente?.nfseDistSyncStatus === 'ok' && 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+              cliente?.nfseDistSyncStatus === 'erro' && 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+              cliente?.nfseDistSyncStatus === 'aguardando' && 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+              !cliente?.nfseDistSyncStatus && 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
             )}>{cliente?.nfseDistEnabled ? nfseStatus.label : 'Desabilitado'}</Badge>
           </div>
           {/* Separado por direção: Tomadas (o CNPJ é tomador) × Prestadas (é prestador) */}
           <div className="flex items-stretch gap-2 mb-2">
             <div className="flex-1 rounded border border-emerald-200/60 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 px-2.5 py-1.5">
               <div className="text-[10px] uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">Tomadas</div>
-              <div className="text-xl font-bold tabular-nums text-emerald-600 leading-tight">{resumoView?.nfseTomadas ?? 0}</div>
+              <div className={cn('text-xl font-bold tabular-nums leading-tight', TEXT.emerald)}>{resumoView?.nfseTomadas ?? 0}</div>
             </div>
             <div className="flex-1 rounded border border-sky-200/60 dark:border-sky-900/40 bg-sky-50/40 dark:bg-sky-950/20 px-2.5 py-1.5">
               <div className="text-[10px] uppercase tracking-wider text-sky-700/80 dark:text-sky-300/80">Prestadas</div>
-              <div className="text-xl font-bold tabular-nums text-sky-600 leading-tight">{resumoView?.nfsePrestadas ?? 0}</div>
+              <div className={cn('text-xl font-bold tabular-nums leading-tight', TEXT.sky)}>{resumoView?.nfsePrestadas ?? 0}</div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 text-[11px] border-t border-border pt-2">
@@ -899,19 +900,19 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
                         <td className="px-3 py-2">{fonteBadge(log.tipo)}</td>
                         <td className="px-3 py-2">{tipoLabel(log.tipo)}</td>
                         <td className="px-3 py-2 text-center">{log.arquivosVistos}</td>
-                        <td className={cn('px-3 py-2 text-center font-semibold', log.arquivosOk > 0 && 'text-emerald-600')}>
+                        <td className={cn('px-3 py-2 text-center font-semibold', log.arquivosOk > 0 && TEXT.emerald)}>
                           {log.arquivosOk}
                         </td>
-                        <td className={cn('px-3 py-2 text-center', log.arquivosIgnorados > 0 && 'text-slate-500')}>
+                        <td className={cn('px-3 py-2 text-center', log.arquivosIgnorados > 0 && 'text-muted-foreground')}>
                           {log.arquivosIgnorados}
                         </td>
-                        <td className={cn('px-3 py-2 text-center', log.arquivosErro > 0 && 'font-semibold text-red-600')}>
+                        <td className={cn('px-3 py-2 text-center', log.arquivosErro > 0 && cn('font-semibold', TEXT.red))}>
                           {log.arquivosErro}
                         </td>
                         <td className="px-3 py-2 text-center">
-                          {log.status === 'completed' && <CheckCircle2 className="mx-auto h-4 w-4 text-emerald-600" />}
-                          {log.status === 'error' && <AlertCircle className="mx-auto h-4 w-4 text-red-600" />}
-                          {log.status === 'running' && <Loader2 className="mx-auto h-4 w-4 animate-spin text-sky-600" />}
+                          {log.status === 'completed' && <CheckCircle2 className={cn('mx-auto h-4 w-4', TEXT.emerald)} />}
+                          {log.status === 'error' && <AlertCircle className={cn('mx-auto h-4 w-4', TEXT.red)} />}
+                          {log.status === 'running' && <Loader2 className={cn('mx-auto h-4 w-4 animate-spin', TEXT.sky)} />}
                         </td>
                       </tr>
                       {aberto && (
@@ -924,7 +925,7 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
                               <span>Início: <b className="text-foreground">{new Date(log.iniciadoEm).toLocaleString('pt-BR')}</b></span>
                               {log.finalizadoEm && <span>Fim: <b className="text-foreground">{new Date(log.finalizadoEm).toLocaleString('pt-BR')}</b></span>}
                               {dur != null && <span>Duração: <b className="text-foreground">{(dur / 1000).toFixed(1)}s</b></span>}
-                              <span>Novos: <b className="text-emerald-600">{log.arquivosOk}</b> · Ign.: <b className="text-slate-500">{log.arquivosIgnorados}</b> · Erros: <b className="text-red-600">{log.arquivosErro}</b></span>
+                              <span>Novos: <b className={TEXT.emerald}>{log.arquivosOk}</b> · Ign.: <b className="text-muted-foreground">{log.arquivosIgnorados}</b> · Erros: <b className={TEXT.red}>{log.arquivosErro}</b></span>
                             </div>
                             {log.erroMensagem && (
                               <div className="mb-2 rounded border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
@@ -942,15 +943,15 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
                                     <span className="w-6 shrink-0 text-right tabular-nums text-muted-foreground">{i + 1}</span>
                                     <Badge className={cn(
                                       'shrink-0 border-0 text-[9px] py-0 px-1.5',
-                                      it.status === 'ok' && 'bg-emerald-100 text-emerald-800',
-                                      it.status === 'duplicado' && 'bg-slate-100 text-slate-700',
-                                      it.status === 'ignorado' && 'bg-amber-100 text-amber-800',
-                                      it.status === 'erro' && 'bg-red-100 text-red-800',
+                                      it.status === 'ok' && 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+                                      it.status === 'duplicado' && 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+                                      it.status === 'ignorado' && 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+                                      it.status === 'erro' && 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
                                     )}>
                                       {it.status === 'ok' ? 'Novo' : it.status === 'duplicado' ? 'Duplicado' : it.status === 'ignorado' ? 'Ignorado' : 'Erro'}
                                     </Badge>
                                     <span className="truncate text-foreground" title={it.nome}>{it.nome}</span>
-                                    {it.erro && <span className="truncate text-red-600/80" title={it.erro}>— {it.erro}</span>}
+                                    {it.erro && <span className="truncate text-red-600/80 dark:text-red-400/80" title={it.erro}>— {it.erro}</span>}
                                   </div>
                                 ))}
                               </div>
@@ -988,7 +989,7 @@ function CertPicker({ certsA1, certA1Ativo, selectedId, onSelect, aviso }: {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-950/40">
         <div className="flex items-start gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+          <AlertCircle className={cn('h-4 w-4 shrink-0 mt-0.5', TEXT.amber)} />
           <div className="text-[11px] text-amber-900 dark:text-amber-200">
             <div className="font-semibold">Certificado A1 não vinculado</div>
             <p className="mt-0.5">{aviso}</p>
@@ -1001,7 +1002,7 @@ function CertPicker({ certsA1, certA1Ativo, selectedId, onSelect, aviso }: {
     return (
       <div className="rounded-md border border-emerald-200/60 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900/40 p-3">
         <div className="flex items-center gap-2 text-[11px] text-emerald-900 dark:text-emerald-200">
-          <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+          <ShieldCheck className={cn('h-3.5 w-3.5 shrink-0', TEXT.emerald)} />
           <span><b>Certificado A1:</b> {certA1Ativo.descricao} · válido até {certA1Ativo.expiraEm}</span>
         </div>
       </div>
@@ -1010,7 +1011,7 @@ function CertPicker({ certsA1, certA1Ativo, selectedId, onSelect, aviso }: {
   return (
     <div className="rounded-md border border-emerald-200/60 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900/40 p-3">
       <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-emerald-900 dark:text-emerald-200">
-        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+        <ShieldCheck className={cn('h-3.5 w-3.5 shrink-0', TEXT.emerald)} />
         Certificado para a captura · {certsA1.length} vinculados
       </div>
       <select
