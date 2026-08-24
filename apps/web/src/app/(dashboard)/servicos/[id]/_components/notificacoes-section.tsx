@@ -845,7 +845,7 @@ export function NotificacoesSection({
               <div className="col-span-12 md:col-span-4 space-y-1.5">
                 <Label className="text-[13px] font-semibold">Variáveis disponíveis</Label>
                 <p className="text-[10.5px] text-muted-foreground">Clique para copiar e cole no editor.</p>
-                <div className="border rounded bg-muted/30 max-h-[260px] overflow-y-auto p-1.5 space-y-0.5">
+                <div className="border rounded bg-muted/30 max-h-[260px] overflow-y-auto nice-scrollbar p-1.5 space-y-0.5">
                   {NOTIFICACAO_VARIAVEIS.map(v => (
                     <button
                       key={v.key}

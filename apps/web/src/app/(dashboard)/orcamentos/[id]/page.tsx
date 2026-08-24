@@ -2627,7 +2627,7 @@ export default function OrcamentoDetailPage() {
               {!orc.eventos?.length ? (
                 <div className="px-5 py-8 text-center text-xs text-muted-foreground">Nenhum evento registrado ainda</div>
               ) : (
-                <div className="max-h-[640px] overflow-y-auto px-2 sm:px-6 py-8">
+                <div className="max-h-[640px] overflow-y-auto nice-scrollbar px-2 sm:px-6 py-8">
                   {/* Timeline central: espinha colorida no meio + eventos alternando
                       lados (zig-zag), cada nó com dot/conector na cor do tipo. */}
                   <div className="relative mx-auto w-full max-w-3xl">
