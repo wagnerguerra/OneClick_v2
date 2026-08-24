@@ -875,7 +875,7 @@ function CalendarioExpandido(props: {
                                 )}>
                                   {c.tipo === 'aniversario'
                                     ? <Cake className="h-2.5 w-2.5 text-pink-600 dark:text-pink-400" />
-                                    : <PartyPopper className="h-2.5 w-2.5 text-teal-600 dark:text-teal-400" />}
+                                    : <PartyPopper className={cn('h-2.5 w-2.5', TEXT.teal)} />}
                                 </div>
                               )}
                               <span className="text-[10px] font-semibold truncate uppercase tracking-tight">
