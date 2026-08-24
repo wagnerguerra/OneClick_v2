@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { Button, Card, cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { BADGE, TEXT, BORDER, type ColorName } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -14,11 +15,11 @@ import { getApiUrl } from '@/lib/api-url'
 
 const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
 
-const STATUS_CHIP: Record<string, string> = {
-  AUTORIZADA: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300',
-  CANCELADA:  'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300',
-  DENEGADA:   'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300',
-  INUTILIZADA: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-950/30 dark:text-slate-300',
+const STATUS_TONE: Record<string, ColorName> = {
+  AUTORIZADA: 'emerald',
+  CANCELADA: 'rose',
+  DENEGADA: 'amber',
+  INUTILIZADA: 'slate',
 }
 
 function fmtBRL(v: string | number): string {
@@ -91,14 +92,14 @@ export default function DanfeDetalhePage() {
         <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-4 min-w-0">
-              <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 overflow-hidden shadow-lg" style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}>
+              <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-card overflow-hidden shadow-lg" style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}>
                 <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
               </div>
               <div className="min-w-0">
                 <h1 className="text-xl font-semibold uppercase truncate">NFe {danfe.numero}/{danfe.serie}</h1>
                 <p className="text-sm text-muted-foreground mt-0.5 font-mono">{danfe.chave}</p>
                 <div className="flex flex-wrap gap-2 mt-2.5">
-                  <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border', STATUS_CHIP[danfe.status] ?? STATUS_CHIP.AUTORIZADA)}>
+                  <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border', BADGE[STATUS_TONE[danfe.status] ?? 'emerald'])}>
                     {danfe.status}
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 px-3 py-1 text-xs font-medium uppercase border border-slate-200 dark:border-slate-700">
@@ -127,7 +128,7 @@ export default function DanfeDetalhePage() {
                 {regerando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                 Regerar PDF
               </Button>
-              <Button size="sm" variant="outline" onClick={handleDelete} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50">
+              <Button size="sm" variant="outline" onClick={handleDelete} className={cn('gap-1.5 hover:bg-rose-50', TEXT.rose, BORDER.rose)}>
                 <Trash2 className="h-3.5 w-3.5" /> Excluir
               </Button>
               <BackButton href="/danfe" />
@@ -177,7 +178,7 @@ export default function DanfeDetalhePage() {
           {danfe.lote && (
             <div>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Lote de origem</p>
-              <a href={`/danfe/lotes/${danfe.lote.id}`} className="text-[12px] text-sky-600 hover:underline">{danfe.lote.nome}</a>
+              <a href={`/danfe/lotes/${danfe.lote.id}`} className={cn('text-[12px] hover:underline', TEXT.sky)}>{danfe.lote.nome}</a>
             </div>
           )}
         </Card>

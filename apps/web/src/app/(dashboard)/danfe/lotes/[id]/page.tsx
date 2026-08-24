@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { BADGE, TEXT, BORDER, type ColorName } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -20,17 +21,17 @@ import { getApiUrl } from '@/lib/api-url'
 
 const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
 
-const ITEM_STATUS_CHIP: Record<string, string> = {
-  OK:         'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300',
-  DUPLICADO:  'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300',
-  INVALIDO:   'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300',
-  ERRO_PDF:   'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300',
+const ITEM_STATUS_TONE: Record<string, ColorName> = {
+  OK: 'emerald',
+  DUPLICADO: 'sky',
+  INVALIDO: 'amber',
+  ERRO_PDF: 'rose',
 }
 
-const STATUS_CHIP: Record<string, string> = {
-  PROCESSANDO: 'bg-sky-50 text-sky-700 border-sky-200',
-  CONCLUIDO:   'bg-emerald-50 text-emerald-700 border-emerald-200',
-  CANCELADO:   'bg-rose-50 text-rose-700 border-rose-200',
+const STATUS_TONE: Record<string, ColorName> = {
+  PROCESSANDO: 'sky',
+  CONCLUIDO: 'emerald',
+  CANCELADO: 'rose',
 }
 
 export default function LoteDetalhePage() {
@@ -103,14 +104,14 @@ export default function LoteDetalhePage() {
         <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-4 min-w-0">
-              <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 overflow-hidden shadow-lg" style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}>
+              <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-card overflow-hidden shadow-lg" style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}>
                 <History className="h-10 w-10" style={{ color: MODULE_COLOR }} />
               </div>
               <div className="min-w-0">
                 <h1 className="text-xl font-semibold uppercase truncate">{lote.nome}</h1>
                 <p className="text-sm text-muted-foreground mt-0.5">Lote · {new Date(lote.iniciadoEm).toLocaleString('pt-BR')}</p>
                 <div className="flex flex-wrap gap-2 mt-2.5">
-                  <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border', STATUS_CHIP[lote.status])}>
+                  <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border', BADGE[STATUS_TONE[lote.status] ?? 'slate'])}>
                     {lote.status === 'PROCESSANDO' && <Loader2 className="h-3 w-3 animate-spin" />}
                     {lote.status}
                   </span>
@@ -145,7 +146,7 @@ export default function LoteDetalhePage() {
                 </Button>
               )}
               {lote.status === 'PROCESSANDO' && (
-                <Button size="sm" variant="outline" onClick={handleCancelar} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50">
+                <Button size="sm" variant="outline" onClick={handleCancelar} className={cn('gap-1.5 hover:bg-rose-50', TEXT.rose, BORDER.rose)}>
                   <X className="h-3.5 w-3.5" /> Cancelar
                 </Button>
               )}
@@ -195,7 +196,7 @@ export default function LoteDetalhePage() {
                   ) : <span className="text-[10px] text-muted-foreground italic">—</span>}
                 </TableCell>
                 <TableCell>
-                  <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border', ITEM_STATUS_CHIP[item.status])}>
+                  <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border', BADGE[ITEM_STATUS_TONE[item.status] ?? 'slate'])}>
                     {item.status}
                   </span>
                 </TableCell>

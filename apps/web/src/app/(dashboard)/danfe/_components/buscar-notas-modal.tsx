@@ -178,7 +178,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input placeholder="Buscar cliente ou CNPJ..." value={busca} onChange={(e) => setBusca(e.target.value)} className="h-9 pl-8 text-sm" />
               </div>
-              <div className="rounded-lg border border-border divide-y divide-border max-h-[280px] overflow-y-auto">
+              <div className="rounded-lg border border-border divide-y divide-border max-h-[280px] overflow-y-auto nice-scrollbar">
                 {loading ? (
                   <div className="flex items-center justify-center py-10 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
                 ) : filtrados.length === 0 ? (

@@ -14,6 +14,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BuscarNotasModal } from './_components/buscar-notas-modal'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -312,7 +313,7 @@ function UploadModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
           >
             <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
             <p className="text-sm font-medium">Arraste arquivos aqui ou</p>
-            <label className="text-xs text-sky-600 cursor-pointer hover:underline">
+            <label className={cn('text-xs cursor-pointer hover:underline', TEXT.sky)}>
               clique para selecionar
               <input type="file" multiple accept=".xml,.zip" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
             </label>

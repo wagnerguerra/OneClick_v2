@@ -15,6 +15,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { STRONG, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -61,13 +62,13 @@ interface DocumentoRow {
 /** Texto + cor pro badge de origem. */
 function origemBadge(origem: OrigemNota): { label: string; classes: string; title: string } {
   switch (origem) {
-    case 'drive':           return { label: 'Drive',     classes: 'bg-sky-100 text-sky-700',         title: 'Importado do Google Drive' }
-    case 'local':           return { label: 'Pasta',     classes: 'bg-amber-100 text-amber-800',     title: 'Importado da pasta local do PC' }
-    case 'nfe-sefaz':       return { label: 'SEFAZ',     classes: 'bg-violet-100 text-violet-700',   title: 'Baixado da API NFeDistribuicaoDFe da SEFAZ' }
-    case 'nfse-adn':        return { label: 'ADN',       classes: 'bg-emerald-100 text-emerald-700', title: 'Baixado do ADN gov.br (NFS-e Nacional)' }
-    case 'nfse-municipal':  return { label: 'Municipal', classes: 'bg-teal-100 text-teal-700',       title: 'NFS-e em leiaute municipal' }
-    case 'lote':            return { label: 'Lote',      classes: 'bg-indigo-100 text-indigo-700',   title: 'Upload em lote de XMLs' }
-    case 'manual':          return { label: 'Manual',    classes: 'bg-slate-100 text-slate-700',     title: 'Upload manual direto' }
+    case 'drive':           return { label: 'Drive',     classes: STRONG.sky,     title: 'Importado do Google Drive' }
+    case 'local':           return { label: 'Pasta',     classes: STRONG.amber,   title: 'Importado da pasta local do PC' }
+    case 'nfe-sefaz':       return { label: 'SEFAZ',     classes: STRONG.violet,  title: 'Baixado da API NFeDistribuicaoDFe da SEFAZ' }
+    case 'nfse-adn':        return { label: 'ADN',       classes: STRONG.emerald, title: 'Baixado do ADN gov.br (NFS-e Nacional)' }
+    case 'nfse-municipal':  return { label: 'Municipal', classes: STRONG.teal,    title: 'NFS-e em leiaute municipal' }
+    case 'lote':            return { label: 'Lote',      classes: 'bg-indigo-100 text-indigo-700', title: 'Upload em lote de XMLs (cor do módulo Fiscal — retingida por .mod-fiscal)' }
+    case 'manual':          return { label: 'Manual',    classes: STRONG.slate,   title: 'Upload manual direto' }
   }
 }
 
@@ -666,12 +667,12 @@ export default function DanfeGaleriaPage() {
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold flex items-center gap-1.5 min-w-0">
                         {TipoIcon && (
-                          <TipoIcon className={cn('h-3 w-3 shrink-0', ativo ? 'text-white' : isEntrada ? 'text-emerald-600' : 'text-sky-600')} />
+                          <TipoIcon className={cn('h-3 w-3 shrink-0', ativo ? 'text-white' : isEntrada ? TEXT.emerald : TEXT.sky)} />
                         )}
                         <Badge className={cn(
                           'text-[8px] py-0 px-1 border-0 shrink-0',
                           ativo ? 'bg-white/20 text-white' :
-                            d.tipoDoc === 'nfe' ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700',
+                            d.tipoDoc === 'nfe' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200',
                         )}>
                           {d.tipoDoc === 'nfe' ? 'NFe' : 'NFS-e'}
                         </Badge>
@@ -679,7 +680,7 @@ export default function DanfeGaleriaPage() {
                       </span>
                       <Badge className={cn(
                         'text-[9px] py-0 px-1 border-0 shrink-0',
-                        ativo ? 'bg-white/20 text-white' : STATUS_COLOR[d.status] ?? 'bg-slate-100',
+                        ativo ? 'bg-white/20 text-white' : STATUS_COLOR[d.status] ?? 'bg-muted',
                       )}>
                         {d.status}
                       </Badge>
@@ -692,7 +693,7 @@ export default function DanfeGaleriaPage() {
                         {(() => {
                           const o = origemBadge(d.origem)
                           return (
-                            <Badge className={cn('text-[8px] py-0 px-1 border-0', ativo ? 'bg-white/20 text-white' : o.classes)} title={o.title}>
+                            <Badge variant="outline" className={cn('text-[8px] py-0 px-1 border-0', ativo ? 'bg-white/20 text-white' : o.classes)} title={o.title}>
                               {o.label}
                             </Badge>
                           )
@@ -762,7 +763,7 @@ export default function DanfeGaleriaPage() {
                     <div className="text-sm font-semibold truncate flex items-center gap-2">
                       <Badge className={cn(
                         'text-[9px] py-0 px-1.5 border-0',
-                        selecionado.tipoDoc === 'nfe' ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700',
+                        selecionado.tipoDoc === 'nfe' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200',
                       )}>
                         {selecionado.tipoDoc === 'nfe' ? 'NFe' : 'NFS-e'}
                       </Badge>
@@ -770,11 +771,11 @@ export default function DanfeGaleriaPage() {
                       {selecionado.serie && <span className="text-muted-foreground"> — Série {selecionado.serie}</span>}
                       {selecionado.tipoDoc === 'nfse' && (
                         selecionado.pdfOficial ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[9px] py-0 px-1.5 flex items-center gap-1" title="DANFSe v1.0 oficial baixado da API gov.br — QR de verificação assinado pela União">
+                          <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200 border-0 text-[9px] py-0 px-1.5 flex items-center gap-1" title="DANFSe v1.0 oficial baixado da API gov.br — QR de verificação assinado pela União">
                             <ShieldCheck className="h-2.5 w-2.5" /> Oficial
                           </Badge>
                         ) : (
-                          <Badge className="bg-sky-100 text-sky-700 border-0 text-[9px] py-0 px-1.5 flex items-center gap-1" title="DANFSe local seguindo NT 008/2026 (layout v1.0). Clique em ↻ pra tentar baixar o oficial quando a API gov.br voltar.">
+                          <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-200 border-0 text-[9px] py-0 px-1.5 flex items-center gap-1" title="DANFSe local seguindo NT 008/2026 (layout v1.0). Clique em ↻ pra tentar baixar o oficial quando a API gov.br voltar.">
                             <AlertTriangle className="h-2.5 w-2.5" /> Local NT 008
                           </Badge>
                         )

@@ -15,6 +15,7 @@ import {
   Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
@@ -49,9 +50,9 @@ interface Regra {
 }
 
 const TIPO_LABELS: Record<string, { label: string; color: string }> = {
-  PRIORIDADE: { label: 'Prioridade', color: 'bg-sky-100 text-sky-800 border-sky-200' },
-  RELEVANCIA: { label: 'Relevância', color: 'bg-amber-100 text-amber-800 border-amber-200' },
-  DESCONSIDERAR: { label: 'Desconsiderar', color: 'bg-gray-100 text-gray-600 border-gray-200' },
+  PRIORIDADE: { label: 'Prioridade', color: 'bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900 dark:text-sky-200 dark:border-sky-700' },
+  RELEVANCIA: { label: 'Relevância', color: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700' },
+  DESCONSIDERAR: { label: 'Desconsiderar', color: 'bg-muted text-muted-foreground border-border' },
 }
 
 const EMPTY_FORM: Omit<Regra, 'id'> = {
@@ -477,7 +478,7 @@ export default function CaixaPostalRegrasPage() {
                     {configEditing ? (
                       <>
                         <Button variant="ghost" size="sm" onClick={() => { setConfigEditing(false); setConfigDraft(null) }} className="text-[11px] h-7">Cancelar</Button>
-                        <Button variant="outline" size="sm" onClick={handleResetConfig} className="text-[11px] h-7 gap-1 text-amber-600">
+                        <Button variant="outline" size="sm" onClick={handleResetConfig} className={cn('text-[11px] h-7 gap-1', TEXT.amber)}>
                           <RotateCcw className="h-3 w-3" />Restaurar padrões
                         </Button>
                         <Button variant="success" size="sm" onClick={handleSaveConfig} disabled={configSaving} className="text-[11px] h-7 gap-1">
@@ -541,9 +542,9 @@ export default function CaixaPostalRegrasPage() {
                         </div>
                         <div className="space-y-1">
                           {([
-                            { label: 'Prazo vencido (≤ 0 dias)', field: 'vencido' as const, color: 'bg-red-50 text-red-700 border-red-200' },
-                            { label: 'Prazo urgente (1–3 dias)', field: 'urgente' as const, color: 'bg-orange-50 text-orange-700 border-orange-200' },
-                            { label: 'Prazo próximo (4–10 dias)', field: 'proximo' as const, color: 'bg-amber-50 text-amber-700 border-amber-200' },
+                            { label: 'Prazo vencido (≤ 0 dias)', field: 'vencido' as const, color: BADGE.red },
+                            { label: 'Prazo urgente (1–3 dias)', field: 'urgente' as const, color: BADGE.orange },
+                            { label: 'Prazo próximo (4–10 dias)', field: 'proximo' as const, color: BADGE.amber },
                             { label: 'Prazo válido (> 10 dias)', field: 'valido' as const, color: '' },
                           ]).map(item => (
                             <div key={item.field} className="flex items-center justify-between text-[11px]">
@@ -565,7 +566,7 @@ export default function CaixaPostalRegrasPage() {
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-[11px]">
                             <span className="text-muted-foreground">Alta relevância (API)</span>
-                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                            <Badge variant="outline" className={cn('text-[10px]', BADGE.amber)}>
                               <ScoreInput value={cfg.relevance.alta} onChange={v => updateDraft('relevance', { ...cfg.relevance, alta: v })} />
                             </Badge>
                           </div>
@@ -589,7 +590,7 @@ export default function CaixaPostalRegrasPage() {
                           </div>
                           <div className="flex items-center justify-between text-[11px]">
                             <span className="text-muted-foreground">Não lida + prazo urgente</span>
-                            <Badge variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200">
+                            <Badge variant="outline" className={cn('text-[10px]', BADGE.red)}>
                               <ScoreInput value={cfg.unread.prazoUrgente} onChange={v => updateDraft('unread', { ...cfg.unread, prazoUrgente: v })} />
                             </Badge>
                           </div>
@@ -662,9 +663,9 @@ export default function CaixaPostalRegrasPage() {
                     <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Ações Recomendadas por Prioridade</h4>
                     <div className="space-y-2">
                       {([
-                        { key: 'P0' as const, color: 'bg-red-50 text-red-700 border-red-200' },
-                        { key: 'P1' as const, color: 'bg-orange-50 text-orange-700 border-orange-200' },
-                        { key: 'P2' as const, color: 'bg-amber-50 text-amber-700 border-amber-200' },
+                        { key: 'P0' as const, color: BADGE.red },
+                        { key: 'P1' as const, color: BADGE.orange },
+                        { key: 'P2' as const, color: BADGE.amber },
                         { key: 'P3' as const, color: '' },
                       ]).map(item => (
                         <div key={item.key} className="flex items-start gap-2 text-[11px]">
@@ -743,11 +744,11 @@ export default function CaixaPostalRegrasPage() {
                   <TableCell className="hidden lg:table-cell">
                     <div className="flex flex-wrap gap-1">
                       {acoes.length === 0 && <span className="text-[10px] text-muted-foreground">—</span>}
-                      {acoes.map(a => <Badge key={a} variant="outline" className="text-[9px] bg-sky-50 text-sky-700 border-sky-200">{a}</Badge>)}
+                      {acoes.map(a => <Badge key={a} variant="outline" className={cn('text-[9px]', BADGE.sky)}>{a}</Badge>)}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <button onClick={() => handleToggleAtivo(r)} className={cn('h-4 w-4 rounded-full border-2 transition-colors', r.ativo ? 'bg-emerald-500 border-emerald-500' : 'bg-transparent border-gray-300')} />
+                    <button onClick={() => handleToggleAtivo(r)} className={cn('h-4 w-4 rounded-full border-2 transition-colors', r.ativo ? 'bg-emerald-500 border-emerald-500' : 'bg-transparent border-border')} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">

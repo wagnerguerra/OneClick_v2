@@ -15,13 +15,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import {
   Clock, CheckCircle2, AlertCircle, XCircle, Loader2, RefreshCw,
-  ArrowLeft, Calendar, Activity, Users, Hourglass,
+  Calendar, Activity, Users, Hourglass,
   Receipt, Briefcase, Save, Power, PlayCircle, Settings,
 } from 'lucide-react'
 import { Button, Card, cn, Badge, Input } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -165,11 +166,7 @@ export default function AgendamentoPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Link href="/danfe">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <ArrowLeft className="h-3.5 w-3.5" /> Voltar
-            </Button>
-          </Link>
+          <BackButton href="/danfe" />
           <Button
             variant="outline"
             size="sm"
@@ -222,7 +219,7 @@ export default function AgendamentoPage() {
               label="Cron diário"
               valor={status.enabled ? 'Ativo' : 'Desligado'}
               sub={`${status.cronExpressao} (${status.timezone})`}
-              colorClass={status.enabled ? 'text-emerald-600' : 'text-muted-foreground'}
+              colorClass={status.enabled ? TEXT.emerald : 'text-muted-foreground'}
             />
             <KpiCard
               icon={Hourglass}
@@ -263,7 +260,7 @@ export default function AgendamentoPage() {
                     <span className="font-mono text-[12px]">
                       {status.ultimaExecucao.sucesso}/{status.ultimaExecucao.totalClientes} OK
                       {status.ultimaExecucao.erros > 0 && (
-                        <span className="text-rose-600 ml-1">· {status.ultimaExecucao.erros} erro(s)</span>
+                        <span className={cn('ml-1', TEXT.rose)}>· {status.ultimaExecucao.erros} erro(s)</span>
                       )}
                     </span>
                     <span>·</span>
