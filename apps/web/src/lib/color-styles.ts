@@ -41,6 +41,7 @@ export type ColorName =
   | 'lime'
   | 'violet'
   | 'cyan'
+  | 'teal'
   | 'fuchsia'
   | 'orange'
   | 'blue'
@@ -58,6 +59,7 @@ export const BADGE: Record<ColorName, string> = {
   lime: 'bg-lime-50 text-lime-700 border-lime-200 dark:bg-lime-950/30 dark:text-lime-400 dark:border-lime-800',
   violet: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-800',
   cyan: 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/30 dark:text-cyan-400 dark:border-cyan-800',
+  teal: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-400 dark:border-teal-800',
   fuchsia: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-950/30 dark:text-fuchsia-400 dark:border-fuchsia-800',
   orange: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-400 dark:border-orange-800',
   blue: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800',
@@ -80,6 +82,7 @@ export const STRONG: Record<ColorName, string> = {
   lime: 'bg-lime-100 text-lime-700 border-lime-200 dark:bg-lime-900 dark:text-lime-200 dark:border-lime-700',
   violet: 'bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900 dark:text-violet-200 dark:border-violet-700',
   cyan: 'bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-900 dark:text-cyan-200 dark:border-cyan-700',
+  teal: 'bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900 dark:text-teal-200 dark:border-teal-700',
   fuchsia: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-900 dark:text-fuchsia-200 dark:border-fuchsia-700',
   orange: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700',
   blue: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700',
@@ -98,6 +101,7 @@ export const TEXT: Record<ColorName, string> = {
   lime: 'text-lime-600 dark:text-lime-400',
   violet: 'text-violet-600 dark:text-violet-400',
   cyan: 'text-cyan-600 dark:text-cyan-400',
+  teal: 'text-teal-600 dark:text-teal-400',
   fuchsia: 'text-fuchsia-600 dark:text-fuchsia-400',
   orange: 'text-orange-600 dark:text-orange-400',
   blue: 'text-blue-600 dark:text-blue-400',
@@ -116,6 +120,7 @@ export const SURFACE: Record<ColorName, string> = {
   lime: 'bg-lime-50 border-lime-200 dark:bg-lime-950/30 dark:border-lime-800',
   violet: 'bg-violet-50 border-violet-200 dark:bg-violet-950/30 dark:border-violet-800',
   cyan: 'bg-cyan-50 border-cyan-200 dark:bg-cyan-950/30 dark:border-cyan-800',
+  teal: 'bg-teal-50 border-teal-200 dark:bg-teal-950/30 dark:border-teal-800',
   fuchsia: 'bg-fuchsia-50 border-fuchsia-200 dark:bg-fuchsia-950/30 dark:border-fuchsia-800',
   orange: 'bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-800',
   blue: 'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800',
@@ -134,6 +139,7 @@ export const BORDER: Record<ColorName, string> = {
   lime: 'border-lime-200 dark:border-lime-800',
   violet: 'border-violet-200 dark:border-violet-800',
   cyan: 'border-cyan-200 dark:border-cyan-800',
+  teal: 'border-teal-200 dark:border-teal-800',
   fuchsia: 'border-fuchsia-200 dark:border-fuchsia-800',
   orange: 'border-orange-200 dark:border-orange-800',
   blue: 'border-blue-200 dark:border-blue-800',
@@ -152,6 +158,7 @@ export const DOT: Record<ColorName, string> = {
   lime: 'bg-lime-500',
   violet: 'bg-violet-500',
   cyan: 'bg-cyan-500',
+  teal: 'bg-teal-500',
   fuchsia: 'bg-fuchsia-500',
   orange: 'bg-orange-500',
   blue: 'bg-blue-500',
