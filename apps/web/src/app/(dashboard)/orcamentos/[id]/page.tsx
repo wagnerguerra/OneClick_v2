@@ -3070,7 +3070,7 @@ export default function OrcamentoDetailPage() {
                 </span>
                 <div className="min-w-0">
                   <p className="text-xs text-muted-foreground">Datas importantes</p>
-                  <p className="truncate text-base font-bold text-foreground">{(() => { const n = [orc.createdAt, orc.dtEnviado, orc.dtAprovado, orc.dtLiberado, orc.dtFinalizado, orc.dtEncerrado, orc.dtCancelado].filter(Boolean).length; return `${n} ${n === 1 ? 'marco' : 'marcos'}` })()}</p>
+                  <p className="truncate text-base font-bold text-foreground">{(() => { const marcos = [orc.createdAt, orc.dtEnviado, orc.dtAprovado, orc.dtLiberado, orc.dtFinalizado, orc.dtEncerrado, orc.dtCancelado].filter(Boolean).length; const reab = (orc.eventos ?? []).filter((e: any) => e.tipo === 'reabertura').length; const n = marcos + reab; return `${n} ${n === 1 ? 'marco' : 'marcos'}` })()}</p>
                 </div>
               </div>
               <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
@@ -3106,6 +3106,24 @@ export default function OrcamentoDetailPage() {
               if (dFinalizado) events.push({ key: 'dtFinalizado', label: 'Finalizado', valor: dFinalizado, dotColor: STATUS_COLORS.FINALIZADO!, campo: 'dtFinalizado' })
               if (dEncerrado) events.push({ key: 'dtEncerrado', label: 'Encerrado', valor: dEncerrado, dotColor: STATUS_COLORS.ENCERRADO!, campo: 'dtEncerrado' })
               if (dCancelado) events.push({ key: 'dtCancelado', label: 'Cancelado', valor: dCancelado, dotColor: '#ef4444', campo: 'dtCancelado' })
+
+              // Reaberturas também são marcos datados (aparecem no header e na timeline;
+              // faltavam aqui). Cada uma é um evento do histórico (orc.eventos tipo
+              // 'reabertura'); entra na posição cronológica, sem edição (a data vem do
+              // histórico, não de uma coluna dtX). Ordenamos por data e mantemos "Criado"
+              // sempre no topo.
+              const reaberturas: TimelineEvent[] = (orc.eventos ?? [])
+                .filter((e: any) => e.tipo === 'reabertura')
+                .map((e: any) => ({ key: `reabertura-${e.id}`, label: 'Reabertura', valor: e.createdAt, dotColor: EVENT_META.reabertura!.color }))
+              for (const r of reaberturas) {
+                const t = new Date(r.valor).getTime()
+                let idx = events.length
+                for (let i = 1; i < events.length; i++) {
+                  const ev = events[i]
+                  if (ev && new Date(ev.valor).getTime() > t) { idx = i; break }
+                }
+                events.splice(idx, 0, r)
+              }
 
               return (
                 <div className="flex flex-col">
