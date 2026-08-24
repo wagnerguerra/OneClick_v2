@@ -21,6 +21,7 @@ import {
   Sheet, SheetContent, SheetTitle,
   sanitizeInlineTextColors,
   RichContent,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
@@ -435,7 +436,7 @@ function EmailChipsInput({ value, onChange, suggestions, placeholder }: {
 // Renderiza um marker (bolinha colorida) + linha conectora + label/data
 // empilhados verticalmente. Inline edit nativo via <input type="date">.
 function TimelineDateRow({
-  label, valor, dotColor, canEdit, isLast, onSave,
+  label, valor, dotColor, canEdit, isLast, onSave, comHora, editadoPor, originalIso, nota,
 }: {
   label: string
   valor: string | null | undefined
@@ -443,6 +444,16 @@ function TimelineDateRow({
   canEdit: boolean
   isLast: boolean
   onSave?: (valor: string | null) => Promise<void> | void
+  // Quando o valor carrega horário significativo (ex.: reabertura ou marco não
+  // editado, vindo de createdAt/status_change), exibe "dd/mm/aaaa · hh:mm".
+  comHora?: boolean
+  // Marco cuja data foi editada à mão: em vez da hora, mostra "Dt. editada por
+  // <nome>"; originalIso (momento imutável do status) vira tooltip no hover.
+  editadoPor?: string
+  originalIso?: string | null
+  // Linha auxiliar abaixo da data (ex.: no "Reaberto", se as datas dos marcos
+  // posteriores foram preservadas ou limpas).
+  nota?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -496,10 +507,39 @@ function TimelineDateRow({
               </div>
             ) : (
               <span className="text-[11px] text-muted-foreground tabular-nums">
-                {valor
-                  ? new Date(valor).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                  : '—'}
+                {valor ? (() => {
+                  const d = new Date(valor)
+                  const data = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                  if (editadoPor) {
+                    const notaEdicao = <span className="italic">Data editada por {editadoPor}</span>
+                    return (
+                      <>
+                        {data} ·{' '}
+                        {originalIso ? (
+                          <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help underline decoration-dotted underline-offset-2">{notaEdicao}</span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                Data original: {new Date(originalIso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span title="Data original não registrada">{notaEdicao}</span>
+                        )}
+                      </>
+                    )
+                  }
+                  return comHora
+                    ? `${data} · ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                    : data
+                })() : '—'}
               </span>
+            )}
+            {nota && !editing && (
+              <span className="mt-0.5 text-[10px] italic text-muted-foreground/80">{nota}</span>
             )}
           </div>
           {!editing && canEdit && (
@@ -1236,7 +1276,7 @@ export default function OrcamentoDetailPage() {
         'Reaberto',
         reabrirManterDatas
           ? 'Orçamento reaberto. As datas dos marcos foram preservadas.'
-          : 'Orçamento reaberto. As datas dos marcos posteriores foram limpas.',
+          : `Orçamento reaberto. As datas dos marcos posteriores a "${STATUS_LABELS[reabrirStatus] || reabrirStatus}" foram limpas.`,
       )
       fetchOrc(true)
     } catch (e) { alerts.error('Erro', (e as Error).message) }
@@ -3082,7 +3122,10 @@ export default function OrcamentoDetailPage() {
               // Monta a lista de eventos cronologicos (somente os que aconteceram).
               // A ordem segue o fluxo natural do orcamento — Criado sempre primeiro,
               // depois Cancelado/Encerrado encerram a timeline (visualmente no fim).
-              type TimelineEvent = { key: string; label: string; valor: string; dotColor: string; campo?: string }
+              // comHora: mostra a hora original (marco não editado / criado / reabertura).
+              // editadoPor + originalIso: marco cuja data foi editada à mão — exibe
+              // "Dt. editada por <nome>" e guarda o momento original (imutável) p/ tooltip.
+              type TimelineEvent = { key: string; label: string; valor: string; dotColor: string; campo?: string; comHora?: boolean; editadoPor?: string; originalIso?: string | null; nota?: string }
               // Fallback: quando a coluna de data dedicada (dtX) não foi gravada,
               // deriva a data do evento de status correspondente na timeline
               // (orc.eventos). Pega a ocorrência mais recente daquele status.
@@ -3091,6 +3134,26 @@ export default function OrcamentoDetailPage() {
                 if (!evs.length) return null
                 return evs.reduce((a: any, b: any) => (new Date(a.createdAt).getTime() >= new Date(b.createdAt).getTime() ? a : b)).createdAt
               }
+              // Rótulo com que o backend descreve a edição de cada campo (orcamento.service
+              // editarData) — usado para casar o evento 'edicao_data' ao marco certo.
+              const LABEL_EDICAO: Record<string, string> = {
+                dtEnviado: 'data de envio', dtAprovado: 'data de aprovacao', dtLiberado: 'data de liberacao',
+                dtFinalizado: 'data de finalizacao', dtEncerrado: 'data de encerramento', dtCancelado: 'data de cancelamento',
+              }
+              // Edições manuais do campo (eventos 'edicao_data' cuja descrição começa com
+              // o rótulo do campo), em ordem cronológica. Vazio se a data nunca foi editada.
+              const edicoesDoCampo = (campo: string) => {
+                const label = LABEL_EDICAO[campo]
+                if (!label) return [] as any[]
+                return (orc.eventos ?? [])
+                  .filter((e: any) => e.tipo === 'edicao_data' && typeof e.descricao === 'string' && e.descricao.startsWith(label))
+                  .slice()
+                  .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+              }
+              const STATUS_DE_CAMPO: Record<string, string> = {
+                dtEnviado: 'ENVIADO', dtAprovado: 'APROVADO', dtLiberado: 'LIBERADO',
+                dtFinalizado: 'FINALIZADO', dtEncerrado: 'ENCERRADO', dtCancelado: 'CANCELADO',
+              }
               const dEnviado = orc.dtEnviado ?? dataDoStatus('ENVIADO')
               const dAprovado = orc.dtAprovado ?? dataDoStatus('APROVADO')
               const dLiberado = orc.dtLiberado ?? dataDoStatus('LIBERADO')
@@ -3098,14 +3161,28 @@ export default function OrcamentoDetailPage() {
               const dEncerrado = orc.dtEncerrado ?? dataDoStatus('ENCERRADO')
               const dCancelado = orc.dtCancelado ?? dataDoStatus('CANCELADO')
               const events: TimelineEvent[] = [
-                { key: 'createdAt', label: 'Criado', valor: orc.createdAt, dotColor: STATUS_COLORS.NOVO || '#94a3b8' },
+                { key: 'createdAt', label: 'Criado', valor: orc.createdAt, dotColor: STATUS_COLORS.NOVO || '#94a3b8', comHora: true },
               ]
-              if (dEnviado) events.push({ key: 'dtEnviado', label: 'Enviado', valor: dEnviado, dotColor: STATUS_COLORS.ENVIADO!, campo: 'dtEnviado' })
-              if (dAprovado) events.push({ key: 'dtAprovado', label: 'Aprovado', valor: dAprovado, dotColor: STATUS_COLORS.APROVADO!, campo: 'dtAprovado' })
-              if (dLiberado) events.push({ key: 'dtLiberado', label: 'Liberado', valor: dLiberado, dotColor: STATUS_COLORS.LIBERADO!, campo: 'dtLiberado' })
-              if (dFinalizado) events.push({ key: 'dtFinalizado', label: 'Finalizado', valor: dFinalizado, dotColor: STATUS_COLORS.FINALIZADO!, campo: 'dtFinalizado' })
-              if (dEncerrado) events.push({ key: 'dtEncerrado', label: 'Encerrado', valor: dEncerrado, dotColor: STATUS_COLORS.ENCERRADO!, campo: 'dtEncerrado' })
-              if (dCancelado) events.push({ key: 'dtCancelado', label: 'Cancelado', valor: dCancelado, dotColor: '#ef4444', campo: 'dtCancelado' })
+              // Empurra um marco de status: se a data foi editada à mão, mostra o último
+              // autor (+ tooltip com o valor original); senão, mostra a hora original.
+              // Original = `de` da 1ª edição (gravado pelo backend, fonte primária);
+              // fallback = momento do status_change (edições antigas sem `de`).
+              const pushMarco = (key: string, label: string, valor: string, dotColor: string, campo: string) => {
+                const eds = edicoesDoCampo(campo)
+                if (eds.length) {
+                  const ultima = eds[eds.length - 1]
+                  const originalIso = (eds[0].de as string | null) ?? dataDoStatus(STATUS_DE_CAMPO[campo]!)
+                  events.push({ key, label, valor, dotColor, campo, editadoPor: ultima.usuario?.name ?? 'Sistema', originalIso })
+                } else {
+                  events.push({ key, label, valor, dotColor, campo, comHora: true })
+                }
+              }
+              if (dEnviado) pushMarco('dtEnviado', 'Enviado', dEnviado, STATUS_COLORS.ENVIADO!, 'dtEnviado')
+              if (dAprovado) pushMarco('dtAprovado', 'Aprovado', dAprovado, STATUS_COLORS.APROVADO!, 'dtAprovado')
+              if (dLiberado) pushMarco('dtLiberado', 'Liberado', dLiberado, STATUS_COLORS.LIBERADO!, 'dtLiberado')
+              if (dFinalizado) pushMarco('dtFinalizado', 'Finalizado', dFinalizado, STATUS_COLORS.FINALIZADO!, 'dtFinalizado')
+              if (dEncerrado) pushMarco('dtEncerrado', 'Encerrado', dEncerrado, STATUS_COLORS.ENCERRADO!, 'dtEncerrado')
+              if (dCancelado) pushMarco('dtCancelado', 'Cancelado', dCancelado, '#ef4444', 'dtCancelado')
 
               // Reaberturas também são marcos datados (aparecem no header e na timeline;
               // faltavam aqui). Cada uma é um evento do histórico (orc.eventos tipo
@@ -3114,7 +3191,21 @@ export default function OrcamentoDetailPage() {
               // sempre no topo.
               const reaberturas: TimelineEvent[] = (orc.eventos ?? [])
                 .filter((e: any) => e.tipo === 'reabertura')
-                .map((e: any) => ({ key: `reabertura-${e.id}`, label: 'Reabertura', valor: e.createdAt, dotColor: EVENT_META.reabertura!.color }))
+                .map((e: any) => {
+                  // A reabertura preserva ou limpa as datas dos marcos posteriores ao
+                  // status de destino (e.para) — o backend marca a preservação na
+                  // descrição ("datas dos marcos preservadas"). Nomeamos o status de
+                  // destino para o referencial ficar explícito.
+                  const preservou = typeof e.descricao === 'string' && e.descricao.includes('datas dos marcos preservadas')
+                  const destino = e.para ? (STATUS_LABELS[e.para] || e.para) : null
+                  return {
+                    key: `reabertura-${e.id}`, label: 'Reaberto', valor: e.createdAt,
+                    dotColor: EVENT_META.reabertura!.color, comHora: true,
+                    nota: preservou
+                      ? 'Datas dos marcos preservadas'
+                      : destino ? `Datas posteriores ao status "${destino}" limpas` : 'Datas dos marcos posteriores limpas',
+                  }
+                })
               for (const r of reaberturas) {
                 const t = new Date(r.valor).getTime()
                 let idx = events.length
@@ -3134,6 +3225,10 @@ export default function OrcamentoDetailPage() {
                       valor={ev.valor}
                       dotColor={ev.dotColor}
                       canEdit={!!ev.campo && canEditTimelineDates}
+                      comHora={ev.comHora}
+                      editadoPor={ev.editadoPor}
+                      originalIso={ev.originalIso}
+                      nota={ev.nota}
                       isLast={i === events.length - 1}
                       onSave={ev.campo ? (v) => handleEditarData(ev.campo!, v) : undefined}
                     />
@@ -3498,7 +3593,7 @@ export default function OrcamentoDetailPage() {
                   <div className="flex items-start gap-2 text-[11px] text-amber-700 bg-amber-50 dark:bg-amber-900/10 dark:text-amber-300 rounded p-3 border border-amber-200 dark:border-amber-900/30">
                     <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                     <div className="space-y-1">
-                      <p className="font-medium">Datas dos marcos posteriores serão limpas.</p>
+                      <p className="font-medium">Datas dos marcos posteriores a &quot;{STATUS_LABELS[reabrirStatus] || reabrirStatus}&quot; serão limpas.</p>
                       <p>Quando o orçamento avançar de novo no fluxo, os e-mails de notificação serão reenviados (envio ao cliente, aprovação, liberação, etc.).</p>
                     </div>
                   </div>
