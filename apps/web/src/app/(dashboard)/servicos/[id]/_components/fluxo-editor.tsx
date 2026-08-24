@@ -36,6 +36,7 @@ import {
   Network, Layers,
 } from 'lucide-react'
 import { Badge, Button, Input, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
@@ -344,7 +345,7 @@ function ExecucoesSection({ execucoes }: { execucoes: NonNullable<FluxoNode['exe
   return (
     <div className="px-3 py-2.5 border-t bg-emerald-50/30 dark:bg-emerald-950/15">
       <div className="flex items-center gap-1.5 mb-1.5">
-        <PlayCircle className="h-3 w-3 text-emerald-700" />
+        <PlayCircle className="h-3 w-3 text-emerald-700 dark:text-emerald-400" />
         <span className="text-[10px] font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
           Em execução — {execucoes.total}
         </span>
@@ -1947,12 +1948,12 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
       style={fullscreen ? undefined : { height: 600 }}
     >
       {totalOrfaos > 0 && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[5] flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-xs shadow-md">
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[5] flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-200 text-xs shadow-md">
           <AlertTriangle className="h-3.5 w-3.5" />
           <span className="font-medium">
             {totalOrfaos} bloco{totalOrfaos > 1 ? 's' : ''} sem conexão
           </span>
-          <span className="text-amber-800">— arraste uma seta a partir/para o bloco pra reconectá-lo</span>
+          <span className="text-amber-800 dark:text-amber-300">— arraste uma seta a partir/para o bloco pra reconectá-lo</span>
         </div>
       )}
       <ReactFlowProvider>
@@ -2174,7 +2175,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                             style={{ background: s.tipo === 'DECISAO' ? '#a855f7' : '#10b981' }}
                           />
                           <span className="text-[12px] font-medium truncate flex-1">{s.nome}</span>
-                          <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 text-emerald-600 shrink-0" />
+                          <Plus className={cn('h-3 w-3 opacity-0 group-hover:opacity-100 shrink-0', TEXT.emerald)} />
                         </div>
                         {s.area?.name && (
                           <div className="text-[10px] text-muted-foreground ml-3 truncate">{s.area.name}</div>
@@ -2417,7 +2418,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Link2 className="h-4 w-4 text-amber-600" />
+                  <Link2 className={cn('h-4 w-4', TEXT.amber)} />
                   Bloco já recebe {substituirDialog.existentes.length === 1 ? 'uma seta' : `${substituirDialog.existentes.length} setas`}
                 </h3>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -2486,7 +2487,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Plus className="h-4 w-4 text-emerald-600" />
+                  <Plus className={cn('h-4 w-4', TEXT.emerald)} />
                   Novo bloco — {novoBlocoTipo === 'ATIVIDADE' ? 'Atividade'
                     : novoBlocoTipo === 'DECISAO' ? 'Decisão'
                     : novoBlocoTipo === 'DOCUMENTACAO' ? 'Documentação'
@@ -2651,7 +2652,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <Plus className="h-4 w-4 text-emerald-600" />
+                  <Plus className={cn('h-4 w-4', TEXT.emerald)} />
                   Adicionar serviço ao fluxo
                 </h3>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -3243,7 +3244,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
             {node.etapas.map((et, ei) => (
               <div key={et.id} className="px-3 py-2">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 rounded px-1.5 py-0.5">
+                  <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-900/40 rounded px-1.5 py-0.5">
                     {ei + 1}
                   </span>
                   <span className="text-[11px] font-semibold text-foreground truncate">{et.nome}</span>
@@ -3278,7 +3279,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
         {!isPergunta && node.categoriaServico === 'MENSAL' && (node.acessoriasObrigacoes?.length ?? 0) > 0 && (
           <div className="px-3 py-2.5 border-t bg-amber-50/40 dark:bg-amber-950/20">
             <div className="flex items-center gap-1.5 mb-1.5">
-              <svg className="h-3 w-3 text-amber-700" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <svg className="h-3 w-3 text-amber-700 dark:text-amber-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M4 6c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6zm2 0v.01L12 11l6-4.99V6H6zm12 2.5l-5.4 4.5c-.35.3-.85.3-1.2 0L6 8.5V18h12V8.5z"/>
               </svg>
               <span className="text-[10px] font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider">
@@ -3292,7 +3293,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
                 </li>
               ))}
               {node.acessoriasObrigacoes!.length > 8 && (
-                <li className="text-[10px] text-amber-800/70 italic">
+                <li className="text-[10px] text-amber-800/70 dark:text-amber-300/70 italic">
                   +{node.acessoriasObrigacoes!.length - 8} obrigação(ões)…
                 </li>
               )}

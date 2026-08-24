@@ -21,6 +21,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT } from '@/lib/color-styles'
 import {
   StickyNote, Link as LinkIcon, Paperclip, Plus, Pencil, Trash2, Loader2,
   ExternalLink, Download, X,
@@ -40,9 +41,9 @@ export interface Material {
 }
 
 const TIPO_META: Record<MaterialTipo, { icon: typeof StickyNote; label: string; cls: string }> = {
-  NOTA:    { icon: StickyNote, label: 'Nota',    cls: 'bg-amber-50  border-amber-300  text-amber-700  hover:bg-amber-100  dark:bg-amber-950/30  dark:border-amber-800  dark:text-amber-300' },
-  LINK:    { icon: LinkIcon,   label: 'Link',    cls: 'bg-sky-50    border-sky-300    text-sky-700    hover:bg-sky-100    dark:bg-sky-950/30    dark:border-sky-800    dark:text-sky-300' },
-  ARQUIVO: { icon: Paperclip,  label: 'Arquivo', cls: 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300' },
+  NOTA:    { icon: StickyNote, label: 'Nota',    cls: 'bg-amber-50  border-amber-300  text-amber-700  hover:bg-amber-100  dark:hover:bg-amber-900/40  dark:bg-amber-950/30  dark:border-amber-800  dark:text-amber-300' },
+  LINK:    { icon: LinkIcon,   label: 'Link',    cls: 'bg-sky-50    border-sky-300    text-sky-700    hover:bg-sky-100    dark:hover:bg-sky-900/40    dark:bg-sky-950/30    dark:border-sky-800    dark:text-sky-300' },
+  ARQUIVO: { icon: Paperclip,  label: 'Arquivo', cls: 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300' },
 }
 
 function fmtBytes(n?: number | null) {
@@ -245,13 +246,13 @@ export function MateriaisSection({ materiais, etapaId, passoId, readOnly, onChan
                 item está em hover/focus (Radix muda o texto via data-state).
                 Aplicado em cada item porque cada um carrega sua cor própria. */}
             <DropdownMenuItem onClick={() => setCreating('NOTA')} className="focus:[&_svg]:text-white">
-              <StickyNote className="h-3.5 w-3.5 mr-2 text-amber-600" /> Nota / Instrução
+              <StickyNote className={cn('h-3.5 w-3.5 mr-2', TEXT.amber)} /> Nota / Instrução
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setCreating('LINK')} className="focus:[&_svg]:text-white">
-              <LinkIcon className="h-3.5 w-3.5 mr-2 text-sky-600" /> Link externo
+              <LinkIcon className={cn('h-3.5 w-3.5 mr-2', TEXT.sky)} /> Link externo
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setCreating('ARQUIVO')} className="focus:[&_svg]:text-white">
-              <Paperclip className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Arquivo
+              <Paperclip className={cn('h-3.5 w-3.5 mr-2', TEXT.emerald)} /> Arquivo
             </DropdownMenuItem>
             {extraDropdownItems?.map(item => {
               const ItemIcon = item.icon
@@ -410,7 +411,7 @@ function MateriaisListDialog({ tipo, materiais, readOnly, deletingId, onAdd, onE
                       variant="ghost" size="sm"
                       onClick={() => onDelete(m.id)}
                       disabled={deletingId === m.id}
-                      className="h-7 px-2 gap-1 text-[11px] text-rose-600 hover:text-rose-700"
+                      className={cn('h-7 px-2 gap-1 text-[11px] hover:text-rose-700', TEXT.rose)}
                     >
                       {deletingId === m.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                     </Button>
@@ -562,7 +563,7 @@ function MaterialDialog({ mode, tipo, etapaId, passoId, initial, onClose, onSave
               <Label className="text-[13px] font-semibold">Arquivo *</Label>
               {conteudo ? (
                 <div className="flex items-center gap-2 rounded-md border border-input bg-muted/30 p-2.5 text-sm">
-                  <Paperclip className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <Paperclip className={cn('h-4 w-4 shrink-0', TEXT.emerald)} />
                   <div className="flex-1 min-w-0">
                     <p className="truncate font-medium">{fileName || 'arquivo'}</p>
                     <p className="text-[10px] text-muted-foreground">{fmtBytes(fileSize)} · <a href={conteudo} target="_blank" rel="noreferrer" className="underline hover:text-foreground">abrir</a></p>

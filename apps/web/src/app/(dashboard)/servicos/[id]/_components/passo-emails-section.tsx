@@ -20,6 +20,7 @@ import {
   Input, Label, Checkbox, cn, RichEditor,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT } from '@/lib/color-styles'
 
 /** Type pro editor TipTap exposto via onReady (sem import direto pra evitar
  *  adicionar @tiptap/react como dep do apps/web — só precisamos do .chain). */
@@ -491,7 +492,7 @@ function TemplateEditor({ mode, passoId, initial, onCancel, onSaved, onDeleted }
   return (
     <div className="rounded-md border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/10 p-3 space-y-3">
       <div className="flex items-center gap-2">
-        <Mail className="h-4 w-4 text-indigo-600" />
+        <Mail className={cn('h-4 w-4', TEXT.indigo)} />
         <h4 className="text-[13px] font-semibold text-foreground">
           {mode === 'edit' ? 'Editar modelo' : 'Novo modelo de e-mail'}
         </h4>
@@ -788,7 +789,7 @@ function AnexosEditor({ templateId, initialAnexos }: {
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <Label className="text-[12px] font-semibold flex items-center gap-1.5">
-          <Paperclip className="h-3.5 w-3.5 text-emerald-600" />
+          <Paperclip className={cn('h-3.5 w-3.5', TEXT.emerald)} />
           Anexos do e-mail
           {anexos.length > 0 && (
             <span className="text-[10px] text-muted-foreground tabular-nums font-normal">
@@ -822,7 +823,7 @@ function AnexosEditor({ templateId, initialAnexos }: {
         <div className="space-y-1">
           {anexos.map(a => (
             <div key={a.id} className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-1.5">
-              <Paperclip className="h-3 w-3 text-emerald-600 shrink-0" />
+              <Paperclip className={cn('h-3 w-3 shrink-0', TEXT.emerald)} />
               <span className="flex-1 min-w-0 text-[12px] truncate" title={a.fileName}>{a.fileName}</span>
               {a.fileSize ? (
                 <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{fmtBytes(a.fileSize)}</span>
@@ -841,7 +842,7 @@ function AnexosEditor({ templateId, initialAnexos }: {
                 type="button"
                 onClick={() => handleDelete(a.id)}
                 disabled={deletingId === a.id}
-                className="inline-flex items-center justify-center h-6 w-6 rounded text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 shrink-0"
+                className={cn('inline-flex items-center justify-center h-6 w-6 rounded hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 shrink-0', TEXT.rose)}
                 title="Remover"
               >
                 {deletingId === a.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}

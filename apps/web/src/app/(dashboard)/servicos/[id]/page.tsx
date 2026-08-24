@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  Workflow, Loader2, ArrowLeft, Save, Plus, Trash2, Edit, AlertCircle,
+  Workflow, Loader2, Save, Plus, Trash2, Edit, AlertCircle,
   Play, Pause, FileText, Layers, GitBranch, History, ListChecks,
   GripVertical, Clock, X, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check, Search, Users,
   Bell, Mail, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database,
@@ -27,8 +27,10 @@ import {
   RichEditor, Checkbox,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { BADGE, STRONG, SURFACE, TEXT } from '@/lib/color-styles'
 import { FluxoEditor, type FluxoNode, type FluxoEdge } from './_components/fluxo-editor'
 import { FluxoAssistant } from './_components/fluxo-assistant'
 import { MateriaisSection, type Material } from './_components/materiais-section'
@@ -1125,7 +1127,7 @@ export default function ServicoDetailPage() {
                     </span>
                     <span className="text-muted-foreground/40">|</span>
                     <Badge
-                      className="text-[11px] h-6 px-2.5 gap-1.5 bg-white/90 hover:bg-white text-emerald-800 border border-emerald-200/80 shadow-sm font-medium"
+                      className="text-[11px] h-6 px-2.5 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm font-medium"
                       title="SLA total = soma dos passos"
                     >
                       <Clock className="h-3 w-3" /> SLA {formatSlaRich(totalServicoMin)}
@@ -1136,7 +1138,8 @@ export default function ServicoDetailPage() {
                       const hr = previsao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
                       return (
                         <Badge
-                          className="text-[11px] h-6 px-2.5 gap-1.5 bg-white/90 hover:bg-white text-sky-800 border border-sky-200/80 shadow-sm font-medium"
+                          variant="outline"
+                          className={cn('text-[11px] h-6 px-2.5 gap-1.5 border shadow-sm font-medium', STRONG.sky)}
                           title="Considerando jornada útil 8h × 5d/sem (seg-sex, 09h-17h), iniciando agora"
                         >
                           Previsão {fmt} · {hr}
@@ -1144,16 +1147,15 @@ export default function ServicoDetailPage() {
                       )
                     })()}
                     {(() => {
-                      const priMedia = { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' }
-                      const pri: Record<string, { bg: string; text: string; border: string }> = {
-                        BAIXA:    { bg: 'bg-slate-100',   text: 'text-slate-700',  border: 'border-slate-200' },
-                        MEDIA:    priMedia,
-                        ALTA:     { bg: 'bg-amber-100',   text: 'text-amber-800',  border: 'border-amber-300' },
-                        URGENTE:  { bg: 'bg-rose-100',    text: 'text-rose-800',   border: 'border-rose-300' },
+                      const pri: Record<string, string> = {
+                        BAIXA:   STRONG.slate,
+                        MEDIA:   STRONG.blue,
+                        ALTA:    STRONG.amber,
+                        URGENTE: STRONG.rose,
                       }
-                      const p = pri[prioridade] ?? priMedia
+                      const p = pri[prioridade] ?? STRONG.blue
                       return (
-                        <Badge className={cn('text-[11px] h-6 px-2.5 border shadow-sm font-medium', p.bg, p.text, p.border)}>
+                        <Badge variant="outline" className={cn('text-[11px] h-6 px-2.5 border shadow-sm font-medium', p)}>
                           Prioridade {prioridade}
                         </Badge>
                       )
@@ -1164,21 +1166,14 @@ export default function ServicoDetailPage() {
                       </Badge>
                     )}
                     {categoriaServico === 'MENSAL' && (
-                      <Badge className="text-[11px] h-6 px-2.5 bg-violet-100 text-violet-800 border border-violet-200 shadow-sm font-medium">
+                      <Badge variant="outline" className={cn('text-[11px] h-6 px-2.5 border shadow-sm font-medium', STRONG.violet)}>
                         Mensal
                       </Badge>
                     )}
                   </div>
                 </div>
               </div>
-              <Button
-                variant="outline" size="icon"
-                onClick={() => router.push('/servicos')}
-                title="Voltar para Serviços e Obrigações"
-                className="h-8 w-8 bg-white/70 hover:bg-white shrink-0"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
+              <BackButton href="/servicos" title="Voltar para Serviços e Obrigações" className="shrink-0" />
             </div>
           </div>
           {/* Tabs */}
@@ -1263,7 +1258,7 @@ export default function ServicoDetailPage() {
                         onClick={() => setVisaoPill(p.id)}
                         className={cn(
                           'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
-                          active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-white hover:text-foreground',
+                          active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground',
                         )}
                         style={active ? { backgroundColor: MODULE_COLOR } : undefined}
                       >
@@ -1284,7 +1279,7 @@ export default function ServicoDetailPage() {
                 {/* ── PILL: Identificação ───────────────────── */}
                 {visaoPill === 'identificacao' && (
                   <div>
-                    <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                    <div className="px-5 py-3 border-b border-border">
                       <h4 className="text-[13px] font-semibold text-foreground">Identificação</h4>
                     </div>
                     <div className="p-5 space-y-4">
@@ -1552,7 +1547,7 @@ export default function ServicoDetailPage() {
                 {/* ── PILL: Descrição ──────────────────────── */}
                 {visaoPill === 'descricao' && (
                   <div>
-                    <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                    <div className="px-5 py-3 border-b border-border">
                       <h4 className="text-[13px] font-semibold text-foreground">Descrição</h4>
                     </div>
                     <div className="p-5">
@@ -1573,7 +1568,7 @@ export default function ServicoDetailPage() {
                 {/* ── PILL: Comercial ──────────────────────── */}
                 {visaoPill === 'comercial' && (
                   <div>
-                    <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                    <div className="px-5 py-3 border-b border-border">
                       <h4 className="text-[13px] font-semibold text-foreground">Comercial &amp; Operacional</h4>
                     </div>
                     <div className="p-5 space-y-4">
@@ -1677,7 +1672,7 @@ export default function ServicoDetailPage() {
                                 >
                                   <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: g.cor || '#94a3b8' }} />
                                   <span className="truncate max-w-[200px]">{g.nome}</span>
-                                  {selected && <Check className="h-3 w-3 text-emerald-600" />}
+                                  {selected && <Check className={cn('h-3 w-3', TEXT.emerald)} />}
                                 </button>
                               )
                             })}
@@ -1690,7 +1685,7 @@ export default function ServicoDetailPage() {
                 {/* ── PILL: Avançado ──────────────────────────── */}
                 {visaoPill === 'avancado' && (
                   <div>
-                    <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                    <div className="px-5 py-3 border-b border-border">
                       <h4 className="text-[13px] font-semibold text-foreground">Configurações avançadas</h4>
                     </div>
                     <div className="p-5 grid grid-cols-12 gap-3">
@@ -1719,7 +1714,7 @@ export default function ServicoDetailPage() {
                       </div>
 
                       {/* Linha 2: Lembrete (dias + tipo) */}
-                      <div className="col-span-12 border-t border-[rgba(0,0,0,0.08)] -mx-5 mt-2" />
+                      <div className="col-span-12 border-t border-border -mx-5 mt-2" />
                       <div className="col-span-12">
                         <h6 className="text-[12px] uppercase tracking-wider font-semibold text-muted-foreground">Lembrete antes do vencimento</h6>
                       </div>
@@ -1746,7 +1741,7 @@ export default function ServicoDetailPage() {
                       </div>
 
                       {/* Linha 3: Flags booleanos */}
-                      <div className="col-span-12 border-t border-[rgba(0,0,0,0.08)] -mx-5 mt-2" />
+                      <div className="col-span-12 border-t border-border -mx-5 mt-2" />
                       <div className="col-span-12">
                         <h6 className="text-[12px] uppercase tracking-wider font-semibold text-muted-foreground">Comportamento</h6>
                       </div>
@@ -1788,7 +1783,7 @@ export default function ServicoDetailPage() {
                       </div>
 
                       {/* Comentário padrão */}
-                      <div className="col-span-12 border-t border-[rgba(0,0,0,0.08)] -mx-5 mt-2" />
+                      <div className="col-span-12 border-t border-border -mx-5 mt-2" />
                       <div className="col-span-12 space-y-1.5">
                         <Label className="text-[13px] font-semibold">Comentário padrão</Label>
                         <textarea
@@ -1808,7 +1803,7 @@ export default function ServicoDetailPage() {
                 {/* ── PILL: Vencimentos por mês ──────────────── */}
                 {visaoPill === 'vencimentosMensais' && (
                   <div>
-                    <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                    <div className="px-5 py-3 border-b border-border">
                       <h4 className="text-[13px] font-semibold text-foreground">Vencimentos por mês</h4>
                     </div>
                     <div className="p-5 space-y-3">
@@ -1876,7 +1871,7 @@ export default function ServicoDetailPage() {
                           )
                         })}
                       </div>
-                      <div className="rounded border border-sky-200 bg-sky-50 p-3 text-[11px] text-sky-900">
+                      <div className={cn('rounded border p-3 text-[11px] text-sky-900 dark:text-sky-300', SURFACE.sky)}>
                         <strong>Encoding:</strong> 0 = "Não tem" · 1-31 = Dia fixo · 51-70 = 1º a 20º dia útil · 90 = Último dia útil.
                         Espelha exatamente os campos <code>ObrD01..ObrD12</code> do Acessórias.
                       </div>
@@ -1885,7 +1880,7 @@ export default function ServicoDetailPage() {
                 )}
 
                 {/* Rodapé fixo com botão Salvar — vale pra qualquer pill */}
-                <div className="mt-auto border-t border-[rgba(0,0,0,0.08)] px-5 py-3 bg-card flex justify-end">
+                <div className="mt-auto border-t border-border px-5 py-3 bg-card flex justify-end">
                   <Button onClick={salvarVisao} disabled={saving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Salvar alterações
@@ -2238,21 +2233,21 @@ export default function ServicoDetailPage() {
                                     key: 'email',
                                     icon: Mail,
                                     label: 'E-mail de conclusão',
-                                    iconClassName: 'text-indigo-600',
+                                    iconClassName: TEXT.indigo,
                                     onSelect: () => setOpenEmailsPasso(p.id!),
                                   },
                                   {
                                     key: 'lembrete',
                                     icon: Bell,
                                     label: 'Agendar lembrete',
-                                    iconClassName: 'text-amber-600',
+                                    iconClassName: TEXT.amber,
                                     onSelect: () => setOpenLembretesPasso(p.id!),
                                   },
                                   {
                                     key: 'campo-cliente',
                                     icon: Database,
                                     label: 'Vincular campo',
-                                    iconClassName: 'text-sky-600',
+                                    iconClassName: TEXT.sky,
                                     onSelect: () => setOpenCamposClientePasso(p.id!),
                                   },
                                 ]}
@@ -2442,7 +2437,7 @@ export default function ServicoDetailPage() {
                 <div className="space-y-2">
                   {encadeamentos.map(enc => (
                     <div key={enc.id} className="flex items-center gap-3 rounded-lg border bg-card p-3 hover:shadow-sm transition-shadow">
-                      <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-xs font-bold">
+                      <div className={cn('shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-xs font-bold', TEXT.emerald)}>
                         {enc.ordem + 1}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -2455,23 +2450,23 @@ export default function ServicoDetailPage() {
                             {enc.servicoDestino.nome}
                           </button>
                           {enc.iniciaAuto && enc.obrigatorio && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-emerald-50 border-emerald-200 text-emerald-700">
+                            <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.emerald)}>
                               <Play className="h-2.5 w-2.5 mr-0.5" /> Auto
                             </Badge>
                           )}
                           {!enc.iniciaAuto && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-amber-50 border-amber-200 text-amber-700">
+                            <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.amber)}>
                               <Pause className="h-2.5 w-2.5 mr-0.5" /> Manual
                             </Badge>
                           )}
                           {!enc.obrigatorio && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-sky-50 border-sky-200 text-sky-700">
+                            <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.sky)}>
                               Opcional
                             </Badge>
                           )}
                           {enc.herdaResponsavel && <Badge variant="outline" className="text-[10px] h-5">Herda resp.</Badge>}
                           {enc.condicao != null && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-violet-50 border-violet-200 text-violet-700">
+                            <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.violet)}>
                               <AlertCircle className="h-2.5 w-2.5 mr-0.5" /> Condicional
                             </Badge>
                           )}
@@ -2530,7 +2525,7 @@ export default function ServicoDetailPage() {
                   {ehSubservicoDe.map((p, i) => (
                     <span key={p.id}>
                       {i > 0 && ', '}
-                      <Link href={`/servicos/${p.id}`} className="text-sky-600 hover:underline">{p.nome}</Link>
+                      <Link href={`/servicos/${p.id}`} className={cn(TEXT.sky, 'hover:underline')}>{p.nome}</Link>
                     </span>
                   ))}
                   . Por isso ele não pode ter subserviços próprios — o catálogo trabalha com dois níveis.

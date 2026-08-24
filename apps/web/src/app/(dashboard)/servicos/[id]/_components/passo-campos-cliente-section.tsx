@@ -11,8 +11,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { TEXT } from '@/lib/color-styles'
 import {
-  Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
+  cn, Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
   Input, Label, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue, SelectGroup,
 } from '@saas/ui'
@@ -448,7 +449,7 @@ function VinculoEditor({ mode, passoId, initial, catalogo, usedKeys, onCancel, o
       <div className="flex items-center justify-between gap-2 pt-2 border-t">
         <div>
           {mode === 'edit' && initial && (
-            <Button variant="ghost" size="sm" onClick={handleDelete} disabled={deleting} className="text-rose-600 hover:text-rose-700 gap-1">
+            <Button variant="ghost" size="sm" onClick={handleDelete} disabled={deleting} className={cn(TEXT.rose, 'hover:text-rose-700 gap-1')}>
               {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
               Remover
             </Button>
