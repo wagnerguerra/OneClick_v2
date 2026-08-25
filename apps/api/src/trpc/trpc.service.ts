@@ -178,7 +178,9 @@ import { createQualidadeRouter } from '../qualidade/qualidade.router'
 import { ControleFeriasService } from '../controle-ferias/controle-ferias.service'
 import { createControleFeriasRouter } from '../controle-ferias/controle-ferias.router'
 import { ColetaService } from '../coleta/coleta.service'
+import { ContatoService } from '../contato/contato.service'
 import { createColetaRouter } from '../coleta/coleta.router'
+import { createContatoRouter } from '../contato/contato.router'
 import { createManifestacaoRouter } from '../manifestacao/manifestacao.router'
 import { MinhasObrigacoesService } from '../minhas-obrigacoes/minhas-obrigacoes.service'
 import { AtivoService } from '../ativo/ativo.service'
@@ -752,6 +754,7 @@ export class TrpcService {
     @Inject(QualidadeService) private readonly qualidadeService: QualidadeService,
     @Inject(ControleFeriasService) private readonly controleFeriasService: ControleFeriasService,
     @Inject(ColetaService) private readonly coletaService: ColetaService,
+    @Inject(ContatoService) private readonly contatoService: ContatoService,
     @Inject(ClientErrorService) private readonly clientErrorService: ClientErrorService,
     @Inject(ThemeService) private readonly themeService: ThemeService,
     @Inject(DanfeService) private readonly danfeService: DanfeService,
@@ -869,6 +872,7 @@ export class TrpcService {
       qualidade: createQualidadeRouter(this.qualidadeService),
       controleFerias: createControleFeriasRouter(this.controleFeriasService),
       coleta: createColetaRouter(this.coletaService),
+      contato: createContatoRouter(this.contatoService),
       minhasObrigacoes: createMinhasObrigacoesRouter(this.minhasObrigacoesService),
     })
   }

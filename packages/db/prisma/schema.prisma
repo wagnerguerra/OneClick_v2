@@ -8919,6 +8919,54 @@ model ColetaCategoria {
   @@map("coleta_categorias")
 }
 
+/// Agenda de contatos (port do `ger_age` do v1 — módulo crp_contatos).
+/// Cada entrada tem um nome (empresa/pessoa) e 1..N pessoas de contato; o v1
+/// tinha 3 blocos fixos (cts1/tel1/email1 … cts3), que viram linhas.
+model Contato {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+
+  nome        String
+  observacoes String? @db.Text
+
+  /// Contato privado só aparece para o dono (e para o master) — regra do v1.
+  privado  Boolean @default(false)
+  donoId   String? @map("dono_id")
+  /// Resíduo do nome do dono quando o usuário do v1 não existe no v2.
+  donoNome String? @map("dono_nome")
+
+  /// Soft-delete (o `ativo` do v1).
+  ativo Boolean @default(true)
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  pessoas ContatoPessoa[]
+
+  @@index([empresaId, ativo])
+  @@index([donoId])
+  @@index([legacyId])
+  @@map("contatos")
+}
+
+/// Pessoa/telefone dentro de uma entrada da agenda.
+model ContatoPessoa {
+  id        String  @id @default(cuid())
+  contatoId String  @map("contato_id")
+
+  nome     String?
+  telefone String?
+  email    String?
+  ordem    Int     @default(0)
+
+  contato Contato @relation(fields: [contatoId], references: [id], onDelete: Cascade)
+
+  @@index([contatoId])
+  @@map("contato_pessoas")
+}
+
+
 model Coleta {
   id        String  @id @default(cuid())
   empresaId String? @map("empresa_id")
