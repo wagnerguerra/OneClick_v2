@@ -29,6 +29,8 @@ interface Row {
   colaboradorNomeResolvido: string | null
   /** false = desligado no cadastro; null = sem vínculo (só resíduo do v1). */
   colaboradorAtivo: boolean | null
+  /** Períodos anteriores do mesmo colaborador (ficam no histórico do registro). */
+  periodosAnteriores: number
   periodoInicial: number
   periodoFinal: number
   descricao: string | null
@@ -215,6 +217,11 @@ export default function ControleFeriasPage() {
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            {fColaborador
+              ? 'Todos os períodos do colaborador selecionado.'
+              : 'Um registro por colaborador — o período mais recente; os anteriores ficam no histórico dentro do registro.'}
+          </p>
         </div>
 
         <Table className="table-fixed">
@@ -253,6 +260,11 @@ export default function ControleFeriasPage() {
                       {r.colaboradorAtivo === null && (
                         <Badge variant="outline" className="shrink-0 text-[10px] text-muted-foreground" title="Registro do v1 sem vínculo com o cadastro atual">
                           fora do cadastro
+                        </Badge>
+                      )}
+                      {r.periodosAnteriores > 0 && (
+                        <Badge variant="outline" className="shrink-0 text-[10px] text-muted-foreground" title={`Este colaborador tem mais ${r.periodosAnteriores} período(s) anterior(es) — abra o registro para consultar`}>
+                          +{r.periodosAnteriores} {r.periodosAnteriores === 1 ? 'período' : 'períodos'}
                         </Badge>
                       )}
                       {r.descricao && <span className="truncate text-[11px] text-muted-foreground">· {r.descricao}</span>}

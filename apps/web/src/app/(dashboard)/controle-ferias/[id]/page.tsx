@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import {
-  CalendarDays, Plus, Loader2, Check, Trash2, Info, Paperclip, Upload, Download,
+  CalendarDays, Plus, Loader2, Check, Trash2, Info, Paperclip, Upload, Download, History,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card, Badge, cn,
@@ -33,6 +33,13 @@ interface Periodo {
   pagamento1: string | null; pagamento2: string | null; pagamento3: string | null
   pago: boolean; historico: boolean
   eventos: Evento[]; arquivos: Arquivo[]
+  /** Demais períodos do mesmo colaborador — a lista mostra só o mais recente. */
+  historicoColaborador: Array<{
+    id: string; periodoInicial: number; periodoFinal: number; descricao: string | null
+    dias: number; saldoAnterior: number; gozados: number; saldo: number
+    previsao: string | null; pago: boolean; historico: boolean
+    eventosTotal: number; arquivosTotal: number
+  }>
 }
 
 const dataBR = (iso: string | null | undefined) =>
@@ -280,6 +287,62 @@ export default function ControleFeriasDetalhePage() {
               </div>
             )}
           </Card>
+
+          {/* ── Períodos anteriores do colaborador (histórico interno) ── */}
+          {(p.historicoColaborador?.length ?? 0) > 0 && (
+            <Card className="p-5">
+              <div className="flex items-center gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
+                <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <h4 className="text-[13px] font-semibold text-foreground">Períodos anteriores</h4>
+                <Badge variant="secondary" className="text-[10px]">{p.historicoColaborador.length}</Badge>
+                <span className="ml-auto text-[11px] text-muted-foreground">Histórico de {p.colaboradorNomeResolvido ?? 'colaborador'}</span>
+              </div>
+              <div className="overflow-x-auto nice-scrollbar">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border/60 text-[10px] uppercase tracking-wider text-muted-foreground [&_th]:whitespace-nowrap [&_th]:py-1.5 [&_th]:font-semibold">
+                      <th className="text-left">Período</th>
+                      <th className="text-center">Dias</th>
+                      <th className="text-center">Gozados</th>
+                      <th className="text-center">Saldo</th>
+                      <th className="text-left">Previsão</th>
+                      <th className="text-left">Situação</th>
+                      <th className="text-right">Anexos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {p.historicoColaborador.map((h) => (
+                      <tr
+                        key={h.id}
+                        onClick={() => { window.location.href = `/controle-ferias/${h.id}` }}
+                        className="cursor-pointer border-b border-border/40 last:border-0 transition-colors hover:bg-muted/40 [&_td]:whitespace-nowrap [&_td]:py-2"
+                      >
+                        <td className="font-medium tabular-nums">{h.periodoInicial}/{h.periodoFinal}</td>
+                        <td className="text-center tabular-nums">{h.dias + h.saldoAnterior}</td>
+                        <td className="text-center tabular-nums">{h.gozados}</td>
+                        <td className="text-center">
+                          <span className={cn('inline-flex h-5 min-w-[26px] items-center justify-center rounded px-1.5 text-[11px] font-bold tabular-nums',
+                            h.saldo <= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                              : h.saldo < 10 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                                : 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300')}>
+                            {h.saldo}
+                          </span>
+                        </td>
+                        <td className="text-muted-foreground tabular-nums">{dataBR(h.previsao)}</td>
+                        <td>
+                          <span className="flex items-center gap-1">
+                            {h.pago && <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">Pago</Badge>}
+                            {h.historico && <Badge variant="outline" className="text-[10px]">Histórico</Badge>}
+                          </span>
+                        </td>
+                        <td className="text-right text-muted-foreground tabular-nums">{h.eventosTotal} gozo(s) · {h.arquivosTotal} anexo(s)</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* ── Sidebar ── */}

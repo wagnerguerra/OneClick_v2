@@ -91,3 +91,19 @@ Três ajustes pedidos pelo Wagner depois do uso real:
    clicar no cabeçalho ordena e o segundo clique inverte. Como três colunas são
    derivadas (nome resolvido, gozados, saldo), o service busca o conjunto
    filtrado, resolve, ordena e pagina em memória — o volume (centenas) permite.
+
+## 7. Um registro por colaborador (25/08)
+
+A listagem passou a mostrar **apenas o período mais recente de cada
+colaborador** — os anteriores viram **histórico dentro do registro**:
+
+- `listar` agrupa pela chave do colaborador (id ou, no resíduo do v1, o nome) e
+  mantém o de maior `periodoInicial`/`periodoFinal`, devolvendo
+  `periodosAnteriores` (contagem) — a linha ganha o selo "+N períodos".
+  Filtrar por um colaborador específico **desagrupa** (drill-down natural).
+- `getById` devolve `historicoColaborador` com os demais períodos (dias, saldo
+  derivado, previsão, pago/histórico e quantos gozos/anexos), e o detalhe
+  ganhou o card **"Períodos anteriores"** — cada linha abre aquele período.
+
+Efeito prático: de 143 linhas para **67** (uma por colaborador), sem perder
+nada — o arquivo morto continua a um clique.

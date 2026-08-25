@@ -38,6 +38,12 @@ export class ControleFeriasService {
     return new Map(users.map((u) => [u.id, { name: u.name, isActive: u.isActive }]))
   }
 
+  /** Agrupador de períodos: o id do colaborador ou, no resíduo do v1, o nome. */
+  private chaveColaborador(p: { colaboradorId?: string | null; colaboradorNomeResolvido?: string | null; colaboradorNome?: string | null }): string {
+    if (p.colaboradorId) return `id:${p.colaboradorId}`
+    return `nome:${String(p.colaboradorNomeResolvido ?? p.colaboradorNome ?? '').toLocaleLowerCase('pt-BR').trim()}`
+  }
+
   private saldo(p: { dias: number; saldoAnterior: number; eventos: Array<{ dataInicio: Date; dataFim: Date }> }) {
     const gozados = p.eventos.reduce((acc, e) => acc + diasDoEvento(e.dataInicio, e.dataFim), 0)
     return { gozados, saldo: p.dias + p.saldoAnterior - gozados }
@@ -88,6 +94,30 @@ export class ControleFeriasService {
       rows = rows.filter((r) => r.colaboradorAtivo === true)
     }
 
+    // Uma linha por colaborador: fica só o período MAIS RECENTE; os anteriores
+    // viram histórico dentro do registro (decisão do Wagner, 25/08). Filtrar por
+    // um colaborador específico desagrupa — é o drill-down natural.
+    if (!input.colaboradorId) {
+      const maisRecente = new Map<string, (typeof rows)[number]>()
+      const totalPorColab = new Map<string, number>()
+      for (const r of rows) {
+        const k = this.chaveColaborador(r)
+        totalPorColab.set(k, (totalPorColab.get(k) ?? 0) + 1)
+        const atual = maisRecente.get(k)
+        const maisNovo = !atual
+          || r.periodoInicial > atual.periodoInicial
+          || (r.periodoInicial === atual.periodoInicial && r.periodoFinal > atual.periodoFinal)
+        if (maisNovo) maisRecente.set(k, r)
+      }
+      rows = [...maisRecente.values()].map((r) => ({
+        ...r,
+        /** Quantos períodos anteriores existem para este colaborador. */
+        periodosAnteriores: (totalPorColab.get(this.chaveColaborador(r)) ?? 1) - 1,
+      }))
+    } else {
+      rows = rows.map((r) => ({ ...r, periodosAnteriores: 0 }))
+    }
+
     // Ordenação — padrão alfabético pelo colaborador; qualquer coluna serve.
     const dir = sortDir === 'desc' ? -1 : 1
     const campo = sortBy || 'colaborador'
@@ -126,8 +156,42 @@ export class ControleFeriasService {
     if (!p) throw new Error('Período não encontrado.')
     const nomes = await this.nomesPorId([p.colaboradorId, ...p.eventos.map((e) => e.registradoPorId)])
     const { gozados, saldo } = this.saldo(p)
+
+    // Histórico do colaborador: os demais períodos (a lista mostra só o mais
+    // recente, então é aqui que o usuário consulta os anteriores).
+    const irmaos = await prisma.feriasPeriodo.findMany({
+      where: {
+        empresaId: empresaId ?? null,
+        id: { not: p.id },
+        ...(p.colaboradorId
+          ? { colaboradorId: p.colaboradorId }
+          : { colaboradorId: null, colaboradorNome: p.colaboradorNome }),
+      },
+      include: { eventos: { select: { dataInicio: true, dataFim: true } }, _count: { select: { arquivos: true } } },
+      orderBy: [{ periodoInicial: 'desc' }, { periodoFinal: 'desc' }],
+    })
+    const historicoColaborador = irmaos.map((h) => {
+      const { gozados: g, saldo: sd } = this.saldo(h)
+      return {
+        id: h.id,
+        periodoInicial: h.periodoInicial,
+        periodoFinal: h.periodoFinal,
+        descricao: h.descricao,
+        dias: h.dias,
+        saldoAnterior: h.saldoAnterior,
+        gozados: g,
+        saldo: sd,
+        previsao: h.previsao,
+        pago: h.pago,
+        historico: h.historico,
+        eventosTotal: h.eventos.length,
+        arquivosTotal: h._count.arquivos,
+      }
+    })
+
     return {
       ...p,
+      historicoColaborador,
       colaboradorNomeResolvido: p.colaboradorId ? nomes.get(p.colaboradorId) ?? p.colaboradorNome : p.colaboradorNome,
       gozados,
       saldo,
