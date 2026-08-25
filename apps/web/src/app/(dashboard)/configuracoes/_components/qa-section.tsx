@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { TEXT } from '@/lib/color-styles'
 import {
   Button, Input, Label, Badge, cn,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
@@ -41,9 +42,9 @@ const SEV_STYLE: Record<QaItem['severidade'], string> = {
 const SEV_LABEL: Record<QaItem['severidade'], string> = { ALTA: 'Alta', MEDIA: 'Média', BAIXA: 'Baixa' }
 
 const STATUS_STYLE: Record<QaItem['status'], string> = {
-  PENDENTE: 'text-rose-600',
-  EM_ANDAMENTO: 'text-sky-600',
-  CORRIGIDO: 'text-emerald-600',
+  PENDENTE: TEXT.rose,
+  EM_ANDAMENTO: TEXT.sky,
+  CORRIGIDO: TEXT.emerald,
   DESCARTADO: 'text-muted-foreground',
 }
 const STATUS_LABEL: Record<QaItem['status'], string> = {
@@ -174,7 +175,7 @@ export function QaSection() {
       </div>
 
       {/* Lista */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div className="flex-1 overflow-y-auto nice-scrollbar p-4 space-y-2">
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : filtrados.length === 0 ? (

@@ -14,6 +14,7 @@ import {
   cn,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import {
@@ -185,7 +186,7 @@ function MesCalendario({
         <h5
           className={cn(
             'text-[13px] font-bold tracking-tight',
-            isMesAtual ? 'text-orange-600' : 'text-foreground',
+            isMesAtual ? TEXT.orange : 'text-foreground',
           )}
         >
           {MESES_PT[mes]}
@@ -471,7 +472,7 @@ export function CalendarioSection() {
   return (
     <div className="flex flex-col h-full">
       {/* Header com título + ações */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
         <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" /> Calendário de feriados
         </h4>
@@ -572,8 +573,8 @@ export function CalendarioSection() {
 
           {/* Barra de bulk delete */}
           {selected.size > 0 && (
-            <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2">
-              <span className="text-xs font-medium text-amber-900">
+            <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800 dark:bg-amber-950/30">
+              <span className="text-xs font-medium text-amber-900 dark:text-amber-200">
                 {selected.size} item{selected.size > 1 ? 's' : ''} selecionado{selected.size > 1 ? 's' : ''}
               </span>
               <div className="flex items-center gap-2">
@@ -658,7 +659,7 @@ export function CalendarioSection() {
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-center whitespace-nowrap">
                         {f.recorrente ? (
-                          <Badge variant="outline" className="h-5 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                          <Badge variant="outline" className={cn('h-5 text-[10px]', BADGE.emerald)}>
                             Anual
                           </Badge>
                         ) : (
@@ -717,7 +718,7 @@ export function CalendarioSection() {
                   <div className="text-xs font-semibold text-muted-foreground">
                     Ano <span className="tabular-nums text-foreground">{anoView}</span>
                     {filtroAno === 'TODOS' && (
-                      <span className="ml-1 text-[10px] text-amber-700">
+                      <span className="ml-1 text-[10px] text-amber-700 dark:text-amber-400">
                         (visualização sempre mostra um ano por vez)
                       </span>
                     )}

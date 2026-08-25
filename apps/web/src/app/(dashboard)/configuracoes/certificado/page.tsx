@@ -243,7 +243,7 @@ function CertificadoSettingsPageInner() {
         </CardHeader>
         <div className="flex min-h-[500px]">
           {/* Pills laterais */}
-          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {TABS.map((tab) => {
                 const Icon = tab.icon
@@ -270,7 +270,7 @@ function CertificadoSettingsPageInner() {
           <div key={activeTab} className="flex-1" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
             {activeTab === 'certificado' && (
               <div>
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="px-5 py-3 border-b border-hairline">
                   <h4 className="text-[13px] font-semibold text-foreground">Certificado Digital (PFX/P12)</h4>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     Certificado digital A1 do contador responsável, necessário para consultas ao SERPRO e assinatura digital.
@@ -300,7 +300,7 @@ function CertificadoSettingsPageInner() {
                           )}>
                             <Shield className={cn(
                               'h-5 w-5',
-                              certInfo.expired ? 'text-red-600' : certInfo.daysRemaining != null && certInfo.daysRemaining <= 30 ? 'text-amber-600' : 'text-emerald-600',
+                              certInfo.expired ? TEXT.red : certInfo.daysRemaining != null && certInfo.daysRemaining <= 30 ? TEXT.amber : TEXT.emerald,
                             )} />
                           </div>
                           <div>
@@ -332,7 +332,7 @@ function CertificadoSettingsPageInner() {
 
                       {/* Detalhes de validade */}
                       {(certInfo.validTo || certInfo.validFrom) && (
-                        <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.08)] grid grid-cols-12 gap-3">
+                        <div className="mt-3 pt-3 border-t border-hairline grid grid-cols-12 gap-3">
                           {certInfo.validFrom && (
                             <div className="col-span-3">
                               <p className="text-[11px] text-muted-foreground">Válido desde</p>
@@ -344,7 +344,7 @@ function CertificadoSettingsPageInner() {
                               <p className="text-[11px] text-muted-foreground">Válido até</p>
                               <p className={cn(
                                 'text-xs font-medium',
-                                certInfo.expired ? 'text-red-600' : certInfo.daysRemaining != null && certInfo.daysRemaining <= 30 ? 'text-amber-600' : 'text-foreground',
+                                certInfo.expired ? TEXT.red : certInfo.daysRemaining != null && certInfo.daysRemaining <= 30 ? TEXT.amber : 'text-foreground',
                               )}>{formatDate(certInfo.validTo)}</p>
                             </div>
                           )}
@@ -353,7 +353,7 @@ function CertificadoSettingsPageInner() {
                               <p className="text-[11px] text-muted-foreground">Dias restantes</p>
                               <p className={cn(
                                 'text-xs font-bold',
-                                certInfo.expired ? 'text-red-600' : certInfo.daysRemaining <= 30 ? 'text-amber-600' : 'text-emerald-600',
+                                certInfo.expired ? TEXT.red : certInfo.daysRemaining <= 30 ? TEXT.amber : TEXT.emerald,
                               )}>
                                 {certInfo.expired ? `Expirado há ${Math.abs(certInfo.daysRemaining)} dias` : `${certInfo.daysRemaining} dias`}
                               </p>
@@ -370,7 +370,7 @@ function CertificadoSettingsPageInner() {
 
                       {/* Aviso se não conseguiu ler */}
                       {!certInfo.validTo && certInfo.exists && (
-                        <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.08)]">
+                        <div className="mt-3 pt-3 border-t border-hairline">
                           <div className={cn('flex items-center gap-2 text-xs', TEXT.amber)}>
                             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                             <span>Não foi possível ler os dados do certificado. Verifique se a senha está correta.</span>
@@ -420,7 +420,7 @@ function CertificadoSettingsPageInner() {
                   </div>
 
                   {/* Checklist */}
-                  <div className="-mx-5 px-5 py-3 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="-mx-5 px-5 py-3 border-t border-hairline">
                     <h4 className="text-[13px] font-semibold text-foreground">Status da Configuração</h4>
                   </div>
 
@@ -442,7 +442,7 @@ function CertificadoSettingsPageInner() {
                   </div>
 
                   {/* Ações */}
-                  <div className="pt-3 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="pt-3 border-t border-hairline">
                     <Button onClick={handleSave} disabled={saving} className="gap-2" variant="success">
                       {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       Salvar Configurações
@@ -454,7 +454,7 @@ function CertificadoSettingsPageInner() {
 
             {activeTab === 'certificado-pf' && (
               <div>
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="px-5 py-3 border-b border-hairline">
                   <h4 className="text-[13px] font-semibold text-foreground">Certificado Digital PF (Pessoa Fisica do Contador)</h4>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     Certificado A1 da pessoa fisica do contador responsavel, usado para login no portal SEFAZ/ES (Agencia Virtual, DT-e) via gov.br.
@@ -483,7 +483,7 @@ function CertificadoSettingsPageInner() {
                           )}>
                             <CircleUser className={cn(
                               'h-5 w-5',
-                              certPfInfo.expired ? 'text-red-600' : certPfInfo.daysRemaining != null && certPfInfo.daysRemaining <= 30 ? 'text-amber-600' : 'text-emerald-600',
+                              certPfInfo.expired ? TEXT.red : certPfInfo.daysRemaining != null && certPfInfo.daysRemaining <= 30 ? TEXT.amber : TEXT.emerald,
                             )} />
                           </div>
                           <div>
@@ -514,7 +514,7 @@ function CertificadoSettingsPageInner() {
                       </div>
 
                       {(certPfInfo.validTo || certPfInfo.validFrom) && (
-                        <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.08)] grid grid-cols-12 gap-3">
+                        <div className="mt-3 pt-3 border-t border-hairline grid grid-cols-12 gap-3">
                           {certPfInfo.validFrom && (
                             <div className="col-span-3">
                               <p className="text-[11px] text-muted-foreground">Valido desde</p>
@@ -526,7 +526,7 @@ function CertificadoSettingsPageInner() {
                               <p className="text-[11px] text-muted-foreground">Valido ate</p>
                               <p className={cn(
                                 'text-xs font-medium',
-                                certPfInfo.expired ? 'text-red-600' : certPfInfo.daysRemaining != null && certPfInfo.daysRemaining <= 30 ? 'text-amber-600' : 'text-foreground',
+                                certPfInfo.expired ? TEXT.red : certPfInfo.daysRemaining != null && certPfInfo.daysRemaining <= 30 ? TEXT.amber : 'text-foreground',
                               )}>{formatDate(certPfInfo.validTo)}</p>
                             </div>
                           )}
@@ -535,7 +535,7 @@ function CertificadoSettingsPageInner() {
                               <p className="text-[11px] text-muted-foreground">Dias restantes</p>
                               <p className={cn(
                                 'text-xs font-bold',
-                                certPfInfo.expired ? 'text-red-600' : certPfInfo.daysRemaining <= 30 ? 'text-amber-600' : 'text-emerald-600',
+                                certPfInfo.expired ? TEXT.red : certPfInfo.daysRemaining <= 30 ? TEXT.amber : TEXT.emerald,
                               )}>
                                 {certPfInfo.expired ? `Expirado ha ${Math.abs(certPfInfo.daysRemaining)} dias` : `${certPfInfo.daysRemaining} dias`}
                               </p>
@@ -551,7 +551,7 @@ function CertificadoSettingsPageInner() {
                       )}
 
                       {!certPfInfo.validTo && certPfInfo.exists && (
-                        <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.08)]">
+                        <div className="mt-3 pt-3 border-t border-hairline">
                           <div className={cn('flex items-center gap-2 text-xs', TEXT.amber)}>
                             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                             <span>Nao foi possivel ler os dados do certificado. Verifique se a senha esta correta.</span>
@@ -601,7 +601,7 @@ function CertificadoSettingsPageInner() {
                   </div>
 
                   {/* Checklist */}
-                  <div className="-mx-5 px-5 py-3 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="-mx-5 px-5 py-3 border-t border-hairline">
                     <h4 className="text-[13px] font-semibold text-foreground">Status da Configuracao</h4>
                   </div>
 
@@ -620,7 +620,7 @@ function CertificadoSettingsPageInner() {
                   </div>
 
                   {/* Ações */}
-                  <div className="pt-3 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="pt-3 border-t border-hairline">
                     <Button onClick={handleSave} disabled={saving} className="gap-2" variant="success">
                       {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       Salvar Configuracoes
@@ -632,7 +632,7 @@ function CertificadoSettingsPageInner() {
 
             {activeTab === 'serpro' && (
               <div>
-                <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="px-5 py-3 border-b border-hairline">
                   <h4 className="text-[13px] font-semibold text-foreground">Credenciais de Acesso ao SERPRO</h4>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     Chaves OAuth 2.0 para autenticação na API do SERPRO. Obtidas no portal do SERPRO após contratação.
@@ -641,7 +641,7 @@ function CertificadoSettingsPageInner() {
 
                 <div className="p-5 space-y-5">
                   <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40">
-                    <HelpCircle className="h-4 w-4 text-blue-600 shrink-0" />
+                    <HelpCircle className={cn('h-4 w-4 shrink-0', TEXT.blue)} />
                     <p className="text-xs text-blue-700 dark:text-blue-400">
                       As credenciais são utilizadas para consultar o cartão CNPJ com dados completos (incluindo CPF dos sócios).
                     </p>
@@ -700,7 +700,7 @@ function CertificadoSettingsPageInner() {
                   </div>
 
                   {/* Ações */}
-                  <div className="pt-3 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="pt-3 border-t border-hairline">
                     <Button onClick={handleSave} disabled={saving} className="gap-2" variant="success">
                       {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       Salvar Credenciais

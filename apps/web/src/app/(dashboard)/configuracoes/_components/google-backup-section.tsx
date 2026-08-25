@@ -157,7 +157,7 @@ export function GoogleBackupSection() {
       {/* Header / status do Drive */}
       <Card className="p-4">
         <div className="flex items-start gap-3">
-          <CloudUpload className="h-5 w-5 mt-0.5 text-sky-600 shrink-0" />
+          <CloudUpload className={cn('h-5 w-5 mt-0.5 shrink-0', TEXT.sky)} />
           <div className="flex-1 min-w-0">
             <h3 className="text-[13px] font-semibold">Backup do banco no Google Drive</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
@@ -172,7 +172,7 @@ export function GoogleBackupSection() {
             <div className="text-muted-foreground uppercase font-semibold mb-1 text-[10px]">Conta autenticada</div>
             {status.driveAvailable ? (
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                <CheckCircle2 className={cn('h-3.5 w-3.5', TEXT.emerald)} />
                 <span className="font-medium">{status.accountEmail ?? '(email não obtido)'}</span>
                 <Badge variant="outline" className="text-[9px]">{status.driveMode}</Badge>
               </div>
@@ -308,14 +308,14 @@ export function GoogleBackupSection() {
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <FolderOpen className="h-4 w-4 text-sky-600" />
+              <FolderOpen className={cn('h-4 w-4', TEXT.sky)} />
               <h3 className="text-[13px] font-semibold">{status.folderInfo.name}</h3>
               {status.folderInfo.webViewLink && (
                 <a
                   href={status.folderInfo.webViewLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11px] text-sky-600 hover:underline inline-flex items-center gap-1"
+                  className={cn('text-[11px] hover:underline inline-flex items-center gap-1', TEXT.sky)}
                 >
                   Abrir no Drive <ExternalLink className="h-3 w-3" />
                 </a>

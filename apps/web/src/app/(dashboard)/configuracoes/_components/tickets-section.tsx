@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { TEXT } from '@/lib/color-styles'
 import {
   Button, Input, Badge, cn,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -45,11 +46,11 @@ const PRIO_STYLE: Record<HelpdeskPrioridade, string> = {
   BAIXA: 'bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-300',
 }
 const STATUS_STYLE: Record<HelpdeskStatus, string> = {
-  NOVO: 'text-sky-600',
-  EM_ANDAMENTO: 'text-violet-600',
-  AGUARDANDO_AUDITORIA: 'text-amber-600',
-  RESOLVIDO: 'text-cyan-600',
-  CONCLUIDO: 'text-emerald-600',
+  NOVO: TEXT.sky,
+  EM_ANDAMENTO: TEXT.violet,
+  AGUARDANDO_AUDITORIA: TEXT.amber,
+  RESOLVIDO: TEXT.cyan,
+  CONCLUIDO: TEXT.emerald,
   CANCELADO: 'text-muted-foreground',
 }
 const PRIO_ORDER: Record<HelpdeskPrioridade, number> = { URGENTE: 0, ALTA: 1, MEDIA: 2, BAIXA: 3 }
@@ -141,7 +142,7 @@ export function TicketsSection() {
       </div>
 
       {/* Lista */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div className="flex-1 overflow-y-auto nice-scrollbar p-4 space-y-2">
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : filtrados.length === 0 ? (
@@ -158,7 +159,7 @@ export function TicketsSection() {
                 <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0', PRIO_STYLE[t.prioridade])}>{HELPDESK_PRIORIDADE_LABELS[t.prioridade]}</span>
                 {cat && <Badge variant="outline" className="text-[10px] shrink-0 max-w-[160px] truncate">{cat}</Badge>}
                 <span className="text-[13px] font-medium flex-1 min-w-0 truncate">{t.titulo}</span>
-                {slaEstourado(t) && <span title="SLA estourado" className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-600"><AlertTriangle className="h-3 w-3" /> SLA</span>}
+                {slaEstourado(t) && <span title="SLA estourado" className={cn('shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold', TEXT.rose)}><AlertTriangle className="h-3 w-3" /> SLA</span>}
                 {t._count.mensagens > 0 && <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"><MessageSquare className="h-3 w-3" />{t._count.mensagens}</span>}
                 {t._count.anexos > 0 && <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"><Paperclip className="h-3 w-3" />{t._count.anexos}</span>}
                 <div onClick={e => e.stopPropagation()}>

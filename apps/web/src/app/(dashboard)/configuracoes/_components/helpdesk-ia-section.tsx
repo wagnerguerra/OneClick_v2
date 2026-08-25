@@ -6,6 +6,7 @@ import { Button, Input, Label, Badge, cn } from '@saas/ui'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { TEXT } from '@/lib/color-styles'
 import { MarkdownView } from '@/components/ui/markdown-view'
 
 interface Faixa { min: number; max: number | null; pontos: number }
@@ -605,7 +606,7 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
               target="_blank"
               rel="noreferrer"
               onClick={e => e.stopPropagation()}
-              className="text-sky-600 hover:underline inline-flex items-center gap-1"
+              className={cn('hover:underline inline-flex items-center gap-1', TEXT.sky)}
             >
               #HLP{String(d.ticket.numero).padStart(4, '0')}
               <ExternalLink className="h-3 w-3" />
@@ -663,7 +664,7 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
               {planoTexto && (
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Plano gerado</p>
-                  <div className="bg-card border border-border rounded p-3 max-h-[320px] overflow-auto">
+                  <div className="bg-card border border-border rounded p-3 max-h-[320px] overflow-auto nice-scrollbar">
                     <MarkdownView source={planoTexto} className="text-[12px]" />
                   </div>
                 </div>

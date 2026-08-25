@@ -8,8 +8,9 @@ import {
   HardDriveDownload, BellRing, FileSignature, Mailbox, ShieldCheck,
   Receipt, FileText, ArrowRight, type LucideIcon,
 } from 'lucide-react'
-import { Button, Card, Badge } from '@saas/ui'
+import { Button, Card, Badge, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 
@@ -221,10 +222,10 @@ function SchedulerCard({ item, corModulo }: { item: SchedulerItem; corModulo: st
 
 function StatusIcon({ status }: { status: string | null }) {
   if (!status) return null
-  if (status === 'OK') return <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-  if (status === 'PARCIAL') return <AlertTriangle className="h-3 w-3 text-amber-600" />
-  if (status === 'ERRO') return <AlertCircle className="h-3 w-3 text-rose-600" />
-  if (status === 'RODANDO') return <Loader2 className="h-3 w-3 animate-spin text-sky-600" />
+  if (status === 'OK') return <CheckCircle2 className={cn('h-3 w-3', TEXT.emerald)} />
+  if (status === 'PARCIAL') return <AlertTriangle className={cn('h-3 w-3', TEXT.amber)} />
+  if (status === 'ERRO') return <AlertCircle className={cn('h-3 w-3', TEXT.rose)} />
+  if (status === 'RODANDO') return <Loader2 className={cn('h-3 w-3 animate-spin', TEXT.sky)} />
   return null
 }
 

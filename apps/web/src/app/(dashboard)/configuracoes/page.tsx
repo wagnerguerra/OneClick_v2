@@ -13,6 +13,7 @@ import {
 import Link from 'next/link'
 import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
 import { useRouter } from 'next/navigation'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -511,7 +512,7 @@ export default function ConfiguracoesPage() {
         <div className="flex" style={{ borderRadius: '0.25rem', overflow: 'hidden' }}>
           {field.type === 'textarea' ? (
             <textarea
-              className="w-full min-h-[80px] rounded border border-[#ced4da] bg-white px-3 py-2 text-xs placeholder:text-[#878a99] focus:border-[#5ea3cb] focus:outline-none"
+              className="w-full min-h-[80px] rounded border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground focus:border-[#5ea3cb] focus:outline-none"
               placeholder={field.placeholder || field.key}
               value={values[field.key] === '__CLEAR__' ? '' : (values[field.key] || '')}
               onChange={(e) => setValues(prev => ({ ...prev, [field.key]: e.target.value }))}
@@ -595,7 +596,7 @@ export default function ConfiguracoesPage() {
         </CardHeader>
         <div className="flex min-h-[500px]">
           {/* Abas verticais (pills) */}
-          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {groups.map((group) => {
                 const Icon = GROUP_ICONS[group] || Settings
@@ -611,7 +612,7 @@ export default function ConfiguracoesPage() {
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                       activeGroup === group
                         ? 'text-white shadow-sm'
-                        : 'text-muted-foreground hover:bg-white hover:text-foreground'
+                        : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground'
                     )}
                     style={activeGroup === group ? { backgroundColor: '#f97316' } : undefined}
                   >
@@ -632,7 +633,7 @@ export default function ConfiguracoesPage() {
             {activeGroup === 'Banco de Dados' ? (
               <div className="flex flex-col h-full">
                 {/* Header com título + salvar */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
                   <h4 className="text-[13px] font-semibold text-foreground">Banco de Dados</h4>
                   <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -641,7 +642,7 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 {/* Sub-abas horizontais */}
-                <div className="border-b border-[rgba(0,0,0,0.08)] px-5">
+                <div className="border-b border-hairline px-5">
                   <div className="flex gap-0">
                     {DB_SUBTABS.map((tab) => {
                       const Icon = tab.icon
@@ -683,7 +684,7 @@ export default function ConfiguracoesPage() {
                   </div>
 
                   {/* Área de teste de conexão */}
-                  <div className="mt-5 pt-4 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="mt-5 pt-4 border-t border-hairline">
                     <div className="flex items-center gap-3">
                       <Button
                         type="button"
@@ -703,10 +704,8 @@ export default function ConfiguracoesPage() {
                       {/* Resultado do teste */}
                       {testResults[dbSubtab] && (
                         <div className={cn(
-                          'flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium',
-                          testResults[dbSubtab]!.ok
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-red-50 text-red-700 border border-red-200'
+                          'flex items-center gap-2 px-3 py-1.5 rounded text-xs font-medium border',
+                          testResults[dbSubtab]!.ok ? BADGE.emerald : BADGE.red
                         )}>
                           {testResults[dbSubtab]!.ok
                             ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
@@ -722,7 +721,7 @@ export default function ConfiguracoesPage() {
                   </div>
 
                   {/* Console SQL */}
-                  <div className="mt-5 pt-4 border-t border-[rgba(0,0,0,0.08)]">
+                  <div className="mt-5 pt-4 border-t border-hairline">
                     <div className="flex items-center justify-between">
                       <button
                         type="button"
@@ -758,14 +757,14 @@ export default function ConfiguracoesPage() {
                         className={cn(
                           'space-y-3',
                           expandedConsole
-                            ? 'fixed inset-4 z-[101] bg-white rounded-xl shadow-2xl p-5 overflow-y-auto'
+                            ? 'fixed inset-4 z-[101] bg-popover rounded-xl shadow-2xl p-5 overflow-y-auto nice-scrollbar'
                             : 'mt-3'
                         )}
                         style={{ animation: 'fadeSlideIn 0.2s ease-out' }}
                       >
                         {/* Header do modo expandido */}
                         {expandedConsole && (
-                          <div className="flex items-center justify-between pb-3 border-b border-[rgba(0,0,0,0.08)]">
+                          <div className="flex items-center justify-between pb-3 border-b border-hairline">
                             <div className="flex items-center gap-2">
                               <Terminal className="h-4 w-4 text-orange-500" />
                               <span className="text-sm font-semibold">Console SQL</span>
@@ -821,7 +820,7 @@ export default function ConfiguracoesPage() {
                               {/* Preview do SQL resolvido */}
                               <div className="mt-2 pt-2 border-t border-orange-200/60">
                                 <div className="text-[10px] text-orange-600 font-medium mb-1">Preview:</div>
-                                <div className="text-[11px] font-mono text-orange-900 bg-orange-100/60 rounded px-2 py-1.5 max-h-[60px] overflow-auto whitespace-pre-wrap">
+                                <div className="text-[11px] font-mono text-orange-900 bg-orange-100/60 rounded px-2 py-1.5 max-h-[60px] overflow-auto whitespace-pre-wrap nice-scrollbar">
                                   {resolveTemplate(activeTemplate[dbSubtab]!.sql, templateVars[dbSubtab]!)}
                                 </div>
                               </div>
@@ -941,7 +940,7 @@ export default function ConfiguracoesPage() {
                                           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                             <input
                                               autoFocus
-                                              className="flex-1 min-w-0 h-6 px-1.5 text-xs border border-orange-300 rounded bg-white focus:outline-none focus:border-orange-500"
+                                              className="flex-1 min-w-0 h-6 px-1.5 text-xs border border-orange-300 rounded bg-background focus:outline-none focus:border-orange-500"
                                               value={editingQueryName}
                                               onChange={(e) => setEditingQueryName(e.target.value)}
                                               onKeyDown={(e) => {
@@ -976,11 +975,11 @@ export default function ConfiguracoesPage() {
                                 }
 
                                 return (
-                                  <div className="absolute top-full left-0 mt-1 z-50 w-[350px] bg-white rounded-lg border shadow-lg" style={{ animation: 'fadeSlideIn 0.15s ease-out' }}>
-                                    <div className="px-3 py-2 border-b border-[rgba(0,0,0,0.08)] text-xs font-semibold text-muted-foreground">
+                                  <div className="absolute top-full left-0 mt-1 z-50 w-[350px] bg-popover rounded-lg border shadow-lg" style={{ animation: 'fadeSlideIn 0.15s ease-out' }}>
+                                    <div className="px-3 py-2 border-b border-hairline text-xs font-semibold text-muted-foreground">
                                       Consultas salvas — {DB_SUBTABS.find(t => t.key === dbSubtab)?.label}
                                     </div>
-                                    <div className="max-h-[300px] overflow-y-auto">
+                                    <div className="max-h-[300px] overflow-y-auto nice-scrollbar">
                                       {/* Originais */}
                                       {originals.length > 0 && (
                                         <>
@@ -1020,7 +1019,7 @@ export default function ConfiguracoesPage() {
 
                         {/* Resultado — Erro */}
                         {sqlResult[dbSubtab]?.error && (
-                          <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-mono whitespace-pre-wrap">
+                          <div className={cn('rounded border px-3 py-2 text-xs font-mono whitespace-pre-wrap', BADGE.red)}>
                             {sqlResult[dbSubtab]!.error}
                           </div>
                         )}
@@ -1063,13 +1062,13 @@ export default function ConfiguracoesPage() {
                               </div>
 
                               {/* Tabela */}
-                              <div className={cn('rounded border border-[rgba(0,0,0,0.08)] overflow-auto', expandedConsole ? 'max-h-[calc(100vh-400px)]' : 'max-h-[400px]')}>
+                              <div className={cn('rounded border border-hairline overflow-auto nice-scrollbar', expandedConsole ? 'max-h-[calc(100vh-400px)]' : 'max-h-[400px]')}>
                                 <table className="w-full text-xs">
                                   <thead className="bg-muted/40 sticky top-0">
                                     <tr>
-                                      <th className="px-3 py-2 text-left font-semibold text-muted-foreground border-b border-[rgba(0,0,0,0.08)] w-[50px]">#</th>
+                                      <th className="px-3 py-2 text-left font-semibold text-muted-foreground border-b border-hairline w-[50px]">#</th>
                                       {sqlResult[dbSubtab]!.columns.map((col, i) => (
-                                        <th key={i} className="px-3 py-2 text-left font-semibold text-muted-foreground border-b border-[rgba(0,0,0,0.08)] whitespace-nowrap">
+                                        <th key={i} className="px-3 py-2 text-left font-semibold text-muted-foreground border-b border-hairline whitespace-nowrap">
                                           {col}
                                         </th>
                                       ))}
@@ -1103,7 +1102,7 @@ export default function ConfiguracoesPage() {
 
                         {/* Resultado — Query sem retorno (INSERT/UPDATE/DELETE) */}
                         {sqlResult[dbSubtab] && !sqlResult[dbSubtab]!.error && sqlResult[dbSubtab]!.columns.length === 0 && (
-                          <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                          <div className={cn('rounded border px-3 py-2 text-xs', BADGE.emerald)}>
                             ✓ Query executada com sucesso ({sqlResult[dbSubtab]!.ms}ms)
                           </div>
                         )}
@@ -1117,7 +1116,7 @@ export default function ConfiguracoesPage() {
               /* GRUPO ESPECIAL: GOOGLE (com sub-abas)                        */
               /* ============================================================ */
               <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
                   <h4 className="text-[13px] font-semibold text-foreground">Google</h4>
                   <Button variant="success" size="sm" onClick={handleSave} disabled={saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -1126,7 +1125,7 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 {/* Sub-abas horizontais */}
-                <div className="border-b border-[rgba(0,0,0,0.08)] px-5">
+                <div className="border-b border-hairline px-5">
                   <div className="flex gap-0">
                     {GOOGLE_SUBTABS.map((tab) => {
                       const Icon = tab.icon
@@ -1180,7 +1179,7 @@ export default function ConfiguracoesPage() {
               /* PILL ESPECIAL: NOTIFICAÇÕES — toggles de remoção por origem  */
               /* ============================================================ */
               <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
                   <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
                     <Bell className="h-4 w-4 text-orange-500" />
                     Notificações — controle de remoção pelo usuário
@@ -1213,14 +1212,14 @@ export default function ConfiguracoesPage() {
                       Nenhuma origem cadastrada.
                     </div>
                   ) : (
-                    <div className="rounded border border-[rgba(0,0,0,0.08)] overflow-hidden">
+                    <div className="rounded border border-hairline overflow-hidden">
                       <table className="w-full text-xs">
                         <thead className="bg-muted/40">
                           <tr>
-                            <th className="text-left px-3 py-2 font-semibold text-muted-foreground border-b border-[rgba(0,0,0,0.08)]">Origem / Módulo</th>
-                            <th className="text-left px-3 py-2 font-semibold text-muted-foreground border-b border-[rgba(0,0,0,0.08)]">Descrição</th>
-                            <th className="text-center px-3 py-2 font-semibold text-muted-foreground border-b border-[rgba(0,0,0,0.08)] w-[110px]">Ativos</th>
-                            <th className="text-center px-3 py-2 font-semibold text-muted-foreground border-b border-[rgba(0,0,0,0.08)] w-[180px]">Removível pelo usuário</th>
+                            <th className="text-left px-3 py-2 font-semibold text-muted-foreground border-b border-hairline">Origem / Módulo</th>
+                            <th className="text-left px-3 py-2 font-semibold text-muted-foreground border-b border-hairline">Descrição</th>
+                            <th className="text-center px-3 py-2 font-semibold text-muted-foreground border-b border-hairline w-[110px]">Ativos</th>
+                            <th className="text-center px-3 py-2 font-semibold text-muted-foreground border-b border-hairline w-[180px]">Removível pelo usuário</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1231,14 +1230,14 @@ export default function ConfiguracoesPage() {
                                 <td className="px-3 py-2.5 align-top">
                                   <div className="flex items-center gap-2">
                                     {o.removivelAtual
-                                      ? <Unlock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                                      : <Lock className="h-3.5 w-3.5 text-rose-600 shrink-0" />}
+                                      ? <Unlock className={cn('h-3.5 w-3.5 shrink-0', TEXT.emerald)} />
+                                      : <Lock className={cn('h-3.5 w-3.5 shrink-0', TEXT.rose)} />}
                                     <div className="min-w-0">
                                       <div className="font-semibold text-foreground">{o.label}</div>
                                       <div className="text-[10px] text-muted-foreground">
                                         {o.modulo}
                                         {!o.conhecida && (
-                                          <span className="ml-1 inline-flex items-center rounded-sm px-1 py-0 text-[9px] uppercase tracking-wider bg-amber-100 text-amber-800">
+                                          <span className={cn('ml-1 inline-flex items-center rounded-sm px-1 py-0 text-[9px] uppercase tracking-wider', STRONG.amber)}>
                                             não mapeada
                                           </span>
                                         )}
@@ -1301,7 +1300,7 @@ export default function ConfiguracoesPage() {
               /* PILL ESPECIAL: HELPDESK — Geral (SLA/inbound) + Triagem IA   */
               /* ============================================================ */
               <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
                   <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
                     <Headphones className="h-4 w-4 text-cyan-500" />
                     HelpDesk
@@ -1314,7 +1313,7 @@ export default function ConfiguracoesPage() {
                   )}
                 </div>
                 {/* Sub-abas */}
-                <div className="px-5 pt-3 flex items-center gap-1 border-b border-[rgba(0,0,0,0.06)]">
+                <div className="px-5 pt-3 flex items-center gap-1 border-b border-hairline">
                   <button
                     type="button"
                     onClick={() => setHdSubtab('geral')}

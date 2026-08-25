@@ -193,7 +193,7 @@ function StripeSettingsPageInner() {
         </CardHeader>
         <div className="flex min-h-[500px]">
           {/* Pills laterais */}
-          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {TABS.map((tab) => {
                 const Icon = tab.icon
@@ -299,7 +299,7 @@ function TabChaves({
   return (
     <div>
       {/* Título interno */}
-      <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+      <div className="px-5 py-3 border-b border-hairline">
         <h4 className="text-[13px] font-semibold text-foreground">Chaves de API do Stripe</h4>
         <p className="text-[11px] text-muted-foreground mt-0.5">
           Configure as chaves de acesso à API do Stripe para habilitar pagamentos e assinaturas.
@@ -309,7 +309,7 @@ function TabChaves({
       <div className="p-5 space-y-5">
         {/* Ambiente */}
         <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
-          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+          <AlertTriangle className={cn('h-4 w-4 shrink-0', TEXT.amber)} />
           <p className="text-xs text-amber-700 dark:text-amber-400">
             Certifique-se de usar as chaves corretas para o ambiente desejado.
             Chaves com prefixo <code className="font-mono bg-amber-100 dark:bg-amber-900/30 px-1 rounded">sk_test_</code> são
@@ -399,7 +399,7 @@ function TabChaves({
         )}
 
         {/* Ações */}
-        <div className="flex items-center gap-3 pt-2 border-t border-[rgba(0,0,0,0.08)]">
+        <div className="flex items-center gap-3 pt-2 border-t border-hairline">
           <Button onClick={onSave} disabled={saving} className="gap-2" variant="success">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Salvar Chaves
@@ -444,7 +444,7 @@ function TabWebhooks({ values }: { values: Record<string, string> }) {
   return (
     <div>
       {/* Título interno */}
-      <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+      <div className="px-5 py-3 border-b border-hairline">
         <h4 className="text-[13px] font-semibold text-foreground">Configuração de Webhooks</h4>
         <p className="text-[11px] text-muted-foreground mt-0.5">
           Configure os webhooks do Stripe para receber notificações de eventos de pagamento em tempo real.
@@ -458,7 +458,7 @@ function TabWebhooks({ values }: { values: Record<string, string> }) {
             URL do Endpoint (Webhook)
           </Label>
           <div className="flex items-center gap-2">
-            <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded border border-[#ced4da] bg-muted/30 font-mono text-xs text-foreground">
+            <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded border border-input bg-muted/30 font-mono text-xs text-foreground">
               <Webhook className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span className="truncate">{webhookUrl}</span>
             </div>
@@ -491,7 +491,7 @@ function TabWebhooks({ values }: { values: Record<string, string> }) {
 
         {/* Eventos monitorados */}
         <div>
-          <div className="-mx-5 px-5 py-3 border-t border-[rgba(0,0,0,0.08)]">
+          <div className="-mx-5 px-5 py-3 border-t border-hairline">
             <h4 className="text-[13px] font-semibold text-foreground">Eventos Monitorados</h4>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               Selecione estes eventos ao configurar o webhook no painel do Stripe.
@@ -502,7 +502,7 @@ function TabWebhooks({ values }: { values: Record<string, string> }) {
             {WEBHOOK_EVENTS.map((item) => (
               <div
                 key={item.event}
-                className="flex items-center justify-between p-3 rounded-lg border border-[rgba(0,0,0,0.08)] bg-muted/20"
+                className="flex items-center justify-between p-3 rounded-lg border border-hairline bg-muted/20"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex items-center justify-center h-7 w-7 rounded bg-violet-100 dark:bg-violet-900/30">
@@ -520,7 +520,7 @@ function TabWebhooks({ values }: { values: Record<string, string> }) {
         </div>
 
         {/* Link para o dashboard */}
-        <div className="pt-3 border-t border-[rgba(0,0,0,0.08)]">
+        <div className="pt-3 border-t border-hairline">
           <Button
             variant="outline"
             className="gap-2"
@@ -548,7 +548,7 @@ function TabPlanos({ plans, loading, onRefresh }: { plans: Plan[]; loading: bool
   return (
     <div>
       {/* Título interno */}
-      <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+      <div className="px-5 py-3 border-b border-hairline flex items-center justify-between">
         <div>
           <h4 className="text-[13px] font-semibold text-foreground">Produtos e Preços Cadastrados</h4>
           <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -595,7 +595,7 @@ function TabPlanos({ plans, loading, onRefresh }: { plans: Plan[]; loading: bool
                   className={cn(
                     'p-4 rounded-lg border transition-all',
                     plan.isActive
-                      ? 'border-[rgba(0,0,0,0.08)] bg-white dark:bg-white/5'
+                      ? 'border-hairline bg-white dark:bg-white/5'
                       : 'border-dashed border-muted-foreground/20 bg-muted/10 opacity-60',
                   )}
                 >
@@ -607,7 +607,7 @@ function TabPlanos({ plans, loading, onRefresh }: { plans: Plan[]; loading: bool
                           'text-[10px] font-medium px-2 py-0.5 rounded-full',
                           plan.isActive
                             ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-500',
+                            : 'bg-muted text-muted-foreground',
                         )}>
                           {plan.isActive ? 'Ativo' : 'Inativo'}
                         </span>
@@ -630,7 +630,7 @@ function TabPlanos({ plans, loading, onRefresh }: { plans: Plan[]; loading: bool
                   </div>
 
                   {/* Detalhes técnicos */}
-                  <div className="mt-3 pt-3 border-t border-[rgba(0,0,0,0.06)] grid grid-cols-12 gap-3">
+                  <div className="mt-3 pt-3 border-t border-hairline grid grid-cols-12 gap-3">
                     <div className="col-span-6">
                       <p className="text-[11px] text-muted-foreground">Stripe Price ID</p>
                       <p className="text-xs font-mono text-foreground truncate">{plan.stripePriceId}</p>
@@ -690,7 +690,7 @@ function TabInfo() {
   return (
     <div>
       {/* Título interno */}
-      <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+      <div className="px-5 py-3 border-b border-hairline">
         <h4 className="text-[13px] font-semibold text-foreground">Informações e Links Úteis</h4>
         <p className="text-[11px] text-muted-foreground mt-0.5">
           Referências rápidas para configuração e gerenciamento do Stripe.
@@ -723,7 +723,7 @@ function TabInfo() {
         </div>
 
         {/* Links */}
-        <div className="-mx-5 px-5 py-3 border-t border-[rgba(0,0,0,0.08)]">
+        <div className="-mx-5 px-5 py-3 border-t border-hairline">
           <h5 className="text-xs font-semibold text-foreground">Links Úteis</h5>
         </div>
 
@@ -734,7 +734,7 @@ function TabInfo() {
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between p-3 rounded-lg border border-[rgba(0,0,0,0.08)] hover:bg-muted/30 transition-colors group"
+              className="flex items-center justify-between p-3 rounded-lg border border-hairline hover:bg-muted/30 transition-colors group"
             >
               <div>
                 <p className="text-xs font-medium text-foreground group-hover:text-[#f97316] transition-colors">
