@@ -30,12 +30,12 @@ export class ControleFeriasService {
     return new Map(users.map((u) => [u.id, u.name]))
   }
 
-  /** Nome + situação no cadastro do v2 (para marcar desligados na lista). */
+  /** Nome, situação e admissão do cadastro (colunas que o v1 mostrava). */
   private async usuariosPorId(ids: Array<string | null | undefined>) {
     const unicos = [...new Set(ids.filter((x): x is string => !!x))]
-    if (!unicos.length) return new Map<string, { name: string; isActive: boolean }>()
-    const users = await prisma.user.findMany({ where: { id: { in: unicos } }, select: { id: true, name: true, isActive: true } })
-    return new Map(users.map((u) => [u.id, { name: u.name, isActive: u.isActive }]))
+    if (!unicos.length) return new Map<string, { name: string; isActive: boolean; dataAdmissao: Date | null }>()
+    const users = await prisma.user.findMany({ where: { id: { in: unicos } }, select: { id: true, name: true, isActive: true, dataAdmissao: true } })
+    return new Map(users.map((u) => [u.id, { name: u.name, isActive: u.isActive, dataAdmissao: u.dataAdmissao }]))
   }
 
   /** Agrupador de períodos: o id do colaborador ou, no resíduo do v1, o nome. */
@@ -82,6 +82,8 @@ export class ControleFeriasService {
         colaboradorNomeResolvido: u?.name ?? d.colaboradorNome,
         /** false = desligado no cadastro; null = nem existe mais (só resíduo). */
         colaboradorAtivo: d.colaboradorId ? (u?.isActive ?? false) : null,
+        /** Data de admissão do cadastro — coluna "Dt Admissão" do v1. */
+        colaboradorAdmissao: u?.dataAdmissao ?? null,
         gozados,
         saldo,
         eventosTotal: d.eventos.length,
@@ -133,6 +135,10 @@ export class ControleFeriasService {
         case 'gozados': c = a.gozados - b.gozados; break
         case 'saldo': c = a.saldo - b.saldo; break
         case 'previsao': c = data0(a.previsao) - data0(b.previsao); break
+        case 'numero': c = a.numero - b.numero; break
+        case 'admissao': c = data0(a.colaboradorAdmissao) - data0(b.colaboradorAdmissao); break
+        case 'pagamento': c = data0(a.pagamento1) - data0(b.pagamento1); break
+        case 'descricao': c = texto(a.descricao).localeCompare(texto(b.descricao), 'pt-BR'); break
         case 'situacao': c = Number(a.historico) - Number(b.historico) || Number(a.pago) - Number(b.pago); break
         default: c = texto(a.colaboradorNomeResolvido).localeCompare(texto(b.colaboradorNomeResolvido), 'pt-BR')
       }

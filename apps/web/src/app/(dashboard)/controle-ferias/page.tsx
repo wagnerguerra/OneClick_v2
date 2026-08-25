@@ -31,6 +31,10 @@ interface Row {
   colaboradorAtivo: boolean | null
   /** Períodos anteriores do mesmo colaborador (ficam no histórico do registro). */
   periodosAnteriores: number
+  numero: number
+  /** Data de admissão vinda do cadastro (coluna "Dt Admissão" do v1). */
+  colaboradorAdmissao: string | null
+  pagamento1: string | null
   periodoInicial: number
   periodoFinal: number
   descricao: string | null
@@ -227,28 +231,32 @@ export default function ControleFeriasPage() {
         <Table className="table-fixed">
           <TableHeader>
             <TableRow className="[&_th]:whitespace-nowrap">
+              <Th campo="numero" className="w-[64px]" {...ordenacao}>Nº</Th>
               <Th campo="colaborador" {...ordenacao}>Colaborador</Th>
-              <Th campo="periodo" className="w-[110px]" align="center" {...ordenacao}>Período</Th>
-              <Th campo="dias" className="w-[70px]" align="center" {...ordenacao}>Dias</Th>
-              <Th campo="gozados" className="w-[80px]" align="center" {...ordenacao}>Gozados</Th>
-              <Th campo="saldo" className="w-[70px]" align="center" {...ordenacao}>Saldo</Th>
-              <Th campo="previsao" className="hidden sm:table-cell w-[105px]" {...ordenacao}>Previsão</Th>
-              <Th campo="situacao" className="hidden md:table-cell w-[110px]" {...ordenacao}>Situação</Th>
+              <Th campo="admissao" className="hidden lg:table-cell w-[110px]" align="center" {...ordenacao}>Dt Admissão</Th>
+              <Th campo="periodo" className="w-[105px]" align="center" {...ordenacao}>Período</Th>
+              <Th campo="descricao" className="hidden xl:table-cell w-[170px]" {...ordenacao}>Descrição</Th>
+              <Th campo="dias" className="hidden md:table-cell w-[64px]" align="center" {...ordenacao}>Dias</Th>
+              <Th campo="gozados" className="hidden md:table-cell w-[76px]" align="center" {...ordenacao}>Gozados</Th>
+              <Th campo="saldo" className="w-[110px]" align="center" {...ordenacao}>Dias disp.</Th>
+              <Th campo="previsao" className="hidden sm:table-cell w-[120px]" align="center" {...ordenacao}>Previsão pagto</Th>
+              <Th campo="pagamento" className="w-[120px]" align="center" {...ordenacao}>Data pagto</Th>
               <TableHead className="w-[100px] pr-5 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={8} className="py-10 text-center">
+              <TableRow><TableCell colSpan={11} className="py-10 text-center">
                 <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
               </TableCell></TableRow>
             ) : !data || data.data.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
                 Nenhum período encontrado.
               </TableCell></TableRow>
             ) : (
               data.data.map((r) => (
                 <TableRow key={r.id} className="cursor-pointer [&_td]:whitespace-nowrap [&_td]:py-2" onClick={() => router.push(`/controle-ferias/${r.id}`)}>
+                  <TableCell className="text-xs font-semibold tabular-nums text-muted-foreground">{r.numero}</TableCell>
                   <TableCell className="text-sm">
                     <span className="flex items-center gap-1.5 min-w-0">
                       <span className="truncate font-medium">{r.colaboradorNomeResolvido ?? '—'}</span>
@@ -267,12 +275,15 @@ export default function ControleFeriasPage() {
                           +{r.periodosAnteriores} {r.periodosAnteriores === 1 ? 'período' : 'períodos'}
                         </Badge>
                       )}
-                      {r.descricao && <span className="truncate text-[11px] text-muted-foreground">· {r.descricao}</span>}
                     </span>
                   </TableCell>
+                  <TableCell className="hidden lg:table-cell text-center text-xs text-muted-foreground tabular-nums">{dataBR(r.colaboradorAdmissao)}</TableCell>
                   <TableCell className="text-center text-sm tabular-nums">{r.periodoInicial}/{r.periodoFinal}</TableCell>
-                  <TableCell className="text-center text-sm tabular-nums">{r.dias + r.saldoAnterior}</TableCell>
-                  <TableCell className="text-center text-sm tabular-nums">{r.gozados}</TableCell>
+                  <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">
+                    <span className="block truncate" title={r.descricao ?? undefined}>{r.descricao || 'Período aquisitivo'}</span>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell text-center text-sm tabular-nums">{r.dias + r.saldoAnterior}</TableCell>
+                  <TableCell className="hidden md:table-cell text-center text-sm tabular-nums">{r.gozados}</TableCell>
                   <TableCell className="text-center">
                     <span className={cn('inline-flex h-6 min-w-[28px] items-center justify-center rounded px-1.5 text-xs font-bold tabular-nums',
                       r.saldo <= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
@@ -281,16 +292,22 @@ export default function ControleFeriasPage() {
                       {r.saldo}
                     </span>
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell text-xs text-muted-foreground tabular-nums">{dataBR(r.previsao)}</TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {r.historico && <Badge variant="outline" className="text-[10px]">Histórico</Badge>}
-                      {r.pago && (
-                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
-                          <Check className="h-3 w-3 mr-0.5" />Pago
-                        </Badge>
-                      )}
-                    </div>
+                  <TableCell className="hidden sm:table-cell text-center text-xs tabular-nums">
+                    {r.previsao
+                      ? <span className="text-muted-foreground">{dataBR(r.previsao)}</span>
+                      : <span className="text-amber-600 dark:text-amber-400">Incluir previsão</span>}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {/* Como no v1: a data quando pago, senão o aviso "A pagar" */}
+                    {r.pagamento1 ? (
+                      <Badge variant="outline" className="w-full justify-center text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+                        <Check className="h-3 w-3 mr-0.5" />{dataBR(r.pagamento1)}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="w-full justify-center text-[10px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+                        A pagar
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="pr-5 text-right">
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>

@@ -8816,6 +8816,9 @@ model FeriasPeriodo {
   id        String  @id @default(cuid())
   empresaId String? @map("empresa_id")
   legacyId  Int?    @map("legacy_id")
+  /// Nº do registro (o da tela do v1): legado mantém o id do crp_ferias, novos
+  /// seguem a sequência criada por add_ferias_numero.sql.
+  numero    Int     @unique @default(autoincrement())
 
   colaboradorId   String? @map("colaborador_id")
   /// Resíduo do v1 quando o colaborador não existe mais no v2.
