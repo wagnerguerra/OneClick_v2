@@ -89,6 +89,26 @@ export function limitePagamento(inicioGozo: Date): Date {
   return new Date(new Date(inicioGozo).getTime() - 2 * 86400000)
 }
 
+/**
+ * Qual período aquisitivo lançar para quem ainda não tem nenhum.
+ *
+ * O aquisitivo corre de aniversário a aniversário de admissão. Sugerimos o
+ * último já COMPLETO — é o que está em aberto e conta prazo. Quem tem menos
+ * de um ano de casa recebe o que está correndo.
+ */
+export function periodoAquisitivoSugerido(
+  dataAdmissao: Date,
+  hoje = new Date(),
+): { periodoInicial: number; periodoFinal: number } {
+  const adm = new Date(dataAdmissao)
+  const anoAdm = adm.getUTCFullYear()
+  let completos = hoje.getUTCFullYear() - anoAdm
+  const aniversarioEsteAno = Date.UTC(hoje.getUTCFullYear(), adm.getUTCMonth(), adm.getUTCDate())
+  if (hoje.getTime() < aniversarioEsteAno) completos -= 1
+  const inicial = completos >= 1 ? anoAdm + completos - 1 : anoAdm
+  return { periodoInicial: inicial, periodoFinal: inicial + 1 }
+}
+
 /** yyyy-mm-dd em UTC — o formato que as telas e os exports usam. */
 export function iso(d: Date | null | undefined): string | null {
   return d ? new Date(d).toISOString().slice(0, 10) : null

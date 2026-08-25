@@ -19,6 +19,7 @@ import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
+import { PendenciasModal, type PendenciaAdmissao, type PendenciaPeriodo } from './_components/pendencias-modal'
 
 const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
 
@@ -152,10 +153,7 @@ interface PainelData {
   farol: Array<{ farol: string; total: number }>
   saldoPorArea: Array<{ areaId: string | null; area: string; colaboradores: number; dias: number }>
   gozosPorMes: Array<{ mes: string; label: string; dias: number; pessoas: number }>
-  pendencias: {
-    semAdmissao: Array<{ colaboradorId: string | null; nome: string; area: string | null }>
-    semPeriodo: Array<{ colaboradorId: string | null; nome: string; area: string | null; admissao: string | null }>
-  }
+  pendencias: { semAdmissao: PendenciaAdmissao[]; semPeriodo: PendenciaPeriodo[] }
 }
 interface VencRow extends LinhaColab { periodoId: string; numero: number; periodo: string; dias: number; gozados: number; saldo: number; previsao: string | null; limite: string | null; limiteAproximado: boolean; diasRestantes: number; farol: string }
 interface VencData { resumo: { total: number; vencidos: number; criticos: number; atencao: number; ok: number; diasVencidos: number; aproximados: number }; rows: VencRow[] }
@@ -197,6 +195,8 @@ export default function RelatoriosFeriasPage() {
   const [ano, setAno] = useState(new Date().getFullYear())
   const [farolFiltro, setFarolFiltro] = useState<string>(params.get('farol') ?? '')
   const [situacaoPagto, setSituacaoPagto] = useState<string>('')
+  const [soSemRecibo, setSoSemRecibo] = useState(false)
+  const [pendenciasAba, setPendenciasAba] = useState<'admissao' | 'periodo' | null>(null)
 
   const [painel, setPainel] = useState<PainelData | null>(null)
   const [venc, setVenc] = useState<VencData | null>(null)
@@ -235,7 +235,9 @@ export default function RelatoriosFeriasPage() {
 
   // ── Vencimentos: o filtro do farol também chega por link do sino ──
   const vencFiltradas = venc ? venc.rows.filter((r) => !farolFiltro || r.farol === farolFiltro) : []
-  const pagtoFiltradas = pagtos ? pagtos.rows.filter((r) => !situacaoPagto || r.situacao === situacaoPagto) : []
+  const pagtoFiltradas = pagtos
+    ? pagtos.rows.filter((r) => (!situacaoPagto || r.situacao === situacaoPagto) && (!soSemRecibo || r.semRecibo))
+    : []
 
   const encargosPct = (Number(encInss) + Number(encRat) + Number(encTerceiros) + Number(encFgts)) / 100
   const provTotalComEncargos = prov ? prov.resumo.total * (1 + (Number.isFinite(encargosPct) ? encargosPct : 0)) : 0
@@ -370,14 +372,36 @@ export default function RelatoriosFeriasPage() {
                   e quem não tem período lançado fica de fora de todos os relatórios.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className={painel.pendencias.semAdmissao.length ? FAROL_UI.CRITICO!.classe : ''}>
-                    {painel.pendencias.semAdmissao.length} sem data de admissão
-                  </Badge>
-                  <Badge variant="outline" className={painel.pendencias.semPeriodo.length ? FAROL_UI.CRITICO!.classe : ''}>
-                    {painel.pendencias.semPeriodo.length} sem período lançado
-                  </Badge>
-                  <Badge variant="outline">{painel.resumo.semRecibo} período(s) sem recibo</Badge>
+                  <button
+                    type="button"
+                    disabled={painel.pendencias.semAdmissao.length === 0}
+                    onClick={() => setPendenciasAba('admissao')}
+                    className="transition-transform enabled:hover:scale-[1.02] disabled:cursor-default disabled:opacity-60"
+                  >
+                    <Badge variant="outline" className={cn('cursor-pointer', painel.pendencias.semAdmissao.length ? FAROL_UI.CRITICO!.classe : '')}>
+                      {painel.pendencias.semAdmissao.length} sem data de admissão
+                    </Badge>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={painel.pendencias.semPeriodo.length === 0}
+                    onClick={() => setPendenciasAba('periodo')}
+                    className="transition-transform enabled:hover:scale-[1.02] disabled:cursor-default disabled:opacity-60"
+                  >
+                    <Badge variant="outline" className={cn('cursor-pointer', painel.pendencias.semPeriodo.length ? FAROL_UI.CRITICO!.classe : '')}>
+                      {painel.pendencias.semPeriodo.length} sem período lançado
+                    </Badge>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={painel.resumo.semRecibo === 0}
+                    onClick={() => { setSoSemRecibo(true); setSituacaoPagto(''); setAba('pagamentos') }}
+                    className="transition-transform enabled:hover:scale-[1.02] disabled:cursor-default disabled:opacity-60"
+                  >
+                    <Badge variant="outline" className="cursor-pointer">{painel.resumo.semRecibo} período(s) sem recibo</Badge>
+                  </button>
                 </div>
+                <p className="text-[11px] text-muted-foreground">Clique num aviso para resolver — as duas primeiras dão para corrigir aqui mesmo.</p>
                 {painel.pendencias.semPeriodo.length > 0 && (
                   <p className="text-[11px] text-muted-foreground">
                     Sem período: {painel.pendencias.semPeriodo.slice(0, 6).map((c) => c.nome).join(', ')}
@@ -587,13 +611,23 @@ export default function RelatoriosFeriasPage() {
             <Kpi label="Sem recibo" valor={pagtos.resumo.semRecibo} hint="Gozo lançado, arquivo faltando" icone={FileText} />
           </div>
 
-          <Select value={situacaoPagto || '__all__'} onValueChange={(v) => setSituacaoPagto(v === '__all__' ? '' : v)}>
-            <SelectTrigger className="h-8 w-[210px] bg-card text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Todas as situações</SelectItem>
-              {Object.entries(PAGTO_UI).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={situacaoPagto || '__all__'} onValueChange={(v) => setSituacaoPagto(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="h-8 w-[210px] bg-card text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas as situações</SelectItem>
+                {Object.entries(PAGTO_UI).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button
+              variant={soSemRecibo ? 'default' : 'outline'}
+              size="xs"
+              className="gap-1"
+              onClick={() => setSoSemRecibo((v) => !v)}
+            >
+              <FileText className="h-3.5 w-3.5" />Só sem recibo
+            </Button>
+          </div>
 
           <TabelaRelatorio<PagtoRow>
             titulo="Pagamentos e recibos"
@@ -686,6 +720,18 @@ export default function RelatoriosFeriasPage() {
             ]}
           />
         </div>
+      )}
+
+      {/* Correção das pendências sem sair do relatório */}
+      {painel && pendenciasAba && (
+        <PendenciasModal
+          aberto
+          abaInicial={pendenciasAba}
+          semAdmissao={painel.pendencias.semAdmissao}
+          semPeriodo={painel.pendencias.semPeriodo}
+          onFechar={() => setPendenciasAba(null)}
+          onAtualizado={carregar}
+        />
       )}
     </div>
   )

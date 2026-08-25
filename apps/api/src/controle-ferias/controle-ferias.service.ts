@@ -353,6 +353,26 @@ export class ControleFeriasService {
   }
 
   /**
+   * Preenche a data de admissão do colaborador direto do painel de pendências.
+   *
+   * É campo do cadastro de usuários, mas quem cuida das férias é quem sente a
+   * falta dele — sem admissão o prazo legal só sai aproximado. Por isso a
+   * escrita mora aqui, limitada a este único campo e ao escopo da empresa.
+   */
+  async definirAdmissao(colaboradorId: string, dataISO: string | null, empresaId?: string | null) {
+    const u = await prisma.user.findFirst({
+      where: { id: colaboradorId, OR: [{ empresaId: empresaId ?? null }, { empresaId: null }] },
+      select: { id: true },
+    })
+    if (!u) throw new Error('Colaborador não encontrado.')
+    await prisma.user.update({
+      where: { id: colaboradorId },
+      data: { dataAdmissao: dataISO ? dataDeISO(dataISO) : null },
+    })
+    return { id: colaboradorId, dataAdmissao: dataISO }
+  }
+
+  /**
    * Colaboradores para o seletor: só quem está ATIVO no cadastro (não faz
    * sentido abrir período novo para quem saiu). `incluirInativos` traz todos —
    * usado pelo filtro quando o usuário quer ver o histórico dos desligados.

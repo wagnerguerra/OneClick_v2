@@ -82,6 +82,14 @@ export function createControleFeriasRouter(
       .input(filtroRelatorioSchema.optional())
       .query(({ input, ctx }) => reports.provisao(ctx.empresaId, input ?? {})),
 
+    /** Corrige a admissão pelo painel de pendências, sem ir ao cadastro. */
+    definirAdmissao: writeProcedure(MODULE)
+      .input(z.object({
+        colaboradorId: z.string().min(1),
+        dataAdmissao: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida.').nullable(),
+      }))
+      .mutation(({ input, ctx }) => service.definirAdmissao(input.colaboradorId, input.dataAdmissao, ctx.empresaId)),
+
     /** Regera os avisos do sino na hora (o scheduler faz isso todo dia). */
     notificarVencimentos: writeProcedure(MODULE)
       .mutation(() => reports.notificarVencimentos()),

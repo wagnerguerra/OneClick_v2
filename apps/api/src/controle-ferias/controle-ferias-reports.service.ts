@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import {
   diasDoEvento, saldoDoPeriodo, limiteConcessivo, farolVencimento, diasNoMes,
-  limitePagamento, iso, type Farol,
+  limitePagamento, periodoAquisitivoSugerido, iso, type Farol,
 } from './ferias-calc'
 
 /**
@@ -252,9 +252,14 @@ export class ControleFeriasReportsService {
     const semAdmissao = colabs
       .filter((c) => c.ativo === true && !c.admissao)
       .map((c) => ({ colaboradorId: c.id, nome: c.nome, area: c.area }))
+    // Vai com a sugestão de período pronta: o painel deixa lançar dali mesmo,
+    // e a regra do aquisitivo fica no backend, como todo o resto.
     const semPeriodo = colabs
       .filter((c) => c.ativo === true && c.periodos.length === 0)
-      .map((c) => ({ colaboradorId: c.id, nome: c.nome, area: c.area, admissao: iso(c.admissao) }))
+      .map((c) => ({
+        colaboradorId: c.id, nome: c.nome, area: c.area, admissao: iso(c.admissao),
+        sugestao: c.admissao ? periodoAquisitivoSugerido(c.admissao, hoje) : null,
+      }))
 
     return {
       resumo: {
