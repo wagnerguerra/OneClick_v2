@@ -90,6 +90,11 @@ export function createControleFeriasRouter(
       }))
       .mutation(({ input, ctx }) => service.definirAdmissao(input.colaboradorId, input.dataAdmissao, ctx.empresaId)),
 
+    /** Tira (ou devolve) o colaborador do controle de férias. */
+    definirInclusao: writeProcedure(MODULE)
+      .input(z.object({ colaboradorId: z.string().min(1), incluir: z.boolean() }))
+      .mutation(({ input, ctx }) => service.definirInclusao(input.colaboradorId, input.incluir, ctx.empresaId)),
+
     /** Regera os avisos do sino na hora (o scheduler faz isso todo dia). */
     notificarVencimentos: writeProcedure(MODULE)
       .mutation(() => reports.notificarVencimentos()),

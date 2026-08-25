@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ClipboardList, Loader2, Check, CalendarPlus, TriangleAlert } from 'lucide-react'
+import { ClipboardList, Loader2, Check, CalendarPlus, TriangleAlert, UserMinus, UserPlus } from 'lucide-react'
 import {
   Button, Input, Badge, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
@@ -21,9 +21,21 @@ import { alerts } from '@/lib/alerts'
  *
  * O período sugerido vem calculado do backend (`periodoAquisitivoSugerido`):
  * a regra do aquisitivo é uma só, e não vale reescrevê-la na tela.
+ *
+ * Nem toda pendência é para resolver: sócio com pró-labore, conta de sistema e
+ * prestador não têm período aquisitivo. Para esses existe o "Não se aplica",
+ * que desliga o `incluirFerias` do cadastro — o mesmo campo do formulário de
+ * usuário, não um controle paralelo — e some com a cobrança. A aba "Fora do
+ * controle" mostra quem está assim e permite devolver.
  */
 
 export interface PendenciaAdmissao {
+  colaboradorId: string | null
+  nome: string
+  area: string | null
+}
+
+export interface ForaDoControle {
   colaboradorId: string | null
   nome: string
   area: string | null
@@ -37,16 +49,17 @@ export interface PendenciaPeriodo {
   sugestao: { periodoInicial: number; periodoFinal: number } | null
 }
 
-type Aba = 'admissao' | 'periodo'
+type Aba = 'admissao' | 'periodo' | 'fora'
 
 const dataBR = (iso: string | null | undefined) =>
   iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
 
-export function PendenciasModal({ aberto, abaInicial, semAdmissao, semPeriodo, onFechar, onAtualizado }: {
+export function PendenciasModal({ aberto, abaInicial, semAdmissao, semPeriodo, foraDoControle, onFechar, onAtualizado }: {
   aberto: boolean
   abaInicial: Aba
   semAdmissao: PendenciaAdmissao[]
   semPeriodo: PendenciaPeriodo[]
+  foraDoControle: ForaDoControle[]
   onFechar: () => void
   /** Recarrega o painel — as listas chegam por prop, então a fonte é uma só. */
   onAtualizado: () => void
@@ -80,6 +93,30 @@ export function PendenciasModal({ aberto, abaInicial, semAdmissao, semPeriodo, o
     try {
       await (trpc as any).controleFerias.definirAdmissao.mutate({ colaboradorId: p.colaboradorId, dataAdmissao: valor })
       alerts.success('Admissão registrada', `${p.nome}: ${dataBR(valor)}.`)
+      onAtualizado()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setSalvando(null) }
+  }
+
+  /**
+   * Tira o colaborador do controle (ou devolve). Não apaga nada: liga/desliga
+   * o `incluirFerias` do cadastro, e quem já tem período lançado continua
+   * aparecendo nos relatórios — o flag só evita a cobrança de quem não tem.
+   */
+  async function definirInclusao(colaboradorId: string | null, nome: string, incluir: boolean) {
+    if (!colaboradorId) return
+    if (!incluir) {
+      const ok = await alerts.confirm({
+        title: `Tirar ${nome} do controle de férias?`,
+        text: 'Ele sai das pendências e dos relatórios. É o mesmo campo "Incluir no controle de férias" do cadastro de usuários, e dá para voltar atrás pela aba "Fora do controle".',
+        icon: 'question', confirmText: 'Tirar do controle',
+      })
+      if (!ok) return
+    }
+    setSalvando(colaboradorId)
+    try {
+      await (trpc as any).controleFerias.definirInclusao.mutate({ colaboradorId, incluir })
+      alerts.success(incluir ? 'De volta ao controle' : 'Fora do controle', nome)
       onAtualizado()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setSalvando(null) }
@@ -152,6 +189,7 @@ export function PendenciasModal({ aberto, abaInicial, semAdmissao, semPeriodo, o
             {([
               { id: 'admissao' as const, label: `Sem data de admissão (${semAdmissao.length})` },
               { id: 'periodo' as const, label: `Sem período lançado (${semPeriodo.length})` },
+              { id: 'fora' as const, label: `Fora do controle (${foraDoControle.length})` },
             ]).map((t) => (
               <button
                 key={t.id}
@@ -177,7 +215,7 @@ export function PendenciasModal({ aberto, abaInicial, semAdmissao, semPeriodo, o
                       <th className="px-3 py-2 text-left font-semibold uppercase tracking-wider">Colaborador</th>
                       <th className="px-3 py-2 text-left font-semibold uppercase tracking-wider">Área</th>
                       <th className="px-3 py-2 text-left font-semibold uppercase tracking-wider">Data de admissão</th>
-                      <th className="w-[90px] px-3 py-2" />
+                      <th className="w-[210px] px-3 py-2" />
                     </tr>
                   </thead>
                   <tbody>
@@ -195,15 +233,25 @@ export function PendenciasModal({ aberto, abaInicial, semAdmissao, semPeriodo, o
                               className="h-8 w-[150px] text-xs"
                             />
                           </td>
-                          <td className="px-3 py-1.5 text-right">
-                            <Button
-                              variant="success" size="xs" className="gap-1"
-                              disabled={salvando === id || !datas[id]}
-                              onClick={() => salvarAdmissao(p)}
-                            >
-                              {salvando === id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                              Salvar
-                            </Button>
+                          <td className="px-3 py-1.5">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                variant="success" size="xs" className="gap-1"
+                                disabled={salvando === id || !datas[id]}
+                                onClick={() => salvarAdmissao(p)}
+                              >
+                                {salvando === id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                Salvar
+                              </Button>
+                              <Button
+                                variant="outline" size="xs" className="gap-1"
+                                disabled={salvando === id}
+                                onClick={() => definirInclusao(p.colaboradorId, p.nome, false)}
+                                title="Sai das pendências e dos relatórios de férias"
+                              >
+                                <UserMinus className="h-3.5 w-3.5" />Não se aplica
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       )
@@ -235,7 +283,7 @@ export function PendenciasModal({ aberto, abaInicial, semAdmissao, semPeriodo, o
                         <th className="px-3 py-2 text-center font-semibold uppercase tracking-wider">Ano inicial</th>
                         <th className="px-3 py-2 text-center font-semibold uppercase tracking-wider">Ano final</th>
                         <th className="px-3 py-2 text-center font-semibold uppercase tracking-wider">Dias</th>
-                        <th className="w-[100px] px-3 py-2" />
+                        <th className="w-[220px] px-3 py-2" />
                       </tr>
                     </thead>
                     <tbody>
@@ -260,14 +308,72 @@ export function PendenciasModal({ aberto, abaInicial, semAdmissao, semPeriodo, o
                             <td className="px-3 py-1.5 text-center">
                               <Input type="number" value={c.dias} onChange={(e) => setCampoPeriodo(id, { dias: e.target.value }, c)} className="h-8 w-[64px] text-center text-xs" min="0" max="60" />
                             </td>
+                            <td className="px-3 py-1.5">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  variant="success" size="xs" className="gap-1"
+                                  disabled={salvando === id || lote}
+                                  onClick={() => lancarPeriodo(p)}
+                                >
+                                  {salvando === id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarPlus className="h-3.5 w-3.5" />}
+                                  Lançar
+                                </Button>
+                                <Button
+                                  variant="outline" size="xs" className="gap-1"
+                                  disabled={salvando === id || lote}
+                                  onClick={() => definirInclusao(p.colaboradorId, p.nome, false)}
+                                  title="Sai das pendências e dos relatórios de férias"
+                                >
+                                  <UserMinus className="h-3.5 w-3.5" />Não se aplica
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          )}
+          {/* ── Fora do controle ── */}
+          {aba === 'fora' && (
+            foraDoControle.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                Ninguém fora do controle. Use o “Não se aplica” nas outras abas para quem não tem período aquisitivo
+                (sócio com pró-labore, conta de sistema, prestador).
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Estes colaboradores estão com <b className="text-foreground">“Incluir no controle de férias”</b> desmarcado no cadastro:
+                  ficam fora das pendências e dos relatórios. Quem já tem período lançado continua aparecendo — o flag não esconde registro existente.
+                </p>
+                <div className="nice-scrollbar max-h-[380px] overflow-auto rounded-md border border-border">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold uppercase tracking-wider">Colaborador</th>
+                        <th className="px-3 py-2 text-left font-semibold uppercase tracking-wider">Área</th>
+                        <th className="w-[190px] px-3 py-2" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {foraDoControle.map((p) => {
+                        const id = p.colaboradorId ?? p.nome
+                        return (
+                          <tr key={id} className="border-b border-border/50">
+                            <td className="px-3 py-1.5 font-medium">{p.nome}</td>
+                            <td className="px-3 py-1.5 text-muted-foreground">{p.area ?? '—'}</td>
                             <td className="px-3 py-1.5 text-right">
                               <Button
-                                variant="success" size="xs" className="gap-1"
-                                disabled={salvando === id || lote}
-                                onClick={() => lancarPeriodo(p)}
+                                variant="outline" size="xs" className="gap-1"
+                                disabled={salvando === id}
+                                onClick={() => definirInclusao(p.colaboradorId, p.nome, true)}
                               >
-                                {salvando === id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarPlus className="h-3.5 w-3.5" />}
-                                Lançar
+                                {salvando === id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+                                Voltar ao controle
                               </Button>
                             </td>
                           </tr>

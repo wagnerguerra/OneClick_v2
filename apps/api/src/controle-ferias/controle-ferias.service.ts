@@ -373,6 +373,22 @@ export class ControleFeriasService {
   }
 
   /**
+   * Liga/desliga o colaborador do controle de férias (`incluirFerias` do
+   * cadastro, o mesmo checkbox do formulário de usuário). Sócio com
+   * pró-labore, conta de sistema e prestador não têm período aquisitivo, e
+   * ficavam cobrados eternamente na lista de pendências.
+   */
+  async definirInclusao(colaboradorId: string, incluir: boolean, empresaId?: string | null) {
+    const u = await prisma.user.findFirst({
+      where: { id: colaboradorId, OR: [{ empresaId: empresaId ?? null }, { empresaId: null }] },
+      select: { id: true },
+    })
+    if (!u) throw new Error('Colaborador não encontrado.')
+    await prisma.user.update({ where: { id: colaboradorId }, data: { incluirFerias: incluir } })
+    return { id: colaboradorId, incluirFerias: incluir }
+  }
+
+  /**
    * Colaboradores para o seletor: só quem está ATIVO no cadastro (não faz
    * sentido abrir período novo para quem saiu). `incluirInativos` traz todos —
    * usado pelo filtro quando o usuário quer ver o histórico dos desligados.
@@ -381,7 +397,7 @@ export class ControleFeriasService {
     return prisma.user.findMany({
       where: {
         OR: [{ empresaId: empresaId ?? null }, { empresaId: null }],
-        ...(incluirInativos ? {} : { isActive: true }),
+        ...(incluirInativos ? {} : { isActive: true, incluirFerias: true }),
       },
       orderBy: { name: 'asc' },
       select: { id: true, name: true, email: true, image: true, isActive: true },

@@ -19,7 +19,7 @@ import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
-import { PendenciasModal, type PendenciaAdmissao, type PendenciaPeriodo } from './_components/pendencias-modal'
+import { PendenciasModal, type PendenciaAdmissao, type PendenciaPeriodo, type ForaDoControle } from './_components/pendencias-modal'
 
 const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
 
@@ -153,7 +153,7 @@ interface PainelData {
   farol: Array<{ farol: string; total: number }>
   saldoPorArea: Array<{ areaId: string | null; area: string; colaboradores: number; dias: number }>
   gozosPorMes: Array<{ mes: string; label: string; dias: number; pessoas: number }>
-  pendencias: { semAdmissao: PendenciaAdmissao[]; semPeriodo: PendenciaPeriodo[] }
+  pendencias: { semAdmissao: PendenciaAdmissao[]; semPeriodo: PendenciaPeriodo[]; foraDoControle: ForaDoControle[] }
 }
 interface VencRow extends LinhaColab { periodoId: string; numero: number; periodo: string; dias: number; gozados: number; saldo: number; previsao: string | null; limite: string | null; limiteAproximado: boolean; diasRestantes: number; farol: string }
 interface VencData { resumo: { total: number; vencidos: number; criticos: number; atencao: number; ok: number; diasVencidos: number; aproximados: number }; rows: VencRow[] }
@@ -196,7 +196,7 @@ export default function RelatoriosFeriasPage() {
   const [farolFiltro, setFarolFiltro] = useState<string>(params.get('farol') ?? '')
   const [situacaoPagto, setSituacaoPagto] = useState<string>('')
   const [soSemRecibo, setSoSemRecibo] = useState(false)
-  const [pendenciasAba, setPendenciasAba] = useState<'admissao' | 'periodo' | null>(null)
+  const [pendenciasAba, setPendenciasAba] = useState<'admissao' | 'periodo' | 'fora' | null>(null)
 
   const [painel, setPainel] = useState<PainelData | null>(null)
   const [venc, setVenc] = useState<VencData | null>(null)
@@ -401,7 +401,17 @@ export default function RelatoriosFeriasPage() {
                     <Badge variant="outline" className="cursor-pointer">{painel.resumo.semRecibo} período(s) sem recibo</Badge>
                   </button>
                 </div>
-                <p className="text-[11px] text-muted-foreground">Clique num aviso para resolver — as duas primeiras dão para corrigir aqui mesmo.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Clique num aviso para resolver — as duas primeiras dão para corrigir aqui mesmo.
+                  {painel.pendencias.foraDoControle.length > 0 && (
+                    <>
+                      {' '}
+                      <button type="button" onClick={() => setPendenciasAba('fora')} className="underline underline-offset-2 hover:text-foreground">
+                        {painel.pendencias.foraDoControle.length} colaborador(es) estão fora do controle de férias
+                      </button>.
+                    </>
+                  )}
+                </p>
                 {painel.pendencias.semPeriodo.length > 0 && (
                   <p className="text-[11px] text-muted-foreground">
                     Sem período: {painel.pendencias.semPeriodo.slice(0, 6).map((c) => c.nome).join(', ')}
@@ -729,6 +739,7 @@ export default function RelatoriosFeriasPage() {
           abaInicial={pendenciasAba}
           semAdmissao={painel.pendencias.semAdmissao}
           semPeriodo={painel.pendencias.semPeriodo}
+          foraDoControle={painel.pendencias.foraDoControle}
           onFechar={() => setPendenciasAba(null)}
           onAtualizado={carregar}
         />

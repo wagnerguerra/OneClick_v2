@@ -62,6 +62,8 @@ interface ColaboradorRel {
   areaId: string | null
   area: string | null
   cargo: string | null
+  /** `incluirFerias` do cadastro: falso = não entra no controle (sócio, conta de sistema). */
+  noControle: boolean
   periodos: PeriodoRel[]
 }
 
@@ -100,6 +102,7 @@ export class ControleFeriasReportsService {
         },
         select: {
           id: true, name: true, image: true, isActive: true, dataAdmissao: true, salario: true,
+          incluirFerias: true,
           area: { select: { id: true, name: true } },
           cargo: { select: { name: true } },
         },
@@ -119,6 +122,7 @@ export class ControleFeriasReportsService {
         areaId: u.area?.id ?? null,
         area: u.area?.name ?? null,
         cargo: u.cargo?.name ?? null,
+        noControle: u.incluirFerias,
         periodos: [],
       })
     }
@@ -136,7 +140,7 @@ export class ControleFeriasReportsService {
         c = {
           id: p.colaboradorId, chave, nome: p.colaboradorNome ?? 'Sem colaborador',
           imagem: null, ativo: null, admissao: null, salario: null,
-          areaId: null, area: null, cargo: null, periodos: [],
+          areaId: null, area: null, cargo: null, noControle: true, periodos: [],
         }
         colaboradores.set(chave, c)
       }
@@ -160,7 +164,12 @@ export class ControleFeriasReportsService {
       })
     }
 
-    const lista = [...colaboradores.values()]
+    // Quem está marcado como fora do controle no cadastro (sócio com pró-labore,
+    // conta de sistema, prestador) sai dos relatórios — mas só quando não tem
+    // período nenhum. Se alguém já lançou férias para ele, os dados continuam
+    // à vista: esconder registro existente por causa de um flag é pior do que
+    // mostrar uma linha a mais.
+    const lista = [...colaboradores.values()].filter((c) => c.noControle || c.periodos.length > 0)
     for (const c of lista) {
       c.periodos.sort((a, b) => (b.periodoInicial - a.periodoInicial) || (b.periodoFinal - a.periodoFinal))
     }
@@ -177,6 +186,8 @@ export class ControleFeriasReportsService {
     return {
       colaboradorId: c.id, nome: c.nome, imagem: c.imagem, ativo: c.ativo,
       area: c.area, cargo: c.cargo, admissao: iso(c.admissao),
+      /** Tem período lançado mas está marcado como fora do controle no cadastro. */
+      foraDoControle: !c.noControle,
     }
   }
 
@@ -250,12 +261,12 @@ export class ControleFeriasReportsService {
     }
 
     const semAdmissao = colabs
-      .filter((c) => c.ativo === true && !c.admissao)
+      .filter((c) => c.ativo === true && c.noControle && !c.admissao)
       .map((c) => ({ colaboradorId: c.id, nome: c.nome, area: c.area }))
     // Vai com a sugestão de período pronta: o painel deixa lançar dali mesmo,
     // e a regra do aquisitivo fica no backend, como todo o resto.
     const semPeriodo = colabs
-      .filter((c) => c.ativo === true && c.periodos.length === 0)
+      .filter((c) => c.ativo === true && c.noControle && c.periodos.length === 0)
       .map((c) => ({
         colaboradorId: c.id, nome: c.nome, area: c.area, admissao: iso(c.admissao),
         sugestao: c.admissao ? periodoAquisitivoSugerido(c.admissao, hoje) : null,
@@ -277,8 +288,22 @@ export class ControleFeriasReportsService {
       farol: (['VENCIDO', 'CRITICO', 'ATENCAO', 'OK'] as Farol[]).map((f) => ({ farol: f, total: contaFarol[f] })),
       saldoPorArea: [...porArea.values()].sort((a, b) => b.dias - a.dias),
       gozosPorMes,
-      pendencias: { semAdmissao, semPeriodo },
+      pendencias: { semAdmissao, semPeriodo, foraDoControle: await this.foraDoControle(empresaId) },
     }
+  }
+
+  /** Quem o cadastro marcou como fora do controle — para a tela poder desfazer. */
+  private async foraDoControle(empresaId: string | null | undefined) {
+    const users = await prisma.user.findMany({
+      where: {
+        OR: [{ empresaId: empresaId ?? null }, { empresaId: null }],
+        isActive: true,
+        incluirFerias: false,
+      },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, area: { select: { name: true } } },
+    })
+    return users.map((u) => ({ colaboradorId: u.id, nome: u.name, area: u.area?.name ?? null }))
   }
 
   // ── 2. Vencimentos (risco de dobra) ────────────────────────────
