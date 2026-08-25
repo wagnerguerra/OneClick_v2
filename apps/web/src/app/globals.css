@@ -27,6 +27,7 @@
   --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
   --color-border: #e5e8ee;  /* a borda suave do LuminAux */
+  --color-hairline: rgba(0,0,0,0.08);  /* divisória fininha (era border-[rgba(0,0,0,0.08)] hardcoded); no dark vira branca translúcida */
   --color-input: #e5e8ee;
   --color-ring: #0067ff;
   --radius: 0.5rem;
@@ -790,6 +791,7 @@
     --color-destructive: #ef4444;
     --color-destructive-foreground: #ffffff;
     --color-border: #2d3040;
+    --color-hairline: rgba(255,255,255,0.08);  /* divisória fininha no dark (o preto 8% sumia) */
     --color-input: #2d3040;
     --color-ring: #2b7fff;
     --color-sidebar: #111827;  /* surface dark do LuminAux (sidebar do modelo) */
