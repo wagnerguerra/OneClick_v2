@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, CalendarDays, Trash2, Pencil, Loader2, Check,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  Plus, Trash2, Pencil, Loader2, Check,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search as SearchIcon,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn,
@@ -12,13 +12,14 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { UserCombobox } from '../orcamentos/_components/user-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
 const PAGE_SIZES = [10, 20, 50]
 
 interface Row {
@@ -139,25 +140,29 @@ export default function ControleFeriasPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <CalendarDays className="h-6 w-6" />
+      {/* Header padrão (como o /clientes): barra full-bleed, título + trilha, ações à direita */}
+      <PageHeaderBar
+        actions={<>
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Buscar por colaborador..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 w-60 pl-8 text-sm" />
           </div>
-          <div>
-            <h1>Controle de Férias</h1>
-            <p className="text-sm text-muted-foreground">Períodos aquisitivos, gozos, pagamentos e recibos por colaborador</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
           {podeEscrever && (
-            <Button variant="success" size="sm" onClick={() => setAberta(true)}>
+            <Button size="sm" className="gap-1.5" onClick={() => setAberta(true)}>
               <Plus className="h-4 w-4" />Novo Período
             </Button>
           )}
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Controle de Férias</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="hover:text-foreground transition-colors">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Trabalhista</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Controle de Férias</span>
+        </p>
+      </PageHeaderBar>
 
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -187,14 +192,11 @@ export default function ControleFeriasPage() {
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por colaborador..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
-          </div>
         </div>
 
         <Table className="table-fixed">
           <TableHeader>
-            <TableRow>
+            <TableRow className="[&_th]:whitespace-nowrap">
               <TableHead>Colaborador</TableHead>
               <TableHead className="w-[110px] text-center">Período</TableHead>
               <TableHead className="w-[70px] text-center">Dias</TableHead>
@@ -202,7 +204,7 @@ export default function ControleFeriasPage() {
               <TableHead className="w-[70px] text-center">Saldo</TableHead>
               <TableHead className="hidden sm:table-cell w-[105px]">Previsão</TableHead>
               <TableHead className="hidden md:table-cell w-[110px]">Situação</TableHead>
-              <TableHead className="w-[90px] text-right">Ações</TableHead>
+              <TableHead className="w-[100px] pr-5 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -216,10 +218,12 @@ export default function ControleFeriasPage() {
               </TableCell></TableRow>
             ) : (
               data.data.map((r) => (
-                <TableRow key={r.id} className="cursor-pointer" onClick={() => router.push(`/controle-ferias/${r.id}`)}>
+                <TableRow key={r.id} className="cursor-pointer [&_td]:whitespace-nowrap [&_td]:py-2" onClick={() => router.push(`/controle-ferias/${r.id}`)}>
                   <TableCell className="text-sm">
-                    <span className="block truncate font-medium">{r.colaboradorNomeResolvido ?? '—'}</span>
-                    <span className="text-[11px] text-muted-foreground">{r.descricao ?? ''}</span>
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <span className="truncate font-medium">{r.colaboradorNomeResolvido ?? '—'}</span>
+                      {r.descricao && <span className="truncate text-[11px] text-muted-foreground">· {r.descricao}</span>}
+                    </span>
                   </TableCell>
                   <TableCell className="text-center text-sm tabular-nums">{r.periodoInicial}/{r.periodoFinal}</TableCell>
                   <TableCell className="text-center text-sm tabular-nums">{r.dias + r.saldoAnterior}</TableCell>
@@ -243,7 +247,7 @@ export default function ControleFeriasPage() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="pr-5 text-right">
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                       <Button variant="soft-info" size="icon-sm" onClick={() => router.push(`/controle-ferias/${r.id}`)} title="Abrir">
                         <Pencil className="h-3.5 w-3.5" />
