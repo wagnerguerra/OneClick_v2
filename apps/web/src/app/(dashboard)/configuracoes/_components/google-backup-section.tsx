@@ -258,7 +258,7 @@ export function GoogleBackupSection() {
             onClick={() => setEnabledInput(v => !v)}
             className={cn(
               'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
-              enabledInput ? 'bg-emerald-500' : 'bg-muted dark:bg-slate-600',
+              enabledInput ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600',
             )}
             aria-label="Toggle auto-upload"
           >

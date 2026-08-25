@@ -770,6 +770,7 @@
 
   /* Dark mode overrides */
   .dark {
+    color-scheme: dark;  /* controles nativos (spinners de number, date pickers, scrollbars, autofill) no dark */
     /* Background do conteúdo central — cinza-azulado um pouco mais claro que
        o sidebar/header (que continuam quase pretos). Padrão estilo Asana/Trello
        no dark: cards escuros 'flutuam' sobre o fundo mais claro. */
@@ -821,21 +822,33 @@
    date/time pickers, scrollbars nativas e o fundo do autofill na variante
    certa — resolve os botõezinhos +/- e afins que ficavam claros no dark.
    =========================================================================== */
+/* color-scheme: light é o default; o dark vive no bloco .dark (@layer base). */
 :root { color-scheme: light; }
-.dark { color-scheme: dark; }
 
-/* Autofill (Chrome/WebKit): o fundo amarelo/claro que o browser força não
-   mescla no dark. Máscara com box-shadow inset da cor de fundo do tema +
-   força a cor do texto do tema. (Vale no sistema todo.) */
+/* Autofill (Chrome/WebKit): o fundo claro que o browser força não mescla no
+   dark. Máscara com box-shadow inset. IMPORTANTE: var() muitas vezes NÃO
+   resolve no contexto de autofill do Chrome — por isso hex fixo por tema
+   (light = branco do card / dark = card escuro do tema). */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active,
 textarea:-webkit-autofill,
 select:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 1000px var(--color-background) inset !important;
-  box-shadow: 0 0 0 1000px var(--color-background) inset !important;
-  -webkit-text-fill-color: var(--color-foreground) !important;
-  caret-color: var(--color-foreground);
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a;
   transition: background-color 9999s ease-in-out 0s;
+}
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active,
+.dark textarea:-webkit-autofill,
+.dark select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #1a1d27 inset !important;
+  box-shadow: 0 0 0 1000px #1a1d27 inset !important;
+  -webkit-text-fill-color: #e5e5e5 !important;
+  caret-color: #e5e5e5;
 }

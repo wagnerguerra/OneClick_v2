@@ -85,6 +85,17 @@ export default function AssinaturaTemplatePage() {
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'visual' | 'html'>('visual')
   const [empresaData, setEmpresaData] = useState<SignatureData['empresa']>(null)
+  // Tema do editor Monaco (HTML) segue o tema do app — classe .dark no <html>,
+  // reativa ao evento oc-prefs (toggle de tema) e ao prefers-color-scheme.
+  const [isDark, setIsDark] = useState(false)
+  useEffect(() => {
+    const update = () => setIsDark(document.documentElement.classList.contains('dark'))
+    update()
+    window.addEventListener('oc-prefs', update)
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    mq.addEventListener('change', update)
+    return () => { window.removeEventListener('oc-prefs', update); mq.removeEventListener('change', update) }
+  }, [])
 
   const bgImageInputRef = useRef<HTMLInputElement>(null)
   const [uploadingBgImage, setUploadingBgImage] = useState(false)
@@ -440,7 +451,7 @@ export default function AssinaturaTemplatePage() {
                   defaultLanguage="html"
                   value={template.customHtml ?? ''}
                   onChange={v => setField('customHtml', v ?? null)}
-                  theme="vs-dark"
+                  theme={isDark ? 'vs-dark' : 'vs'}
                   options={{
                     minimap: { enabled: false },
                     fontSize: 13,
