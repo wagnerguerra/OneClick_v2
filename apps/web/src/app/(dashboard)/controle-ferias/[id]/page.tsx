@@ -16,6 +16,7 @@ import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { corSaldo, corSaldoTexto } from '../_lib/cores'
 
 const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
 
@@ -257,8 +258,7 @@ export default function ControleFeriasDetalhePage() {
             )}
             <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Saldo do período</span>
-              <span className={cn('font-bold tabular-nums text-sm',
-                p.saldo <= 0 ? 'text-emerald-600 dark:text-emerald-400' : p.saldo < 10 ? 'text-amber-600 dark:text-amber-400' : 'text-sky-600 dark:text-sky-400')}>
+              <span className={cn('font-bold tabular-nums text-sm', corSaldoTexto(p.saldo))}>
                 {p.saldo} {Math.abs(p.saldo) === 1 ? 'dia' : 'dias'}
               </span>
             </div>
@@ -351,10 +351,7 @@ export default function ControleFeriasDetalhePage() {
                         <td className="text-center tabular-nums">{h.dias + h.saldoAnterior}</td>
                         <td className="text-center tabular-nums">{h.gozados}</td>
                         <td className="text-center">
-                          <span className={cn('inline-flex h-5 min-w-[26px] items-center justify-center rounded px-1.5 text-[11px] font-bold tabular-nums',
-                            h.saldo <= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                              : h.saldo < 10 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
-                                : 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300')}>
+                          <span className={cn('inline-flex h-5 min-w-[26px] items-center justify-center rounded px-1.5 text-[11px] font-bold tabular-nums', corSaldo(h.saldo))}>
                             {h.saldo}
                           </span>
                         </td>

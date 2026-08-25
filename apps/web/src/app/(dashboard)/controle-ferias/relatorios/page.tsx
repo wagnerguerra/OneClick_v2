@@ -20,6 +20,7 @@ import { trpc } from '@/lib/trpc'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
 import { PendenciasModal, type PendenciaAdmissao, type PendenciaPeriodo, type ForaDoControle } from './_components/pendencias-modal'
+import { corSaldoTexto, tituloSaldo } from '../_lib/cores'
 
 const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
 
@@ -475,7 +476,8 @@ export default function RelatoriosFeriasPage() {
               { label: 'Período', get: (r) => r.periodo, className: 'tabular-nums' },
               { label: 'Dias', get: (r) => String(r.dias), className: 'tabular-nums text-center' },
               { label: 'Gozados', get: (r) => String(r.gozados), className: 'tabular-nums text-center' },
-              { label: 'Dias disp.', get: (r) => String(r.saldo), className: 'tabular-nums text-center font-semibold' },
+              { label: 'Dias disp.', get: (r) => String(r.saldo), className: 'tabular-nums text-center font-semibold',
+                render: (r) => <span className={corSaldoTexto(r.saldo)} title={tituloSaldo(r.saldo)}>{r.saldo}</span> },
               { label: 'Limite legal', get: (r) => `${dataBR(r.limite)}${r.limiteAproximado ? ' ~' : ''}`, className: 'tabular-nums' },
               { label: 'Prazo', get: (r) => (r.diasRestantes < 0 ? `${Math.abs(r.diasRestantes)} dias vencido` : `${r.diasRestantes} dias`), className: 'tabular-nums' },
               { label: 'Situação', get: (r) => FAROL_UI[r.farol]?.label ?? r.farol, render: (r) => (
@@ -513,7 +515,8 @@ export default function RelatoriosFeriasPage() {
               { label: 'Admissão', get: (r) => dataBR(r.admissao), className: 'tabular-nums' },
               { label: 'Períodos', get: (r) => String(r.totalPeriodos), className: 'tabular-nums text-center' },
               { label: 'Em aberto', get: (r) => String(r.periodosAbertos), className: 'tabular-nums text-center' },
-              { label: 'Dias disp.', get: (r) => String(r.disponivel), className: 'tabular-nums text-center font-semibold' },
+              { label: 'Dias disp.', get: (r) => String(r.disponivel), className: 'tabular-nums text-center font-semibold',
+                render: (r) => <span className={corSaldoTexto(r.disponivel)} title={tituloSaldo(r.disponivel)}>{r.disponivel}</span> },
               { label: 'Próximo limite', get: (r) => dataBR(r.proximoLimite), className: 'tabular-nums' },
             ]}
           />

@@ -24,6 +24,7 @@ import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { InlineEditCell } from '@/components/ui/inline-edit-cell'
+import { corSaldo, tituloSaldo } from './_lib/cores'
 
 const PAGE_SIZES = [10, 20, 50]
 
@@ -540,10 +541,10 @@ export default function ControleFeriasPage() {
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-center text-sm tabular-nums">{r.gozados}</TableCell>
                   <TableCell className="text-center">
-                    <span className={cn('inline-flex h-6 min-w-[28px] items-center justify-center rounded px-1.5 text-xs font-bold tabular-nums',
-                      r.saldo <= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                        : r.saldo < 10 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
-                          : 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300')}>
+                    <span
+                      className={cn('inline-flex h-6 min-w-[28px] items-center justify-center rounded px-1.5 text-xs font-bold tabular-nums', corSaldo(r.saldo))}
+                      title={tituloSaldo(r.saldo)}
+                    >
                       {r.saldo}
                     </span>
                   </TableCell>
