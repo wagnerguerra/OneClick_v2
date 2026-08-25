@@ -33,9 +33,9 @@ export class ControleFeriasService {
   /** Nome, situação e admissão do cadastro (colunas que o v1 mostrava). */
   private async usuariosPorId(ids: Array<string | null | undefined>) {
     const unicos = [...new Set(ids.filter((x): x is string => !!x))]
-    if (!unicos.length) return new Map<string, { name: string; isActive: boolean; dataAdmissao: Date | null }>()
-    const users = await prisma.user.findMany({ where: { id: { in: unicos } }, select: { id: true, name: true, isActive: true, dataAdmissao: true } })
-    return new Map(users.map((u) => [u.id, { name: u.name, isActive: u.isActive, dataAdmissao: u.dataAdmissao }]))
+    if (!unicos.length) return new Map<string, { name: string; isActive: boolean; dataAdmissao: Date | null; image: string | null }>()
+    const users = await prisma.user.findMany({ where: { id: { in: unicos } }, select: { id: true, name: true, isActive: true, dataAdmissao: true, image: true } })
+    return new Map(users.map((u) => [u.id, { name: u.name, isActive: u.isActive, dataAdmissao: u.dataAdmissao, image: u.image }]))
   }
 
   /** Agrupador de períodos: o id do colaborador ou, no resíduo do v1, o nome. */
@@ -84,6 +84,8 @@ export class ControleFeriasService {
         colaboradorAtivo: d.colaboradorId ? (u?.isActive ?? false) : null,
         /** Data de admissão do cadastro — coluna "Dt Admissão" do v1. */
         colaboradorAdmissao: u?.dataAdmissao ?? null,
+        /** Foto do cadastro — a bolinha na primeira coluna da lista. */
+        colaboradorImagem: u?.image ?? null,
         gozados,
         saldo,
         eventosTotal: d.eventos.length,

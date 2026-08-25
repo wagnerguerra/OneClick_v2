@@ -12,6 +12,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Avatar, AvatarImage, AvatarFallback,
 } from '@saas/ui'
 import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -20,8 +21,13 @@ import { UserCombobox } from '../orcamentos/_components/user-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { resolveAssetUrl } from '@/lib/api-url'
 
 const PAGE_SIZES = [10, 20, 50]
+
+/** Iniciais para a bolinha quando o colaborador não tem foto. */
+const iniciais = (nome: string | null | undefined) =>
+  (nome || '?').split(' ').filter(Boolean).map((n) => n[0]).slice(0, 2).join('').toUpperCase()
 
 interface Row {
   id: string
@@ -34,6 +40,7 @@ interface Row {
   numero: number
   /** Data de admissão vinda do cadastro (coluna "Dt Admissão" do v1). */
   colaboradorAdmissao: string | null
+  colaboradorImagem: string | null
   pagamento1: string | null
   periodoInicial: number
   periodoFinal: number
@@ -237,6 +244,7 @@ export default function ControleFeriasPage() {
           <TableHeader>
             <TableRow className="[&_th]:whitespace-nowrap">
               <Th campo="numero" className="w-[64px]" {...ordenacao}>Nº</Th>
+              <TableHead className="w-[48px]"><span className="sr-only">Foto</span></TableHead>
               <Th campo="colaborador" {...ordenacao}>Colaborador</Th>
               <Th campo="admissao" className="hidden lg:table-cell w-[110px]" align="center" {...ordenacao}>Dt Admissão</Th>
               <Th campo="periodo" className="w-[105px]" align="center" {...ordenacao}>Período</Th>
@@ -251,17 +259,25 @@ export default function ControleFeriasPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={11} className="py-10 text-center">
+              <TableRow><TableCell colSpan={12} className="py-10 text-center">
                 <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
               </TableCell></TableRow>
             ) : !data || data.data.length === 0 ? (
-              <TableRow><TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={12} className="py-10 text-center text-sm text-muted-foreground">
                 Nenhum período encontrado.
               </TableCell></TableRow>
             ) : (
               data.data.map((r) => (
                 <TableRow key={r.id} className="cursor-pointer [&_td]:whitespace-nowrap [&_td]:py-2" onClick={() => router.push(`/controle-ferias/${r.id}`)}>
                   <TableCell className="text-xs font-semibold tabular-nums text-muted-foreground">{r.numero}</TableCell>
+                  <TableCell>
+                    <Avatar className="h-7 w-7">
+                      {r.colaboradorImagem && <AvatarImage src={resolveAssetUrl(r.colaboradorImagem)} alt={r.colaboradorNomeResolvido ?? ''} />}
+                      <AvatarFallback className="bg-muted text-[10px] font-semibold text-muted-foreground">
+                        {iniciais(r.colaboradorNomeResolvido)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </TableCell>
                   <TableCell className="text-sm">
                     <span className="flex items-center gap-1.5 min-w-0">
                       <span className="truncate font-medium">{r.colaboradorNomeResolvido ?? '—'}</span>
