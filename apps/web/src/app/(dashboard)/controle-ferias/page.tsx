@@ -6,6 +6,7 @@ import {
   Plus, Trash2, Pencil, Loader2, Check,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search as SearchIcon,
   ChevronUp, ChevronDown, ChevronsUpDown, UserX, BarChart3,
+  CalendarDays, CircleAlert, TriangleAlert, Clock, Wallet,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn,
@@ -25,6 +26,52 @@ import { resolveAssetUrl } from '@/lib/api-url'
 import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 
 const PAGE_SIZES = [10, 20, 50]
+
+const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
+
+/** Indicadores do topo — os mesmos números do painel de relatórios. */
+interface Indicadores {
+  diasEmAberto: number
+  comSaldo: number
+  vencidos: number
+  vencendo90: number
+  gozosNoMes: number
+  aPagar: number
+}
+
+/**
+ * Cartão compacto do topo. Quando tem `href`, vira atalho para o relatório
+ * que detalha aquele número — ver "3 vencidas" sem poder abrir a lista dos
+ * três seria só um susto sem saída.
+ */
+function Indicador({ label, valor, hint, cor, icone: Icone, href, destaque }: {
+  label: string
+  valor: number
+  hint?: string
+  cor?: string
+  icone: typeof CalendarDays
+  href?: string
+  destaque?: boolean
+}) {
+  const conteudo = (
+    <div className={cn(
+      'flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5 transition-colors',
+      href && 'hover:border-foreground/20 hover:bg-muted/30',
+      destaque && 'border-rose-300 dark:border-rose-800',
+    )}>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
+        style={{ background: `color-mix(in srgb, ${cor ?? MODULE_COLOR} 15%, transparent)` }}>
+        <Icone className="h-4 w-4" style={{ color: cor ?? MODULE_COLOR }} />
+      </span>
+      <div className="min-w-0">
+        <p className="text-lg font-semibold leading-none tabular-nums" style={cor ? { color: cor } : undefined}>{valor}</p>
+        <p className="mt-1 truncate text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
+        {hint && <p className="truncate text-[10px] text-muted-foreground/80">{hint}</p>}
+      </div>
+    </div>
+  )
+  return href ? <Link href={href} className="block">{conteudo}</Link> : conteudo
+}
 
 /** Iniciais para a bolinha quando o colaborador não tem foto. */
 const iniciais = (nome: string | null | undefined) =>
@@ -101,6 +148,7 @@ export default function ControleFeriasPage() {
   const [mDescricao, setMDescricao] = useState('PERÍODO AQUISITIVO')
   const [mPrevisao, setMPrevisao] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [indicadores, setIndicadores] = useState<Indicadores | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(search); setPage(1) }, 400)
@@ -125,7 +173,20 @@ export default function ControleFeriasPage() {
       setData(res)
     } catch { /* silencioso */ }
     finally { setLoading(false) }
-  }, [page, limit, debounced, fColaborador, fSituacao])
+  }, [page, limit, debounced, fColaborador, fSituacao, fColaboradores, sortBy, sortDir])
+
+  /**
+   * Indicadores do topo: vêm do mesmo relatório de painel, para o número da
+   * lista e o do relatório nunca discordarem. Acompanham o filtro de ativos /
+   * desligados, e não a paginação — são do conjunto todo.
+   */
+  const carregarIndicadores = useCallback(async () => {
+    try {
+      const r = await (trpc.controleFerias as any).reportPainel.query({ incluirInativos: fColaboradores === 'TODOS' })
+      setIndicadores(r.resumo)
+    } catch { setIndicadores(null) }
+  }, [fColaboradores])
+  useEffect(() => { carregarIndicadores() }, [carregarIndicadores])
   useEffect(() => { fetchData() }, [fetchData])
 
   /**
@@ -162,6 +223,7 @@ export default function ControleFeriasPage() {
         previsao: mPrevisao || null,
       })
       alerts.success('Criado', 'Período aquisitivo registrado.')
+      carregarIndicadores()
       setAberta(false)
       router.push(`/controle-ferias/${id}`)
     } catch (e) { alerts.error('Erro', (e as Error).message) }
@@ -179,6 +241,7 @@ export default function ControleFeriasPage() {
       await (trpc.controleFerias as any).excluir.mutate({ id: r.id })
       alerts.success('Excluído', '')
       fetchData()
+      carregarIndicadores()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
@@ -201,6 +264,8 @@ export default function ControleFeriasPage() {
     setData(prev => prev ? { ...prev, data: prev.data.map(r => r.id === id ? aplicar(r) : r) } : prev)
     try {
       await (trpc as any).controleFerias.atualizar.mutate({ id, ...patch })
+      // Dias e pagamento mexem no passivo — o topo acompanha.
+      if ('dias' in patch || 'pagamento1' in patch) carregarIndicadores()
     } catch (e) {
       setData(prev => prev ? { ...prev, data: prev.data.map(r => r.id === id ? original : r) } : prev)
       throw e
@@ -243,6 +308,50 @@ export default function ControleFeriasPage() {
           <span>Controle de Férias</span>
         </p>
       </PageHeaderBar>
+
+      {indicadores && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <Indicador
+            label="Dias em aberto"
+            valor={indicadores.diasEmAberto}
+            hint={`${indicadores.comSaldo} colaborador(es) com saldo`}
+            icone={CalendarDays}
+          />
+          <Indicador
+            label="Férias vencidas"
+            valor={indicadores.vencidos}
+            hint="Devidas em dobro (art. 137)"
+            cor="#e11d48"
+            icone={CircleAlert}
+            href="/controle-ferias/relatorios?aba=vencimentos&farol=VENCIDO"
+            destaque={indicadores.vencidos > 0}
+          />
+          <Indicador
+            label="Vencem em 90 dias"
+            valor={indicadores.vencendo90}
+            hint="Programe o gozo"
+            cor="#f59e0b"
+            icone={TriangleAlert}
+            href="/controle-ferias/relatorios?aba=vencimentos&farol=CRITICO"
+          />
+          <Indicador
+            label="Gozo neste mês"
+            valor={indicadores.gozosNoMes}
+            hint="Dias de ausência no mês corrente"
+            cor="#0ea5e9"
+            icone={Clock}
+            href="/controle-ferias/relatorios?aba=escala"
+          />
+          <Indicador
+            label="A pagar"
+            valor={indicadores.aPagar}
+            hint="Períodos vigentes sem pagamento"
+            cor="#8b5cf6"
+            icone={Wallet}
+            href="/controle-ferias/relatorios?aba=pagamentos"
+          />
+        </div>
+      )}
 
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
