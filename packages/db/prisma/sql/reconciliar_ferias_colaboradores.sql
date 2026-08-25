@@ -11,6 +11,8 @@ UPDATE ferias_periodos f
 SET colaborador_id = (
   SELECT u.id FROM users u
   WHERE lower(btrim(u.name)) = lower(btrim(f.colaborador_nome))
+  -- Prefere o cadastro ATIVO quando a pessoa foi recadastrada.
+  ORDER BY u.is_active DESC
   LIMIT 1
 )
 WHERE f.colaborador_id IS NULL

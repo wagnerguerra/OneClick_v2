@@ -162,3 +162,30 @@ Ludmilla Teodoro). Como a lista segue o cadastro, esses 5 ficam fora por
 padrão — mas a barra de filtros passou a avisar
 *"+5 de colaboradores desligados — mostrar"*, com atalho, para ninguém achar
 que o registro sumiu.
+
+## 10. Cadastro duplicado — o caso Andreia Salles (25/08)
+
+Ela aparecia entre os "desligados" ocultos, mas está ativa. Motivo: **dois
+cadastros para a mesma pessoa** no v2 —
+
+| Cadastro | E-mail | Situação | Admissão |
+|---|---|---|---|
+| Andreia Salles | andre**ia**@central-rnc.com.br | inativo | 01/03/2024 |
+| Andrea Salles | andre**a**@central-rnc.com.br | **ativo** | — |
+
+No v1 o registro é "Andreia Salles" com e-mail **andrea@** — ou seja, o
+cadastro ATIVO. A carga de 19/08 casou pelo **nome** (exato) e prendeu o
+período 140 no cadastro inativo, tirando-o da lista.
+
+Corrigido: período 140 religado ao cadastro ativo (a lista sobe para 25 de
+ativos e 4 de desligados). Para não repetir, o gerador e o
+`reconciliar_ferias_colaboradores.sql` passaram a usar
+`ORDER BY is_active DESC` ao casar por nome.
+
+Os outros 4 ocultos (Ludmilla Teodoro, Leonardo Ramos, Ivone Torrente e Ingrid
+Rocha) **não têm cadastro ativo equivalente** — estão realmente desligados no
+v2; se algum deles voltou, basta reativar o usuário que o período reaparece.
+
+⚠️ **Fica para o Wagner:** o cadastro duplicado da Andreia (dois usuários para
+a mesma pessoa) continua lá — só o vínculo das férias foi corrigido. A
+consolidação é decisão do cadastro de usuários.

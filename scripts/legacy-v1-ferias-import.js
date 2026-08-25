@@ -78,7 +78,10 @@ const subPeriodo = (legacyId) =>
     const nome = nomeV1.get(n)
     const casou = v1ParaV2.has(n)
     if (email) return { expr: `(SELECT id FROM users WHERE lower(email) = ${S(email)} LIMIT 1)`, nome, casou }
-    if (nome) return { expr: `(SELECT id FROM users WHERE lower(name) = ${S(nome.toLowerCase())} LIMIT 1)`, nome, casou }
+    // Ao casar por NOME, prefere o cadastro ATIVO: nomes se repetem quando a
+    // pessoa foi recadastrada (ex.: "Andreia Salles" inativa × "Andrea Salles"
+    // ativa) e prender o período no registro velho some com ele da lista.
+    if (nome) return { expr: `(SELECT id FROM users WHERE lower(name) = ${S(nome.toLowerCase())} ORDER BY is_active DESC LIMIT 1)`, nome, casou }
     return { expr: 'NULL', nome, casou }
   }
 
