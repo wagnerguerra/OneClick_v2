@@ -165,10 +165,6 @@ export default function ControleFeriasPage() {
       {/* Header padrão (como o /clientes): barra full-bleed, título + trilha, ações à direita */}
       <PageHeaderBar
         actions={<>
-          <div className="relative">
-            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Buscar por colaborador..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 w-60 pl-8 text-sm" />
-          </div>
           {podeEscrever && (
             <Button size="sm" className="gap-1.5" onClick={() => setAberta(true)}>
               <Plus className="h-4 w-4" />Novo Período
@@ -211,6 +207,16 @@ export default function ControleFeriasPage() {
                 <SelectItem value="TODOS">Incluir desligados</SelectItem>
               </SelectContent>
             </Select>
+            {(data?.ocultosPorInatividade ?? 0) > 0 && (
+              <button
+                type="button"
+                onClick={() => { setFColaboradores('TODOS'); setPage(1) }}
+                title="Registros de colaboradores desligados no cadastro — clique para incluí-los"
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-400"
+              >
+                +{data!.ocultosPorInatividade} desligado{data!.ocultosPorInatividade === 1 ? '' : 's'}
+              </button>
+            )}
             {(fColaborador || fSituacao !== 'ABERTOS' || fColaboradores !== 'ATIVOS') && (
               <Button variant="outline" size="xs" onClick={() => { setFColaborador(''); setFSituacao('ABERTOS'); setFColaboradores('ATIVOS'); setPage(1) }}>
                 Limpar
@@ -221,23 +227,10 @@ export default function ControleFeriasPage() {
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            {fColaborador
-              ? 'Todos os períodos do colaborador selecionado.'
-              : 'Um registro por colaborador — o período mais recente; os anteriores ficam no histórico dentro do registro.'}
-            {(data?.ocultosPorInatividade ?? 0) > 0 && (
-              <>
-                {' '}
-                <button
-                  type="button"
-                  onClick={() => { setFColaboradores('TODOS'); setPage(1) }}
-                  className="font-medium text-amber-600 underline underline-offset-2 hover:text-amber-700 dark:text-amber-400"
-                >
-                  +{data!.ocultosPorInatividade} de colaboradores desligados — mostrar
-                </button>
-              </>
-            )}
-          </p>
+          <div className="relative w-full sm:w-64">
+            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Buscar por colaborador..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 pl-8 text-xs bg-card" />
+          </div>
         </div>
 
         <Table className="table-fixed">
