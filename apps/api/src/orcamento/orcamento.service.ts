@@ -2281,7 +2281,17 @@ export class OrcamentoService {
     const parseDataDedicada = (v: string): Date =>
       /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T12:00:00.000Z`) : new Date(v)
 
-    const data: any = { [campo]: valor ? parseDataDedicada(valor) : null }
+    // Valor ANTES da edição — vira o `de` do evento (fonte primária do "original"
+    // exibido no card Datas Importantes; o front cai no status_change como fallback
+    // p/ edições antigas, feitas antes deste registro passar a existir).
+    const antes = await prisma.orcamento.findUnique({
+      where: { id },
+      select: { dtEnviado: true, dtAprovado: true, dtLiberado: true, dtFinalizado: true, dtEncerrado: true, dtCancelado: true },
+    })
+    const valorAntes = (antes as Record<string, Date | null> | null)?.[campo] ?? null
+
+    const novoValor = valor ? parseDataDedicada(valor) : null
+    const data: any = { [campo]: novoValor }
     const updated = await prisma.orcamento.update({ where: { id }, data })
 
     const labels: Record<string, string> = {
@@ -2292,7 +2302,13 @@ export class OrcamentoService {
       dtEncerrado: 'data de encerramento',
       dtCancelado: 'data de cancelamento',
     }
-    await this.addEvento(id, userId, 'edicao_data', null, null, `${labels[campo]} ${valor ? 'definida para ' + parseDataDedicada(valor).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'removida'}`)
+    // de = valor anterior (ISO) · para = novo valor (ISO) — histórico completo da edição.
+    await this.addEvento(
+      id, userId, 'edicao_data',
+      valorAntes ? valorAntes.toISOString() : null,
+      novoValor ? novoValor.toISOString() : null,
+      `${labels[campo]} ${valor ? 'definida para ' + parseDataDedicada(valor).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'removida'}`,
+    )
     this.emitEvent('dados-gerais', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
     return updated
   }
