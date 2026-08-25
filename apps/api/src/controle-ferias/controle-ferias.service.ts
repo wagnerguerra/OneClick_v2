@@ -91,9 +91,14 @@ export class ControleFeriasService {
       }
     })
 
-    // A lista segue o cadastro: por padrão, só colaboradores ativos.
+    // A lista segue o cadastro: por padrão, só colaboradores ativos. Guardamos
+    // quantos ficaram de fora para a tela poder avisar (e oferecer o atalho) —
+    // sem isso o usuário acha que o registro não foi portado.
+    let ocultosPorInatividade = 0
     if ((input.colaboradores ?? 'ATIVOS') === 'ATIVOS' && !input.colaboradorId) {
+      const antes = rows.length
       rows = rows.filter((r) => r.colaboradorAtivo === true)
+      ocultosPorInatividade = antes - rows.length
     }
 
     // Uma linha por colaborador: fica só o período MAIS RECENTE; os anteriores
@@ -148,7 +153,7 @@ export class ControleFeriasService {
     })
 
     const total = rows.length
-    return buildPaginatedResponse(rows.slice(skip, skip + take), total, page, limit)
+    return { ...buildPaginatedResponse(rows.slice(skip, skip + take), total, page, limit), ocultosPorInatividade }
   }
 
   async getById(id: string, empresaId?: string | null) {

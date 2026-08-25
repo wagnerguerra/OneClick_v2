@@ -73,7 +73,7 @@ export default function ControleFeriasPage() {
   const [fSituacao, setFSituacao] = useState('ABERTOS')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
-  const [data, setData] = useState<{ data: Row[]; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean } | null>(null)
+  const [data, setData] = useState<{ data: Row[]; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean; ocultosPorInatividade?: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
 
@@ -225,6 +225,18 @@ export default function ControleFeriasPage() {
             {fColaborador
               ? 'Todos os períodos do colaborador selecionado.'
               : 'Um registro por colaborador — o período mais recente; os anteriores ficam no histórico dentro do registro.'}
+            {(data?.ocultosPorInatividade ?? 0) > 0 && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  onClick={() => { setFColaboradores('TODOS'); setPage(1) }}
+                  className="font-medium text-amber-600 underline underline-offset-2 hover:text-amber-700 dark:text-amber-400"
+                >
+                  +{data!.ocultosPorInatividade} de colaboradores desligados — mostrar
+                </button>
+              </>
+            )}
           </p>
         </div>
 

@@ -138,3 +138,27 @@ que nunca tiveram registro no sistema antigo. 13 dos 14 têm data de admissão n
 cadastro, o que permitiria gerar o primeiro período aquisitivo automaticamente
 (admissão → admissão + 1 ano, 30 dias). **Decisão do Wagner** — não criamos
 registro de RH por conta própria.
+
+## 9. ⚠️ Semântica do `historico` estava invertida (25/08)
+
+A tela do v1 lista **`WHERE historico = '1' AND ativo = '1'`** — ou seja, lá
+**`historico = 1` marca o período VIGENTE** do colaborador (são os 29 registros
+que a tela mostra, um por pessoa). Os `historico = 0` são os períodos
+anteriores e os `ativo = 0`, os excluídos.
+
+A carga tinha lido ao contrário (`historico=1` = arquivado), então o filtro
+padrão "Em aberto" do v2 mostrava justamente os períodos ANTIGOS (12 linhas com
+2020/2021, 2022/2023) e escondia os vigentes — daí a impressão de que faltavam
+registros. Nada faltava: os 143 estavam lá, só marcados errado.
+
+Correção: `packages/db/prisma/sql/corrigir_ferias_historico.sql` (idempotente,
+só toca em quem tem `legacy_id`) — aplicado em dev e produção:
+**29 vigentes / 114 encerrados**, exatamente como o v1. O gerador da carga
+também foi corrigido (`historico = !(v1.historico == 1 && v1.ativo == 1)`).
+
+Detalhe da tela: dos 29 vigentes, 24 são de colaboradores ativos e **5 de
+desligados** (Andreia Salles, Ingrid Rocha, Ivone Torrente, Leonardo Ramos,
+Ludmilla Teodoro). Como a lista segue o cadastro, esses 5 ficam fora por
+padrão — mas a barra de filtros passou a avisar
+*"+5 de colaboradores desligados — mostrar"*, com atalho, para ninguém achar
+que o registro sumiu.

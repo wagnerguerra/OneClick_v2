@@ -109,7 +109,10 @@ const subPeriodo = (legacyId) =>
       ` ${S(String(p.descricao || '').trim() || null)}, ${N(p.saldo_anterior) === 'NULL' ? '0' : N(p.saldo_anterior)}, ${N(p.dias) === 'NULL' ? '30' : N(p.dias)},` +
       ` ${dataISO(p.dt_previsao) ? `${S(dataISO(p.dt_previsao))}::date` : 'NULL'},` +
       ` ${pags[0] ? `${S(pags[0])}::date` : 'NULL'}, ${pags[1] ? `${S(pags[1])}::date` : 'NULL'}, ${pags[2] ? `${S(pags[2])}::date` : 'NULL'},` +
-      ` ${Number(p.pago) === 1 || pags.some(Boolean) ? 'true' : 'false'}, ${Number(p.historico) === 1 || Number(p.ativo) === 0 ? 'true' : 'false'},` +
+      // ATENÇÃO à semântica invertida: a tela do v1 lista
+      // `WHERE historico='1' AND ativo='1'` — lá `historico=1` é o período
+      // VIGENTE do colaborador. No v2, `historico=true` = encerrado/arquivado.
+      ` ${Number(p.pago) === 1 || pags.some(Boolean) ? 'true' : 'false'}, ${Number(p.historico) === 1 && Number(p.ativo) === 1 ? 'false' : 'true'},` +
       ` ${dataISO(p.dt_registro) ? `${S(dataISO(p.dt_registro))}::timestamp` : 'CURRENT_TIMESTAMP'}` +
       ` WHERE NOT EXISTS (SELECT 1 FROM ferias_periodos WHERE legacy_id = ${N(p.id)} AND empresa_id = ${S(EMP)});`)
     perOk++
