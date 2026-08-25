@@ -814,3 +814,28 @@
   0%, 100% { outline-color: #f59e0b; }
   50%      { outline-color: #fbbf24; }
 }
+
+/* ===========================================================================
+   Controles NATIVOS do browser seguem o tema.
+   `color-scheme` faz o browser desenhar spinners de <input type=number>,
+   date/time pickers, scrollbars nativas e o fundo do autofill na variante
+   certa — resolve os botõezinhos +/- e afins que ficavam claros no dark.
+   =========================================================================== */
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+
+/* Autofill (Chrome/WebKit): o fundo amarelo/claro que o browser força não
+   mescla no dark. Máscara com box-shadow inset da cor de fundo do tema +
+   força a cor do texto do tema. (Vale no sistema todo.) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--color-background) inset !important;
+  box-shadow: 0 0 0 1000px var(--color-background) inset !important;
+  -webkit-text-fill-color: var(--color-foreground) !important;
+  caret-color: var(--color-foreground);
+  transition: background-color 9999s ease-in-out 0s;
+}
