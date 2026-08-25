@@ -770,7 +770,6 @@
 
   /* Dark mode overrides */
   .dark {
-    color-scheme: dark;  /* controles nativos (spinners de number, date pickers, scrollbars, autofill) no dark */
     /* Background do conteúdo central — cinza-azulado um pouco mais claro que
        o sidebar/header (que continuam quase pretos). Padrão estilo Asana/Trello
        no dark: cards escuros 'flutuam' sobre o fundo mais claro. */
@@ -822,7 +821,9 @@
    date/time pickers, scrollbars nativas e o fundo do autofill na variante
    certa — resolve os botõezinhos +/- e afins que ficavam claros no dark.
    =========================================================================== */
-/* color-scheme: light é o default; o dark vive no bloco .dark (@layer base). */
+/* color-scheme: aplicado INLINE no <html> pelo applyTheme (hooks/use-theme.ts)
+   — o lightningcss (minificador do Next) dropa a regra CSS `.dark { color-scheme }`,
+   então o JS é a fonte da verdade. Este :root só dá o default claro antes do JS. */
 :root { color-scheme: light; }
 
 /* Autofill (Chrome/WebKit): o fundo claro que o browser força não mescla no

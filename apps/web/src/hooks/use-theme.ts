@@ -14,6 +14,12 @@ function getSystemTheme(): 'light' | 'dark' {
 function applyTheme(theme: Theme) {
   const resolved = theme === 'system' ? getSystemTheme() : theme
   document.documentElement.classList.toggle('dark', resolved === 'dark')
+  // color-scheme inline no <html>: faz o browser desenhar controles nativos
+  // (spinners de number, date pickers, scrollbars) e o fundo do AUTOFILL na
+  // variante certa. Inline vence o CSS — o lightningcss (minificador do Next)
+  // dropa a regra `:root.dark { color-scheme }` do globals.css, então aqui é
+  // a fonte da verdade.
+  document.documentElement.style.colorScheme = resolved === 'dark' ? 'dark' : 'light'
 }
 
 export function useTheme() {
