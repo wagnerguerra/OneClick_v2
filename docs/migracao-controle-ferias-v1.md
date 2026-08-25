@@ -107,3 +107,34 @@ colaborador** — os anteriores viram **histórico dentro do registro**:
 
 Efeito prático: de 143 linhas para **67** (uma por colaborador), sem perder
 nada — o arquivo morto continua a um clique.
+
+## 8. Auditoria v1 × v2 × cadastro de usuários (25/08)
+
+Varredura completa dos três lados. **A migração está completa** — o que faltava
+era vínculo, não registro:
+
+| Item | v1 | v2 | Situação |
+|---|---|---|---|
+| Períodos | 143 | **143** | ✅ nada de fora |
+| Gozos | 312 ativos | **305** | 7 são **órfãos no próprio v1** (apontam para períodos apagados lá: ids 35, 44, 52, 57, 61) — impossível portar |
+| Recibos | 30 ativos | **30** | ✅ |
+
+**Vínculo com o cadastro.** 70 usuários do v1 têm férias; 41 existem no v2. Dos
+44 períodos que estavam só com o nome no resíduo, **1 era corrigível** (Kenya
+Brum — ativa no v2, mas o período veio da carga de 19/08, quando ela ainda não
+casava). Os outros 43 são de **28 ex-colaboradores** que não existem no v2 —
+resíduo correto.
+
+Como a carga é idempotente por `legacy_id`, reimportar **não** conserta vínculo:
+criei `packages/db/prisma/sql/reconciliar_ferias_colaboradores.sql`, que liga os
+períodos órfãos ao usuário quando o nome casa com **exatamente um** cadastro
+(nomes ambíguos ficam de fora de propósito). Aplicado em produção: `UPDATE 1`,
+subindo para **100 períodos vinculados**. Pode rodar de novo a cada novo
+colaborador cadastrado.
+
+**O que realmente falta não é do v1.** 14 colaboradores **ativos da Central**
+(mais 50 do JR Grupo) não têm nenhum período — são contratações de 2025/2026,
+que nunca tiveram registro no sistema antigo. 13 dos 14 têm data de admissão no
+cadastro, o que permitiria gerar o primeiro período aquisitivo automaticamente
+(admissão → admissão + 1 ano, 30 dias). **Decisão do Wagner** — não criamos
+registro de RH por conta própria.
