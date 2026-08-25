@@ -16,6 +16,19 @@ function dataDeISO(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`)
 }
 
+/** Sem acento e em minúsculas, para a busca não depender de digitação exata. */
+function normalizar(v: unknown): string {
+  return String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR')
+}
+
+/** Data nos dois formatos que o usuário pode digitar: 25/08/2026 e 2026-08-25. */
+function dataBusca(v: Date | null | undefined): string {
+  if (!v) return ''
+  const iso = new Date(v).toISOString().slice(0, 10)
+  const [a, m, d] = iso.split('-')
+  return `${d}/${m}/${a} ${iso}`
+}
+
 /** Dias corridos do gozo, inclusivos (17→23 = 7 dias). */
 function diasDoEvento(inicio: Date, fim: Date): number {
   return Math.round((fim.getTime() - inicio.getTime()) / 86400000) + 1
@@ -57,10 +70,6 @@ export class ControleFeriasService {
     if (input.colaboradorId) filtros.push({ colaboradorId: input.colaboradorId })
     if (input.situacao === 'ABERTOS') filtros.push({ historico: false })
     if (input.situacao === 'HISTORICO') filtros.push({ historico: true })
-    if (search) filtros.push({ OR: [
-      { colaboradorNome: { contains: search, mode: 'insensitive' } },
-      { descricao: { contains: search, mode: 'insensitive' } },
-    ] })
 
     const where = { empresaId: empresaId ?? null, ...(filtros.length ? { AND: filtros } : {}) }
 
@@ -93,23 +102,13 @@ export class ControleFeriasService {
       }
     })
 
-    // A lista segue o cadastro: por padrão, só colaboradores ativos. Guardamos
-    // quantos ficaram de fora para a tela poder avisar (e oferecer o atalho) —
-    // sem isso o usuário acha que o registro não foi portado.
-    let ocultosPorInatividade = 0
-    if ((input.colaboradores ?? 'ATIVOS') === 'ATIVOS' && !input.colaboradorId) {
-      const antes = rows.length
-      rows = rows.filter((r) => r.colaboradorAtivo === true)
-      ocultosPorInatividade = antes - rows.length
-    }
-
     // Uma linha por colaborador: fica só o período MAIS RECENTE; os anteriores
     // viram histórico dentro do registro (decisão do Wagner, 25/08). Filtrar por
     // um colaborador específico desagrupa — é o drill-down natural.
-    if (!input.colaboradorId) {
-      const maisRecente = new Map<string, (typeof rows)[number]>()
+    const agrupar = (lista: typeof rows) => {
+      const maisRecente = new Map<string, (typeof lista)[number]>()
       const totalPorColab = new Map<string, number>()
-      for (const r of rows) {
+      for (const r of lista) {
         const k = this.chaveColaborador(r)
         totalPorColab.set(k, (totalPorColab.get(k) ?? 0) + 1)
         const atual = maisRecente.get(k)
@@ -118,14 +117,51 @@ export class ControleFeriasService {
           || (r.periodoInicial === atual.periodoInicial && r.periodoFinal > atual.periodoFinal)
         if (maisNovo) maisRecente.set(k, r)
       }
-      rows = [...maisRecente.values()].map((r) => ({
+      return [...maisRecente.values()].map((r) => ({
         ...r,
         /** Quantos períodos anteriores existem para este colaborador. */
         periodosAnteriores: (totalPorColab.get(this.chaveColaborador(r)) ?? 1) - 1,
       }))
-    } else {
-      rows = rows.map((r) => ({ ...r, periodosAnteriores: 0 }))
     }
+
+    // Busca livre: vale para TODAS as colunas da tela, inclusive as derivadas
+    // (nome resolvido do cadastro, dias disponíveis, situação) e as datas nos
+    // dois formatos que o usuário pode digitar. Vários termos = todos precisam
+    // bater (AND), cada um em qualquer coluna.
+    const termos = normalizar(search).split(/\s+/).filter(Boolean)
+    const casaBusca = (r: (typeof rows)[number]) => {
+      if (!termos.length) return true
+      const alvo = normalizar([
+        r.numero,
+        r.colaboradorNomeResolvido, r.colaboradorNome,
+        dataBusca(r.colaboradorAdmissao),
+        `${r.periodoInicial}/${r.periodoFinal}`, r.periodoInicial, r.periodoFinal,
+        r.descricao || 'Período aquisitivo',
+        r.dias + r.saldoAnterior, r.gozados, r.saldo,
+        r.previsao ? dataBusca(r.previsao) : 'Incluir previsão',
+        r.pagamento1 ? dataBusca(r.pagamento1) : 'A pagar',
+        dataBusca(r.pagamento2), dataBusca(r.pagamento3),
+        r.pago ? 'pago' : 'em aberto',
+        r.historico ? 'histórico encerrado' : 'vigente em aberto',
+        r.colaboradorAtivo === false ? 'desligado inativo' : 'ativo',
+      ].join(' '))
+      return termos.every((t) => alvo.includes(t))
+    }
+
+    // A lista segue o cadastro: por padrão, só colaboradores ativos. Contamos
+    // quantos ficaram de fora — já agrupados e sujeitos à mesma busca, para o
+    // aviso da tela bater com o que apareceria ao incluir os desligados.
+    let ocultosPorInatividade = 0
+    if ((input.colaboradores ?? 'ATIVOS') === 'ATIVOS' && !input.colaboradorId) {
+      const desligados = rows.filter((r) => r.colaboradorAtivo !== true)
+      rows = rows.filter((r) => r.colaboradorAtivo === true)
+      ocultosPorInatividade = agrupar(desligados).filter(casaBusca).length
+    }
+
+    rows = input.colaboradorId
+      ? rows.map((r) => ({ ...r, periodosAnteriores: 0 }))
+      : agrupar(rows)
+    rows = rows.filter(casaBusca)
 
     // Ordenação — padrão alfabético pelo colaborador; qualquer coluna serve.
     const dir = sortDir === 'desc' ? -1 : 1
