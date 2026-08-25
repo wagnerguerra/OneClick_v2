@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react'
 import { Check, X, Loader2, Pencil } from 'lucide-react'
 import { Input, cn, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 
 /**
  * Célula editável inline. Render padrão é só texto; ao clicar, vira input
@@ -167,7 +168,7 @@ export function InlineEditCell(props: Props) {
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); cancel() }}
-            className="h-6 w-6 inline-flex items-center justify-center rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+            className={cn('h-6 w-6 inline-flex items-center justify-center rounded hover:bg-rose-50 dark:hover:bg-rose-950/40', TEXT.rose)}
             title="Cancelar (Esc)"
           >
             <X className="h-3.5 w-3.5" />
@@ -175,7 +176,7 @@ export function InlineEditCell(props: Props) {
         </>
       ) : null}
       {error && (
-        <span className="text-[10px] text-rose-600 truncate max-w-[160px]" title={error}>{error}</span>
+        <span className={cn('text-[10px] truncate max-w-[160px]', TEXT.rose)} title={error}>{error}</span>
       )}
     </div>
   )

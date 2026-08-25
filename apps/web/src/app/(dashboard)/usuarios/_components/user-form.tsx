@@ -10,7 +10,7 @@ import {
   MODULE_GROUPS, MODULE_LABELS, USER_ROLE_LABELS, USER_PROFILE_LABELS,
   MODULE_SUB_PERMISSIONS,
 } from '@saas/types'
-import { HelpCircle, User, Briefcase, Calendar, Building2, Shield, ChevronDown, ShieldCheck, Save, ArrowLeft, Handshake, Loader2, Download, Settings } from 'lucide-react'
+import { HelpCircle, User, Briefcase, Calendar, Building2, Shield, ChevronDown, ShieldCheck, Save, Handshake, Loader2, Download, Settings } from 'lucide-react'
 import Link from 'next/link'
 import {
   Button, Input, Label, Checkbox, Card,
@@ -20,6 +20,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
+import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { MODULE_ICONS, GROUP_ICONS } from '@/lib/navigation'
 import { masks, moedaParaNumero, numeroParaMoeda, dataParaISO, isoParaData } from '@/lib/masks'
@@ -224,10 +225,7 @@ export function UserForm({ mode, userId, title, description, icon, defaultValues
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => router.push('/usuarios')}>
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
-            </Button>
+            <BackButton href="/usuarios" label="Voltar" />
           </div>
         </div>
 
@@ -312,13 +310,13 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
 
   return (
     <Card>
-      <div className="flex items-center gap-2 border-b border-[rgba(0,0,0,0.08)] px-5 py-3">
+      <div className="flex items-center gap-2 border-b border-hairline px-5 py-3">
         <User className="h-4 w-4 text-muted-foreground" />
         <h5 className="text-[13px] font-semibold">Detalhes do Usuário</h5>
       </div>
       <div className="flex min-h-[500px]">
         {/* Pills laterais */}
-        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
           <div className="space-y-1">
             {visibleTabs.map(tab => {
               const Icon = tab.icon
@@ -349,7 +347,7 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
           {/* DADOS PESSOAIS */}
           {activeTab === 'dados' && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-hairline">
                 <h4 className="text-[13px] font-semibold text-foreground">Dados Pessoais</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
@@ -444,7 +442,7 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
           {/* ENDEREÇO */}
           {activeTab === 'endereco' && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-hairline">
                 <h4 className="text-[13px] font-semibold text-foreground">Endereço</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
@@ -483,7 +481,7 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
           {/* ORGANIZACIONAL */}
           {activeTab === 'organizacional' && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-hairline">
                 <h4 className="text-[13px] font-semibold text-foreground">Organizacional</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
@@ -525,7 +523,7 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
           {/* FÉRIAS / RH */}
           {activeTab === 'ferias' && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+              <div className="px-5 py-3 border-b border-hairline flex items-center justify-between">
                 <h4 className="text-[13px] font-semibold text-foreground">Férias / RH</h4>
                 {mode === 'edit' && (
                   <Button
@@ -616,7 +614,7 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
           {/* EMPRESA */}
           {activeTab === 'empresa' && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-hairline">
                 <h4 className="text-[13px] font-semibold text-foreground">Empresa</h4>
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
@@ -641,7 +639,7 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
           {/* PERMISSÕES */}
           {activeTab === 'permissoes' && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+              <div className="px-5 py-3 border-b border-hairline flex items-center justify-between">
                 <h4 className="text-[13px] font-semibold text-foreground">Permissões</h4>
                 {permSaving && (
                   <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Salvando...</span>
@@ -736,7 +734,7 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
           {/* CLIENTES VINCULADOS */}
           {activeTab === 'clientes' && mode === 'edit' && userId && (
             <div className="-m-0">
-              <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-5 py-3 border-b border-hairline">
                 <h4 className="text-[13px] font-semibold text-foreground">Clientes Vinculados</h4>
               </div>
               <div className="p-5">
@@ -1101,7 +1099,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
                       )}>
                         {item.role}
                       </span>
-                      {item.encerrado && <span className="ml-1 text-[10px] text-amber-600">Encerrado</span>}
+                      {item.encerrado && <span className={cn('ml-1 text-[10px]', TEXT.amber)}>Encerrado</span>}
                     </td>
                   </tr>
                 ))}

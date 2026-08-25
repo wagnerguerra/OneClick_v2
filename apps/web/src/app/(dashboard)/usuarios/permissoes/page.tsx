@@ -320,7 +320,7 @@ export default function PermissoesEmMassaPage() {
                       </button>
                       <button onClick={() => alternarBloco(bloco, false)} disabled={ids.length === 0}
                         title={`Retirar o bloco ${bloco} inteiro`}
-                        className="rounded border border-border px-2 py-0.5 text-[10px] text-rose-500 hover:bg-muted disabled:opacity-40">
+                        className={cn('rounded border border-border px-2 py-0.5 text-[10px] hover:bg-muted disabled:opacity-40', TEXT.rose)}>
                         Retirar tudo
                       </button>
                     </div>

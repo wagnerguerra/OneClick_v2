@@ -146,7 +146,7 @@ export default function UserProfilePage() {
             <div className="flex items-center gap-4">
               {/* Avatar */}
               <div
-                className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 overflow-hidden"
+                className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-card overflow-hidden"
                 style={{ boxShadow: 'inset 0 0 0 3px rgba(16, 185, 129, 0.35), 0 4px 12px rgba(16, 185, 129, 0.18)' }}
               >
                 {user.image ? (
@@ -242,7 +242,7 @@ export default function UserProfilePage() {
               {sessions.length === 0 ? (
                 <div className="px-5 py-6 text-center text-xs text-muted-foreground">Nenhum acesso registrado</div>
               ) : (
-                <div className="divide-y divide-border/40 max-h-[360px] overflow-y-auto">
+                <div className="nice-scrollbar divide-y divide-border/40 max-h-[360px] overflow-y-auto">
                   {sessions.map(s => (
                     <div key={s.id} className="px-5 py-2.5 text-xs">
                       <div className="flex items-center justify-between gap-2">
