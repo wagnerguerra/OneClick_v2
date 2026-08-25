@@ -6,7 +6,7 @@ import {
   Plus, Trash2, Pencil, Loader2, Check,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search as SearchIcon,
   ChevronUp, ChevronDown, ChevronsUpDown, UserX, BarChart3,
-  CalendarDays, CircleAlert, TriangleAlert, Clock, Wallet,
+  CalendarDays, CircleAlert, TriangleAlert, Clock, Wallet, X,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn,
@@ -36,41 +36,60 @@ interface Indicadores {
   vencidos: number
   vencendo90: number
   gozosNoMes: number
+  gozandoNoMes: number
   aPagar: number
 }
 
+/** Recortes que os cartões do topo aplicam à tabela. */
+type IndicadorKey = 'SALDO' | 'VENCIDOS' | 'VENCENDO' | 'GOZO_MES' | 'A_PAGAR'
+
 /**
- * Cartão compacto do topo. Quando tem `href`, vira atalho para o relatório
- * que detalha aquele número — ver "3 vencidas" sem poder abrir a lista dos
- * três seria só um susto sem saída.
+ * Cartão compacto do topo. Clicar filtra a tabela pelas linhas que formam
+ * aquele número; clicar de novo desfaz. Ver "13 vencidas" sem poder abrir as
+ * treze seria só um susto sem saída.
  */
-function Indicador({ label, valor, hint, cor, icone: Icone, href, destaque }: {
+function Indicador({ label, valor, hint, cor, icone: Icone, ativo, onClick, destaque }: {
   label: string
   valor: number
   hint?: string
   cor?: string
   icone: typeof CalendarDays
-  href?: string
+  ativo?: boolean
+  onClick?: () => void
   destaque?: boolean
 }) {
-  const conteudo = (
-    <div className={cn(
-      'flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5 transition-colors',
-      href && 'hover:border-foreground/20 hover:bg-muted/30',
-      destaque && 'border-rose-300 dark:border-rose-800',
-    )}>
+  const corFinal = cor ?? MODULE_COLOR
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={ativo}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-lg border bg-card px-3 py-2.5 text-left transition-colors',
+        'hover:border-foreground/20 hover:bg-muted/30',
+        ativo ? 'border-transparent ring-2' : destaque ? 'border-rose-300 dark:border-rose-800' : 'border-border',
+      )}
+      style={ativo ? { boxShadow: `0 0 0 2px ${corFinal}`, background: `color-mix(in srgb, ${corFinal} 7%, transparent)` } : undefined}
+    >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
-        style={{ background: `color-mix(in srgb, ${cor ?? MODULE_COLOR} 15%, transparent)` }}>
-        <Icone className="h-4 w-4" style={{ color: cor ?? MODULE_COLOR }} />
+        style={{ background: `color-mix(in srgb, ${corFinal} 15%, transparent)` }}>
+        <Icone className="h-4 w-4" style={{ color: corFinal }} />
       </span>
       <div className="min-w-0">
         <p className="text-lg font-semibold leading-none tabular-nums" style={cor ? { color: cor } : undefined}>{valor}</p>
         <p className="mt-1 truncate text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
         {hint && <p className="truncate text-[10px] text-muted-foreground/80">{hint}</p>}
       </div>
-    </div>
+    </button>
   )
-  return href ? <Link href={href} className="block">{conteudo}</Link> : conteudo
+}
+
+const INDICADOR_LABEL: Record<IndicadorKey, string> = {
+  SALDO: 'com dias em aberto',
+  VENCIDOS: 'com férias vencidas',
+  VENCENDO: 'vencendo em 90 dias',
+  GOZO_MES: 'em gozo neste mês',
+  A_PAGAR: 'a pagar',
 }
 
 /** Iniciais para a bolinha quando o colaborador não tem foto. */
@@ -149,6 +168,7 @@ export default function ControleFeriasPage() {
   const [mPrevisao, setMPrevisao] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [indicadores, setIndicadores] = useState<Indicadores | null>(null)
+  const [fIndicador, setFIndicador] = useState<IndicadorKey | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(search); setPage(1) }, 400)
@@ -168,12 +188,13 @@ export default function ControleFeriasPage() {
         colaboradorId: fColaborador || undefined,
         situacao: fSituacao || undefined,
         colaboradores: fColaboradores,
+        indicador: fIndicador ?? undefined,
         sortBy, sortDir,
       })
       setData(res)
     } catch { /* silencioso */ }
     finally { setLoading(false) }
-  }, [page, limit, debounced, fColaborador, fSituacao, fColaboradores, sortBy, sortDir])
+  }, [page, limit, debounced, fColaborador, fSituacao, fColaboradores, fIndicador, sortBy, sortDir])
 
   /**
    * Indicadores do topo: vêm do mesmo relatório de painel, para o número da
@@ -272,6 +293,19 @@ export default function ControleFeriasPage() {
     }
   }
 
+  /**
+   * Clicar no cartão recorta a tabela; clicar de novo desfaz. Os recortes de
+   * saldo, vencimento e pagamento só fazem sentido sobre períodos vigentes,
+   * então a situação vai junto — senão o clique traria zero linhas quando o
+   * filtro estivesse em "Histórico".
+   */
+  function alternarIndicador(key: IndicadorKey) {
+    setPage(1)
+    if (fIndicador === key) { setFIndicador(null); return }
+    setFIndicador(key)
+    if (key !== 'GOZO_MES') setFSituacao('ABERTOS')
+  }
+
   // Clique no cabeçalho ordena; segundo clique inverte (padrão das listagens).
   function ordenarPor(campo: string) {
     if (sortBy === campo) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
@@ -316,6 +350,8 @@ export default function ControleFeriasPage() {
             valor={indicadores.diasEmAberto}
             hint={`${indicadores.comSaldo} colaborador(es) com saldo`}
             icone={CalendarDays}
+            ativo={fIndicador === 'SALDO'}
+            onClick={() => alternarIndicador('SALDO')}
           />
           <Indicador
             label="Férias vencidas"
@@ -323,8 +359,9 @@ export default function ControleFeriasPage() {
             hint="Devidas em dobro (art. 137)"
             cor="#e11d48"
             icone={CircleAlert}
-            href="/controle-ferias/relatorios?aba=vencimentos&farol=VENCIDO"
             destaque={indicadores.vencidos > 0}
+            ativo={fIndicador === 'VENCIDOS'}
+            onClick={() => alternarIndicador('VENCIDOS')}
           />
           <Indicador
             label="Vencem em 90 dias"
@@ -332,15 +369,17 @@ export default function ControleFeriasPage() {
             hint="Programe o gozo"
             cor="#f59e0b"
             icone={TriangleAlert}
-            href="/controle-ferias/relatorios?aba=vencimentos&farol=CRITICO"
+            ativo={fIndicador === 'VENCENDO'}
+            onClick={() => alternarIndicador('VENCENDO')}
           />
           <Indicador
             label="Gozo neste mês"
             valor={indicadores.gozosNoMes}
-            hint="Dias de ausência no mês corrente"
+            hint={`${indicadores.gozandoNoMes} colaborador(es) de férias no mês`}
             cor="#0ea5e9"
             icone={Clock}
-            href="/controle-ferias/relatorios?aba=escala"
+            ativo={fIndicador === 'GOZO_MES'}
+            onClick={() => alternarIndicador('GOZO_MES')}
           />
           <Indicador
             label="A pagar"
@@ -348,7 +387,8 @@ export default function ControleFeriasPage() {
             hint="Períodos vigentes sem pagamento"
             cor="#8b5cf6"
             icone={Wallet}
-            href="/controle-ferias/relatorios?aba=pagamentos"
+            ativo={fIndicador === 'A_PAGAR'}
+            onClick={() => alternarIndicador('A_PAGAR')}
           />
         </div>
       )}
@@ -378,6 +418,18 @@ export default function ControleFeriasPage() {
                 <SelectItem value="TODOS">Incluir desligados</SelectItem>
               </SelectContent>
             </Select>
+            {fIndicador && (
+              <button
+                type="button"
+                onClick={() => { setFIndicador(null); setPage(1) }}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs font-medium transition-colors hover:bg-muted/50"
+                title="Remover o recorte do indicador"
+              >
+                <span className="h-2 w-2 rounded-full" style={{ background: MODULE_COLOR }} />
+                Somente {INDICADOR_LABEL[fIndicador]}
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            )}
             {(data?.ocultosPorInatividade ?? 0) > 0 && (
               <button
                 type="button"

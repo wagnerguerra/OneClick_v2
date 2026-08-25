@@ -4,7 +4,7 @@ import type {
   CriarFeriasPeriodoInput, AtualizarFeriasPeriodoInput, CriarFeriasEventoInput,
   ListarFeriasPeriodosInput,
 } from '@saas/types'
-import { diasDoEvento, saldoDoPeriodo } from './ferias-calc'
+import { diasDoEvento, saldoDoPeriodo, limiteConcessivo, farolVencimento } from './ferias-calc'
 
 /**
  * Controle de Férias — port do `crp_ferias` do v1. Um registro por período
@@ -78,9 +78,20 @@ export class ControleFeriasService {
     })
 
     const usuarios = await this.usuariosPorId(data.map((d) => d.colaboradorId))
+    const hoje = new Date()
+    const mesAtual = hoje.getUTCFullYear() * 100 + hoje.getUTCMonth()
     let rows = data.map((d) => {
       const { gozados, saldo } = this.saldo(d)
       const u = d.colaboradorId ? usuarios.get(d.colaboradorId) : undefined
+      // Prazo legal do concessivo — mesma conta do relatório de vencimentos.
+      const { limite, aproximado } = limiteConcessivo(d.periodoFinal, u?.dataAdmissao)
+      const { farol, diasRestantes } = farolVencimento(limite, hoje)
+      const gozoNoMes = d.eventos.reduce((acc, e) => {
+        const ini = new Date(e.dataInicio)
+        const fim = new Date(e.dataFim)
+        const dentro = (dt: Date) => dt.getUTCFullYear() * 100 + dt.getUTCMonth() === mesAtual
+        return acc + (dentro(ini) || dentro(fim) ? 1 : 0)
+      }, 0)
       return {
         ...d,
         eventos: undefined,
@@ -93,6 +104,12 @@ export class ControleFeriasService {
         colaboradorImagem: u?.image ?? null,
         gozados,
         saldo,
+        /** Data-limite do período concessivo; `~` quando falta a admissão. */
+        limite,
+        limiteAproximado: aproximado,
+        farol,
+        diasRestantes,
+        gozoNoMes,
         eventosTotal: d.eventos.length,
         arquivosTotal: d._count.arquivos,
       }
@@ -158,6 +175,23 @@ export class ControleFeriasService {
       ? rows.map((r) => ({ ...r, periodosAnteriores: 0 }))
       : agrupar(rows)
     rows = rows.filter(casaBusca)
+
+    // Recorte dos indicadores do topo: cada cartão mostra as linhas que o
+    // formam. As contas são as mesmas do painel de relatórios (ferias-calc),
+    // então o número do cartão e o total da tabela batem.
+    if (input.indicador) {
+      const vigente = (r: (typeof rows)[number]) => !r.historico
+      rows = rows.filter((r) => {
+        switch (input.indicador) {
+          case 'SALDO': return vigente(r) && r.saldo > 0
+          case 'VENCIDOS': return vigente(r) && r.saldo > 0 && r.farol === 'VENCIDO'
+          case 'VENCENDO': return vigente(r) && r.saldo > 0 && (r.farol === 'CRITICO' || r.farol === 'ATENCAO')
+          case 'GOZO_MES': return r.gozoNoMes > 0
+          case 'A_PAGAR': return vigente(r) && !r.pago
+          default: return true
+        }
+      })
+    }
 
     // Ordenação — padrão alfabético pelo colaborador; qualquer coluna serve.
     const dir = sortDir === 'desc' ? -1 : 1

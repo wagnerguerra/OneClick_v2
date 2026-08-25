@@ -56,6 +56,12 @@ export const listarFeriasPeriodosSchema = paginationSchema.extend({
    * (períodos que ficaram só com o nome no resíduo).
    */
   colaboradores: z.enum(['ATIVOS', 'TODOS']).optional(),
+  /**
+   * Recorte vindo dos indicadores do topo da tela. São os mesmos números do
+   * painel de relatórios, só que aplicados à listagem — clicar no cartão
+   * mostra exatamente as linhas que o formam.
+   */
+  indicador: z.enum(['SALDO', 'VENCIDOS', 'VENCENDO', 'GOZO_MES', 'A_PAGAR']).optional(),
 })
 
 /** Filtro comum dos relatórios: recorte por área e inclusão de desligados. */

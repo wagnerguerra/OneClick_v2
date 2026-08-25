@@ -208,6 +208,7 @@ export class ControleFeriasReportsService {
     let comSaldo = 0
     let periodosVigentes = 0
     let gozosNoMes = 0
+    const gozandoNoMes = new Set<string>()
     let pagos = 0
     let aPagar = 0
     let semRecibo = 0
@@ -241,7 +242,7 @@ export class ControleFeriasReportsService {
           reg.dias += g.dias
           reg.pessoas.add(c.chave)
           porMes.set(chaveMes, reg)
-          if (chaveMes === mesAtual) gozosNoMes += g.dias
+          if (chaveMes === mesAtual) { gozosNoMes += g.dias; gozandoNoMes.add(c.chave) }
         }
       }
     }
@@ -281,6 +282,8 @@ export class ControleFeriasReportsService {
         vencidos: contaFarol.VENCIDO,
         vencendo90: contaFarol.CRITICO + contaFarol.ATENCAO,
         gozosNoMes,
+        /** Quantas pessoas estão de férias no mês — o cartão conta dias, a lista conta gente. */
+        gozandoNoMes: gozandoNoMes.size,
         pagos,
         aPagar,
         semRecibo,
