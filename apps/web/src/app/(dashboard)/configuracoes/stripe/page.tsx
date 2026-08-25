@@ -734,7 +734,7 @@ function TabInfo() {
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between p-3 rounded-lg border border-hairline hover:bg-muted/30 transition-colors group"
+              className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent transition-colors group"
             >
               <div>
                 <p className="text-xs font-medium text-foreground group-hover:text-[#f97316] transition-colors">

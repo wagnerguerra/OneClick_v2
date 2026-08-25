@@ -531,7 +531,7 @@ export default function ConfiguracoesPage() {
                   <button
                     type="button"
                     onClick={() => setShowSecret(prev => ({ ...prev, [field.key]: !prev[field.key] }))}
-                    style={{ padding: '0.55rem 0.6rem', backgroundColor: '#fff', color: '#495057', border: '1px solid #ced4da', borderLeft: 'none', cursor: 'pointer' }}
+                    style={{ padding: '0.55rem 0.6rem', backgroundColor: 'var(--color-card)', color: 'var(--color-muted-foreground)', border: '1px solid var(--color-input)', borderLeft: 'none', cursor: 'pointer' }}
                   >
                     {showSecret[field.key] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   </button>
@@ -539,7 +539,7 @@ export default function ConfiguracoesPage() {
                     type="button"
                     onClick={() => handleClear(field.key)}
                     title="Limpar valor"
-                    style={{ padding: '0.55rem 0.6rem', backgroundColor: '#fff', color: '#dc3545', border: '1px solid #ced4da', borderLeft: 'none', borderRadius: '0 0.25rem 0.25rem 0', cursor: 'pointer' }}
+                    style={{ padding: '0.55rem 0.6rem', backgroundColor: 'var(--color-card)', color: 'var(--color-destructive)', border: '1px solid var(--color-input)', borderLeft: 'none', borderRadius: '0 0.25rem 0.25rem 0', cursor: 'pointer' }}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -830,7 +830,7 @@ export default function ConfiguracoesPage() {
 
                         <textarea
                           className={cn(
-                            'w-full rounded border border-[#ced4da] bg-[#1e1e2e] text-[#cdd6f4] px-3 py-2 text-xs font-mono placeholder:text-[#6c7086] focus:border-orange-400 focus:outline-none',
+                            'w-full rounded border border-input bg-popover text-popover-foreground px-3 py-2 text-xs font-mono placeholder:text-muted-foreground focus:border-orange-400 focus:outline-none',
                             expandedConsole ? 'min-h-[200px]' : 'min-h-[120px]'
                           )}
                           placeholder={`Digite sua query SQL aqui...\nEx: SELECT * FROM clientes WHERE id = {{cliente_id}}\nUse {{variavel}} para criar templates reutilizáveis`}

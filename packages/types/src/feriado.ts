@@ -11,10 +11,10 @@ export const FERIADO_TIPO_LABELS: Record<FeriadoTipo, string> = {
 }
 
 export const FERIADO_TIPO_CORES: Record<FeriadoTipo, { bg: string; text: string; border: string }> = {
-  NACIONAL:          { bg: 'bg-rose-50',    text: 'text-rose-700',    border: 'border-rose-200' },
-  ESTADUAL:          { bg: 'bg-sky-50',     text: 'text-sky-700',     border: 'border-sky-200' },
-  MUNICIPAL:         { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-  PONTO_FACULTATIVO: { bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200' },
+  NACIONAL:          { bg: 'bg-rose-50 dark:bg-rose-950/30',       text: 'text-rose-700 dark:text-rose-400',       border: 'border-rose-200 dark:border-rose-800' },
+  ESTADUAL:          { bg: 'bg-sky-50 dark:bg-sky-950/30',         text: 'text-sky-700 dark:text-sky-400',         border: 'border-sky-200 dark:border-sky-800' },
+  MUNICIPAL:         { bg: 'bg-emerald-50 dark:bg-emerald-950/30', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' },
+  PONTO_FACULTATIVO: { bg: 'bg-amber-50 dark:bg-amber-950/30',     text: 'text-amber-700 dark:text-amber-400',     border: 'border-amber-200 dark:border-amber-800' },
 }
 
 /** UFs brasileiras — pra dropdown no formulário. */
