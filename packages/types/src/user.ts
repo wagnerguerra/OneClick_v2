@@ -272,6 +272,12 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
   contatos: [
     { key: 'gerenciar', label: 'Gerenciar contatos (incluir, editar e excluir)', group: 'Manutenção' },
   ],
+  // Controle de Férias: a provisão em R$ usa o salário do cadastro, então
+  // depende de liberação à parte — ver o controle de dias não implica ver
+  // quanto cada um ganha.
+  'controle-ferias': [
+    { key: 'valores', label: 'Ver valores e provisão de férias (R$)', group: 'Financeiro' },
+  ],
   // Coleta e Recebimento: os papéis do v1 viraram sub-permissões — adm/ era a
   // Recepção (rota) e arq/ o Arquivo. Quem não tem nenhuma só cria e acompanha
   // as próprias solicitações.

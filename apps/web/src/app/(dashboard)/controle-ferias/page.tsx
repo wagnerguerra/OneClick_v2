@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Trash2, Pencil, Loader2, Check,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search as SearchIcon,
-  ChevronUp, ChevronDown, ChevronsUpDown, UserX,
+  ChevronUp, ChevronDown, ChevronsUpDown, UserX, BarChart3,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn,
@@ -224,6 +224,9 @@ export default function ControleFeriasPage() {
       {/* Header padrão (como o /clientes): barra full-bleed, título + trilha, ações à direita */}
       <PageHeaderBar
         actions={<>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/controle-ferias/relatorios')}>
+            <BarChart3 className="h-4 w-4" />Relatórios
+          </Button>
           {podeEscrever && (
             <Button size="sm" className="gap-1.5" onClick={() => setAberta(true)}>
               <Plus className="h-4 w-4" />Novo Período

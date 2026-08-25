@@ -4,6 +4,7 @@ import type {
   CriarFeriasPeriodoInput, AtualizarFeriasPeriodoInput, CriarFeriasEventoInput,
   ListarFeriasPeriodosInput,
 } from '@saas/types'
+import { diasDoEvento, saldoDoPeriodo } from './ferias-calc'
 
 /**
  * Controle de Férias — port do `crp_ferias` do v1. Um registro por período
@@ -29,11 +30,6 @@ function dataBusca(v: Date | null | undefined): string {
   return `${d}/${m}/${a} ${iso}`
 }
 
-/** Dias corridos do gozo, inclusivos (17→23 = 7 dias). */
-function diasDoEvento(inicio: Date, fim: Date): number {
-  return Math.round((fim.getTime() - inicio.getTime()) / 86400000) + 1
-}
-
 @Injectable()
 export class ControleFeriasService {
   private async nomesPorId(ids: Array<string | null | undefined>): Promise<Map<string, string>> {
@@ -57,9 +53,9 @@ export class ControleFeriasService {
     return `nome:${String(p.colaboradorNomeResolvido ?? p.colaboradorNome ?? '').toLocaleLowerCase('pt-BR').trim()}`
   }
 
+  /** Delega para `ferias-calc`: a conta do saldo mora lá, junto com o prazo legal. */
   private saldo(p: { dias: number; saldoAnterior: number; eventos: Array<{ dataInicio: Date; dataFim: Date }> }) {
-    const gozados = p.eventos.reduce((acc, e) => acc + diasDoEvento(e.dataInicio, e.dataFim), 0)
-    return { gozados, saldo: p.dias + p.saldoAnterior - gozados }
+    return saldoDoPeriodo(p)
   }
 
   async listar(input: ListarFeriasPeriodosInput, empresaId?: string | null) {

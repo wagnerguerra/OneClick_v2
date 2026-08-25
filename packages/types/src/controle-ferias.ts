@@ -58,6 +58,13 @@ export const listarFeriasPeriodosSchema = paginationSchema.extend({
   colaboradores: z.enum(['ATIVOS', 'TODOS']).optional(),
 })
 
+/** Filtro comum dos relatórios: recorte por área e inclusão de desligados. */
+export const filtroRelatorioFeriasSchema = z.object({
+  areaId: z.string().optional(),
+  incluirInativos: z.boolean().optional(),
+})
+
+export type FiltroRelatorioFeriasInput = z.infer<typeof filtroRelatorioFeriasSchema>
 export type CriarFeriasPeriodoInput = z.infer<typeof criarFeriasPeriodoSchema>
 export type AtualizarFeriasPeriodoInput = z.infer<typeof atualizarFeriasPeriodoSchema>
 export type CriarFeriasEventoInput = z.infer<typeof criarFeriasEventoSchema>

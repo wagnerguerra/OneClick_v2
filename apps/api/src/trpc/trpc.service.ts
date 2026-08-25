@@ -176,6 +176,7 @@ import { createDocumentoExternoRouter } from '../documento-externo/documento-ext
 import { QualidadeService } from '../qualidade/qualidade.service'
 import { createQualidadeRouter } from '../qualidade/qualidade.router'
 import { ControleFeriasService } from '../controle-ferias/controle-ferias.service'
+import { ControleFeriasReportsService } from '../controle-ferias/controle-ferias-reports.service'
 import { createControleFeriasRouter } from '../controle-ferias/controle-ferias.router'
 import { ColetaService } from '../coleta/coleta.service'
 import { ContatoService } from '../contato/contato.service'
@@ -753,6 +754,7 @@ export class TrpcService {
     @Inject(DocumentoExternoService) private readonly documentoExternoService: DocumentoExternoService,
     @Inject(QualidadeService) private readonly qualidadeService: QualidadeService,
     @Inject(ControleFeriasService) private readonly controleFeriasService: ControleFeriasService,
+    @Inject(ControleFeriasReportsService) private readonly controleFeriasReportsService: ControleFeriasReportsService,
     @Inject(ColetaService) private readonly coletaService: ColetaService,
     @Inject(ContatoService) private readonly contatoService: ContatoService,
     @Inject(ClientErrorService) private readonly clientErrorService: ClientErrorService,
@@ -870,7 +872,7 @@ export class TrpcService {
       naoConformidade: createNaoConformidadeRouter(this.naoConformidadeService),
       documentoExterno: createDocumentoExternoRouter(this.documentoExternoService),
       qualidade: createQualidadeRouter(this.qualidadeService),
-      controleFerias: createControleFeriasRouter(this.controleFeriasService),
+      controleFerias: createControleFeriasRouter(this.controleFeriasService, this.controleFeriasReportsService),
       coleta: createColetaRouter(this.coletaService),
       contato: createContatoRouter(this.contatoService),
       minhasObrigacoes: createMinhasObrigacoesRouter(this.minhasObrigacoesService),
