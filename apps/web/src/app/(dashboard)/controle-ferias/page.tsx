@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Trash2, Pencil, Loader2, Check,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search as SearchIcon,
+  ChevronUp, ChevronDown, ChevronsUpDown, UserX,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn,
@@ -26,6 +27,8 @@ interface Row {
   id: string
   legacyId: number | null
   colaboradorNomeResolvido: string | null
+  /** false = desligado no cadastro; null = sem vínculo (só resíduo do v1). */
+  colaboradorAtivo: boolean | null
   periodoInicial: number
   periodoFinal: number
   descricao: string | null
@@ -58,6 +61,9 @@ export default function ControleFeriasPage() {
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
   const [fColaborador, setFColaborador] = useState('')
+  const [sortBy, setSortBy] = useState('colaborador')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [fColaboradores, setFColaboradores] = useState<'ATIVOS' | 'TODOS'>('ATIVOS')
   const [fSituacao, setFSituacao] = useState('ABERTOS')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
@@ -93,6 +99,8 @@ export default function ControleFeriasPage() {
         search: debounced || undefined,
         colaboradorId: fColaborador || undefined,
         situacao: fSituacao || undefined,
+        colaboradores: fColaboradores,
+        sortBy, sortDir,
       })
       setData(res)
     } catch { /* silencioso */ }
@@ -133,6 +141,14 @@ export default function ControleFeriasPage() {
       fetchData()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
+
+  // Clique no cabeçalho ordena; segundo clique inverte (padrão das listagens).
+  function ordenarPor(campo: string) {
+    if (sortBy === campo) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortBy(campo); setSortDir(campo === 'colaborador' ? 'asc' : 'desc') }
+    setPage(1)
+  }
+  const ordenacao = { sortBy, sortDir, onSort: ordenarPor }
 
   const totalPages = data?.totalPages ?? 1
   const startRecord = data ? (page - 1) * limit + 1 : 0
@@ -182,8 +198,15 @@ export default function ControleFeriasPage() {
                 {usuarios.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
               </SelectContent>
             </Select>
-            {(fColaborador || fSituacao !== 'ABERTOS') && (
-              <Button variant="outline" size="xs" onClick={() => { setFColaborador(''); setFSituacao('ABERTOS'); setPage(1) }}>
+            <Select value={fColaboradores} onValueChange={(v) => { setFColaboradores(v as 'ATIVOS' | 'TODOS'); setPage(1) }}>
+              <SelectTrigger className="h-8 w-[190px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ATIVOS">Colaboradores ativos</SelectItem>
+                <SelectItem value="TODOS">Incluir desligados</SelectItem>
+              </SelectContent>
+            </Select>
+            {(fColaborador || fSituacao !== 'ABERTOS' || fColaboradores !== 'ATIVOS') && (
+              <Button variant="outline" size="xs" onClick={() => { setFColaborador(''); setFSituacao('ABERTOS'); setFColaboradores('ATIVOS'); setPage(1) }}>
                 Limpar
               </Button>
             )}
@@ -197,13 +220,13 @@ export default function ControleFeriasPage() {
         <Table className="table-fixed">
           <TableHeader>
             <TableRow className="[&_th]:whitespace-nowrap">
-              <TableHead>Colaborador</TableHead>
-              <TableHead className="w-[110px] text-center">Período</TableHead>
-              <TableHead className="w-[70px] text-center">Dias</TableHead>
-              <TableHead className="w-[80px] text-center">Gozados</TableHead>
-              <TableHead className="w-[70px] text-center">Saldo</TableHead>
-              <TableHead className="hidden sm:table-cell w-[105px]">Previsão</TableHead>
-              <TableHead className="hidden md:table-cell w-[110px]">Situação</TableHead>
+              <Th campo="colaborador" {...ordenacao}>Colaborador</Th>
+              <Th campo="periodo" className="w-[110px]" align="center" {...ordenacao}>Período</Th>
+              <Th campo="dias" className="w-[70px]" align="center" {...ordenacao}>Dias</Th>
+              <Th campo="gozados" className="w-[80px]" align="center" {...ordenacao}>Gozados</Th>
+              <Th campo="saldo" className="w-[70px]" align="center" {...ordenacao}>Saldo</Th>
+              <Th campo="previsao" className="hidden sm:table-cell w-[105px]" {...ordenacao}>Previsão</Th>
+              <Th campo="situacao" className="hidden md:table-cell w-[110px]" {...ordenacao}>Situação</Th>
               <TableHead className="w-[100px] pr-5 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -222,6 +245,16 @@ export default function ControleFeriasPage() {
                   <TableCell className="text-sm">
                     <span className="flex items-center gap-1.5 min-w-0">
                       <span className="truncate font-medium">{r.colaboradorNomeResolvido ?? '—'}</span>
+                      {r.colaboradorAtivo === false && (
+                        <Badge variant="outline" className="shrink-0 gap-1 text-[10px] text-muted-foreground" title="Colaborador desligado no cadastro">
+                          <UserX className="h-3 w-3" />desligado
+                        </Badge>
+                      )}
+                      {r.colaboradorAtivo === null && (
+                        <Badge variant="outline" className="shrink-0 text-[10px] text-muted-foreground" title="Registro do v1 sem vínculo com o cadastro atual">
+                          fora do cadastro
+                        </Badge>
+                      )}
                       {r.descricao && <span className="truncate text-[11px] text-muted-foreground">· {r.descricao}</span>}
                     </span>
                   </TableCell>
@@ -333,5 +366,32 @@ export default function ControleFeriasPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+/** Cabeçalho ordenável — clique alterna asc/desc na coluna. */
+function Th({ campo, children, className, align, sortBy, sortDir, onSort }: {
+  campo: string
+  children: React.ReactNode
+  className?: string
+  align?: 'center'
+  sortBy: string
+  sortDir: 'asc' | 'desc'
+  onSort: (campo: string) => void
+}) {
+  const ativo = sortBy === campo
+  const Icone = !ativo ? ChevronsUpDown : sortDir === 'asc' ? ChevronUp : ChevronDown
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(campo)}
+        className={cn('group inline-flex items-center gap-1 transition-colors hover:text-foreground', align === 'center' && 'w-full justify-center', ativo && 'text-foreground')}
+        title={`Ordenar por ${String(children)}`}
+      >
+        {children}
+        <Icone className={cn('h-3 w-3 shrink-0 transition-opacity', ativo ? 'opacity-100' : 'opacity-0 group-hover:opacity-50')} />
+      </button>
+    </TableHead>
   )
 }

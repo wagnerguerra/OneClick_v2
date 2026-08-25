@@ -50,6 +50,12 @@ export const listarFeriasPeriodosSchema = paginationSchema.extend({
   colaboradorId: z.string().optional(),
   /** ABERTOS = fora do histórico; HISTORICO = consolidados. */
   situacao: z.enum(['ABERTOS', 'HISTORICO']).optional(),
+  /**
+   * A lista segue o cadastro de usuários: por padrão mostra só quem está ATIVO
+   * no v2. `TODOS` inclui desligados e os que nem existem mais no cadastro
+   * (períodos que ficaram só com o nome no resíduo).
+   */
+  colaboradores: z.enum(['ATIVOS', 'TODOS']).optional(),
 })
 
 export type CriarFeriasPeriodoInput = z.infer<typeof criarFeriasPeriodoSchema>

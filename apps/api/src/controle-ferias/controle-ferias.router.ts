@@ -48,6 +48,7 @@ export function createControleFeriasRouter(service: ControleFeriasService) {
       .mutation(({ input }) => service.excluirArquivo(input.id)),
 
     listarColaboradores: readProcedure(MODULE)
-      .query(({ ctx }) => service.listarColaboradores(ctx.empresaId)),
+      .input(z.object({ incluirInativos: z.boolean().optional() }).optional())
+      .query(({ input, ctx }) => service.listarColaboradores(ctx.empresaId, !!input?.incluirInativos)),
   })
 }

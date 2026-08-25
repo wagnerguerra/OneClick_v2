@@ -30,6 +30,14 @@ export class ControleFeriasService {
     return new Map(users.map((u) => [u.id, u.name]))
   }
 
+  /** Nome + situação no cadastro do v2 (para marcar desligados na lista). */
+  private async usuariosPorId(ids: Array<string | null | undefined>) {
+    const unicos = [...new Set(ids.filter((x): x is string => !!x))]
+    if (!unicos.length) return new Map<string, { name: string; isActive: boolean }>()
+    const users = await prisma.user.findMany({ where: { id: { in: unicos } }, select: { id: true, name: true, isActive: true } })
+    return new Map(users.map((u) => [u.id, { name: u.name, isActive: u.isActive }]))
+  }
+
   private saldo(p: { dias: number; saldoAnterior: number; eventos: Array<{ dataInicio: Date; dataFim: Date }> }) {
     const gozados = p.eventos.reduce((acc, e) => acc + diasDoEvento(e.dataInicio, e.dataFim), 0)
     return { gozados, saldo: p.dias + p.saldoAnterior - gozados }
@@ -49,30 +57,62 @@ export class ControleFeriasService {
     ] })
 
     const where = { empresaId: empresaId ?? null, ...(filtros.length ? { AND: filtros } : {}) }
-    const orderBy = sortBy ? { [sortBy]: sortDir } : [{ periodoInicial: 'desc' as const }, { criadoEm: 'desc' as const }]
 
-    const [data, total] = await Promise.all([
-      prisma.feriasPeriodo.findMany({
-        where, orderBy, skip, take,
-        include: { eventos: { select: { dataInicio: true, dataFim: true } }, _count: { select: { arquivos: true } } },
-      }),
-      prisma.feriasPeriodo.count({ where }),
-    ])
+    // Volume pequeno (algumas centenas de períodos) e três colunas DERIVADAS
+    // (nome do colaborador, gozados, saldo): busca tudo o que casa o filtro,
+    // resolve, ordena e pagina em memória — assim qualquer coluna é ordenável.
+    const data = await prisma.feriasPeriodo.findMany({
+      where,
+      include: { eventos: { select: { dataInicio: true, dataFim: true } }, _count: { select: { arquivos: true } } },
+    })
 
-    const nomes = await this.nomesPorId(data.map((d) => d.colaboradorId))
-    const rows = data.map((d) => {
+    const usuarios = await this.usuariosPorId(data.map((d) => d.colaboradorId))
+    let rows = data.map((d) => {
       const { gozados, saldo } = this.saldo(d)
+      const u = d.colaboradorId ? usuarios.get(d.colaboradorId) : undefined
       return {
         ...d,
         eventos: undefined,
-        colaboradorNomeResolvido: d.colaboradorId ? nomes.get(d.colaboradorId) ?? d.colaboradorNome : d.colaboradorNome,
+        colaboradorNomeResolvido: u?.name ?? d.colaboradorNome,
+        /** false = desligado no cadastro; null = nem existe mais (só resíduo). */
+        colaboradorAtivo: d.colaboradorId ? (u?.isActive ?? false) : null,
         gozados,
         saldo,
         eventosTotal: d.eventos.length,
         arquivosTotal: d._count.arquivos,
       }
     })
-    return buildPaginatedResponse(rows, total, page, limit)
+
+    // A lista segue o cadastro: por padrão, só colaboradores ativos.
+    if ((input.colaboradores ?? 'ATIVOS') === 'ATIVOS' && !input.colaboradorId) {
+      rows = rows.filter((r) => r.colaboradorAtivo === true)
+    }
+
+    // Ordenação — padrão alfabético pelo colaborador; qualquer coluna serve.
+    const dir = sortDir === 'desc' ? -1 : 1
+    const campo = sortBy || 'colaborador'
+    const texto = (v: unknown) => String(v ?? '').toLocaleLowerCase('pt-BR')
+    const num = (v: unknown) => (typeof v === 'number' ? v : Number(v ?? 0))
+    const data0 = (v: unknown) => (v ? new Date(v as Date).getTime() : 0)
+    rows.sort((a, b) => {
+      let c = 0
+      switch (campo) {
+        case 'colaborador': c = texto(a.colaboradorNomeResolvido).localeCompare(texto(b.colaboradorNomeResolvido), 'pt-BR'); break
+        case 'periodo': c = (a.periodoInicial - b.periodoInicial) || (a.periodoFinal - b.periodoFinal); break
+        case 'dias': c = num(a.dias + a.saldoAnterior) - num(b.dias + b.saldoAnterior); break
+        case 'gozados': c = a.gozados - b.gozados; break
+        case 'saldo': c = a.saldo - b.saldo; break
+        case 'previsao': c = data0(a.previsao) - data0(b.previsao); break
+        case 'situacao': c = Number(a.historico) - Number(b.historico) || Number(a.pago) - Number(b.pago); break
+        default: c = texto(a.colaboradorNomeResolvido).localeCompare(texto(b.colaboradorNomeResolvido), 'pt-BR')
+      }
+      // Empate: sempre pelo período mais recente, depois pelo nome
+      if (c === 0) c = (b.periodoInicial - a.periodoInicial) || texto(a.colaboradorNomeResolvido).localeCompare(texto(b.colaboradorNomeResolvido), 'pt-BR')
+      return c * dir
+    })
+
+    const total = rows.length
+    return buildPaginatedResponse(rows.slice(skip, skip + take), total, page, limit)
   }
 
   async getById(id: string, empresaId?: string | null) {
@@ -180,11 +220,19 @@ export class ControleFeriasService {
     return { id }
   }
 
-  async listarColaboradores(empresaId?: string | null) {
+  /**
+   * Colaboradores para o seletor: só quem está ATIVO no cadastro (não faz
+   * sentido abrir período novo para quem saiu). `incluirInativos` traz todos —
+   * usado pelo filtro quando o usuário quer ver o histórico dos desligados.
+   */
+  async listarColaboradores(empresaId?: string | null, incluirInativos = false) {
     return prisma.user.findMany({
-      where: { OR: [{ empresaId: empresaId ?? null }, { empresaId: null }] },
+      where: {
+        OR: [{ empresaId: empresaId ?? null }, { empresaId: null }],
+        ...(incluirInativos ? {} : { isActive: true }),
+      },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, email: true, image: true },
+      select: { id: true, name: true, email: true, image: true, isActive: true },
     })
   }
 }

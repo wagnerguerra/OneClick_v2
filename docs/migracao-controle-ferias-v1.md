@@ -65,3 +65,29 @@ Com `.bak-2026-08-20` de cada arquivo: os **17 modais de escrita**
 bloqueados por redirect no topo (create, delete, lançamento, período,
 pgto, movimento, pagamento e arquivos); banner + botão "Novo" desabilitado
 no `index.asp` — a consulta segue viva.
+
+## 6. Histórico completo e vínculo com o cadastro (25/08)
+
+Três ajustes pedidos pelo Wagner depois do uso real:
+
+1. **Históricos do v1 vieram junto.** A primeira carga trouxe só os 78 períodos
+   com `ativo=1`. No v1, porém, **`ativo=0` é sempre `historico=1`** — não é
+   lixo, é o arquivo morto (2014→2025). Os 65 restantes entraram como
+   `historico=true`, com seus gozos e recibos: **143 períodos (94 históricos),
+   305 gozos, 30 recibos** em dev e produção. Assim ninguém precisa voltar ao
+   sistema antigo para consultar.
+   O gerador passou a resolver colaborador/autor por **subselect de e-mail no
+   destino** (antes embutia ids resolvidos contra o banco local) — a mesma carga
+   vale em dev e produção.
+
+2. **A lista segue o cadastro de usuários.** O payload passou a trazer
+   `colaboradorAtivo` (`true` = ativo, `false` = desligado, `null` = nem existe
+   mais no cadastro). Por padrão a listagem mostra **só colaboradores ativos**;
+   o filtro "Incluir desligados" abre o resto, e os registros ganham o selo
+   *desligado* / *fora do cadastro*. O seletor de colaborador (novo período)
+   lista apenas ativos — não faz sentido abrir período para quem saiu.
+
+3. **Ordenação por qualquer coluna.** Padrão **alfabético pelo colaborador**;
+   clicar no cabeçalho ordena e o segundo clique inverte. Como três colunas são
+   derivadas (nome resolvido, gozados, saldo), o service busca o conjunto
+   filtrado, resolve, ordena e pagina em memória — o volume (centenas) permite.
