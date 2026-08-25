@@ -13,7 +13,7 @@ import {
 import { HelpCircle, User, Briefcase, Calendar, Building2, Shield, ChevronDown, ShieldCheck, Save, Handshake, Loader2, Download, Settings } from 'lucide-react'
 import Link from 'next/link'
 import {
-  Button, Input, Label, Checkbox, Card,
+  Button, Input, Label, Checkbox, Card, Switch,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
@@ -342,7 +342,11 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
         </div>
 
         {/* Conteúdo */}
-        <div key={activeTab} className="flex-1" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+        {/* min-w-0: sem isso o item flex-1 não encolhe abaixo da largura
+            intrínseca das pills (whitespace-nowrap) e todo o conteúdo da aba
+            Permissões vaza à direita em telas estreitas/zoom, em vez de as
+            pills rolarem no seu overflow-x-auto. */}
+        <div key={activeTab} className="flex-1 min-w-0" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
           {/* DADOS PESSOAIS */}
           {activeTab === 'dados' && (
@@ -705,18 +709,21 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
                                       <span className={cn('text-sm truncate transition-colors duration-300', isActive ? 'text-foreground font-medium' : 'text-muted-foreground group-hover:text-foreground/80')}>{label}</span>
                                     )}
                                   </div>
-                                  <button type="button" onClick={() => {
-                                    let newMap: Record<string, PermissionInput>
-                                    if (isActive) {
-                                      newMap = { ...permissionsMap }; delete newMap[slug]
-                                    } else {
-                                      newMap = { ...permissionsMap, [slug]: { moduleSlug: slug, canRead: true, canWrite: true, canDelete: true, subPermissions: {} } }
-                                    }
-                                    setPermissionsMap(newMap)
-                                    autoSavePermissions(newMap)
-                                  }} className={cn('relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-300', isActive ? gc.toggle : 'bg-muted-foreground/20')}>
-                                    <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-300 mt-0.5', isActive ? 'translate-x-4 ml-0.5' : 'translate-x-0.5')} />
-                                  </button>
+                                  {/* Switch centralizado; ON assume a cor do grupo via className (vence bg-primary no cn) */}
+                                  <Switch
+                                    checked={isActive}
+                                    onCheckedChange={() => {
+                                      let newMap: Record<string, PermissionInput>
+                                      if (isActive) {
+                                        newMap = { ...permissionsMap }; delete newMap[slug]
+                                      } else {
+                                        newMap = { ...permissionsMap, [slug]: { moduleSlug: slug, canRead: true, canWrite: true, canDelete: true, subPermissions: {} } }
+                                      }
+                                      setPermissionsMap(newMap)
+                                      autoSavePermissions(newMap)
+                                    }}
+                                    className={cn(isActive && gc.toggle)}
+                                  />
                                 </div>
                               )
                             })}
@@ -835,7 +842,7 @@ function SubPermissionsModal({ slug, permissionsMap, setPermissionsMap, onClose,
         <DialogBody className="space-y-4">
           {/* Marcar todas */}
           <label className="flex items-center gap-3 cursor-pointer py-1">
-            <ToggleSwitch checked={allChecked} onChange={v => toggleAllSubs(v)} />
+            <Switch checked={allChecked} onCheckedChange={v => toggleAllSubs(v)} />
             <span className="text-sm font-medium">Marcar todas</span>
           </label>
 
@@ -891,7 +898,7 @@ function SubPermissionsModal({ slug, permissionsMap, setPermissionsMap, onClose,
                   }
                   return (
                     <label key={d.key} className="flex items-start gap-2.5 py-2 cursor-pointer group">
-                      <ToggleSwitch checked={subs[d.key] === true} onChange={v => setSub(d.key, v)} />
+                      <Switch checked={subs[d.key] === true} onCheckedChange={v => setSub(d.key, v)} />
                       <span className="flex flex-col">
                         <span className={cn(
                           'text-sm transition-colors duration-200',
@@ -920,26 +927,6 @@ function SubPermissionsModal({ slug, permissionsMap, setPermissionsMap, onClose,
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
-
-// ── Toggle switch reutilizável ──────────────────────────
-
-function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-300',
-        checked ? 'bg-primary' : 'bg-muted-foreground/20',
-      )}
-    >
-      <span className={cn(
-        'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-300 mt-0.5',
-        checked ? 'translate-x-4 ml-0.5' : 'translate-x-0.5',
-      )} />
-    </button>
   )
 }
 
