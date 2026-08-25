@@ -11,22 +11,12 @@ function getSystemTheme(): 'light' | 'dark' {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
-let colorSchemeTimer: ReturnType<typeof setTimeout> | undefined
-let firstThemeApply = true
 function applyTheme(theme: Theme) {
   const resolved = theme === 'system' ? getSystemTheme() : theme
   document.documentElement.classList.toggle('dark', resolved === 'dark')
-  // color-scheme inline no <html>: faz o browser desenhar controles nativos
-  // (spinners de <input type=number>, date pickers, scrollbars) e o fundo do
-  // AUTOFILL na variante certa. Inline vence o CSS — o lightningcss (minificador
-  // do Next) dropa a regra `.dark { color-scheme }` do globals.css.
-  // PORÉM: setá-lo JUNTO da troca da classe .dark atrasa a transição de `color`
-  // do texto (o color-scheme interage com as cores compiladas). Então na 1a
-  // aplicação (load, sem transição) seta na hora; nas trocas de tema seta APÓS
-  // a transição (~250ms), quando a cor já chegou no valor final — sem lag/blip.
-  const setCS = () => { document.documentElement.style.colorScheme = resolved === 'dark' ? 'dark' : 'light' }
-  if (firstThemeApply) { firstThemeApply = false; setCS() }
-  else { clearTimeout(colorSchemeTimer); colorSchemeTimer = setTimeout(setCS, 250) }
+  // NOTA: o fix de `color-scheme` inline (para controles nativos/autofill no
+  // dark) foi REMOVIDO temporariamente — ele estava atrasando a transição de
+  // `color` do texto de forma inconsistente. Removido para confirmar a causa.
 }
 
 export function useTheme() {

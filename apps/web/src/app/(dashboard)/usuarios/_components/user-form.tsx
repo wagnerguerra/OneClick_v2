@@ -660,7 +660,7 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
                 ) : (
                   <div>
                     {/* Abas horizontais dos grupos */}
-                    <div className="flex items-center gap-0 border-b overflow-x-auto scrollbar-none px-2">
+                    <div className="flex flex-wrap items-center gap-0 border-b px-2">
                       {Object.entries(MODULE_GROUPS).map(([groupName, slugs]) => {
                         const gc = GROUP_COLORS[groupName] || GROUP_COLORS['default']!
                         const GroupIcon = GROUP_ICONS[groupName]
