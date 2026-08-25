@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import {
   CalendarDays, Plus, Loader2, Check, Trash2, Info, Paperclip, Upload, Download, History,
+  ChevronRight, ExternalLink,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card, Badge, cn,
@@ -39,6 +40,9 @@ interface Periodo {
     dias: number; saldoAnterior: number; gozados: number; saldo: number
     previsao: string | null; pago: boolean; historico: boolean
     eventosTotal: number; arquivosTotal: number
+    /** Conteúdo do período, para a linha expandir sem nova consulta. */
+    gozos: Array<{ id: string; dataInicio: string; dataFim: string; dias: number; descricao: string | null }>
+    arquivos: Arquivo[]
   }>
 }
 
@@ -48,6 +52,7 @@ const isoDe = (v: string | null) => (v ? v.slice(0, 10) : '')
 
 export default function ControleFeriasDetalhePage() {
   const params = useParams<{ id: string }>()
+  const router = useRouter()
   const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
   const perm = permissions.find((p) => p.moduleSlug === 'controle-ferias')
   const podeEscrever = isMaster || isEmpresaMaster || (perm as { canWrite?: boolean } | undefined)?.canWrite === true
@@ -55,6 +60,8 @@ export default function ControleFeriasDetalhePage() {
 
   const [p, setP] = useState<Periodo | null>(null)
   const [loading, setLoading] = useState(true)
+  /** Períodos do histórico abertos na tabela — o conteúdo já veio no payload. */
+  const [expandidos, setExpandidos] = useState<Set<string>>(new Set())
   const [salvando, setSalvando] = useState(false)
 
   // Sidebar editável
@@ -76,6 +83,15 @@ export default function ControleFeriasDetalhePage() {
   // Upload de recibo
   const [enviandoArq, setEnviandoArq] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  /** Clique na linha do histórico abre/fecha o período; vários podem ficar abertos. */
+  function alternarExpandido(id: string) {
+    setExpandidos((prev) => {
+      const nova = new Set(prev)
+      if (nova.has(id)) nova.delete(id); else nova.add(id)
+      return nova
+    })
+  }
 
   const carregar = useCallback(() => {
     setLoading(true)
@@ -295,7 +311,14 @@ export default function ControleFeriasDetalhePage() {
                 <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
                 <h4 className="text-[13px] font-semibold text-foreground">Períodos anteriores</h4>
                 <Badge variant="secondary" className="text-[10px]">{p.historicoColaborador.length}</Badge>
-                <span className="ml-auto text-[11px] text-muted-foreground">Histórico de {p.colaboradorNomeResolvido ?? 'colaborador'}</span>
+                <span className="ml-auto text-[11px] text-muted-foreground">
+                  {expandidos.size > 0 && (
+                    <button type="button" onClick={() => setExpandidos(new Set())} className="mr-2 underline underline-offset-2 hover:text-foreground">
+                      recolher todos
+                    </button>
+                  )}
+                  Histórico de {p.colaboradorNomeResolvido ?? 'colaborador'}
+                </span>
               </div>
               <div className="overflow-x-auto nice-scrollbar">
                 <table className="w-full text-xs">
@@ -311,13 +334,20 @@ export default function ControleFeriasDetalhePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {p.historicoColaborador.map((h) => (
+                    {p.historicoColaborador.map((h) => {
+                      const aberto = expandidos.has(h.id)
+                      return (
+                      <Fragment key={h.id}>
                       <tr
-                        key={h.id}
-                        onClick={() => { window.location.href = `/controle-ferias/${h.id}` }}
-                        className="cursor-pointer border-b border-border/40 last:border-0 transition-colors hover:bg-muted/40 [&_td]:whitespace-nowrap [&_td]:py-2"
+                        onClick={() => alternarExpandido(h.id)}
+                        className="cursor-pointer border-b border-border/40 transition-colors hover:bg-muted/40 [&_td]:whitespace-nowrap [&_td]:py-2"
                       >
-                        <td className="font-medium tabular-nums">{h.periodoInicial}/{h.periodoFinal}</td>
+                        <td className="font-medium tabular-nums">
+                          <span className="inline-flex items-center gap-1.5">
+                            <ChevronRight className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', aberto && 'rotate-90')} />
+                            {h.periodoInicial}/{h.periodoFinal}
+                          </span>
+                        </td>
                         <td className="text-center tabular-nums">{h.dias + h.saldoAnterior}</td>
                         <td className="text-center tabular-nums">{h.gozados}</td>
                         <td className="text-center">
@@ -337,7 +367,59 @@ export default function ControleFeriasDetalhePage() {
                         </td>
                         <td className="text-right text-muted-foreground tabular-nums">{h.eventosTotal} gozo(s) · {h.arquivosTotal} anexo(s)</td>
                       </tr>
-                    ))}
+                      {aberto && (
+                        <tr className="border-b border-border/40 bg-muted/20">
+                          <td colSpan={7} className="px-0 py-3">
+                            <div className="space-y-3 px-3">
+                              <div>
+                                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Gozos do período</p>
+                                {h.gozos.length === 0 ? (
+                                  <p className="text-xs italic text-muted-foreground">Nenhum gozo lançado neste período.</p>
+                                ) : (
+                                  <div className="space-y-1.5">
+                                    {h.gozos.map((g) => (
+                                      <div key={g.id} className="flex items-center gap-3 rounded-md border border-border bg-card px-2.5 py-1.5">
+                                        <span className="shrink-0 text-xs font-medium tabular-nums">{dataBR(g.dataInicio)} → {dataBR(g.dataFim)}</span>
+                                        <Badge variant="secondary" className="shrink-0 text-[10px] tabular-nums">{g.dias} {g.dias === 1 ? 'dia' : 'dias'}</Badge>
+                                        <span className="flex-1 truncate text-[11px] text-muted-foreground">{g.descricao ?? ''}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              {h.arquivos.length > 0 && (
+                                <div>
+                                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Recibos e avisos</p>
+                                  <div className="space-y-1.5">
+                                    {h.arquivos.map((a) => (
+                                      <a
+                                        key={a.id}
+                                        href={`${getApiUrl()}${a.path}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs hover:bg-muted/40"
+                                      >
+                                        <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                        <span className="flex-1 truncate">{a.nome}</span>
+                                        <span className="shrink-0 text-[10px] text-muted-foreground">{dataBR(a.criadoEm)}</span>
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              <div className="flex justify-end">
+                                <Button variant="outline" size="xs" className="gap-1" onClick={(e) => { e.stopPropagation(); router.push(`/controle-ferias/${h.id}`) }}>
+                                  <ExternalLink className="h-3.5 w-3.5" />Abrir período
+                                </Button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

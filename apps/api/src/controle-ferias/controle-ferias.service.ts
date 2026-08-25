@@ -246,7 +246,13 @@ export class ControleFeriasService {
           ? { colaboradorId: p.colaboradorId }
           : { colaboradorId: null, colaboradorNome: p.colaboradorNome }),
       },
-      include: { eventos: { select: { dataInicio: true, dataFim: true } }, _count: { select: { arquivos: true } } },
+      include: {
+        // Os gozos e os anexos vêm junto: o histórico da tela expande a linha
+        // e mostra o período por dentro, sem uma ida ao servidor por clique.
+        eventos: { select: { id: true, dataInicio: true, dataFim: true, descricao: true }, orderBy: { dataInicio: 'asc' } },
+        arquivos: { select: { id: true, nome: true, path: true, criadoEm: true }, orderBy: { criadoEm: 'desc' } },
+        _count: { select: { arquivos: true } },
+      },
       orderBy: [{ periodoInicial: 'desc' }, { periodoFinal: 'desc' }],
     })
     const historicoColaborador = irmaos.map((h) => {
@@ -265,6 +271,14 @@ export class ControleFeriasService {
         historico: h.historico,
         eventosTotal: h.eventos.length,
         arquivosTotal: h._count.arquivos,
+        gozos: h.eventos.map((e) => ({
+          id: e.id,
+          dataInicio: e.dataInicio,
+          dataFim: e.dataFim,
+          dias: diasDoEvento(e.dataInicio, e.dataFim),
+          descricao: e.descricao,
+        })),
+        arquivos: h.arquivos,
       }
     })
 
