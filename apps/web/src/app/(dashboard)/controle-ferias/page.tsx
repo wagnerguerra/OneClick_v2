@@ -22,6 +22,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 
 const PAGE_SIZES = [10, 20, 50]
 
@@ -59,6 +60,9 @@ interface Usuario { id: string; name: string; email: string | null; image: strin
 
 const dataBR = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
+
+/** ISO completo → yyyy-mm-dd, formato que o <input type="date"> entende. */
+const isoDe = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : '')
 
 /**
  * Controle de Férias — port do crp_ferias do v1. Um registro por período
@@ -153,6 +157,31 @@ export default function ControleFeriasPage() {
       alerts.success('Excluído', '')
       fetchData()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
+  /**
+   * Ajuste inline de um campo do período — atualização otimista com rollback,
+   * igual ao cadastro de usuários. Campos derivados (gozados, saldo) são
+   * recalculados aqui para a linha refletir na hora, sem refetch.
+   */
+  async function inlineUpdate(id: string, patch: Record<string, unknown>) {
+    const original = data?.data.find(r => r.id === id)
+    if (!original) return
+    const aplicar = (r: Row): Row => {
+      const novo = { ...r, ...patch } as Row
+      // Saldo = dias + saldo anterior − gozados (o backend usa a mesma conta)
+      novo.saldo = Number(novo.dias) + Number(novo.saldoAnterior) - Number(novo.gozados)
+      // "Pago" acompanha a data de pagamento, como no v1
+      if ('pagamento1' in patch) novo.pago = !!patch.pagamento1
+      return novo
+    }
+    setData(prev => prev ? { ...prev, data: prev.data.map(r => r.id === id ? aplicar(r) : r) } : prev)
+    try {
+      await (trpc as any).controleFerias.atualizar.mutate({ id, ...patch })
+    } catch (e) {
+      setData(prev => prev ? { ...prev, data: prev.data.map(r => r.id === id ? original : r) } : prev)
+      throw e
+    }
   }
 
   // Clique no cabeçalho ordena; segundo clique inverte (padrão das listagens).
@@ -300,10 +329,28 @@ export default function ControleFeriasPage() {
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-center text-xs text-muted-foreground tabular-nums">{dataBR(r.colaboradorAdmissao)}</TableCell>
                   <TableCell className="text-center text-sm tabular-nums">{r.periodoInicial}/{r.periodoFinal}</TableCell>
-                  <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">
-                    <span className="block truncate" title={r.descricao ?? undefined}>{r.descricao || 'Período aquisitivo'}</span>
+                  <TableCell className="hidden xl:table-cell text-xs text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                    <InlineEditCell
+                      type="text"
+                      value={r.descricao}
+                      emptyLabel="Período aquisitivo"
+                      disabled={!podeEscrever}
+                      onSave={(v) => inlineUpdate(r.id, { descricao: v || null })}
+                    />
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-center text-sm tabular-nums">{r.dias + r.saldoAnterior}</TableCell>
+                  <TableCell className="hidden md:table-cell text-center text-sm tabular-nums" onClick={(e) => e.stopPropagation()}>
+                    <InlineEditCell
+                      type="number"
+                      min={0}
+                      max={60}
+                      className="justify-center"
+                      value={String(r.dias)}
+                      display={() => <span className="tabular-nums">{r.dias + r.saldoAnterior}</span>}
+                      disabled={!podeEscrever}
+                      validate={(v) => (v.trim() === '' || Number.isNaN(Number(v)) ? 'Informe um número' : null)}
+                      onSave={(v) => inlineUpdate(r.id, { dias: Number(v) })}
+                    />
+                  </TableCell>
                   <TableCell className="hidden md:table-cell text-center text-sm tabular-nums">{r.gozados}</TableCell>
                   <TableCell className="text-center">
                     <span className={cn('inline-flex h-6 min-w-[28px] items-center justify-center rounded px-1.5 text-xs font-bold tabular-nums',
@@ -313,22 +360,36 @@ export default function ControleFeriasPage() {
                       {r.saldo}
                     </span>
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell text-center text-xs tabular-nums">
-                    {r.previsao
-                      ? <span className="text-muted-foreground">{dataBR(r.previsao)}</span>
-                      : <span className="text-amber-600 dark:text-amber-400">Incluir previsão</span>}
+                  <TableCell className="hidden sm:table-cell text-center text-xs tabular-nums" onClick={(e) => e.stopPropagation()}>
+                    <InlineEditCell
+                      type="date"
+                      className="justify-center"
+                      value={isoDe(r.previsao)}
+                      disabled={!podeEscrever}
+                      display={() => (r.previsao
+                        ? <span className="text-muted-foreground">{dataBR(r.previsao)}</span>
+                        : <span className="text-amber-600 dark:text-amber-400">Incluir previsão</span>)}
+                      onSave={(v) => inlineUpdate(r.id, { previsao: v || null })}
+                    />
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                     {/* Como no v1: a data quando pago, senão o aviso "A pagar" */}
-                    {r.pagamento1 ? (
-                      <Badge variant="outline" className="w-full justify-center text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
-                        <Check className="h-3 w-3 mr-0.5" />{dataBR(r.pagamento1)}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="w-full justify-center text-[10px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
-                        A pagar
-                      </Badge>
-                    )}
+                    <InlineEditCell
+                      type="date"
+                      className="justify-center"
+                      value={isoDe(r.pagamento1)}
+                      disabled={!podeEscrever}
+                      display={() => (r.pagamento1 ? (
+                        <Badge variant="outline" className="justify-center text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+                          <Check className="h-3 w-3 mr-0.5" />{dataBR(r.pagamento1)}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="justify-center text-[10px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+                          A pagar
+                        </Badge>
+                      ))}
+                      onSave={(v) => inlineUpdate(r.id, { pagamento1: v || null })}
+                    />
                   </TableCell>
                   <TableCell className="pr-5 text-right">
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>

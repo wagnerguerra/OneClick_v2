@@ -247,7 +247,13 @@ export class ControleFeriasService {
         ...(c.pagamento1 !== undefined ? { pagamento1: d(c.pagamento1) } : {}),
         ...(c.pagamento2 !== undefined ? { pagamento2: d(c.pagamento2) } : {}),
         ...(c.pagamento3 !== undefined ? { pagamento3: d(c.pagamento3) } : {}),
-        ...(c.pago !== undefined ? { pago: c.pago } : {}),
+        // Informar a 1ª data de pagamento já marca como pago (e limpar desmarca),
+        // como no v1 — a não ser que o próprio `pago` venha no payload.
+        ...(c.pago !== undefined
+          ? { pago: c.pago }
+          : c.pagamento1 !== undefined
+            ? { pago: !!c.pagamento1 }
+            : {}),
         ...(c.historico !== undefined ? { historico: c.historico } : {}),
       },
       select: { id: true },

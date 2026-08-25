@@ -19,7 +19,7 @@ import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
-import { InlineEditCell } from './_components/inline-edit-cell'
+import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 import { CopyPermissionsModal } from './_components/copy-permissions-modal'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
 
