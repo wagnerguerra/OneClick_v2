@@ -2052,13 +2052,14 @@ export default function CaixaPostalPage() {
               const Icon = f.icon
               return (
                 <button key={f.key} type="button" onClick={() => { setFiltroStatus(f.key); setPaginaClientes(1) }}
+                  style={isActive ? { backgroundColor: 'var(--mod-fiscal, #0369a1)' } : undefined}
                   className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
-                    isActive ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 shadow-sm'
-                      : 'border-border/40 text-muted-foreground hover:border-indigo-200 hover:text-foreground bg-card',
+                    isActive ? 'border-transparent text-white shadow-sm'
+                      : 'border-border/40 text-muted-foreground hover:border-input hover:text-foreground bg-card',
                   )}>
                   <Icon className="h-3.5 w-3.5" />{f.label}
                   <span className={cn('text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none',
-                    isActive ? 'bg-indigo-200/60 dark:bg-indigo-800/40 text-indigo-700 dark:text-indigo-300' : 'bg-muted text-muted-foreground',
+                    isActive ? 'bg-white/25 text-white' : 'bg-muted text-muted-foreground',
                   )}>{f.count}</span>
                 </button>
               )
