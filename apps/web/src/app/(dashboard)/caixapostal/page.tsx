@@ -871,11 +871,11 @@ export default function CaixaPostalPage() {
             <div className="flex border-b mb-4">
               <button type="button" onClick={() => setScheduleTab('config')}
                 className={cn('px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
-                  scheduleTab === 'config' ? 'border-sky-500 text-sky-700 dark:text-sky-300 font-semibold' : 'border-transparent text-muted-foreground hover:text-foreground',
+                  scheduleTab === 'config' ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground',
                 )}>Configuração</button>
               <button type="button" onClick={() => { setScheduleTab('historico'); loadExecLogs(0) }}
                 className={cn('px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
-                  scheduleTab === 'historico' ? 'border-sky-500 text-sky-700 dark:text-sky-300 font-semibold' : 'border-transparent text-muted-foreground hover:text-foreground',
+                  scheduleTab === 'historico' ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground',
                 )}>Histórico de Execuções</button>
             </div>
 
@@ -1357,7 +1357,7 @@ export default function CaixaPostalPage() {
                 return (
                   <button key={tab.key} onClick={() => setDetalheTab(tab.key)}
                     className={cn('flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors',
-                      detalheTab === tab.key ? 'border-sky-500 text-sky-700 dark:text-sky-300 font-semibold' : 'border-transparent text-muted-foreground hover:text-foreground'
+                      detalheTab === tab.key ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground'
                     )}>
                     <TabIcon className="h-3.5 w-3.5" />{tab.label}
                     {tab.key === 'historico' && itemDetalhes && Array.isArray((itemDetalhes as Record<string, unknown>).eventos) && (
@@ -2531,7 +2531,7 @@ export default function CaixaPostalPage() {
                       return (
                         <button key={tab.key} onClick={() => setDetalheTab(tab.key)}
                           className={cn('flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 -mb-px transition-colors',
-                            detalheTab === tab.key ? 'border-sky-500 text-sky-700 dark:text-sky-300 font-semibold' : 'border-transparent text-muted-foreground hover:text-foreground'
+                            detalheTab === tab.key ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground'
                           )}>
                           <TabIcon className="h-3 w-3" />{tab.label}
                         </button>
