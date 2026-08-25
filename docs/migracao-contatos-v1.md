@@ -36,6 +36,12 @@ normalização no v2.
 master); as demais são da agenda compartilhada da empresa. Regra no service, não
 na tela.
 
+**Quem mantém a agenda (25/08):** ler é para todo mundo com acesso ao módulo;
+**incluir, editar e excluir exigem a sub-permissão `contatos.gerenciar`**
+(catálogo em `MODULE_SUB_PERMISSIONS`, grupo "Manutenção"). O router barra as
+quatro mutations com FORBIDDEN e a tela esconde os botões — mesma dupla trava
+dos papéis da Coleta.
+
 ## 3. Backend / UI
 
 - `apps/api/src/contato/` — service + router (`contato`): listar (busca por nome,

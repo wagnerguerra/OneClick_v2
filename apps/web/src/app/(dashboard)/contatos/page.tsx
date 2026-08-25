@@ -37,7 +37,10 @@ const vazia = (): Pessoa => ({ nome: '', telefone: '', email: '' })
 
 export default function ContatosPage() {
   const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
-  const podeEscrever = isMaster || isEmpresaMaster || permissions.some(p => p.moduleSlug === 'contatos' && p.canWrite)
+  // A agenda é de consulta para quem tem leitura; incluir/editar/excluir exigem
+  // a sub-permissão `gerenciar` (o backend também barra — isto é só a UI).
+  const podeGerenciar = isMaster || isEmpresaMaster
+    || permissions.find(p => p.moduleSlug === 'contatos')?.subPermissions?.gerenciar === true
 
   const [data, setData] = useState<{ data: Row[]; total: number; totalPages: number } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -122,7 +125,7 @@ export default function ContatosPage() {
             <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Buscar por nome, telefone, e-mail..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 w-64 pl-8 text-sm" />
           </div>
-          {podeEscrever && (
+          {podeGerenciar && (
             <Button size="sm" className="gap-1.5" onClick={abrirNovo}>
               <Plus className="h-4 w-4" />Novo Contato
             </Button>
@@ -215,13 +218,13 @@ export default function ContatosPage() {
                   </TableCell>
                   <TableCell className="pr-5 text-right">
                     <div className="flex justify-end gap-1">
-                      {podeEscrever && r.ativo && (
+                      {podeGerenciar && r.ativo && (
                         <>
                           <Button variant="soft-info" size="icon-sm" onClick={() => abrirEdicao(r)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
                           <Button variant="soft-destructive" size="icon-sm" onClick={() => excluir(r)} title="Excluir"><Trash2 className="h-3.5 w-3.5" /></Button>
                         </>
                       )}
-                      {podeEscrever && !r.ativo && (
+                      {podeGerenciar && !r.ativo && (
                         <Button variant="outline" size="icon-sm" onClick={() => restaurar(r)} title="Restaurar"><RotateCcw className="h-3.5 w-3.5" /></Button>
                       )}
                     </div>

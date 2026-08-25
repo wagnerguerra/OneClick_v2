@@ -267,6 +267,11 @@ export function resolveHelpdeskScope(
 }
 
 export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
+  // Contatos: a agenda é de consulta para a equipe toda; incluir, editar e
+  // excluir exigem liberação explícita (pedido do Wagner, 25/08).
+  contatos: [
+    { key: 'gerenciar', label: 'Gerenciar contatos (incluir, editar e excluir)', group: 'Manutenção' },
+  ],
   // Coleta e Recebimento: os papéis do v1 viraram sub-permissões — adm/ era a
   // Recepção (rota) e arq/ o Arquivo. Quem não tem nenhuma só cria e acompanha
   // as próprias solicitações.

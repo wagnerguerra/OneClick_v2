@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { router, readProcedure, writeProcedure } from '../trpc/trpc.service'
+import { TRPCError } from '@trpc/server'
+import { router, readProcedure, writeProcedure, hasSubPermission } from '../trpc/trpc.service'
 import {
   criarContatoSchema, atualizarContatoSchema, excluirContatoSchema, listarContatosSchema,
 } from '@saas/types'
@@ -12,6 +13,23 @@ export function createContatoRouter(service: ContatoService) {
   const ctxDe = (ctx: { userId?: string | null; empresaId?: string | null; isMaster?: boolean; isEmpresaMaster?: boolean }) =>
     ({ userId: ctx.userId!, empresaId: ctx.empresaId, isMaster: !!(ctx.isMaster || ctx.isEmpresaMaster) })
 
+  /**
+   * Incluir/editar/excluir exigem a sub-permissão `gerenciar` — a agenda é de
+   * consulta para todo mundo que tem leitura no módulo; a manutenção é liberada
+   * caso a caso. Master/EmpresaMaster passam sempre (regra do hasSubPermission).
+   */
+  async function exigirGerenciar(ctx: { userId?: string | null; isMaster?: boolean; isEmpresaMaster?: boolean }) {
+    const ok = await hasSubPermission(ctx.userId!, MODULE, 'gerenciar', {
+      isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster,
+    })
+    if (!ok) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Você pode consultar a agenda, mas não tem liberação para incluir, editar ou excluir contatos.',
+      })
+    }
+  }
+
   return router({
     listar: readProcedure(MODULE)
       .input(listarContatosSchema)
@@ -23,19 +41,19 @@ export function createContatoRouter(service: ContatoService) {
 
     criar: writeProcedure(MODULE)
       .input(criarContatoSchema)
-      .mutation(({ input, ctx }) => service.criar(input, ctx.userId!, ctx.empresaId)),
+      .mutation(async ({ input, ctx }) => { await exigirGerenciar(ctx); return service.criar(input, ctx.userId!, ctx.empresaId) }),
 
     atualizar: writeProcedure(MODULE)
       .input(atualizarContatoSchema)
-      .mutation(({ input, ctx }) => service.atualizar(input, ctxDe(ctx))),
+      .mutation(async ({ input, ctx }) => { await exigirGerenciar(ctx); return service.atualizar(input, ctxDe(ctx)) }),
 
     // Exclusão é SOFT (o `ativo` do v1) — passa por write, como no módulo antigo.
     excluir: writeProcedure(MODULE)
       .input(excluirContatoSchema)
-      .mutation(({ input, ctx }) => service.excluir(input.id, ctxDe(ctx))),
+      .mutation(async ({ input, ctx }) => { await exigirGerenciar(ctx); return service.excluir(input.id, ctxDe(ctx)) }),
 
     restaurar: writeProcedure(MODULE)
       .input(z.object({ id: z.string() }))
-      .mutation(({ input, ctx }) => service.restaurar(input.id, ctxDe(ctx))),
+      .mutation(async ({ input, ctx }) => { await exigirGerenciar(ctx); return service.restaurar(input.id, ctxDe(ctx)) }),
   })
 }
