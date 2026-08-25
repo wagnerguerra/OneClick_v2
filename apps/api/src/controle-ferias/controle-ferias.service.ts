@@ -252,6 +252,23 @@ export class ControleFeriasService {
     }
   }
 
+  /**
+   * O que o colaborador leva para o próximo período: os dias disponíveis do
+   * período mais recente — o "saldo anterior" do v1. A tela usa isso para já
+   * abrir o novo período com o saldo certo, em vez de o usuário conferir na
+   * mão e digitar.
+   */
+  async saldoAnterior(colaboradorId: string, empresaId?: string | null) {
+    const p = await prisma.feriasPeriodo.findFirst({
+      where: { empresaId: empresaId ?? null, colaboradorId },
+      orderBy: [{ periodoInicial: 'desc' }, { periodoFinal: 'desc' }],
+      include: { eventos: { select: { dataInicio: true, dataFim: true } } },
+    })
+    if (!p) return { saldo: 0, periodoInicial: null, periodoFinal: null, periodoId: null }
+    const { saldo } = this.saldo(p)
+    return { saldo, periodoInicial: p.periodoInicial, periodoFinal: p.periodoFinal, periodoId: p.id }
+  }
+
   async criar(input: CriarFeriasPeriodoInput, usuarioId: string, empresaId?: string | null) {
     return prisma.feriasPeriodo.create({
       data: {

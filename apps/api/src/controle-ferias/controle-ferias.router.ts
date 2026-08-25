@@ -47,6 +47,11 @@ export function createControleFeriasRouter(service: ControleFeriasService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => service.excluirArquivo(input.id)),
 
+    /** Saldo que o colaborador traz do período mais recente. */
+    saldoAnterior: readProcedure(MODULE)
+      .input(z.object({ colaboradorId: z.string().min(1) }))
+      .query(({ input, ctx }) => service.saldoAnterior(input.colaboradorId, ctx.empresaId)),
+
     listarColaboradores: readProcedure(MODULE)
       .input(z.object({ incluirInativos: z.boolean().optional() }).optional())
       .query(({ input, ctx }) => service.listarColaboradores(ctx.empresaId, !!input?.incluirInativos)),

@@ -95,6 +95,9 @@ export default function ControleFeriasPage() {
   const [mAnoFim, setMAnoFim] = useState(String(new Date().getFullYear()))
   const [mDias, setMDias] = useState('30')
   const [mSaldoAnt, setMSaldoAnt] = useState('0')
+  /** De onde veio o saldo sugerido (período anterior do colaborador). */
+  const [mSaldoOrigem, setMSaldoOrigem] = useState<{ periodo: string; saldo: number } | null>(null)
+  const [mSaldoCarregando, setMSaldoCarregando] = useState(false)
   const [mDescricao, setMDescricao] = useState('PERÍODO AQUISITIVO')
   const [mPrevisao, setMPrevisao] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -124,6 +127,26 @@ export default function ControleFeriasPage() {
     finally { setLoading(false) }
   }, [page, limit, debounced, fColaborador, fSituacao])
   useEffect(() => { fetchData() }, [fetchData])
+
+  /**
+   * Ao escolher o colaborador, o saldo anterior já vem preenchido com os dias
+   * disponíveis do último período dele — é esse saldo que se arrasta para o
+   * período novo. O usuário ainda pode sobrescrever.
+   */
+  async function escolherColaborador(id: string) {
+    setMColaborador(id)
+    setMSaldoOrigem(null)
+    if (!id) { setMSaldoAnt('0'); return }
+    setMSaldoCarregando(true)
+    try {
+      const r = await (trpc.controleFerias as any).saldoAnterior.query({ colaboradorId: id })
+      setMSaldoAnt(String(r.saldo ?? 0))
+      if (r.periodoInicial) setMSaldoOrigem({ periodo: `${r.periodoInicial}/${r.periodoFinal}`, saldo: r.saldo })
+      // O período novo começa onde o anterior terminou.
+      if (r.periodoFinal) { setMAnoIni(String(r.periodoFinal)); setMAnoFim(String(r.periodoFinal + 1)) }
+    } catch { setMSaldoAnt('0') }
+    finally { setMSaldoCarregando(false) }
+  }
 
   async function salvar() {
     if (!mColaborador) { alerts.error('Falta o colaborador', ''); return }
@@ -428,7 +451,7 @@ export default function ControleFeriasPage() {
       </Card>
 
       {/* ── Modal: novo período ── */}
-      <Dialog open={aberta} onOpenChange={(o) => { if (!salvando) setAberta(o) }}>
+      <Dialog open={aberta} onOpenChange={(o) => { if (salvando) return; setAberta(o); if (!o) setMSaldoOrigem(null) }}>
         <DialogContent className="max-w-xl">
           <DialogHeaderIcon icon={Plus} color="emerald">
             <DialogTitle>Novo período aquisitivo</DialogTitle>
@@ -439,7 +462,7 @@ export default function ControleFeriasPage() {
               <div className="col-span-12">
                 <Label className="text-[13px] font-semibold">Colaborador <span className="text-rose-500">*</span></Label>
                 <div className="mt-1.5">
-                  <UserCombobox users={usuarios} value={mColaborador} onSelect={setMColaborador} placeholder="Selecione o colaborador" />
+                  <UserCombobox users={usuarios} value={mColaborador} onSelect={escolherColaborador} placeholder="Selecione o colaborador" />
                 </div>
               </div>
               <div className="col-span-6 sm:col-span-3">
@@ -456,8 +479,16 @@ export default function ControleFeriasPage() {
               </div>
               <div className="col-span-6 sm:col-span-3">
                 <Label className="text-[13px] font-semibold">Saldo anterior</Label>
-                <Input type="number" value={mSaldoAnt} onChange={(e) => setMSaldoAnt(e.target.value)} className="h-9 text-sm mt-1.5" />
+                <div className="relative mt-1.5">
+                  <Input type="number" value={mSaldoAnt} onChange={(e) => { setMSaldoAnt(e.target.value); setMSaldoOrigem(null) }} className="h-9 text-sm" />
+                  {mSaldoCarregando && <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />}
+                </div>
               </div>
+              {mSaldoOrigem && (
+                <p className="col-span-12 -mt-1.5 text-[11px] text-muted-foreground">
+                  Saldo anterior sugerido: <b className="text-foreground">{mSaldoOrigem.saldo}</b> dia(s) disponíveis do período {mSaldoOrigem.periodo}.
+                </p>
+              )}
               <div className="col-span-12 sm:col-span-7">
                 <Label className="text-[13px] font-semibold">Descrição</Label>
                 <Input value={mDescricao} onChange={(e) => setMDescricao(e.target.value)} className="h-9 text-sm mt-1.5" maxLength={200} />
