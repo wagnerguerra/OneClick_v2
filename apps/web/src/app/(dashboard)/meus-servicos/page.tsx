@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react'
+import Link from 'next/link'
 import { createPortal } from 'react-dom'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import {
-  ListChecks, SkipForward, Loader2, Clock, CheckCircle2, AlertTriangle, Play, Pause, Receipt,
+  ListChecks, Loader2, Clock, CheckCircle2, AlertTriangle, Play, Pause, Receipt,
   Calendar, ChevronRight, Plus, ChevronDown,
   MessageSquare, Paperclip, LayoutGrid, List, Archive, Settings2,
   UserCog, X, Search, HelpCircle,
@@ -70,7 +71,7 @@ function passoAtual(passos: ExecucaoMinha['passos']): ExecucaoMinha['passos'][nu
   return passos.find(p => !p.concluido && !p.ignorado) ?? null
 }
 
-type FilterKind = 'todos' | 'em_andamento' | 'atrasados' | 'pausados' | 'concluidos' | 'dispensados'
+type FilterKind = 'todos' | 'em_andamento' | 'atrasados' | 'pausados'
 
 /** Cartões por página. Acima disso o navegador começa a engasgar: cada cartão
  *  custa ~70 nós de DOM, e a tela chegou a 188 mil com tudo de uma vez. */
@@ -735,24 +736,17 @@ export default function MeusServicosPage() {
       em_andamento: { key: 'em_andamento', titulo: 'Em Andamento', cor: '#38bdf8', items: [] },
       atrasados: { key: 'atrasados', titulo: 'Atrasados', cor: '#ef4444', items: [] },
       pausados: { key: 'pausados', titulo: 'Pausados', cor: '#f59e0b', items: [] },
-      concluidos: { key: 'concluidos', titulo: 'Concluídos', cor: '#10b981', items: [] },
-      dispensados: { key: 'dispensados', titulo: 'Dispensados', cor: '#a78bfa', items: [] },
-      cancelados: { key: 'cancelados', titulo: 'Cancelados', cor: '#94a3b8', items: [] },
     }
+    // O painel é do trabalho EM ABERTO. Concluído, dispensado e cancelado não
+    // pedem ação — e eram 6.779 dos ~9.100 registros. Consulta deles fica em
+    // /servicos › Execuções, que lista tudo com filtro por status.
     for (const e of execFiltradas) {
-      if (e.status === 'CANCELADO') cols.cancelados!.items.push(e)
-      else if (e.status === 'CONCLUIDO') cols.concluidos!.items.push(e)
-      // PULADO é obrigação DISPENSADA no Acessórias — o cliente não a deve.
-      // Precisa sair antes do teste de prazo: como toda dispensada carrega o
-      // prazo original, ela caía em "Atrasados" e respondia por 1.519 dos 2.737
-      // cartões da coluna. Mais da metade do "atraso" eram obrigações que nunca
-      // venceram porque nunca foram devidas.
-      else if (e.status === 'PULADO') cols.dispensados!.items.push(e)
-      else if (e.pausado) cols.pausados!.items.push(e)
+      if (e.status === 'CANCELADO' || e.status === 'CONCLUIDO' || e.status === 'PULADO') continue
+      if (e.pausado) cols.pausados!.items.push(e)
       else if (estaAtrasada(e, agora)) cols.atrasados!.items.push(e)
       else cols.em_andamento!.items.push(e)
     }
-    return [cols.em_andamento!, cols.atrasados!, cols.pausados!, cols.concluidos!, cols.dispensados!, cols.cancelados!]
+    return [cols.em_andamento!, cols.atrasados!, cols.pausados!]
   }, [execFiltradas])
 
   // Lista de filtros (chips) — mantém função de filtragem mas no padrão visual CRM/Orçamentos:
@@ -760,10 +754,7 @@ export default function MeusServicosPage() {
   const filtros: Array<{ key: FilterKind; label: string; icon: typeof Play; cor: string; count: number }> = [
     { key: 'em_andamento', label: 'Em Andamento', icon: Play, cor: '#38bdf8', count: kpis.emAndamento },
     { key: 'atrasados', label: 'Atrasados', icon: AlertTriangle, cor: '#ef4444', count: kpis.atrasados },
-    { key: 'concluidos', label: 'Concluídos', icon: CheckCircle2, cor: '#10b981', count: kpis.concluidos },
-    // Dispensada é obrigação que o cliente não deve — são 1.634, e nenhuma pede
-    // trabalho. Sai do padrão e fica atrás do próprio chip.
-    { key: 'dispensados', label: 'Dispensados', icon: SkipForward, cor: '#a78bfa', count: kpis.dispensados },
+    { key: 'pausados', label: 'Pausados', icon: Pause, cor: '#f59e0b', count: kpis.pausados },
     { key: 'todos', label: 'Ativos', icon: ListChecks, cor: '#94a3b8', count: kpis.ativos },
   ]
 
@@ -780,10 +771,15 @@ export default function MeusServicosPage() {
           </div>
           <div>
             <h1>Gerenciador de Serviços</h1>
-            <p className="text-sm text-muted-foreground">Execuções de serviço atribuídas a você</p>
+            <p className="text-sm text-muted-foreground">O que está em aberto e atribuído a você</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+          {/* Concluído, dispensado e cancelado saíram do painel: consulta deles
+              é no /servicos › Execuções, com filtro por status. */}
+          <Button variant="outline" size="sm" asChild className="gap-1.5">
+            <Link href="/servicos?view=execucoes"><Receipt className="h-4 w-4" />Histórico completo</Link>
+          </Button>
           {/* Busca — padrão CRM/Orçamentos/Helpdesk (cliente, serviço, nº orçamento, responsável) */}
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

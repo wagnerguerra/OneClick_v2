@@ -3988,7 +3988,12 @@ export class ServicoService {
     // aqui — inclusive a de atraso, que o front vinha reimplementando.
     const filtroStatus: any = filters?.bucket
       ? this.whereDoBucket(filters.bucket, agora)
-      : {}
+      // Sem bucket, o padrão é o trabalho EM ABERTO: concluído, cancelado e
+      // dispensado saem do painel (26/08/2026) e se consultam em /servicos ›
+      // Execuções. `status` explícito ainda alcança qualquer um deles.
+      : (filters?.status || filters?.incluirArquivados)
+        ? {}
+        : { status: { in: ['EM_ANDAMENTO', 'AGUARDANDO_RESPOSTA'] } }
     if (!filters?.bucket && filters?.status) filtroStatus.status = filters.status
     if (!filters?.bucket && filters?.atrasados) Object.assign(filtroStatus, this.whereDoBucket('atrasados', agora))
     // Dispensada é obrigação que o cliente não deve: em produção são 1.634 de

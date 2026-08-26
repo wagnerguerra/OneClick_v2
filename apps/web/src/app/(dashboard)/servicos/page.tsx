@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ClipboardCheck, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, Copy, ArrowLeft,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
@@ -232,7 +232,13 @@ function tipoLabel(s: Servico): string {
 
 export default function ServicosPage() {
   const router = useRouter()
-  const [view, setView] = useState<'templates' | 'execucoes'>('templates')
+  // Aceita ?view=execucoes&status=CONCLUIDO — é por aqui que o Gerenciador de
+  // Serviços manda quem procura o que já saiu do painel (concluído, dispensado,
+  // cancelado).
+  const paramsUrl = useSearchParams()
+  const [view, setView] = useState<'templates' | 'execucoes'>(
+    paramsUrl.get('view') === 'execucoes' ? 'execucoes' : 'templates',
+  )
   const [viewMode, setViewMode] = useState<'tabela' | 'kanban'>(() => {
     if (typeof window !== 'undefined') return (localStorage.getItem('servicos-view-mode') as 'tabela' | 'kanban') || 'tabela'
     return 'tabela'
