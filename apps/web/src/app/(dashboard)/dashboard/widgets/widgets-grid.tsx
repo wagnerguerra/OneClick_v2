@@ -500,6 +500,15 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
                     </div>
                   )
                 })()
+              ) : isCompact && def.acaoDireta ? (
+                // Widget de ação em 1×1: ele mesmo desenha o botão e abre o que
+                // tem para abrir. Passar pelo modal "ampliado" do grid só
+                // empilharia um modal em cima do outro.
+                <div className={cn('h-full', editing && 'pointer-events-none opacity-95')}>
+                  <WidgetErrorBoundary label={def.label} borderColor={c.borderLeft}>
+                    <Component canRead={canRead} title={item.customLabel} bloco={blocoHex} compact />
+                  </WidgetErrorBoundary>
+                </div>
               ) : isCompact ? (
                 // Modo compacto: botão clean no estilo Card (mesmo padrão dos outros widgets)
                 (() => {

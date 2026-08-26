@@ -21,11 +21,18 @@ export interface WidgetDef {
   label: string
   icon: typeof Mail
   color: WidgetColor
-  Component: ComponentType<{ canRead: boolean; title?: string; expanded?: boolean; bloco?: string }>
+  Component: ComponentType<{ canRead: boolean; title?: string; expanded?: boolean; bloco?: string; compact?: boolean }>
   /** Posição/tamanho default no grid (12 cols). h é em "rows" do grid (~30px cada). */
   defaultLayout: { w: number; h: number; minW: number; minH: number; maxH?: number }
   /** Permission slug exigido (master sempre tem acesso). */
   requiresModule?: string
+  /**
+   * Widget de AÇÃO: em 1×1 o clique dispara a ação do próprio widget (ele
+   * recebe `compact` e desenha o botão), em vez de abrir o modal "ampliado" do
+   * grid. Sem isso, um widget cuja única função é abrir um modal ficaria com
+   * dois modais empilhados: o do grid e o dele.
+   */
+  acaoDireta?: boolean
   /** Override do href usado pra derivar a cor do grupo da sidebar. Útil quando
    *  o widget não tem requiresModule (ex: ramais) ou o módulo está em grupo
    *  diferente do desejado visualmente. */
@@ -128,8 +135,10 @@ export const WIDGET_REGISTRY: Record<string, WidgetDef> = {
     icon: PenLine,
     color: 'emerald',
     Component: AssinarDocumentoWidget,
-    // Widget de ação: um botão e uma linha de texto, sem números para crescer.
-    defaultLayout: { w: 3, h: 5, minW: 2, minH: 4, maxH: 8 },
+    // Nasce 1×1, como os atalhos de Ramais e Certificados: é um botão, não um
+    // painel. Cresce se o usuário quiser a versão com texto.
+    defaultLayout: { w: 1, h: 1, minW: 1, minH: 1, maxH: 6 },
+    acaoDireta: true,
     // O módulo abre a porta; a sub-permissão `assinar` é conferida dentro do
     // componente e no backend — ver o comentário do widget.
     requiresModule: 'ferramentas-gerais',
