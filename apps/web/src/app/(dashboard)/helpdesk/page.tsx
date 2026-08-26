@@ -629,8 +629,16 @@ export default function HelpdeskPage() {
 
       {/* Painel de filtros — abre e fecha como o do /orcamentos */}
       <div
-        className="grid shrink-0 transition-[grid-template-rows,opacity] duration-[250ms] ease-[cubic-bezier(.16,1,.3,1)]"
-        style={{ gridTemplateRows: filtrosOpen ? '1fr' : '0fr', opacity: filtrosOpen ? 1 : 0 }}
+        className="grid shrink-0 transition-all duration-[250ms] ease-[cubic-bezier(.16,1,.3,1)] motion-reduce:transition-none"
+        style={{
+          gridTemplateRows: filtrosOpen ? '1fr' : '0fr',
+          opacity: filtrosOpen ? 1 : 0,
+          // Fechado, o painel tem altura zero — mas continua sendo filho do
+          // `flex-col gap-5`, e o gap sozinho deixava 20px de vão entre o
+          // título e o kanban. A margem negativa anula o gap, como no
+          // /orcamentos.
+          marginBottom: filtrosOpen ? 0 : '-1.25rem',
+        }}
         aria-hidden={!filtrosOpen}
       >
         <div className="min-h-0 overflow-hidden">
