@@ -675,7 +675,7 @@ export default function RelatoriosTiPage() {
           quebraria justamente esse percurso. */}
       <Sheet open={!!diaAberto} onOpenChange={o => { if (!o) setDiaAberto(null) }}>
         <SheetContent side="right" size="xl" hideClose
-          className="flex w-[80vw] max-w-[1280px] flex-col overflow-hidden p-0">
+          className="flex w-full sm:w-[80vw] max-w-[1280px] flex-col overflow-hidden p-0">
           <SheetTitle className="sr-only">Relatórios do dia</SheetTitle>
           <SheetDescription className="sr-only">
             Lista dos relatórios do dia, com a prévia do escolhido ao lado.

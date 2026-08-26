@@ -799,7 +799,7 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
       </button>
 
       <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetContent side="right" size="xl" className="w-[80vw] max-w-[1200px] p-0 flex flex-col">
+        <SheetContent side="right" size="xl" className="w-full sm:w-[80vw] max-w-[1200px] p-0 flex flex-col">
           {panelContent}
         </SheetContent>
       </Sheet>

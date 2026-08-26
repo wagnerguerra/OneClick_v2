@@ -1063,7 +1063,7 @@ export default function CrmPage() {
 
       {/* ── Create Sheet ── */}
       <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-        <SheetContent side="right" size="xl" className="w-[75vw] max-w-[1200px]">
+        <SheetContent side="right" size="xl" className="w-full sm:w-[75vw] max-w-[1200px]">
           <SheetHeader className="border-b-0 bg-transparent">
             <div className="absolute right-14 top-4 z-10 flex items-center gap-1">
               <button
@@ -1227,7 +1227,7 @@ export default function CrmPage() {
 
       {/* ── Detail Sheet (slide-over) ── */}
       <Sheet open={detailOpen} onOpenChange={open => { setDetailOpen(open); if (!open) fetchAll(true) }}>
-        <SheetContent side="right" size="xl" className="w-[75vw] max-w-[1200px]">
+        <SheetContent side="right" size="xl" className="w-full sm:w-[75vw] max-w-[1200px]">
           {detailLoading || !detail ? (
             <div className="flex items-center justify-center py-16 flex-1">
               <SheetTitle className="sr-only">Carregando</SheetTitle>

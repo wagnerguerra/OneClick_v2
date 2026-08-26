@@ -23,7 +23,7 @@ export function TicketDetalheCompletoSheet({
         side="right"
         size="xl"
         hideClose
-        className="w-[80vw] max-w-[1280px] p-0 overflow-hidden flex flex-col"
+        className="w-full sm:w-[80vw] max-w-[1280px] p-0 overflow-hidden flex flex-col"
       >
         {/* Radix exige um título acessível no Content; o header visível é o
             próprio da página completa. */}
