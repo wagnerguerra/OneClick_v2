@@ -608,11 +608,11 @@ export default function GestaoCertificadosPage() {
                     </TableHead>
                   )}
                   <TableHead>Titular</TableHead>
-                  <TableHead>Documento</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Vínculo</TableHead>
-                  <TableHead>Emissor</TableHead>
-                  <TableHead>Expira em</TableHead>
+                  <TableHead className="hidden md:table-cell">Documento</TableHead>
+                  <TableHead className="hidden xl:table-cell">Tipo</TableHead>
+                  <TableHead className="hidden lg:table-cell">Vínculo</TableHead>
+                  <TableHead className="hidden xl:table-cell">Emissor</TableHead>
+                  <TableHead className="hidden sm:table-cell">Expira em</TableHead>
                   <TableHead className="w-[120px]">Status</TableHead>
                   <TableHead className="w-[44px]"></TableHead>
                 </TableRow>
@@ -637,13 +637,13 @@ export default function GestaoCertificadosPage() {
                       </TableCell>
                     )}
                     <TableCell className="font-medium text-sm max-w-[220px] truncate">{c.titular}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-mono">{formatDocumento(c.documento)}</TableCell>
-                    <TableCell><Badge variant="secondary" className="text-[10px]">{c.tipo}</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
+                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground font-mono">{formatDocumento(c.documento)}</TableCell>
+                    <TableCell className="hidden xl:table-cell"><Badge variant="secondary" className="text-[10px]">{c.tipo}</Badge></TableCell>
+                    <TableCell className="hidden lg:table-cell text-xs text-muted-foreground max-w-[180px] truncate">
                       {c.cliente?.razaoSocial || c.empresa?.razaoSocial || c.socio?.nomeCompleto || '—'}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{c.emissor || '—'}</TableCell>
-                    <TableCell className="text-xs">{formatDate(c.expiraEm)}</TableCell>
+                    <TableCell className="hidden xl:table-cell text-xs text-muted-foreground max-w-[160px] truncate">{c.emissor || '—'}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-xs">{formatDate(c.expiraEm)}</TableCell>
                     <TableCell><StatusBadge status={c.status} expiraEm={c.expiraEm} /></TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <DropdownMenu>

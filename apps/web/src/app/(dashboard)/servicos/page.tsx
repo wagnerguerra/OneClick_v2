@@ -1367,7 +1367,8 @@ export default function ServicosPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[40px] text-center">
+                  {/* Seleção em massa é operação de desktop — no celular só atrapalha o espaço. */}
+                  <TableHead className="hidden w-[40px] text-center sm:table-cell">
                     <input
                       type="checkbox"
                       className="h-3.5 w-3.5 rounded cursor-pointer align-middle"
@@ -1377,11 +1378,11 @@ export default function ServicosPage() {
                       aria-label="Selecionar todos"
                     />
                   </TableHead>
-                  <TableHead className="w-[140px] whitespace-nowrap"><button onClick={() => toggleSort('categoria')} className="flex items-center gap-1 hover:text-foreground transition-colors">Área <SortIcon column="categoria" /></button></TableHead>
-                  <TableHead className="w-[170px] whitespace-nowrap"><button onClick={() => toggleSort('tipo')} className="flex items-center gap-1 hover:text-foreground transition-colors">Tipo <SortIcon column="tipo" /></button></TableHead>
-                  <TableHead className="w-[180px] whitespace-nowrap"><button onClick={() => toggleSort('grupo')} className="flex items-center gap-1 hover:text-foreground transition-colors">Grupo <SortIcon column="grupo" /></button></TableHead>
+                  <TableHead className="hidden lg:table-cell w-[140px] whitespace-nowrap"><button onClick={() => toggleSort('categoria')} className="flex items-center gap-1 hover:text-foreground transition-colors">Área <SortIcon column="categoria" /></button></TableHead>
+                  <TableHead className="hidden md:table-cell w-[170px] whitespace-nowrap"><button onClick={() => toggleSort('tipo')} className="flex items-center gap-1 hover:text-foreground transition-colors">Tipo <SortIcon column="tipo" /></button></TableHead>
+                  <TableHead className="hidden xl:table-cell w-[180px] whitespace-nowrap"><button onClick={() => toggleSort('grupo')} className="flex items-center gap-1 hover:text-foreground transition-colors">Grupo <SortIcon column="grupo" /></button></TableHead>
                   <TableHead className="whitespace-nowrap"><button onClick={() => toggleSort('nome')} className="flex items-center gap-1 hover:text-foreground transition-colors">Nome <SortIcon column="nome" /></button></TableHead>
-                  <TableHead className="w-[90px] text-center whitespace-nowrap"><button onClick={() => toggleSort('execucoes')} className="flex items-center gap-1 mx-auto hover:text-foreground transition-colors">Execuções <SortIcon column="execucoes" /></button></TableHead>
+                  <TableHead className="hidden sm:table-cell w-[90px] text-center whitespace-nowrap"><button onClick={() => toggleSort('execucoes')} className="flex items-center gap-1 mx-auto hover:text-foreground transition-colors">Execuções <SortIcon column="execucoes" /></button></TableHead>
                   <TableHead className="w-[50px] text-right whitespace-nowrap">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1400,7 +1401,7 @@ export default function ServicosPage() {
                     className={cn('cursor-pointer hover:bg-muted/40', selectedIds.has(s.id) && 'bg-muted/30')}
                     onClick={() => openEditServico(s.id)}
                   >
-                    <TableCell className="text-center" onClick={e => e.stopPropagation()}>
+                    <TableCell className="hidden text-center sm:table-cell" onClick={e => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         className="h-3.5 w-3.5 rounded cursor-pointer align-middle"
@@ -1409,12 +1410,12 @@ export default function ServicosPage() {
                         aria-label={`Selecionar ${s.nome}`}
                       />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className="hidden lg:table-cell whitespace-nowrap">
                       {s.area?.name
                         ? <Badge variant="secondary" className="text-[10px]">{s.area.name}</Badge>
                         : <span className="text-xs text-muted-foreground italic">—</span>}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className="hidden md:table-cell whitespace-nowrap">
                       {(() => {
                         const t = tipoDoServico(s)
                         const dono = s.categoriaServico === 'FLUXO' && s.servicoPai ? ` · ${s.servicoPai.nome}` : ''
@@ -1428,7 +1429,7 @@ export default function ServicosPage() {
                         )
                       })()}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className="hidden xl:table-cell whitespace-nowrap">
                       {s.grupos && s.grupos.length > 0 ? (
                         <div className="flex flex-wrap items-center gap-1 max-w-[180px]">
                           {s.grupos.slice(0, 2).map(({ grupo }) => (
@@ -1484,7 +1485,7 @@ export default function ServicosPage() {
                         })()}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center text-xs whitespace-nowrap">{s._count?.execucoes ?? 0}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-center text-xs whitespace-nowrap">{s._count?.execucoes ?? 0}</TableCell>
                     <TableCell className="text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -1551,8 +1552,8 @@ export default function ServicosPage() {
                 <TableHead className="whitespace-nowrap">Serviço</TableHead>
                 <TableHead className="whitespace-nowrap">Cliente</TableHead>
                 <TableHead className="w-[120px] whitespace-nowrap">Status</TableHead>
-                <TableHead className="w-[120px] text-center whitespace-nowrap">Progresso</TableHead>
-                <TableHead className="w-[110px] whitespace-nowrap">Iniciado em</TableHead>
+                <TableHead className="hidden md:table-cell w-[120px] text-center whitespace-nowrap">Progresso</TableHead>
+                <TableHead className="hidden lg:table-cell w-[110px] whitespace-nowrap">Iniciado em</TableHead>
                 <TableHead className="w-[50px] text-right whitespace-nowrap">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -1573,7 +1574,7 @@ export default function ServicosPage() {
                     <TableCell className="text-sm font-medium whitespace-nowrap">{exec.servico?.nome || '—'}</TableCell>
                     <TableCell className="text-sm whitespace-nowrap">{exec.cliente?.razaoSocial || '—'}</TableCell>
                     <TableCell className="whitespace-nowrap"><StatusBadge status={exec.status} pausado={(exec as any).pausado} /></TableCell>
-                    <TableCell className="text-center whitespace-nowrap">
+                    <TableCell className="hidden md:table-cell text-center whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                           <div
@@ -1587,7 +1588,7 @@ export default function ServicosPage() {
                         <span className="text-[10px] text-muted-foreground font-medium shrink-0">{cPassos}/{tPassos}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(exec.iniciadoEm)}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-xs text-muted-foreground whitespace-nowrap">{formatDate(exec.iniciadoEm)}</TableCell>
                     <TableCell className="text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

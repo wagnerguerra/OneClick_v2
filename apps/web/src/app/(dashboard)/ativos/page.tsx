@@ -256,7 +256,7 @@ export default function AtivosPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[36px]">
+              <TableHead className="hidden sm:table-cell w-[36px]">
                 <input
                   type="checkbox"
                   checked={data.length > 0 && data.every(a => selectedIds.has(a.id))}
@@ -270,10 +270,10 @@ export default function AtivosPage() {
               </TableHead>
               <TableHead className="w-[88px]">Tag</TableHead>
               <TableHead>Ativo</TableHead>
-              <TableHead className="w-[180px]">Categoria</TableHead>
-              <TableHead className="w-[200px]">Responsável</TableHead>
+              <TableHead className="hidden lg:table-cell w-[180px]">Categoria</TableHead>
+              <TableHead className="hidden md:table-cell w-[200px]">Responsável</TableHead>
               <TableHead className="w-[120px]">Status</TableHead>
-              <TableHead className="w-[140px] text-right">Valor</TableHead>
+              <TableHead className="hidden xl:table-cell w-[140px] text-right">Valor</TableHead>
               <TableHead className="w-[60px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -307,7 +307,7 @@ export default function AtivosPage() {
               )
               return (
                 <TableRow key={a.id} className="hover:bg-muted/40">
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(a.id)}
@@ -334,13 +334,13 @@ export default function AtivosPage() {
                       )}
                     </Link>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     <div className="flex flex-col">
                       <span className="text-[12px] font-medium" style={{ color: a.tipo.cor ?? undefined }}>{a.tipo.nome}</span>
                       <span className="text-[10px] text-muted-foreground">{a.categoria.nome}</span>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden md:table-cell">
                     {a.responsavel ? (
                       <div className="text-[12px] font-medium truncate" title={a.responsavel.name}>{a.responsavel.name}</div>
                     ) : a.cliente ? (
@@ -358,7 +358,7 @@ export default function AtivosPage() {
                       {meta.label}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="hidden xl:table-cell text-right">
                     <div className="text-[12px] font-medium tabular-nums">{fmtBRL(a.valorAquisicao)}</div>
                     {valorDeprec !== null && a.valorAquisicao && (
                       <div className="text-[10px] text-muted-foreground tabular-nums" title="Valor depreciado atual">
