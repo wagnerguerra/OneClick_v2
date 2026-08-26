@@ -202,6 +202,9 @@ export class UserService {
         idOneClick: true,
         incluirFerias: true,
         image: true,
+        // Capa do perfil: a página de detalhe usa a mesma imagem que a pessoa
+        // escolheu em /perfil, em vez de um gradiente genérico.
+        coverImage: true,
         createdAt: true,
         // Documentos
         cpf: true,

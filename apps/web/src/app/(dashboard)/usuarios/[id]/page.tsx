@@ -34,6 +34,8 @@ interface UserProfile {
   isMaster: boolean
   isActive: boolean
   image?: string | null
+  /** Imagem de fundo escolhida pela pessoa em /perfil. */
+  coverImage?: string | null
   empresaId?: string | null
   areaId?: string | null
   cargoId?: string | null
@@ -165,7 +167,14 @@ export default function UserProfilePage() {
       {/* ── Hero (mesmo do orçamento): capa, identidade e números ── */}
       <div className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="relative overflow-hidden">
-          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+          {/* Capa: a imagem de fundo do perfil da pessoa. Sem ela, o gradiente
+              do módulo — mesma regra do detalhe do cliente e do orçamento. */}
+          {user.coverImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={resolveAssetUrl(user.coverImage)} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
           <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
