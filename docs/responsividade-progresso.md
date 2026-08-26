@@ -30,7 +30,7 @@ O que fazer em cada tela está em [`PADRAO_RESPONSIVIDADE.md`](PADRAO_RESPONSIVI
 
 Cada módulo passa pelos mesmos seis pontos.
 
-### 1. Agenda — `concluída` · commit `8e97734a`
+### 1. Agenda — `concluída` · commit `3f78a9f2`
 
 | Item | Status |
 |---|---|
