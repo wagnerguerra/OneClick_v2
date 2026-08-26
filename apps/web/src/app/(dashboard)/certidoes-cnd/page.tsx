@@ -1911,7 +1911,7 @@ export default function CertidoesCndPage() {
                     )}
 
                     {/* KPIs */}
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 p-2 text-center">
                         <p className="text-lg font-bold text-emerald-600">{estLoteProgress.emitidas}</p>
                         <p className="text-[10px] text-muted-foreground">Emitidas</p>
@@ -2385,7 +2385,7 @@ export default function CertidoesCndPage() {
                     {munLoteProgress.status === 'running' && (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin shrink-0" /><span className="truncate">{munLoteProgress.currentCliente}</span></div>
                     )}
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 p-2 text-center"><p className="text-lg font-bold text-emerald-600">{munLoteProgress.emitidas}</p><p className="text-[10px] text-muted-foreground">Emitidas</p></div>
                       <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-2 text-center"><p className="text-lg font-bold text-amber-600">{munLoteProgress.naoEmitidas}</p><p className="text-[10px] text-muted-foreground">Não emitidas</p></div>
                       <div className="rounded-lg border bg-red-50 dark:bg-red-950/20 p-2 text-center"><p className="text-lg font-bold text-red-600">{munLoteProgress.erros}</p><p className="text-[10px] text-muted-foreground">Erros</p></div>
@@ -2707,7 +2707,7 @@ export default function CertidoesCndPage() {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 p-2 text-center">
                         <p className="text-lg font-bold text-emerald-600">{alvLoteProgress.encontrados}</p>
                         <p className="text-[10px] text-muted-foreground">Encontrados</p>

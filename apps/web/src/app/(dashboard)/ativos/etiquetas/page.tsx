@@ -109,7 +109,7 @@ export default function EtiquetasPage() {
         ) : (
           <div className="etiquetas-folha bg-white p-6 rounded-md shadow-sm border">
             {/* Grid 3 colunas — A4 tem ~180mm úteis, 3×60mm */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {ativos.map(a => (
                 <div key={a.id} className="etiqueta">
                   <div>

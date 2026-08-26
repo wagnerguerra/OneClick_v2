@@ -495,7 +495,7 @@ export default function CaixaPostalRegrasPage() {
                   {/* Faixas de prioridade */}
                   <div>
                     <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Faixas de Prioridade (Score)</h4>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                       {([
                         { key: 'P0' as const, label: 'P0 — Crítica', icon: AlertTriangle, border: 'border-red-200 dark:border-red-800', bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-400' },
                         { key: 'P1' as const, label: 'P1 — Alta', icon: MailWarning, border: 'border-orange-200 dark:border-orange-800', bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-400' },

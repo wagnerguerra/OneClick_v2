@@ -147,7 +147,7 @@ function TabFunil({ dias }: { dias?: number }) {
   return (
     <div className="space-y-4">
       {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard label="Total de Oportunidades" value={String(data.totalOportunidades)} />
         <KpiCard label="Valor Total" value={formatCurrency(data.valorTotal)} />
         <KpiCard label="Taxa de Conversao Geral" value={`${data.taxaGeral}%`} />

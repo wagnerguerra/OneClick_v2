@@ -2051,7 +2051,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                   {/* Seção: Novo bloco primitivo */}
                   <div className="px-3 py-2 border-b bg-muted/30">
                     <div className="text-[11px] font-semibold mb-1.5">Novo bloco</div>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
                       {([
                         { tipo: 'ATIVIDADE' as const, label: 'Ativ.', color: '#10b981', shape: 'rect' },
                         { tipo: 'DECISAO' as const, label: 'Decis.', color: '#a855f7', shape: 'diamond' },
@@ -2305,7 +2305,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
             </div>
 
             {rotuloDialog.mode === 'decisao' ? (
-              <div className="grid grid-cols-3 gap-2 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-1">
                 <Button
                   size="sm"
                   onClick={() => aplicarRotulo('Sim')}
@@ -3161,7 +3161,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
             {/* Quem responde — usuário fixo, área (setor) ou herdado do orçamento */}
             <div className="space-y-1.5 border-t pt-2">
               <label className="text-[10px] font-semibold text-foreground">Quem responde *</label>
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
                 {([
                   { v: 'ORCAMENTO', label: 'Orçamento' },
                   { v: 'MANUAL_FIXO', label: 'Usuário' },

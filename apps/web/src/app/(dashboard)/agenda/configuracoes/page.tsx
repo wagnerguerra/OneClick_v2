@@ -89,7 +89,7 @@ function SortableGrupoCard({ grupo, tiposModelo, tiposEmOutrosGrupos, onPatch, o
             <button type="button" className="h-8 w-10 shrink-0 flex items-center justify-center rounded-md border border-border text-lg hover:bg-muted" title="Trocar ícone">{grupo.icone || '📅'}</button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="p-2">
-            <div className="grid grid-cols-6 gap-1">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1">
               {EMOJI_OPCOES.map(em => (
                 <button key={em} type="button" onClick={() => { onPatch({ icone: em }); setEmojiOpen(false) }}
                   className={cn('h-8 w-8 flex items-center justify-center rounded text-lg hover:bg-muted', grupo.icone === em && 'bg-muted ring-1 ring-ring')}>{em}</button>
@@ -1142,7 +1142,7 @@ export default function AgendaConfiguracoesPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   {/* Editor */}
                   <div className="space-y-4">
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       <div className="col-span-2 space-y-1.5"><Label className="text-[13px] font-semibold">Assunto</Label><Input className="h-9 text-sm" value={tpl.assunto} onChange={e => setTplField('assunto', e.target.value)} /></div>
                       <div className="space-y-1.5"><Label className="text-[13px] font-semibold">Cor de destaque</Label><Input type="color" className="h-9 w-full p-1" value={tpl.accent} onChange={e => setTplField('accent', e.target.value)} /></div>
                     </div>

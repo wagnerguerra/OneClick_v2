@@ -254,7 +254,7 @@ export default function CusteioPage() {
                     </div>
                     <div className="rounded border border-border/60 p-3 space-y-3">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Benefícios (custo do colaborador)</p>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         <div className="space-y-1.5">
                           <Label>Alimentação/dia</Label>
                           <Input type="number" value={params.beneficioAlimentacaoDia} onChange={e => upd({ beneficioAlimentacaoDia: Number(e.target.value) || 0 })} />
@@ -271,7 +271,7 @@ export default function CusteioPage() {
                     </div>
                     <div className="rounded border border-border/60 p-3 space-y-3">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Multiplicador por categoria comercial</p>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         <div className="space-y-1.5">
                           <Label>Standard</Label>
                           <Input type="number" step="0.1" value={params.multCategoriaStandard} onChange={e => upd({ multCategoriaStandard: Number(e.target.value) || 0 })} />

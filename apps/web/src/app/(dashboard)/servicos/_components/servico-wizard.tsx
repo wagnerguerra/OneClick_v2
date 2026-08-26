@@ -301,7 +301,7 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-[13px] font-semibold">Prioridade padrão</Label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                     {PRIORIDADES.map(p => (
                       <button
                         key={p.v}

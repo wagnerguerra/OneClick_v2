@@ -291,7 +291,7 @@ function CompaniesPanel() {
           do Acessórias se for diferente. <strong>Não cria clientes novos</strong> — clientes ausentes ficam como "ignoradas".
         </div>
         {lastResult && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <button type="button" className="text-left" onClick={() => setVerGrupo('casada')}>
               <Card className="p-3 transition-colors hover:bg-muted/40">
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Já casadas</div>
@@ -1351,7 +1351,7 @@ function DeliveriesPanel({ firstDay, lastDay, onSyncIniciada }: {
           </div>
         </div>
         {lastResult && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <Card className="p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Criadas</div>
               <div className="text-xl font-semibold tabular-nums text-emerald-600">{lastResult.novas}</div>

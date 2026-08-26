@@ -343,7 +343,7 @@ export default function ContratoTemplatesPage() {
               <Label className="text-[13px] font-semibold">Descrição</Label>
               <Input value={formDescricao} onChange={e => setFormDescricao(e.target.value)} placeholder="Quando usar este modelo" className="h-9 text-sm" />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-[13px] font-semibold">Regime</Label>
                 <Select value={formRegime || 'any'} onValueChange={v => setFormRegime(v === 'any' ? '' : v)}>

@@ -384,7 +384,7 @@ export default function PainelEditorPage() {
                 </div>
               </div>
             )}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <label className="text-[13px] font-semibold">Visual</label>
                 <select className={inputCls} value={blocoForm.visual} onChange={(e) => setBlocoForm((f) => ({ ...f, visual: e.target.value }))}>
@@ -400,7 +400,7 @@ export default function PainelEditorPage() {
                 <input type="number" min={1} max={4} className={inputCls} value={blocoForm.rowSpan} onChange={(e) => setBlocoForm((f) => ({ ...f, rowSpan: Math.min(4, Math.max(1, Number(e.target.value) || 1)) }))} />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {blocoForm.visual === 'kpi' ? (
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-semibold">Tamanho da fonte</label>

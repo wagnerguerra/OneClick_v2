@@ -204,7 +204,7 @@ export function TicketFormFields({ form, variant = 'modal', onSubmitShortcut }: 
       {/* Tipo (chips) */}
       <div className="space-y-1.5">
         <Label className="text-[13px] font-semibold">Tipo *</Label>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
           {TIPO_CHIPS.map(({ valor, label, icon: Icon, cor }) => (
             <button
               key={valor}
