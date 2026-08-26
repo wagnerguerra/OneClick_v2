@@ -10,6 +10,7 @@ Pagamento recorrente via Stripe. Reconstrução modernizada do legado **OneClick
 - `docs/ENV.md` — variáveis de ambiente completas + integrações externas
 - `docs/error-registry.md` — registry de erros + gate obrigatório de entrega
 - `docs/PADRAO_MODULOS.md`, `docs/PADRAO_MASCARAS.md`, `docs/PADRAO_KANBAN_DND.md` — padrões específicos
+- `docs/PADRAO_RESPONSIVIDADE.md` — celular/tablet/notebook 1366×768 (o modelo para toda tela nova ou tocada); baixa da varredura em `docs/responsividade-progresso.md`
 - `docs/PADRAO_ESTADOS_E_PERMISSOES.md` — estado derivado no backend (flags no payload), permissão de campo (`hasSubPermission`), propagação por SSE
 
 ---
