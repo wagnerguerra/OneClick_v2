@@ -389,9 +389,9 @@ export default function ProjetoDetailPage() {
                           <TableRow>
                             <TableHead className="w-[40%]">Tarefa</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead>Prioridade</TableHead>
-                            <TableHead>Prazo</TableHead>
-                            <TableHead className="text-right">Est.</TableHead>
+                            <TableHead className="hidden lg:table-cell">Prioridade</TableHead>
+                            <TableHead className="hidden md:table-cell">Prazo</TableHead>
+                            <TableHead className="hidden xl:table-cell text-right">Est.</TableHead>
                             <TableHead className="w-[60px]"></TableHead>
                           </TableRow>
                         </TableHeader>
@@ -419,16 +419,16 @@ export default function ProjetoDetailPage() {
                                   {TAREFA_STATUS_LABELS[t.status]}
                                 </span>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="hidden lg:table-cell">
                                 <span className="flex items-center gap-1 text-[12px]" style={{ color: PRIORIDADE_COLOR[t.prioridade] }}>
                                   <Flag className="h-3 w-3" />
                                   {TAREFA_PRIORIDADE_LABELS[t.prioridade]}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-[12px] text-muted-foreground">
+                              <TableCell className="hidden md:table-cell text-[12px] text-muted-foreground">
                                 {t.prazo ? new Date(t.prazo).toLocaleDateString('pt-BR') : '—'}
                               </TableCell>
-                              <TableCell className="text-right text-[12px] text-muted-foreground">
+                              <TableCell className="hidden xl:table-cell text-right text-[12px] text-muted-foreground">
                                 {t.estimativa ?? '—'}
                               </TableCell>
                               <TableCell>

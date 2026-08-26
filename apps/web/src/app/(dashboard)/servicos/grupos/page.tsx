@@ -316,9 +316,9 @@ export default function GruposPage() {
             <TableRow>
               <TableHead className="w-[40px]"></TableHead>
               <TableHead className="whitespace-nowrap">Nome</TableHead>
-              <TableHead className="whitespace-nowrap">Descrição</TableHead>
+              <TableHead className="hidden lg:table-cell whitespace-nowrap">Descrição</TableHead>
               <TableHead className="w-[100px] text-center whitespace-nowrap">Serviços</TableHead>
-              <TableHead className="whitespace-nowrap">Conteúdo</TableHead>
+              <TableHead className="hidden xl:table-cell whitespace-nowrap">Conteúdo</TableHead>
               <TableHead className="w-[50px] text-right whitespace-nowrap">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -352,7 +352,7 @@ export default function GruposPage() {
                     <Badge variant="outline" className="ml-1.5 text-[9px] h-4 px-1 align-middle">{GRUPO_TIPO_LABELS[g.tipo]}</Badge>
                   )}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground max-w-[280px] truncate">
+                <TableCell className="hidden lg:table-cell text-xs text-muted-foreground max-w-[280px] truncate">
                   {g.descricao || <span className="italic">—</span>}
                 </TableCell>
                 <TableCell className="text-center whitespace-nowrap">
@@ -360,7 +360,7 @@ export default function GruposPage() {
                     {g._count?.itens ?? g.itens.length}
                   </Badge>
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden xl:table-cell">
                   <div className="flex flex-wrap gap-1 max-w-[420px]">
                     {g.itens.slice(0, 4).map(item => (
                       <Badge key={item.servico.id} variant="outline" className="text-[10px] h-5 px-1.5">

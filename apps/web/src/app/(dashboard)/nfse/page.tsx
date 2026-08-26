@@ -162,10 +162,10 @@ export default function NFSePage() {
           <TableHeader>
             <TableRow>
               <TableHead className="text-xs">Cliente</TableHead>
-              <TableHead className="text-xs">CNPJ</TableHead>
+              <TableHead className="hidden lg:table-cell text-xs">CNPJ</TableHead>
               <TableHead className="text-xs text-center">Notas</TableHead>
               <TableHead className="text-xs text-right">Valor total</TableHead>
-              <TableHead className="text-xs">Última emissão</TableHead>
+              <TableHead className="hidden md:table-cell text-xs">Última emissão</TableHead>
               <TableHead className="text-xs text-right w-[100px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -214,7 +214,7 @@ export default function NFSePage() {
                       </span>
                     </Link>
                   </TableCell>
-                  <TableCell className="text-[11px] font-mono text-muted-foreground">
+                  <TableCell className="hidden lg:table-cell text-[11px] font-mono text-muted-foreground">
                     {c.documento ? fmtCnpj(c.documento) : '—'}
                   </TableCell>
                   <TableCell className="text-center text-[12px] tabular-nums font-semibold">
@@ -223,7 +223,7 @@ export default function NFSePage() {
                   <TableCell className="text-right text-[12px] tabular-nums font-semibold">
                     {fmtBRL(c.valorTotal)}
                   </TableCell>
-                  <TableCell className="text-[11px] tabular-nums">{fmtDate(c.ultimaNota)}</TableCell>
+                  <TableCell className="hidden md:table-cell text-[11px] tabular-nums">{fmtDate(c.ultimaNota)}</TableCell>
                   <TableCell className="text-right">
                     <Link href={c.clienteId ? `/nfse/galeria?cliente=${c.clienteId}` : '/nfse/galeria?cliente=__null__'}>
                       <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
