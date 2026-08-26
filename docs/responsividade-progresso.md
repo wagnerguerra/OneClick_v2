@@ -52,16 +52,16 @@ Cada módulo passa pelos mesmos seis pontos.
 | [x] Modais | os do módulo usam o DialogContent padrão, que já é responsivo |
 | [—] Ações no hover | não há ação escondida em hover neste módulo |
 
-### 3. HelpDesk — `na fila`
+### 3. HelpDesk — `concluída` · commit `28fcdb51`
 
 | Item | Status |
 |---|---|
-| Cabeçalho e ações da página | [ ] |
-| Barra de filtros | [ ] |
-| Lista de tickets | [ ] |
-| Painel de detalhe do ticket | [ ] |
-| Modais do módulo | [ ] |
-| Ações que só existem no hover | [ ] |
+| [x] Cabeçalho e ações da página | já quebrava em linhas |
+| [x] Barra de filtros | `flex-wrap` já existia; busca dos indicadores deixou de ter 320px fixos |
+| [x] Lista de tickets | no celular o módulo abre em lista, não em kanban (seis colunas de 240px = 1440px de rolagem) |
+| [x] Painel de detalhe | painel lateral em largura total (base) + abas que não cortam a primeira quando não cabem |
+| [x] Modais do módulo | DialogContent padrão |
+| [x] Ações que só existem no hover | editar título do ticket passa a ficar visível no toque |
 
 ### 4. Orçamentos — `na fila`
 
