@@ -1106,19 +1106,20 @@ export default function OrcamentoDetailPage() {
   // Avanca/regredi o status via mesmo endpoint usado pelo kanban
   /** Textos do alerta de confirmação por status de destino (pedido do Wagner, 21/08:
    *  toda troca de status passa por confirmação antes de efetivar). */
-  const CONFIRM_STATUS: Record<string, { title: string; text: string; confirmText: string; icon: 'warning' | 'question' }> = {
+  const CONFIRM_STATUS: Record<string, { title: string; text: string; confirmText: string; cancelText?: string; icon: 'warning' | 'question' }> = {
     APROVADO:   { title: 'Aprovar orçamento?',   text: 'O orçamento será marcado como aprovado pelo cliente e ficará congelado para edição.', confirmText: 'Aprovar', icon: 'question' },
     LIBERADO:   { title: 'Liberar para execução?', text: 'O orçamento será liberado para a área executar o serviço. As áreas envolvidas serão notificadas.', confirmText: 'Liberar', icon: 'question' },
     FINALIZADO: { title: 'Finalizar orçamento?', text: 'Confirma que o serviço foi concluído? O orçamento será marcado como finalizado.', confirmText: 'Finalizar', icon: 'question' },
-    ENCERRADO:  { title: 'Encerrar orçamento?',  text: 'O orçamento será encerrado e sairá do fluxo ativo. Essa ação fica registrada na timeline.', confirmText: 'Encerrar', icon: 'warning' },
-    CANCELADO:  { title: 'Cancelar orçamento?',  text: 'O orçamento será cancelado. Essa ação fica registrada na timeline.', confirmText: 'Cancelar orçamento', icon: 'warning' },
+    ENCERRADO:  { title: 'Encerrar orçamento?',  text: 'O orçamento será encerrado e sairá do fluxo ativo. Essa ação fica registrada na timeline.', confirmText: 'Encerrar', cancelText: 'Voltar', icon: 'warning' },
+    CANCELADO:  { title: 'Cancelar orçamento?',  text: 'O orçamento será cancelado. Essa ação fica registrada na timeline.', confirmText: 'Cancelar orçamento', cancelText: 'Voltar', icon: 'warning' },
     ENVIADO:    { title: 'Marcar como enviado?', text: 'O status passará para enviado.', confirmText: 'Confirmar', icon: 'question' },
   }
 
-  async function handleStatusAction(novoStatus: string, mensagemSucesso: string) {
-    const c = CONFIRM_STATUS[novoStatus] ?? { title: 'Alterar status?', text: `O status do orçamento passará para ${STATUS_LABELS[novoStatus] || novoStatus}.`, confirmText: 'Confirmar', icon: 'question' as const }
-    const ok = await alerts.confirm({ title: c.title, text: c.text, confirmText: c.confirmText, icon: c.icon })
-    if (!ok) return
+  // Executa a troca de status SEM confirmar — a confirmação fica com quem chama.
+  // Extraído para evitar o duplo diálogo: handleStatusActionConfirm mostra o seu
+  // diálogo específico e aplica direto por aqui, sem repassar por handleStatusAction
+  // (que confirmaria de novo com o diálogo genérico do CONFIRM_STATUS).
+  async function applyStatusChange(novoStatus: string, mensagemSucesso: string) {
     try {
       await (trpc.orcamento as any).changeStatus.mutate({ id, status: novoStatus })
       alerts.success('Atualizado', mensagemSucesso)
@@ -1126,12 +1127,22 @@ export default function OrcamentoDetailPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  // Confirma uma transicao destrutiva (recusa/cancelamento/encerramento) antes de aplicar
+  async function handleStatusAction(novoStatus: string, mensagemSucesso: string) {
+    const c = CONFIRM_STATUS[novoStatus] ?? { title: 'Alterar status?', text: `O status do orçamento passará para ${STATUS_LABELS[novoStatus] || novoStatus}.`, confirmText: 'Confirmar', icon: 'question' as const }
+    const ok = await alerts.confirm({ title: c.title, text: c.text, confirmText: c.confirmText, cancelText: c.cancelText, icon: c.icon })
+    if (!ok) return
+    await applyStatusChange(novoStatus, mensagemSucesso)
+  }
+
+  // Confirma uma transicao destrutiva (recusa/cancelamento/encerramento) com um
+  // diálogo ESPECÍFICO e aplica direto — não passa por handleStatusAction (senão
+  // reconfirmaria com o diálogo genérico → duplo diálogo, #leva-11).
   async function handleStatusActionConfirm(opts: {
     novoStatus: string
     title: string
     text: string
     confirmText: string
+    cancelText?: string
     successMsg: string
     icon?: 'warning' | 'question'
   }) {
@@ -1139,10 +1150,11 @@ export default function OrcamentoDetailPage() {
       title: opts.title,
       text: opts.text,
       confirmText: opts.confirmText,
+      cancelText: opts.cancelText,
       icon: opts.icon ?? 'warning',
     })
     if (!ok) return
-    await handleStatusAction(opts.novoStatus, opts.successMsg)
+    await applyStatusChange(opts.novoStatus, opts.successMsg)
   }
 
   async function handleEnviar() {
@@ -1778,6 +1790,7 @@ export default function OrcamentoDetailPage() {
                     title: 'Reprovar orçamento?',
                     text: 'O cliente recusou a proposta. O orçamento será encerrado e marcado como reprovado.',
                     confirmText: 'Reprovar',
+                    cancelText: 'Voltar',
                     successMsg: 'Orçamento reprovado',
                   })}>
                     <ThumbsDown className="h-4 w-4" /> Reprovar
@@ -1785,7 +1798,9 @@ export default function OrcamentoDetailPage() {
                 )}
               </>
             )}
-            {/* APROVADO → LIBERADO ou Cancelar administrativamente */}
+            {/* APROVADO → LIBERADO ou Encerrar (perda de negócio ganho → ENCERRADO).
+                NÃO é "Cancelar": cancelar (→CANCELADO) é descarte que sai do funil sem
+                contar; encerrar um aprovado registra a perda. Rótulos desambiguados (#354). */}
             {orc.status === 'APROVADO' && (
               <>
                 {canLiberar && (
@@ -1796,12 +1811,13 @@ export default function OrcamentoDetailPage() {
                 {canEncerrar && (
                   <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => handleStatusActionConfirm({
                     novoStatus: 'ENCERRADO',
-                    title: 'Cancelar orçamento aprovado?',
-                    text: 'Cancelamento administrativo após aprovação. Esta ação não pode ser desfeita pelo fluxo normal — apenas via Reabrir orçamento.',
-                    confirmText: 'Cancelar',
-                    successMsg: 'Orçamento cancelado',
+                    title: 'Encerrar orçamento aprovado?',
+                    text: 'Encerramento administrativo após a aprovação — registra o orçamento como perda. Não pode ser desfeito pelo fluxo normal, apenas via Reabrir orçamento.',
+                    confirmText: 'Encerrar orçamento',
+                    cancelText: 'Voltar',
+                    successMsg: 'Orçamento encerrado',
                   })}>
-                    <X className="h-4 w-4" /> Cancelar
+                    <Archive className="h-4 w-4" /> Encerrar
                   </Button>
                 )}
               </>
@@ -1819,6 +1835,7 @@ export default function OrcamentoDetailPage() {
                 title: 'Encerrar orçamento?',
                 text: 'O orçamento será arquivado no fluxo. O ciclo está completo.',
                 confirmText: 'Encerrar',
+                cancelText: 'Voltar',
                 successMsg: 'Orçamento encerrado',
                 icon: 'question',
               })}>

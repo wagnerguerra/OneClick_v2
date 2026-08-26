@@ -62,7 +62,7 @@ export const alerts = {
     })
   },
 
-  async confirm(opts: { title: string; text: string; confirmText?: string; icon?: 'warning' | 'question' | 'info' }) {
+  async confirm(opts: { title: string; text: string; confirmText?: string; cancelText?: string; icon?: 'warning' | 'question' | 'info' }) {
     const result = await Swal.fire({
       icon: opts.icon ?? 'warning',
       title: opts.title,
@@ -71,7 +71,9 @@ export const alerts = {
       confirmButtonColor: themeColor,
       cancelButtonColor: '#6b7280',
       confirmButtonText: opts.confirmText ?? 'Confirmar',
-      cancelButtonText: 'Cancelar',
+      // cancelText customizável: quando a própria ação já é "cancelar", o botão de
+      // dispensar precisa virar "Voltar" — senão os dois ficam escritos "Cancelar" (#354).
+      cancelButtonText: opts.cancelText ?? 'Cancelar',
       reverseButtons: true,
     })
     return result.isConfirmed
