@@ -48,7 +48,9 @@ export class ColetaService {
     if (input.situacao) filtros.push({ situacao: input.situacao })
     if (input.categoriaId) filtros.push({ categoriaId: input.categoriaId })
     if (input.clienteId) filtros.push({ clienteId: input.clienteId })
-    if (input.somenteMinhas) filtros.push({ solicitanteId: ctx.userId })
+    // "Somente minhas" = as que me dizem respeito: as que pedi e as que lancei
+    // para outra pessoa.
+    if (input.somenteMinhas) filtros.push({ OR: [{ solicitanteId: ctx.userId }, { criadoPorId: ctx.userId }] })
     // "Protocolo Arquivado" é o fim da vida útil do registro: sai da lista
     // padrão e só aparece quando o usuário busca, filtra a situação ou pede.
     const revelaArquivados = !!search || !!input.situacao || !!input.incluirArquivados
@@ -106,7 +108,9 @@ export class ColetaService {
     if (input.situacao) filtros.push({ situacao: input.situacao })
     else filtros.push({ situacao: { not: 'PROTOCOLO_ARQUIVADO' } })
     if (input.categoriaId) filtros.push({ categoriaId: input.categoriaId })
-    if (input.somenteMinhas) filtros.push({ solicitanteId: ctx.userId })
+    // "Somente minhas" = as que me dizem respeito: as que pedi e as que lancei
+    // para outra pessoa.
+    if (input.somenteMinhas) filtros.push({ OR: [{ solicitanteId: ctx.userId }, { criadoPorId: ctx.userId }] })
     if (input.search) {
       const termo = input.search.trim()
       const numero = /^#?\d+$/.test(termo) ? Number(termo.replace('#', '')) : null
@@ -220,6 +224,7 @@ export class ColetaService {
         clienteId: input.clienteId || null,
         contato: input.contato?.trim() || null,
         solicitanteId,
+        criadoPorId: usuarioId,
         descricao: input.descricao || null,
       },
       select: { id: true },
@@ -239,9 +244,12 @@ export class ColetaService {
     const { id, ...c } = input
     const atual = await this.getById(id, papeis, empresaId)
     // Fiel ao usu/enviar_editar.asp: o solicitante edita a própria solicitação;
-    // os papéis (e o master) editam qualquer uma.
-    if (!(papeis.admin || papeis.rota || papeis.arquivo || atual.solicitanteId === usuarioId)) {
-      throw new ForbiddenException('Só o solicitante (ou a Recepção/Arquivo) pode editar este registro.')
+    // os papéis (e o master) editam qualquer uma. Quem digitou também edita —
+    // senão lançar em nome de outra pessoa custaria o direito de corrigir o
+    // próprio erro de digitação.
+    if (!(papeis.admin || papeis.rota || papeis.arquivo
+      || atual.solicitanteId === usuarioId || atual.criadoPorId === usuarioId)) {
+      throw new ForbiddenException('Só o solicitante, quem registrou (ou a Recepção/Arquivo) pode editar este registro.')
     }
     await prisma.coleta.update({
       where: { id },
@@ -280,8 +288,9 @@ export class ColetaService {
   /** Soft-delete com motivo obrigatório, fiel ao modal-delete do v1. */
   async excluir(input: ExcluirColetaInput, usuarioId: string, papeis: Papeis, empresaId?: string | null) {
     const c = await this.getById(input.id, papeis, empresaId)
-    if (!(papeis.admin || papeis.rota || papeis.arquivo || c.solicitanteId === usuarioId)) {
-      throw new ForbiddenException('Só o solicitante (ou a Recepção/Arquivo) pode excluir este registro.')
+    if (!(papeis.admin || papeis.rota || papeis.arquivo
+      || c.solicitanteId === usuarioId || c.criadoPorId === usuarioId)) {
+      throw new ForbiddenException('Só o solicitante, quem registrou (ou a Recepção/Arquivo) pode excluir este registro.')
     }
     await prisma.coleta.update({ where: { id: input.id }, data: { ativo: false, motivoExclusao: input.motivo.trim() } })
     await this.log(input.id, `Excluiu o registro: ${input.motivo.trim()}`, usuarioId)

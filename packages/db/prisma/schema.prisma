@@ -8999,6 +8999,10 @@ model Coleta {
   /// Quem pediu a coleta/entrega (o "usuario" do v1).
   solicitanteId   String? @map("solicitante_id")
   solicitanteNome String? @map("solicitante_nome")
+  /// Quem digitou o registro. Igual ao solicitante na maioria dos casos; difere
+  /// quando alguém lança em nome de outra pessoa (a recepção pelo setor que
+  /// ligou). Os dois mantêm o direito de editar e excluir.
+  criadoPorId     String? @map("criado_por_id")
 
   descricao String? @db.Text
   notifica  Boolean @default(true)
@@ -9017,6 +9021,7 @@ model Coleta {
   @@index([empresaId, situacao])
   @@index([clienteId])
   @@index([solicitanteId])
+  @@index([criadoPorId])
   @@index([legacyId])
   @@map("coletas")
 }
