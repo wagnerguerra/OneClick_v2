@@ -991,6 +991,20 @@ export class OrcamentoService {
       const autor = user?.name || 'um colaborador'
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
       const link = `${baseUrl}/orcamentos/${orcId}`
+      // #364 — a nota interna é HTML rico do TipTap e pode ter IMAGEM colada (data
+      // URI base64). Injetar cru no e-mail vazava o markup como texto e inchava a
+      // mensagem. Substituímos cada imagem por um marcador NA SUA POSIÇÃO (data: é
+      // bloqueado por Gmail/Outlook, então cortamos a imagem mas sinalizamos onde
+      // estava — um marcador por imagem); depois strippamos o resto do HTML para
+      // texto e re-escapamos p/ o e-mail, preservando as quebras de linha.
+      const comMarcadores = (orc.textoInterno ?? '').replace(/<img\b[^>]*>/gi, ' [🖼 Imagem anexada — abra o orçamento para ver] ')
+      const notaTexto = this.htmlParaTexto(comMarcadores)
+      const notaHtml = notaTexto
+        ? notaTexto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
+        : ''
+      const notaBloco = notaHtml
+        ? `<div style="background:#f8fafc;border-left:3px solid #fb7185;padding:12px 16px;margin:14px 0;border-radius:4px;font-size:13px;">${notaHtml}</div>`
+        : ''
       const html = this.buildEmailLayout({
         empresaNome,
         logoUrl: empresa?.logoUrl,
@@ -1001,7 +1015,7 @@ export class OrcamentoService {
         bodyHtml: `
           <p>Um novo orçamento foi criado por <strong>${autor}</strong>.</p>
           <p><strong>Cliente:</strong> ${clienteNome}</p>
-          ${orc.textoInterno ? `<div style="background:#f8fafc;border-left:3px solid #fb7185;padding:12px 16px;margin:14px 0;border-radius:4px;font-size:13px;">${orc.textoInterno}</div>` : ''}
+          ${notaBloco}
         `,
         ctaLabel: 'Abrir orçamento',
         ctaUrl: link,
