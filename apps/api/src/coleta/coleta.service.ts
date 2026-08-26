@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from '@nestjs/common'
+import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common'
 import { prisma, getPrismaSkipTake, buildPaginatedResponse } from '@saas/db'
 import { COLETA_TRANSICOES } from '@saas/types'
 import type {
@@ -192,6 +192,23 @@ export class ColetaService {
   async criar(input: CriarColetaInput, usuarioId: string, empresaId?: string | null) {
     // Fiel ao adm/enviar.asp: Recebimento já chegou → Entregue ao Arquivo.
     const situacao = input.tipo === 'RECEBIMENTO' ? 'ENTREGUE_ARQUIVO' : 'AGUARDANDO_ROTA'
+
+    // O solicitante é quem registra, a menos que a tela aponte outra pessoa —
+    // a recepção costuma lançar pelo setor que pediu. Só aceita usuário ativo
+    // do escopo da empresa; qualquer outro id cai no próprio autor.
+    let solicitanteId = usuarioId
+    if (input.solicitanteId && input.solicitanteId !== usuarioId) {
+      const escolhido = await prisma.user.findFirst({
+        where: {
+          id: input.solicitanteId,
+          isActive: true,
+          OR: [{ empresaId: empresaId ?? null }, { empresaId: null }],
+        },
+        select: { id: true },
+      })
+      if (!escolhido) throw new BadRequestException('Solicitante inválido.')
+      solicitanteId = escolhido.id
+    }
     const c = await prisma.coleta.create({
       data: {
         empresaId: empresaId ?? null,
@@ -202,12 +219,19 @@ export class ColetaService {
         prioridade: input.prioridade ?? 0,
         clienteId: input.clienteId || null,
         contato: input.contato?.trim() || null,
-        solicitanteId: usuarioId,
+        solicitanteId,
         descricao: input.descricao || null,
       },
       select: { id: true },
     })
-    await this.log(c.id, 'Registro criado', usuarioId, situacao)
+    // Quem registrou fica no log; o solicitante fica no registro. Quando são
+    // pessoas diferentes, o log precisa dizer, senão a autoria se perde.
+    await this.log(
+      c.id,
+      solicitanteId === usuarioId ? 'Registro criado' : 'Registro criado em nome de outro solicitante',
+      usuarioId,
+      situacao,
+    )
     return c
   }
 
@@ -265,6 +289,22 @@ export class ColetaService {
   }
 
   // ── Categorias (cadastro) ──────────────────────────────────────
+
+  /**
+   * Quem pode figurar como solicitante: usuarios ativos do escopo da empresa.
+   * A tela abre com o proprio usuario e troca por aqui quando o registro e
+   * feito em nome de outra pessoa.
+   */
+  async listarSolicitantes(empresaId?: string | null) {
+    return prisma.user.findMany({
+      where: {
+        isActive: true,
+        OR: [{ empresaId: empresaId ?? null }, { empresaId: null }],
+      },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, email: true, image: true },
+    })
+  }
 
   async listarCategorias(empresaId?: string | null, apenasAtivas = true) {
     const cats = await prisma.coletaCategoria.findMany({

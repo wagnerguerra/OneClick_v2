@@ -17,10 +17,12 @@ import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
+import { UserCombobox } from '../orcamentos/_components/user-combobox'
 import { COLETA_TIPO_LABEL, COLETA_SITUACAO_LABEL, COLETA_SITUACOES, COLETA_TIPOS, COLETA_PRIORIDADE_LABEL } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { SITUACAO_BADGE, TIPO_BADGE } from './_components/badges'
 import { ColetaKanban, type KanbanRow } from './_components/kanban'
 
@@ -54,6 +56,7 @@ const dataBR = (iso: string | null | undefined) =>
 export default function ColetaDocumentosPage() {
   const router = useRouter()
   const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
+  const { profile: perfil } = useCurrentUserProfile()
   const perm = permissions.find((p) => p.moduleSlug === 'coleta-documentos')
   const podeEscrever = isMaster || isEmpresaMaster || (perm as { canWrite?: boolean } | undefined)?.canWrite === true
 
@@ -69,6 +72,7 @@ export default function ColetaDocumentosPage() {
   const [loading, setLoading] = useState(true)
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [clientes, setClientes] = useState<ClienteOpt[]>([])
+  const [solicitantes, setSolicitantes] = useState<Array<{ id: string; name: string; email: string | null; image: string | null }>>([])
 
   // Modal novo registro
   const [aberta, setAberta] = useState(false)
@@ -78,6 +82,8 @@ export default function ColetaDocumentosPage() {
   const [mCategoria, setMCategoria] = useState('')
   const [mCompetencia, setMCompetencia] = useState('')
   const [mPrioridade, setMPrioridade] = useState('2')
+  /** Quem está pedindo: abre no próprio usuário, mas pode ser trocado. */
+  const [mSolicitante, setMSolicitante] = useState('')
   const [mDescricao, setMDescricao] = useState('')
   const [salvando, setSalvando] = useState(false)
 
@@ -96,6 +102,7 @@ export default function ColetaDocumentosPage() {
   const carregarApoios = useCallback(() => {
     ;(trpc as any).coleta.listarCategorias.query({}).then(setCategorias).catch(() => setCategorias([]))
     ;(trpc as any).coleta.listarClientes.query().then(setClientes).catch(() => setClientes([]))
+    ;(trpc as any).coleta.listarSolicitantes.query().then(setSolicitantes).catch(() => setSolicitantes([]))
     ;(trpc as any).coleta.listarAreas.query().then(setAreas).catch(() => setAreas([]))
   }, [])
   useEffect(() => { carregarApoios() }, [carregarApoios])
@@ -141,6 +148,16 @@ export default function ColetaDocumentosPage() {
   }, [debounced, fTipo, fSituacao, fCategoria, fMinhas])
   useEffect(() => { if (viewMode === 'kanban') fetchKanban() }, [viewMode, fetchKanban])
 
+  /**
+   * O registro nasce em nome de quem abre a tela; a recepção troca quando
+   * lança pelo setor que pediu. Sem o campo, toda solicitação telefonada
+   * ficava no nome de quem digitou.
+   */
+  function abrirNovo() {
+    setMSolicitante(perfil?.id ?? '')
+    setAberta(true)
+  }
+
   async function salvar() {
     if (!mCliente && !mContato.trim()) { alerts.error('Falta o cliente', 'Informe o cliente ou ao menos o contato.'); return }
     setSalvando(true)
@@ -152,6 +169,7 @@ export default function ColetaDocumentosPage() {
         categoriaId: mCategoria || null,
         competencia: mCompetencia || null,
         prioridade: Number(mPrioridade),
+        solicitanteId: mSolicitante || null,
         descricao: mDescricao || null,
       })
       alerts.success('Registrado', mTipo === 'RECEBIMENTO' ? 'Documento entregue ao Arquivo.' : 'Solicitação aguardando rota.')
@@ -214,7 +232,7 @@ export default function ColetaDocumentosPage() {
             </DropdownMenu>
           )}
           {podeEscrever && (
-            <Button size="sm" className="gap-1.5" onClick={() => setAberta(true)}>
+            <Button size="sm" className="gap-1.5" onClick={abrirNovo}>
               <Plus className="h-4 w-4" />Novo Registro
             </Button>
           )}
@@ -387,6 +405,17 @@ export default function ColetaDocumentosPage() {
                     {categorias.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="col-span-12">
+                <Label className="text-[13px] font-semibold">Solicitante</Label>
+                <div className="mt-1.5">
+                  <UserCombobox users={solicitantes} value={mSolicitante} onSelect={setMSolicitante} placeholder="Quem está solicitando" />
+                </div>
+                {mSolicitante && perfil && mSolicitante !== perfil.id && (
+                  <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                    Registro em nome de outra pessoa — seu nome fica no histórico como autor do lançamento.
+                  </p>
+                )}
               </div>
               <div className="col-span-12">
                 <Label className="text-[13px] font-semibold">Cliente</Label>

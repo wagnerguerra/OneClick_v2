@@ -71,6 +71,10 @@ export function createColetaRouter(service: ColetaService) {
         service.excluir(input, ctx.userId, await papeisDe(ctx), ctx.empresaId)),
 
     // ── Categorias (cadastro do módulo) ──
+    /** Pessoas que podem constar como solicitante (ativas, do escopo). */
+    listarSolicitantes: readProcedure(MODULE)
+      .query(({ ctx }) => service.listarSolicitantes(ctx.empresaId)),
+
     listarCategorias: readProcedure(MODULE)
       .input(z.object({ incluirInativas: z.boolean().optional() }).optional())
       .query(({ input, ctx }) => service.listarCategorias(ctx.empresaId, !input?.incluirInativas)),
