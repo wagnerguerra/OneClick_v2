@@ -1004,8 +1004,8 @@ export default function CrmPage() {
                 <TableRow className="whitespace-nowrap">
                   <TableHead>Titulo</TableHead>
                   <TableHead className="w-[140px]">Etapa</TableHead>
-                  <TableHead className="w-[180px]">Cliente</TableHead>
-                  <TableHead className="w-[100px]">Criado</TableHead>
+                  <TableHead className="hidden md:table-cell w-[180px]">Cliente</TableHead>
+                  <TableHead className="hidden lg:table-cell w-[100px]">Criado</TableHead>
                   <TableHead className="w-[44px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -1019,8 +1019,8 @@ export default function CrmPage() {
                     <TableCell>
                       <Badge className="text-[10px] px-1.5 py-0.5 text-white" style={{ backgroundColor: op.etapa.cor }}>{op.etapa.nome}</Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-xs truncate max-w-[180px]">{(op as any).cliente?.razaoSocial || '--'}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{new Date(op.createdAt).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground text-xs truncate max-w-[180px]">{(op as any).cliente?.razaoSocial || '--'}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{new Date(op.createdAt).toLocaleDateString('pt-BR')}</TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

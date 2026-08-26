@@ -659,10 +659,10 @@ export default function DtePage() {
                   <TableHeader>
                     <TableRow className="whitespace-nowrap">
                       <TableHead>Razao Social</TableHead>
-                      <TableHead className="w-[150px]">CNPJ</TableHead>
-                      <TableHead className="w-[80px] text-center">Msgs</TableHead>
+                      <TableHead className="hidden lg:table-cell w-[150px]">CNPJ</TableHead>
+                      <TableHead className="hidden md:table-cell w-[80px] text-center">Msgs</TableHead>
                       <TableHead className="w-[80px] text-center">Nao lidas</TableHead>
-                      <TableHead className="w-[120px]">Ultima msg</TableHead>
+                      <TableHead className="hidden xl:table-cell w-[120px]">Ultima msg</TableHead>
                       <TableHead className="w-[44px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -674,8 +674,8 @@ export default function DtePage() {
                         onClick={() => navigateToMensagens(cliente)}
                       >
                         <TableCell className="font-medium text-sm truncate max-w-[300px] uppercase">{cliente.razao_social}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs">{formatDoc(cliente.documento)}</TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{formatDoc(cliente.documento)}</TableCell>
+                        <TableCell className="hidden md:table-cell text-center">
                           <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-[10px]">{cliente.total}</Badge>
                         </TableCell>
                         <TableCell className="text-center">
@@ -684,7 +684,7 @@ export default function DtePage() {
                             : <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 text-[10px]">0</Badge>
                           }
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-xs">{cliente.ultimaMensagem || '--'}</TableCell>
+                        <TableCell className="hidden xl:table-cell text-muted-foreground text-xs">{cliente.ultimaMensagem || '--'}</TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -812,7 +812,7 @@ export default function DtePage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="whitespace-nowrap">
-                      <TableHead className="w-[36px]">
+                      <TableHead className="hidden sm:table-cell w-[36px]">
                         <input
                           type="checkbox"
                           className="rounded border-gray-300"
@@ -823,7 +823,7 @@ export default function DtePage() {
                           }}
                         />
                       </TableHead>
-                      <TableHead className="w-[100px]">Tipo</TableHead>
+                      <TableHead className="hidden md:table-cell w-[100px]">Tipo</TableHead>
                       <TableHead className="w-[44px]"></TableHead>
                       <TableHead>Assunto</TableHead>
                       <TableHead className="w-[110px]">Data</TableHead>
@@ -841,7 +841,7 @@ export default function DtePage() {
                         )}
                         onClick={() => setDetailMsg(msg)}
                       >
-                        <TableCell onClick={e => e.stopPropagation()}>
+                        <TableCell className="hidden sm:table-cell" onClick={e => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             className="rounded border-gray-300"
@@ -852,7 +852,7 @@ export default function DtePage() {
                             }}
                           />
                         </TableCell>
-                        <TableCell><TipoBadge tipo={msg.tipo} /></TableCell>
+                        <TableCell className="hidden md:table-cell"><TipoBadge tipo={msg.tipo} /></TableCell>
                         <TableCell>
                           {msg.status === 'nao_lida'
                             ? <AlertCircle className="h-4 w-4 text-amber-500" />

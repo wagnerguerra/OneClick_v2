@@ -449,9 +449,9 @@ export default function ComercialPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs">Contrato</TableHead>
+                    <TableHead className="hidden sm:table-cell text-xs">Contrato</TableHead>
                     <TableHead className="text-xs">Cliente</TableHead>
-                    <TableHead className="text-xs text-center">Vence em</TableHead>
+                    <TableHead className="hidden md:table-cell text-xs text-center">Vence em</TableHead>
                     <TableHead className="text-xs text-center">Dias restantes</TableHead>
                     <TableHead className="text-xs text-right">Honorário mensal</TableHead>
                   </TableRow>
@@ -459,9 +459,9 @@ export default function ComercialPage() {
                 <TableBody>
                   {aVencer.map((c) => (
                     <TableRow key={c.id}>
-                      <TableCell className="text-xs font-medium">#{c.numero}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs font-medium">#{c.numero}</TableCell>
                       <TableCell className="text-xs">{c.cliente}</TableCell>
-                      <TableCell className="text-xs text-center">
+                      <TableCell className="hidden md:table-cell text-xs text-center">
                         {c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '—'}
                       </TableCell>
                       <TableCell className="text-xs text-center">

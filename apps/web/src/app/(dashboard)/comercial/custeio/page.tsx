@@ -190,11 +190,11 @@ export default function CusteioPage() {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="text-xs font-semibold uppercase tracking-wider">Cliente</TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Custo direto</TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Rateio apoio</TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">TDABC</TableHead>
+                  <TableHead className="hidden lg:table-cell text-right text-xs font-semibold uppercase tracking-wider">Custo direto</TableHead>
+                  <TableHead className="hidden xl:table-cell text-right text-xs font-semibold uppercase tracking-wider">Rateio apoio</TableHead>
+                  <TableHead className="hidden xl:table-cell text-right text-xs font-semibold uppercase tracking-wider">TDABC</TableHead>
                   <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Custo total</TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Receita ref.</TableHead>
+                  <TableHead className="hidden md:table-cell text-right text-xs font-semibold uppercase tracking-wider">Receita ref.</TableHead>
                   <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Margem</TableHead>
                 </TableRow>
               </TableHeader>
@@ -211,11 +211,11 @@ export default function CusteioPage() {
                       <div className="truncate text-sm font-medium">{l.cliente || '—'}</div>
                       <div className="text-[11px] text-muted-foreground tabular-nums">{fmtCnpj(l.documento)}</div>
                     </TableCell>
-                    <TableCell className="text-right text-sm tabular-nums">{fmtMoeda(l.custoDireto)}</TableCell>
-                    <TableCell className="text-right text-sm tabular-nums">{fmtMoeda(l.custoRateioApoio)}</TableCell>
-                    <TableCell className="text-right text-sm tabular-nums text-muted-foreground">{l.custoTdabc > 0 ? fmtMoeda(l.custoTdabc) : '—'}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-right text-sm tabular-nums">{fmtMoeda(l.custoDireto)}</TableCell>
+                    <TableCell className="hidden xl:table-cell text-right text-sm tabular-nums">{fmtMoeda(l.custoRateioApoio)}</TableCell>
+                    <TableCell className="hidden xl:table-cell text-right text-sm tabular-nums text-muted-foreground">{l.custoTdabc > 0 ? fmtMoeda(l.custoTdabc) : '—'}</TableCell>
                     <TableCell className="text-right text-sm font-medium tabular-nums">{fmtMoeda(l.custoTotal)}</TableCell>
-                    <TableCell className="text-right text-sm tabular-nums">{fmtMoeda(l.receitaReferencia)}</TableCell>
+                    <TableCell className="hidden md:table-cell text-right text-sm tabular-nums">{fmtMoeda(l.receitaReferencia)}</TableCell>
                     <TableCell className="text-center text-sm"><MargemBadge pct={l.margem} /></TableCell>
                   </TableRow>
                 ))}
