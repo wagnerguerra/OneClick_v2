@@ -63,11 +63,11 @@ export default function LotesPage() {
             <TableRow>
               <TableHead className="text-xs">Nome</TableHead>
               <TableHead className="text-xs text-center">Status</TableHead>
-              <TableHead className="text-xs text-right">Progresso</TableHead>
-              <TableHead className="text-xs text-center">Sucesso</TableHead>
+              <TableHead className="hidden lg:table-cell text-xs text-right">Progresso</TableHead>
+              <TableHead className="hidden xl:table-cell text-xs text-center">Sucesso</TableHead>
               <TableHead className="text-xs text-center">Erros</TableHead>
-              <TableHead className="text-xs">Início</TableHead>
-              <TableHead className="text-xs">Usuário</TableHead>
+              <TableHead className="hidden md:table-cell text-xs">Início</TableHead>
+              <TableHead className="hidden xl:table-cell text-xs">Usuário</TableHead>
               <TableHead className="text-xs text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -87,16 +87,16 @@ export default function LotesPage() {
                       {lote.status}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="hidden lg:table-cell text-right">
                     <div className="text-[11px] tabular-nums">{lote.processados}/{lote.totalXmls} ({pct}%)</div>
                     <div className="h-1 bg-muted rounded-full overflow-hidden mt-1 w-[80px] ml-auto">
                       <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: MODULE_COLOR }} />
                     </div>
                   </TableCell>
-                  <TableCell className="text-center text-[12px] tabular-nums font-medium text-emerald-700 dark:text-emerald-400">{lote.sucesso}</TableCell>
+                  <TableCell className="hidden xl:table-cell text-center text-[12px] tabular-nums font-medium text-emerald-700 dark:text-emerald-400">{lote.sucesso}</TableCell>
                   <TableCell className="text-center text-[12px] tabular-nums font-medium text-rose-700 dark:text-rose-400">{lote.erros || '—'}</TableCell>
-                  <TableCell className="text-[11px] text-muted-foreground tabular-nums">{new Date(lote.iniciadoEm).toLocaleString('pt-BR')}</TableCell>
-                  <TableCell className="text-[11px]">{lote.uploadedBy?.name ?? '—'}</TableCell>
+                  <TableCell className="hidden md:table-cell text-[11px] text-muted-foreground tabular-nums">{new Date(lote.iniciadoEm).toLocaleString('pt-BR')}</TableCell>
+                  <TableCell className="hidden xl:table-cell text-[11px]">{lote.uploadedBy?.name ?? '—'}</TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <Link href={`/danfe/lotes/${lote.id}`}>
                       <Button variant="ghost" size="icon-sm" className="h-7 w-7"><Eye className="h-4 w-4" /></Button>

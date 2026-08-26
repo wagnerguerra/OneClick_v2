@@ -417,10 +417,10 @@ export default function ParametrosOrcamentosPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[100px]">Tipo</TableHead>
+              <TableHead className="hidden sm:table-cell w-[100px]">Tipo</TableHead>
               <TableHead>Nome</TableHead>
               <TableHead className="w-[140px] text-right">Valor Padrão</TableHead>
-              <TableHead className="w-[80px] text-center">Usos</TableHead>
+              <TableHead className="hidden md:table-cell w-[80px] text-center">Usos</TableHead>
               <TableHead className="w-[50px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -436,7 +436,7 @@ export default function ParametrosOrcamentosPage() {
               </TableCell></TableRow>
             ) : filtered.map(item => (
               <TableRow key={item.id} className="whitespace-nowrap">
-                <TableCell>
+                <TableCell className="hidden sm:table-cell">
                   <Badge style={{ backgroundColor: TIPO_COLORS[item.tipo] }} className="text-white text-[10px]">
                     {TIPO_LABELS[item.tipo] || item.tipo}
                   </Badge>
@@ -447,7 +447,7 @@ export default function ParametrosOrcamentosPage() {
                   </span>
                 </TableCell>
                 <TableCell className="text-right text-sm">{formatCurrency(item.valorPadrao)}</TableCell>
-                <TableCell className="text-center text-xs text-muted-foreground">{item.usoCount}</TableCell>
+                <TableCell className="hidden md:table-cell text-center text-xs text-muted-foreground">{item.usoCount}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

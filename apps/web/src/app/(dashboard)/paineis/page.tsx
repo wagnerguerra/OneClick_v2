@@ -122,8 +122,8 @@ export default function PaineisPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">Painel</TableHead>
-                <TableHead className="text-xs">Slug (URL)</TableHead>
-                <TableHead className="text-xs text-center">Folhas</TableHead>
+                <TableHead className="hidden lg:table-cell text-xs">Slug (URL)</TableHead>
+                <TableHead className="hidden sm:table-cell text-xs text-center">Folhas</TableHead>
                 <TableHead className="text-xs text-center">Status</TableHead>
                 <TableHead className="text-xs w-10"></TableHead>
               </TableRow>
@@ -137,8 +137,8 @@ export default function PaineisPage() {
                       {p.nome}
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground font-mono">/tv/{p.slug}</TableCell>
-                  <TableCell className="text-xs text-center">{p.folhasCount}</TableCell>
+                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground font-mono">/tv/{p.slug}</TableCell>
+                  <TableCell className="hidden sm:table-cell text-xs text-center">{p.folhasCount}</TableCell>
                   <TableCell className="text-center">
                     <Badge variant="secondary" className={`text-[10px] ${p.ativo ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : ''}`}>
                       {p.ativo ? 'Ativo' : 'Inativo'}
