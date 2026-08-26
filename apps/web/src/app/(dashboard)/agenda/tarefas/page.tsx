@@ -305,7 +305,7 @@ export default function TarefasPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100 transition-opacity">
                     <button
                       type="button"
                       onClick={() => { setTarefaEditando(t); setModalOpen(true) }}

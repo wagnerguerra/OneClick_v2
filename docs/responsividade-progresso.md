@@ -30,16 +30,16 @@ O que fazer em cada tela está em [`PADRAO_RESPONSIVIDADE.md`](PADRAO_RESPONSIVI
 
 Cada módulo passa pelos mesmos seis pontos.
 
-### 1. Agenda — `em andamento`
+### 1. Agenda — `concluída` · commit `8e97734a`
 
 | Item | Status |
 |---|---|
-| Cabeçalho e ações da página | [ ] |
-| Barra de filtros (quebra em vez de rolar; selects largura total no celular) | [ ] |
-| Listagem / tabela (colunas secundárias somem antes de espremer) | [ ] |
-| Calendário: mês/semana/dia em tela estreita | [ ] |
-| Modais e painéis laterais do módulo | [ ] |
-| Ações que só existem no hover | [ ] |
+| [x] Cabeçalho e ações da página | barra de ações do celular quebra em linhas, botões em `h-9` |
+| [x] Barra de filtros | painel lateral já era `hidden xl:block`; o seletor de tipo passa a ocupar a largura toda no celular |
+| [—] Listagem / tabela | a Agenda não tem tabela — a visão é o calendário |
+| [x] Calendário: mês em tela estreita | célula compacta (número + bolinhas por tipo, `+N`), linha de 62px; o detalhe abre no modal do dia, que já existia |
+| [x] Modais do módulo | as duas colunas do modal de evento empilham abaixo de `sm` (220px fixos não cabem num modal de ~358px) |
+| [x] Ações que só existem no hover | anotações, anexos, participantes e tarefas: visíveis no toque, hover só a partir de `sm` |
 
 ### 2. Coleta e Recebimento — `na fila`
 

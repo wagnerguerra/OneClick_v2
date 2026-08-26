@@ -25,6 +25,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ModuloAcessoButton } from '@/components/modulo-acesso-button'
 import { AgendaTipoHistoricoButton } from '@/components/agenda-tipo-historico-button'
 import { trpc } from '@/lib/trpc'
+import { useIsMobile } from '@/hooks/use-media-query'
 import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
 import { renderConflitosHtml } from '@/lib/agenda-conflitos'
 import { TarefaModal } from './_components/tarefa-modal'
@@ -259,6 +260,7 @@ export default function AgendaPage() {
   const [eventos, setEventos] = useState<AgendaEvento[]>([])
   const [tipos, setTipos] = useState<AgendaTipo[]>([])
   const [loading, setLoading] = useState(true)
+  const isMobile = useIsMobile()
   const [usuarios, setUsuarios] = useState<Array<{ id: string; name: string; image?: string | null }>>([])
 
   // Filtros
@@ -497,10 +499,10 @@ export default function AgendaPage() {
                   <span className="text-[10px] text-muted-foreground">{new Date(a.createdAt).toLocaleString('pt-BR')}</span>
                   {podeMexer && !editando && (
                     <>
-                      <button onClick={() => iniciarEdicaoAnotacao(a.id, a.texto)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-sky-600" title="Editar anotação">
+                      <button onClick={() => iniciarEdicaoAnotacao(a.id, a.texto)} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-sky-600" title="Editar anotação">
                         <Edit2 className="h-3 w-3" />
                       </button>
-                      <button onClick={() => removeAnotacaoEvento(a.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" title="Excluir anotação">
+                      <button onClick={() => removeAnotacaoEvento(a.id)} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" title="Excluir anotação">
                         <Trash2 className="h-3 w-3" />
                       </button>
                     </>
@@ -557,7 +559,7 @@ export default function AgendaPage() {
               </a>
               {x.fileSize != null && <span className="text-[10px] text-muted-foreground shrink-0">{(x.fileSize / 1024).toFixed(0)} KB</span>}
               {podeMexer && (
-                <button onClick={() => removeAnexoEvento(x.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0" title="Remover anexo">
+                <button onClick={() => removeAnexoEvento(x.id)} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0" title="Remover anexo">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
@@ -1729,12 +1731,12 @@ export default function AgendaPage() {
         {/* ============================================================ */}
         <div className="flex-1 min-w-0 flex flex-col">
           {/* Botões mobile (visíveis apenas em telas menores) */}
-          <div className="flex xl:hidden gap-2 mb-3">
-            <Button size="sm" className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white" onClick={() => openNewEvent()}>
+          <div className="mb-3 flex flex-wrap items-center gap-2 xl:hidden">
+            <Button size="sm" className="h-9 gap-1.5 bg-sky-500 text-white hover:bg-sky-600" onClick={() => openNewEvent()}>
               <Plus className="h-4 w-4" />Novo Evento
             </Button>
             <Select value={filtroTipo || '__all__'} onValueChange={v => setFiltroTipo(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectTrigger className="h-9 w-full text-xs sm:w-[140px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos</SelectItem>
                 {tipos.map(t => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}
@@ -1769,7 +1771,10 @@ export default function AgendaPage() {
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(${Math.ceil(totalCells / 7)}, minmax(140px, auto))` }}>
+            {/* No celular a célula não comporta o chip do evento: 390px divididos
+                por 7 dão ~55px de largura. A linha encolhe e o conteúdo vira
+                bolinha — o detalhe fica no modal do dia, que já existia. */}
+            <div className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(${Math.ceil(totalCells / 7)}, minmax(${isMobile ? 62 : 140}px, auto))` }}>
               {Array.from({ length: totalCells }, (_, i) => {
                 // Data real da célula (pode ser do mês anterior, atual ou próximo)
                 const cellDate = new Date(year, month, 1 - firstDay + i)
@@ -1819,7 +1824,33 @@ export default function AgendaPage() {
                       setDraggingEventId(null)
                     }}
                   >
-                    {(
+                    {isMobile ? (
+                      // Celular: número do dia + até quatro bolinhas com a cor do
+                      // tipo. Tocar abre o dia (ou cria evento, se estiver vazio).
+                      <div className="flex h-full flex-col items-center gap-1 pt-0.5">
+                        <span className={cn(
+                          'flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-medium',
+                          today && 'bg-sky-500 text-white',
+                          isPast && !today && isCurrentMonth && 'text-muted-foreground/60',
+                          !isCurrentMonth && 'text-muted-foreground/50',
+                        )}>{dayNum}</span>
+                        <div className="flex flex-wrap items-center justify-center gap-0.5">
+                          {dayEvents.slice(0, 4).map(ev => (
+                            <span
+                              key={ev.id}
+                              className="h-1.5 w-1.5 rounded-full"
+                              style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }}
+                            />
+                          ))}
+                          {(tarefasPorDia[dateStr] ?? []).length > 0 && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />
+                          )}
+                        </div>
+                        {dayEvents.length > 4 && (
+                          <span className="text-[9px] leading-none text-muted-foreground">+{dayEvents.length - 4}</span>
+                        )}
+                      </div>
+                    ) : (
                       <>
                         <div className={cn(
                           'text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full shrink-0',
@@ -2735,9 +2766,11 @@ export default function AgendaPage() {
               })() : ''
 
               return (
-              <div className="flex gap-4">
+              // Duas colunas viram uma no celular: 220px fixos ao lado do resto
+              // não cabem num modal de ~358px.
+              <div className="flex flex-col gap-4 sm:flex-row">
                 {/* COLUNA ESQUERDA — tipo, configurações, recorrência */}
-                <div className="w-[220px] shrink-0 space-y-4 border-r pr-4">
+                <div className="w-full shrink-0 space-y-4 border-b pb-4 sm:w-[220px] sm:border-b-0 sm:border-r sm:pb-0 sm:pr-4">
                   {/* Tipo — combobox filtrável */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">Tipo *</Label>
@@ -3649,7 +3682,7 @@ export default function AgendaPage() {
                         role="button"
                         tabIndex={-1}
                         onClick={e => { e.stopPropagation(); handleDeleteTipo(t) }}
-                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 shrink-0 p-1 rounded transition-opacity"
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-red-500 hover:text-red-600 shrink-0 p-1 rounded transition-opacity"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </span>
