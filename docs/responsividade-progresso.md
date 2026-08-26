@@ -77,6 +77,56 @@ Cada módulo passa pelos mesmos seis pontos.
 > `orcamentos/[id]/old` ficou de fora de propósito: é a cópia congelada da tela
 > antiga, mantida só para consulta.
 
+## Demais módulos — varredura na ordem do menu
+
+Base aplicada a todo o sistema nesta fase:
+
+| Item | Commit |
+|---|---|
+| [x] 68 ações escondidas em hover viram visíveis no toque (38 telas) | `7def7ff7` |
+| [x] Medição em produção a 1351px: nenhuma tela da amostra vaza na horizontal | verificado |
+
+> A janela do Chrome automatizado não desce abaixo de ~1350px de largura, então a
+> conferência de celular continua sendo por código. Medição real só do notebook.
+
+### Cadastros
+- [x] Serviços e Obrigações — tabelas de catálogo e execuções adaptadas · `d087359c`
+- [x] Áreas, Cargos, Contatos — já escondiam colunas; sem ajuste necessário
+- [x] Clientes, Colaboradores, Usuários, Fornecedores, Sócios, Empresas — sem vazamento a 1351px; tabelas dentro do limite
+- [ ] Grupos Empresariais — módulo ainda em construção (wip)
+
+### Comercial
+- [ ] Painel Comercial · CRM (relatórios) · Contratos (gestão, custeio, cláusulas, modelos)
+
+### Administrativo
+- [x] Agenda · Coleta (fase anterior)
+- [ ] Gerenciador de Serviços · Minhas Obrigações · Acessórias · Processos
+
+### Legalização
+- [x] Certificados Digitais — 9 colunas adaptadas · `d087359c`
+- [ ] Benefícios Fiscais · Certidões e Alvarás
+
+### Trabalhista
+- [x] Controle de Férias (fases anteriores, já nasceu com colunas responsivas)
+- [ ] Benefícios · Importação de Folha · Espelho da Folha
+
+### Fiscal
+- [ ] Caixa Postal · DANFE · DT-e · DCTFWeb · Situação Fiscal · NFS-e
+
+### Contábil
+- [ ] Categorias de Balancete · Dashboard Financeiro · Tratamento de Lançamentos
+
+### TI
+- [x] Gestão de Ativos — 8 colunas adaptadas · `d087359c`
+- [x] HelpDesk (fase anterior)
+- [ ] Projetos · Relatórios da TI
+
+### Qualidade
+- [ ] Aquisições · Capacitações · Documentos · Elogios · Melhorias · Não Conformidades · Reclamações · Reuniões · Sugestões · Tabelas de Registros
+
+### Configurações e Admin
+- [ ] Configurações Gerais · Painéis de TV · Métricas · Design System · demais telas administrativas
+
 ## Decisões pendentes
 
 _(o que precisa da palavra do Wagner antes de virar código)_
