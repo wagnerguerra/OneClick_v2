@@ -144,7 +144,12 @@ export default function HelpdeskPage() {
   const [agentes, setAgentes] = useState<Array<{ id: string; name: string }>>([])
   const [viewMode, setViewMode] = useState<'kanban' | 'lista'>(() => {
     if (typeof window === 'undefined') return 'kanban'
-    return (window.localStorage.getItem('helpdesk:viewMode') as 'kanban' | 'lista') || 'kanban'
+    const salvo = window.localStorage.getItem('helpdesk:viewMode')
+    if (salvo === 'kanban' || salvo === 'lista') return salvo
+    // Sem preferência salva, o celular abre em lista: o kanban tem seis colunas
+    // de 240px, ou seja 1440px de rolagem lateral numa tela de 390px. Quem
+    // escolher kanban no celular continua com ele — a escolha manda.
+    return window.matchMedia('(max-width: 639px)').matches ? 'lista' : 'kanban'
   })
   const [novoOpen, setNovoOpen] = useState(false)
   // Ticket aberto no sheet de detalhe (click esquerdo no card do kanban)

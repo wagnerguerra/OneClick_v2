@@ -191,7 +191,7 @@ function MinhasAvaliacoesView({ minhas }: { minhas: AvaliacoesLista | null }) {
         </h3>
         {!semAvaliacoes && (
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <BuscaAvaliacoes value={q} onChange={setQ} className="w-[320px]" />
+            <BuscaAvaliacoes value={q} onChange={setQ} className="w-full sm:w-[320px]" />
             <FiltroNotaSelect value={notaFiltro} onChange={setNotaFiltro} />
           </div>
         )}
@@ -339,7 +339,7 @@ function AvaliacoesCompletasCard({ responsaveis, inicio, fim }: {
 
       {/* Filtros: busca + responsável + nota */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <BuscaAvaliacoes value={q} onChange={setQ} className="w-[320px]" />
+        <BuscaAvaliacoes value={q} onChange={setQ} className="w-full sm:w-[320px]" />
         <Select value={respId} onValueChange={setRespId}>
           <SelectTrigger className="h-8 w-[200px] text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
