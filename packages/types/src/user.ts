@@ -300,6 +300,13 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'sci-portal-nacional', label: 'Conciliador NFS-e (Portal Nacional)', group: 'Ferramentas' },
     { key: 'nfse-pdf', label: 'NFS-e → PDF (DANFSe)', group: 'Ferramentas' },
   ],
+  // Ferramentas gerais: aqui a sub-permissão é OPT-IN, ao contrário das
+  // ferramentas fiscais/contábeis acima. Assinar usa o certificado A1 da
+  // empresa guardado no cadastro — quem tem o botão assina em nome dela, e
+  // isso se libera nome a nome, nunca por omissão.
+  'ferramentas-gerais': [
+    { key: 'assinar', label: 'Assinar PDF com o certificado A1 da empresa', group: 'Ferramentas' },
+  ],
   'ferramentas-contabil': [
     { key: 'gnre', label: 'Extrator GNRE', group: 'Ferramentas' },
     { key: 'extrato-edit', label: 'Editor de Extrato', group: 'Ferramentas' },

@@ -1,7 +1,7 @@
 'use client'
 
 import { ComponentType } from 'react'
-import { Mail, Shield, FileLock, ListChecks, Landmark, Calendar, CalendarClock, Phone, FileText, Megaphone } from 'lucide-react'
+import { Mail, Shield, FileLock, ListChecks, Landmark, Calendar, CalendarClock, Phone, FileText, Megaphone, PenLine } from 'lucide-react'
 import { CaixaPostalWidget } from './caixa-postal-widget'
 import { CndFederaisWidget } from './cnd-federais-widget'
 import { CertificadosWidget } from './certificados-widget'
@@ -12,6 +12,7 @@ import { RamaisWidget } from './ramais-widget'
 import { OrcamentosWidget } from './orcamentos-widget'
 import { NovidadesWidget } from './novidades-widget'
 import { HojeWidget } from './hoje-widget'
+import { AssinarDocumentoWidget } from './assinar-documento-widget'
 
 export type WidgetColor = 'sky' | 'indigo' | 'fuchsia' | 'violet' | 'emerald' | 'amber'
 
@@ -120,6 +121,18 @@ export const WIDGET_REGISTRY: Record<string, WidgetDef> = {
     // relatórios esconderia o aviso justamente de quem ele informa. O endpoint
     // é protectedProcedure e devolve só o que foi publicado.
     groupHref: '/relatorios-ti', // cor visual do bloco TI
+  },
+  'assinar-documento': {
+    id: 'assinar-documento',
+    label: 'Assinar Documento',
+    icon: PenLine,
+    color: 'emerald',
+    Component: AssinarDocumentoWidget,
+    // Widget de ação: um botão e uma linha de texto, sem números para crescer.
+    defaultLayout: { w: 3, h: 5, minW: 2, minH: 4, maxH: 8 },
+    // O módulo abre a porta; a sub-permissão `assinar` é conferida dentro do
+    // componente e no backend — ver o comentário do widget.
+    requiresModule: 'ferramentas-gerais',
   },
   'orcamentos': {
     id: 'orcamentos',
