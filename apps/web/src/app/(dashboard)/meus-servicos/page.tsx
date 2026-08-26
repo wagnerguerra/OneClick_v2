@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react'
 import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { createPortal } from 'react-dom'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import {
@@ -760,38 +761,25 @@ export default function MeusServicosPage() {
 
   return (
     <div className="flex flex-col gap-5 h-[calc(100vh-90px)]" suppressHydrationWarning>
-      {/* ── Header (padrão CRM/Orçamentos) ── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <ListChecks className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Gerenciador de Serviços</h1>
-            <p className="text-sm text-muted-foreground">O que está em aberto e atribuído a você</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* ── Topo — PADRAO_PAGINAS §1.1, com as ações e a busca na barra ── */}
+      <PageHeaderBar className="mb-0 shrink-0 sm:mb-0" actions={<>
           {/* Concluído, dispensado e cancelado saíram do painel: consulta deles
               é no /servicos › Execuções, com filtro por status. */}
           <Button variant="outline" size="sm" asChild className="gap-1.5">
             <Link href="/servicos?view=execucoes"><Receipt className="h-4 w-4" />Histórico completo</Link>
           </Button>
-          {/* Busca — padrão CRM/Orçamentos/Helpdesk (cliente, serviço, nº orçamento, responsável) */}
+          {/* Busca — medida do /orcamentos (h-9, 224px) */}
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={busca}
               onChange={e => setBusca(e.target.value)}
               placeholder="Buscar cliente, serviço, #orçamento..."
-              className="h-8 w-[260px] pl-7 text-xs"
+              className="h-9 w-56 pl-8 text-sm"
             />
           </div>
-          {/* Toggle Kanban/Lista — padrão CRM */}
-          <div className="flex items-center border rounded-[2px] overflow-hidden">
+          {/* Toggle Kanban/Lista — padrão CRM/Orçamentos */}
+          <div className="flex items-center overflow-hidden rounded-lg border">
             <button
               type="button"
               className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')}
@@ -833,8 +821,17 @@ export default function MeusServicosPage() {
               <Plus className="h-4 w-4" /> Novo Serviço
             </Button>
           )}
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Gerenciador de Serviços</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Gerenciador de Serviços</span>
+        </p>
+      </PageHeaderBar>
 
       {/* ── Barra de filtros (chips horizontais) ── */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -885,17 +882,20 @@ export default function MeusServicosPage() {
         </Card>
       ) : viewMode === 'kanban' ? (
         // Kanban no padrão CRM/Orçamentos — overflow-x-auto + flex-1 ocupa altura disponível
-        <div className="overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1">
-          <div className="flex gap-3 px-1 h-full" style={{ minWidth: `${colunasKanban.length * 240}px` }}>
+        <div className="nice-scrollbar -mx-1 flex-1 overflow-x-auto overflow-y-hidden pb-4">
+          {/* Coluna ABERTA de largura fixa e trilho com a largura do conteúdo —
+              mesmo do /orcamentos. A coluna elástica mudava de medida conforme
+              a quantidade de status visíveis. */}
+          <div className="flex h-full w-max gap-4 px-1">
             {colunasKanban.map(col => (
               <div
                 key={col.key}
-                className="flex-1 min-w-[240px] flex flex-col overflow-hidden rounded-lg transition-colors bg-black/[0.04] dark:bg-white/[0.04]"
+                className="flex h-full w-[340px] shrink-0 flex-col rounded-xl transition-colors"
               >
-                {/* Header — padrão /helpdesk: sem bg/border, dot + título + pill colorida */}
-                <div className="px-3 py-2.5 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: col.cor }} />
+                {/* Header: dot da cor + nome + contador em pill tintada */}
+                <div className="flex items-center justify-between gap-2 px-1.5 py-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: col.cor }} />
                     <span className="text-sm font-semibold truncate">{col.titulo}</span>
                     <span
                       className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold text-white shrink-0"
@@ -906,8 +906,8 @@ export default function MeusServicosPage() {
                   </div>
                 </div>
 
-                {/* Body da coluna */}
-                <div className="flex-1 p-2 space-y-2 overflow-y-auto nice-scrollbar min-h-[120px]">
+                {/* Body da coluna — espaçamento do /orcamentos */}
+                <div className="nice-scrollbar min-h-[120px] flex-1 space-y-2 overflow-y-auto px-1.5 pb-2">
                   {col.items.length === 0 && (
                     <p className="text-xs text-muted-foreground text-center py-6 italic">Vazio</p>
                   )}
