@@ -58,7 +58,12 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
       </div>
       <div
         className={cn(
-          'transition-all duration-300',
+          // transition-[margin] (não transition-all): este wrapper só precisa
+          // animar a margem que desloca com a sidebar. Com transition-all, ao
+          // trocar o tema ele animava a própria `color` herdada por 300ms, e
+          // elementos SEM cor própria (ex.: botão outline que herda) seguiam
+          // essa animação — texto atrasando o fundo. ease-in-out = mesma curva.
+          'transition-[margin] duration-300 ease-in-out',
           collapsed ? 'lg:ml-[80px]' : 'lg:ml-[260px]',
         )}
       >

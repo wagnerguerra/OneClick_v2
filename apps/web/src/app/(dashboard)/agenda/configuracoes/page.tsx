@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowLeft, Calendar, Plus, Edit2, Trash2, MoreVertical, Loader2, Settings, DoorOpen,
+  Calendar, Plus, Edit2, Trash2, MoreVertical, Loader2, Settings, DoorOpen,
   Mail, Send, X, ChevronDown, Search, RefreshCw, Check, FileText, Eye, Upload, GripVertical,
 } from 'lucide-react'
 import {
@@ -21,6 +21,7 @@ import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -572,14 +573,7 @@ export default function AgendaConfiguracoesPage() {
             <p className="text-sm text-muted-foreground">Regras de conflito e cadastro de salas</p>
           </div>
         </div>
-        <Button
-          variant="outline" size="icon"
-          onClick={() => router.push('/agenda')}
-          title="Voltar pra Agenda"
-          className="h-9 w-9"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <BackButton href="/agenda" title="Voltar pra Agenda" />
       </div>
 
       {/* ============================================================

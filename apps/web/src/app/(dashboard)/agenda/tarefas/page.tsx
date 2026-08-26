@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { BackButton } from '@/components/ui/back-button'
 import {
   ListTodo, Plus, Search, Loader2, CheckSquare, Square, Edit2, Trash2,
-  Calendar, AlertCircle, ArrowLeft, Briefcase,
+  Calendar, AlertCircle, Briefcase,
 } from 'lucide-react'
 import {
   Button, Input, Card, Badge, cn,
@@ -151,9 +152,7 @@ export default function TarefasPage() {
           >
             <Plus className="h-4 w-4" />Nova tarefa
           </Button>
-          <Button variant="outline" size="icon" asChild className="h-9 w-9" title="Voltar pra Agenda">
-            <Link href="/agenda"><ArrowLeft className="h-4 w-4" /></Link>
-          </Button>
+          <BackButton href="/agenda" title="Voltar pra Agenda" />
         </div>
       </div>
 
