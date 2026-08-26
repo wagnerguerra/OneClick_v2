@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import {
   Plus, Loader2, Search, AlertTriangle, MessageSquare,
   CheckCircle2, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
@@ -495,23 +496,8 @@ export default function HelpdeskPage() {
 
   return (
     <div className="flex flex-col gap-5 h-[calc(100vh-90px)]">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/materiais/icon_helpdesk.png" alt="HelpDesk" className="h-12 w-12 object-contain shrink-0" />
-          <div>
-            <h1>HelpDesk</h1>
-            <p className="text-sm text-muted-foreground">
-              {podeAtuar
-                ? 'Atendimento — Arraste cards para mudar o status. Use filtros para achar chamados específicos.'
-                : meuEscopo && meuEscopo.scope !== 'proprios'
-                ? 'Acompanhamento do painel — somente leitura.'
-                : 'Acompanhe seus tickets e avalie o atendimento. Para abrir um novo, clique em "Novo Ticket".'}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 (referência /clientes) */}
+      <PageHeaderBar className="shrink-0" actions={<>
           {/* Toggle Kanban/Lista — só TI (podeAtuar). Demais usuários veem só Lista. */}
           {podeAtuar && (
             <div className="flex items-center border rounded-[2px] overflow-hidden">
@@ -541,47 +527,57 @@ export default function HelpdeskPage() {
           >
             <Plus className="h-4 w-4" /> Novo Ticket
           </Button>
-          {/* Toggle arquivados — só TI (podeAtuar). Ativa modo de visualização
-              dos tickets arquivados, com possibilidade de desarquivar. */}
-          {podeAtuar && (
+          {/* Arquivados fica à vista quando ligado — é um modo, e modo escondido
+              no menu deixa o usuário sem saber por que a lista mudou. */}
+          {podeAtuar && verArquivados && (
             <Button
-              variant={verArquivados ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setVerArquivados(v => !v)}
-              title={verArquivados ? 'Voltar pros tickets ativos' : 'Ver tickets arquivados'}
-              className={cn('gap-1.5', verArquivados && 'bg-amber-500 hover:bg-amber-600 text-white')}
+              onClick={() => setVerArquivados(false)}
+              className="gap-1.5 bg-amber-500 text-white hover:bg-amber-600"
             >
-              <Archive className="h-4 w-4" />
-              {verArquivados ? 'Sair dos arquivados' : 'Arquivados'}
+              <Archive className="h-4 w-4" />Sair dos arquivados
             </Button>
           )}
-          {/* Indicadores (dashboard + relatórios) — agente (visão própria ou
-              completa) ou chefia/painel de métricas (só completa). C9 */}
+          {/* Secundárias no menu ⋮, como manda o padrão */}
           {(podeAtuar || podeVerMetricas) && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => router.push('/helpdesk/indicadores')}
-              title="Indicadores e relatórios"
-              className="h-9 w-9"
-            >
-              <BarChart3 className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                {(podeAtuar || podeVerMetricas) && (
+                  <DropdownMenuItem onClick={() => router.push('/helpdesk/indicadores')}>
+                    <BarChart3 className="h-4 w-4" />Indicadores e relatórios
+                  </DropdownMenuItem>
+                )}
+                {podeAtuar && !verArquivados && (
+                  <DropdownMenuItem onClick={() => setVerArquivados(true)}>
+                    <Archive className="h-4 w-4" />Ver arquivados
+                  </DropdownMenuItem>
+                )}
+                {podeAtuar && (
+                  <DropdownMenuItem onClick={() => router.push('/helpdesk/configuracoes')}>
+                    <Settings className="h-4 w-4" />Configurações
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
-          {/* Configurações — só TI (podeAtuar) */}
-          {podeAtuar && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => router.push('/helpdesk/configuracoes')}
-              title="Configurações do HelpDesk"
-              className="h-9 w-9"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">HelpDesk</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>TI</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>HelpDesk</span>
+          {verArquivados && (<>
+            <span className="text-muted-foreground/50">›</span>
+            <span className="text-amber-600 dark:text-amber-400">Arquivados</span>
+          </>)}
+        </p>
+      </PageHeaderBar>
 
       {/* Filtros (#HLP0139) — busca à esquerda; escopo + filtros alinhados à
           direita. Cada filtro mostra sua dimensão como placeholder (sem vários
