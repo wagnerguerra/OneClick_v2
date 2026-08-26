@@ -2855,7 +2855,7 @@ export default function AgendaPage() {
                             { v: 'HIBRIDO', l: 'Híbrido', i: Monitor },
                           ].map(({ v, l, i: I }) => (
                             <label key={v} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', form.presenca === v ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400' : 'hover:bg-muted/50')}>
-                              <input type="radio" name="presenca" checked={form.presenca === v} onChange={() => setForm(f => ({ ...f, presenca: v }))} className="accent-sky-500" />
+                              <input type="radio" name="presenca" checked={form.presenca === v} onChange={() => setForm(f => ({ ...f, presenca: v, ...(v === 'ONLINE' ? { salaId: '', sala: '' } : {}) }))} className="accent-sky-500" />
                               <I className="h-3.5 w-3.5" />{l}
                             </label>
                           ))}
@@ -2864,8 +2864,10 @@ export default function AgendaPage() {
                       )}
 
                       {/* Sala — radios no mesmo estilo da Modalidade.
-                          Lista vem de /agenda/configuracoes (aba Salas) + "Outro local". */}
-                      {permiteSala && (
+                          Lista vem de /agenda/configuracoes (aba Salas) + "Outro local".
+                          #365 — não faz sentido escolher sala física em evento ONLINE:
+                          esconde a seção (e o onChange da modalidade limpa a sala). */}
+                      {permiteSala && form.presenca !== 'ONLINE' && (
                       <div className="space-y-1.5">
                         <Label className="text-[11px]">Sala</Label>
                         <div className="space-y-1">
