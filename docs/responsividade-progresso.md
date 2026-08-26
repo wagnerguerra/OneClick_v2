@@ -41,16 +41,16 @@ Cada módulo passa pelos mesmos seis pontos.
 | [x] Modais do módulo | as duas colunas do modal de evento empilham abaixo de `sm` (220px fixos não cabem num modal de ~358px) |
 | [x] Ações que só existem no hover | anotações, anexos, participantes e tarefas: visíveis no toque, hover só a partir de `sm` |
 
-### 2. Coleta e Recebimento — `na fila`
+### 2. Coleta e Recebimento — `concluída` · commit `e50aa466`
 
 | Item | Status |
 |---|---|
-| Cabeçalho e ações da página | [ ] |
-| Barra de filtros | [ ] |
-| Tabela de registros | [ ] |
-| Kanban em tela estreita | [ ] |
-| Modais (novo registro, categorias) | [ ] |
-| Ações que só existem no hover | [ ] |
+| [x] Cabeçalho e ações da página | já usava PageHeaderBar com ações que quebram |
+| [x] Barra de filtros | já era `flex-wrap`; selects de 135/175px cabem lado a lado em 358px |
+| [x] Tabela de registros | no celular ficam cliente, situação e ações; número e tipo descem para dentro da célula do cliente |
+| [x] Kanban em tela estreita | rola na horizontal (`overflow-x-auto`), que é a forma natural do kanban |
+| [x] Modais | os do módulo usam o DialogContent padrão, que já é responsivo |
+| [—] Ações no hover | não há ação escondida em hover neste módulo |
 
 ### 3. HelpDesk — `na fila`
 
