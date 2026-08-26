@@ -13,6 +13,8 @@ import {
 import { cn } from '@saas/ui'
 import { StatCard } from '@/components/stat-card'
 import { BackButton } from '@/components/ui/back-button'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
@@ -140,19 +142,8 @@ export default function CusteioPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Header inline padrão (subpágina de Comercial) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <Calculator className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Custeio de Clientes</h1>
-            <p className="text-sm text-muted-foreground">Custo de servir × receita de referência — rentabilidade por cliente</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Input type="month" value={refMes} onChange={e => setRefMes(e.target.value)} className="h-9 w-[150px] text-sm" />
           <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={recalcular} disabled={recalculando || loading}>
             {recalculando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -160,8 +151,17 @@ export default function CusteioPage() {
           </Button>
           <Button variant="outline" size="icon-sm" onClick={abrirParams} title="Parâmetros de custeio"><Settings2 className="h-4 w-4" /></Button>
           <BackButton href="/comercial" label="Voltar" />
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Custeio de Clientes</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Contratos</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Custeio de Clientes</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

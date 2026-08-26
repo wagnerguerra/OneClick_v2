@@ -8,7 +8,7 @@ import {
   Plus, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  Building2, MoreVertical, FileUp, FileDown, Lock,
+  MoreVertical, FileUp, FileDown, Lock,
 } from 'lucide-react'
 import {
   Button,
@@ -27,6 +27,7 @@ import {
   SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
@@ -198,18 +199,8 @@ export default function EmpresasPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-emerald-500 text-white shadow-md">
-            <Building2 className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Empresas</h1>
-            <p className="text-sm text-muted-foreground">Gerencie as empresas cadastradas</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" asChild>
             <Link href="/empresas/new"><Plus className="h-4 w-4" />Nova Empresa</Link>
           </Button>
@@ -222,8 +213,17 @@ export default function EmpresasPage() {
               <DropdownMenuItem onClick={() => handleExport()} disabled={exporting}><FileDown className="h-4 w-4" />Exportar</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Empresas</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Empresas</span>
+        </p>
+      </PageHeaderBar>
 
       {/* DataTable Card */}
       <Card>

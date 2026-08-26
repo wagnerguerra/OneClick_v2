@@ -24,6 +24,7 @@ import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ModuloAcessoButton } from '@/components/modulo-acesso-button'
 import { AgendaTipoHistoricoButton } from '@/components/agenda-tipo-historico-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { useIsMobile } from '@/hooks/use-media-query'
 import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
@@ -1443,17 +1444,8 @@ export default function AgendaPage() {
   return (
     <TooltipProvider delayDuration={250}>
     <div className="space-y-3">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/materiais/icon_calendar.png" alt="Agenda" className="h-12 w-12 object-contain shrink-0" />
-          <div>
-            <h1>Agenda Corporativa</h1>
-            <p className="text-sm text-muted-foreground">Gerencie eventos, reuniões e compromissos</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         <Button
           size="sm"
           style={{ backgroundColor: 'var(--mod-administrativo, #38bdf8)' }}
@@ -1505,8 +1497,17 @@ export default function AgendaPage() {
           </DropdownMenuContent>
         </DropdownMenu>
         )}
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Agenda Corporativa</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Agenda Corporativa</span>
+        </p>
+      </PageHeaderBar>
 
       <div className="flex gap-4 items-start">
         {/* ============================================================ */}

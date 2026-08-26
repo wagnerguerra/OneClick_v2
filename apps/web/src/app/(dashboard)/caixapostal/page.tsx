@@ -21,7 +21,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -110,13 +110,6 @@ function formatDateSerpro(d: string | undefined) {
 interface MensagemAgregada extends MensagemClassificada {
   contribuinte?: string
   clienteNome?: string
-}
-
-const PRIORIDADE_LABELS: Record<string, string> = {
-  P0: 'Crítica',
-  P1: 'Alta',
-  P2: 'Média',
-  P3: 'Baixa',
 }
 
 export default function CaixaPostalPage() {
@@ -1656,28 +1649,8 @@ export default function CaixaPostalPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="fiscal" icon={Mail} />
-          <div>
-            <h1>
-              {modoFiltrado
-                ? 'Caixa Postal e-CAC'
-                : selectedCliente ? selectedCliente.razaoSocial : 'Caixa Postal e-CAC'}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {modoFiltrado
-                ? modoFiltradoTipo === 'importante'
-                  ? 'Mensagens marcadas como importante'
-                  : `Mensagens não lidas — Prioridade ${prioridadeParam} (${PRIORIDADE_LABELS[prioridadeParam!]})`
-                : selectedCliente
-                  ? `${formatDoc(selectedCliente.documento)} — Mensagens da caixa postal do e-CAC`
-                  : 'Gerencie mensagens da caixa postal do e-CAC via SERPRO'}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {modoFiltrado ? (
             <>
               <Button variant="outline" size="sm" onClick={() => {
@@ -1795,8 +1768,21 @@ export default function CaixaPostalPage() {
               </DropdownMenu>
             </div>
           )}
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">
+              {modoFiltrado
+                ? 'Caixa Postal e-CAC'
+                : selectedCliente ? selectedCliente.razaoSocial : 'Caixa Postal e-CAC'}
+            </h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Caixa Postal e-CAC</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Modal Consulta em Lote */}
       {loteOpen && (

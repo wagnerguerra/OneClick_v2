@@ -14,6 +14,8 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Switch,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useTabLabel } from '@/hooks/use-tab-label'
@@ -252,21 +254,8 @@ export default function BeneficiosFiscaisPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header — padrão de /gestao-certificados (Legalização) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <Percent className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Benefícios Fiscais</h1>
-            <p className="text-sm text-muted-foreground">Gestão dos incentivos fiscais dos clientes, vencimentos e geração de orçamentos</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {canManageCatalogo && (
             <Button variant="outline" size="sm" onClick={() => setCatModalOpen(true)} className="gap-1.5">
               <Settings2 className="h-4 w-4" /> Catálogo
@@ -277,8 +266,17 @@ export default function BeneficiosFiscaisPage() {
               <Plus className="h-4 w-4" /> Novo benefício
             </Button>
           )}
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Benefícios Fiscais</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Legalização</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Benefícios Fiscais</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Filtros (pílulas) + busca — padrão /gestao-certificados */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">

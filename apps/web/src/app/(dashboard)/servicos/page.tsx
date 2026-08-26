@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  ClipboardCheck, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, Copy, ArrowLeft,
+  ClipboardCheck, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, Copy, 
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   Clock, CheckCircle2, LayoutGrid, List, Play, XCircle, Eye,
   GripVertical, Pause, MessageSquare, Paperclip, Send, ChevronDown, ChevronUp,
@@ -22,6 +22,8 @@ import {
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ServicoWizard } from './_components/servico-wizard'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -1011,28 +1013,8 @@ export default function ServicosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          {view === 'execucoes' && (
-            <Button variant="ghost" size="icon-sm" onClick={() => { setView('templates'); setSearch(''); setPage(1) }}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          )}
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <ClipboardCheck className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>{view === 'templates' ? 'Serviços e Obrigações' : 'Execuções'}</h1>
-            <p className="text-sm text-muted-foreground">
-              {view === 'templates' ? 'Gerencie serviços, obrigações acessórias e suas execuções' : 'Acompanhe o andamento das execuções de serviços'}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {view === 'templates' && (
             <>
               <div className="flex items-center border rounded-[2px] overflow-hidden">
@@ -1057,8 +1039,17 @@ export default function ServicosPage() {
               </Button>
             </>
           )}
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">{view === 'templates' ? 'Serviços e Obrigações' : 'Execuções'}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Serviços e Obrigações</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Indicadores compactos clicaveis — atuam como filtros rapidos da tabela.
           Cada KPI muda view + statusFilter e marca-se como ativo (ring + bg

@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Gift, Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft, Trash2, CreditCard, Printer, BellRing, CheckCheck } from 'lucide-react'
+import { Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft, Trash2, CreditCard, Printer, BellRing, CheckCheck } from 'lucide-react'
 import { Button, Card, Input, Label, Switch } from '@saas/ui'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 
 const COR = 'var(--mod-trabalhista, #a3e635)'
@@ -58,16 +59,8 @@ export default function BeneficiosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="trabalhista" icon={Gift} />
-          <div>
-            <h1>Benefícios</h1>
-            <p className="text-sm text-muted-foreground">Controle mensal de Vale-Transporte, Vale-Alimentação e Mobilidade</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={empresaId} onChange={e => { setEmpresaId(e.target.value); setSelId(null) }}>
             {empresas.map(e => <option key={e.id} value={e.id}>{e.nomeFantasia || e.razaoSocial}</option>)}
           </select>
@@ -77,8 +70,17 @@ export default function BeneficiosPage() {
             </Button>
           )}
           <BackButton href="/dashboard" label="Voltar" />
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Benefícios</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Trabalhista</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Benefícios</span>
+        </p>
+      </PageHeaderBar>
 
       {!empresaId ? <p className="text-sm text-muted-foreground">Nenhuma empresa disponível.</p>
         : view === 'config' && podeGerir ? <ConfigView empresaId={empresaId} />

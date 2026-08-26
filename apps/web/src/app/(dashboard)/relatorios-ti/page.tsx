@@ -12,6 +12,8 @@ import {
   RichEditor, RichContent,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -506,23 +508,8 @@ export default function RelatoriosTiPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Header inline — padrão dos módulos */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <NotebookPen className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Relatórios da TI</h1>
-            <p className="text-sm text-muted-foreground">
-              O que a equipe entregou, dia a dia — e o que segue para a diretoria.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {podeCurar && (
             <Button variant="outline" size="sm" className="gap-1.5"
               onClick={() => { setNovidadesOpen(true); void carregarNovidades() }}>
@@ -547,8 +534,17 @@ export default function RelatoriosTiPage() {
               <Plus className="h-4 w-4" /> Postar relatório
             </Button>
           )}
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Relatórios da TI</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>TI</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Relatórios da TI</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Pendentes de hoje — a pergunta que o líder faz todo fim de tarde. */}
       {pendentesHoje.length > 0 && (

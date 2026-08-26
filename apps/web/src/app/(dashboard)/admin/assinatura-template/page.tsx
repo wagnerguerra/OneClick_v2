@@ -9,7 +9,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import {
-  Mail, Save, Loader2, Palette, Code2, RefreshCcw,
+  Save, Loader2, Palette, Code2, RefreshCcw,
   Upload, X, Eye, AlertTriangle,
 } from 'lucide-react'
 import {
@@ -17,11 +17,12 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { useSession } from '@/lib/auth-client'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { BackButton } from '@/components/ui/back-button'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import {
   buildSignatureHtml,
   SIGNATURE_TEMPLATE_DEFAULTS,
@@ -247,23 +248,24 @@ export default function AssinaturaTemplatePage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="configuracoes" icon={Mail} />
-          <div>
-            <h1>Template de assinatura</h1>
-            <p className="text-sm text-muted-foreground">Configure cores, fonte, logo e visibilidade dos campos. Aplica a todos os usuários da empresa.</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" onClick={handleSave} disabled={saving || loading}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Salvar
           </Button>
           <BackButton href="/admin" />
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Template de assinatura</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Assinatura de email</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Seleção de empresa */}
       <Card>

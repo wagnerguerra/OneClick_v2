@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Loader2, Filter, Megaphone, Target, Send, CheckCircle2, FileCheck, BarChart3, DollarSign, Users, Percent, Landmark, Repeat, Zap, Users2, Trophy, TicketPercent, Scissors, Wallet, TrendingDown } from 'lucide-react'
+import { Loader2, Filter, Megaphone, Target, Send, CheckCircle2, FileCheck, DollarSign, Users, Percent, Landmark, Repeat, Zap, Users2, Trophy, TicketPercent, Scissors, Wallet, TrendingDown } from 'lucide-react'
 import { Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, Avatar, AvatarImage, AvatarFallback, cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -88,25 +90,24 @@ export default function ComercialRelatoriosPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Header inline */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <BarChart3 className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Relatórios Comerciais</h1>
-            <p className="text-sm text-muted-foreground">Visão de gestor cruzando captação, CRM, orçamentos e contratos</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Select value={periodo} onValueChange={setPeriodo}>
             <SelectTrigger className="h-9 w-[180px] text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>{PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
           </Select>
           <BackButton href="/comercial" label="Voltar" />
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Relatórios Comerciais</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Orçamentos</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Relatórios Comerciais</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Pills */}
       <div className="flex gap-1 border-b border-border/40 overflow-x-auto">

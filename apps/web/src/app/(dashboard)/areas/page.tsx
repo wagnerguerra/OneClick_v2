@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  LayoutGrid, FileUp,
+  FileUp,
 } from 'lucide-react'
 import {
   Button,
@@ -25,10 +25,10 @@ import {
   SelectItem,
   SelectValue,
 } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { BackButton } from '@/components/ui/back-button'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { ImportModal } from './_components/import-modal'
 import type { inferRouterOutputs } from '@trpc/server'
 import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
@@ -124,16 +124,8 @@ export default function AreasPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="cadastros" icon={LayoutGrid} />
-          <div>
-            <h1>Áreas</h1>
-            <p className="text-sm text-muted-foreground">Gerencie as áreas da empresa</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" asChild>
             <Link href="/areas/new"><Plus className="h-4 w-4" />Nova Área</Link>
           </Button>
@@ -141,8 +133,17 @@ export default function AreasPage() {
             <FileUp className="h-4 w-4" />Importar
           </Button>
           <BackButton href="/dashboard" label="Voltar" />
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Áreas</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Áreas</span>
+        </p>
+      </PageHeaderBar>
 
       {/* DataTable */}
       <Card>
