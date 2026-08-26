@@ -13,26 +13,7 @@ function getSystemTheme(): 'light' | 'dark' {
 
 function applyTheme(theme: Theme) {
   const resolved = theme === 'system' ? getSystemTheme() : theme
-  // RAIZ do bug de transição inconsistente: elementos com transition-colors/
-  // transition-all animam a `color` durante a troca de tema, enquanto o fundo
-  // da página (sem transição) muda na hora — o texto "atrasa" o fundo, e ao
-  // togglar rápido a transição interrompida gera jank (visível em dev).
-  // Solução (igual ao `disableTransitionOnChange` do next-themes): desligar TODAS
-  // as transições só durante o instante do toggle, para fundo e texto trocarem
-  // juntos e instantaneamente. Removido no próximo frame, restaurando as
-  // transições normais (hover etc.).
-  const kill = document.createElement('style')
-  kill.appendChild(document.createTextNode('*,*::before,*::after{transition:none !important}'))
-  document.head.appendChild(kill)
-
   document.documentElement.classList.toggle('dark', resolved === 'dark')
-
-  // Força reflow para o navegador aplicar a troca já sem transição...
-  window.getComputedStyle(document.body).getPropertyValue('opacity')
-  // ...e só então remove o override (2 frames = garante o paint sem transição).
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    if (kill.parentNode) kill.parentNode.removeChild(kill)
-  }))
 }
 
 export function useTheme() {

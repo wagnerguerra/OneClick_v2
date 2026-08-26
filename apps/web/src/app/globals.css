@@ -815,16 +815,11 @@
   50%      { outline-color: #fbbf24; }
 }
 
-/* ===========================================================================
-   Controles NATIVOS do browser seguem o tema.
-   `color-scheme` faz o browser desenhar spinners de <input type=number>,
-   date/time pickers, scrollbars nativas e o fundo do autofill na variante
-   certa — resolve os botõezinhos +/- e afins que ficavam claros no dark.
-   =========================================================================== */
-/* color-scheme: aplicado INLINE no <html> pelo applyTheme (hooks/use-theme.ts)
-   — o lightningcss (minificador do Next) dropa a regra CSS `.dark { color-scheme }`,
-   então o JS é a fonte da verdade. Este :root só dá o default claro antes do JS. */
-:root { color-scheme: light; }
+/* NOTA (regressão isolada por bisect → commit 98b12117): a declaração de
+   `color-scheme` (:root light / .dark dark) foi REMOVIDA. Em dev ela quebrava
+   a consistência da transição de tema (o `color` do texto passava a animar
+   fora de sincronia com o fundo). Reintroduzir suporte a controles nativos no
+   dark exige um caminho que não mexa nessa transição. */
 
 /* Autofill (Chrome/WebKit): o fundo claro que o browser força não mescla no
    dark. Máscara com box-shadow inset. IMPORTANTE: var() muitas vezes NÃO
