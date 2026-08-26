@@ -445,8 +445,19 @@ export function createServicoRouter(servicoService: ServicoService) {
         status: z.string().optional(),
         atrasados: z.boolean().optional(),
         incluirArquivados: z.boolean().optional(),
+        /** Coluna do painel — a regra de cada uma mora no service. */
+        bucket: z.enum(['em_andamento', 'atrasados', 'pausados', 'concluidos', 'dispensados', 'cancelados']).optional(),
+        incluirDispensados: z.boolean().optional(),
+        page: z.coerce.number().int().min(1).optional(),
+        /** Com `limit` a resposta vem paginada; sem ele, array puro (compat). */
+        limit: z.coerce.number().int().min(1).max(200).optional(),
       }).optional())
       .query(({ input, ctx }) => servicoService.listMeusServicos(ctx.userId!, input)),
+
+    /** Números dos chips sem trazer linha — antes a tela buscava a lista inteira. */
+    contarMeusServicos: protectedProcedure
+      .input(z.object({ incluirArquivados: z.boolean().optional() }).optional())
+      .query(({ input, ctx }) => servicoService.contarMeusServicos(ctx.userId!, input)),
 
     // ── Widget "Servicos em Andamento" do dashboard (versao expandida) ──
     // Reusa escopo do listMeusServicos; retorna so execucoes ativas com

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } fr
 import { createPortal } from 'react-dom'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import {
-  ListChecks, Loader2, Clock, CheckCircle2, AlertTriangle, Play, Pause, Receipt,
+  ListChecks, SkipForward, Loader2, Clock, CheckCircle2, AlertTriangle, Play, Pause, Receipt,
   Calendar, ChevronRight, Plus, ChevronDown,
   MessageSquare, Paperclip, LayoutGrid, List, Archive, Settings2,
   UserCog, X, Search, HelpCircle,
@@ -70,7 +70,11 @@ function passoAtual(passos: ExecucaoMinha['passos']): ExecucaoMinha['passos'][nu
   return passos.find(p => !p.concluido && !p.ignorado) ?? null
 }
 
-type FilterKind = 'todos' | 'em_andamento' | 'atrasados' | 'concluidos'
+type FilterKind = 'todos' | 'em_andamento' | 'atrasados' | 'pausados' | 'concluidos' | 'dispensados'
+
+/** Cartões por página. Acima disso o navegador começa a engasgar: cada cartão
+ *  custa ~70 nós de DOM, e a tela chegou a 188 mil com tudo de uma vez. */
+const POR_PAGINA = 50
 
 function formatDateTime(d: string): string {
   return new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -435,6 +439,9 @@ export default function MeusServicosPage() {
   const { profile } = useCurrentUserProfile()
   const canManageConfig = !!(profile?.isMaster || (profile as any)?.isEmpresaMaster)
   const [execucoes, setExecucoes] = useState<ExecucaoMinha[]>([])
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [totalPaginas, setTotalPaginas] = useState(1)
   // Estado das respostas em andamento por execução (PERGUNTA)
   const [respostaOpcoes, setRespostaOpcoes] = useState<Record<string, string[]>>({})
   const [respostaObs, setRespostaObs] = useState<Record<string, string>>({})
@@ -444,6 +451,9 @@ export default function MeusServicosPage() {
   // pausados, concluídos, cancelados). A janela de "concluídos visíveis" é
   // controlada pela config `meus_servicos.concluidos_dias_exibicao` no backend.
   const [filter, setFilter] = useState<FilterKind>('todos')
+  // Trocar de coluna recomeça a paginação — senão a página 7 de uma vira página
+  // 7 de outra, que muitas vezes nem existe.
+  useEffect(() => { setPage(1) }, [filter])
   const [busca, setBusca] = useState('')
   // Modo de exibição — lista (vertical, denso) vs kanban (colunas por status).
   // Persiste no localStorage para respeitar a preferência do usuário entre sessões.
@@ -607,11 +617,7 @@ export default function MeusServicosPage() {
     try {
       await (trpc.servico as any).arquivarExecucao.mutate({ id: execId })
       await fetchData({ silent: true })
-      // KPIs também
-      try {
-        const data = await (trpc.servico as any).listMeusServicos.query()
-        setStatsAll(data || [])
-      } catch { /* ignora */ }
+      carregarContadores()
     } catch (err) {
       alerts.error('Erro', (err as Error).message)
     }
@@ -631,11 +637,7 @@ export default function MeusServicosPage() {
       })
       setNovoOpen(false)
       await fetchData()
-      // recarrega KPIs
-      try {
-        const data = await (trpc.servico as any).listMeusServicos.query()
-        setStatsAll(data || [])
-      } catch { /* ignora */ }
+      carregarContadores()
       await alerts.success('Criado', 'Serviço iniciado e atribuído a você.')
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
@@ -649,33 +651,40 @@ export default function MeusServicosPage() {
   const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
     try {
-      const input = filter === 'atrasados'
-        ? { atrasados: true }
-        : filter === 'em_andamento'
-        ? { status: 'EM_ANDAMENTO' }
-        : filter === 'concluidos'
-        ? { status: 'CONCLUIDO' }
-        : undefined
-      const data = await (trpc.servico as any).listMeusServicos.query(input)
-      setExecucoes(data || [])
+      // Uma coluna por vez, paginada. "Todos" significa o trabalho ativo
+      // (em andamento + atrasados + pausados) — dispensados e concluídos têm
+      // chip próprio, e são 6.777 dos 9.100 registros.
+      const bucket = filter === 'todos' ? undefined : filter
+      const res = await (trpc.servico as any).listMeusServicos.query({
+        ...(bucket ? { bucket } : {}),
+        page,
+        limit: POR_PAGINA,
+      })
+      setExecucoes(res?.data ?? [])
+      setTotal(res?.total ?? 0)
+      setTotalPaginas(res?.totalPages ?? 1)
     } catch (e) {
       console.warn('[MeusServicos] erro ao listar:', (e as Error).message)
       if (!opts?.silent) setExecucoes([])
     } finally { if (!opts?.silent) setLoading(false) }
-  }, [filter])
+  }, [filter, page])
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // KPIs (sempre visíveis, calculados a partir de uma busca completa)
-  const [statsAll, setStatsAll] = useState<ExecucaoMinha[]>([])
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await (trpc.servico as any).listMeusServicos.query()
-        setStatsAll(data || [])
-      } catch { /* sem perm */ }
-    })()
+  /**
+   * Contadores dos chips — vêm prontos do servidor.
+   *
+   * Antes a tela buscava a lista COMPLETA uma segunda vez só para somá-los:
+   * 358KB e ~7s por carga, para exibir cinco números.
+   */
+  const [contadores, setContadores] = useState<Record<string, number>>({})
+  const carregarContadores = useCallback(async () => {
+    try {
+      const c = await (trpc.servico as any).contarMeusServicos.query()
+      setContadores(c || {})
+    } catch { /* sem perm */ }
   }, [])
+  useEffect(() => { carregarContadores() }, [carregarContadores])
   /**
    * Atraso segundo a ORIGEM, não segundo a data.
    *
@@ -694,19 +703,16 @@ export default function MeusServicosPage() {
     return !!e.prazoLimite && new Date(e.prazoLimite).getTime() < agora
   }
 
-  const kpis = useMemo(() => {
-    const agora = Date.now()
-    const emAndamento = statsAll.filter(e => e.status === 'EM_ANDAMENTO').length
-    const atrasados = statsAll.filter(e => estaAtrasada(e, agora)).length
-    const concluidos = statsAll.filter(e => e.status === 'CONCLUIDO').length
-    const concluidosHoje = statsAll.filter(e => {
-      if (e.status !== 'CONCLUIDO' || !e.concluidoEm) return false
-      const d = new Date(e.concluidoEm)
-      const hoje = new Date()
-      return d.getFullYear() === hoje.getFullYear() && d.getMonth() === hoje.getMonth() && d.getDate() === hoje.getDate()
-    }).length
-    return { emAndamento, atrasados, concluidos, concluidosHoje }
-  }, [statsAll])
+  // Os números vêm do servidor (contarMeusServicos). O cálculo antigo dependia
+  // de ter a lista inteira no navegador — que era exatamente o problema.
+  const kpis = {
+    emAndamento: contadores.em_andamento ?? 0,
+    atrasados: contadores.atrasados ?? 0,
+    pausados: contadores.pausados ?? 0,
+    concluidos: contadores.concluidos ?? 0,
+    dispensados: contadores.dispensados ?? 0,
+    ativos: contadores.ativos ?? 0,
+  }
 
   // Busca textual — filtra por serviço, cliente, nº do orçamento e responsável
   // (sem acento, case-insensitive). Alimenta tanto o kanban quanto a lista.
@@ -755,7 +761,10 @@ export default function MeusServicosPage() {
     { key: 'em_andamento', label: 'Em Andamento', icon: Play, cor: '#38bdf8', count: kpis.emAndamento },
     { key: 'atrasados', label: 'Atrasados', icon: AlertTriangle, cor: '#ef4444', count: kpis.atrasados },
     { key: 'concluidos', label: 'Concluídos', icon: CheckCircle2, cor: '#10b981', count: kpis.concluidos },
-    { key: 'todos', label: 'Todos', icon: ListChecks, cor: '#94a3b8', count: statsAll.length },
+    // Dispensada é obrigação que o cliente não deve — são 1.634, e nenhuma pede
+    // trabalho. Sai do padrão e fica atrás do próprio chip.
+    { key: 'dispensados', label: 'Dispensados', icon: SkipForward, cor: '#a78bfa', count: kpis.dispensados },
+    { key: 'todos', label: 'Ativos', icon: ListChecks, cor: '#94a3b8', count: kpis.ativos },
   ]
 
   return (
@@ -1404,6 +1413,26 @@ export default function MeusServicosPage() {
               )
             })}
           </div>
+          {/* Rodapé de paginação — padrão da casa (PADRAO_PAGINAS §1.3). A lista
+              carrega 50 por vez: era ela, com ~2.700 cartões, que travava a tela. */}
+          {total > 0 && (
+            <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 text-xs sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-muted-foreground">
+                Mostrando <span className="font-medium text-foreground">{(page - 1) * POR_PAGINA + 1}</span> a{' '}
+                <span className="font-medium text-foreground">{Math.min(page * POR_PAGINA, total)}</span> de{' '}
+                <span className="font-medium text-foreground">{total}</span> registro(s)
+              </p>
+              {totalPaginas > 1 && (
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="icon-xs" disabled={page <= 1} onClick={() => setPage(1)} title="Primeira">«</Button>
+                  <Button variant="outline" size="icon-xs" disabled={page <= 1} onClick={() => setPage(p => p - 1)} title="Anterior">‹</Button>
+                  <span className="px-2 tabular-nums text-muted-foreground">{page} / {totalPaginas}</span>
+                  <Button variant="outline" size="icon-xs" disabled={page >= totalPaginas} onClick={() => setPage(p => p + 1)} title="Próxima">›</Button>
+                  <Button variant="outline" size="icon-xs" disabled={page >= totalPaginas} onClick={() => setPage(totalPaginas)} title="Última">»</Button>
+                </div>
+              )}
+            </div>
+          )}
         </Card>
       )}
 
