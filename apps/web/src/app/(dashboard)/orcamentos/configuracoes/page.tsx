@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Settings2, Loader2, Save, Clock, Hash, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2, Star, ArrowUp, ArrowDown, History } from 'lucide-react'
-import { Button, Card, Input, RichEditor, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Switch, Badge, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription } from '@saas/ui'
+import { Button, Card, Input, RichEditor, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Switch, Checkbox, Badge, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -226,12 +226,10 @@ export default function OrcamentosConfiguracoesPage() {
               {activeTab === 'prazos' && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       id="solicitanteResp"
                       checked={config.solicitanteResponsavel}
-                      onChange={e => setConfig(c => ({ ...c, solicitanteResponsavel: e.target.checked }))}
-                      className="h-4 w-4 rounded border-border"
+                      onCheckedChange={v => setConfig(c => ({ ...c, solicitanteResponsavel: v === true }))}
                     />
                     <label htmlFor="solicitanteResp" className="text-sm cursor-pointer">
                       Usar solicitante como responsável automaticamente
@@ -275,13 +273,13 @@ export default function OrcamentosConfiguracoesPage() {
                     <p className="text-[11px] text-muted-foreground pb-3">Avisos na agenda, no sino e por e-mail para os destinatários definidos na aba Notificações.</p>
 
                     <div className="flex items-center gap-3 mb-3">
-                      <input type="checkbox" id="lembValidade" checked={config.lembreteValidadeAtivo}
-                        onChange={e => setConfig(c => ({ ...c, lembreteValidadeAtivo: e.target.checked }))} className="h-4 w-4 rounded border-border" />
+                      <Checkbox id="lembValidade" checked={config.lembreteValidadeAtivo}
+                        onCheckedChange={v => setConfig(c => ({ ...c, lembreteValidadeAtivo: v === true }))} />
                       <label htmlFor="lembValidade" className="text-sm cursor-pointer">Lembrar quando a validade do orçamento estiver vencendo</label>
                     </div>
                     <div className="flex items-center gap-3 mb-4">
-                      <input type="checkbox" id="followRecusa" checked={config.followupRecusaAtivo}
-                        onChange={e => setConfig(c => ({ ...c, followupRecusaAtivo: e.target.checked }))} className="h-4 w-4 rounded border-border" />
+                      <Checkbox id="followRecusa" checked={config.followupRecusaAtivo}
+                        onCheckedChange={v => setConfig(c => ({ ...c, followupRecusaAtivo: v === true }))} />
                       <label htmlFor="followRecusa" className="text-sm cursor-pointer">Agendar follow-up automático quando um orçamento for recusado</label>
                     </div>
 
@@ -333,7 +331,7 @@ export default function OrcamentosConfiguracoesPage() {
                   <div className="col-span-12 border-t border-border pt-4 mt-1 space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">Descontos</label>
                     <label className="flex items-start gap-2 cursor-pointer select-none">
-                      <input type="checkbox" checked={config.apenasDescontoItem} onChange={e => setConfig(c => ({ ...c, apenasDescontoItem: e.target.checked }))} className="mt-0.5 h-4 w-4 accent-[var(--mod-comercial,#fb7185)]" />
+                      <Checkbox checked={config.apenasDescontoItem} onCheckedChange={v => setConfig(c => ({ ...c, apenasDescontoItem: v === true }))} accentColor="var(--mod-comercial, #fb7185)" className="mt-0.5" />
                       <span className="text-[11px] text-muted-foreground">
                         <strong className="text-foreground font-medium">Usar apenas desconto por item.</strong> Marcado, o desconto é aplicado item a item (só serviços) e o desconto geral do orçamento fica desativado. Desmarcado, o desconto por item e o desconto geral <strong className="text-foreground font-medium">somam</strong>.
                       </span>
@@ -358,7 +356,7 @@ export default function OrcamentosConfiguracoesPage() {
                     <Input value={config.emailLiberacao} onChange={e => setConfig(c => ({ ...c, emailLiberacao: e.target.value }))} placeholder="emails separados por vírgula" className="h-9 text-sm w-full" />
                     <p className="text-[11px] text-muted-foreground">Avisados quando um orçamento é liberado para execução.</p>
                     <label className="flex items-start gap-2 mt-1.5 cursor-pointer select-none">
-                      <input type="checkbox" checked={config.notificarExecutorLiberacao} onChange={e => setConfig(c => ({ ...c, notificarExecutorLiberacao: e.target.checked }))} className="mt-0.5 h-4 w-4 accent-[var(--mod-comercial,#fb7185)]" />
+                      <Checkbox checked={config.notificarExecutorLiberacao} onCheckedChange={v => setConfig(c => ({ ...c, notificarExecutorLiberacao: v === true }))} accentColor="var(--mod-comercial, #fb7185)" className="mt-0.5" />
                       <span className="text-[11px] text-muted-foreground">Também notificar os <strong className="text-foreground font-medium">responsáveis pela execução</strong> dos serviços (conforme a "Atribuição de responsáveis" de cada serviço na aba Visão geral).</span>
                     </label>
                   </div>
@@ -493,7 +491,7 @@ function AreasConfigTab() {
           <div className="flex items-center gap-4 h-9">
             {([['sino', 'Sino'], ['email', 'E-mail'], ['push', 'Push (em breve)']] as const).map(([k, label]) => (
               <label key={k} className={cn('flex items-center gap-1.5 text-sm', k === 'push' && 'opacity-50')}>
-                <input type="checkbox" disabled={k === 'push'} checked={(canais as any)[k]} onChange={e => setCanais(c => ({ ...c, [k]: e.target.checked }))} className="h-4 w-4 rounded border-border" />
+                <Checkbox disabled={k === 'push'} checked={(canais as any)[k]} onCheckedChange={v => setCanais(c => ({ ...c, [k]: v === true }))} />
                 {label}
               </label>
             ))}
@@ -505,7 +503,7 @@ function AreasConfigTab() {
       <div className="grid grid-cols-12 gap-3 items-end">
         <div className="col-span-12 sm:col-span-5">
           <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="checkbox" checked={avisarComercial} onChange={e => setAvisarComercial(e.target.checked)} className="h-4 w-4 rounded border-border" />
+            <Checkbox checked={avisarComercial} onCheckedChange={v => setAvisarComercial(v === true)} />
             Avisar o comercial quando uma área atrasar
           </label>
         </div>
@@ -536,7 +534,7 @@ function AreasConfigTab() {
             return (
               <div key={a.id} className="flex flex-col sm:flex-row sm:items-center gap-2 px-4 py-2.5 hover:bg-muted/30">
                 <label className="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
-                  <input type="checkbox" checked={on} onChange={() => toggle(a.id)} className="h-4 w-4 rounded border-border shrink-0" />
+                  <Checkbox checked={on} onCheckedChange={() => toggle(a.id)} className="shrink-0" />
                   <span className="text-sm font-medium truncate">{a.nome}</span>
                   <span className="text-[11px] text-muted-foreground shrink-0">{a.leaderNome ? `líder: ${a.leaderNome}` : 'sem líder'}</span>
                 </label>
