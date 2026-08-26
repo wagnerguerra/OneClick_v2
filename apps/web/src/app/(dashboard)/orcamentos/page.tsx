@@ -309,8 +309,13 @@ export default function OrcamentosPage() {
   const [clientesMap, setClientesMap] = useState<Map<string, { razaoSocial: string }>>(new Map())
   const [orcConfig, setOrcConfig] = useState<OrcConfig>(DEFAULT_CONFIG)
   const [viewMode, setViewMode] = useState<'tabela' | 'kanban'>(() => {
-    if (typeof window !== 'undefined') return (localStorage.getItem('orcamentos-view-mode') as 'tabela' | 'kanban') || 'kanban'
-    return 'kanban'
+    if (typeof window === 'undefined') return 'kanban'
+    const salvo = localStorage.getItem('orcamentos-view-mode')
+    if (salvo === 'tabela' || salvo === 'kanban') return salvo
+    // Sem preferência salva, o celular abre em tabela: as colunas do kanban têm
+    // 340px, e sete delas são 2380px de rolagem lateral numa tela de 390px.
+    // Quem escolher kanban no celular continua com ele.
+    return window.matchMedia('(max-width: 639px)').matches ? 'tabela' : 'kanban'
   })
   const [loading, setLoading] = useState(true)
 
@@ -1057,7 +1062,7 @@ export default function OrcamentosPage() {
                 </span>
               ) : (
                 <Select value={statusFilter || '__all__'} onValueChange={v => { setStatusFilter(v === '__all__' ? '' : v); setPage(1) }}>
-                  <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-full text-xs bg-card sm:w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">Todos os status</SelectItem>
                     {Object.entries(STATUS_LABELS).map(([k, v]) => (
@@ -1119,14 +1124,17 @@ export default function OrcamentosPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <SortHead label="#" sortKey="numero" sort={sort} onSort={toggleSort} className="w-[70px]" />
-                <SortHead label="Status" sortKey="status" sort={sort} onSort={toggleSort} className="w-[100px]" />
+                {/* Em tela estreita ficam cliente, valor e ações. Número e status
+                    descem para dentro da célula do cliente; itens, áreas, pessoas
+                    e data são apoio e só aparecem quando há espaço. */}
+                <SortHead label="#" sortKey="numero" sort={sort} onSort={toggleSort} className="hidden sm:table-cell w-[70px]" />
+                <SortHead label="Status" sortKey="status" sort={sort} onSort={toggleSort} className="hidden sm:table-cell w-[100px]" />
                 <TableHead>Cliente</TableHead>
-                <TableHead className="w-[240px]">Itens</TableHead>
-                <TableHead className="w-[150px]">Áreas</TableHead>
+                <TableHead className="hidden xl:table-cell w-[240px]">Itens</TableHead>
+                <TableHead className="hidden lg:table-cell w-[150px]">Áreas</TableHead>
                 <SortHead label="Valor Total" sortKey="totalGeral" sort={sort} onSort={toggleSort} className="w-[130px]" align="right" />
-                <TableHead className="w-[170px]">Solicitante / Responsável</TableHead>
-                <SortHead label="Criado em" sortKey="createdAt" sort={sort} onSort={toggleSort} className="w-[110px]" />
+                <TableHead className="hidden xl:table-cell w-[170px]">Solicitante / Responsável</TableHead>
+                <SortHead label="Criado em" sortKey="createdAt" sort={sort} onSort={toggleSort} className="hidden md:table-cell w-[110px]" />
                 <TableHead className="w-[50px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -1137,19 +1145,24 @@ export default function OrcamentosPage() {
                   Nenhum orçamento encontrado
                 </TableCell></TableRow>
               ) : orcamentos.map(orc => (
-                <TableRow key={orc.id} className="cursor-pointer hover:bg-muted/40 whitespace-nowrap" onClick={() => router.push(`/orcamentos/${orc.id}`)}>
-                  <TableCell className="font-mono text-xs font-medium">{orc.numero}</TableCell>
-                  <TableCell><StatusBadge status={orc.status} /></TableCell>
+                <TableRow key={orc.id} className="cursor-pointer hover:bg-muted/40 sm:whitespace-nowrap" onClick={() => router.push(`/orcamentos/${orc.id}`)}>
+                  <TableCell className="hidden sm:table-cell font-mono text-xs font-medium">{orc.numero}</TableCell>
+                  <TableCell className="hidden sm:table-cell"><StatusBadge status={orc.status} /></TableCell>
                   <TableCell className="text-sm">
                     <span className="block max-w-[250px] truncate">{getClienteNome(orc) || '—'}</span>
+                    {/* Número e status, que ganham coluna a partir de `sm` */}
+                    <span className="mt-1 flex items-center gap-1.5 sm:hidden">
+                      <span className="font-mono text-[11px] text-muted-foreground">#{orc.numero}</span>
+                      <StatusBadge status={orc.status} />
+                    </span>
                   </TableCell>
-                  <TableCell className="text-xs"><ItensPreview orc={orc} /></TableCell>
-                  <TableCell><AreasCell areas={orc.areas} /></TableCell>
+                  <TableCell className="hidden xl:table-cell text-xs"><ItensPreview orc={orc} /></TableCell>
+                  <TableCell className="hidden lg:table-cell"><AreasCell areas={orc.areas} /></TableCell>
                   <TableCell className="text-right text-sm font-medium">{formatCurrency(Number(orc.totalGeral || orc.valorTotal || 0))}</TableCell>
-                  <TableCell className="text-xs">
+                  <TableCell className="hidden xl:table-cell text-xs">
                     <PessoasCell solicitante={orc.solicitante} responsavel={orc.responsavel} />
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{formatDate(orc.createdAt)}</TableCell>
+                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{formatDate(orc.createdAt)}</TableCell>
                   <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -1629,7 +1642,7 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
           {showMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
-                <button className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
+                <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
                   <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
