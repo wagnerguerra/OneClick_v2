@@ -913,15 +913,18 @@ export default function CrmPage() {
             />
           </div>
           {campanhasList.length > 0 && (
-            <select
-              className="h-9 rounded-md border border-input bg-transparent px-2 text-sm max-w-[180px]"
-              value={campanhaFiltro}
-              onChange={e => { const v = e.target.value; setCampanhaFiltro(v); campanhaFiltroRef.current = v; reloadKanban() }}
-              title="Filtrar por campanha"
+            <Select
+              value={campanhaFiltro || '__all__'}
+              onValueChange={v => { const val = v === '__all__' ? '' : v; setCampanhaFiltro(val); campanhaFiltroRef.current = val; reloadKanban() }}
             >
-              <option value="">Todas as campanhas</option>
-              {campanhasList.map(c => <option key={c.slug} value={c.slug}>{c.nome || c.slug}</option>)}
-            </select>
+              {/* Componente da casa no lugar do <select> nativo: o nativo ignora
+                  os tokens de tema e aparecia branco no dark. */}
+              <SelectTrigger className="h-9 w-full text-sm sm:w-[180px]"><SelectValue placeholder="Campanha" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas as campanhas</SelectItem>
+                {campanhasList.map(c => <SelectItem key={c.slug} value={c.slug}>{c.nome || c.slug}</SelectItem>)}
+              </SelectContent>
+            </Select>
           )}
           <div className="flex items-center border rounded-lg overflow-hidden">
             <button type="button" className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')} onClick={() => { setViewMode('kanban'); localStorage.setItem('crm-view-mode', 'kanban') }} title="Kanban">
@@ -987,13 +990,13 @@ export default function CrmPage() {
         </p>
       </PageHeaderBar>
 
-      {/* ── Board / Table ── */}
-      {loading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      )}
-      {!loading && viewMode === 'tabela' ? (
+      {/* ── Board / Table ──
+          O carregamento é overlay, como no /orcamentos: antes a condição do
+          ternário era `!loading && viewMode === 'tabela'`, então toda recarga
+          em modo tabela caía no ramo do kanban e a tela trocava de visão
+          sozinha por um instante. Manter o DndContext montado também é o que
+          o PADRAO_KANBAN_DND pede. */}
+      {viewMode === 'tabela' ? (
         /* ── Visao Tabela ── */
         <Card>
           {filteredOps.length === 0 ? (
@@ -1043,9 +1046,23 @@ export default function CrmPage() {
               </TableBody>
             </Table>
           )}
+          {/* Rodapé com a contagem — padrão do /orcamentos. Sem paginação: são
+              69 oportunidades em produção, o volume cabe numa página. */}
+          {filteredOps.length > 0 && (
+            <div className="border-t border-border/60 bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
+              Mostrando <span className="font-medium text-foreground">{filteredOps.length}</span> oportunidade(s)
+              {search && <> para “<span className="font-medium text-foreground">{search}</span>”</>}
+            </div>
+          )}
         </Card>
       ) : (
         /* ── Visao Kanban ── */
+        <div className="relative flex min-h-0 flex-1 flex-col">
+        {loading && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/70 backdrop-blur-[1px]">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
         <DndContext sensors={kanbanSensors} collisionDetection={closestCenter} onDragStart={handleKanbanDragStart} onDragMove={handleKanbanDragMove} onDragOver={handleKanbanDragOver} onDragEnd={handleKanbanDragEnd} onDragCancel={handleKanbanDragCancel}>
         <div className="overflow-x-auto nice-scrollbar pb-4 -mx-1 flex-1">
           <div className="flex gap-4 px-1 h-full" style={{ minWidth: etapas.length > 0 ? `${etapas.length * 250}px` : undefined, width: '100%' }}>
@@ -1059,6 +1076,7 @@ export default function CrmPage() {
           {activeCard && <KanbanCardOverlay op={activeCard} diasDesde={diasDesde} velocityX={dragDeltaX} width={activeCardWidth} />}
         </DragOverlay>
         </DndContext>
+        </div>
       )}
 
       {/* ── Create Sheet ── */}
