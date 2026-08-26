@@ -948,7 +948,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
 
         {/* Conteúdo — fieldset desabilita TODOS os campos quando sem permissão 'edit_details' */}
         <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0 [&:disabled_*]:pointer-events-none">
-        <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+        <div key={activeTab} className="min-w-0 flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
           {/* ---- SUB-TAB: DADOS GERAIS (tela única — igual ao v1) ---- */}
           {activeTab === 'dados' && (
@@ -1626,7 +1626,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
 
         {/* Conteúdo — read-only sem permissão 'manage_commercial' (mantém as pills) */}
         <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0 [&:disabled_*]:pointer-events-none">
-        <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+        <div key={activeTab} className="min-w-0 flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {activeTab === 'cadastros' && (
             <div className="-m-5">
               <div className="px-5 py-3 border-b border-border">
@@ -2356,7 +2356,7 @@ function FiscalCard({ control, clienteId, isEdit, documento, canEdit }: {
 
         {/* Conteúdo — read-only sem permissão 'manage_fiscal' (mantém as pills) */}
         <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0 [&:disabled_*]:pointer-events-none">
-        <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+        <div key={activeTab} className="min-w-0 flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {activeTab === 'dados' && (
             <div className="-m-5">
               <div className="px-5 py-3 border-b border-border">

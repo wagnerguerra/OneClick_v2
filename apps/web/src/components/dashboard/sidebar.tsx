@@ -190,9 +190,14 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
 
             <Separator />
 
-            {/* Blocos centralizados */}
-            <div className="flex-1 flex flex-col items-center justify-center overflow-y-auto scrollbar-none">
-              <div className="space-y-1">
+            {/* Blocos centralizados.
+                `justify-center` num container que rola CORTA o começo quando o
+                conteúdo não cabe — e o pedaço cortado fica inalcançável, porque
+                a rolagem não vai para trás do início. Em telas de 768px de
+                altura era o bloco Cadastros que sumia. Com `my-auto` no filho,
+                centraliza quando sobra espaço e rola quando falta. */}
+            <div className="flex flex-1 flex-col items-center overflow-y-auto scrollbar-none py-1">
+              <div className="my-auto space-y-1">
                 {filteredNavigation.map((group) => (
                   <SidebarGroup
                     key={group.label}

@@ -624,7 +624,7 @@ export default function AgendaConfiguracoesPage() {
           </div>
 
           {/* Conteúdo */}
-          <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+          <div key={activeTab} className="min-w-0 flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
             {/* ---- SUB-TAB: REGRAS DE CONFLITO ---- */}
             {activeTab === 'regras' && (

@@ -343,7 +343,9 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
         </div>
 
         {/* Conteúdo */}
-        <div key={activeTab} className="flex-1" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+        {/* `min-w-0`: sem isso o conteúdo do card manda na largura e empurra o
+            card para fora da tela em monitores estreitos (1366px). */}
+        <div key={activeTab} className="min-w-0 flex-1" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
           {/* DADOS PESSOAIS */}
           {activeTab === 'dados' && (
@@ -657,7 +659,10 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
                 ) : (
                   <div>
                     {/* Abas horizontais dos grupos */}
-                    <div className="flex items-center gap-0 border-b overflow-x-auto scrollbar-none px-2">
+                    {/* Quebra em duas linhas quando não cabe. A barra rolava na
+                        horizontal com a rolagem escondida: em 1366px o último
+                        grupo ficava cortado sem nada indicando que havia mais. */}
+                    <div className="flex flex-wrap items-center gap-0 border-b px-2">
                       {Object.entries(MODULE_GROUPS).map(([groupName, slugs]) => {
                         const gc = GROUP_COLORS[groupName] || GROUP_COLORS['default']!
                         const GroupIcon = GROUP_ICONS[groupName]
@@ -687,14 +692,17 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
                         const filtered = slugs
                         const gc = GROUP_COLORS[groupName] || GROUP_COLORS['default']!
                         return (
-                          <div key={groupName} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          // Colunas por largura disponível, não por breakpoint: em
+                          // 1366px com a barra lateral aberta cabem duas, e o
+                          // `lg:grid-cols-3` forçava três espremendo o card.
+                          <div key={groupName} className="grid gap-2 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
                             {filtered.map((slug) => {
                               const Icon = MODULE_ICONS[slug]
                               const label = MODULE_LABELS[slug] ?? slug
                               const isActive = !!permissionsMap[slug]?.canRead
                               const hasSubs = !!MODULE_SUB_PERMISSIONS[slug]
                               return (
-                                <div key={slug} className={cn('group flex items-center justify-between rounded-[2px] border px-3 py-2.5 transition-all duration-300', isActive ? cn(gc.activeBg, gc.activeBorder) : cn('bg-card border-border/30', gc.hoverBg, gc.hoverBorder))}>
+                                <div key={slug} className={cn('group flex min-w-0 items-center justify-between gap-2 rounded-[2px] border px-3 py-2.5 transition-all duration-300', isActive ? cn(gc.activeBg, gc.activeBorder) : cn('bg-card border-border/30', gc.hoverBg, gc.hoverBorder))}>
                                   <div className="flex items-center gap-2.5 min-w-0">
                                     {Icon && <Icon className={cn('h-4 w-4 shrink-0 transition-colors duration-300', isActive ? gc.icon : 'text-muted-foreground/40 group-hover:text-muted-foreground/60')} />}
                                     {hasSubs ? (
