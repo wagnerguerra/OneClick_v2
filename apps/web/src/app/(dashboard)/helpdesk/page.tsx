@@ -501,9 +501,53 @@ export default function HelpdeskPage() {
     <div className="flex flex-col gap-5 h-[calc(100vh-90px)]">
       {/* Topo — PADRAO_PAGINAS §1.1 (referência /clientes) */}
       <PageHeaderBar className="shrink-0" actions={<>
+          {/* Busca e filtros no header, como no /orcamentos */}
+          <div className="relative">
+            <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={isAgente ? 'Buscar título, descrição, tags...' : 'Buscar nos meus tickets...'}
+              className="h-9 w-56 pl-8 pr-8 text-sm"
+            />
+            {/* C11 — limpa só a busca */}
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                title="Limpar busca"
+                aria-label="Limpar busca"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+            <span className="mr-1 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+              {items.length} ticket{items.length === 1 ? '' : 's'}
+            </span>
+            {/* Botão "Filtros" com contador — mesmo do /orcamentos. Antes os
+                quatro selects ficavam abertos na barra o tempo todo. */}
+            <button
+              type="button"
+              onClick={() => setFiltrosOpen(v => !v)}
+              className={cn(
+                'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors',
+                filtrosOpen || filtrosAtivos > 0
+                  ? 'border-border bg-muted text-foreground'
+                  : 'border-border bg-card text-muted-foreground hover:bg-muted/50',
+              )}
+              title="Filtros"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filtros
+              {filtrosAtivos > 0 && (
+                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none text-white" style={{ backgroundColor: MODULO_COLOR }}>{filtrosAtivos}</span>
+              )}
+            </button>
           {/* Toggle Kanban/Lista — só TI (podeAtuar). Demais usuários veem só Lista. */}
           {podeAtuar && (
-            <div className="flex items-center border rounded-[2px] overflow-hidden">
+            <div className="flex items-center overflow-hidden rounded-lg border">
               <button
                 type="button"
                 className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')}
@@ -582,57 +626,6 @@ export default function HelpdeskPage() {
         </p>
       </PageHeaderBar>
 
-      {/* Filtros (#HLP0139) — busca à esquerda; escopo + filtros alinhados à
-          direita. Cada filtro mostra sua dimensão como placeholder (sem vários
-          "Todos" iguais truncando no trigger). */}
-      <div className="flex flex-wrap items-center gap-2 shrink-0">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder={isAgente ? 'Buscar título, descrição, tags...' : 'Buscar nos meus tickets...'}
-            className="h-8 pl-8 pr-8 text-xs"
-          />
-          {/* C11 — limpa só a busca */}
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-              title="Limpar busca"
-              aria-label="Limpar busca"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <span className="mr-1 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
-            {items.length} ticket{items.length === 1 ? '' : 's'}
-          </span>
-          {/* Botão "Filtros" com contador — mesmo do /orcamentos. Antes os
-              quatro selects ficavam abertos na barra o tempo todo. */}
-          <button
-            type="button"
-            onClick={() => setFiltrosOpen(v => !v)}
-            className={cn(
-              'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors',
-              filtrosOpen || filtrosAtivos > 0
-                ? 'border-border bg-muted text-foreground'
-                : 'border-border bg-card text-muted-foreground hover:bg-muted/50',
-            )}
-            title="Filtros"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            Filtros
-            {filtrosAtivos > 0 && (
-              <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none text-white" style={{ backgroundColor: MODULO_COLOR }}>{filtrosAtivos}</span>
-            )}
-          </button>
-        </div>
-      </div>
 
       {/* Painel de filtros — abre e fecha como o do /orcamentos */}
       <div
