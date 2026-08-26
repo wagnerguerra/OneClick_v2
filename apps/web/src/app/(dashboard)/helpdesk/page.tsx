@@ -7,7 +7,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import {
   Plus, Loader2, Search, AlertTriangle, MessageSquare,
   CheckCircle2, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
-  Paperclip, Bot, BarChart3, XCircle, MoreVertical, ExternalLink, X, FilterX,
+  Paperclip, Bot, BarChart3, XCircle, MoreVertical, ExternalLink, X, FilterX, SlidersHorizontal,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
@@ -251,6 +251,9 @@ export default function HelpdeskPage() {
   // C11 — filtros de NARROWING ativos (não conta o escopo/abrangência, que tem
   // padrão próprio). Alimenta o "x" da busca e o botão "Limpar filtros".
   const temFiltroAtivo = !!(search || filtroPrioridade || filtroStatus || filtroSolicitante || filtroResponsavel)
+  /** Quantos refinamentos estão ligados — vira o número no botão "Filtros". */
+  const filtrosAtivos = [filtroPrioridade, filtroStatus, filtroSolicitante, filtroResponsavel].filter(Boolean).length
+  const [filtrosOpen, setFiltrosOpen] = useState(false)
   function limparFiltros() {
     setSearch('')
     setFiltroPrioridade('')
@@ -606,9 +609,39 @@ export default function HelpdeskPage() {
         </div>
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap mr-1">
+          <span className="mr-1 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
             {items.length} ticket{items.length === 1 ? '' : 's'}
           </span>
+          {/* Botão "Filtros" com contador — mesmo do /orcamentos. Antes os
+              quatro selects ficavam abertos na barra o tempo todo. */}
+          <button
+            type="button"
+            onClick={() => setFiltrosOpen(v => !v)}
+            className={cn(
+              'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors',
+              filtrosOpen || filtrosAtivos > 0
+                ? 'border-border bg-muted text-foreground'
+                : 'border-border bg-card text-muted-foreground hover:bg-muted/50',
+            )}
+            title="Filtros"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
+            {filtrosAtivos > 0 && (
+              <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none text-white" style={{ backgroundColor: MODULO_COLOR }}>{filtrosAtivos}</span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Painel de filtros — abre e fecha como o do /orcamentos */}
+      <div
+        className="grid shrink-0 transition-[grid-template-rows,opacity] duration-[250ms] ease-[cubic-bezier(.16,1,.3,1)]"
+        style={{ gridTemplateRows: filtrosOpen ? '1fr' : '0fr', opacity: filtrosOpen ? 1 : 0 }}
+        aria-hidden={!filtrosOpen}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
           {/* C11 — limpa todos os filtros de narrowing de uma vez; fica entre o
               contador e os filtros. Só aparece quando há algo pra limpar. Outline
               (não ghost) pra ter borda visível também no dark. */}
@@ -631,7 +664,7 @@ export default function HelpdeskPage() {
               value={filtroSolicitante && solicitanteOptions.some(u => u.id === filtroSolicitante) ? filtroSolicitante : '__all__'}
               onValueChange={v => setFiltroSolicitante(v === '__all__' ? '' : v)}
             >
-              <SelectTrigger className="h-8 text-xs w-[170px]">
+              <SelectTrigger className="h-9 text-xs w-[170px]">
                 <span>{(filtroSolicitante && solicitanteOptions.find(u => u.id === filtroSolicitante)?.name) || 'Solicitante'}</span>
               </SelectTrigger>
               <SelectContent>
@@ -643,7 +676,7 @@ export default function HelpdeskPage() {
           {/* Responsável — só agentes */}
           {isAgente && agentes.length > 0 && (
             <Select value={filtroResponsavel || '__all__'} onValueChange={v => setFiltroResponsavel(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="h-8 text-xs w-[160px]">
+              <SelectTrigger className="h-9 text-xs w-[160px]">
                 <span>{(filtroResponsavel && agentes.find(a => a.id === filtroResponsavel)?.name) || 'Responsável'}</span>
               </SelectTrigger>
               <SelectContent>
@@ -655,7 +688,7 @@ export default function HelpdeskPage() {
           {/* Status — só na lista (no kanban as colunas já são os status) */}
           {isAgente && !emKanban && (
             <Select value={filtroStatus || '__all__'} onValueChange={v => setFiltroStatus(v === '__all__' ? '' : v as HelpdeskStatus)}>
-              <SelectTrigger className="h-8 text-xs w-[150px]">
+              <SelectTrigger className="h-9 text-xs w-[150px]">
                 <span>{(filtroStatus && HELPDESK_STATUS_LABELS[filtroStatus]) || 'Status'}</span>
               </SelectTrigger>
               <SelectContent>
@@ -674,7 +707,7 @@ export default function HelpdeskPage() {
           {/* Prioridade */}
           {isAgente && (
             <Select value={filtroPrioridade || '__all__'} onValueChange={v => setFiltroPrioridade(v === '__all__' ? '' : v as HelpdeskPrioridade)}>
-              <SelectTrigger className="h-8 text-xs w-[150px]">
+              <SelectTrigger className="h-9 text-xs w-[150px]">
                 <span>{(filtroPrioridade && HELPDESK_PRIORIDADE_LABELS[filtroPrioridade]) || 'Prioridade'}</span>
               </SelectTrigger>
               <SelectContent>
@@ -695,12 +728,13 @@ export default function HelpdeskPage() {
               não desloque os filtros estáveis, ancorados à direita. */}
           {isAgente && (
             <Select value={scope} onValueChange={v => setScopeManual(v as ScopeFiltro)} disabled={scopeOptions.length <= 1}>
-              <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9 text-xs w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {scopeOptions.map(o => <SelectItem key={o} value={o}>{SCOPE_FILTRO_LABEL[o]}</SelectItem>)}
               </SelectContent>
             </Select>
           )}
+          </div>
         </div>
       </div>
 
@@ -771,8 +805,10 @@ export default function HelpdeskPage() {
         </Card>
       ) : (viewMode === 'kanban' && !verArquivados) ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
-          <div className="nice-scrollbar overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1">
-            <div className="flex gap-3 px-1 h-full" style={{ minWidth: `${COLUNAS.length * 240}px` }}>
+          <div className="nice-scrollbar -mx-1 flex-1 overflow-x-auto overflow-y-hidden pb-4">
+            {/* `w-max` no lugar do minWidth calculado: a largura vem das colunas,
+                que têm medida fixa — mesmo trilho do /orcamentos. */}
+            <div className="flex h-full w-max gap-4 px-1">
               {COLUNAS.map(status => (
                 <KanbanColumn
                   key={status}
@@ -868,18 +904,19 @@ function KanbanColumn({ status, cor, tickets, onCardClick, onCardAuxClick, podeA
     <div
       ref={setNodeRef}
       className={cn(
-        // Coluna sem borda visível, com overlay sutil sobre o fundo do dashboard:
-        // - light: leve sombra preta (cinza-claro)
-        // - dark: leve overlay branco que clareia o cinza-azulado base
-        'flex-1 min-w-[240px] flex flex-col overflow-hidden rounded-lg transition-colors bg-black/[0.04] dark:bg-white/[0.04]',
-        isOver && 'ring-2 ring-offset-1',
+        // Coluna ABERTA, como no /orcamentos e no /crm: largura fixa, sem caixa
+        // cinza — os cards flutuam sobre o fundo da página. Só o alvo do arrasto
+        // ganha um véu sutil. A coluna elástica anterior mudava de largura
+        // conforme a quantidade de status visíveis.
+        'flex h-full w-[340px] shrink-0 flex-col rounded-xl transition-colors',
+        isOver && 'bg-black/[0.03] dark:bg-white/[0.04]',
       )}
       style={isOver ? { boxShadow: `0 0 0 2px ${cor}55` } : undefined}
     >
-      {/* Header sem bg colorido nem border-b — só o dot da cor + título + pill */}
-      <div className="px-3 py-2.5 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cor }} />
+      {/* Header: dot da cor + nome + contador em pill tintada + ações */}
+      <div className="flex items-center justify-between gap-2 px-1.5 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cor }} />
           <span className="text-sm font-semibold truncate">{HELPDESK_STATUS_LABELS[status]}</span>
           <span
             className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold text-white shrink-0"
@@ -888,20 +925,29 @@ function KanbanColumn({ status, cor, tickets, onCardClick, onCardAuxClick, podeA
             {tickets.length}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
+        <div className="flex items-center gap-0.5 sm:shrink-0">
           {podeArquivarLote && tickets.length > 0 && (
-            <button
-              type="button"
-              onClick={onArchiveAll}
-              title={`Arquivar todos os ${tickets.length} ticket${tickets.length > 1 ? 's' : ''} desta coluna`}
-              className="h-5 w-5 inline-flex items-center justify-center rounded text-muted-foreground hover:bg-background/60 hover:text-foreground transition-colors"
-            >
-              <Archive className="h-3 w-3" />
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  title="Opções da coluna"
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-black/[0.06] hover:text-foreground dark:hover:bg-white/[0.08]"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onArchiveAll}>
+                  <Archive className="h-4 w-4 mr-2" />
+                  Arquivar os {tickets.length} desta coluna
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>
-      <div className="flex-1 p-2 space-y-2 overflow-y-auto nice-scrollbar min-h-[120px]">
+      <div className="nice-scrollbar min-h-[120px] flex-1 space-y-2 overflow-y-auto px-1.5 pb-2">
         <SortableContext items={tickets.map(t => t.id)} strategy={verticalListSortingStrategy}>
           {tickets.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-6 italic">Vazio</p>
