@@ -17,6 +17,7 @@ import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { corSaldo, corSaldoTexto } from '../_lib/cores'
+import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 
 const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
 
@@ -92,6 +93,16 @@ export default function ControleFeriasDetalhePage() {
       if (nova.has(id)) nova.delete(id); else nova.add(id)
       return nova
     })
+  }
+
+  /**
+   * Correção de um gozo na própria linha, no mesmo padrão da listagem. Depois
+   * de salvar recarrega o período: dias gozados e saldo são derivados no
+   * backend, e refazê-los aqui seria criar uma segunda versão da conta.
+   */
+  async function editarGozo(id: string, patch: Record<string, unknown>) {
+    await (trpc.controleFerias as any).atualizarEvento.mutate({ id, ...patch })
+    carregar()
   }
 
   const carregar = useCallback(() => {
@@ -239,11 +250,35 @@ export default function ControleFeriasDetalhePage() {
               <div className="space-y-2">
                 {p.eventos.map((e) => (
                   <div key={e.id} className="flex items-center gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
-                    <span className="text-sm font-medium tabular-nums shrink-0">
-                      {dataBR(e.dataInicio)} → {dataBR(e.dataFim)}
+                    <span className="flex items-center gap-1 text-sm font-medium tabular-nums shrink-0">
+                      <InlineEditCell
+                        type="date"
+                        value={isoDe(e.dataInicio)}
+                        disabled={!podeEscrever}
+                        display={() => <span className="tabular-nums">{dataBR(e.dataInicio)}</span>}
+                        onSave={(v) => editarGozo(e.id, { dataInicio: v })}
+                        validate={(v) => (v ? null : 'Informe a data de início')}
+                      />
+                      <span className="text-muted-foreground">→</span>
+                      <InlineEditCell
+                        type="date"
+                        value={isoDe(e.dataFim)}
+                        disabled={!podeEscrever}
+                        display={() => <span className="tabular-nums">{dataBR(e.dataFim)}</span>}
+                        onSave={(v) => editarGozo(e.id, { dataFim: v })}
+                        validate={(v) => (v ? null : 'Informe a data de fim')}
+                      />
                     </span>
                     <Badge variant="secondary" className="text-[10px] tabular-nums shrink-0">{e.dias} {e.dias === 1 ? 'dia' : 'dias'}</Badge>
-                    <span className="text-xs text-muted-foreground truncate flex-1">{e.descricao ?? ''}</span>
+                    <span className="min-w-0 flex-1 text-xs text-muted-foreground">
+                      <InlineEditCell
+                        type="text"
+                        value={e.descricao}
+                        emptyLabel="sem observação"
+                        disabled={!podeEscrever}
+                        onSave={(v) => editarGozo(e.id, { descricao: v || null })}
+                      />
+                    </span>
                     {e.registradoPorNome && (
                       <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:block">por {e.registradoPorNome}</span>
                     )}

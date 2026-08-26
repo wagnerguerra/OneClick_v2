@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { prisma, getPrismaSkipTake, buildPaginatedResponse } from '@saas/db'
 import type {
   CriarFeriasPeriodoInput, AtualizarFeriasPeriodoInput, CriarFeriasEventoInput,
-  ListarFeriasPeriodosInput,
+  AtualizarFeriasEventoInput, ListarFeriasPeriodosInput,
 } from '@saas/types'
 import { diasDoEvento, saldoDoPeriodo, limiteConcessivo, farolVencimento } from './ferias-calc'
 
@@ -375,6 +375,36 @@ export class ControleFeriasService {
         dataFim: dataDeISO(input.dataFim),
         descricao: input.descricao?.trim() || null,
         registradoPorId: usuarioId,
+      },
+      select: { id: true },
+    })
+  }
+
+  /**
+   * Corrige um gozo já lançado. Antes só dava para excluir e relançar — o que
+   * trocava o autor do registro e perdia a data de lançamento original.
+   *
+   * A ordem das datas é conferida contra o que está gravado, porque a tela
+   * edita um campo por vez: mexer só no fim não pode deixá-lo antes do início.
+   */
+  async atualizarEvento(input: AtualizarFeriasEventoInput, empresaId?: string | null) {
+    const atual = await prisma.feriasEvento.findUnique({
+      where: { id: input.id },
+      select: { id: true, dataInicio: true, dataFim: true, periodo: { select: { empresaId: true } } },
+    })
+    if (!atual) throw new Error('Gozo não encontrado.')
+    if ((atual.periodo.empresaId ?? null) !== (empresaId ?? null)) throw new Error('Gozo não encontrado.')
+
+    const inicio = input.dataInicio ? dataDeISO(input.dataInicio) : atual.dataInicio
+    const fim = input.dataFim ? dataDeISO(input.dataFim) : atual.dataFim
+    if (fim < inicio) throw new Error('O fim do gozo não pode vir antes do início.')
+
+    return prisma.feriasEvento.update({
+      where: { id: input.id },
+      data: {
+        ...(input.dataInicio !== undefined ? { dataInicio: inicio } : {}),
+        ...(input.dataFim !== undefined ? { dataFim: fim } : {}),
+        ...(input.descricao !== undefined ? { descricao: input.descricao?.trim() || null } : {}),
       },
       select: { id: true },
     })

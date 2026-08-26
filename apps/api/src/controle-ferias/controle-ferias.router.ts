@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { router, readProcedure, writeProcedure, deleteProcedure, readSubProcedure } from '../trpc/trpc.service'
 import {
   criarFeriasPeriodoSchema, atualizarFeriasPeriodoSchema, criarFeriasEventoSchema,
+  atualizarFeriasEventoSchema,
   listarFeriasPeriodosSchema, filtroRelatorioFeriasSchema as filtroRelatorioSchema,
 } from '@saas/types'
 import { ControleFeriasService } from './controle-ferias.service'
@@ -38,6 +39,10 @@ export function createControleFeriasRouter(
     criarEvento: writeProcedure(MODULE)
       .input(criarFeriasEventoSchema)
       .mutation(({ input, ctx }) => service.criarEvento(input, ctx.userId, ctx.empresaId)),
+
+    atualizarEvento: writeProcedure(MODULE)
+      .input(atualizarFeriasEventoSchema)
+      .mutation(({ input, ctx }) => service.atualizarEvento(input, ctx.empresaId)),
 
     excluirEvento: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))

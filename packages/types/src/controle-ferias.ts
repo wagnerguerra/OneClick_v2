@@ -46,6 +46,18 @@ export const criarFeriasEventoSchema = z.object({
   path: ['dataFim'],
 })
 
+/**
+ * Correção de um gozo já lançado. Cada campo é opcional porque a tela edita
+ * uma célula por vez; a validação de ordem das datas roda no service, que
+ * conhece os valores atuais do registro.
+ */
+export const atualizarFeriasEventoSchema = z.object({
+  id: z.string().min(1),
+  dataInicio: dataISO.optional(),
+  dataFim: dataISO.optional(),
+  descricao: z.string().max(200).optional().nullable(),
+})
+
 export const listarFeriasPeriodosSchema = paginationSchema.extend({
   colaboradorId: z.string().optional(),
   /** ABERTOS = fora do histórico; HISTORICO = consolidados. */
@@ -74,4 +86,5 @@ export type FiltroRelatorioFeriasInput = z.infer<typeof filtroRelatorioFeriasSch
 export type CriarFeriasPeriodoInput = z.infer<typeof criarFeriasPeriodoSchema>
 export type AtualizarFeriasPeriodoInput = z.infer<typeof atualizarFeriasPeriodoSchema>
 export type CriarFeriasEventoInput = z.infer<typeof criarFeriasEventoSchema>
+export type AtualizarFeriasEventoInput = z.infer<typeof atualizarFeriasEventoSchema>
 export type ListarFeriasPeriodosInput = z.infer<typeof listarFeriasPeriodosSchema>
