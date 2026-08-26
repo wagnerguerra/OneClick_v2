@@ -328,11 +328,11 @@ function ItensTab({ cotacao, bloqueado, acting, onChange, obs, setObs, acao }: {
                 <>
                   {i.quantidade > 1 && (
                     <Button type="button" variant="outline" size="icon-sm" title="Repartir a quantidade entre fornecedores"
-                      className="opacity-0 group-hover:opacity-100" onClick={() => setDividir(i)}>
+                      className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100" onClick={() => setDividir(i)}>
                       <Split className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  <Button type="button" variant="soft-destructive" size="icon-sm" className="opacity-0 group-hover:opacity-100"
+                  <Button type="button" variant="soft-destructive" size="icon-sm" className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                     onClick={() => acao(() => (trpc.compra as any).removeCotacaoItem.mutate({ id: i.id }))}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>

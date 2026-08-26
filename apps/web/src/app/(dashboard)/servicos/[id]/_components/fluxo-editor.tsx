@@ -473,7 +473,7 @@ function NodeEdgeButtons({ data, hidden }: { data: ServicoNodeData; hidden?: boo
     <>
       {/* Lado esquerdo — predecessor + (topo) */}
       {data.onAddPred && (
-        <div className="absolute -left-3.5 top-[22%] -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
+        <div className="absolute -left-3.5 top-[22%] -translate-y-1/2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); data.onAddPred!(n.id) }}
@@ -487,7 +487,7 @@ function NodeEdgeButtons({ data, hidden }: { data: ServicoNodeData; hidden?: boo
       )}
       {/* Lado esquerdo — predecessor − (base) */}
       {data.onRemovePred && predCount > 0 && (
-        <div className="absolute -left-3.5 top-[78%] -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
+        <div className="absolute -left-3.5 top-[78%] -translate-y-1/2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); data.onRemovePred!(n.id) }}
@@ -501,7 +501,7 @@ function NodeEdgeButtons({ data, hidden }: { data: ServicoNodeData; hidden?: boo
       )}
       {/* Lado direito — sucessor + (topo) */}
       {data.onAddSucc && (
-        <div className="absolute -right-3.5 top-[22%] -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
+        <div className="absolute -right-3.5 top-[22%] -translate-y-1/2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); data.onAddSucc!(n.id) }}
@@ -515,7 +515,7 @@ function NodeEdgeButtons({ data, hidden }: { data: ServicoNodeData; hidden?: boo
       )}
       {/* Lado direito — sucessor − (base) */}
       {data.onRemoveSucc && succCount > 0 && (
-        <div className="absolute -right-3.5 top-[78%] -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
+        <div className="absolute -right-3.5 top-[78%] -translate-y-1/2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); data.onRemoveSucc!(n.id) }}
@@ -2174,7 +2174,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                             style={{ background: s.tipo === 'DECISAO' ? '#a855f7' : '#10b981' }}
                           />
                           <span className="text-[12px] font-medium truncate flex-1">{s.nome}</span>
-                          <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 text-emerald-600 shrink-0" />
+                          <Plus className="h-3 w-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-emerald-600 shrink-0" />
                         </div>
                         {s.area?.name && (
                           <div className="text-[10px] text-muted-foreground ml-3 truncate">{s.area.name}</div>

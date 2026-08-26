@@ -1428,7 +1428,7 @@ export default function BiCategoriasBalancetePage() {
                               try { await trpc.cliente.biDeleteCategoria.mutate({ clienteId, conta: cat.conta }); setCategorias((prev) => prev.filter((c) => c.conta !== cat.conta)); setSelected((prev) => { const n = new Set(prev); n.delete(cat.conta); return n }) }
                               catch { alerts.error('Erro', 'Falha ao excluir categoria') }
                             }}
-                            className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-900/20"
+                            className="rounded p-1 text-muted-foreground opacity-100 transition-opacity hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 dark:hover:bg-red-900/20"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>

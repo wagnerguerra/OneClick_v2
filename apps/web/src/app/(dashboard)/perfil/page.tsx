@@ -753,7 +753,7 @@ export default function MeuPerfilPage() {
         )}
 
         {/* Botoes para gerenciar a capa — z-20 para ficar acima do conteudo (z-10) e das tabs */}
-        <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
+        <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-100 pointer-events-none sm:opacity-0 sm:group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
           <button
             type="button"
             onClick={() => coverInputRef.current?.click()}
@@ -1276,7 +1276,7 @@ export default function MeuPerfilPage() {
                           </span>
                         ))}
                       </div>
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0" />
                     </a>
                   ))}
                 </div>

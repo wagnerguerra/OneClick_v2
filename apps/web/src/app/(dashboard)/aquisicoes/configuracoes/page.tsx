@@ -299,11 +299,11 @@ function CriteriosTab() {
               ) : (
                 <>
                   <p className="min-w-0 flex-1 truncate text-sm">{c.criterio}</p>
-                  <Button type="button" variant="soft-info" size="icon-sm" className="opacity-0 group-hover:opacity-100"
+                  <Button type="button" variant="soft-info" size="icon-sm" className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                     onClick={() => { setEditId(c.id); setEditTexto(c.criterio) }}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  <Button type="button" variant="soft-destructive" size="icon-sm" className="opacity-0 group-hover:opacity-100"
+                  <Button type="button" variant="soft-destructive" size="icon-sm" className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                     onClick={() => excluir(c)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>

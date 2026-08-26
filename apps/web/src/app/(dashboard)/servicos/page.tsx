@@ -1284,7 +1284,7 @@ export default function ServicosPage() {
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
-                            <button className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted shrink-0">
+                            <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted shrink-0">
                               <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
                             </button>
                           </DropdownMenuTrigger>
@@ -2709,7 +2709,7 @@ function PassoExtras({ passoId, editavel }: { passoId: string; editavel: boolean
                   </a>
                   {a.fileSize && <span className="text-[10px] text-muted-foreground">{Math.round(a.fileSize / 1024)} KB</span>}
                   {editavel && (
-                    <button type="button" onClick={() => removerAnexo(a.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity">
+                    <button type="button" onClick={() => removerAnexo(a.id)} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity">
                       <Trash2 className="h-3 w-3" />
                     </button>
                   )}

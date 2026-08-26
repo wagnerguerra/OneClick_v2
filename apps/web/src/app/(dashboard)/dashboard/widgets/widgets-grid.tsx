@@ -587,7 +587,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
                       onClick={(e) => { e.stopPropagation(); setExpandedWidget(item.i) }}
                       title="Ampliar"
                       aria-label="Ampliar widget"
-                      className="absolute top-2 right-2 z-10 inline-flex items-center justify-center h-7 w-7 rounded-md bg-card/80 backdrop-blur-sm border border-border/60 text-muted-foreground opacity-0 group-hover/widget:opacity-100 hover:bg-card hover:text-foreground hover:border-border transition-all shadow-sm"
+                      className="absolute top-2 right-2 z-10 inline-flex items-center justify-center h-7 w-7 rounded-md bg-card/80 backdrop-blur-sm border border-border/60 text-muted-foreground opacity-100 sm:opacity-0 sm:group-hover/widget:opacity-100 hover:bg-card hover:text-foreground hover:border-border transition-all shadow-sm"
                     >
                       <Maximize2 className="h-3.5 w-3.5" />
                     </button>

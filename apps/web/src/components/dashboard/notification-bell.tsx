@@ -270,7 +270,7 @@ export function NotificationBell() {
           </span>
           {!n.lida && <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', critico ? 'bg-rose-500' : 'bg-primary')} />}
           {/* Ações no hover: marcar lida / remover (quando o sistema permite) */}
-          <span className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:opacity-100">
+          <span className="absolute right-2 top-2 flex items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/item:opacity-100">
             {!n.lida && (
               <button type="button" onClick={(e) => handleMarcarLida(n, e)} title="Marcar como lida"
                 className="flex h-6 w-6 items-center justify-center rounded-md bg-card/90 text-muted-foreground shadow-sm hover:text-primary">

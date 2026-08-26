@@ -120,7 +120,7 @@ export function InlineEditCell(props: Props) {
               : <span className="text-muted-foreground italic">{emptyLabel}</span>)}
         </span>
         {!disabled && (
-          <Pencil className="h-3 w-3 text-muted-foreground/60 opacity-0 group-hover/edit:opacity-100 transition-opacity shrink-0" />
+          <Pencil className="h-3 w-3 text-muted-foreground/60 opacity-100 sm:opacity-0 sm:group-hover/edit:opacity-100 transition-opacity shrink-0" />
         )}
       </div>
     )

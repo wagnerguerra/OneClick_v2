@@ -127,7 +127,7 @@ export function AnexosCard({ compraId }: { compraId: string }) {
                   </>)}
                 </div>
                 {editId !== a.id && (
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <a href={resolveAssetUrl(a.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" title="Abrir / baixar">
                       <Download className="h-3.5 w-3.5" />
                     </a>

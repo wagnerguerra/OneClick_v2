@@ -210,7 +210,7 @@ export default function SqlConsolePage() {
                       <button onClick={() => abrirDados(t.table)} title="Ver dados" className="flex-1 text-left text-[13px] font-medium truncate" style={ativa ? { color: MODULE_COLOR } : undefined}>
                         {t.table}
                       </button>
-                      <span className="text-[10px] text-muted-foreground tabular-nums opacity-0 group-hover:opacity-100 shrink-0 pr-1">{t.columns.length}</span>
+                      <span className="text-[10px] text-muted-foreground tabular-nums opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shrink-0 pr-1">{t.columns.length}</span>
                     </div>
                     {aberta.has(t.table) && (
                       <div className="ml-[18px] mt-0.5 mb-1 border-l-2 pl-2.5 py-0.5 space-y-px" style={{ borderColor: tint(30) }}>

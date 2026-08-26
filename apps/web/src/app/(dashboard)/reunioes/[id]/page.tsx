@@ -336,7 +336,7 @@ export default function ReuniaoDetalhePage() {
                         <span className="text-[11px] text-muted-foreground">{dataHoraBR(m.criadoEm)}</span>
                         {souAutorMsg(m) && (
                           <button type="button" title="Excluir"
-                            className="p-1 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 opacity-0 group-hover:opacity-100"
+                            className="p-1 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                             onClick={() => acao(() => (trpc.reuniao as any).excluirMensagem.mutate({ id: m.id }), 'Mensagem excluída.')}>
                             <X className="h-3 w-3" />
                           </button>

@@ -463,7 +463,7 @@ function AnexoSalvoItem({ anexo, onRemove }: { anexo: AnexoLido; onRemove: () =>
       </a>
       <button
         onClick={onRemove}
-        className="p-1.5 rounded hover:bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+        className="p-1.5 rounded hover:bg-destructive/10 text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
         title="Remover"
       >
         <X className="h-3.5 w-3.5" />

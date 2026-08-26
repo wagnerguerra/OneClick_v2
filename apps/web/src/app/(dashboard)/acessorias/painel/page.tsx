@@ -661,7 +661,7 @@ export default function PainelEntregasPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               title="Abrir esta entrega no Acessórias"
-                              className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-foreground"
+                              className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-foreground"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
                             </a>
@@ -671,7 +671,7 @@ export default function PainelEntregasPage() {
                               type="button"
                               onClick={() => setNovaRegra(l)}
                               title="Esta obrigação não é devida — criar regra"
-                              className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                              className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-destructive"
                             >
                               <Ban className="h-3.5 w-3.5" />
                             </button>

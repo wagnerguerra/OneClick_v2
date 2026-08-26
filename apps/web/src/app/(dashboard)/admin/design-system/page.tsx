@@ -1385,8 +1385,8 @@ function DetailPageSection() {
 
   {/* Controles editáveis: só master, hover, base direita */}
   {isMaster && (
-    <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-0 pointer-events-none
-                    group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
+    <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-100 pointer-events-none
+                    sm:opacity-0 sm:group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
       {/* botões Personalizar/Trocar/Remover */}
     </div>
   )}

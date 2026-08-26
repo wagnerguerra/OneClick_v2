@@ -205,8 +205,8 @@ export function AnexosTab({ fornecedorId }: { fornecedorId: string }) {
               {editId !== a.id && (
                 <>
                   <a href={resolveAssetUrl(a.fileUrl)} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted" title="Abrir/baixar"><Download className="h-4 w-4" /></a>
-                  <button type="button" onClick={() => { setEditId(a.id); setEditDesc(a.descricao ?? '') }} className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100" title="Editar descrição"><Pencil className="h-3.5 w-3.5" /></button>
-                  <button type="button" onClick={() => excluir(a)} className="p-1.5 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 opacity-0 group-hover:opacity-100" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => { setEditId(a.id); setEditDesc(a.descricao ?? '') }} className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Editar descrição"><Pencil className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => excluir(a)} className="p-1.5 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></button>
                 </>
               )}
             </div>
@@ -426,8 +426,8 @@ export function MensagensTab({ fornecedorId, currentUserId }: { fornecedorId: st
                     <span className="text-[11px] text-muted-foreground">{fmtData(m.createdAt)}</span>
                     {meuAutor && editId !== m.id && (
                       <>
-                        <button type="button" onClick={() => { setEditId(m.id); setEditTexto(m.texto) }} className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100" title="Editar"><Pencil className="h-3 w-3" /></button>
-                        <button type="button" onClick={() => excluir(m.id)} className="p-1 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 opacity-0 group-hover:opacity-100" title="Excluir"><Trash2 className="h-3 w-3" /></button>
+                        <button type="button" onClick={() => { setEditId(m.id); setEditTexto(m.texto) }} className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Editar"><Pencil className="h-3 w-3" /></button>
+                        <button type="button" onClick={() => excluir(m.id)} className="p-1 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 opacity-100 sm:opacity-0 sm:group-hover:opacity-100" title="Excluir"><Trash2 className="h-3 w-3" /></button>
                       </>
                     )}
                   </div>

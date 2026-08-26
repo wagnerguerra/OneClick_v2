@@ -2100,7 +2100,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                             </div>
                           </div>
                           {/* Actions */}
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                             <a href={fullUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" title="Visualizar">
                               <ExternalLink className="h-3.5 w-3.5" />
                             </a>
@@ -3210,7 +3210,7 @@ function AtivBenefActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="ml-auto opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity">
+        <button type="button" className="ml-auto opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity">
           <MoreVertical className="h-3.5 w-3.5" />
         </button>
       </DropdownMenuTrigger>
@@ -3439,7 +3439,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                     </p>
                     {cert.observacoes && <p className="text-muted-foreground truncate" title={cert.observacoes}>{cert.observacoes}</p>}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     {canEditCertificados && (
                       <button type="button" onClick={(e) => { e.stopPropagation(); setEditingCert({ id: cert.id, titular: cert.titular || '', emissor: cert.emissor || '', observacoes: cert.observacoes || '' }) }} className="text-muted-foreground hover:text-foreground" title="Editar observações">
                         <Pencil className="h-3.5 w-3.5" />
@@ -3509,7 +3509,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                     {[formatSize(arq.fileSize), arq.user?.name, formatDate(arq.createdAt)].filter(Boolean).join(' · ')}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <a
                     href={arq.fileUrl}
                     target="_blank"
@@ -3909,7 +3909,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
                     <td className="py-2.5 px-3 text-muted-foreground">{c.email || '—'}</td>
                     <td className="py-2.5 px-3 text-muted-foreground max-w-[180px] truncate">{c.observacoes || '—'}</td>
                     <td className="py-2.5 px-3">
-                      <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button type="button" title="Editar" onClick={() => startEdit(c)}
                           className="p-1 rounded hover:bg-sky-100 text-sky-600 transition-colors">
                           <Pencil className="h-3.5 w-3.5" />

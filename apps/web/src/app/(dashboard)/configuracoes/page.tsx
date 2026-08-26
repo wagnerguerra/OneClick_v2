@@ -962,7 +962,7 @@ export default function ConfiguracoesPage() {
                                         <div className="text-[10px] text-muted-foreground font-mono truncate">{q.sql}</div>
                                       </div>
                                       {editingQueryId !== q.id && (
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                        <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                                           <button type="button" onClick={(e) => { e.stopPropagation(); setEditingQueryId(q.id); setEditingQueryName(q.name) }} className="text-muted-foreground hover:text-orange-600" title="Renomear">
                                             <Pencil className="h-3.5 w-3.5" />
                                           </button>

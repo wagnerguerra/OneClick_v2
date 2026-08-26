@@ -1022,7 +1022,7 @@ export default function ClientesPage() {
                           {op.count}
                         </span>
                       ) : null}
-                      <button type="button" className="shrink-0 p-1 rounded text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all" onClick={() => handleDeleteOpcao(op.id, op.valor, op.count || 0)} title="Excluir">
+                      <button type="button" className="shrink-0 p-1 rounded text-muted-foreground/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all" onClick={() => handleDeleteOpcao(op.id, op.valor, op.count || 0)} title="Excluir">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>

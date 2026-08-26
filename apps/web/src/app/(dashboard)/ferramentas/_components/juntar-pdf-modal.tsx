@@ -249,7 +249,7 @@ function CartaoPdf({ arquivo, posicao, onRemover, desabilitado }: {
         </span>
         <button
           type="button" onClick={onRemover} disabled={desabilitado} title="Remover"
-          className="absolute right-1.5 top-1.5 rounded bg-black/65 p-1 text-white opacity-0 transition-opacity hover:bg-black/80 group-hover:opacity-100"
+          className="absolute right-1.5 top-1.5 rounded bg-black/65 p-1 text-white opacity-100 transition-opacity hover:bg-black/80 sm:opacity-0 sm:group-hover:opacity-100"
         >
           <X className="h-3 w-3" />
         </button>

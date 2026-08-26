@@ -137,7 +137,7 @@ function MensagemItem({ msg, currentUserId, respostas = [], onExcluir, onEditar,
           {(meu || onResponder) && !editando && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button type="button" className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded hover:bg-muted shrink-0">
+                <button type="button" className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded hover:bg-muted shrink-0">
                   <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>

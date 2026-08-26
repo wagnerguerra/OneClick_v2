@@ -1406,7 +1406,7 @@ export default function CrmPage() {
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                              <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100 transition-opacity">
                                 <button type="button" onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}
                                   className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Editar">
                                   <Edit2 className="h-3.5 w-3.5" />
@@ -2136,7 +2136,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
           {showMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
-                <button className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
+                <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
                   <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
@@ -2331,7 +2331,7 @@ function ArquivosTab({ arquivos, uploading, onUpload, onRemove }: {
                   href={arq.fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
+                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
                   onClick={e => e.stopPropagation()}
                   title="Baixar"
                 >
@@ -2339,7 +2339,7 @@ function ArquivosTab({ arquivos, uploading, onUpload, onRemove }: {
                 </a>
                 <button
                   onClick={() => onRemove(arq.id, arq.fileName)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-destructive"
+                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-destructive"
                   title="Excluir"
                 >
                   <Trash2 className="h-3.5 w-3.5" />

@@ -805,7 +805,7 @@ function OrcamentoRequestForm({
                     </div>
                   )}
                   {!a.uploading && (
-                    <button type="button" onClick={() => removerAnexo(a.id)} className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover/anx:opacity-100 transition-opacity" title="Remover">
+                    <button type="button" onClick={() => removerAnexo(a.id)} className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover/anx:opacity-100 transition-opacity" title="Remover">
                       <X className="h-2.5 w-2.5" />
                     </button>
                   )}

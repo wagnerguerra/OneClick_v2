@@ -1368,7 +1368,7 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
         <>
           {g.cor && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: g.cor }} />}
           <button onClick={() => setSelGrupo(g.id)} className="flex-1 truncate text-left text-foreground">{g.nome}</button>
-          <span className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+          <span className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
             <button title="renomear" onClick={() => { setRenId(g.id); setRenNome(g.nome) }} className="text-muted-foreground hover:text-foreground"><Pencil className="h-3 w-3" /></button>
             <button title="subir" onClick={() => run(async () => { await trpc.folhaBi.grupoMove.mutate({ id: g.id, dir: 'up' }) })} className="text-muted-foreground hover:text-foreground"><ChevronUp className="h-3 w-3" /></button>
             <button title="descer" onClick={() => run(async () => { await trpc.folhaBi.grupoMove.mutate({ id: g.id, dir: 'down' }) })} className="text-muted-foreground hover:text-foreground"><ChevronDown className="h-3 w-3" /></button>

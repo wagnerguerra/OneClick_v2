@@ -380,7 +380,7 @@ export default function GruposPage() {
                 <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted">
+                      <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted">
                         <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                     </DropdownMenuTrigger>
