@@ -1020,7 +1020,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
               <p className="text-sm text-muted-foreground">Configure o mapeamento usado na conversão para o SCI</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             {modelId && (
               <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)}>
                 <History className="h-4 w-4" /> Histórico

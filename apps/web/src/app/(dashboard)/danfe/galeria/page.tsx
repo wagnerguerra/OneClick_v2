@@ -784,7 +784,7 @@ export default function DanfeGaleriaPage() {
                       {selecionado.emitenteRazao} · {fmtCnpj(selecionado.emitenteCnpj)} · {fmtDate(selecionado.dataEmissao)} · {fmtBRL(selecionado.valorTotal)}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                     {selecionado.tipoDoc === 'nfse' && !selecionado.pdfOficial && (
                       <Button
                         variant="outline"

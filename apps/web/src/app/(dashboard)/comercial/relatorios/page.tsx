@@ -99,7 +99,7 @@ export default function ComercialRelatoriosPage() {
             <p className="text-sm text-muted-foreground">Visão de gestor cruzando captação, CRM, orçamentos e contratos</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Select value={periodo} onValueChange={setPeriodo}>
             <SelectTrigger className="h-9 w-[180px] text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>{PERIODOS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>

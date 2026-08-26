@@ -112,7 +112,7 @@ export default function SociosPage() {
           <PageHeaderIcon module="cadastros" icon={UserPlus} />
           <div><h1>Sócios</h1><p className="text-sm text-muted-foreground">Gerencie o quadro societário</p></div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="success" size="sm" asChild><Link href="/socios/new"><Plus className="h-4 w-4" />Novo Sócio</Link></Button>
           <Button variant="default" size="sm" onClick={() => setQsaOpen(true)} className="gap-1"><Users className="h-4 w-4" />Importar QSA</Button>
           <Button variant="soft" size="sm" onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar</Button>

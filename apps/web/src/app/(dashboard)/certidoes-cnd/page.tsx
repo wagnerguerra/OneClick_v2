@@ -1506,7 +1506,7 @@ export default function CertidoesCndPage() {
                   <p className="text-[11px] text-muted-foreground">{pdfRecord ? formatDoc(pdfRecord.documento) : ''} {pdfRecord?.tipoCertidao ? `· ${pdfRecord.tipoCertidao}` : ''}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                 <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={() => {
                   const url = pdfTab === 'sitfis' && sitfisUrl ? sitfisUrl.replace('/pdf', '/download-pdf') : pdfUrl.replace('/pdf', '/download-pdf')
                   const a = document.createElement('a'); a.href = url; a.download = ''; a.click()

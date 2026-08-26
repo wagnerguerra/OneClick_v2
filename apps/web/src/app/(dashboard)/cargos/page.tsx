@@ -249,7 +249,7 @@ export default function CargosPage() {
             <p className="text-sm text-muted-foreground">Gerencie os cargos da empresa</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="success" size="sm" asChild><Link href="/cargos/new"><Plus className="h-4 w-4" />Novo Cargo</Link></Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -495,7 +495,7 @@ export default function AgendaPage() {
                     : <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">{(a.user?.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}</span>}
                   <span className="text-xs font-semibold truncate">{a.user?.name || 'Sistema'}</span>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
                   <span className="text-[10px] text-muted-foreground">{new Date(a.createdAt).toLocaleString('pt-BR')}</span>
                   {podeMexer && !editando && (
                     <>
@@ -1453,7 +1453,7 @@ export default function AgendaPage() {
             <p className="text-sm text-muted-foreground">Gerencie eventos, reuniões e compromissos</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
         <Button
           size="sm"
           style={{ backgroundColor: 'var(--mod-administrativo, #38bdf8)' }}
@@ -1753,7 +1753,7 @@ export default function AgendaPage() {
                   Agenda de {MESES[month]?.toLowerCase()} de {year}
                 </h2>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
                 <Button variant="outline" size="sm" className="h-8 text-xs px-3" onClick={goToday}>Hoje</Button>
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button>
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
@@ -2107,7 +2107,7 @@ export default function AgendaPage() {
                         {ev.particular && <Lock className="inline h-3.5 w-3.5 shrink-0 text-amber-500" />}
                         {ev.titulo}
                       </p>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
                         {ev.oportunidadeId && (
                           <span
                             className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-1 rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-300"
@@ -3884,7 +3884,7 @@ function FieldRow({
 }) {
   return (
     <div className={cn('flex gap-3 px-3.5 py-2.5 bg-muted/20', align === 'start' ? 'items-start' : 'items-center')}>
-      <div className={cn('flex items-center gap-2 shrink-0 w-[130px] text-muted-foreground', align === 'start' && 'pt-0.5')}>
+      <div className={cn('flex flex-wrap items-center gap-2 sm:shrink-0 w-[130px] text-muted-foreground', align === 'start' && 'pt-0.5')}>
         <Icon className="h-3.5 w-3.5 shrink-0" />
         <span className="text-[12px] font-medium">{label}</span>
       </div>

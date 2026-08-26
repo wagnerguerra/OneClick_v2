@@ -112,7 +112,7 @@ export default function DanfeDetalhePage() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
               <a href={`${getApiUrl()}/api/danfe/${id}/pdf`} target="_blank" rel="noreferrer">
                 <Button size="sm" variant="outline" className="gap-1.5">
                   <Download className="h-3.5 w-3.5" /> Baixar PDF

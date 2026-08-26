@@ -192,7 +192,7 @@ export default function DocumentoInternoDetalhePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 flex-wrap justify-end">
           {vigente && (
             <Button variant="outline" size="sm" asChild>
               <a href={`${getApiUrl()}${vigente.arquivoPath}`} target="_blank" rel="noopener noreferrer">
@@ -234,7 +234,7 @@ export default function DocumentoInternoDetalhePage() {
                       {ehVigente && <Badge variant="secondary" className="text-[10px]">Vigente</Badge>}
                       <span className="text-[11px] text-muted-foreground">{dataBR(v.dataVersao)}</span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                       <Button variant="soft" size="icon-sm" asChild title="Baixar esta revisão">
                         <a href={`${getApiUrl()}${v.arquivoPath}`} target="_blank" rel="noopener noreferrer">
                           <Download className="h-3.5 w-3.5" />

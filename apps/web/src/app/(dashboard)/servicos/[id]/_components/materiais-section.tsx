@@ -149,7 +149,7 @@ export function MateriaisSection({ materiais, etapaId, passoId, readOnly, onChan
   }
 
   return (
-    <div className={cn('flex items-center gap-1.5 shrink-0', inline ? 'flex-nowrap' : 'flex-wrap', !inline && (compact ? 'mt-1' : 'mt-2'))}>
+    <div className={cn('flex flex-wrap items-center gap-1.5 sm:shrink-0', inline ? 'flex-nowrap' : 'flex-wrap', !inline && (compact ? 'mt-1' : 'mt-2'))}>
       {!hideChips && materiais.map(m => {
         const meta = TIPO_META[m.tipo]
         const Icon = meta.icon

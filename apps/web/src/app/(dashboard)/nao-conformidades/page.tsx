@@ -126,7 +126,7 @@ export default function NaoConformidadesPage() {
             <p className="text-sm text-muted-foreground">Registro e tratamento das não conformidades: causa, plano de ação e avaliação de eficácia</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {podeEscrever && (
             <Button variant="success" size="sm" asChild>
               <Link href="/nao-conformidades/new"><Plus className="h-4 w-4" />Nova NC</Link>

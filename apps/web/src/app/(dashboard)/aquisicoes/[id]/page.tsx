@@ -135,7 +135,7 @@ export default function PedidoDetalhePage() {
             <p className="text-sm text-muted-foreground">{c.fornecedor?.razaoSocial ?? '—'}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 flex-wrap justify-end">
           {editavel && <Button variant="success" size="sm" onClick={salvar} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Salvar</Button>}
           {(c.status === 'NOVO' || c.status === 'REPROVADO') && <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" disabled={acting} onClick={() => acao(() => (trpc.compra as any).enviar.mutate({ id: c.id }), 'Enviado para aprovação.')}><Send className="h-4 w-4" />Enviar p/ aprovação</Button>}
           {c.status === 'AGUARDANDO_APROVACAO' && podeAprovar && <>

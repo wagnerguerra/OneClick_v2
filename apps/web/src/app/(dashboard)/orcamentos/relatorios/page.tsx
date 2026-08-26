@@ -124,7 +124,7 @@ export default function RelatoriosOrcamentosPage() {
             <p className="text-sm text-muted-foreground">Indicadores e análises do pipeline comercial</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {tab !== 'indicadores' && (
           <Select value={periodo} onValueChange={setPeriodo}>
             <SelectTrigger className="h-9 w-[180px] text-sm"><SelectValue /></SelectTrigger>

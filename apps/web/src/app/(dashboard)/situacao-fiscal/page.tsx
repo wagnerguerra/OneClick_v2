@@ -556,7 +556,7 @@ export default function SituacaoFiscalPage() {
                   {loteSelecionados.size} de {loteClientes.length}
                 </Badge>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                 <label className="text-[11px] text-muted-foreground whitespace-nowrap">Intervalo:</label>
                 <Select value={String(loteDelay)} onValueChange={v => setLoteDelay(Number(v))} disabled={loteStatus === 'running'}>
                   <SelectTrigger className="h-8 w-[80px] text-xs"><SelectValue /></SelectTrigger>
@@ -728,7 +728,7 @@ export default function SituacaoFiscalPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {!trashMode ? (
             <>
               <Button variant="success" size="sm" onClick={handleConsultar} disabled={consultando} className="gap-1.5">

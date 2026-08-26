@@ -190,7 +190,7 @@ export default function ReuniaoDetalhePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 flex-wrap justify-end">
           {!editandoAta && (
             <Button variant="outline" size="sm" onClick={() => setEditandoAta(true)}>
               <Pencil className="h-4 w-4" />Editar ata
@@ -277,7 +277,7 @@ export default function ReuniaoDetalhePage() {
                     )}>
                       <div className="flex items-start justify-between gap-2">
                         <p className={cn('flex-1', a.status === 'CONCLUIDA' && 'line-through text-muted-foreground')}>{a.descricao}</p>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                           {a.status === 'PENDENTE' && (minha || podeGerenciarAcoes) && (
                             <Button size="xs" variant="success" disabled={acting}
                               onClick={() => acao(() => (trpc.reuniao as any).concluirAcao.mutate({ id: a.id, concluida: true }), 'Ação concluída.')}>

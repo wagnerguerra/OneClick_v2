@@ -163,7 +163,7 @@ export default function ColaboradoresPage() {
             <p className="text-sm text-muted-foreground">Gerencie os colaboradores da empresa</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="success" size="sm" asChild>
             <Link href="/colaboradores/new"><Plus className="h-4 w-4" />Novo Colaborador</Link>
           </Button>

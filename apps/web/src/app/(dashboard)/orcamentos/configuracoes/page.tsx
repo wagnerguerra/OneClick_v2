@@ -169,7 +169,7 @@ export default function OrcamentosConfiguracoesPage() {
             <p className="text-sm text-muted-foreground">Defina prazos, numeração, e-mails e textos padrão</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {activeTab !== 'areas' && activeTab !== 'modelos' && activeTab !== 'pesquisa' && activeTab !== 'ia' && (
             <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -744,7 +744,7 @@ function IaSugestoesTab() {
         <p className="text-[12px] text-muted-foreground max-w-xl">
           Os botões de sugestão que aparecem no assistente de IA do orçamento. <strong>Rótulo</strong> = texto do botão; <strong>Instrução</strong> = o que é enviado à IA ao clicar. Reordene com as setas.
         </p>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="outline" size="sm" onClick={() => setItens(IA_SUGESTOES_PADRAO)} className="gap-1.5"><History className="h-4 w-4" /> Restaurar padrões</Button>
           <Button variant="outline" size="sm" onClick={add} className="gap-1.5"><Plus className="h-4 w-4" /> Adicionar</Button>
         </div>

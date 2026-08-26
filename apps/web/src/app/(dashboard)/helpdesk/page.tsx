@@ -511,7 +511,7 @@ export default function HelpdeskPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {/* Toggle Kanban/Lista — só TI (podeAtuar). Demais usuários veem só Lista. */}
           {podeAtuar && (
             <div className="flex items-center border rounded-[2px] overflow-hidden">
@@ -892,7 +892,7 @@ function KanbanColumn({ status, cor, tickets, onCardClick, onCardAuxClick, podeA
             {tickets.length}
           </span>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
           {podeArquivarLote && tickets.length > 0 && (
             <button
               type="button"

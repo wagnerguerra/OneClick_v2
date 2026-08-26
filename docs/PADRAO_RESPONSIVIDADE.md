@@ -78,6 +78,14 @@ de apoio. O que identifica o registro e a ação principal ficam sempre.
 ```
 Rolagem horizontal com barra escondida esconde filtro de quem mais precisa dele.
 
+### 7.1 Grupo de ações do cabeçalho quebra linha
+```tsx
+{/* errado */} <div className="flex items-center gap-2 shrink-0">
+{/* certo  */} <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+```
+`shrink-0` no celular empurra a barra inteira para fora da tela — foi o que
+aconteceu em 113 telas de uma vez, porque a classe era a do padrão.
+
 ### 8. Nada depende de hover
 Toda ação que só aparece no `group-hover` precisa de um equivalente alcançável no
 toque (item no menu `⋮`, botão visível abaixo de `sm`). No celular não existe hover.

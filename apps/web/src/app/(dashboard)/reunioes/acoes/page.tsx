@@ -93,7 +93,7 @@ export default function AcoesReunioesPage() {
             <p className="text-sm text-muted-foreground">O que ficou combinado e ainda não foi feito</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <BackButton href="/reunioes" label="Voltar" />
         </div>
       </div>

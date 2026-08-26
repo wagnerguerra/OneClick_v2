@@ -1026,7 +1026,7 @@ export default function ServicosPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {view === 'templates' && (
             <>
               <div className="flex items-center border rounded-[2px] overflow-hidden">
@@ -1973,7 +1973,7 @@ export default function ServicosPage() {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                         <Button variant="ghost" size="icon-xs" onClick={() => openEditEnc(enc)} title="Editar">
                           <Edit className="h-3.5 w-3.5" />
                         </Button>

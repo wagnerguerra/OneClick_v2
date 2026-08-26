@@ -142,7 +142,7 @@ export default function AdminEmpresasPage() {
             <p className="text-sm text-muted-foreground">Gestão de assinaturas e períodos de teste da plataforma</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Input
             placeholder="Buscar por nome…"
             value={search}

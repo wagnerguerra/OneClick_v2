@@ -272,7 +272,7 @@ export function QualificacaoTab({ fornecedorId }: { fornecedorId: string }) {
           {rows.map((r) => (
             <div key={r.id} className="flex items-center gap-3 px-3 py-2.5">
               <p className="text-sm flex-1 min-w-0">{r.criterio}</p>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
                 <button type="button" onClick={() => responder(r.id, true)}
                   className={cn('inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-xs font-medium border transition-colors',
                     r.atende === true ? 'bg-emerald-500 text-white border-transparent' : 'border-border text-muted-foreground hover:bg-muted')}>

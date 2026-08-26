@@ -539,7 +539,7 @@ export default function DctfwebPage() {
                   <p className="text-[11px] text-muted-foreground">Competência: {pdfRecord.competencia}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                 {pdfBlobUrl && (
                   <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={handleDownloadPdf}>
                     <Download className="h-3 w-3" />Baixar

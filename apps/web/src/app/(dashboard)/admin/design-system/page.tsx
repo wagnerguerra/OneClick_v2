@@ -630,7 +630,7 @@ import { Database } from 'lucide-react'
       <p className="text-sm text-muted-foreground">Lembretes pessoais com prazo</p>
     </div>
   </div>
-  <div className="flex items-center gap-2 shrink-0">
+  <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
     <Button className="gap-1.5"><Plus className="h-4 w-4" /> Nova tarefa</Button>
     <Button variant="outline" size="icon" asChild className="h-9 w-9" title="Voltar pra Agenda">
       <Link href="/agenda"><ArrowLeft className="h-4 w-4" /></Link>
@@ -646,7 +646,7 @@ import { Database } from 'lucide-react'
               <p className="text-sm text-muted-foreground">Lembretes pessoais com prazo</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             <Button className="gap-1.5"><Plus className="h-4 w-4" /> Nova tarefa</Button>
             <Button variant="outline" size="icon" className="h-9 w-9" title="Voltar pra Agenda">
               <ArrowLeft className="h-4 w-4" />

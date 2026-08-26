@@ -85,7 +85,7 @@ export default function NovaNaoConformidadePage() {
             <p className="text-sm text-muted-foreground">Sem a análise da causa, a NC nasce &quot;Aguardando Causa&quot;</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="success" size="sm" onClick={salvar} disabled={salvando}>
             {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Registrar
           </Button>

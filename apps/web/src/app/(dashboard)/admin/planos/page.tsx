@@ -209,7 +209,7 @@ export default function AdminPlanosPage() {
             <p className="text-sm text-muted-foreground">Valores exibidos na página de assinatura</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="success" size="sm" onClick={openNew}>
             <Plus className="mr-1.5 h-4 w-4" /> Novo plano
           </Button>

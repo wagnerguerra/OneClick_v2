@@ -84,7 +84,7 @@ export default function NovoPedidoPage() {
           </div>
           <div><h1>Novo Pedido de Compra</h1><p className="text-sm text-muted-foreground">Preencha os dados e os itens do pedido</p></div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="success" size="sm" onClick={salvar} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Salvar</Button>
           <BackButton href="/aquisicoes" label="Voltar" />
         </div>

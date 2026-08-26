@@ -103,7 +103,7 @@ export default function PaineisPage() {
             <p className="text-sm text-muted-foreground">Crie e edite os painéis exibidos nas TVs dos setores</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="success" size="sm" onClick={abrirNovo}><Plus className="h-4 w-4 mr-1.5" /> Novo painel</Button>
         </div>
       </div>

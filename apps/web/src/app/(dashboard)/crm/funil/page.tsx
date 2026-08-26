@@ -158,7 +158,7 @@ export default function CrmFunilPage() {
           </div>
         </div>
         {/* Ações à direita — botão Voltar sempre à direita (último) */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <BackButton href="/crm" label="Voltar" />
         </div>
       </div>

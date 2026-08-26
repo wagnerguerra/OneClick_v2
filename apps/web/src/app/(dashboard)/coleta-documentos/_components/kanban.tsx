@@ -196,7 +196,7 @@ function CardConteudo({ row }: { row: KanbanRow }) {
         </div>
         <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
           <span className="flex items-center gap-1 truncate"><Users className="h-3 w-3 shrink-0" />{row.solicitanteNomeResolvido ?? '—'}</span>
-          <span className="flex items-center gap-1 shrink-0 tabular-nums"><CalendarDays className="h-3 w-3" />{dataBR(row.registradoEm)}</span>
+          <span className="flex flex-wrap items-center gap-1 sm:shrink-0 tabular-nums"><CalendarDays className="h-3 w-3" />{dataBR(row.registradoEm)}</span>
         </div>
       </div>
     </div>

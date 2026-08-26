@@ -286,7 +286,7 @@ export default function ProcessoDetalhePage() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                 {proc.status === 'EM_ANDAMENTO' && (
                   <Button
                     variant="outline" size="sm"
@@ -543,7 +543,7 @@ export default function ProcessoDetalhePage() {
                               {' '}Criada em {new Date(exec.iniciadoEm).toLocaleDateString('pt-BR')}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                             <Button
                               size="sm"
                               onClick={() => handleIniciarSucessor(exec.id)}

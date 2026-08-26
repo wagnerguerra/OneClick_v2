@@ -426,7 +426,7 @@ export default function CaixaPostalRegrasPage() {
             <p className="text-sm text-muted-foreground">Gerencie regras automáticas de classificação de mensagens da Caixa Postal e-CAC</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="success" size="sm" onClick={handleNova} className="gap-1.5">
             <Plus className="h-4 w-4" /> Nova Regra
           </Button>

@@ -112,7 +112,7 @@ export default function ReunioesPage() {
             <p className="text-sm text-muted-foreground">Atas, participantes e o plano de ação de cada reunião</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="outline" size="sm" asChild>
             <Link href="/reunioes/acoes"><ListTodo className="h-4 w-4" />Minhas ações</Link>
           </Button>

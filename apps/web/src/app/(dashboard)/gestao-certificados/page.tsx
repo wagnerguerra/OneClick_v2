@@ -416,7 +416,7 @@ export default function GestaoCertificadosPage() {
             <p className="text-sm text-muted-foreground">Cadastro, controle de validade e guarda segura</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {isAdmin && (
             <>
               <Button

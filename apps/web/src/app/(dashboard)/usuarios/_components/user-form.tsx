@@ -218,7 +218,7 @@ export function UserForm({ mode, userId, title, description, icon, defaultValues
               <p className="text-sm text-muted-foreground">{description}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             <Button variant="success" size="sm" type="submit" disabled={saving}>
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}

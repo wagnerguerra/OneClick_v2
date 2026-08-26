@@ -1482,7 +1482,7 @@ function KanbanColumn({ status, items, isOver, activeCardId, collapsed, dropDisa
           <span className="text-sm font-semibold truncate">{label}</span>
           <span className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold tabular-nums shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>{items.length}</span>
         </div>
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-0.5 sm:shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

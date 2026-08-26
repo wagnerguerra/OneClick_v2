@@ -67,7 +67,7 @@ export default function BeneficiosPage() {
             <p className="text-sm text-muted-foreground">Controle mensal de Vale-Transporte, Vale-Alimentação e Mobilidade</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={empresaId} onChange={e => { setEmpresaId(e.target.value); setSelId(null) }}>
             {empresas.map(e => <option key={e.id} value={e.id}>{e.nomeFantasia || e.razaoSocial}</option>)}
           </select>

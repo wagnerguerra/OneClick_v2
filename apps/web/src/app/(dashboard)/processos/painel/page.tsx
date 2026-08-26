@@ -380,7 +380,7 @@ export default function PainelOperacionalPage() {
                       {resp?.name ?? 'Sem responsável'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
                     {atrasos > 0 && (
                       <Badge variant="outline" className="text-[10px] h-5 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
                         {atrasos} atras.

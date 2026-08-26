@@ -221,7 +221,7 @@ export default function ControleFeriasDetalhePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 flex-wrap justify-end">
           {podeEscrever && (
             <>
               <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={() => setGozoAberto(true)}>

@@ -131,7 +131,7 @@ export default function LoteDetalhePage() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
               {lote.status === 'CONCLUIDO' && lote.sucesso > 0 && (
                 <a href={`${getApiUrl()}/api/danfe/lote/${id}/zip`} target="_blank" rel="noreferrer">
                   <Button size="sm" variant="outline" className="gap-1.5">

@@ -202,7 +202,7 @@ export default function PermissoesEmMassaPage() {
             <p className="text-sm text-muted-foreground">Libere blocos e módulos para vários usuários de uma vez</p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {qtdPendentes > 0 && (
             <Button size="sm" variant="outline" onClick={() => setPendentes({})}>
               <RotateCcw className="h-3.5 w-3.5" /> Descartar

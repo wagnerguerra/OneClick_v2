@@ -65,7 +65,7 @@ export default function AquisicoesConfiguracoesPage() {
             <p className="text-sm text-muted-foreground">Quem aprova os pedidos e os critérios de avaliação de fornecimento</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <BackButton href="/aquisicoes" label="Voltar" />
         </div>
       </div>

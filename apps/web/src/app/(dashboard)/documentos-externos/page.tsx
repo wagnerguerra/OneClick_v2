@@ -110,7 +110,7 @@ export default function DocumentosExternosPage() {
             <p className="text-sm text-muted-foreground">Normas, leis e documentos de terceiros controlados pelo SGQ, com histórico de revisões</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {podeEscrever && (
             <Button variant="success" size="sm" asChild>
               <Link href="/documentos-externos/new"><Plus className="h-4 w-4" />Novo Documento</Link>

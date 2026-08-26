@@ -315,7 +315,7 @@ export default function GestaoContratosPage() {
             <p className="text-sm text-muted-foreground">Variação dos parâmetros contratados × movimento atual no ERP</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="outline" size="sm" className="gap-1.5" onClick={exportarCsv} disabled={loading || total === 0}>
             <FileDown className="h-4 w-4" /> CSV
           </Button>

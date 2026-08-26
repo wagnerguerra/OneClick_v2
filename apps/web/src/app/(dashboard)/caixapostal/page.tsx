@@ -1677,7 +1677,7 @@ export default function CaixaPostalPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {modoFiltrado ? (
             <>
               <Button variant="outline" size="sm" onClick={() => {
@@ -1827,7 +1827,7 @@ export default function CaixaPostalPage() {
                 </Button>
                 <Badge variant="outline" className="text-[10px] shrink-0">{loteSelecionados.size} de {clientes.length}</Badge>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                 <label className="text-[11px] text-muted-foreground whitespace-nowrap">Intervalo:</label>
                 <Select value={String(loteDelay)} onValueChange={v => setLoteDelay(Number(v))} disabled={loteStatus === 'running'}>
                   <SelectTrigger className="h-8 w-[80px] text-xs"><SelectValue /></SelectTrigger>

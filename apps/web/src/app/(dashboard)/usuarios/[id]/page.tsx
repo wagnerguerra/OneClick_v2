@@ -192,7 +192,7 @@ export default function UserProfilePage() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
               <Button
                 size="sm"
                 style={{ backgroundColor: MODULE_COLOR }}
@@ -297,7 +297,7 @@ export default function UserProfilePage() {
                             return (
                               <div key={slug} className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-md border border-border/50 bg-card">
                                 <span className="text-xs font-medium truncate">{MODULE_LABELS[slug] ?? slug}</span>
-                                <div className="flex items-center gap-1 shrink-0">
+                                <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                                   <PermFlag active={p.canRead} label="Ler" />
                                   <PermFlag active={p.canWrite} label="Escrever" />
                                   <PermFlag active={p.canDelete} label="Excluir" />

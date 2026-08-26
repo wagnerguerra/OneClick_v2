@@ -136,7 +136,7 @@ export default function MinhasObrigacoesPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <div className="flex items-center rounded border border-border/60 bg-card overflow-hidden">
             <button
               type="button"

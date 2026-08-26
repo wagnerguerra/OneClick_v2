@@ -41,7 +41,7 @@ export default function ConfiguracoesDocumentosPage() {
             <p className="text-sm text-muted-foreground">Tipos de documento e mapa de processos</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <BackButton href="/documentos-internos" label="Voltar" />
         </div>
       </div>
@@ -158,7 +158,7 @@ function ListaCadastro({ titulo, descricao, carregar, criar, atualizar, podeGere
                     <span className="text-[10px] text-muted-foreground shrink-0" title="Número no sistema antigo">#{it.legacyId}</span>
                   )}
                   {podeGerenciar && (
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                       <Button size="icon-sm" variant="soft-info" title="Renomear"
                         onClick={() => { setEditandoId(it.id); setEditNome(it.nome) }}>
                         <Pencil className="h-3.5 w-3.5" />

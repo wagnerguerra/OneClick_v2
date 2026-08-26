@@ -673,7 +673,7 @@ function AnaliseTab() {
               <div key={r.rota} className="px-4 py-2 hover:bg-muted/30">
                 <div className="flex items-center justify-between gap-3 mb-1">
                   <code className="text-[11px] font-mono truncate flex-1 min-w-0" title={r.rota}>{r.rota}</code>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                     {r.abertos > 0 && <Badge variant="outline" className="text-[9px] h-4 px-1 border-rose-200 text-rose-700 dark:border-rose-800 dark:text-rose-300">{r.abertos} aberto{r.abertos === 1 ? '' : 's'}</Badge>}
                     <span className="text-[10px] text-muted-foreground tabular-nums">{r.errosUnicos} único{r.errosUnicos === 1 ? '' : 's'}</span>
                     <span className="text-[11px] font-bold tabular-nums w-12 text-right">{r.ocorrencias.toLocaleString('pt-BR')}</span>

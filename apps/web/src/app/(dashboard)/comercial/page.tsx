@@ -185,7 +185,7 @@ export default function ComercialPage() {
             <p className="text-sm text-muted-foreground">Gestão à vista — CRM, Orçamentos e Contratos</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {refreshing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
           <Select value={periodo} onValueChange={setPeriodo}>
             <SelectTrigger className="w-[170px] h-8 text-xs">

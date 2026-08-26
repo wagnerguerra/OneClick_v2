@@ -157,7 +157,7 @@ export default function AcessoriasPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="outline" size="sm" asChild>
             <Link href="/acessorias/painel"><MailWarning className="h-4 w-4" />Painel de entregas</Link>
           </Button>
@@ -791,7 +791,7 @@ function MappingPanel() {
             Casa o nome da obrigação no Acessórias com uma Obrigação Acessória do OneClick. Sem vínculo, a entrega é ignorada na sincronização.
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="outline" size="sm" onClick={carregarSugestoes} disabled={sugLoading} className="gap-1.5">
             {sugLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
             Sugerir mapeamentos

@@ -774,7 +774,7 @@ export default function MeusServicosPage() {
             <p className="text-sm text-muted-foreground">Execuções de serviço atribuídas a você</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {/* Busca — padrão CRM/Orçamentos/Helpdesk (cliente, serviço, nº orçamento, responsável) */}
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -984,13 +984,13 @@ export default function MeusServicosPage() {
                                   Vida: <span className="font-medium text-foreground/80 truncate">{tempoVida(exec.iniciadoEm, exec.concluidoEm)}</span>
                                 </span>
                                 {exec.status === 'EM_ANDAMENTO' && exec.prazoLimite && (
-                                  <span className="inline-flex items-center gap-1 shrink-0" title={`Previsão de conclusão: ${formatDateTime(exec.prazoLimite)}`}>
+                                  <span className="inline-flex flex-wrap items-center gap-1 sm:shrink-0" title={`Previsão de conclusão: ${formatDateTime(exec.prazoLimite)}`}>
                                     <Calendar className="h-3 w-3 opacity-60 shrink-0" />
                                     Previsão: <span className="font-medium text-foreground/80">{formatDate(exec.prazoLimite)}</span>
                                   </span>
                                 )}
                                 {exec.status === 'CONCLUIDO' && exec.concluidoEm && (
-                                  <span className="inline-flex items-center gap-1 shrink-0">
+                                  <span className="inline-flex flex-wrap items-center gap-1 sm:shrink-0">
                                     <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
                                     Concluído: <span className="font-medium text-foreground/80">{formatDateTime(exec.concluidoEm)}</span>
                                   </span>
@@ -1033,7 +1033,7 @@ export default function MeusServicosPage() {
                                   <ResponsavelChip user={exec.responsavelUsuario} size="xs" />
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                                 {totalComentarios > 0 && (
                                   <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`${totalComentarios} comentário${totalComentarios > 1 ? 's' : ''}`}>
                                     <MessageSquare className="h-3 w-3" /> {totalComentarios}

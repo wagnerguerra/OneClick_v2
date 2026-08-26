@@ -119,7 +119,7 @@ function RelatorioInner() {
           </div>
         </div>
         {res && res.linhas.length > 0 && (
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             <Button asChild variant="outline" size="sm" className="gap-1.5"><a href={downloadUrl('xlsx')} download><FileSpreadsheet className="h-4 w-4" />Excel</a></Button>
             <Button asChild variant="outline" size="sm" className="gap-1.5"><a href={downloadUrl('csv')} download><FileText className="h-4 w-4" />CSV</a></Button>
             <Button asChild variant="outline" size="sm" className="gap-1.5"><a href={downloadUrl('pdf')} download><FileText className="h-4 w-4" />Baixar PDF</a></Button>

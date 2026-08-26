@@ -1817,7 +1817,7 @@ export default function ServicoDetailPage() {
                           Quando preenchido, o vencimento do mês <strong>sobrescreve</strong> a regra padrão de
                           Recorrência. Deixe "Não tem" pra usar o padrão.
                         </p>
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
                           <Button
                             variant="outline"
                             size="sm"
@@ -2480,7 +2480,7 @@ export default function ServicoDetailPage() {
                           <p className="text-[11px] text-muted-foreground mt-1 truncate">{enc.observacao}</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                         <Button variant="ghost" size="icon-xs" onClick={() => openEditEnc(enc)} title="Editar">
                           <Edit className="h-3.5 w-3.5" />
                         </Button>

@@ -368,7 +368,7 @@ export default function ContratoDetailPage() {
             </div>
 
             {/* Ações contextuais */}
-            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0 flex-wrap">
               {/* Gerar/Regerar PDF — sempre disponível enquanto não estiver cancelado */}
               {contrato.status !== 'CANCELADO' && (
                 <Button

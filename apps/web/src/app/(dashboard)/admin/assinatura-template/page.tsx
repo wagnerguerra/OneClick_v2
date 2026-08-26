@@ -256,7 +256,7 @@ export default function AssinaturaTemplatePage() {
             <p className="text-sm text-muted-foreground">Configure cores, fonte, logo e visibilidade dos campos. Aplica a todos os usuários da empresa.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="success" size="sm" onClick={handleSave} disabled={saving || loading}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Salvar

@@ -338,7 +338,7 @@ export default function PainelEntregasPage() {
             <p className="text-sm text-muted-foreground">Quem ainda não abriu a guia — antes do vencimento</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {podeRegras && (
             <Button variant="outline" size="sm" onClick={() => setRegrasOpen(true)}>
               <SlidersHorizontal className="h-4 w-4" />Regras
@@ -487,7 +487,7 @@ export default function PainelEntregasPage() {
                       correspondem exatamente aos focos que a consulta já
                       aceita — o modal só reusa a mesma chamada com o cliente
                       fixado. */}
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                     {c.naoLidasCriticas > 0 && (
                       <button type="button" title="Ver as obrigações vencendo"
                         onClick={() => setDrill({ cliente: c, foco: 'a_vencer', rotulo: 'Vencendo' })}>

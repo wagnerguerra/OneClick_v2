@@ -238,7 +238,7 @@ export default function AnaliseContextoDetalhePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 flex-wrap justify-end">
           {podeEscrever && !r.avaliado && (
             <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white"
               onClick={() => { setAvTexto(r.avaliacao ?? ''); setAvEficaz(r.eficaz); setAvData(hoje()); setAvAberta(true) }}>
@@ -305,7 +305,7 @@ export default function AnaliseContextoDetalhePage() {
                         )}
                       </div>
                       {podeEscrever && (
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                           {!a.concluida && (
                             <Button variant="soft-info" size="icon-sm" onClick={() => abrirEditarAcao(a)} title="Editar">
                               <ClipboardList className="h-3.5 w-3.5" />

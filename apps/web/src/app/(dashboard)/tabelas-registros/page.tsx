@@ -113,7 +113,7 @@ export default function TabelasRegistrosPage() {
             <p className="text-sm text-muted-foreground">Controle de registros da qualidade: armazenamento, proteção, recuperação, retenção e disposição</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {podeEscrever && (
             <Button variant="success" size="sm" asChild>
               <Link href="/tabelas-registros/new"><Plus className="h-4 w-4" />Novo Registro</Link>

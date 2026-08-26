@@ -465,7 +465,7 @@ export default function NfseGaleriaPage() {
                       {selecionado.prestadorRazao} · {fmtCnpj(selecionado.prestadorCnpj)} · {fmtDate(selecionado.dataEmissao)} · {fmtBRL(selecionado.valorServicos)}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                     
                     <Button
                       variant="outline"

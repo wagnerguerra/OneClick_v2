@@ -1406,7 +1406,7 @@ export default function CrmPage() {
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100 transition-opacity">
+                              <div className="flex flex-wrap items-center gap-1 sm:shrink-0 opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100 transition-opacity">
                                 <button type="button" onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}
                                   className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Editar">
                                   <Edit2 className="h-3.5 w-3.5" />
@@ -2131,7 +2131,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
             {op.titulo}
           </h4>
         </div>
-        <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-0.5">
+        <div className="flex flex-wrap items-center gap-0.5 sm:shrink-0 -mr-1 -mt-0.5">
           <div className="h-6 w-6">
           {showMenu && (
             <DropdownMenu>
@@ -2326,7 +2326,7 @@ function ArquivosTab({ arquivos, uploading, onUpload, onRemove }: {
                   <span>{new Date(arq.createdAt).toLocaleDateString('pt-BR')}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                 <a
                   href={arq.fileUrl}
                   target="_blank"
@@ -2510,7 +2510,7 @@ function SortableEtapaRow({ etapa, onSave, onChangeName, onChangeSla, onDelete }
       </button>
       <input type="color" value={etapa.cor} onChange={e => onSave(etapa.id, { cor: e.target.value })} className="h-7 w-7 rounded border cursor-pointer shrink-0" />
       <Input value={etapa.nome} onChange={e => onChangeName(etapa.id, e.target.value)} onBlur={() => onSave(etapa.id, { nome: etapa.nome })} className="h-8 text-sm flex-1" />
-      <div className="flex items-center gap-1 shrink-0" title="SLA em dias">
+      <div className="flex flex-wrap items-center gap-1 sm:shrink-0" title="SLA em dias">
         <Clock className="h-3 w-3 text-muted-foreground" />
         <Input
           type="number"

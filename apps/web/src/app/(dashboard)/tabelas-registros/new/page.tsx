@@ -71,7 +71,7 @@ export default function NovaTabelaRegistroPage() {
             <p className="text-sm text-muted-foreground">O registro nasce com a versão 0 do seu controle</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="success" size="sm" onClick={salvar} disabled={salvando}>
             {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Salvar
           </Button>

@@ -580,7 +580,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
               {isEdit && canEditDetails && watchedValues.status === 'ATIVO' && (
                 <Button type="button" variant="outline" className={INATIVAR_BTN_CLASS} size="sm" onClick={() => abrirInativar()} title="Inativar cliente">
                   <Ban className="h-4 w-4" />Inativar
@@ -644,7 +644,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 <p className="text-sm text-muted-foreground">Preencha os dados para cadastrar um novo cliente</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
               {canEditDetails && <Button variant="success" size="sm" type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>}
               <BackButton href="/clientes" label="Voltar" />
             </div>
@@ -3389,7 +3389,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                     </p>
                     {cert.observacoes && <p className="text-muted-foreground truncate" title={cert.observacoes}>{cert.observacoes}</p>}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <div className="flex flex-wrap items-center gap-1 sm:shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     {canEditCertificados && (
                       <button type="button" onClick={(e) => { e.stopPropagation(); setEditingCert({ id: cert.id, titular: cert.titular || '', emissor: cert.emissor || '', observacoes: cert.observacoes || '' }) }} className="text-muted-foreground hover:text-foreground" title="Editar observações">
                         <Pencil className="h-3.5 w-3.5" />
@@ -3459,7 +3459,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                     {[formatSize(arq.fileSize), arq.user?.name, formatDate(arq.createdAt)].filter(Boolean).join(' · ')}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                <div className="flex flex-wrap items-center gap-1 sm:shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <a
                     href={arq.fileUrl}
                     target="_blank"

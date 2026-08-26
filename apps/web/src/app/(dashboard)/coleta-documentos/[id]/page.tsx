@@ -192,7 +192,7 @@ export default function ColetaDetalhePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="soft-info" size="sm" onClick={abrirEdicao}><Pencil className="h-4 w-4" />Editar</Button>
           <Button variant="soft-destructive" size="sm" onClick={() => { setDelMotivo(''); setDelAberta(true) }}>
             <Trash2 className="h-4 w-4" />Excluir

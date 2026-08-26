@@ -97,7 +97,7 @@ export default function AquisicoesPage() {
             <p className="text-sm text-muted-foreground">Pedidos de compra e avaliação de fornecimento</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="outline" size="sm" asChild>
             <Link href="/aquisicoes/cotacoes"><FileSpreadsheet className="h-4 w-4" />Cotações</Link>
           </Button>

@@ -1802,7 +1802,7 @@ export default function OrcamentoDetailPage() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             {autoSaveStatus !== 'idle' && (
               <span className={cn(
                 'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md transition-opacity',

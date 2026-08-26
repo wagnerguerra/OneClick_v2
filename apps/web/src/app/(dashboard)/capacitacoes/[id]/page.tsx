@@ -157,7 +157,7 @@ export default function CapacitacaoDetalhePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 flex-wrap justify-end">
           {podeGerenciar && c.status === 'SOLICITADA' && (
             <Button size="sm" variant="outline" disabled={acting}
               onClick={() => acao(() => (trpc.capacitacao as any).solicitarAutorizacao.mutate({ id: c.id }), 'Enviada para autorização.')}>

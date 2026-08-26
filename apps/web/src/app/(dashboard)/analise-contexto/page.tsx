@@ -162,7 +162,7 @@ export default function AnaliseContextoPage() {
             <p className="text-sm text-muted-foreground">Oportunidades, ameaças, forças e fraquezas do contexto da organização, com risco e plano de ação</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {podeEscrever && (
             <Button variant="success" size="sm" onClick={abrirCadastro}>
               <Plus className="h-4 w-4" />Novo Registro

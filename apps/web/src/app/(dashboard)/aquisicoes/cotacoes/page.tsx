@@ -113,7 +113,7 @@ export default function CotacoesPage() {
             <p className="text-sm text-muted-foreground">Peça preços a vários fornecedores antes de montar o pedido</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="success" size="sm" onClick={nova} disabled={criando}>
             {criando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}Nova Cotação
           </Button>

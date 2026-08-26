@@ -594,7 +594,7 @@ export default function ParametrosOrcamentosPage() {
                             dangerouslySetInnerHTML={{ __html: t.descricao }} />
                         )}
                       </div>
-                      <div className="flex items-center gap-0.5 shrink-0">
+                      <div className="flex flex-wrap items-center gap-0.5 sm:shrink-0">
                         <Button type="button" variant="ghost" size="icon-sm" onClick={() => abrirEditarTexto(t)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
                         <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleExcluirTexto(t)} title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                       </div>

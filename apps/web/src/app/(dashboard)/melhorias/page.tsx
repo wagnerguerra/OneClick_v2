@@ -142,7 +142,7 @@ export default function MelhoriasPage() {
             <p className="text-sm text-muted-foreground">Oportunidades de melhoria registradas e as que chegaram pelas aquisições</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {podeEscrever && (
             <Button variant="success" size="sm" onClick={abrirNova}><Plus className="h-4 w-4" />Nova Melhoria</Button>
           )}

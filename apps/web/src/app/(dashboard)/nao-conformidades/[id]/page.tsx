@@ -237,7 +237,7 @@ export default function NaoConformidadeDetalhePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 flex-wrap justify-end">
           {podeEscrever && !encerrada && nc.situacao === 'AGUARDANDO_CAUSA' && (
             <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white"
               onClick={() => { setCausaTexto(nc.causa ?? ''); setCausaAberta(true) }}>
@@ -340,7 +340,7 @@ export default function NaoConformidadeDetalhePage() {
                         )}
                       </div>
                       {podeEscrever && !encerrada && (
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                           {!a.concluida && (
                             <Button variant="soft-info" size="icon-sm" onClick={() => abrirEditarAcao(a)} title="Editar">
                               <ClipboardList className="h-3.5 w-3.5" />

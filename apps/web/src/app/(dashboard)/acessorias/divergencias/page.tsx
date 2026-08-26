@@ -143,7 +143,7 @@ export default function DivergenciasPage() {
             <p className="text-sm text-muted-foreground">Compara o cadastro de clientes com as empresas de lá</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {sel.size > 0 && (
             <Button variant="success" size="sm" disabled={aplicando} onClick={aplicar}>
               {aplicando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
