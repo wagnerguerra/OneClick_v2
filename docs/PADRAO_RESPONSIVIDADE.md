@@ -118,4 +118,6 @@ render e não roda no servidor — só use quando CSS não resolve.
 3. **A ação principal é alcançável com o polegar** — não escondida atrás de hover
    nem fora da área visível.
 
+Estrutura das telas (listagem, kanban e detalhe): [`PADRAO_PAGINAS.md`](PADRAO_PAGINAS.md).
+
 Progresso da varredura por módulo: [`docs/responsividade-progresso.md`](responsividade-progresso.md).
