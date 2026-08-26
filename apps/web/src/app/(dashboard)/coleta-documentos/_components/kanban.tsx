@@ -135,7 +135,9 @@ function Coluna({ situacao, items, isOver, dropDisabled, activeId, onOpen }: {
       ref={setNodeRef}
       className={cn(
         // Padrão do /crm (LuminAux): coluna aberta, sem caixa; véu só no alvo do drop
-        'w-[300px] shrink-0 flex flex-col rounded-xl transition-colors relative',
+        // 340px: a mesma coluna do /orcamentos — antes esta era a única do
+        // sistema em 300px.
+        'relative flex w-[340px] shrink-0 flex-col rounded-xl transition-colors',
         isOver && !dropDisabled && 'bg-black/[0.03] dark:bg-white/[0.04]',
         dropDisabled && 'opacity-40 grayscale',
       )}

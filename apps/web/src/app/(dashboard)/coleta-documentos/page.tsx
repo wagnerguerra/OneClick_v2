@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Loader2, Pencil, Trash2, Flag, Settings2, RotateCcw,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search as SearchIcon, LayoutGrid, List,
+  SlidersHorizontal,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn, Checkbox,
@@ -28,6 +29,9 @@ import { SITUACAO_BADGE, TIPO_BADGE } from './_components/badges'
 import { ColetaKanban, type KanbanRow } from './_components/kanban'
 
 const PAGE_SIZES = [10, 20, 50]
+
+/** Cor do bloco Administrativo — usada no contador do botão de filtros. */
+const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
 
 interface Row {
   numero: number
@@ -228,6 +232,9 @@ export default function ColetaDocumentosPage() {
   }
 
   const filtrosAtivos = !!(fTipo || fSituacao || fCategoria || fMinhas)
+  /** Quantos filtros estão ligados — vira o número no botão "Filtros". */
+  const qtdFiltros = [fTipo, fSituacao, fCategoria, fMinhas].filter(Boolean).length
+  const [filtrosOpen, setFiltrosOpen] = useState(false)
   const totalPages = data?.totalPages ?? 1
   const startRecord = data ? (page - 1) * limit + 1 : 0
   const endRecord = data ? Math.min(page * limit, data.total) : 0
@@ -241,6 +248,26 @@ export default function ColetaDocumentosPage() {
             <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Buscar por nº, cliente, contato..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 w-60 pl-8 text-sm" />
           </div>
+          {/* Botão "Filtros" com contador — padrão do /orcamentos. Antes os
+              quatro filtros ficavam abertos dentro da toolbar da tabela, e
+              apareciam até no modo kanban, onde não há tabela para filtrar. */}
+          <button
+            type="button"
+            onClick={() => setFiltrosOpen((v) => !v)}
+            className={cn(
+              'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors',
+              filtrosOpen || qtdFiltros > 0
+                ? 'border-border bg-muted text-foreground'
+                : 'border-border bg-card text-muted-foreground hover:bg-muted/50',
+            )}
+            title="Filtros"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
+            {qtdFiltros > 0 && (
+              <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none text-white" style={{ backgroundColor: MODULE_COLOR }}>{qtdFiltros}</span>
+            )}
+          </button>
           <div className="flex items-center border rounded-lg overflow-hidden">
             <button type="button" className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')} onClick={() => { setViewMode('kanban'); localStorage.setItem('coleta-view-mode', 'kanban') }} title="Kanban">
               <LayoutGrid className="h-4 w-4" />
@@ -282,43 +309,61 @@ export default function ColetaDocumentosPage() {
         </p>
       </PageHeaderBar>
 
+      {/* Painel de filtros — abre e fecha como o do /orcamentos; a margem
+          negativa quando fechado anula o gap do container. */}
+      <div
+        className="grid transition-all duration-[250ms] ease-[cubic-bezier(.16,1,.3,1)] motion-reduce:transition-none"
+        style={{
+          gridTemplateRows: filtrosOpen ? '1fr' : '0fr',
+          opacity: filtrosOpen ? 1 : 0,
+          marginBottom: filtrosOpen ? 0 : '-1.25rem',
+        }}
+        aria-hidden={!filtrosOpen}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
+              <Select value={fTipo || '__all__'} onValueChange={(v) => { setFTipo(v === '__all__' ? '' : v); setPage(1) }}>
+                <SelectTrigger className="h-8 w-[135px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todos os tipos</SelectItem>
+                  {COLETA_TIPOS.map((t) => <SelectItem key={t} value={t}>{COLETA_TIPO_LABEL[t]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={fSituacao || '__all__'} onValueChange={(v) => { setFSituacao(v === '__all__' ? '' : v); setPage(1) }}>
+                <SelectTrigger className="h-8 w-[175px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todas as situações</SelectItem>
+                  {COLETA_SITUACOES.map((s) => <SelectItem key={s} value={s}>{COLETA_SITUACAO_LABEL[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={fCategoria || '__all__'} onValueChange={(v) => { setFCategoria(v === '__all__' ? '' : v); setPage(1) }}>
+                <SelectTrigger className="h-8 w-[175px] text-xs bg-card"><SelectValue placeholder="Categoria" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todas as categorias</SelectItem>
+                  {categorias.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                <Checkbox checked={fMinhas} onCheckedChange={(v) => { setFMinhas(v === true); setPage(1) }} />
+                Só as minhas
+              </label>
+              {filtrosAtivos && (
+                <Button variant="outline" size="xs" onClick={() => { setFTipo(''); setFSituacao(''); setFCategoria(''); setFMinhas(false); setPage(1) }}>
+                  Limpar
+                </Button>
+              )}
+          </div>
+        </div>
+      </div>
+
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={fTipo || '__all__'} onValueChange={(v) => { setFTipo(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[135px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Todos os tipos</SelectItem>
-                {COLETA_TIPOS.map((t) => <SelectItem key={t} value={t}>{COLETA_TIPO_LABEL[t]}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fSituacao || '__all__'} onValueChange={(v) => { setFSituacao(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[175px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Todas as situações</SelectItem>
-                {COLETA_SITUACOES.map((s) => <SelectItem key={s} value={s}>{COLETA_SITUACAO_LABEL[s]}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fCategoria || '__all__'} onValueChange={(v) => { setFCategoria(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[175px] text-xs bg-card"><SelectValue placeholder="Categoria" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Todas as categorias</SelectItem>
-                {categorias.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-              <Checkbox checked={fMinhas} onCheckedChange={(v) => { setFMinhas(v === true); setPage(1) }} />
-              Só as minhas
-            </label>
-            {filtrosAtivos && (
-              <Button variant="outline" size="xs" onClick={() => { setFTipo(''); setFSituacao(''); setFCategoria(''); setFMinhas(false); setPage(1) }}>
-                Limpar
-              </Button>
-            )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
               <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
+            <span className="text-xs text-muted-foreground">por página</span>
           </div>
           {!search && !fSituacao && (
             <p className="text-[11px] text-muted-foreground">
