@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import {
-  Button, Input, Badge, Card, Switch,
+  Button, Input, Badge, Card, Switch, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -140,6 +140,10 @@ export default function CaixaPostalPage() {
   const [agregadasLoading, setAgregadasLoading] = useState(false)
   const [modoFiltrado, setModoFiltrado] = useState(false)
   const [modoFiltradoTipo, setModoFiltradoTipo] = useState<'prioridade' | 'importante'>('prioridade')
+  // "Notificar por e-mail" dos forms de encaminhar (modal e painel) — controlados
+  // p/ usarem o <Checkbox> centralizado em vez de getElementById(id).checked.
+  const [encModalEmail, setEncModalEmail] = useState(false)
+  const [encPainelEmail, setEncPainelEmail] = useState(false)
 
   // Carregar mensagens filtradas se vier do dashboard
   useEffect(() => {
@@ -1166,7 +1170,7 @@ export default function CaixaPostalPage() {
                         const checked = !isNone && (scheduleData.config.clienteIds.length === 0 || scheduleData.config.clienteIds.includes(c.id))
                         return (
                           <label key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 cursor-pointer border-b last:border-b-0', checked && scheduleData.config.clienteIds.length > 0 && 'bg-sky-50/40')}>
-                            <input type="checkbox" checked={checked} onChange={() => {
+                            <Checkbox checked={checked} onCheckedChange={() => {
                               setScheduleData(prev => {
                                 if (!prev) return prev
                                 let ids = [...prev.config.clienteIds]
@@ -1185,7 +1189,7 @@ export default function CaixaPostalPage() {
                                 }
                                 return { ...prev, config: { ...prev.config, clienteIds: ids } }
                               })
-                            }} className="h-3 w-3 rounded" />
+                            }} />
                             <span className="flex-1 truncate">{c.razaoSocial}</span>
                             <span className="font-mono text-[10px] text-muted-foreground shrink-0">{formatDoc(c.documento)}</span>
                           </label>
@@ -1528,14 +1532,14 @@ export default function CaixaPostalPage() {
                         placeholder="Observação (opcional)..." />
                       <div className="flex items-center gap-3">
                         <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
-                          <input type="checkbox" id="encaminhar-modal-email" className="h-3.5 w-3.5 rounded" />
+                          <Checkbox checked={encModalEmail} onCheckedChange={v => setEncModalEmail(v === true)} />
                           Notificar por e-mail
                         </label>
                         <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1.5"
                           onClick={async () => {
                             const dest = (document.getElementById('encaminhar-modal-dest') as HTMLSelectElement)?.value
                             const obs = (document.getElementById('encaminhar-modal-obs') as HTMLTextAreaElement)?.value
-                            const email = (document.getElementById('encaminhar-modal-email') as HTMLInputElement)?.checked
+                            const email = encModalEmail
                             if (!itemDetalhes?.id || !dest) { alerts.error('Atenção', 'Selecione um destinatário'); return }
                             try {
                               const r = await trpc.caixaPostal.encaminhar.mutate({
@@ -1547,7 +1551,7 @@ export default function CaixaPostalPage() {
                               showGestaoToast(r.mensagem)
                               ;(document.getElementById('encaminhar-modal-dest') as HTMLSelectElement).value = ''
                               ;(document.getElementById('encaminhar-modal-obs') as HTMLTextAreaElement).value = ''
-                              ;(document.getElementById('encaminhar-modal-email') as HTMLInputElement).checked = false
+                              setEncModalEmail(false)
                             } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
                           }}>
                           <Send className="h-3 w-3" />Encaminhar
@@ -1847,10 +1851,10 @@ export default function CaixaPostalPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[40px] pl-5">
-                        <input type="checkbox"
+                        <Checkbox
                           checked={loteClientesFiltrados.length > 0 && loteClientesFiltrados.every(c => loteSelecionados.has(c.id))}
-                          onChange={e => loteToggleAll(e.target.checked)}
-                          className="h-3.5 w-3.5 rounded border-border" />
+                          onCheckedChange={v => loteToggleAll(v === true)}
+                        />
                       </TableHead>
                       <TableHead className="text-xs">Razão Social</TableHead>
                       <TableHead className="text-xs w-[160px]">CNPJ</TableHead>
@@ -1862,7 +1866,7 @@ export default function CaixaPostalPage() {
                     ) : loteClientesFiltrados.map(c => (
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/40" onClick={() => loteToggle(c.id)}>
                         <TableCell className="pl-5">
-                          <input type="checkbox" checked={loteSelecionados.has(c.id)} onChange={() => loteToggle(c.id)} className="h-3.5 w-3.5 rounded border-border" />
+                          <Checkbox checked={loteSelecionados.has(c.id)} onCheckedChange={() => loteToggle(c.id)} />
                         </TableCell>
                         <TableCell className="text-xs font-medium">{c.razaoSocial}</TableCell>
                         <TableCell className="text-xs font-mono text-muted-foreground">{formatDoc(c.documento)}</TableCell>
@@ -2329,10 +2333,9 @@ export default function CaixaPostalPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[40px] pl-4">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={mensagensFiltradas.length > 0 && mensagensFiltradas.every(m => msgSelecionadas.has((m as Record<string, unknown>).id as string))}
-                    onChange={() => {
+                    onCheckedChange={() => {
                       const ids = mensagensFiltradas.map(m => (m as Record<string, unknown>).id as string).filter(Boolean)
                       if (ids.every(id => msgSelecionadas.has(id))) {
                         setMsgSelecionadas(new Set())
@@ -2340,7 +2343,7 @@ export default function CaixaPostalPage() {
                         setMsgSelecionadas(new Set(ids))
                       }
                     }}
-                    className="h-4 w-4 rounded border-border text-sky-500 focus:ring-sky-500 accent-sky-500 cursor-pointer"
+                    className="cursor-pointer"
                   />
                 </TableHead>
                 <TableHead className="w-[50px]">Prior.</TableHead>
@@ -2372,9 +2375,9 @@ export default function CaixaPostalPage() {
                   )}>
                     <TableCell className="pl-4" onClick={e => e.stopPropagation()}>
                       {mId && (
-                        <input type="checkbox" checked={msgSelecionadas.has(mId)} onChange={() => {
+                        <Checkbox checked={msgSelecionadas.has(mId)} onCheckedChange={() => {
                           setMsgSelecionadas(prev => { const n = new Set(prev); if (n.has(mId)) n.delete(mId); else n.add(mId); return n })
-                        }} className="h-4 w-4 rounded border-border text-sky-500 focus:ring-sky-500 accent-sky-500 cursor-pointer" />
+                        }} className="cursor-pointer" />
                       )}
                     </TableCell>
                     <TableCell onClick={() => handleDetalhar(m)}>
@@ -2659,14 +2662,14 @@ export default function CaixaPostalPage() {
                             placeholder="Observação (opcional)..." />
                           <div className="flex items-center gap-3">
                             <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
-                              <input type="checkbox" id="encaminhar-painel-email" className="h-3.5 w-3.5 rounded" />
+                              <Checkbox checked={encPainelEmail} onCheckedChange={v => setEncPainelEmail(v === true)} />
                               Notificar por e-mail
                             </label>
                             <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1"
                               onClick={async () => {
                                 const dest = (document.getElementById('encaminhar-painel-dest') as HTMLSelectElement)?.value
                                 const obs = (document.getElementById('encaminhar-painel-obs') as HTMLTextAreaElement)?.value
-                                const email = (document.getElementById('encaminhar-painel-email') as HTMLInputElement)?.checked
+                                const email = encPainelEmail
                                 if (!itemDetalhes?.id || !dest) { alerts.error('Atenção', 'Selecione um destinatário'); return }
                                 try {
                                   const r = await trpc.caixaPostal.encaminhar.mutate({
@@ -2678,7 +2681,7 @@ export default function CaixaPostalPage() {
                                   showGestaoToast(r.mensagem)
                                   ;(document.getElementById('encaminhar-painel-dest') as HTMLSelectElement).value = ''
                                   ;(document.getElementById('encaminhar-painel-obs') as HTMLTextAreaElement).value = ''
-                                  ;(document.getElementById('encaminhar-painel-email') as HTMLInputElement).checked = false
+                                  setEncPainelEmail(false)
                                 } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
                               }}>
                               <Send className="h-3 w-3" />Encaminhar

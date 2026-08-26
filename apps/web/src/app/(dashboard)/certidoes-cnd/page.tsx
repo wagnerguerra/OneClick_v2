@@ -1356,9 +1356,9 @@ export default function CertidoesCndPage() {
             <div className="border rounded-lg max-h-[250px] overflow-y-auto nice-scrollbar">
               {clientes.filter(c => !loteSearch || c.razaoSocial.toLowerCase().includes(loteSearch.toLowerCase())).map(c => (
                 <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', loteSelecionados.has(c.id) && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
-                  <input type="checkbox" checked={loteSelecionados.has(c.id)} onChange={() => {
+                  <Checkbox checked={loteSelecionados.has(c.id)} onCheckedChange={() => {
                     setLoteSelecionados(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n })
-                  }} className="h-3.5 w-3.5 rounded accent-fuchsia-500 cursor-pointer" />
+                  }} className="cursor-pointer" />
                   <span className="flex-1 truncate cursor-pointer" onClick={() => setLoteSelecionados(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n })}>{c.razaoSocial}</span>
                   <span className="font-mono text-[10px] text-muted-foreground shrink-0">{formatDoc(c.documento)}</span>
                 </div>

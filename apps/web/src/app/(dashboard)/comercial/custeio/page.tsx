@@ -7,7 +7,7 @@ import {
   Loader2, RefreshCw, X, Save,
 } from 'lucide-react'
 import {
-  Button, Card, Input, Label,
+  Button, Card, Input, Label, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
@@ -289,13 +289,13 @@ export default function CusteioPage() {
                     </div>
                     <div className="space-y-2">
                       <label className="flex items-center gap-2 text-xs cursor-pointer">
-                        <input type="checkbox" className="h-3.5 w-3.5 rounded border-border" checked={params.aplicarAumentoFaturamento}
-                          onChange={e => upd({ aplicarAumentoFaturamento: e.target.checked })} />
+                        <Checkbox checked={params.aplicarAumentoFaturamento}
+                          onCheckedChange={v => upd({ aplicarAumentoFaturamento: v === true })} />
                         Aplicar crescimento de faturamento na receita de referência
                       </label>
                       <label className="flex items-center gap-2 text-xs cursor-pointer">
-                        <input type="checkbox" className="h-3.5 w-3.5 rounded border-border" checked={params.usarHorasServicos}
-                          onChange={e => upd({ usarHorasServicos: e.target.checked })} />
+                        <Checkbox checked={params.usarHorasServicos}
+                          onCheckedChange={v => upd({ usarHorasServicos: v === true })} />
                         Incluir custo por horas de execução (TDABC)
                       </label>
                     </div>

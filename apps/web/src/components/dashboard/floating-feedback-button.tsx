@@ -8,7 +8,7 @@ import {
   CalendarPlus, Clock, Users, Video, Monitor, DoorOpen, MapPin,
   Maximize2, Minimize2, ArrowLeftToLine, ArrowRightToLine,
 } from 'lucide-react'
-import { Button, cn, RichEditor } from '@saas/ui'
+import { Button, cn, RichEditor, Checkbox } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -1047,7 +1047,7 @@ function EventoRequestForm({
                 {/* Arrumar a sala — só quando uma sala cadastrada é escolhida */}
                 {salaId && (
                   <label className="flex items-center gap-2 cursor-pointer text-xs text-foreground">
-                    <input type="checkbox" checked={arrumarSala} onChange={e => setArrumarSala(e.target.checked)} className="h-3.5 w-3.5 rounded border-border accent-sky-500" />
+                    <Checkbox checked={arrumarSala} onCheckedChange={v => setArrumarSala(v === true)} />
                     Será necessário arrumar a sala?
                   </label>
                 )}
@@ -1065,7 +1065,7 @@ function EventoRequestForm({
             {/* Garagem + vagas (presencial/híbrido) */}
             {needsGaragem && (
               <label className="flex items-center gap-2 cursor-pointer text-xs text-foreground">
-                <input type="checkbox" checked={garagem} onChange={e => setGaragem(e.target.checked)} className="h-3.5 w-3.5 rounded border-border accent-sky-500" />
+                <Checkbox checked={garagem} onCheckedChange={v => setGaragem(v === true)} />
                 Reservar garagem
               </label>
             )}
@@ -1079,7 +1079,7 @@ function EventoRequestForm({
             {/* Equipamentos */}
             {permiteEquipamentos && (
               <label className="flex items-center gap-2 cursor-pointer text-xs text-foreground">
-                <input type="checkbox" checked={equipamentos} onChange={e => setEquipamentos(e.target.checked)} className="h-3.5 w-3.5 rounded border-border accent-sky-500" />
+                <Checkbox checked={equipamentos} onCheckedChange={v => setEquipamentos(v === true)} />
                 Solicitar equipamentos
               </label>
             )}
@@ -1091,7 +1091,7 @@ function EventoRequestForm({
           <div className="flex items-center justify-between">
             <label className="text-[13px] font-semibold text-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />Horário</label>
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-              <input type="checkbox" checked={diaInteiro} onChange={e => setDiaInteiro(e.target.checked)} className="h-3.5 w-3.5 rounded border-border" /> Dia inteiro
+              <Checkbox checked={diaInteiro} onCheckedChange={v => setDiaInteiro(v === true)} /> Dia inteiro
             </label>
           </div>
           {!diaInteiro && (

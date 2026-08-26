@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BarChart3, Database, Loader2, RefreshCw, Table2, LayoutGrid, Landmark, PiggyBank, Receipt, Settings2, X, Plus, Trash2, ChevronUp, ChevronDown, Pencil, Coins, FileSpreadsheet } from 'lucide-react'
-import { Button, Card, cn } from '@saas/ui'
+import { Button, Card, cn, Checkbox } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { trpc } from '@/lib/trpc'
@@ -1233,8 +1233,8 @@ function Irrf({ irrf }: { irrf: any }) {
 
       {/* ===== Flags ===== */}
       <div className="flex flex-wrap items-center justify-end gap-4 text-xs text-muted-foreground">
-        <label className="flex cursor-pointer items-center gap-1.5"><input type="checkbox" checked={agrupar} onChange={(e) => setAgrupar(e.target.checked)} /> agrupar por centro de custo</label>
-        <label className="flex cursor-pointer items-center gap-1.5"><input type="checkbox" checked={todos} onChange={(e) => setTodos(e.target.checked)} /> mostrar todos (incl. sem IRRF)</label>
+        <label className="flex cursor-pointer items-center gap-1.5"><Checkbox checked={agrupar} onCheckedChange={(v) => setAgrupar(v === true)} /> agrupar por centro de custo</label>
+        <label className="flex cursor-pointer items-center gap-1.5"><Checkbox checked={todos} onCheckedChange={(v) => setTodos(v === true)} /> mostrar todos (incl. sem IRRF)</label>
       </div>
 
       {/* ===== Tabela 0561 (pivot Base/Valor por tipo) ===== */}

@@ -35,7 +35,7 @@ import {
   GitBranch, FileText, PlayCircle, CheckCircle2, HelpCircle, Box,
   Network, Layers,
 } from 'lucide-react'
-import { Badge, Button, Input, cn } from '@saas/ui'
+import { Badge, Button, Input, cn, Checkbox } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -2608,11 +2608,10 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                   </p>
                 </div>
                 <label className="flex items-center gap-2 text-[11px] cursor-pointer select-none">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={perguntaMulti}
-                    onChange={e => setPerguntaMulti(e.target.checked)}
-                    className="h-3.5 w-3.5 cursor-pointer"
+                    onCheckedChange={v => setPerguntaMulti(v === true)}
+                    className="cursor-pointer"
                   />
                   <span className="font-medium">Permitir múltipla escolha</span>
                   <span className="text-muted-foreground font-normal">
@@ -3149,12 +3148,11 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
               )}
             </div>
             <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={pergMulti}
-                onChange={e => setPergMulti(e.target.checked)}
+                onCheckedChange={v => setPergMulti(v === true)}
                 disabled={!podeEditar || pergSalvando}
-                className="h-3 w-3 cursor-pointer"
+                className="cursor-pointer"
               />
               <span className="font-medium">Permitir múltipla escolha</span>
             </label>

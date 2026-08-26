@@ -1531,11 +1531,10 @@ export default function ServicoDetailPage() {
                         {/* Flags */}
                         <div className="grid grid-cols-12 gap-3">
                           <label className="col-span-12 flex items-center gap-2 cursor-pointer select-none rounded-md border bg-card px-3 py-2 hover:bg-muted/40 transition-colors">
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               checked={atribuicaoUsaClienteArea}
-                              onChange={e => setAtribuicaoUsaClienteArea(e.target.checked)}
-                              className="h-3.5 w-3.5 cursor-pointer"
+                              onCheckedChange={v => setAtribuicaoUsaClienteArea(v === true)}
+                              className="cursor-pointer"
                             />
                             <span className="text-[12px] font-medium">Responsável pelo cliente na área</span>
                           </label>
@@ -2548,8 +2547,8 @@ export default function ServicoDetailPage() {
                         const marcado = subservicos.includes(sv.id)
                         return (
                           <label key={sv.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-muted/30">
-                            <input type="checkbox" checked={marcado} className="h-4 w-4"
-                              onChange={() => setSubservicos(l => marcado ? l.filter(x => x !== sv.id) : [...l, sv.id])} />
+                            <Checkbox checked={marcado}
+                              onCheckedChange={() => setSubservicos(l => marcado ? l.filter(x => x !== sv.id) : [...l, sv.id])} />
                             <span className="flex-1 text-[13px] truncate">{sv.nome}</span>
                           </label>
                         )
@@ -2711,15 +2710,15 @@ export default function ServicoDetailPage() {
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <input id="enc-auto" type="checkbox" checked={encIniciaAuto} onChange={e => setEncIniciaAuto(e.target.checked)} className="h-4 w-4 accent-emerald-600" />
+                <Checkbox id="enc-auto" checked={encIniciaAuto} onCheckedChange={v => setEncIniciaAuto(v === true)} />
                 <Label htmlFor="enc-auto" className="text-xs font-medium">Inicia automaticamente</Label>
               </div>
               <div className="flex items-center gap-2">
-                <input id="enc-obr" type="checkbox" checked={encObrigatorio} onChange={e => setEncObrigatorio(e.target.checked)} className="h-4 w-4 accent-emerald-600" />
+                <Checkbox id="enc-obr" checked={encObrigatorio} onCheckedChange={v => setEncObrigatorio(v === true)} />
                 <Label htmlFor="enc-obr" className="text-xs font-medium">Obrigatório (não pode ser pulado)</Label>
               </div>
               <div className="flex items-center gap-2">
-                <input id="enc-herda" type="checkbox" checked={encHerdaResponsavel} onChange={e => setEncHerdaResponsavel(e.target.checked)} className="h-4 w-4 accent-emerald-600" />
+                <Checkbox id="enc-herda" checked={encHerdaResponsavel} onCheckedChange={v => setEncHerdaResponsavel(v === true)} />
                 <Label htmlFor="enc-herda" className="text-xs font-medium">Herda responsável do anterior</Label>
               </div>
             </div>

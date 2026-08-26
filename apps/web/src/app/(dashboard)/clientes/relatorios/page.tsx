@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, Card, Input, Label, Badge, cn } from '@saas/ui'
+import { Button, Card, Input, Label, Badge, cn, Checkbox } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -111,7 +111,7 @@ function MultiSelect({ label, options, selected, onChange }: {
           </div>
           {options.map(o => (
             <label key={o.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
-              <input type="checkbox" className="h-3.5 w-3.5" style={{ accentColor: MODULE_COLOR }} checked={selected.has(o.value)} onChange={() => toggle(o.value)} />
+              <Checkbox accentColor={MODULE_COLOR} checked={selected.has(o.value)} onCheckedChange={() => toggle(o.value)} />
               <span className="truncate">{o.label}</span>
             </label>
           ))}

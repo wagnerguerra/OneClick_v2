@@ -13,7 +13,7 @@ import {
   Upload, X, Eye, AlertTriangle,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card, CardHeader, CardContent,
+  Button, Input, Label, Card, CardHeader, CardContent, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { useSession } from '@/lib/auth-client'
@@ -357,7 +357,7 @@ export default function AssinaturaTemplatePage() {
                         Útil quando a imagem de fundo já tem a decoração/foto embutida.
                       </div>
                     </div>
-                    <input type="checkbox" checked={template.showPhotoBackground} onChange={e => setField('showPhotoBackground', e.target.checked)} className="h-4 w-4" />
+                    <Checkbox checked={template.showPhotoBackground} onCheckedChange={v => setField('showPhotoBackground', v === true)} />
                   </label>
                 </div>
 
@@ -418,7 +418,7 @@ export default function AssinaturaTemplatePage() {
                   ['showIcons', 'Ícones (☎ ⚑ 🌐 📷)'],
                 ] as const).map(([key, label]) => (
                   <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" checked={template[key]} onChange={e => setField(key, e.target.checked)} className="h-4 w-4" />
+                    <Checkbox checked={template[key]} onCheckedChange={v => setField(key, v === true)} />
                     {label}
                   </label>
                 ))}
@@ -435,7 +435,7 @@ export default function AssinaturaTemplatePage() {
                   <h3 className="text-sm font-semibold">HTML customizado</h3>
                 </div>
                 <label className="flex items-center gap-2 text-[12px] font-semibold cursor-pointer">
-                  <input type="checkbox" checked={template.customHtmlEnabled} onChange={e => setField('customHtmlEnabled', e.target.checked)} className="h-4 w-4" />
+                  <Checkbox checked={template.customHtmlEnabled} onCheckedChange={v => setField('customHtmlEnabled', v === true)} />
                   Usar HTML custom
                 </label>
               </CardHeader>

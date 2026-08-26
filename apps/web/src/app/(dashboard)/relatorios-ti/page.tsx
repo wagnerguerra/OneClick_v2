@@ -6,7 +6,7 @@ import {
   FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings, Megaphone, EyeOff, FolderUp, X,
 } from 'lucide-react'
 import {
-  Button, Card, Input, Label, cn,
+  Button, Card, Input, Label, cn, Checkbox,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Sheet, SheetContent, SheetTitle, SheetDescription,
   RichEditor, RichContent,
@@ -1104,8 +1104,8 @@ export default function RelatoriosTiPage() {
                   const marcado = cfgDestIds.includes(u.id)
                   return (
                     <label key={u.id} className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 hover:bg-muted/30">
-                      <input type="checkbox" checked={marcado} className="h-4 w-4"
-                        onChange={() => setCfgDestIds(l => marcado ? l.filter(x => x !== u.id) : [...l, u.id])} />
+                      <Checkbox checked={marcado}
+                        onCheckedChange={() => setCfgDestIds(l => marcado ? l.filter(x => x !== u.id) : [...l, u.id])} />
                       <span className="flex-1 truncate text-[13px]">{u.name}</span>
                       <span className="shrink-0 text-[11px] text-muted-foreground">{u.email}</span>
                     </label>

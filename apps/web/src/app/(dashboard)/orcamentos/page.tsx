@@ -10,7 +10,7 @@ import {
   Download, FileSpreadsheet, FileDown, CheckCircle2, Pencil, ThumbsDown, Search as SearchIcon,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card,
+  Button, Input, Badge, Card, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -966,7 +966,7 @@ export default function OrcamentosPage() {
               </div>
               <div className="flex items-end">
                 <label className="inline-flex items-center gap-2 h-9 cursor-pointer select-none">
-                  <input type="checkbox" className="h-4 w-4 rounded border-border cursor-pointer" style={{ accentColor: MODULE_COLOR }} checked={incluirParalizados} onChange={e => { setIncluirParalizados(e.target.checked); setPage(1) }} />
+                  <Checkbox className="cursor-pointer" accentColor={MODULE_COLOR} checked={incluirParalizados} onCheckedChange={v => { setIncluirParalizados(v === true); setPage(1) }} />
                   <span className="text-sm text-foreground">Incluir paralizados</span>
                 </label>
               </div>

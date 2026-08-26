@@ -11,7 +11,7 @@ import {
   Sparkles, Star, Link2, Hash, Building2, Calendar, Layers,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card, CardHeader, CardContent, Label,
+  Button, Input, Badge, Card, CardHeader, CardContent, Label, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tabs, TabsContent,
@@ -3334,7 +3334,7 @@ export default function OrcamentoDetailPage() {
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
             <label className="flex items-start gap-2.5 rounded-md border border-border bg-muted/30 px-3 py-2.5 cursor-pointer">
-              <input type="checkbox" checked={enviarNotificar} onChange={e => setEnviarNotificar(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--mod-comercial,#3b82f6)]" />
+              <Checkbox checked={enviarNotificar} onCheckedChange={v => setEnviarNotificar(v === true)} accentColor="var(--mod-comercial, #3b82f6)" className="mt-0.5" />
               <div className="text-xs">
                 <p className="font-semibold text-foreground">Notificar o cliente por e-mail</p>
                 <p className="text-muted-foreground">{enviarNotificar ? 'O cliente receberá o e-mail com o link da proposta.' : 'O orçamento será marcado como Enviado, mas o cliente NÃO será notificado (envio por outro canal).'}</p>
@@ -3454,11 +3454,10 @@ export default function OrcamentoDetailPage() {
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold text-foreground">Datas dos marcos</Label>
                   <label className="flex items-start gap-2 text-xs cursor-pointer rounded-md border border-border/60 px-3 py-2 hover:bg-muted/30 transition-colors">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={reabrirManterDatas}
-                      onChange={e => setReabrirManterDatas(e.target.checked)}
-                      className="h-3.5 w-3.5 rounded mt-0.5 shrink-0"
+                      onCheckedChange={v => setReabrirManterDatas(v === true)}
+                      className="mt-0.5 shrink-0"
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-foreground">Manter as datas dos marcos já registrados</p>

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, Check, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, X, MoreVertical } from 'lucide-react'
 import {
-  Button, Input, Label, Card,
+  Button, Input, Label, Card, Checkbox,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -645,8 +645,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                       <thead>
                         <tr className="bg-muted/30 text-[11px] text-muted-foreground">
                           <th className="px-3 py-2 w-8">
-                            <input type="checkbox" className="cursor-pointer align-middle" checked={allSociosSelected}
-                              onChange={toggleSelectAllSocios} title="Selecionar todos" />
+                            <Checkbox className="cursor-pointer align-middle" checked={allSociosSelected}
+                              onCheckedChange={toggleSelectAllSocios} title="Selecionar todos" />
                           </th>
                           <th className="text-left px-3 py-2 font-medium">Nome</th>
                           <th className="text-left px-3 py-2 font-medium">CPF/CNPJ</th>
@@ -662,8 +662,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           return (
                           <tr key={s.id} className={cn('hover:bg-muted/20', selectedSocioIds.has(s.id) && 'bg-primary/5')}>
                             <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
-                              <input type="checkbox" className="cursor-pointer align-middle" checked={selectedSocioIds.has(s.id)}
-                                onChange={() => toggleSocioSelected(s.id)} />
+                              <Checkbox className="cursor-pointer align-middle" checked={selectedSocioIds.has(s.id)}
+                                onCheckedChange={() => toggleSocioSelected(s.id)} />
                             </td>
                             <td className="px-3 py-2 font-medium text-foreground">{s.nomeCompleto}</td>
                             <td className="px-3 py-2 font-mono text-muted-foreground">{fmtDocumento(s.cpf)}</td>
@@ -1697,8 +1697,8 @@ function EditSocioModal(props: {
                       onChange={e => setField('dataSaida', e.target.value)} />
                   </div>
                   <div className="col-span-6 flex items-center gap-2 mt-1">
-                    <input type="checkbox" id="responsavelLegal" checked={socio.responsavelLegal}
-                      onChange={e => setField('responsavelLegal', e.target.checked)} />
+                    <Checkbox id="responsavelLegal" checked={socio.responsavelLegal}
+                      onCheckedChange={v => setField('responsavelLegal', v === true)} />
                     <Label htmlFor="responsavelLegal" className="text-[13px] font-semibold cursor-pointer">Responsável legal</Label>
                   </div>
                 </div>

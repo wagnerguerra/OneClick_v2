@@ -1053,7 +1053,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                     return (
                       <label className="flex items-start gap-2 mt-1.5 text-[12px] cursor-pointer select-none text-muted-foreground">
                         <Controller control={control} name="ehMatriz" render={({ field }) => (
-                          <input type="checkbox" checked={field.value !== false} onChange={e => field.onChange(e.target.checked)} className="mt-0.5 h-4 w-4 accent-sky-500" />
+                          <Checkbox checked={field.value !== false} onCheckedChange={v => field.onChange(v === true)} className="mt-0.5" />
                         )} />
                         <span>Este CNPJ é <strong className="text-foreground">matriz</strong> — desmarque se for filial. No CNPJ alfanumérico o <code>/0001</code> não identifica mais a matriz automaticamente.</span>
                       </label>

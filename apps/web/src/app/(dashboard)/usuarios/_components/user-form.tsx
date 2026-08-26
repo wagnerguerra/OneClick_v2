@@ -1017,7 +1017,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
           </Button>
         </div>
         <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
-          <input type="checkbox" checked={onlyMyArea} onChange={e => setOnlyMyArea(e.target.checked)} className="h-3 w-3 rounded accent-emerald-600" />
+          <Checkbox checked={onlyMyArea} onCheckedChange={v => setOnlyMyArea(v === true)} />
           Somente a area deste usuario
         </label>
       </div>

@@ -5,7 +5,7 @@ import {
   Bell, Repeat, Trash2, Save, Loader2, Mail, Power, X,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card, CardHeader, Badge,
+  Button, Input, Label, Card, CardHeader, Badge, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   RichEditor, cn,
 } from '@saas/ui'
@@ -443,11 +443,9 @@ export function NotificacoesSection({
                   {/* Toggle: modo simples vs personalizado (composto) */}
                   <div className="flex items-center gap-2 p-3 rounded border bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={recPersonalizado}
-                        onChange={e => setRecPersonalizado(e.target.checked)}
-                        className="h-4 w-4"
+                        onCheckedChange={v => setRecPersonalizado(v === true)}
                       />
                       <span className="text-[12.5px] font-semibold">Modo personalizado</span>
                     </label>
@@ -659,11 +657,9 @@ export function NotificacoesSection({
 
                   <div className="flex items-center gap-3 mt-4 pt-3 border-t">
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={recAtiva}
-                        onChange={e => setRecAtiva(e.target.checked)}
-                        className="h-4 w-4"
+                        onCheckedChange={v => setRecAtiva(v === true)}
                       />
                       <span className="font-medium">Ativa</span>
                     </label>
@@ -864,11 +860,9 @@ export function NotificacoesSection({
                 </div>
               </div>
               <label className="col-span-12 flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={editAtiva}
-                  onChange={e => setEditAtiva(e.target.checked)}
-                  className="h-4 w-4"
+                  onCheckedChange={v => setEditAtiva(v === true)}
                 />
                 <span className="font-medium">Ativa</span>
               </label>
