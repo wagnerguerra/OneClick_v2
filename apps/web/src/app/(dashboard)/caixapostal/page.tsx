@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import {
-  Button, Input, Badge, Card,
+  Button, Input, Badge, Card, Switch,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -1045,14 +1045,11 @@ export default function CaixaPostalPage() {
                 {/* Toggle */}
                 <div className="flex items-center justify-between">
                   <label className="flex items-center gap-2.5 text-sm font-medium">
-                    <button type="button" onClick={() => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, enabled: !prev.config.enabled } } : prev)}
-                      className={cn('relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors',
-                        scheduleData.config.enabled ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-600',
-                      )}>
-                      <span className={cn('inline-block h-4 w-4 rounded-full bg-white shadow transition-transform mt-0.5',
-                        scheduleData.config.enabled ? 'translate-x-4 ml-0.5' : 'translate-x-0.5',
-                      )} />
-                    </button>
+                    <Switch
+                      checked={scheduleData.config.enabled}
+                      onCheckedChange={(v) => setScheduleData(prev => prev ? { ...prev, config: { ...prev.config, enabled: v } } : prev)}
+                      className={cn(scheduleData.config.enabled && 'bg-sky-500')}
+                    />
                     Agendamento {scheduleData.config.enabled ? 'ativado' : 'desativado'}
                   </label>
                   {scheduleData.isRunning && (

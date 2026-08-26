@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Loader2, Save, Plus, X, ExternalLink, ChevronRight, ChevronDown, AlertTriangle, FileText, CheckCircle2, XCircle } from 'lucide-react'
-import { Button, Input, Label, Badge, cn } from '@saas/ui'
+import { Button, Input, Label, Badge, cn, Switch } from '@saas/ui'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -219,15 +219,12 @@ export function HelpdeskIaSection() {
             Desligue pra pausar imediatamente — tickets novos vão direto pra coluna &quot;Novo&quot; sem passar pela IA.
           </p>
         </div>
-        <label className="inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            checked={cfg.enabled}
-            onChange={e => setCfg({ ...cfg, enabled: e.target.checked })}
-            className="sr-only peer"
-          />
-          <div className="w-11 h-6 bg-muted-foreground/30 peer-checked:bg-emerald-500 rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:bg-white after:rounded-full after:h-5 after:w-5 after:top-0.5 after:left-0.5 after:transition-all relative" />
-        </label>
+        <Switch
+          checked={cfg.enabled}
+          onCheckedChange={(v) => setCfg({ ...cfg, enabled: v })}
+          className={cn(cfg.enabled && 'bg-emerald-500')}
+          aria-label="Triagem IA ativa"
+        />
       </section>
 
       {/* Cap mensal */}

@@ -14,6 +14,7 @@ interface SwitchProps {
   className?: string
   id?: string
   name?: string
+  title?: string
   'aria-label'?: string
   'aria-labelledby'?: string
 }

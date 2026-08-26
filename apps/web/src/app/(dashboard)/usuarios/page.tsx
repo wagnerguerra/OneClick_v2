@@ -10,7 +10,7 @@ import {
   UserCog, MoreVertical, FileUp, FileDown, Copy,
 } from 'lucide-react'
 import {
-  Button, Input, Card, Checkbox,
+  Button, Input, Card, Checkbox, Switch,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -583,21 +583,13 @@ export default function UsuariosPage() {
                     {(() => {
                       const isOn = !!(user as any).exibirComoColaborador
                       return (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleColaborador(user.id, isOn)}
-                          className={cn(
-                            'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors',
-                            isOn ? 'bg-emerald-500' : 'bg-muted-foreground/20',
-                          )}
+                        <Switch
+                          checked={isOn}
+                          onCheckedChange={() => handleToggleColaborador(user.id, isOn)}
+                          className={cn(isOn && 'bg-emerald-500')}
                           title={isOn ? 'Exibido em Colaboradores — clique para desmarcar' : 'Não exibido em Colaboradores — clique para marcar'}
                           aria-label="Alternar exibição em Colaboradores"
-                        >
-                          <span className={cn(
-                            'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform mt-0.5',
-                            isOn ? 'translate-x-4 ml-0.5' : 'translate-x-0.5',
-                          )} />
-                        </button>
+                        />
                       )
                     })()}
                   </TableCell>

@@ -6,7 +6,7 @@ import {
   CheckCircle2, AlertCircle, Loader2, Folder, Clock, HardDrive,
   Receipt, Briefcase, ShieldCheck, ChevronRight, ChevronDown, ListChecks,
 } from 'lucide-react'
-import { Button, Input, Badge } from '@saas/ui'
+import { Button, Input, Badge, Switch } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
@@ -581,21 +581,11 @@ function PastaLocalSection({
             <div className="text-xs font-semibold">Monitoramento ativo</div>
             <p className="text-[10px] text-muted-foreground">Quando ligado, o Launcher envia arquivos automaticamente.</p>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={enabled}
-            onClick={() => { setEnabled(!enabled); setDirty(true) }}
-            className={cn(
-              'relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0',
-              enabled ? 'bg-emerald-500' : 'bg-rose-300 dark:bg-rose-900/50',
-            )}
-          >
-            <span className={cn(
-              'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform',
-              enabled ? 'translate-x-[18px]' : 'translate-x-0.5',
-            )} />
-          </button>
+          <Switch
+            checked={enabled}
+            onCheckedChange={(v) => { setEnabled(v); setDirty(true) }}
+            className={cn(enabled ? 'bg-emerald-500' : 'bg-rose-300 dark:bg-rose-900/50')}
+          />
         </div>
 
         {/* Última sync */}
@@ -1198,21 +1188,11 @@ function NfeSefazSection({
               Quando ligado, o sistema consulta a SEFAZ todo dia às 3:30 e importa as NFe novas.
             </p>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={enabled}
-            onClick={() => { setEnabled(!enabled); setDirty(true) }}
-            className={cn(
-              'relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0',
-              enabled ? 'bg-emerald-500' : 'bg-rose-300 dark:bg-rose-900/50',
-            )}
-          >
-            <span className={cn(
-              'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform',
-              enabled ? 'translate-x-[18px]' : 'translate-x-0.5',
-            )} />
-          </button>
+          <Switch
+            checked={enabled}
+            onCheckedChange={(v) => { setEnabled(v); setDirty(true) }}
+            className={cn(enabled ? 'bg-emerald-500' : 'bg-rose-300 dark:bg-rose-900/50')}
+          />
         </div>
 
         {/* Status e infos read-only */}
@@ -1444,21 +1424,11 @@ function NfseNacionalSection({
               Quando ligado, o sistema consulta o ADN todo dia às 3:45 e importa as NFS-e novas.
             </p>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={enabled}
-            onClick={() => { setEnabled(!enabled); setDirty(true) }}
-            className={cn(
-              'relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0',
-              enabled ? 'bg-emerald-500' : 'bg-rose-300 dark:bg-rose-900/50',
-            )}
-          >
-            <span className={cn(
-              'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform',
-              enabled ? 'translate-x-[18px]' : 'translate-x-0.5',
-            )} />
-          </button>
+          <Switch
+            checked={enabled}
+            onCheckedChange={(v) => { setEnabled(v); setDirty(true) }}
+            className={cn(enabled ? 'bg-emerald-500' : 'bg-rose-300 dark:bg-rose-900/50')}
+          />
         </div>
 
         {/* Status e infos read-only */}

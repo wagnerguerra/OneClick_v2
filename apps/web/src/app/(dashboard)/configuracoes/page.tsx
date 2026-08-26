@@ -11,7 +11,7 @@ import {
   ChevronRight, BadgeCheck,
 } from 'lucide-react'
 import Link from 'next/link'
-import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
+import { Button, Input, Label, Card, CardHeader, cn, Switch } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
@@ -1256,24 +1256,12 @@ export default function ConfiguracoesPage() {
                                 </td>
                                 <td className="px-3 py-2.5 align-top text-center">
                                   <div className="flex items-center justify-center gap-2">
-                                    <button
-                                      type="button"
-                                      role="switch"
-                                      aria-checked={o.removivelAtual}
-                                      onClick={() => toggleNotifOrigem(o.origem)}
-                                      className={cn(
-                                        'relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0',
-                                        o.removivelAtual ? 'bg-emerald-500' : 'bg-rose-300 dark:bg-rose-900/50',
-                                      )}
+                                    <Switch
+                                      checked={o.removivelAtual}
+                                      onCheckedChange={() => toggleNotifOrigem(o.origem)}
+                                      className={cn(o.removivelAtual ? 'bg-emerald-500' : 'bg-rose-300 dark:bg-rose-900/50')}
                                       title={o.removivelAtual ? 'Usuário pode remover' : 'Sistema gerencia (não removível)'}
-                                    >
-                                      <span
-                                        className={cn(
-                                          'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform',
-                                          o.removivelAtual ? 'translate-x-[18px]' : 'translate-x-0.5',
-                                        )}
-                                      />
-                                    </button>
+                                    />
                                     {alterado && (
                                       <button
                                         type="button"

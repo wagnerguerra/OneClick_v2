@@ -24,7 +24,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
-  RichEditor, Checkbox,
+  RichEditor, Checkbox, Switch,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
@@ -1616,24 +1616,12 @@ export default function ServicoDetailPage() {
                       </div>
 
                       <div className="flex items-center gap-3 pt-2 border-t">
-                        <button
+                        <Switch
                           id="disp-orc"
-                          type="button"
-                          role="switch"
-                          aria-checked={disponivelOrcamento}
-                          onClick={() => setDisponivelOrcamento(!disponivelOrcamento)}
-                          className={cn(
-                            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2',
-                            disponivelOrcamento ? 'bg-emerald-600' : 'bg-muted-foreground/30',
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              'inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform',
-                              disponivelOrcamento ? 'translate-x-5' : 'translate-x-0',
-                            )}
-                          />
-                        </button>
+                          checked={disponivelOrcamento}
+                          onCheckedChange={setDisponivelOrcamento}
+                          className={cn(disponivelOrcamento && 'bg-emerald-600')}
+                        />
                         <Label htmlFor="disp-orc" className="text-[13px] font-medium cursor-pointer select-none">
                           Disponibilizar para inclusão em orçamentos
                         </Label>

@@ -11,7 +11,7 @@ import {
   CloudUpload, FolderOpen, CheckCircle2, AlertCircle, XCircle,
   Loader2, Save, ExternalLink, Database, RefreshCcw, Archive, Lock,
 } from 'lucide-react'
-import { Button, Input, Card, cn, Badge } from '@saas/ui'
+import { Button, Input, Card, cn, Badge, Switch } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { TEXT } from '@/lib/color-styles'
 import { trpcMutate } from '@/lib/trpc-fetch'
@@ -253,22 +253,12 @@ export function GoogleBackupSection() {
               Após o cron às 3:15, o backup é enviado pra esta pasta.
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setEnabledInput(v => !v)}
-            className={cn(
-              'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
-              enabledInput ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-600',
-            )}
+          <Switch
+            checked={enabledInput}
+            onCheckedChange={setEnabledInput}
+            className={cn(enabledInput && 'bg-emerald-500')}
             aria-label="Toggle auto-upload"
-          >
-            <span
-              className={cn(
-                'inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow',
-                enabledInput ? 'translate-x-5' : 'translate-x-1',
-              )}
-            />
-          </button>
+          />
         </div>
 
         <div className="flex gap-2 pt-1">

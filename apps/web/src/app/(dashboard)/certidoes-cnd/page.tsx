@@ -9,7 +9,7 @@ import {
   MoreVertical, RefreshCw, Shield, DollarSign, MapPin, Flame, Landmark, Mail,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card,
+  Button, Input, Badge, Card, Switch,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -1409,10 +1409,11 @@ export default function CertidoesCndPage() {
                 <div className="space-y-5">
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2.5 text-sm font-medium">
-                      <button type="button" onClick={() => setCfg({ enabled: !cfg.enabled })}
-                        className={cn('relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors', cfg.enabled ? 'bg-fuchsia-500' : 'bg-gray-300 dark:bg-gray-600')}>
-                        <span className={cn('inline-block h-4 w-4 rounded-full bg-white shadow transition-transform mt-0.5', cfg.enabled ? 'translate-x-4 ml-0.5' : 'translate-x-0.5')} />
-                      </button>
+                      <Switch
+                        checked={cfg.enabled}
+                        onCheckedChange={(v) => setCfg({ enabled: v })}
+                        className={cn(cfg.enabled && 'bg-fuchsia-500')}
+                      />
                       Agendamento {cfg.enabled ? 'ativado' : 'desativado'}
                     </label>
                   </div>
