@@ -10,6 +10,9 @@ e copie a estrutura** — divergir dela é que gera trabalho depois.
 | Página inicial de módulo — **kanban** | `/crm` e `/orcamentos` |
 | Página de **detalhe** de um registro | `/clientes/[id]` (via `_components/cliente-form.tsx`) e `/orcamentos/[id]` |
 
+> O módulo **Usuários** foi inteiramente alinhado a este documento em 26/08/2026 —
+> listagem, detalhe e formulário. Serve como exemplo recente de aplicação.
+
 Padrões vizinhos, que continuam valendo: [`PADRAO_MODULOS.md`](PADRAO_MODULOS.md)
 (botões, variantes, tipografia), [`PADRAO_KANBAN_DND.md`](PADRAO_KANBAN_DND.md)
 (mecânica do arrasto), [`PADRAO_RESPONSIVIDADE.md`](PADRAO_RESPONSIVIDADE.md)
@@ -170,6 +173,11 @@ direita e `<BackButton>` por último.
   </div>
 </div>
 ```
+
+**A capa é do registro, não do módulo.** Quando o registro tem imagem própria,
+é ela que aparece: o cliente usa a capa do cliente, o orçamento a sua, e o
+usuário a imagem de fundo que a pessoa escolheu em `/perfil` (`cover_image`).
+O gradiente da cor do módulo é o que sobra quando não há imagem.
 
 Detalhes que não são decoração:
 - **Chips em CAIXA ALTA**, de vidro (`bg-white/15 ring-1 ring-white/25 backdrop-blur`),
