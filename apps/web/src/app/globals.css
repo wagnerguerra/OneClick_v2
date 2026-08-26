@@ -815,11 +815,22 @@
   50%      { outline-color: #fbbf24; }
 }
 
-/* NOTA (regressão isolada por bisect → commit 98b12117): a declaração de
-   `color-scheme` (:root light / .dark dark) foi REMOVIDA. Em dev ela quebrava
-   a consistência da transição de tema (o `color` do texto passava a animar
-   fora de sincronia com o fundo). Reintroduzir suporte a controles nativos no
-   dark exige um caminho que não mexa nessa transição. */
+/* ===========================================================================
+   Controles NATIVOS seguem o dark — spinners de <input type=number>, date/time
+   pickers etc. — via `color-scheme: dark`.
+
+   ESCOPADO A INPUTS, nunca no :root/html. `color-scheme` é HERDADA: no :root ela
+   atinge todo texto da página e, ao mudar junto do toggle de tema, reinicia a
+   transição de `color` de tudo → dessincronia texto×fundo em dev (regressão
+   isolada por bisect no commit 98b12117; lightningcss a mascarava em prod).
+   Nos inputs ela não sobe para o body, então a página não dessincroniza.
+   (Autofill e scrollbars já são tematizados sem color-scheme — máscara de
+   autofill abaixo e .nice-scrollbar.) =========================================================================== */
+.dark input,
+.dark select,
+.dark textarea {
+  color-scheme: dark;
+}
 
 /* Autofill (Chrome/WebKit): o fundo claro que o browser força não mescla no
    dark. Máscara com box-shadow inset. IMPORTANTE: var() muitas vezes NÃO
