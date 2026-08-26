@@ -63,16 +63,19 @@ Cada módulo passa pelos mesmos seis pontos.
 | [x] Modais do módulo | DialogContent padrão |
 | [x] Ações que só existem no hover | editar título do ticket passa a ficar visível no toque |
 
-### 4. Orçamentos — `na fila`
+### 4. Orçamentos — `concluída` · commit `43f339d0`
 
 | Item | Status |
 |---|---|
-| Cabeçalho e ações da página | [ ] |
-| Barra de filtros | [ ] |
-| Listagem e kanban | [ ] |
-| Página de detalhe (abas, cards laterais) | [ ] |
-| Impressão / proposta | [ ] |
-| Ações que só existem no hover | [ ] |
+| [x] Cabeçalho e ações da página | header inline já quebrava em linhas |
+| [x] Barra de filtros | filtro de status em largura total no celular |
+| [x] Listagem e kanban | tabela reduzida ao essencial em tela estreita; no celular o módulo abre em tabela, não em kanban (colunas de 340px) |
+| [x] Página de detalhe | já empilhava abaixo de `lg` e as abas já rolavam sem cortar |
+| [—] Impressão / proposta | a proposta impressa tem largura de papel por definição — não é caso de responsividade |
+| [x] Ações que só existem no hover | cinco pontos entre listagem e detalhe agora visíveis no toque |
+
+> `orcamentos/[id]/old` ficou de fora de propósito: é a cópia congelada da tela
+> antiga, mantida só para consulta.
 
 ## Decisões pendentes
 
