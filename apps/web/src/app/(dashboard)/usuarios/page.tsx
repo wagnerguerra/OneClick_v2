@@ -456,7 +456,7 @@ export default function UsuariosPage() {
           </div>
         </div>
 
-        <Table className="table-fixed">
+        <Table>
           <TableHeader>
             <TableRow className="whitespace-nowrap">
               <TableHead className="w-[40px] text-center">
