@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Loader2, Pencil, Trash2, Flag, Settings2,
+  Plus, Loader2, Pencil, Trash2, Flag, Settings2, RotateCcw,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search as SearchIcon, LayoutGrid, List,
 } from 'lucide-react'
 import {
@@ -23,6 +23,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 import { SITUACAO_BADGE, TIPO_BADGE } from './_components/badges'
 import { ColetaKanban, type KanbanRow } from './_components/kanban'
 
@@ -43,6 +44,8 @@ interface Row {
   _count: { logs: number }
 }
 interface Categoria { id: string; nome: string; areaId: string | null; areaNome: string | null; ativo: boolean }
+/** No modal de manutenção a lista traz também as inativas. */
+type CategoriaModal = Categoria
 interface ClienteOpt { id: string; razaoSocial: string; documento: string | null }
 
 const dataBR = (iso: string | null | undefined) =>
@@ -59,6 +62,10 @@ export default function ColetaDocumentosPage() {
   const { profile: perfil } = useCurrentUserProfile()
   const perm = permissions.find((p) => p.moduleSlug === 'coleta-documentos')
   const podeEscrever = isMaster || isEmpresaMaster || (perm as { canWrite?: boolean } | undefined)?.canWrite === true
+  // A categoria decide a área de destino na triagem — mexer nela muda o rumo
+  // de tudo que a usa, então exige liberação à parte.
+  const subsColeta = (perm?.subPermissions ?? {}) as Record<string, boolean>
+  const podeCategorias = isMaster || isEmpresaMaster || subsColeta.categorias === true
 
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
@@ -92,6 +99,8 @@ export default function ColetaDocumentosPage() {
   const [catNome, setCatNome] = useState('')
   const [catArea, setCatArea] = useState('')
   const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
+  /** Lista do modal: inclui as inativas, para poder reativar. */
+  const [categoriasModal, setCategoriasModal] = useState<CategoriaModal[]>([])
   const [catSalvando, setCatSalvando] = useState(false)
 
   useEffect(() => {
@@ -179,22 +188,43 @@ export default function ColetaDocumentosPage() {
     finally { setSalvando(false) }
   }
 
+  /** Recarrega as categorias; no modal, incluindo as inativas (dá para reativar). */
+  function recarregarCategorias() {
+    ;(trpc as any).coleta.listarCategorias.query({}).then(setCategorias).catch(() => {})
+    if (catAberta) {
+      ;(trpc as any).coleta.listarCategorias.query({ incluirInativas: true })
+        .then(setCategoriasModal).catch(() => {})
+    }
+  }
+
   async function salvarCategoria() {
     if (catNome.trim().length < 2) return
     setCatSalvando(true)
     try {
       await (trpc as any).coleta.criarCategoria.mutate({ nome: catNome.trim(), areaId: catArea || null })
       setCatNome(''); setCatArea('')
-      ;(trpc as any).coleta.listarCategorias.query({}).then(setCategorias).catch(() => {})
+      recarregarCategorias()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setCatSalvando(false) }
   }
 
-  async function desativarCategoria(c: Categoria) {
-    try {
-      await (trpc as any).coleta.atualizarCategoria.mutate({ id: c.id, ativo: false })
-      ;(trpc as any).coleta.listarCategorias.query({}).then(setCategorias).catch(() => {})
-    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  /** Edição de uma categoria: nome, área de destino ou situação. */
+  async function editarCategoria(id: string, patch: Record<string, unknown>) {
+    await (trpc as any).coleta.atualizarCategoria.mutate({ id, ...patch })
+    recarregarCategorias()
+  }
+
+  async function alternarCategoria(c: CategoriaModal) {
+    if (c.ativo) {
+      const ok = await alerts.confirm({
+        title: `Desativar a categoria “${c.nome}”?`,
+        text: 'Ela some da lista de escolha nos novos registros. Os registros que já a usam continuam como estão.',
+        icon: 'warning', confirmText: 'Desativar',
+      })
+      if (!ok) return
+    }
+    try { await editarCategoria(c.id, { ativo: !c.ativo }) }
+    catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
   const filtrosAtivos = !!(fTipo || fSituacao || fCategoria || fMinhas)
@@ -225,7 +255,11 @@ export default function ColetaDocumentosPage() {
                 <Button variant="outline" size="sm" className="gap-1.5"><Settings2 className="h-4 w-4" /></Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setCatAberta(true)}>
+                <DropdownMenuItem onClick={() => {
+                  setCatAberta(true)
+                  ;(trpc as any).coleta.listarCategorias.query({ incluirInativas: true })
+                    .then(setCategoriasModal).catch(() => setCategoriasModal([]))
+                }}>
                   <Settings2 className="h-4 w-4 mr-2" />Categorias
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -468,6 +502,13 @@ export default function ColetaDocumentosPage() {
             <DialogDescription>A área vinculada recebe o documento na triagem.</DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
+            {!podeCategorias && (
+              <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                Você pode consultar as categorias, mas não alterá-las — a manutenção depende de liberação
+                específica no seu perfil.
+              </p>
+            )}
+            {podeCategorias && (
             <div className="flex items-end gap-2">
               <div className="flex-1">
                 <Label className="text-[13px] font-semibold">Nova categoria</Label>
@@ -487,18 +528,51 @@ export default function ColetaDocumentosPage() {
                 {catSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               </Button>
             </div>
-            <div className="max-h-[300px] overflow-y-auto nice-scrollbar rounded border border-border">
-              {categorias.length === 0 ? (
+            )}
+            <div className="max-h-[320px] overflow-y-auto nice-scrollbar rounded border border-border">
+              {categoriasModal.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma categoria.</p>
-              ) : categorias.map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2 last:border-0">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{c.nome}</p>
-                    <p className="text-[11px] text-muted-foreground">{c.areaNome ?? 'Sem área vinculada'}</p>
+              ) : categoriasModal.map((c) => (
+                <div key={c.id} className={cn('flex items-center gap-2 border-b border-border/60 px-3 py-2 last:border-0', !c.ativo && 'opacity-60')}>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">
+                      <InlineEditCell
+                        type="text"
+                        value={c.nome}
+                        disabled={!podeCategorias}
+                        validate={(v) => (v.trim().length < 2 ? 'Nome muito curto' : null)}
+                        onSave={(v) => editarCategoria(c.id, { nome: v.trim() })}
+                      />
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      <span className="text-[11px] text-muted-foreground">Área de destino:</span>
+                      {podeCategorias ? (
+                        <Select
+                          value={c.areaId || '__none__'}
+                          onValueChange={(v) => { void editarCategoria(c.id, { areaId: v === '__none__' ? null : v }).catch((e) => alerts.error('Erro', (e as Error).message)) }}
+                        >
+                          <SelectTrigger className="h-6 w-[170px] text-[11px]"><SelectValue placeholder="Sem área" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Sem área</SelectItem>
+                            {areas.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">{c.areaNome ?? 'Sem área vinculada'}</span>
+                      )}
+                    </div>
                   </div>
-                  <Button variant="soft-destructive" size="icon-sm" title="Desativar" onClick={() => desativarCategoria(c)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {!c.ativo && <Badge variant="outline" className="text-[10px]">Inativa</Badge>}
+                  {podeCategorias && (
+                    <Button
+                      variant={c.ativo ? 'soft-destructive' : 'outline'}
+                      size="icon-sm"
+                      title={c.ativo ? 'Desativar' : 'Reativar'}
+                      onClick={() => alternarCategoria(c)}
+                    >
+                      {c.ativo ? <Trash2 className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>

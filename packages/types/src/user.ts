@@ -284,6 +284,9 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
   'coleta-documentos': [
     { key: 'rota', label: 'Recepção/Rota (confirmar rota, receber, entregar ao arquivo)', group: 'Papéis' },
     { key: 'arquivo', label: 'Arquivo (triagem, entregar ao setor, arquivar protocolo)', group: 'Papéis' },
+    // A categoria decide para qual área o documento vai na triagem: renomear ou
+    // trocar a área de uma categoria muda o destino de tudo que a usa.
+    { key: 'categorias', label: 'Gerenciar categorias (criar, editar e desativar)', group: 'Manutenção' },
   ],
   // Ferramentas (integração webapp). Sub-permissão por tool = opt-out:
   // desmarcar bloqueia aquela ferramenta; marcado/ausente = liberado.
