@@ -90,13 +90,16 @@ Base aplicada a todo o sistema nesta fase:
 > conferência de celular continua sendo por código. Medição real só do notebook.
 
 ### Cadastros
+- [x] Grupos de Serviço · `ba90bc4b`
 - [x] Serviços e Obrigações — tabelas de catálogo e execuções adaptadas · `d087359c`
 - [x] Áreas, Cargos, Contatos — já escondiam colunas; sem ajuste necessário
 - [x] Clientes, Colaboradores, Usuários, Fornecedores, Sócios, Empresas — sem vazamento a 1351px; tabelas dentro do limite
 - [ ] Grupos Empresariais — módulo ainda em construção (wip)
 
 ### Comercial
-- [ ] Painel Comercial · CRM (relatórios) · Contratos (gestão, custeio, cláusulas, modelos)
+- [x] Painel Comercial, Gestão de Contratos, Custeio de Clientes, CRM (lista) · `ba90bc4b`
+- [x] Orçamentos — Parâmetros · `588fb22b`
+- [—] Relatórios do CRM e de Orçamentos — telas de análise, tabela larga com rolagem própria é o esperado
 
 ### Administrativo
 - [x] Agenda · Coleta (fase anterior)
@@ -111,7 +114,9 @@ Base aplicada a todo o sistema nesta fase:
 - [ ] Benefícios · Importação de Folha · Espelho da Folha
 
 ### Fiscal
-- [ ] Caixa Postal · DANFE · DT-e · DCTFWeb · Situação Fiscal · NFS-e
+- [x] DT-e, DANFE, NFS-e e Lotes de DANFE · `ba90bc4b` / `588fb22b`
+- [x] Caixa Postal (regras) — já escondia colunas
+- [ ] DCTFWeb · Situação Fiscal — conferir na próxima passada
 
 ### Contábil
 - [ ] Categorias de Balancete · Dashboard Financeiro · Tratamento de Lançamentos
@@ -119,13 +124,16 @@ Base aplicada a todo o sistema nesta fase:
 ### TI
 - [x] Gestão de Ativos — 8 colunas adaptadas · `d087359c`
 - [x] HelpDesk (fase anterior)
-- [ ] Projetos · Relatórios da TI
+- [x] Projetos (tarefas do projeto) · `ba90bc4b`
+- [—] Relatórios da TI e Métricas — telas de análise, rolagem lateral aceitável
 
 ### Qualidade
 - [ ] Aquisições · Capacitações · Documentos · Elogios · Melhorias · Não Conformidades · Reclamações · Reuniões · Sugestões · Tabelas de Registros
 
 ### Configurações e Admin
-- [ ] Configurações Gerais · Painéis de TV · Métricas · Design System · demais telas administrativas
+- [x] Painéis de TV · `588fb22b`
+- [—] Design System, Erros de Cliente, Métricas — telas internas de análise
+- [ ] Configurações Gerais e demais telas administrativas
 
 ## Decisões pendentes
 
