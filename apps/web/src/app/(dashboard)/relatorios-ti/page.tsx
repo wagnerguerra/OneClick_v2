@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   NotebookPen, Plus, ChevronLeft, ChevronRight, Loader2, Paperclip,
-  FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings, Megaphone, EyeOff, FolderUp, X,
+  FileText, Download, Trash2, Pencil, Send, AlertCircle, Settings, Megaphone, EyeOff, Eye, FolderUp, X,
 } from 'lucide-react'
 import {
   Button, Card, Input, Label, cn,
@@ -296,6 +296,22 @@ export default function RelatoriosTiPage() {
       await carregarNovidades()
     } catch (e) {
       await alerts.error('Nao foi possivel despublicar', (e as Error).message)
+    }
+  }
+
+  /**
+   * Devolve ao painel o que foi tirado do ar.
+   *
+   * Sem isto, despublicar era caminho sem volta pela tela: a novidade ficava
+   * marcada como despublicada e só voltava mexendo no banco. Serve também para
+   * escrever o aviso antes da hora e publicar quando a mudança estiver no ar.
+   */
+  async function republicar(id: string) {
+    try {
+      await (trpc.relatorioTi as any).atualizarNovidade.mutate({ id, ativo: true })
+      await carregarNovidades()
+    } catch (e) {
+      await alerts.error('Nao foi possivel publicar', (e as Error).message)
     }
   }
 
@@ -987,10 +1003,15 @@ export default function RelatoriosTiPage() {
                   <Button variant="soft-info" size="icon-sm" onClick={() => editarNovidade(n)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  {n.ativo && (
+                  {n.ativo ? (
                     <Button variant="outline" size="icon-sm" title="Tirar do painel"
                       onClick={() => despublicar(n.id)}>
                       <EyeOff className="h-3.5 w-3.5" />
+                    </Button>
+                  ) : (
+                    <Button variant="soft-success" size="icon-sm" title="Publicar no painel"
+                      onClick={() => republicar(n.id)}>
+                      <Eye className="h-3.5 w-3.5" />
                     </Button>
                   )}
                 </div>
