@@ -335,9 +335,12 @@ export default function ColetaDocumentosPage() {
         <Table className="table-fixed">
           <TableHeader>
             <TableRow className="[&_th]:whitespace-nowrap">
-              <TableHead className="w-[76px]">#</TableHead>
+              {/* No celular ficam só cliente, situação e ações — o que
+                  identifica o registro e o que se faz com ele. O número e o
+                  tipo migram para dentro da célula do cliente. */}
+              <TableHead className="hidden sm:table-cell w-[76px]">#</TableHead>
               <TableHead>Cliente</TableHead>
-              <TableHead className="w-[125px]">Tipo</TableHead>
+              <TableHead className="hidden sm:table-cell w-[125px]">Tipo</TableHead>
               <TableHead className="hidden md:table-cell w-[150px]">Categoria</TableHead>
               <TableHead className="hidden sm:table-cell w-[125px] text-center">Competência</TableHead>
               <TableHead className="w-[175px]">Situação</TableHead>
@@ -358,15 +361,20 @@ export default function ColetaDocumentosPage() {
             ) : (
               data.data.map((r) => (
                 <TableRow key={r.id} className="cursor-pointer [&_td]:whitespace-nowrap [&_td]:py-2" onClick={() => router.push(`/coleta-documentos/${r.id}`)}>
-                  <TableCell className="text-xs font-semibold tabular-nums text-muted-foreground">#{r.numero}</TableCell>
+                  <TableCell className="hidden sm:table-cell text-xs font-semibold tabular-nums text-muted-foreground">#{r.numero}</TableCell>
                   <TableCell className="text-sm">
                     <span className="flex items-center gap-1.5 min-w-0">
                       {r.prioridade === 3 && <Flag className="h-3.5 w-3.5 shrink-0 text-rose-500" aria-label="Prioridade alta" />}
                       <span className="truncate font-medium" title={r.contato ?? undefined}>{r.clienteNomeResolvido ?? r.contato ?? '—'}</span>
-                      {r.clienteNomeResolvido && r.contato && <span className="truncate text-[11px] text-muted-foreground">· {r.contato}</span>}
+                      {r.clienteNomeResolvido && r.contato && <span className="hidden truncate text-[11px] text-muted-foreground sm:inline">· {r.contato}</span>}
+                    </span>
+                    {/* Número e tipo, que ganham coluna a partir de `sm` */}
+                    <span className="mt-0.5 flex items-center gap-1.5 sm:hidden">
+                      <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">#{r.numero}</span>
+                      <Badge variant="outline" className={cn('text-[9px]', TIPO_BADGE[r.tipo])}>{COLETA_TIPO_LABEL[r.tipo] ?? r.tipo}</Badge>
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <Badge variant="outline" className={cn('text-[10px]', TIPO_BADGE[r.tipo])}>{COLETA_TIPO_LABEL[r.tipo] ?? r.tipo}</Badge>
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-xs text-muted-foreground truncate">{r.categoria?.nome ?? '—'}</TableCell>
