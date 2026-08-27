@@ -224,3 +224,30 @@ Modais seguem o `DialogHeaderIcon` obrigatório (ver `CLAUDE.md`).
 2. `pnpm --filter @saas/web exec tsc --noEmit` limpo para os arquivos tocados.
 3. Confere nas três larguras do `PADRAO_RESPONSIVIDADE.md` — 390, 768 e 1366.
 4. Tocou em `apps/api/`? Passe pelo gate de `docs/error-registry.md`.
+
+---
+
+## 6. Cobertura da varredura (26/08/2026)
+
+O topo de **todas as telas do dashboard** foi passado para a `PageHeaderBar`
+(título + trilha `Página inicial › Bloco › Módulo` à esquerda, ações à direita).
+Três lotes: `b46e5869` (21 telas na forma exata), `71c1cb9f` (68 telas com
+cabeçalho fora da forma) e `222d9e0a` (detalhes, formulários compartilhados e
+ferramentas).
+
+O que a conversão preservou, de propósito: selos ao lado do título e subtítulo
+com dados do registro descem para uma linha logo abaixo da trilha. O que ela
+descartou: a caixa de ícone de 48px e a **descrição estática** — a trilha ocupa
+o lugar dela.
+
+Fora da varredura, e por quê:
+
+| Tela | Motivo |
+|---|---|
+| `/whatsapp` | chat de altura cheia (`h-[calc(100vh-90px)]`), sem cabeçalho |
+| `/ferramentas/fiscal/*`, `/ferramentas/contabil/*` | usam o `PageHeader` de capa, que é componente da casa |
+| `/faq/[slug]`, `/faq/novo`, `/faq/editar/[slug]` | idem — a capa do artigo é o `PageHeader` |
+| `*/imprimir`, `*/old` | página de impressão e legado |
+| `/dashboard`, `/helpdesk/[id]`, `/helpdesk/n/[numero]`, `/orcamentos/indicadores` | sem cabeçalho próprio: grid de widgets, wrapper de componente ou redirecionamento |
+
+Tela nova nasce com a barra. Tela antiga que for tocada migra junto.
