@@ -20,6 +20,7 @@ import {
 import { Button, Card, Badge, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { fmtDateBR } from '@/lib/date'
 
 type Fato = {
   campo: string
@@ -62,20 +63,31 @@ const CAMPOS_CADASTRO: Record<string, string> = {
   cidade: 'Cidade', uf: 'UF',
 }
 
-/** Capital social chega como número cru ("20000"); na tela vira dinheiro. */
+/** A fonte devolve data como 'AAAA-MM-DD'; na tela é sempre dd/mm/aaaa. */
+const CAMPOS_DATA = new Set(['data_abertura', 'data_situacao_cadastral', 'data_opcao_simples'])
+
 function valorDoCampo(campo: string, valor: string | null): string | null {
   if (valor == null) return valor
-  if (campo !== 'capital_social') return valor
-  const n = Number(valor)
-  return Number.isFinite(n)
-    ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-    : valor
+  // Capital social chega como número cru ("20000"); na tela vira dinheiro.
+  if (campo === 'capital_social') {
+    const n = Number(valor)
+    return Number.isFinite(n) ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : valor
+  }
+  // `fmtDateBR` é o helper da casa: extrai o dia em UTC, senão '2020-03-06'
+  // vira 05/03 para quem está a oeste de Greenwich.
+  if (CAMPOS_DATA.has(campo)) return fmtDateBR(valor) || valor
+  return valor
 }
 
-function dataBr(iso: string | null | undefined): string {
+/**
+ * Momento da coleta — data E hora, no fuso de quem está lendo. Aqui o
+ * relevante é "há quanto tempo isto foi buscado", não o dia de calendário.
+ */
+function momentoBr(iso: string | null | undefined): string {
   if (!iso) return '—'
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? String(iso) : d.toLocaleDateString('pt-BR')
+  if (Number.isNaN(d.getTime())) return String(iso)
+  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 /** Verde para ativa; âmbar/vermelho quando a empresa não está regular. */
@@ -191,7 +203,7 @@ export function DossieCard({ clienteId, podeAtualizar }: { clienteId: string; po
           <h2 className="text-[13px] font-semibold text-foreground">Dossiê do cliente</h2>
           <p className="text-xs text-muted-foreground">
             {dossie?.ultimaColeta
-              ? <>Última coleta em {dataBr(dossie.ultimaColeta.coletadoEm)} · fonte: {dossie.ultimaColeta.fonte}</>
+              ? <>Última coleta em {momentoBr(dossie.ultimaColeta.coletadoEm)} · fonte: {dossie.ultimaColeta.fonte}</>
               : 'Nenhuma consulta feita ainda.'}
           </p>
         </div>
@@ -243,7 +255,7 @@ export function DossieCard({ clienteId, podeAtualizar }: { clienteId: string; po
                           {' → '}
                           <span className="font-medium text-foreground">{s.valorSugerido}</span>
                         </p>
-                        <p className="text-[11px] text-muted-foreground/80">fonte: {s.fonte} · {dataBr(s.coletadoEm)}</p>
+                        <p className="text-[11px] text-muted-foreground/80">fonte: {s.fonte} · {momentoBr(s.coletadoEm)}</p>
                       </div>
                       {podeAtualizar && (
                         <div className="flex items-center gap-1.5">
