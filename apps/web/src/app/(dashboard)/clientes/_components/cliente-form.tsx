@@ -29,6 +29,7 @@ import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { CapaClienteModal } from './capa-cliente-modal'
 import { DossieCard } from './dossie-card'
+import { LogoClienteModal } from './logo-cliente-modal'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
 import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
@@ -165,6 +166,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
   const [headerCover, setHeaderCover] = useState<string>('')
   const [capaCliente, setCapaCliente] = useState<string | null>(null)
   const [capaModal, setCapaModal] = useState(false)
+  const [logoModal, setLogoModal] = useState(false)
   const [uploadingCover, setUploadingCover] = useState(false)
   const coverInputRef = useRef<HTMLInputElement>(null)
   const capaEfetiva = capaCliente || headerCover
@@ -564,35 +566,18 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                     <Handshake className="h-10 w-10 text-emerald-500" />
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white ring-1 ring-white/40 backdrop-blur transition-colors hover:bg-white/30"
-                  onClick={() => {
-                    const input = document.createElement('input')
-                    input.type = 'file'
-                    input.accept = 'image/*'
-                    input.onchange = async (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0]
-                      if (!file) return
-                      const formData = new FormData()
-                      formData.append('file', file)
-                      try {
-                        const apiUrl = getApiUrl()
-                        const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData, credentials: 'include' })
-                        if (!res.ok) { alerts.error('Erro', 'Falha no upload.'); return }
-                        const data = await res.json()
-                        const logoUrl = data.url && data.url.startsWith('http') ? data.url : `${apiUrl}/api/upload/${data.filename}`
-                        setClienteLogo(logoUrl)
-                        if (clienteId) {
-                          await trpc.cliente.update.mutate({ id: clienteId, data: { logoUrl } as never })
-                        }
-                      } catch { alerts.error('Erro', 'Falha no upload da imagem.') }
-                    }
-                    input.click()
-                  }}
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                </button>
+                {/* Antes abria o seletor de arquivo direto; agora o modal, que
+                    tem também a busca da marca pelo domínio da empresa. */}
+                {isEdit && clienteId && canEditDetails && (
+                  <button
+                    type="button"
+                    className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white ring-1 ring-white/40 backdrop-blur transition-colors hover:bg-white/30"
+                    onClick={() => setLogoModal(true)}
+                    title="Alterar logomarca"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -972,6 +957,16 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
         onOpenChange={setReativarAberto}
         onConfirm={reativarConfirmado}
       />
+
+      {/* Logomarca: envio manual ou busca pelo domínio. */}
+      {mode === 'edit' && clienteId && (
+        <LogoClienteModal
+          open={logoModal}
+          onOpenChange={setLogoModal}
+          clienteId={clienteId}
+          onAplicada={(url) => setClienteLogo(url)}
+        />
+      )}
 
       {/* Capa personalizada deste cliente (envio manual ou sugestão). */}
       {mode === 'edit' && clienteId && (

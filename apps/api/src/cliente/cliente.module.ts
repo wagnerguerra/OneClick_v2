@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common'
 import { ClienteService } from './cliente.service'
 import { ClienteEnriquecimentoService } from './cliente-enriquecimento.service'
 import { ClienteCapaService } from './cliente-capa.service'
+import { ClienteLogoService } from './cliente-logo.service'
 import { SincronizarResponsaveisService } from './sincronizar-responsaveis.service'
 import { LegacyImportService } from './legacy-import.service'
 import { SciService } from './sci.service'
@@ -21,7 +22,7 @@ import { BiModule } from '../bi/bi.module'
   // (SSE pro Launcher). Bi importa Cliente também → circular resolved por forwardRef.
   imports: [CnpjModule, forwardRef(() => BiModule), AuthModule],
   controllers: [ContratoSyncController],
-  providers: [ClienteService, ClienteEnriquecimentoService, ClienteCapaService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService],
-  exports: [ClienteService, ClienteEnriquecimentoService, ClienteCapaService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService],
+  providers: [ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService],
+  exports: [ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService],
 })
 export class ClienteModule {}

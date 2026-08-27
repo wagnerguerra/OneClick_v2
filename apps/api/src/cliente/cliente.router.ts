@@ -39,6 +39,7 @@ export function createClienteRouter(
   capaService?: import('./cliente-capa.service').ClienteCapaService,
   dossieService?: import('./dossie/dossie.service').DossieService,
   dossieBackfillService?: import('./dossie/dossie-backfill.service').DossieBackfillService,
+  logoService?: import('./cliente-logo.service').ClienteLogoService,
 ) {
   return router({
     // Listagem (ativos)
@@ -1254,6 +1255,21 @@ export function createClienteRouter(
       .mutation(({ input, ctx }) => {
         if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas o usuário master pode alterar a imagem de fundo' })
         return clienteService.setHeaderCover(input.url, ctx.empresaId)
+      }),
+
+    // ── Logomarca do cliente (envio manual ou busca pelo domínio) ────
+    sugerirLogos: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string().optional(), dominio: z.string().optional() }))
+      .query(({ input }) => {
+        if (!logoService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Busca de logomarca indisponível.' })
+        return logoService.sugerirLogos(input)
+      }),
+
+    aplicarLogoSugerida: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ clienteId: z.string(), url: z.string() }))
+      .mutation(({ input }) => {
+        if (!logoService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Busca de logomarca indisponível.' })
+        return logoService.aplicarLogoSugerida(input.clienteId, input.url)
       }),
 
     // ── Dossiê do Cliente (enriquecimento por CNPJ) ──────────────────
