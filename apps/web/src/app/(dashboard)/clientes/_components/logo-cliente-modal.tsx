@@ -22,6 +22,7 @@ type Logo = {
   url: string; fonte: string
   largura: number | null; altura: number | null
   bytes: number; tipo: string
+  vetorial: boolean
 }
 type Sugestoes = { logos: Logo[]; dominio: string; origem: string; aviso?: string }
 
@@ -175,7 +176,7 @@ export function LogoClienteModal({ open, onOpenChange, clienteId, onAplicada }: 
               {sug && sug.dominio && (
                 <p className="text-xs text-muted-foreground">
                   Procurando em <span className="font-medium text-foreground">{sug.dominio}</span>
-                  {sug.origem ? <> · veio do {sug.origem}</> : null}
+                  {sug.origem && sug.origem !== 'domínio digitado' ? <> · veio do {sug.origem}</> : null}
                 </p>
               )}
 
@@ -216,7 +217,11 @@ export function LogoClienteModal({ open, onOpenChange, clienteId, onAplicada }: 
                         <img src={logo.url} alt="" className="max-h-16 max-w-full object-contain" loading="lazy" />
                       </span>
                       <span className="w-full truncate text-[10px] text-muted-foreground">
-                        {logo.largura ? `${logo.largura}×${logo.altura}` : tamanho(logo.bytes)} · {logo.fonte}
+                        {/* Vetor não tem tamanho fixo: dizer "32×32" assustaria
+                            à toa, quando na verdade é o melhor resultado. */}
+                        {logo.vetorial
+                          ? 'vetorial'
+                          : logo.largura ? `${logo.largura}×${logo.altura}` : tamanho(logo.bytes)} · {logo.fonte}
                       </span>
                       {aplicandoUrl === logo.url && (
                         <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50">

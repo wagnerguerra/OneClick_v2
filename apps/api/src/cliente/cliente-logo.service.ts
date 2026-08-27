@@ -43,6 +43,8 @@ export type LogoSugerida = {
   altura: number | null
   bytes: number
   tipo: string
+  /** SVG: escala para qualquer tamanho, então os pisos de pixel não valem. */
+  vetorial: boolean
 }
 
 @Injectable()
@@ -110,8 +112,20 @@ export class ClienteLogoService {
   async sugerirLogos(input: { clienteId?: string; dominio?: string }): Promise<{
     logos: LogoSugerida[]; dominio: string; origem: string; aviso?: string
   }> {
-    let dominio = this.normalizarDominio(input.dominio)
+    const digitado = String(input.dominio ?? '').trim()
+    let dominio = this.normalizarDominio(digitado)
     let origem = 'domínio digitado'
+
+    // Digitou algo que NÃO é endereço (o nome da empresa, por exemplo). Antes
+    // isso caía calado no domínio do cadastro e a tela dizia estar procurando
+    // em outro lugar — o texto do usuário sumia sem explicação.
+    if (digitado && !dominio) {
+      return {
+        logos: [], dominio: '', origem: 'termo inválido',
+        aviso: `"${digitado}" não é um endereço de site. A busca é pelo domínio da empresa — algo como empresa.com.br. `
+          + 'Procurar por nome não encontra logomarca.',
+      }
+    }
 
     if (!dominio && input.clienteId) {
       const c = await this.dominiosCandidatos(input.clienteId)
@@ -137,14 +151,23 @@ export class ClienteLogoService {
     for (const url of candidatas) {
       const img = await this.medirImagem(url)
       if (!img) continue
-      // Favicon de 16px vira um borrão de 96px no cabeçalho. Quando não dá para
-      // medir (ICO, SVG), o tamanho do arquivo serve de peneira grosseira.
-      const ladoOk = img.largura == null || Math.min(img.largura, img.altura ?? img.largura) >= LADO_MINIMO
-      if (!ladoOk || img.bytes < 700) continue
+      // Vetor escala sem perder nitidez: um SVG de 32×32 e 453 bytes — que é
+      // exatamente a logo da Central Contábil — rende tão bem quanto um PNG
+      // grande. Os pisos abaixo são de imagem de PIXEL e não valem para ele.
+      if (!img.vetorial) {
+        // Favicon de 16px vira um borrão no quadro do cabeçalho. Quando não dá
+        // para medir (ICO), o tamanho do arquivo serve de peneira grosseira.
+        const ladoOk = img.largura == null || Math.min(img.largura, img.altura ?? img.largura) >= LADO_MINIMO
+        if (!ladoOk || img.bytes < 700) continue
+      }
       logos.push(img)
     }
 
-    logos.sort((a, b) => (b.largura ?? 0) - (a.largura ?? 0) || b.bytes - a.bytes)
+    // Vetor primeiro: é o melhor resultado possível e não tem largura
+    // comparável com a de um raster.
+    logos.sort((a, b) => Number(b.vetorial) - Number(a.vetorial)
+      || (b.largura ?? 0) - (a.largura ?? 0)
+      || b.bytes - a.bytes)
     return {
       logos, dominio, origem,
       ...(logos.length === 0
@@ -262,6 +285,8 @@ export class ClienteLogoService {
 
     const bytes = Buffer.from(await resp.arrayBuffer())
     if (bytes.length === 0 || bytes.length > TAMANHO_MAXIMO) return null
+    if (this.ehSvg(tipo) && !this.svgSeguro(bytes)) return null
+
     const dim = this.dimensoes(bytes)
     return {
       url,
@@ -270,7 +295,33 @@ export class ClienteLogoService {
       altura: dim?.altura ?? null,
       bytes: bytes.length,
       tipo,
+      vetorial: this.ehSvg(tipo),
     }
+  }
+
+  private ehSvg(tipo: string): boolean {
+    return tipo.includes('svg')
+  }
+
+  /**
+   * SVG é XML, e XML pode carregar script. Servido do nosso domínio, um SVG
+   * malicioso rodaria com a sessão do usuário — por isso ele passa por esta
+   * peneira antes de ser aceito.
+   *
+   * É a segunda linha de defesa: a rota que entrega os arquivos já responde
+   * SVG com CSP que proíbe script. Aqui recusamos de saída o que for suspeito,
+   * em vez de tentar limpar — arquivo de logo não tem por que ter nada disso.
+   */
+  private svgSeguro(bytes: Buffer): boolean {
+    const texto = bytes.toString('utf8', 0, Math.min(bytes.length, 200_000)).toLowerCase()
+    const suspeitos = [
+      '<script', '</script', 'javascript:', '<foreignobject', '<iframe', '<embed',
+      '<use', 'xlink:href="http', 'href="http', 'data:text/html', '<set', '<animate',
+    ]
+    if (suspeitos.some(p2 => texto.includes(p2))) return false
+    // Manipulador de evento inline: onload=, onclick=, onerror=...
+    if (/\son[a-z]+\s*=/.test(texto)) return false
+    return true
   }
 
   private rotuloDaFonte(url: string): string {
@@ -324,12 +375,16 @@ export class ClienteLogoService {
     const resp = await this.buscarComGuarda(url, { redirect: 'follow' })
     if (!resp?.ok) throw new Error('Não foi possível baixar a imagem escolhida.')
     const tipo = (resp.headers.get('content-type') || '').split(';')[0]?.trim() ?? ''
-    if (!tipo.startsWith('image/') || tipo.includes('svg')) throw new Error('O endereço não devolveu uma imagem aceita.')
+    if (!tipo.startsWith('image/')) throw new Error('O endereço não devolveu uma imagem.')
 
     const bytes = Buffer.from(await resp.arrayBuffer())
     if (bytes.length === 0 || bytes.length > TAMANHO_MAXIMO) throw new Error('Imagem vazia ou grande demais.')
+    if (this.ehSvg(tipo) && !this.svgSeguro(bytes)) {
+      throw new Error('Este SVG traz script ou referência externa e não pode ser usado como logomarca.')
+    }
 
-    const ext = tipo.includes('png') ? '.png'
+    const ext = this.ehSvg(tipo) ? '.svg'
+      : tipo.includes('png') ? '.png'
       : tipo.includes('webp') ? '.webp'
       : tipo.includes('gif') ? '.gif'
       : tipo.includes('icon') || tipo.includes('ico') ? '.ico'
