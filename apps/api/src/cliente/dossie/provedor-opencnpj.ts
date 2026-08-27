@@ -97,9 +97,28 @@ export class ProvedorOpenCnpj implements ProvedorCnpj {
     }
   }
 
+  /**
+   * Texto que às vezes chega como objeto.
+   *
+   * `motivo_situacao_cadastral`, por exemplo, vem como string em uns registros
+   * e como `{codigo, descricao}` em outros. Um `String(objeto)` cru escrevia
+   * "[object Object]" na tela do dossiê — foi o que apareceu no cliente 1144.
+   */
   private textoOuNulo(v: unknown): string | null {
-    const t = typeof v === 'string' ? v.trim() : v == null ? '' : String(v).trim()
-    return t === '' ? null : t
+    if (v == null) return null
+    if (typeof v === 'string') return v.trim() === '' ? null : v.trim()
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+    if (typeof v === 'object') {
+      const o = v as Record<string, unknown>
+      for (const chave of ['descricao', 'descrição', 'nome', 'texto', 'valor']) {
+        const achado = o[chave]
+        if (typeof achado === 'string' && achado.trim() !== '') return achado.trim()
+      }
+      // Objeto sem campo legível não vira texto: melhor o campo sumir do
+      // dossiê do que exibir um despejo de JSON para o usuário.
+      return null
+    }
+    return null
   }
 
   /**

@@ -411,6 +411,16 @@
     @apply border-border;
   }
 
+  /* Reserva a faixa da barra de rolagem SEMPRE.
+     Todo menu e modal do Radix tranca a rolagem da página enquanto está
+     aberto; sem a faixa reservada, a barra some, a viewport fica ~15px mais
+     larga e a tela inteira dá um pulo para a esquerda — some a barra e o canto
+     direito desalinha. Com o `gutter` estável a largura não muda, então abrir
+     um menu não mexe em nada. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans, 'Plus Jakarta Sans'), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;

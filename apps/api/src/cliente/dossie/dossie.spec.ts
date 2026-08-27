@@ -117,6 +117,40 @@ describe('ProvedorOpenCnpj — normalização', () => {
     expect(d.socios).toHaveLength(1)
   })
 
+  it('campo que vem como objeto vira a descrição, não "[object Object]"', async () => {
+    global.fetch = jest.fn().mockResolvedValue(respostaFalsa({
+      razao_social: 'EMPRESA X',
+      // A base devolve este campo ora como texto, ora como objeto.
+      motivo_situacao_cadastral: { codigo: '00', descricao: 'SEM MOTIVO' },
+      porte_empresa: { codigo: '03', descricao: 'EPP' },
+      situacao_cadastral: 'Ativa',
+    })) as unknown as typeof fetch
+
+    const d = await new ProvedorOpenCnpj().consultar('33000167000101')
+    expect(d.motivoSituacaoCadastral).toBe('SEM MOTIVO')
+    expect(d.porte).toBe('EPP')
+  })
+
+  it('objeto sem campo legível some do dossiê em vez de virar JSON na tela', async () => {
+    global.fetch = jest.fn().mockResolvedValue(respostaFalsa({
+      razao_social: 'EMPRESA X',
+      motivo_situacao_cadastral: { codigo: '00' },
+    })) as unknown as typeof fetch
+
+    const d = await new ProvedorOpenCnpj().consultar('33000167000101')
+    expect(d.motivoSituacaoCadastral).toBeNull()
+  })
+
+  it('capital social em formato brasileiro vira número', async () => {
+    global.fetch = jest.fn().mockResolvedValue(respostaFalsa({
+      razao_social: 'EMPRESA X',
+      capital_social: '20000,00', // é assim que chega para a maioria dos clientes
+    })) as unknown as typeof fetch
+
+    const d = await new ProvedorOpenCnpj().consultar('33000167000101')
+    expect(d.capitalSocial).toBe(20000)
+  })
+
   it('avisa quando o CNPJ não existe na base', async () => {
     global.fetch = jest.fn().mockResolvedValue(respostaFalsa({}, 404)) as unknown as typeof fetch
     await expect(new ProvedorOpenCnpj().consultar('33000167000101')).rejects.toThrow(/não encontrado/)

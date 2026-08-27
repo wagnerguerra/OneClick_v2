@@ -62,6 +62,16 @@ const CAMPOS_CADASTRO: Record<string, string> = {
   cidade: 'Cidade', uf: 'UF',
 }
 
+/** Capital social chega como número cru ("20000"); na tela vira dinheiro. */
+function valorDoCampo(campo: string, valor: string | null): string | null {
+  if (valor == null) return valor
+  if (campo !== 'capital_social') return valor
+  const n = Number(valor)
+  return Number.isFinite(n)
+    ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : valor
+}
+
 function dataBr(iso: string | null | undefined): string {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -113,7 +123,7 @@ function Linhas({ fatos, campos }: { fatos: Fato[]; campos: string[] }) {
           <dd className="text-right text-sm font-medium text-foreground">
             {f.campo === 'situacao_cadastral'
               ? <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', corDaSituacao(f.valor))}>{f.valor}</span>
-              : f.valor}
+              : valorDoCampo(f.campo, f.valor)}
           </dd>
         </div>
       ))}
