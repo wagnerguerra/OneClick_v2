@@ -18,10 +18,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   Clock, CheckCircle2, AlertCircle, XCircle, Loader2, RefreshCw,
-  ArrowLeft, Calendar, Activity, Users, Hourglass,
+  Activity, Users, Hourglass,
   Receipt, Briefcase, Save, Power, PlayCircle, Settings,
 } from 'lucide-react'
 import { Button, Card, cn, Badge, Input } from '@saas/ui'
+import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -153,23 +155,8 @@ export default function AgendamentoPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header — padrão /danfe */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: MODULE_COLOR }}>
-            <Calendar className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Agendamento de buscas</h1>
-            <p className="text-sm text-muted-foreground">Cron diário, histórico e disparo manual de sync fiscal</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/danfe">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <ArrowLeft className="h-3.5 w-3.5" /> Voltar
-            </Button>
-          </Link>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button
             variant="outline"
             size="sm"
@@ -180,8 +167,19 @@ export default function AgendamentoPage() {
             {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Recarregar
           </Button>
-        </div>
-      </div>
+          <BackButton href="/danfe" label="Voltar" />
+      </>}>
+        <h1 className="truncate">Agendamento de buscas</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>DANFE (NFe → PDF)</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Agendamento de buscas</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Tabs NFe/NFSe */}
       <div className="flex gap-2 border-b border-border">

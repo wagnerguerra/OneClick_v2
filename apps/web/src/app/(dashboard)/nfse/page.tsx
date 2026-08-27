@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import {
@@ -95,40 +96,33 @@ export default function NFSePage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div
-            className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-sm"
-            style={{ background: MODULE_COLOR }}
-          >
-            <Receipt className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>NFS-e</h1>
-            <p className="text-sm text-muted-foreground">
-              Notas Fiscais de Serviço Eletrônicas — padrão Nacional gov.br
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/nfse/galeria">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <LayoutGrid className="h-3.5 w-3.5" /> Galeria por Cliente
-            </Button>
-          </Link>
-          {/* Upload desabilitado até endpoint existir */}
-          <Button
-            size="sm"
-            disabled
-            className="gap-1.5 text-white opacity-60 cursor-not-allowed"
-            style={{ backgroundColor: MODULE_COLOR }}
-            title="Upload manual disponível em breve"
-          >
-            <Upload className="h-3.5 w-3.5" /> Upload XML
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+        <Link href="/nfse/galeria">
+          <Button variant="outline" size="sm" className="gap-1.5">
+            <LayoutGrid className="h-3.5 w-3.5" /> Galeria por Cliente
           </Button>
-        </div>
-      </div>
+        </Link>
+        {/* Upload desabilitado até endpoint existir */}
+        <Button
+          size="sm"
+          disabled
+          className="gap-1.5 text-white opacity-60 cursor-not-allowed"
+          style={{ backgroundColor: MODULE_COLOR }}
+          title="Upload manual disponível em breve"
+        >
+          <Upload className="h-3.5 w-3.5" /> Upload XML
+        </Button>
+      </>}>
+        <h1 className="truncate">NFS-e</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>NFS-e</span>
+        </p>
+      </PageHeaderBar>
 
       {/* KPIs */}
       <Card className="p-3">

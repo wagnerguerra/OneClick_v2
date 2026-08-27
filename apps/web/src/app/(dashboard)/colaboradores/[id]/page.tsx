@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Users } from 'lucide-react'
 import type { CreateColaboradorInput } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { ColaboradorForm } from '../_components/colaborador-form'
@@ -81,8 +80,7 @@ export default function EditColaboradorPage() {
       mode="edit"
       colaboradorId={params.id}
       title="Editar Colaborador"
-      description={`Altere os dados do colaborador ${colaborador.nomeCompleto ?? ''}`}
-      icon={<Users className="h-6 w-6" />}
+      description={colaborador.nomeCompleto ?? ''}
       defaultValues={colaborador}
     />
   )

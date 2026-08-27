@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import type { LucideIcon } from 'lucide-react'
 import {
   Plus, Loader2, Search, Copy, Check, EyeOff, MessageSquare, Paperclip,
   Building2, User as UserIcon,
@@ -19,8 +18,8 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { ManifestacaoDetalhe } from './manifestacao-detalhe'
 import { NovaManifestacaoModal } from './nova-manifestacao'
 import type { Config, Linha } from './tipos'
-
-const MODULE_COLOR = 'var(--mod-qualidade, #f59e0b)'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 
 /** Rótulo e cor de cada situação — os três tipos compartilham a paleta. */
 export const STATUS_LABEL: Record<string, { texto: string; classe: string }> = {
@@ -88,27 +87,25 @@ export function ManifestacaoPage({ config }: { config: Config }) {
 
   useEffect(() => { void carregar() }, [carregar])
 
-  const Icone: LucideIcon = config.icone
-
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <Icone className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>{config.titulo}</h1>
-            <p className="text-sm text-muted-foreground">{config.subtitulo}</p>
-          </div>
-        </div>
-        {podeRegistrar && (
-          <Button variant="success" size="sm" className="shrink-0 gap-1.5" onClick={() => setNovoOpen(true)}>
-            <Plus className="h-4 w-4" /> {config.rotuloNovo}
-          </Button>
-        )}
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+          {podeRegistrar && (
+            <Button variant="success" size="sm" className="gap-1.5" onClick={() => setNovoOpen(true)}>
+              <Plus className="h-4 w-4" /> {config.rotuloNovo}
+            </Button>
+          )}
+      </>}>
+        <h1 className="truncate">{config.titulo}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>{config.titulo}</span>
+        </p>
+      </PageHeaderBar>
 
       <Card className="overflow-hidden p-0">
         <div className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">

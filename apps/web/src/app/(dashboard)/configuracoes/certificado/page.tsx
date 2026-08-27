@@ -10,6 +10,8 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import { MasterGate } from '@/components/auth/master-gate'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import Swal from 'sweetalert2'
 
 interface CertInfo {
@@ -229,12 +231,17 @@ function CertificadoSettingsPageInner() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Certificado Digital</h1>
-          <p className="text-sm text-muted-foreground mt-1">Gerencie o certificado digital e as credenciais SERPRO</p>
-        </div>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Certificado Digital</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Certificado Digital</span>
+        </p>
+      </PageHeaderBar>
 
       <Card>
         <CardHeader>

@@ -15,7 +15,9 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import Link from 'next/link'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { copyToClipboard } from '@/lib/clipboard'
@@ -311,11 +313,117 @@ export default function ContratoDetailPage() {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
+          {/* Gerar/Regerar PDF — sempre disponível enquanto não estiver cancelado */}
+          {contrato.status !== 'CANCELADO' && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 bg-white dark:bg-card hover:bg-white/90"
+              onClick={handleGerarPdf}
+              disabled={generatingPdf}
+            >
+              {generatingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {contrato.pdfUrl ? 'Regerar PDF' : 'Gerar PDF'}
+            </Button>
+          )}
+
+          {contrato.pdfUrl && (
+            <Button size="sm" variant="outline" className="gap-1.5 bg-white dark:bg-card hover:bg-white/90" asChild>
+              <a href={contrato.pdfUrl} target="_blank" rel="noopener noreferrer">
+                <Download className="h-4 w-4" /> PDF
+              </a>
+            </Button>
+          )}
+
+          {/* RASCUNHO → CONTRATADA assina.
+              Server-side é o caminho recomendado: backend usa cert do .env (CERTIFICADO_PATH).
+              Web PKI fica como alternativa pra quem prefere assinar com cert local. */}
+          {podeAssinarContratada && (
+            <>
+              <Button
+                size="sm"
+                style={{ backgroundColor: MODULE_COLOR }}
+                className="text-white gap-1.5"
+                onClick={() => handleAssinarServerSide('CONTRATADA')}
+                disabled={serverSignLoading}
+                title="Assina o PDF com o certificado da Central Contábil cadastrado no servidor"
+              >
+                {serverSignLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSignature className="h-4 w-4" />}
+                Assinar como Central
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 bg-white dark:bg-card hover:bg-white/90"
+                onClick={() => abrirAssinatura('CONTRATADA')}
+                title="Assinar com certificado instalado neste computador (Web PKI)"
+              >
+                <Building2 className="h-4 w-4" /> Cert Local
+              </Button>
+            </>
+          )}
+
+          {/* CONTRATADA assinou e ainda RASCUNHO → enviar pro cliente */}
+          {podeEnviarCliente && (
+            <Button
+              size="sm"
+              variant="success"
+              className="gap-1.5"
+              onClick={handleEnviarParaCliente}
+            >
+              <Send className="h-4 w-4" /> Enviar p/ cliente
+            </Button>
+          )}
+
+          {/* VIGENTE → encerrar */}
+          {contrato.status === 'VIGENTE' && (
+            <Button size="sm" variant="outline" className="gap-1.5 bg-white dark:bg-card" onClick={handleEncerrar}>
+              <Archive className="h-4 w-4" /> Encerrar
+            </Button>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon-sm" title="Mais opções" className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={copiarLinkCliente}>
+                <CopyIcon className="h-4 w-4 mr-2" /> Copiar link do cliente
+              </DropdownMenuItem>
+              {contrato.status !== 'RASCUNHO' && contrato.status !== 'AGUARDANDO_ASSINATURA' && (
+                <DropdownMenuItem onClick={() => router.push(`/contratos/publico/${contrato.token}`)}>
+                  <ExternalLink className="h-4 w-4 mr-2" /> Abrir página pública
+                </DropdownMenuItem>
+              )}
+              {contrato.status !== 'CANCELADO' && contrato.status !== 'ENCERRADO' && (
+                <DropdownMenuItem onClick={handleCancelar} className="text-destructive">
+                  <X className="h-4 w-4 mr-2" /> Cancelar contrato
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <BackButton href="/contratos" />
+      </>}>
+        <h1 className="truncate">{contrato.cliente.razaoSocial}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Comercial</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Contratos</span>
+        </p>
+      </PageHeaderBar>
+
       {/* ══════════════════════════════════════════════════════════
           Wrapper bleed-edge cobrindo Header + Tabs (padrão /orcamentos)
           ══════════════════════════════════════════════════════════ */}
       <div
-        className="relative -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 overflow-hidden"
+        className="relative -mx-4 sm:-mx-6 overflow-hidden"
         style={{ backgroundColor: MODULE_RGBA }}
       >
         <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
@@ -329,7 +437,7 @@ export default function ContratoDetailPage() {
                 <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
               </div>
               <div>
-                <h1 className="text-xl font-semibold uppercase">{contrato.cliente.razaoSocial}</h1>
+                <h2 className="text-xl font-semibold uppercase">{contrato.cliente.razaoSocial}</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
                   Contrato #{String(contrato.numero).padStart(5, '0')}
                   {contrato.contratanteCnpj && (<>&nbsp;&nbsp;|&nbsp;&nbsp;{contrato.contratanteCnpj}</>)}
@@ -367,102 +475,6 @@ export default function ContratoDetailPage() {
               </div>
             </div>
 
-            {/* Ações contextuais */}
-            <div className="flex flex-wrap items-center gap-2 sm:shrink-0 flex-wrap">
-              {/* Gerar/Regerar PDF — sempre disponível enquanto não estiver cancelado */}
-              {contrato.status !== 'CANCELADO' && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 bg-white dark:bg-card hover:bg-white/90"
-                  onClick={handleGerarPdf}
-                  disabled={generatingPdf}
-                >
-                  {generatingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  {contrato.pdfUrl ? 'Regerar PDF' : 'Gerar PDF'}
-                </Button>
-              )}
-
-              {contrato.pdfUrl && (
-                <Button size="sm" variant="outline" className="gap-1.5 bg-white dark:bg-card hover:bg-white/90" asChild>
-                  <a href={contrato.pdfUrl} target="_blank" rel="noopener noreferrer">
-                    <Download className="h-4 w-4" /> PDF
-                  </a>
-                </Button>
-              )}
-
-              {/* RASCUNHO → CONTRATADA assina.
-                  Server-side é o caminho recomendado: backend usa cert do .env (CERTIFICADO_PATH).
-                  Web PKI fica como alternativa pra quem prefere assinar com cert local. */}
-              {podeAssinarContratada && (
-                <>
-                  <Button
-                    size="sm"
-                    style={{ backgroundColor: MODULE_COLOR }}
-                    className="text-white gap-1.5"
-                    onClick={() => handleAssinarServerSide('CONTRATADA')}
-                    disabled={serverSignLoading}
-                    title="Assina o PDF com o certificado da Central Contábil cadastrado no servidor"
-                  >
-                    {serverSignLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSignature className="h-4 w-4" />}
-                    Assinar como Central
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5 bg-white dark:bg-card hover:bg-white/90"
-                    onClick={() => abrirAssinatura('CONTRATADA')}
-                    title="Assinar com certificado instalado neste computador (Web PKI)"
-                  >
-                    <Building2 className="h-4 w-4" /> Cert Local
-                  </Button>
-                </>
-              )}
-
-              {/* CONTRATADA assinou e ainda RASCUNHO → enviar pro cliente */}
-              {podeEnviarCliente && (
-                <Button
-                  size="sm"
-                  variant="success"
-                  className="gap-1.5"
-                  onClick={handleEnviarParaCliente}
-                >
-                  <Send className="h-4 w-4" /> Enviar p/ cliente
-                </Button>
-              )}
-
-              {/* VIGENTE → encerrar */}
-              {contrato.status === 'VIGENTE' && (
-                <Button size="sm" variant="outline" className="gap-1.5 bg-white dark:bg-card" onClick={handleEncerrar}>
-                  <Archive className="h-4 w-4" /> Encerrar
-                </Button>
-              )}
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon-sm" title="Mais opções" className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuItem onClick={copiarLinkCliente}>
-                    <CopyIcon className="h-4 w-4 mr-2" /> Copiar link do cliente
-                  </DropdownMenuItem>
-                  {contrato.status !== 'RASCUNHO' && contrato.status !== 'AGUARDANDO_ASSINATURA' && (
-                    <DropdownMenuItem onClick={() => router.push(`/contratos/publico/${contrato.token}`)}>
-                      <ExternalLink className="h-4 w-4 mr-2" /> Abrir página pública
-                    </DropdownMenuItem>
-                  )}
-                  {contrato.status !== 'CANCELADO' && contrato.status !== 'ENCERRADO' && (
-                    <DropdownMenuItem onClick={handleCancelar} className="text-destructive">
-                      <X className="h-4 w-4 mr-2" /> Cancelar contrato
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <BackButton href="/contratos" />
-            </div>
           </div>
         </div>
 

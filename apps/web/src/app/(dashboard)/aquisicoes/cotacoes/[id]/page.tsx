@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  FileSpreadsheet, Loader2, Plus, Trash2, Send, Download, Save, Check,
+  Loader2, Plus, Trash2, Send, Download, Save, Check,
   Users, Package, Table2, ShoppingCart, Split, TrendingDown, AlertTriangle, X,
 } from 'lucide-react'
 import {
@@ -14,6 +14,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -143,24 +144,8 @@ export default function CotacaoDetalhePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <FileSpreadsheet className="h-6 w-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1>Cotação #{c.code}</h1>
-              <Badge className={cn('text-[11px]', STATUS_COLORS[c.status])}>{STATUS_COTACAO_LABELS[c.status] ?? c.status}</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {c.titulo || 'sem título'}
-              {c.solicitanteNome ? ` · ${c.solicitanteNome}` : ''}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {dirty && (
             <Button variant="success" size="sm" onClick={salvarCabecalho} disabled={acting}>
               {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Salvar
@@ -178,8 +163,25 @@ export default function CotacaoDetalhePage() {
             </Button>
           )}
           <BackButton href="/aquisicoes/cotacoes" label="Voltar" />
+      </>}>
+        <h1 className="truncate">Cotação #{c.code}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Aquisições</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cotações</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <Badge className={cn('text-[11px]', STATUS_COLORS[c.status])}>{STATUS_COTACAO_LABELS[c.status] ?? c.status}</Badge>
+          <span>
+            {c.titulo || 'sem título'}
+            {c.solicitanteNome ? ` · ${c.solicitanteNome}` : ''}
+          </span>
         </div>
-      </div>
+      </PageHeaderBar>
 
       {convertida && (
         <Card className="border-emerald-300 bg-emerald-50 p-3 text-sm dark:bg-emerald-950/20">

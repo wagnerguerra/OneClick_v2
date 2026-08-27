@@ -1,16 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Wrench, Lock } from 'lucide-react'
+import Link from 'next/link'
+import { Lock } from 'lucide-react'
 import { Card, cn } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { FERRAMENTAS } from './_components/catalogo'
 import { HtmlPdfModal } from './_components/html-pdf-modal'
 import { JuntarPdfModal } from './_components/juntar-pdf-modal'
 import { DividirPdfModal } from './_components/dividir-pdf-modal'
 import { AssinarPdfModal } from './_components/assinar-pdf-modal'
-
-const MODULE_COLOR = 'var(--mod-ti, #3b82f6)'
 
 /**
  * Vitrine das ferramentas de uso geral — um cartão por utilitário.
@@ -30,16 +30,15 @@ export default function FerramentasPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-          style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-          <Wrench className="h-6 w-6" />
-        </div>
-        <div>
-          <h1>Ferramentas</h1>
-          <p className="text-sm text-muted-foreground">Utilitários de uso geral</p>
-        </div>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Ferramentas</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Ferramentas</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Colunas por largura disponível, não por breakpoint: assim o cartão
           mantém a proporção em qualquer tela, e a grade se adapta sozinha

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   Plus, MoreVertical, Trash2, Pencil, Loader2,
   Package, RefreshCw, RotateCcw, CheckCircle2, EyeOff,
@@ -17,6 +18,7 @@ import {
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -326,18 +328,8 @@ export default function ParametrosOrcamentosPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <Package className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Catálogo de Serviços</h1>
-            <p className="text-sm text-muted-foreground">Catálogo de serviços, taxas e despesas disponíveis para uso em orçamentos</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="outline" size="sm" onClick={() => fetchData()} className="gap-1.5" title="Atualizar">
             <RefreshCw className="h-4 w-4" />
           </Button>
@@ -345,8 +337,18 @@ export default function ParametrosOrcamentosPage() {
             <Plus className="h-4 w-4" /> Novo Item
           </Button>
           <BackButton href="/orcamentos" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Catálogo de Serviços</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Comercial</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Orçamentos</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Catálogo de Serviços</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Indicadores (pílulas-filtro) — padrão /gestao-certificados */}
       <div className="flex flex-wrap items-center gap-2">

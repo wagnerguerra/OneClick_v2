@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { LayoutGrid } from 'lucide-react'
 import type { CreateAreaInput } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { AreaForm } from '../_components/area-form'
@@ -53,8 +52,7 @@ export default function EditAreaPage() {
       mode="edit"
       areaId={params.id}
       title="Editar Área"
-      description={`Altere os dados da área #${area.code}`}
-      icon={<LayoutGrid className="h-6 w-6" />}
+      description={`Área #${area.code}`}
       defaultValues={area}
     />
   )

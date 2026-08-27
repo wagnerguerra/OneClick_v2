@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { Card, CardContent, Badge, Button, cn } from '@saas/ui'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 
 import { APP_IDENTITIES, type AppTheme, type AppIdentidade } from './_components/app-theme'
 import type { AppTela } from './_components/mock-data'
@@ -109,26 +111,21 @@ export default function AppMobileSimuladorPage() {
 
   return (
     <div className="space-y-4">
-      {/* ── Header da página (chrome web — tokens semânticos) ── */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div
-            className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-sm"
-            style={{ background: MODULE_COLOR }}
-          >
-            <Smartphone className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>App Mobile — Simulador</h1>
-            <p className="text-sm text-muted-foreground">
-              Pré-visualização navegável das telas do app Android/iOS para validar o fluxo antes de novas implementações
-            </p>
-          </div>
-        </div>
-        <Badge variant="outline" className="gap-1.5 h-7">
-          <Lock className="h-3 w-3" /> Protótipo · master only
-        </Badge>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+          <Badge variant="outline" className="gap-1.5 h-7">
+            <Lock className="h-3 w-3" /> Protótipo · master only
+          </Badge>
+      </>}>
+        <h1 className="truncate">App Mobile — Simulador</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Ajuda</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>App Mobile</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Badges das telas disponíveis */}
       <div className="flex flex-wrap items-center gap-1.5">

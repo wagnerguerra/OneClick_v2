@@ -1,6 +1,5 @@
 'use client'
 
-import { UserPlus } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { SocioForm } from '../_components/socio-form'
 
@@ -13,8 +12,6 @@ export default function NewSocioPage() {
     <SocioForm
       mode="create"
       title="Novo Sócio"
-      description="Preencha os dados para cadastrar um novo sócio"
-      icon={<UserPlus className="h-6 w-6" />}
       defaultValues={clienteId ? { clienteId } : undefined}
     />
   )

@@ -665,21 +665,22 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
           {/* /hero */}
           </>
         ) : (
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-emerald-500 text-white shadow-md">
-                <Handshake className="h-6 w-6" />
-              </div>
-              <div>
-                <h1>Novo Cliente</h1>
-                <p className="text-sm text-muted-foreground">Preencha os dados para cadastrar um novo cliente</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+          /* Topo — PADRAO_PAGINAS §1.1 */
+          <PageHeaderBar actions={<>
               {canEditDetails && <Button variant="success" size="sm" type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>}
               <BackButton href="/clientes" label="Voltar" />
-            </div>
-          </div>
+          </>}>
+            <h1 className="truncate">Novo Cliente</h1>
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+              <span className="text-muted-foreground/50">›</span>
+              <span>Cadastros</span>
+              <span className="text-muted-foreground/50">›</span>
+              <span>Clientes</span>
+              <span className="text-muted-foreground/50">›</span>
+              <span>Novo Cliente</span>
+            </p>
+          </PageHeaderBar>
         )}
 
         {error && <div className={cn('rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive', isEdit && 'mt-4')}>{error}</div>}

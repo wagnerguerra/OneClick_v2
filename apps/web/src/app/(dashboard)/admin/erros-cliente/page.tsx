@@ -19,8 +19,8 @@ import {
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
-
-const MODULE_COLOR = '#dc2626' // red
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 
 const LEVEL_META_FALLBACK: { label: string; cor: string; icon: typeof Bug } = { label: 'Erro', cor: 'rose', icon: AlertOctagon }
 const LEVEL_META: Record<string, { label: string; cor: string; icon: typeof Bug }> = {
@@ -278,17 +278,8 @@ export default function ErrosClientePage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: MODULE_COLOR }}>
-            <Bug className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Erros do navegador</h1>
-            <p className="text-sm text-muted-foreground">Captura em tempo real — só ambiente de desenvolvimento</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="outline" size="sm" onClick={() => { void fetchData(); void fetchStats() }} className="gap-1.5">
             <RefreshCw className="h-3.5 w-3.5" /> Atualizar
           </Button>
@@ -300,8 +291,16 @@ export default function ErrosClientePage() {
           <Button variant="outline" size="sm" onClick={handleDeleteResolved} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50">
             <Trash2 className="h-3.5 w-3.5" /> Limpar resolvidos
           </Button>
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Erros do navegador</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Ajuda</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Erros do navegador</span>
+        </p>
+      </PageHeaderBar>
 
       <Card className="p-3">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3">

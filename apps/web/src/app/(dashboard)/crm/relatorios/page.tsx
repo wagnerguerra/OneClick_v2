@@ -1,16 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import {
-  ArrowLeft, TrendingUp, Target, ArrowRight, Clock, Loader2, BarChart3,
+  TrendingUp, Target, ArrowRight, Clock, Loader2, BarChart3,
 } from 'lucide-react'
 import {
-  Button, Card, Badge,
+  Card, Badge,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 import {
@@ -54,7 +57,6 @@ const formatCompact = (v: number) =>
 // ============================================================
 
 export default function CrmRelatoriosPage() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const initialTab = (searchParams.get('tab') as TabKey) || 'funil'
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
@@ -64,18 +66,8 @@ export default function CrmRelatoriosPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/crm')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Relatorios do CRM</h1>
-            <p className="text-xs text-muted-foreground">Analise de oportunidades, funil e desempenho</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Select value={periodo} onValueChange={setPeriodo}>
             <SelectTrigger className="w-[180px] h-8 text-xs">
               <SelectValue />
@@ -86,8 +78,19 @@ export default function CrmRelatoriosPage() {
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </div>
+          <BackButton href="/crm" />
+      </>}>
+        <h1 className="truncate">Relatorios do CRM</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Comercial</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>CRM</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Relatórios</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Tabs */}
       <div className="flex gap-1 bg-muted/50 rounded-lg p-1">

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
-  FileText, Loader2, Search, Building2, FileSpreadsheet,
+  FileText, Loader2, Search, Building2,
   Download, ExternalLink, Maximize2, X,
   ArrowDownToLine, ArrowUpFromLine, Calendar,
   ChevronLeft, ChevronRight, RefreshCw, ShieldCheck, AlertTriangle,
@@ -15,6 +15,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -447,20 +448,21 @@ export default function DanfeGaleriaPage() {
 
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-140px)] overflow-hidden">
-      <div className="flex items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: MODULE_COLOR }}>
-            <FileSpreadsheet className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Galeria Fiscal</h1>
-            <p className="text-sm text-muted-foreground">NFe + NFS-e — selecione cliente e competência</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar className="shrink-0 mb-0 sm:mb-0" actions={<>
           <BackButton href="/danfe" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Galeria Fiscal</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>DANFE (NFe → PDF)</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Galeria Fiscal</span>
+        </p>
+      </PageHeaderBar>
 
       <div className="flex gap-3 flex-1 min-h-0">
         {/* ── COLUNA 1: Clientes (colapsável) ─────────────────── */}

@@ -3,15 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
-  Calculator,
   CheckCircle2,
-  ChevronRight,
   Database,
   Download,
   FileText,
   HelpCircle,
   History,
-  Home,
   Loader2,
   Plus,
   RefreshCw,
@@ -50,12 +47,11 @@ import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, Tooltip as ReTooltip, CartesianGrid, ReferenceLine, Cell,
 } from 'recharts'
-import { PageHeader } from '@/components/page-header'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { alerts } from '@/lib/alerts'
 import { trpc } from '@/lib/trpc'
 import { useTabLabel } from '@/hooks/use-tab-label'
-
-const MODULE_COLOR = 'var(--mod-fiscal, #818cf8)'
 
 type ClienteResumo = {
   id: string
@@ -723,40 +719,34 @@ export default function ReformaTributariaPage() {
   return (
     <TooltipProvider>
     <div className="space-y-5">
-      <PageHeader
-        color={MODULE_COLOR}
-        icon={Calculator}
-        title="Reforma Tributária"
-        subtitle="Comparativo IBS/CBS para clientes ativos com situação mensal, usando dados do OneClick e do ERP contábil."
-        breadcrumb={
-          <>
-            <Home className="h-3.5 w-3.5" />
-            <span>Fiscal</span>
-            <ChevronRight className="h-3.5 w-3.5" />
-            <span className="font-medium text-foreground">Reforma Tributária</span>
-          </>
-        }
-        actions={
-          <>
-            <Button variant="outline" onClick={() => simular()} disabled={!clienteId || loadingSimulacao}>
-              {loadingSimulacao ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-              Simular
-            </Button>
-            <Button variant="outline" onClick={gerarParecer} disabled={!simulacao || gerandoParecer}>
-              {gerandoParecer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              Parecer IA
-            </Button>
-            <Button onClick={salvarParecer} disabled={!clienteId || loadingSimulacao || salvandoParecer}>
-              {salvandoParecer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Salvar parecer
-            </Button>
-            <Button variant="outline" onClick={exportarParecerHtml} disabled={!simulacao}>
-              <Download className="mr-2 h-4 w-4" />
-              Exportar
-            </Button>
-          </>
-        }
-      />
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+        <Button variant="outline" onClick={() => simular()} disabled={!clienteId || loadingSimulacao}>
+          {loadingSimulacao ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+          Simular
+        </Button>
+        <Button variant="outline" onClick={gerarParecer} disabled={!simulacao || gerandoParecer}>
+          {gerandoParecer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+          Parecer IA
+        </Button>
+        <Button onClick={salvarParecer} disabled={!clienteId || loadingSimulacao || salvandoParecer}>
+          {salvandoParecer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          Salvar parecer
+        </Button>
+        <Button variant="outline" onClick={exportarParecerHtml} disabled={!simulacao}>
+          <Download className="mr-2 h-4 w-4" />
+          Exportar
+        </Button>
+      </>}>
+        <h1 className="truncate">Reforma Tributária</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Reforma Tributária</span>
+        </p>
+      </PageHeaderBar>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Metric label="Clientes mensais ativos" value={String(dashboard?.totalClientes ?? 0)} sub="Base OneClick" help="Total de clientes ativos com situação MENSAL considerados no módulo. Clientes inativos, excluídos ou fora da situação mensal não entram nesta base." />

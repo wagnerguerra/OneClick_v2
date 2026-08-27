@@ -11,13 +11,15 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
-  Mail, Plus, Copy, Files, Trash2, RotateCcw, Code2, Type as TypeIcon,
+  Plus, Copy, Files, Trash2, RotateCcw, Code2, Type as TypeIcon,
   Palette, Sparkles, Tag,
 } from 'lucide-react'
 import type { Editor } from '@tiptap/react'
 import {
   Button, Input, Label, Card, Badge, Separator, RichEditor, cn,
 } from '@saas/ui'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { alerts } from '@/lib/alerts'
 import { renderEmailShell } from './_lib/email-shell'
 import {
@@ -208,19 +210,17 @@ export default function EmailTemplatesPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header — padrão inline de /orcamentos e /crm (ícone gradiente + h1 + descrição) */}
-      <div className="flex items-center gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-          <Mail className="h-6 w-6" />
-        </div>
-        <div className="min-w-0">
-          <h1>Modelos de E-mail</h1>
-          <p className="text-sm text-muted-foreground">
-            Ambiente de composição (sandbox) para montar e pré-visualizar os modelos de e-mail do
-            sistema. Não envia nem salva no servidor — compõe aqui e replique no sistema quando aprovado.
-          </p>
-        </div>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Modelos de E-mail</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Ajuda</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Modelos de E-mail</span>
+        </p>
+      </PageHeaderBar>
 
       <div className="flex items-center gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
         <Sparkles className="h-4 w-4 shrink-0" />

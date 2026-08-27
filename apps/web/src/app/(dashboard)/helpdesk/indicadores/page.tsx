@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import {
-  BarChart3, Loader2, AlertTriangle, CheckCircle2, Star, Clock,
+  Loader2, AlertTriangle, CheckCircle2, Star, Clock,
   Inbox, RefreshCcw, TrendingUp, Tag, Users, ListChecks, Activity,
   Search, ChevronLeft, ChevronRight, CalendarDays,
 } from 'lucide-react'
@@ -17,6 +17,7 @@ import {
   CartesianGrid, Tooltip, Legend, Cell, PieChart, Pie,
 } from 'recharts'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { fmtDateBR } from '@/lib/date'
@@ -430,25 +431,8 @@ export default function HelpdeskIndicadoresPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MOD}, color-mix(in srgb, ${MOD} 87%, transparent))` }}
-          >
-            <BarChart3 className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>HelpDesk — Indicadores</h1>
-            <p className="text-sm text-muted-foreground">
-              {completas === false
-                ? 'Suas avaliações (CSAT) recebidas como responsável no período.'
-                : 'Volume, SLA, tempos de atendimento, CSAT e relatórios por categoria e responsável.'}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-1">
             <Input
               type="date" value={inicio} max={fim}
@@ -473,8 +457,23 @@ export default function HelpdeskIndicadoresPage() {
             </Button>
           </div>
           <BackButton href="/helpdesk" />
+      </>}>
+        <h1 className="truncate">HelpDesk — Indicadores</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>TI</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>HelpDesk</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Indicadores</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          {completas === false
+            ? 'Suas avaliações (CSAT) recebidas como responsável no período.'
+            : 'Volume, SLA, tempos de atendimento, CSAT e relatórios por categoria e responsável.'}
         </div>
-      </div>
+      </PageHeaderBar>
 
       {completas === null || loading || (completas && !data) ? (
         <Card><CardContent className="flex items-center justify-center gap-2 p-16 text-muted-foreground">

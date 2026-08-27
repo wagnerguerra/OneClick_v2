@@ -3,7 +3,9 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button, Card } from '@saas/ui'
-import { BarChart3, FileSpreadsheet, FileText, Printer, Loader2, AlertCircle, X } from 'lucide-react'
+import { FileSpreadsheet, FileText, Printer, Loader2, AlertCircle, X } from 'lucide-react'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { ORCAMENTO_STATUS_LABELS } from '@saas/types'
 import { alerts } from '@/lib/alerts'
@@ -104,29 +106,29 @@ function RelatorioInner() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <BarChart3 className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Relatório — {statusLabel}</h1>
-            <p className="text-sm text-muted-foreground">Orçamentos da coluna “{statusLabel}” do kanban.</p>
-          </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+          {res && res.linhas.length > 0 && (
+            <>
+              <Button asChild variant="outline" size="sm" className="gap-1.5"><a href={downloadUrl('xlsx')} download><FileSpreadsheet className="h-4 w-4" />Excel</a></Button>
+              <Button asChild variant="outline" size="sm" className="gap-1.5"><a href={downloadUrl('csv')} download><FileText className="h-4 w-4" />CSV</a></Button>
+              <Button asChild variant="outline" size="sm" className="gap-1.5"><a href={downloadUrl('pdf')} download><FileText className="h-4 w-4" />Baixar PDF</a></Button>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={onImprimir}><Printer className="h-4 w-4" />Imprimir</Button>
+            </>
+          )}
+      </>}>
+        <h1 className="truncate">Relatório — {statusLabel}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Comercial</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Orçamentos</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <span>Orçamentos da coluna “{statusLabel}” do kanban.</span>
         </div>
-        {res && res.linhas.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-            <Button asChild variant="outline" size="sm" className="gap-1.5"><a href={downloadUrl('xlsx')} download><FileSpreadsheet className="h-4 w-4" />Excel</a></Button>
-            <Button asChild variant="outline" size="sm" className="gap-1.5"><a href={downloadUrl('csv')} download><FileText className="h-4 w-4" />CSV</a></Button>
-            <Button asChild variant="outline" size="sm" className="gap-1.5"><a href={downloadUrl('pdf')} download><FileText className="h-4 w-4" />Baixar PDF</a></Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={onImprimir}><Printer className="h-4 w-4" />Imprimir</Button>
-          </div>
-        )}
-      </div>
+      </PageHeaderBar>
 
       {loading ? (
         <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Gerando relatório...</div>

@@ -14,8 +14,10 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { QRCodeSVG } from 'qrcode.react'
 import { Button } from '@saas/ui'
-import { ArrowLeft, Printer, Loader2 } from 'lucide-react'
+import { Printer, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 
 interface AtivoEtiqueta {
@@ -81,22 +83,27 @@ export default function EtiquetasPage() {
       ` }} />
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between no-print">
-          <div className="flex items-center gap-3">
-            <Link href="/ativos" className="text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-            <div>
-              <h1>Etiquetas QR Code</h1>
-              <p className="text-sm text-muted-foreground">
-                {loading ? 'Carregando...' : `${ativos.length} etiqueta${ativos.length === 1 ? '' : 's'} prontas pra impressão`}
-              </p>
-            </div>
+        {/* Topo — PADRAO_PAGINAS §1.1 */}
+        <PageHeaderBar className="no-print" actions={<>
+            <Button onClick={() => window.print()} className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white">
+              <Printer className="h-4 w-4" /> Imprimir
+            </Button>
+            <BackButton href="/ativos" />
+        </>}>
+          <h1 className="truncate">Etiquetas QR Code</h1>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>TI</span>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Gestão de Ativos</span>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Etiquetas QR Code</span>
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <span>{loading ? 'Carregando...' : `${ativos.length} etiqueta${ativos.length === 1 ? '' : 's'} prontas pra impressão`}</span>
           </div>
-          <Button onClick={() => window.print()} className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white">
-            <Printer className="h-4 w-4" /> Imprimir
-          </Button>
-        </div>
+        </PageHeaderBar>
 
         {loading ? (
           <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">

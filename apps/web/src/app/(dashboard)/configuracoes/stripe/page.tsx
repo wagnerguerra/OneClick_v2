@@ -11,6 +11,8 @@ import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { MasterGate } from '@/components/auth/master-gate'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 
 /* ── Sub-abas (pills laterais) ─────────────────────────── */
 
@@ -175,15 +177,17 @@ function StripeSettingsPageInner() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Configurações do Stripe</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gerencie suas chaves de API, webhooks e planos do Stripe
-          </p>
-        </div>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Configurações do Stripe</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Stripe</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Card principal com pills */}
       <Card>

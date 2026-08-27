@@ -14,6 +14,8 @@
  */
 
 import { useRef, useState } from 'react'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import {
   Palette, Layout, Box, Inbox, Hash, Copy, Check, Lock,
   Info, Lightbulb, AlertTriangle, FileCode, Workflow,
@@ -117,24 +119,21 @@ export default function DesignSystemPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-sm"
-               style={{ background: MODULE_COLOR }}>
-            <Sparkles className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Design System</h1>
-            <p className="text-sm text-muted-foreground">
-              Padrões visuais do SaaS — cabeçalhos, formulários, tabelas, modais e componentes do FAQ
-            </p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={
         <Badge variant="outline" className="gap-1.5 h-7">
           <Lock className="h-3 w-3" /> Interno · master only
         </Badge>
-      </div>
+      }>
+        <h1 className="truncate">Design System</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administração</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Design System</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Card com pills laterais (padrão CLAUDE.md, agora theme-aware) */}
       <Card>

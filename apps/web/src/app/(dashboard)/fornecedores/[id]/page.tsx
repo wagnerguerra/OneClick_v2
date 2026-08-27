@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Package } from 'lucide-react'
 import type { CreateFornecedorInput } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { FornecedorForm } from '../_components/fornecedor-form'
@@ -113,8 +112,7 @@ export default function EditFornecedorPage() {
         fornecedorId={params.id}
         currentUserId={profile?.id}
         title="Editar Fornecedor"
-        description={`Altere os dados do fornecedor #${fornecedor.code}`}
-        icon={<Package className="h-6 w-6" />}
+        description={`Fornecedor #${fornecedor.code}`}
         defaultValues={fornecedor}
       />
     </div>

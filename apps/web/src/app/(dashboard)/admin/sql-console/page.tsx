@@ -12,6 +12,8 @@ import dynamic from 'next/dynamic'
 import { Database, Play, Loader2, AlertTriangle, Table2, ChevronRight, ChevronDown, KeyRound, Search, RefreshCw, Terminal, TableProperties, Rows3, ArrowUp, ArrowDown } from 'lucide-react'
 import { Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
@@ -157,19 +159,17 @@ export default function SqlConsolePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Header padrão de módulo (skill padroniza-modulo — inline /orcamentos) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <Database className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Console SQL</h1>
-            <p className="text-sm text-muted-foreground">Navegue pelas tabelas e execute queries no banco do ambiente atual</p>
-          </div>
-        </div>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar className="shrink-0">
+        <h1 className="truncate">Console SQL</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Ajuda</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Console SQL</span>
+        </p>
+      </PageHeaderBar>
 
       <div className="flex gap-4 flex-1 min-h-0">
         {/* Sidebar — árvore de tabelas */}

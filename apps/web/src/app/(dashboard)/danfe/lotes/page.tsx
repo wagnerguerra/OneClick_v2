@@ -11,6 +11,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 
 const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
@@ -44,18 +45,21 @@ export default function LotesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: MODULE_COLOR }}>
-            <History className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Lotes de DANFE</h1>
-            <p className="text-sm text-muted-foreground">Histórico de uploads em lote</p>
-          </div>
-        </div>
-        <BackButton href="/danfe" />
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+          <BackButton href="/danfe" />
+      </>}>
+        <h1 className="truncate">Lotes de DANFE</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>DANFE (NFe → PDF)</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Lotes de DANFE</span>
+        </p>
+      </PageHeaderBar>
 
       <Card>
         <Table>

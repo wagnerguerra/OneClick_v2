@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Settings2, Loader2, Save, Clock, Hash, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2, Star, ArrowUp, ArrowDown, History } from 'lucide-react'
+import Link from 'next/link'
+import { Loader2, Save, Clock, Hash, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2, Star, ArrowUp, ArrowDown, History } from 'lucide-react'
 import { Button, Card, Input, RichEditor, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Switch, Badge, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -158,18 +160,8 @@ export default function OrcamentosConfiguracoesPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <Settings2 className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Configurações de Orçamentos</h1>
-            <p className="text-sm text-muted-foreground">Defina prazos, numeração, e-mails e textos padrão</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {activeTab !== 'areas' && activeTab !== 'modelos' && activeTab !== 'pesquisa' && activeTab !== 'ia' && (
             <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -177,8 +169,18 @@ export default function OrcamentosConfiguracoesPage() {
             </Button>
           )}
           <BackButton href="/orcamentos" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Configurações de Orçamentos</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Comercial</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Orçamentos</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações de Orçamentos</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Card único com pills laterais */}
       <Card className="overflow-hidden">

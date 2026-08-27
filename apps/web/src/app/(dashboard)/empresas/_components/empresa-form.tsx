@@ -24,6 +24,7 @@ import {
   TooltipProvider,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
 
@@ -59,8 +60,8 @@ interface EmpresaFormProps {
   mode: 'create' | 'edit'
   empresaId?: string
   title: string
-  description: string
-  icon?: React.ReactNode
+  /** Complemento do título (ex.: código do registro). Some no modo criação. */
+  description?: string
   defaultValues?: Partial<CreateEmpresaInput> & { code?: number }
 }
 
@@ -206,7 +207,7 @@ function LogoUpload({ control, setValue, fieldName = 'logoUrl' }: {
   )
 }
 
-export function EmpresaForm({ mode, empresaId, title, description, icon, defaultValues }: EmpresaFormProps) {
+export function EmpresaForm({ mode, empresaId, title, description, defaultValues }: EmpresaFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -333,30 +334,26 @@ export function EmpresaForm({ mode, empresaId, title, description, icon, default
   return (
     <TooltipProvider>
       <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            {icon && (
-              <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-                style={{ backgroundColor: MODULE_COLOR }}
-              >
-                {icon}
-              </div>
-            )}
-            <div>
-              <h1>{title}</h1>
-              <p className="text-sm text-muted-foreground">{description}</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+        {/* Topo — PADRAO_PAGINAS §1.1 */}
+        <PageHeaderBar actions={<>
             <Button variant="success" size="sm" type="submit" disabled={saving}>
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>
             <BackButton href="/empresas" />
-          </div>
-        </div>
+        </>}>
+          <h1 className="truncate">{title}</h1>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Cadastros</span>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Empresas</span>
+          </p>
+          {description && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">{description}</div>
+          )}
+        </PageHeaderBar>
 
         {error && (
           <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">

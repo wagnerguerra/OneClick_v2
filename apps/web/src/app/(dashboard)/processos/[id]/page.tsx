@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter, Label,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -240,9 +241,53 @@ export default function ProcessoDetalhePage() {
   return (
     <div className="space-y-0 pb-6">
       <Tabs value={activeTab} onValueChange={v => setActiveTab(v as typeof activeTab)} className="space-y-0">
-        {/* Wrapper bleed-edge — padrão de páginas de detalhe (espelha /orcamentos/[id]) */}
+        {/* Topo — PADRAO_PAGINAS §1.1 */}
+        <PageHeaderBar actions={<>
+            {proc.status === 'EM_ANDAMENTO' && (
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setCancelOpen(true)}
+                className="gap-1.5 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800"
+              >
+                <Ban className="h-3.5 w-3.5" />Cancelar
+              </Button>
+            )}
+            <BackButton href="/processos" />
+        </>}>
+          <h1 className="truncate uppercase">{proc.nome}</h1>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Administrativo</span>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Processos</span>
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border ${STATUS_BADGE[proc.status]}`}>
+              {proc.status === 'EM_ANDAMENTO' && <PlayCircle className="h-3 w-3" />}
+              {proc.status === 'CONCLUIDO' && <CheckCircle2 className="h-3 w-3" />}
+              {proc.status === 'CANCELADO' && <XCircle className="h-3 w-3" />}
+              {STATUS_LABELS[proc.status]}
+            </span>
+            {proc.orcamentoId && (
+              <Link
+                href={`/orcamentos/${proc.orcamentoId}`}
+                className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 hover:bg-muted text-violet-700 dark:text-violet-300 px-2.5 py-0.5 text-[11px] font-medium uppercase border border-violet-200/60 dark:border-violet-800/60 transition-colors"
+              >
+                Origem: orçamento ↗
+              </Link>
+            )}
+            <span>
+              {proc.cliente?.razaoSocial || 'Sem cliente'}
+              {proc.cliente?.documento && (<>&nbsp;&nbsp;|&nbsp;&nbsp;{proc.cliente.documento}</>)}
+              &nbsp;&nbsp;|&nbsp;&nbsp;Iniciado em: {new Date(proc.iniciadoEm).toLocaleDateString('pt-BR')}, {new Date(proc.iniciadoEm).toLocaleTimeString('pt-BR')}
+            </span>
+          </div>
+        </PageHeaderBar>
+
+        {/* Faixa do módulo com as abas — bleed-edge */}
         <div
-          className="relative -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 overflow-hidden"
+          className="relative -mx-4 sm:-mx-6 overflow-hidden"
           style={{ backgroundColor: 'rgba(139, 92, 246, .18)' }}
         >
           {/* Overlay em gradiente: 0% à esquerda → 80% à direita */}
@@ -251,58 +296,8 @@ export default function ProcessoDetalhePage() {
             style={{ backgroundImage: 'linear-gradient(to right, rgba(139, 92, 246, 0) 0%, rgba(139, 92, 246, 0.8) 100%)' }}
           />
 
-          <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex items-start gap-4">
-                {/* Logo round 88x88 */}
-                <div
-                  className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 overflow-hidden shadow-lg"
-                  style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}
-                >
-                  <Workflow className="h-10 w-10" style={{ color: MODULE_COLOR }} />
-                </div>
-                <div className="min-w-0">
-                  <h1 className="text-xl font-semibold uppercase truncate">{proc.nome}</h1>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {proc.cliente?.razaoSocial || 'Sem cliente'}
-                    {proc.cliente?.documento && (<>&nbsp;&nbsp;|&nbsp;&nbsp;{proc.cliente.documento}</>)}
-                    &nbsp;&nbsp;|&nbsp;&nbsp;Iniciado em: {new Date(proc.iniciadoEm).toLocaleDateString('pt-BR')}, {new Date(proc.iniciadoEm).toLocaleTimeString('pt-BR')}
-                  </p>
-                  <div className="flex flex-wrap gap-2 mt-2.5">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border ${STATUS_BADGE[proc.status]}`}>
-                      {proc.status === 'EM_ANDAMENTO' && <PlayCircle className="h-3 w-3" />}
-                      {proc.status === 'CONCLUIDO' && <CheckCircle2 className="h-3 w-3" />}
-                      {proc.status === 'CANCELADO' && <XCircle className="h-3 w-3" />}
-                      {STATUS_LABELS[proc.status]}
-                    </span>
-                    {proc.orcamentoId && (
-                      <Link
-                        href={`/orcamentos/${proc.orcamentoId}`}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-white/60 hover:bg-white text-violet-700 dark:bg-black/30 dark:text-violet-300 dark:hover:bg-black/50 px-3 py-1 text-xs font-medium uppercase border border-violet-200/60 dark:border-violet-800/60 transition-colors"
-                      >
-                        Origem: orçamento ↗
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-                {proc.status === 'EM_ANDAMENTO' && (
-                  <Button
-                    variant="outline" size="sm"
-                    onClick={() => setCancelOpen(true)}
-                    className="gap-1.5 text-xs text-rose-600 bg-white/70 hover:bg-rose-50 dark:bg-black/30 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800"
-                  >
-                    <Ban className="h-3.5 w-3.5" />Cancelar
-                  </Button>
-                )}
-                <BackButton href="/processos" />
-              </div>
-            </div>
-          </div>
-
           {/* TabsList em pills centralizadas — dentro do mesmo wrapper */}
-          <div className="relative z-10 px-4 sm:px-6 pb-2 overflow-x-auto flex justify-center">
+          <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto flex justify-center">
             <TabsList className="min-w-max !shadow-sm !border !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit h-auto">
               <TabsTrigger value="visao" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-white data-[state=active]:!shadow-sm data-[state=active]:!text-violet-700 dark:data-[state=active]:!bg-white/90 dark:data-[state=active]:!text-violet-700 gap-1.5">
                 <Layers className="h-3.5 w-3.5" />Visão geral

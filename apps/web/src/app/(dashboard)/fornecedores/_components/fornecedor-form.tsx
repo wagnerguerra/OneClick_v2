@@ -20,7 +20,9 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import Link from 'next/link'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -42,8 +44,8 @@ const FORM_TABS = [
 interface FornecedorFormProps {
   mode: 'create' | 'edit'
   title: string
-  description: string
-  icon?: React.ReactNode
+  /** Complemento do título (ex.: código do registro). Some no modo criação. */
+  description?: string
   fornecedorId?: string
   currentUserId?: string
   defaultValues?: Partial<CreateFornecedorInput> & { code?: number }
@@ -60,7 +62,7 @@ function FieldHint({ text }: { text: string }) {
 
 const UF_OPTIONS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
 
-export function FornecedorForm({ mode, fornecedorId, currentUserId, title, description, icon, defaultValues }: FornecedorFormProps) {
+export function FornecedorForm({ mode, fornecedorId, currentUserId, title, description, defaultValues }: FornecedorFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<string>('identificacao')
@@ -107,23 +109,23 @@ export function FornecedorForm({ mode, fornecedorId, currentUserId, title, descr
   return (
     <TooltipProvider>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            {icon && (
-              <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-                style={{ backgroundColor: MODULE_COLOR }}
-              >
-                {icon}
-              </div>
-            )}
-            <div><h1>{title}</h1><p className="text-sm text-muted-foreground">{description}</p></div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+        {/* Topo — PADRAO_PAGINAS §1.1 */}
+        <PageHeaderBar actions={<>
             <Button variant="success" size="sm" type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>
             <BackButton href="/fornecedores" label="Voltar" />
-          </div>
-        </div>
+        </>}>
+          <h1 className="truncate">{title}</h1>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Cadastros</span>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Fornecedores</span>
+          </p>
+          {description && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">{description}</div>
+          )}
+        </PageHeaderBar>
 
         <Card className="overflow-hidden">
           <div className="flex min-h-[550px]">
