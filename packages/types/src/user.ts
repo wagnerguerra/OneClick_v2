@@ -52,9 +52,9 @@ export const MODULE_SLUGS = [
   'custeio-clientes', 'graficos-contrato-erp',
   'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios',
   // Administrativo
-  'agenda', 'acessorias', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma',
+  'agenda', 'acessorias', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma', 'processos',
   // Legalização
-  'beneficios-fiscais', 'gestao-certificados', 'processos', 'quadro-societario',
+  'beneficios-fiscais', 'gestao-certificados', 'quadro-societario',
   // Trabalhista
   'banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento', 'folha-bi',
   // Fiscal
@@ -143,8 +143,8 @@ export const MODULE_LABELS: Record<string, string> = {
 export const MODULE_GROUPS = {
   'Cadastros': ['areas', 'cargos', 'clientes', 'colaboradores', 'empresas', 'fornecedores', 'grupos-empresariais', 'obrigacoes', 'obrigacoes-fixas', 'obrigacoes-demanda', 'servicos', 'socios', 'usuarios'],
   'Comercial': ['crm', 'whatsapp', 'clausulas', 'comercial', 'contratos', 'contrato-templates', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios'],
-  'Administrativo': ['agenda', 'acessorias', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma'],
-  'Legalização': ['beneficios-fiscais', 'gestao-certificados', 'processos', 'quadro-societario'],
+  'Administrativo': ['agenda', 'acessorias', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma', 'processos'],
+  'Legalização': ['beneficios-fiscais', 'gestao-certificados', 'quadro-societario'],
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento', 'folha-bi'],
   'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal', 'reforma-tributaria', 'ferramentas-fiscal'],
   'Contábil': ['bi-categorias-balancete', 'bi-faturamento', 'ferramentas-contabil', 'tratamento-lancamentos'],

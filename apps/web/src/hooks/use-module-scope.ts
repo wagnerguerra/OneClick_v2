@@ -37,7 +37,7 @@ const ROUTE_PREFIXES: Array<[string, string]> = [
   ['/clausulas', 'comercial'],
 
   // Processos (sub-bloco de Comercial mas tem cor própria)
-  ['/processos', 'processos'],
+  ['/processos', 'administrativo'],
 
   // Administrativo
   ['/agenda', 'administrativo'],
