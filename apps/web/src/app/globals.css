@@ -411,14 +411,32 @@
     @apply border-border;
   }
 
-  /* Reserva a faixa da barra de rolagem SEMPRE.
-     Todo menu e modal do Radix tranca a rolagem da página enquanto está
-     aberto; sem a faixa reservada, a barra some, a viewport fica ~15px mais
-     larga e a tela inteira dá um pulo para a esquerda — some a barra e o canto
-     direito desalinha. Com o `gutter` estável a largura não muda, então abrir
-     um menu não mexe em nada. */
+  /* A tela não pode pular quando um menu ou modal abre.
+     Medido na produção (cliente #1165, viewport 1920): ao abrir o menu
+     "Adicionar", o `clientWidth` ia de 1905 para 1920 e o cabeçalho e o
+     conteúdo recuavam 15px, enquanto o rail fixo da direita ficava parado —
+     era a barra sumindo e o canto direito desalinhando.
+
+     São duas causas, e as duas precisam de resposta:
+
+     1. A barra de rolagem some quando o Radix aplica `overflow: hidden`.
+        `overflow-y: scroll` a mantém sempre presente, então a viewport nunca
+        muda de largura. (`scrollbar-gutter: stable` NÃO resolve: o gutter só
+        vale enquanto o elemento é rolável, e sob `overflow: hidden` ele some
+        junto — testado.)
+     2. O `react-remove-scroll`, por baixo do Radix, compensa a barra que ele
+        próprio removeu com `margin-right` no body. Com a barra preservada,
+        essa compensação vira deslocamento — e é ela que empurrava o conteúdo.
+
+     O seletor é `html body[...]` de propósito: o Radix injeta a regra dele em
+     tempo de execução, com `!important` e a mesma especificidade. Empatando,
+     vence quem foi injetado por último — que é sempre ele. O `html` na frente
+     desempata a nosso favor, independente da ordem. */
   html {
-    scrollbar-gutter: stable;
+    overflow-y: scroll;
+  }
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
   }
 
   body {
