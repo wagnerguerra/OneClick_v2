@@ -390,7 +390,7 @@ export default function GestaoContratosPage() {
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             )}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto nice-scrollbar">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/40">
@@ -583,7 +583,7 @@ export default function GestaoContratosPage() {
                         <td className="py-2 text-right whitespace-nowrap">
                           {it.ok
                             ? <span className={cn('inline-flex items-center gap-1', TEXT.emerald)}><Check className="h-3.5 w-3.5" />OK</span>
-                            : <span className="inline-flex items-center gap-1 text-rose-500"><X className="h-3.5 w-3.5" />−{it.desconto} pts</span>}
+                            : <span className={cn('inline-flex items-center gap-1', TEXT.rose)}><X className="h-3.5 w-3.5" />−{it.desconto} pts</span>}
                         </td>
                       </tr>
                     ))}
@@ -640,7 +640,7 @@ export default function GestaoContratosPage() {
                           </td>
                         ))}
                         <td className={cn('py-2 pl-4 whitespace-nowrap',
-                          l.status === 'defasado' ? 'text-rose-500'
+                          l.status === 'defasado' ? TEXT.rose
                             : l.status === 'ok' ? TEXT.emerald
                               : 'text-muted-foreground')}>
                           {l.status === 'defasado' ? 'Acima do contrato'
@@ -650,7 +650,7 @@ export default function GestaoContratosPage() {
                         </td>
                         <td className={cn('py-2 text-right tabular-nums',
                           l.variacaoPct == null ? 'text-muted-foreground'
-                            : l.variacaoPct > 0 ? 'text-rose-500' : TEXT.emerald)}>
+                            : l.variacaoPct > 0 ? TEXT.rose : TEXT.emerald)}>
                           {l.variacaoPct == null ? '—' : `${l.variacaoPct > 0 ? '+' : ''}${l.variacaoPct.toString().replace('.', ',')} %`}
                         </td>
                       </tr>

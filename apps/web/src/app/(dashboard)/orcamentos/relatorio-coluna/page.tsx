@@ -216,7 +216,7 @@ function RelatorioInner() {
                 </div>
               )}
             </div>
-            <div className="overflow-auto">
+            <div className="overflow-auto nice-scrollbar">
               <table className="w-full text-xs">
                 <thead className="bg-muted/20">
                   <tr>{camposSel.map(c => <th key={c.key} className="text-left font-semibold px-3 py-2 whitespace-nowrap border-b border-border uppercase tracking-wider">{c.label}</th>)}</tr>

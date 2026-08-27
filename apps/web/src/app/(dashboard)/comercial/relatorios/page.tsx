@@ -9,6 +9,7 @@ import { trpc } from '@/lib/trpc'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import type { inferRouterOutputs } from '@trpc/server'
 import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
 
@@ -25,21 +26,6 @@ const formatCurrency = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 const formatCompact = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 }).format(v || 0)
-
-function ChartTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-md text-xs">
-      {label != null && <p className="font-semibold text-foreground mb-1">{label}</p>}
-      {payload.map((p: any, i: number) => (
-        <p key={i} className="text-muted-foreground flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full" style={{ background: p.color || p.fill }} />
-          {p.name}: <span className="font-medium text-foreground">{formatCurrency(p.value)}</span>
-        </p>
-      ))}
-    </div>
-  )
-}
 
 const TABS = [
   { key: 'funil', label: 'Funil unificado', icon: Filter },
@@ -109,7 +95,7 @@ export default function ComercialRelatoriosPage() {
       </div>
 
       {/* Pills */}
-      <div className="flex gap-1 border-b border-border/40 overflow-x-auto">
+      <div className="flex gap-1 border-b border-border/40 overflow-x-auto nice-scrollbar">
         {TABS.map(t => {
           const Icon = t.icon
           const active = tab === t.key
@@ -268,7 +254,7 @@ function MrrReport({ mrr }: { mrr: MrrData }) {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => formatCompact(v)} width={56} />
-              <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted))' }} />
+              <Tooltip content={<ChartTooltip format={formatCurrency} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="recorrente" name="Recorrente" stackId="a" fill={COR_RECORRENTE} radius={[0, 0, 0, 0]} />
               <Bar dataKey="avulso" name="Avulso" stackId="a" fill={COR_AVULSO} radius={[4, 4, 0, 0]} />

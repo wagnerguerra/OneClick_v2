@@ -1367,7 +1367,7 @@ export default function CrmPage() {
                               <button type="button" onClick={() => toggleTarefa(t)} className="shrink-0 mt-0.5"
                                 title={t.concluida ? 'Reabrir (retirar ciência)' : 'Concluir (dar ciência)'}>
                                 {t.concluida
-                                  ? <CheckSquare className="h-4 w-4 text-emerald-600" />
+                                  ? <CheckSquare className={cn('h-4 w-4', TEXT.emerald)} />
                                   : <Square className="h-4 w-4 text-muted-foreground hover:text-sky-500" />}
                               </button>
                               <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}>
@@ -1519,7 +1519,7 @@ export default function CrmPage() {
             <DialogTitle className="text-[15px]">Gerenciar Tags</DialogTitle>
             <DialogDescription className="text-[11px]">Crie tags para categorizar oportunidades</DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-2 max-h-[50vh] overflow-y-auto">
+          <DialogBody className="space-y-2 max-h-[50vh] overflow-y-auto nice-scrollbar">
             {tags.map(tag => (
               <div key={tag.id} className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/30">
                 <input type="color" value={tag.cor} onChange={e => handleUpdateTag(tag.id, { cor: e.target.value })} className="h-7 w-7 rounded border cursor-pointer shrink-0" />
@@ -1556,7 +1556,7 @@ export default function CrmPage() {
             <DialogTitle className="text-[15px]">Gerenciar Etapas do Pipeline</DialogTitle>
             <DialogDescription className="text-[11px]">Edite nome, cor, probabilidade e ordem das etapas</DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-3 max-h-[60vh] overflow-y-auto">
+          <DialogBody className="space-y-3 max-h-[60vh] overflow-y-auto nice-scrollbar">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={editEtapas.sort((a, b) => a.ordem - b.ordem).map(e => e.id)} strategy={verticalListSortingStrategy}>
                 {editEtapas.sort((a, b) => a.ordem - b.ordem).map((etapa, idx) => (

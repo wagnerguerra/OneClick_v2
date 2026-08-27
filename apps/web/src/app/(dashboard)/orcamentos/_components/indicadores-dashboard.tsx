@@ -14,6 +14,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
@@ -138,7 +139,7 @@ export function IndicadoresDashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="mes" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={50} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => [`${v} orçamentos`, '']} />
+                <Tooltip content={<ChartTooltip format={(v) => `${v} orçamentos`} />} cursor={{ fill: CHART_CURSOR_FILL }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="mensal" name="Mensal" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="extra" name="Extra" fill="#f59e0b" radius={[4, 4, 0, 0]} />
@@ -182,7 +183,7 @@ function DonutCard({ title, slices }: { title: string; slices: { name: string; v
               <Pie data={slices} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={48} label={({ value }) => `${value}`}>
                 {slices.map((s, i) => <Cell key={i} fill={s.fill} />)}
               </Pie>
-              <Tooltip />
+              <Tooltip content={<ChartTooltip />} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           </ResponsiveContainer>
@@ -210,7 +211,7 @@ function ListaColuna({ titulo, cor, itens, router }: { titulo: string; cor: 'eme
       {itens.length === 0 ? (
         <p className="text-xs text-muted-foreground italic py-4 text-center">Nenhum no período</p>
       ) : (
-        <div className="space-y-1.5 max-h-[360px] overflow-y-auto pr-1">
+        <div className="space-y-1.5 max-h-[360px] overflow-y-auto nice-scrollbar pr-1">
           {itens.map(o => (
             <button
               key={o.id}

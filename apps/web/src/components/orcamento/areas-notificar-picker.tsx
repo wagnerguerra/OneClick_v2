@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 
 export interface AreaNotificavel { areaId: string; nome: string }
@@ -50,7 +51,7 @@ export function AreasNotificarPicker({ areas, value, onChange, accent, required 
   return (
     <div className={cn('space-y-1.5', className)}>
       <label className="text-[13px] font-semibold text-foreground">
-        Notificar as seguintes áreas:{required && <span className="text-rose-500"> *</span>}
+        Notificar as seguintes áreas:{required && <span className={TEXT.rose}> *</span>}
       </label>
       <div className="flex flex-wrap gap-1.5">
         {areas.map(a => {
@@ -73,7 +74,7 @@ export function AreasNotificarPicker({ areas, value, onChange, accent, required 
       </div>
       <p className="text-[11px] text-muted-foreground">
         Cada área marcada notifica o líder responsável para detalhar (e executar) a parte dela.
-        {required && <> <span className="text-rose-500">Obrigatório.</span></>}
+        {required && <> <span className={TEXT.rose}>Obrigatório.</span></>}
       </p>
     </div>
   )

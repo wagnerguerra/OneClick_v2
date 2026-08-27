@@ -47,7 +47,7 @@ export function OportunidadeCombobox({ onSelect }: { onSelect: (op: Oportunidade
         />
       </div>
       {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg max-h-[260px] overflow-auto">
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg max-h-[260px] overflow-auto nice-scrollbar">
           {loading ? (
             <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" />Buscando...</div>
           ) : results.length === 0 ? (

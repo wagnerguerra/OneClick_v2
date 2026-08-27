@@ -20,6 +20,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 
@@ -48,22 +49,6 @@ const formatCurrency = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 const formatCompact = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 }).format(v || 0)
-
-// ── Tooltip com bg do tema (evita o fundo branco/preto padrao do Recharts) ──
-function ChartTooltip({ active, payload, label, fmt }: any) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-md text-xs">
-      {label != null && <p className="font-semibold text-foreground mb-1">{label}</p>}
-      {payload.map((p: any, i: number) => (
-        <p key={i} className="text-muted-foreground flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full" style={{ background: p.color || p.payload?.fill || p.fill }} />
-          {p.name}: <span className="font-medium text-foreground">{fmt ? fmt(p.value, p.name) : p.value}</span>
-        </p>
-      ))}
-    </div>
-  )
-}
 
 interface PainelData {
   crmStats: any
@@ -349,7 +334,7 @@ export default function ComercialPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                      <Tooltip content={<ChartTooltip fmt={(v: any, n: string) => (n === 'Valor' ? formatCurrency(v) : v)} />} cursor={{ fill: 'hsl(var(--muted))' }} />
+                      <Tooltip content={<ChartTooltip format={(v: number, n?: string) => (n === 'Valor' ? formatCurrency(v) : v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
                       <Bar dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
                         {funilChart.map((e: any) => (
                           <Cell key={e.etapaId} fill={e.cor || '#fb7185'} opacity={0.85} />
@@ -370,7 +355,7 @@ export default function ComercialPage() {
                       <Pie data={orcPie} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value">
                         {orcPie.map((e, i) => <Cell key={i} fill={e.fill} />)}
                       </Pie>
-                      <Tooltip content={<ChartTooltip fmt={(v: any) => `${v} orçamento(s)`} />} />
+                      <Tooltip content={<ChartTooltip format={(v: number) => `${v} orçamento(s)`} />} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
                     </PieChart>
                   </ResponsiveContainer>
@@ -390,7 +375,7 @@ export default function ComercialPage() {
                       <Pie data={ctPie} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value">
                         {ctPie.map((e, i) => <Cell key={i} fill={e.fill} />)}
                       </Pie>
-                      <Tooltip content={<ChartTooltip fmt={(v: any) => `${v} contrato(s)`} />} />
+                      <Tooltip content={<ChartTooltip format={(v: number) => `${v} contrato(s)`} />} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
                     </PieChart>
                   </ResponsiveContainer>
@@ -407,7 +392,7 @@ export default function ComercialPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                      <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted))' }} />
+                      <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
                       <Bar dataKey="novos" name="Novos" fill="#34d399" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="encerrados" name="Encerrados" fill="#ef4444" radius={[4, 4, 0, 0]} />
@@ -428,7 +413,7 @@ export default function ComercialPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted))' }} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     <Bar dataKey="ganhos" name="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[4, 4, 0, 0]} />

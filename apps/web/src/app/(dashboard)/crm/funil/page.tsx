@@ -177,7 +177,7 @@ export default function CrmFunilPage() {
       {report && report.porCampanha && report.porCampanha.length > 0 && (
         <Card className="p-5 space-y-3">
           <h4 className="text-sm font-semibold">Comparativo por campanha (30 dias)</h4>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto nice-scrollbar">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b">
@@ -216,7 +216,7 @@ export default function CrmFunilPage() {
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Campanhas</h4>
               {podeGerir && <Button variant="success" size="sm" className="h-7 gap-1 text-xs" onClick={novaCampanha}><Plus className="h-3.5 w-3.5" /> Nova</Button>}
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-1 max-h-[520px]">
+            <div className="flex-1 overflow-y-auto nice-scrollbar p-2 space-y-1 max-h-[520px]">
               {campanhas.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">Nenhuma campanha.</p>}
               {campanhas.map(c => {
                 const ativa = cfg?.id === c.id && cfg?.id !== null
@@ -383,7 +383,7 @@ export default function CrmFunilPage() {
       <Card className="p-5 space-y-3">
         <h4 className="text-sm font-semibold">Sessões recentes</h4>
         {sessoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma sessão ainda.</p> : (
-          <div className="border rounded-lg divide-y max-h-[360px] overflow-y-auto">
+          <div className="border rounded-lg divide-y max-h-[360px] overflow-y-auto nice-scrollbar">
             {sessoes.map(s => {
               const t = s.temperatura ? TEMP_META[s.temperatura] : null
               const nome = s.dados?.nome || s.dados?.razaoSocial || '(sem identificação)'
@@ -406,7 +406,7 @@ export default function CrmFunilPage() {
       <Dialog open={conversaOpen} onOpenChange={(o) => { if (!o) { setConversaOpen(false); setConversa(null) } }}>
         <DialogContent className="max-w-lg">
           <DialogHeaderIcon icon={MessageSquare} color="violet">Conversa do atendimento</DialogHeaderIcon>
-          <div className="max-h-[60vh] space-y-3 overflow-y-auto rounded-2xl bg-muted/20 px-2 py-3">
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto chat-scrollbar rounded-2xl bg-muted/20 px-2 py-3">
             {conversaLoading ? (
               <div className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></div>
             ) : !conversa || !conversa.mensagens?.length ? (

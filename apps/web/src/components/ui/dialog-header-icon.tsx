@@ -1,8 +1,8 @@
 'use client'
 
 /**
- * DialogHeaderIcon — header padronizado de modal com ícone à esquerda
- * ocupando a altura do título + descrição.
+ * DialogHeaderIcon — header padronizado de modal com ícone à esquerda,
+ * centralizado verticalmente com o bloco título + descrição.
  *
  * Padrão da casa: TODO modal deve usar esse componente em vez do {DialogHeader}
  * cru, garantindo consistência visual em todo o sistema.
@@ -121,7 +121,10 @@ export function DialogHeaderIcon({ icon: Icon, color = 'sky', className, srOnly,
   }
   return (
     <DialogHeader className={className}>
-      <div className="flex items-start gap-3">
+      {/* items-center: o ícone centraliza em relação ao container título+subtítulo.
+          Sem subtítulo, o título centraliza sozinho com o ícone (é o container dos
+          dois que está centrado, e só há um). */}
+      <div className="flex items-center gap-3">
         <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-lg', COLOR_CLASSES[color])}>
           <Icon className="h-6 w-6" />
         </div>

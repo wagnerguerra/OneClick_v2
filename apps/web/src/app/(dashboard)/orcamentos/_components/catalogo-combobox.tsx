@@ -102,7 +102,7 @@ export function CatalogoCombobox({ catalogo, tipo, selectedId, onSelect, disable
               className="h-7 text-xs"
             />
           </div>
-          <div className="max-h-56 overflow-y-auto py-1">
+          <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
             {filtered.length === 0 ? (
               <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhum item encontrado</p>
             ) : filtered.map(c => (

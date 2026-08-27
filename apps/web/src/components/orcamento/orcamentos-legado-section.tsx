@@ -67,7 +67,7 @@ export function OrcamentosLegadoSection({ clienteId, className }: { clienteId?: 
         <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{orcs.length}</span>
         <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">somente histórico</span>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto nice-scrollbar">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border/60 text-[11px] uppercase tracking-wide text-muted-foreground">

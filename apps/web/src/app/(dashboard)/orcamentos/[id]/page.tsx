@@ -488,7 +488,7 @@ function TimelineDateRow({
                   className="h-7 text-xs flex-1 min-w-0"
                   autoFocus
                 />
-                <button type="button" onClick={handleSave} disabled={saving} title="Salvar" className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
+                <button type="button" onClick={handleSave} disabled={saving} title="Salvar" className={cn(TEXT.emerald, 'hover:text-emerald-700 disabled:opacity-50')}>
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                 </button>
                 <button type="button" onClick={() => setEditing(false)} disabled={saving} title="Cancelar" className="text-muted-foreground hover:text-foreground disabled:opacity-50">
@@ -2047,7 +2047,7 @@ export default function OrcamentoDetailPage() {
       {orc.paralizado && (
         <Card className="p-3 border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 mt-5">
           <div className="flex items-start gap-3">
-            <Pause className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <Pause className={cn('h-5 w-5 shrink-0 mt-0.5', TEXT.amber)} />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Orçamento Paralizado</p>
               <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">{orc.paralizadoMotivo}</p>
@@ -2159,7 +2159,7 @@ export default function OrcamentoDetailPage() {
 
                   {activePill === 'itens' && (
                     <div className="-m-5">
-                      <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)] flex items-center justify-between">
+                      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                         <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
                           Itens do Orçamento
                           {orc.itens.length > 0 && (
@@ -2171,7 +2171,7 @@ export default function OrcamentoDetailPage() {
                         <div className="flex items-center gap-2" data-editable>
                           {canManageItens && !isLocked && (
                             <Button type="button" variant="outline" size="xs" className="gap-1" onClick={abrirGrupoOrc} title="Adicionar em lote os serviços de um grupo de orçamento">
-                              <ListPlus className="h-3.5 w-3.5 text-emerald-600" /> Aplicar grupo
+                              <ListPlus className={cn('h-3.5 w-3.5', TEXT.emerald)} /> Aplicar grupo
                             </Button>
                           )}
                           {canManageCatalogo && (
@@ -2398,13 +2398,13 @@ export default function OrcamentoDetailPage() {
                                     const bruto = (parseFloat(editQtde) || 0) * (parseFloat(editValor) || 0)
                                     const desc = editTipo === 'SERVICO' ? Math.min(bruto, bruto * (parseFloat(editDescPct) || 0) / 100 + (parseFloat(editDescValor) || 0)) : 0
                                     return desc > 0 ? (
-                                      <span className="text-emerald-600" title={`Sem desconto: ${formatCurrency(bruto)}`}>{formatCurrency(bruto - desc)}</span>
+                                      <span className={TEXT.emerald} title={`Sem desconto: ${formatCurrency(bruto)}`}>{formatCurrency(bruto - desc)}</span>
                                     ) : formatCurrency(bruto)
                                   })()}
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon-sm" onClick={handleSaveItem} title="Salvar"><Check className="h-3.5 w-3.5 text-emerald-600" /></Button>
+                                    <Button variant="ghost" size="icon-sm" onClick={handleSaveItem} title="Salvar"><Check className={cn('h-3.5 w-3.5', TEXT.emerald)} /></Button>
                                     <Button variant="ghost" size="icon-sm" onClick={() => setEditingItemId(null)} title="Cancelar"><X className="h-3.5 w-3.5 text-muted-foreground" /></Button>
                                   </div>
                                 </TableCell>
@@ -2443,8 +2443,8 @@ export default function OrcamentoDetailPage() {
                                     return desc > 0 ? (
                                       <>
                                         <div className="text-[10px] text-muted-foreground line-through">{formatCurrency(bruto)}</div>
-                                        <div className="text-emerald-600">{formatCurrency(bruto - desc)}</div>
-                                        <div className="text-[10px] text-emerald-600">−{Number(item.descontoPct) > 0 ? `${Number(item.descontoPct)}%` : ''}{Number(item.descontoPct) > 0 && Number(item.descontoValor) > 0 ? ' + ' : ''}{Number(item.descontoValor) > 0 ? formatCurrency(Number(item.descontoValor)) : ''}</div>
+                                        <div className={TEXT.emerald}>{formatCurrency(bruto - desc)}</div>
+                                        <div className={cn('text-[10px]', TEXT.emerald)}>−{Number(item.descontoPct) > 0 ? `${Number(item.descontoPct)}%` : ''}{Number(item.descontoPct) > 0 && Number(item.descontoValor) > 0 ? ' + ' : ''}{Number(item.descontoValor) > 0 ? formatCurrency(Number(item.descontoValor)) : ''}</div>
                                       </>
                                     ) : formatCurrency(item.valorTotal || bruto)
                                   })()}
@@ -2471,7 +2471,7 @@ export default function OrcamentoDetailPage() {
                       {/* Desconto e Pagamento — era uma pill própria; agora fecha a
                           aba Itens, porque desconto e forma de pagamento são a
                           continuação natural da lista de itens. */}
-                      <div className="px-5 py-3 border-y border-[rgba(0,0,0,0.08)] mt-4">
+                      <div className="px-5 py-3 border-y border-border mt-4">
                         <h4 className="text-[13px] font-semibold text-foreground">Desconto e Pagamento</h4>
                       </div>
                       {apenasDescontoItem && (
@@ -2711,7 +2711,7 @@ export default function OrcamentoDetailPage() {
                 bodyClassName="p-0"
               >
                 <CardContent className="p-0">
-                  <div className="max-h-[280px] overflow-y-auto">
+                  <div className="max-h-[280px] overflow-y-auto nice-scrollbar">
                     {historicoCliente.map(o => {
                       const tipoLabel = o.tipo === 'SERVICO_MENSAL' ? 'Serviço Mensal' : o.tipo === 'SERVICO_EXTRA' ? 'Serviço Extra' : null
                       const servicoDesc = o.itens?.[0]?.descricao ?? null
@@ -3156,7 +3156,7 @@ export default function OrcamentoDetailPage() {
               </p>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto nice-scrollbar px-5 py-4 space-y-4">
             {(pesquisaResumo?.itens ?? []).length === 0 && <p className="text-sm text-muted-foreground">Sem itens.</p>}
             {(pesquisaResumo?.itens ?? []).map((it: any, i: number) => (
               <div key={i} className="space-y-1">
@@ -3302,7 +3302,7 @@ export default function OrcamentoDetailPage() {
             {formasPagamento.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhuma forma de pagamento cadastrada</p>
             ) : (
-              <div className="space-y-1 max-h-[340px] overflow-y-auto">
+              <div className="space-y-1 max-h-[340px] overflow-y-auto nice-scrollbar">
                 {formasPagamento.map(f => (
                   <div key={f.id} className="flex items-center gap-2 rounded-md border border-border px-3 py-2 group hover:bg-muted/30 transition-colors">
                     <span className="text-sm flex-1">{f.valor}</span>

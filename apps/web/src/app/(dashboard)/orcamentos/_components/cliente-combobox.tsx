@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronDown, Plus, Loader2 } from 'lucide-react'
 import { Input, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 
 /**
  * Formata documento (CPF 11 dígitos / CNPJ 14 dígitos) com máscara padrão.
@@ -116,7 +117,7 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
               className="h-7 text-xs"
             />
           </div>
-          <div className="max-h-64 overflow-y-auto py-1">
+          <div className="max-h-64 overflow-y-auto nice-scrollbar py-1">
             {filtered.length === 0 ? (
               !podeCadastrar && <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhum cliente encontrado</p>
             ) : filtered.map(c => (
@@ -143,7 +144,7 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
                 disabled={creating}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 border-t mt-1 text-foreground disabled:opacity-60"
               >
-                {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <Plus className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
+                {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <Plus className={cn('h-3.5 w-3.5 shrink-0', TEXT.emerald)} />}
                 <span className="truncate">
                   Cadastrar <span className="font-semibold">“{nomeNovo}”</span> como novo cliente
                 </span>

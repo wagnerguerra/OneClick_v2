@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Sparkles, Send, Loader2, Wand2, Copy, Check, FileText, RotateCcw, Paperclip, X, Image as ImageIcon } from 'lucide-react'
 import { marked } from 'marked'
 import { Button, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
 import { trpc } from '@/lib/trpc'
 import { MarkdownView } from '@/components/ui/markdown-view'
@@ -267,7 +268,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
       </div>
 
       {/* Conversa */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto chat-scrollbar px-4 py-4 space-y-4">
         {carregando ? (
           <div className="h-full flex items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -320,7 +321,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
                               <FileText className="h-3.5 w-3.5" /> Aplicar à proposta
                             </Button>
                             <Button size="sm" variant="ghost" className="h-7 gap-1.5" onClick={() => copiar(m.content, i)}>
-                              {copiado === i ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                              {copiado === i ? <Check className={cn('h-3.5 w-3.5', TEXT.emerald)} /> : <Copy className="h-3.5 w-3.5" />}
                               {copiado === i ? 'Copiado' : 'Copiar'}
                             </Button>
                           </div>

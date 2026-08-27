@@ -12,7 +12,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Label, RichEditor,
+  Label, RichEditor, Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -541,12 +541,12 @@ export default function ParametrosOrcamentosPage() {
             </div>
 
             <div className="flex items-start gap-3 p-3 bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30 rounded-md">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="disponivel"
                 checked={form.disponivelOrcamento}
-                onChange={e => setForm(f => ({ ...f, disponivelOrcamento: e.target.checked }))}
-                className="h-4 w-4 mt-0.5 rounded border-rose-300"
+                onCheckedChange={v => setForm(f => ({ ...f, disponivelOrcamento: v === true }))}
+                accentColor="var(--mod-comercial, #fb7185)"
+                className="mt-0.5"
               />
               <label htmlFor="disponivel" className="cursor-pointer flex-1">
                 <span className="text-sm font-medium block">Disponível para uso em orçamentos</span>

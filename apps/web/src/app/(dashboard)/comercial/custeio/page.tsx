@@ -4,13 +4,15 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Calculator, Users, TrendingUp, TrendingDown, Wallet, Settings2,
-  Loader2, RefreshCw, X, Save,
+  Loader2, RefreshCw, Save,
 } from 'lucide-react'
 import {
   Button, Card, Input, Label, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { TEXT } from '@/lib/color-styles'
 import { StatCard } from '@/components/stat-card'
 import { BackButton } from '@/components/ui/back-button'
@@ -186,7 +188,7 @@ export default function CusteioPage() {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           )}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto nice-scrollbar">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
@@ -227,18 +229,12 @@ export default function CusteioPage() {
       </Card>
 
       {/* Modal de parâmetros */}
-      {showParams && (
-        <>
-          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowParams(false)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="w-full max-w-lg rounded-lg bg-card shadow-xl" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between border-b border-border px-5 py-3">
-                <h4 className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
-                  <Settings2 className="h-4 w-4 text-muted-foreground" /> Parâmetros de custeio
-                </h4>
-                <button type="button" onClick={() => setShowParams(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
-              </div>
-              <div className="max-h-[65vh] space-y-4 overflow-y-auto p-5">
+      <Dialog open={showParams} onOpenChange={setShowParams}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeaderIcon icon={Settings2} color="rose">
+            <DialogTitle>Parâmetros de custeio</DialogTitle>
+          </DialogHeaderIcon>
+          <DialogBody className="max-h-[65vh] space-y-4 overflow-y-auto nice-scrollbar">
                 {!params ? (
                   <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                 ) : (
@@ -301,18 +297,16 @@ export default function CusteioPage() {
                     </div>
                   </>
                 )}
-              </div>
-              <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
-                <Button variant="outline" size="sm" onClick={() => setShowParams(false)}>Fechar</Button>
-                <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={salvarParams} disabled={savingParams || !params}>
-                  {savingParams ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                  {savingParams ? 'Salvando…' : 'Salvar'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowParams(false)}>Fechar</Button>
+            <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={salvarParams} disabled={savingParams || !params}>
+              {savingParams ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              {savingParams ? 'Salvando…' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

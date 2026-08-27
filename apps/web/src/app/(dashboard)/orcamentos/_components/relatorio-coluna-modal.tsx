@@ -72,7 +72,7 @@ export function RelatorioColunaModal({ open, onClose, status, statusLabel, modul
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onClose() }}>
-      <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto nice-scrollbar">
         <DialogHeaderIcon icon={BarChart3} color="violet">
           <DialogTitle>Relatório — {statusLabel}</DialogTitle>
           <DialogDescription>Consulta apenas os orçamentos desta coluna. Configure os filtros e os campos; o relatório abre em uma nova aba.</DialogDescription>

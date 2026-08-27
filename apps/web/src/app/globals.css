@@ -107,6 +107,14 @@
 /* CRM Kanban drag-and-drop */
 .crm-column-over { background-color: rgba(251, 113, 133, 0.06) !important; }
 
+/* Recharts — rótulos e eixos tema-aware. O default do recharts é #666 (fixo),
+   que fica escuro demais no dark. `fill`/`stroke` via CSS vencem os atributos
+   de apresentação que o recharts põe no <text>/<line>. Rótulos usam
+   muted-foreground (dark = #9ca3af, mais claro); eixos/traços usam a borda. */
+.recharts-cartesian-axis-tick-value { fill: var(--color-muted-foreground) !important; }
+.recharts-cartesian-axis-line,
+.recharts-cartesian-axis-tick line { stroke: var(--color-muted-foreground) !important; }
+
 /* SweetAlert2 acima do Radix Dialog focus trap */
 .swal2-container { z-index: 9999 !important; pointer-events: auto !important; }
 .swal2-popup { pointer-events: auto !important; }
@@ -217,7 +225,7 @@
 .mod-comercial .to-rose-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-comercial, #fb7185) 80%, black) var(--tw-gradient-to-position); }
 .mod-comercial .from-rose-500 { --tw-gradient-from: var(--mod-comercial, #fb7185) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
 .dark .mod-comercial .dark\:bg-rose-950\/30, .dark .mod-comercial .dark\:bg-rose-900\/40 { background-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 18%, transparent); }
-.dark .mod-comercial .dark\:text-rose-400, .dark .mod-comercial .dark\:text-rose-300 { color: color-mix(in srgb, var(--mod-comercial, #fb7185) 80%, white); }
+.dark .mod-comercial .dark\:text-rose-400, .dark .mod-comercial .dark\:text-rose-300 { color: color-mix(in srgb, var(--mod-comercial, #fb7185) 90%, white); }
 .dark .mod-comercial .dark\:border-rose-800, .dark .mod-comercial .dark\:border-rose-900 { border-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 35%, transparent); }
 
 /* === Corporativo / Administrativo / Perfil → sky === */

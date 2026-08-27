@@ -84,7 +84,7 @@ export function ServicoDetalheModal({ servicoId, open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onClose() }}>
-      <DialogContent className="sm:max-w-[680px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[680px] max-h-[90vh] overflow-y-auto nice-scrollbar">
         <DialogHeaderIcon icon={Pencil} color="sky">
           <DialogTitle>Editar serviço</DialogTitle>
           <DialogDescription>Ajuste os detalhes do template do serviço. Alterações valem para todos os orçamentos e execuções que usam este serviço.</DialogDescription>
