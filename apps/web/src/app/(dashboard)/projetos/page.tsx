@@ -169,27 +169,26 @@ export default function ProjetosPage() {
   )
 
   return (
-    <div className="space-y-4">
-      {/* Header — padrão da casa: PageHeaderIcon + h1 sem className + descrição text-sm */}
-      {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
-        <div className="flex items-center gap-2">
-          {canWrite && (
-            <Button size="sm" onClick={openCreate} className="gap-1.5 text-white" style={{ background: MODULE_COLOR }}>
-              <Plus className="h-4 w-4" />
-              Novo projeto
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => router.push('/projetos/configuracoes')}
-            title="Configurações do módulo"
-            className="h-9 w-9"
-          >
-            <Settings className="h-4 w-4" />
+    // No kanban a página ganha altura fixa e as colunas rolam por dentro, como
+    // no /orcamentos — senão o trilho cresce e a rolagem vira a da página
+    // inteira, levando o cabeçalho junto. Na lista, a rolagem normal serve.
+    <div className={cn(viewMode === 'kanban' ? 'flex flex-col gap-4 h-[calc(100vh-98px)]' : 'space-y-4')}>
+      {/* Topo — PADRAO_PAGINAS §1.1: secundárias, depois a primária. */}
+      <PageHeaderBar className={cn(viewMode === 'kanban' && 'mb-0 shrink-0 sm:mb-0')} actions={<>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          onClick={() => router.push('/projetos/configuracoes')}
+          title="Configurações do módulo"
+        >
+          <Settings className="h-4 w-4" />
+        </Button>
+        {canWrite && (
+          <Button variant="success" size="sm" onClick={openCreate} className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            Novo projeto
           </Button>
-        </div>
+        )}
       </>}>
         <h1 className="truncate">Projetos</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -199,15 +198,10 @@ export default function ProjetosPage() {
           <span className="text-muted-foreground/50">›</span>
           <span>Projetos</span>
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <p className="text-sm text-muted-foreground">
-              Gestão de projetos de desenvolvimento da TI
-            </p>
-        </div>
       </PageHeaderBar>
 
       {/* Filtros + toggle de visualização */}
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
           <Input
@@ -263,7 +257,7 @@ export default function ProjetosPage() {
 
       {/* Kanban — DndContext sempre montado quando viewMode === 'kanban' (evita removeChild do portal) */}
       {viewMode === 'kanban' ? (
-        <div className="relative">
+        <div className="relative flex min-h-0 flex-1 flex-col">
           {loading && (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/70 backdrop-blur-[2px]">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

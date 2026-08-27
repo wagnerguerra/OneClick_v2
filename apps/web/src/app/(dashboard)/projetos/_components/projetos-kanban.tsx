@@ -12,7 +12,6 @@ import { useRouter } from 'next/navigation'
 import { ListChecks, MoreVertical, Pencil, Trash2, Calendar, AlertCircle, User as UserIcon } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-  Badge,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -142,7 +141,12 @@ export function ProjetosKanban({ projetos, onChange, canWrite, canDelete, onEdit
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      {/* Trilho no padrão /orcamentos: rolagem horizontal do container, com a
+          scrollbar tematizada. As três colunas dividem a largura em partes
+          iguais (mesma decisão do /meus-servicos, que também tem poucas
+          colunas); o piso de 280px devolve a rolagem em tela estreita. */}
+      <div className="nice-scrollbar -mx-1 flex-1 overflow-x-auto overflow-y-hidden pb-4">
+        <div className="flex h-full w-full gap-4 px-1">
         {STATUS_ORDEM.map((status) => (
           <KanbanColuna
             key={status}
@@ -155,6 +159,7 @@ export function ProjetosKanban({ projetos, onChange, canWrite, canDelete, onEdit
             onChange={onChange}
           />
         ))}
+        </div>
       </div>
 
       <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
@@ -184,25 +189,31 @@ function KanbanColuna({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex-1 min-w-[180px] flex flex-col border border-border/40 overflow-hidden transition-colors duration-200 rounded',
-        isOver && 'border-foreground/30',
+        // Coluna ABERTA: sem caixa nem fundo, os cards flutuam sobre a página.
+        // Só o alvo do arrasto ganha um véu. Igual ao /crm e ao /orcamentos.
+        'flex h-full min-w-[280px] flex-1 flex-col rounded-xl transition-colors',
+        isOver && 'bg-black/[0.03] dark:bg-white/[0.04]',
       )}
+      style={isOver ? { boxShadow: `0 0 0 2px ${cor}55` } : undefined}
     >
-      <div
-        className="px-3 py-2.5 border-b flex items-center justify-between"
-        style={{ backgroundColor: `${cor}12` }}
-      >
+      {/* Cabeçalho: dot da cor + nome + contador em pill tintada */}
+      <div className="flex items-center justify-between gap-2 px-1.5 py-2">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cor }} />
+          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cor }} />
           <span className="text-sm font-semibold truncate">{PROJETO_STATUS_LABELS[status]}</span>
+          <span
+            className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold tabular-nums shrink-0"
+            style={{ backgroundColor: `color-mix(in srgb, ${cor} 15%, transparent)`, color: cor }}
+          >
+            {projetos.length}
+          </span>
         </div>
-        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 shrink-0">{projetos.length}</Badge>
       </div>
 
       <SortableContext items={projetos.map((p) => p.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 p-2 space-y-2 overflow-y-auto min-h-[120px]">
+        <div className="nice-scrollbar min-h-[120px] flex-1 space-y-2 overflow-y-auto px-1.5 pb-2">
           {projetos.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhum projeto</p>
+            <p className="text-xs text-muted-foreground text-center py-6 italic">Vazio</p>
           )}
           {projetos.map((p) => (
             <KanbanCard
