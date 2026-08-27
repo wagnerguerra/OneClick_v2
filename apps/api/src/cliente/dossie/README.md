@@ -31,20 +31,25 @@ Resiliência: timeout de 5s, três tentativas com espera crescente **só** em 42
 5xx (404 não melhora com insistência), e disjuntor por provedor — cinco falhas
 seguidas tiram o provedor da fila por cinco minutos.
 
-## Variáveis de ambiente
+## Onde se configura
 
-```env
-# Ordem da cadeia. Vazio usa o padrão opencnpj,brasilapi,serpro.
-DOSSIE_PROVEDORES=
+Tudo pela tela: **Configurações → Dossiê e Imagens** (`/configuracoes`). O que é
+salvo ali vai para o banco (`system_config`) e é carregado no ambiente a cada
+boot pelo `hidratarConfiguracoes` — em produção a API roda em contêiner e não
+tem `.env` no diretório de deploy, então o banco é o único lugar que sobrevive
+a uma publicação.
 
-# O SERPRO só entra na cadeia se estas duas existirem (já usadas pelo CnpjService).
-SERPRO_CONSUMER_KEY=
-SERPRO_CONSUMER_SECRET=
-```
+| Campo | O que faz |
+|---|---|
+| `PEXELS_API_KEY` | Habilita as fotos sugeridas em "Alterar capa" do cliente. Chave gratuita em pexels.com/api |
+| `DOSSIE_PROVEDORES` | Ordem da cadeia. Vazio = `opencnpj,brasilapi,serpro` |
+| `DOSSIE_SITUACAO_ENABLED` | `1` liga o job diário de situação cadastral |
+| `DOSSIE_SITUACAO_CRON` | Horário do job. Padrão `0 6 * * *` |
 
-O job diário é desligado por padrão. Para ligar, em `system_config`:
-`DOSSIE_SITUACAO_ENABLED=true` e, opcionalmente, `DOSSIE_SITUACAO_CRON`
-(padrão `0 6 * * *`).
+O SERPRO usa `CONSUMER_KEY`/`CONSUMER_SECRET`, que já existem no grupo SERPRO
+da mesma tela.
+
+O job só passa a valer depois de reiniciar a API — ele é montado no boot.
 
 ## Cache
 

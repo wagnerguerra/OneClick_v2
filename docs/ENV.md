@@ -153,6 +153,7 @@ Compose (produção, no serviço `api` — adicionar em `/opt/oneclick/docker-co
 - **Banco**: MySQL `oneclick_fiscal_serpro` na porta 3001
 
 ## Banco de imagens (capa do cliente)
+> Configurável pela tela **Configurações → Dossiê e Imagens**.
 ```env
 # Chave gratuita gerada em https://www.pexels.com/api/ (uso comercial liberado,
 # sem exigência de crédito). Alimenta "Alterar capa" no detalhe do cliente →
@@ -162,6 +163,8 @@ PEXELS_API_KEY=
 ```
 
 ## Dossiê do Cliente (enriquecimento por CNPJ)
+> Configuráveis pela tela **Configurações → Dossiê e Imagens** (gravam em
+> `system_config`, que é o que sobrevive ao deploy).
 ```env
 # Ordem da cadeia de provedores. Vazio = opencnpj,brasilapi,serpro.
 # As duas primeiras são gratuitas e sem token; o SERPRO é pago por consulta e

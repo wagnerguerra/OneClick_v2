@@ -36,7 +36,10 @@ export class DossieSchedulerService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     if (!schedulersAtivos()) return
     const cron = await this.lerConfig(CONFIG_KEYS.cron) || '0 6 * * *' // todo dia às 6h
-    const ligado = (await this.lerConfig(CONFIG_KEYS.enabled)) === 'true'
+    // A tela de configurações grava '1'/'0'; aceitar só 'true' deixaria o
+    // interruptor da tela sem efeito nenhum.
+    const bruto = (await this.lerConfig(CONFIG_KEYS.enabled) || '').trim().toLowerCase()
+    const ligado = bruto === '1' || bruto === 'true' || bruto === 'sim'
     if (!ligado) return
     this.cronJob = new CronJob(cron, () => { void this.revalidar() }, null, true, 'America/Sao_Paulo')
   }
