@@ -11,6 +11,7 @@ import { NotificationService } from '../notification/notification.service'
 import { OrcamentoEventsService } from './orcamento-events.service'
 import * as fs from 'fs'
 import * as path from 'path'
+import { randomUUID } from 'crypto'
 
 // Logo embutida (cid:logo) no cabeçalho verde dos e-mails do módulo. O header é
 // verde (#10b981→#059669), então usa a versão BRANCA do logo; fallback pro logo
@@ -583,6 +584,35 @@ export class OrcamentoService {
   }
 
   /**
+   * #364 — hospeda as imagens embutidas (data URI base64) de um HTML rico do TipTap
+   * para exibi-las em e-mail: grava cada uma em `uploads/` (mesmo diretório servido
+   * por `/api/upload/<arquivo>` que os anexos usam) e troca o `src="data:..."` por
+   * uma URL ABSOLUTA, que renderiza no Gmail/Outlook (que bloqueiam `data:`). Também
+   * normaliza o estilo da imagem para o e-mail. Se a gravação falhar, remove a imagem
+   * em vez de vazar o base64. Retorna '' quando não há conteúdo.
+   */
+  private async hospedarImagensDataUri(html: string | null | undefined, baseUrl: string): Promise<string> {
+    if (!html) return ''
+    const uploadsDir = path.join(process.cwd(), 'uploads')
+    await fs.promises.mkdir(uploadsDir, { recursive: true }).catch(() => {})
+    const re = /<img\b[^>]*?\bsrc\s*=\s*"data:image\/([a-zA-Z0-9.+-]+);base64,([^"]+)"[^>]*>/gi
+    let out = html
+    for (const m of [...html.matchAll(re)]) {
+      const [tag, mime, b64] = m
+      try {
+        const mt = (mime ?? '').toLowerCase()
+        const ext = mt === 'jpeg' ? 'jpg' : mt === 'svg+xml' ? 'svg' : (mt.replace(/[^a-z0-9]/g, '') || 'png')
+        const filename = `${randomUUID()}.${ext}`
+        await fs.promises.writeFile(path.join(uploadsDir, filename), Buffer.from(b64 ?? '', 'base64'))
+        out = out.replace(tag, `<img src="${baseUrl.replace(/\/$/, '')}/api/upload/${filename}" style="max-width:100%;height:auto;border-radius:6px;display:block;margin:8px 0" />`)
+      } catch {
+        out = out.replace(tag, '') // falhou o upload: remove a imagem (não vaza base64)
+      }
+    }
+    return out
+  }
+
+  /**
    * Relatório de UMA coluna do kanban (um status). Reusa `list` (respeita o
    * escopo/visibilidade do usuário, deriva áreas e resolve usuários), pega a
    * coluna inteira (sem paginação) e enriquece com nome do cliente + natureza
@@ -992,18 +1022,16 @@ export class OrcamentoService {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
       const link = `${baseUrl}/orcamentos/${orcId}`
       // #364 — a nota interna é HTML rico do TipTap e pode ter IMAGEM colada (data
-      // URI base64). Injetar cru no e-mail vazava o markup como texto e inchava a
-      // mensagem. Substituímos cada imagem por um marcador NA SUA POSIÇÃO (data: é
-      // bloqueado por Gmail/Outlook, então cortamos a imagem mas sinalizamos onde
-      // estava — um marcador por imagem); depois strippamos o resto do HTML para
-      // texto e re-escapamos p/ o e-mail, preservando as quebras de linha.
-      const comMarcadores = (orc.textoInterno ?? '').replace(/<img\b[^>]*>/gi, ' [🖼 Imagem anexada — abra o orçamento para ver] ')
-      const notaTexto = this.htmlParaTexto(comMarcadores)
-      const notaHtml = notaTexto
-        ? notaTexto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
-        : ''
-      const notaBloco = notaHtml
-        ? `<div style="background:#f8fafc;border-left:3px solid #fb7185;padding:12px 16px;margin:14px 0;border-radius:4px;font-size:13px;">${notaHtml}</div>`
+      // URI base64). Injetar o data: cru inchava/quebrava o e-mail (Gmail/Outlook
+      // bloqueiam data:). Hospedamos cada imagem (mesmo padrão dos anexos: grava em
+      // uploads/ e serve por /api/upload/<arquivo>) e injetamos a nota com a <img>
+      // por URL absoluta, que renderiza normalmente. buildEmailLayout injeta cru.
+      // /api/upload é servido pela API — use a base da API (em dev != do web app);
+      // em prod NEXT_PUBLIC_API_URL/APP_URL apontam pro mesmo domínio (Nginx).
+      const uploadBase = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.oneclick.central-rnc.com.br'
+      const notaHtml = await this.hospedarImagensDataUri(orc.textoInterno, uploadBase)
+      const notaBloco = notaHtml.trim()
+        ? `<div style="background:#f8fafc;border-left:3px solid #fb7185;padding:12px 16px;margin:14px 0;border-radius:4px;font-size:13px;color:#334155">${notaHtml}</div>`
         : ''
       const html = this.buildEmailLayout({
         empresaNome,
