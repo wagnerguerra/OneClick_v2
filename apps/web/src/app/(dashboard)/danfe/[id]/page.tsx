@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { Button, Card, cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BORDER } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
@@ -103,7 +103,7 @@ export default function DanfeDetalhePage() {
             {regerando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Regerar PDF
           </Button>
-          <Button size="sm" variant="outline" onClick={handleDelete} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50">
+          <Button size="sm" variant="outline" onClick={handleDelete} className={cn('gap-1.5 hover:bg-rose-50', TEXT.rose, BORDER.rose)}>
             <Trash2 className="h-3.5 w-3.5" /> Excluir
           </Button>
           <BackButton href="/danfe" />
