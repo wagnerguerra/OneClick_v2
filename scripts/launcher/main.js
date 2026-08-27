@@ -2725,14 +2725,55 @@ function registerIpcHandlers() {
       deployEmit(66, 'sql', '→ Verificando SQLs cirúrgicos...', 'info')
       deployCheckAbort('sql', 66)
       deployCurrentStep = 'sql'
+      // Livro-caixa do que ja foi aplicado. Sem ele, TODO deploy reexecutava os
+      // 128 arquivos: 128 conexoes ao banco de producao, varias pedindo lock
+      // exclusivo em tabela em uso, com o sistema no ar. Idempotentes ou nao,
+      // era trabalho inutil — e a janela em que dois deploys travaram (27/08),
+      // logo apos o build, com a maquina em swap.
+      //
+      // A chave e (arquivo, hash do conteudo): editar um SQL ja aplicado faz
+      // ele rodar de novo, que e o comportamento desejado.
+      await sshExec(
+        cfg,
+        `docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -v ON_ERROR_STOP=1 -c "CREATE TABLE IF NOT EXISTS deploy_sql_aplicados (arquivo TEXT NOT NULL, hash TEXT NOT NULL, aplicado_em TIMESTAMP NOT NULL DEFAULT now(), PRIMARY KEY (arquivo, hash))" 2>&1`,
+        null,
+        30000,
+      )
+
       const listSql = await sshExec(cfg, 'ls /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null | sort', null, 30000)
       const sqlFiles = (listSql.stdout || '').trim().split('\n').filter(Boolean)
-      if (sqlFiles.length === 0) {
-        deployEmit(67, 'sql', '· Nenhum SQL cirúrgico encontrado (ignorado)', 'info')
+
+      // Hashes e livro-caixa numa ida so cada — 128 chamadas SSH para descobrir
+      // que nao ha nada a fazer seria pior que o problema.
+      const hashesOut = await sshExec(cfg, 'md5sum /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null', null, 60000)
+      const hashPorArquivo = new Map()
+      for (const linha of (hashesOut.stdout || '').trim().split('\n')) {
+        const m = linha.trim().match(/^([0-9a-f]{32})\s+(.+)$/)
+        if (m) hashPorArquivo.set(m[2].trim(), m[1])
+      }
+      const aplicadosOut = await sshExec(
+        cfg,
+        `docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -t -A -c "SELECT arquivo || ':' || hash FROM deploy_sql_aplicados" 2>/dev/null`,
+        null,
+        30000,
+      )
+      const jaAplicados = new Set((aplicadosOut.stdout || '').trim().split('\n').map(l => l.trim()).filter(Boolean))
+
+      const pendentes = sqlFiles.filter(f => {
+        const nome = f.split('/').pop()
+        const hash = hashPorArquivo.get(f)
+        // Sem hash (md5sum falhou) o arquivo entra na fila: melhor reaplicar um
+        // SQL idempotente do que pular uma alteracao de schema por engano.
+        return !hash || !jaAplicados.has(`${nome}:${hash}`)
+      })
+
+      const jaFeitos = sqlFiles.length - pendentes.length
+      if (pendentes.length === 0) {
+        deployEmit(67, 'sql', `· ${sqlFiles.length} SQL(s) ja aplicado(s) anteriormente (nada a fazer)`, 'ok')
       } else {
-        deployEmit(66, 'sql', `→ ${sqlFiles.length} arquivo(s) SQL a aplicar`, 'info')
+        deployEmit(66, 'sql', `→ ${pendentes.length} SQL(s) a aplicar${jaFeitos > 0 ? ` (${jaFeitos} ja aplicado[s])` : ''}`, 'info')
         let sqlFailed = false
-        for (const sqlFile of sqlFiles) {
+        for (const sqlFile of pendentes) {
           const fname = sqlFile.split('/').pop()
           deployEmit(67, 'sql', `  → ${fname}`, 'info')
           // Dois relógios, com papéis diferentes:
@@ -2747,9 +2788,9 @@ function registerIpcHandlers() {
           // fila atrás dele: em 10/08 o deploy segurou `orcamento_itens` por dois
           // minutos com o sistema no ar. Falhar em 8s e repetir o deploy é muito
           // melhor do que congelar a tela de orçamentos de quem está usando.
-          const sqlExec = await sshExec(
+          const rodarSql = (arquivo) => sshExec(
             cfg,
-            `( echo "SET statement_timeout='120s'; SET lock_timeout='8s';"; cat ${sqlFile} ) | docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -v ON_ERROR_STOP=1 2>&1`,
+            `( echo "SET statement_timeout='120s'; SET lock_timeout='8s';"; cat ${arquivo} ) | docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -v ON_ERROR_STOP=1 2>&1`,
             (line) => {
               // Filtra NOTICE/INFO ruidosos do psql
               if (!/^NOTICE:|^INFO:|^DO$|^SET$|^BEGIN$|^COMMIT$|^$/.test(line)) {
@@ -2758,19 +2799,47 @@ function registerIpcHandlers() {
             },
             130000,
           )
+          let sqlExec = await rodarSql(sqlFile)
           deployCheckAbort('sql', 68)
+
+          // Tempo limite nao e erro de SQL: nos dois casos de 27/08 o arquivo
+          // nao tinha o que fazer (tudo com IF NOT EXISTS, tudo ja existente) e
+          // a maquina e que estava em swap logo apos o build. Uma segunda
+          // tentativa custa segundos; abortar custa o deploy inteiro.
+          if (sqlExec.code !== 0 && sqlExec.timedOut) {
+            deployEmit(67, 'sql', `  · ${fname} expirou — tentando de novo em 5s`, 'warn')
+            await new Promise(r => setTimeout(r, 5000))
+            deployCheckAbort('sql', 68)
+            sqlExec = await rodarSql(sqlFile)
+          }
+
           if (sqlExec.code !== 0) {
-            const motivo = sqlExec.timedOut ? 'tempo limite de 130s (preso em lock?)' : `código ${sqlExec.code}`
+            const motivo = sqlExec.timedOut ? 'tempo limite de 130s, duas vezes (maquina sob carga?)' : `código ${sqlExec.code}`
             deployEmit(68, 'sql', `✗ ${fname} falhou (${motivo})`, 'err')
             sqlFailed = true
             break
+          }
+
+          // Registra no livro-caixa. Falhar aqui nao invalida o deploy: o pior
+          // efeito e o arquivo rodar de novo na proxima publicacao.
+          const hashArquivo = hashPorArquivo.get(sqlFile)
+          // Nome vem do `ls` do nosso proprio repo, mas escapar aspas custa
+          // nada e evita que um arquivo mal nomeado quebre o INSERT.
+          const fnameSql = fname.replace(/'/g, "''")
+          if (hashArquivo) {
+            await sshExec(
+              cfg,
+              `docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -c "INSERT INTO deploy_sql_aplicados (arquivo, hash) VALUES ('${fnameSql}', '${hashArquivo}') ON CONFLICT DO NOTHING" 2>&1`,
+              null,
+              30000,
+            ).catch(() => {})
           }
         }
         if (sqlFailed) {
           deployRunning = false
           return { ok: false, error: 'SQL cirúrgico falhou' }
         }
-        deployEmit(68, 'sql', `✓ ${sqlFiles.length} SQL(s) aplicado(s)`, 'ok')
+        deployEmit(68, 'sql', `✓ ${pendentes.length} SQL(s) aplicado(s)`, 'ok')
       }
 
       // ─── Stage 5: Build Web ────────────────────────
