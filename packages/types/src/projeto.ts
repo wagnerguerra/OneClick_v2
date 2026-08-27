@@ -56,6 +56,10 @@ export const TAREFA_STATUS_ORDEM: TarefaStatus[] = [
   'CANCELADO',
 ]
 
+/** Papel no projeto. O RESPONSÁVEL não está aqui: ele é campo do projeto. */
+export const ProjetoPapelEnum = z.enum(['EXECUTANTE', 'COLABORADOR'])
+export type ProjetoPapel = z.infer<typeof ProjetoPapelEnum>
+
 // ── Projeto ─────────────────────────────────────────────────
 
 export const createProjetoSchema = z.object({
@@ -65,10 +69,13 @@ export const createProjetoSchema = z.object({
   status: ProjetoStatusEnum.optional(),
   /** Quem responde pelo projeto. É UM só. */
   responsavelId: z.string().optional().nullable(),
-  /** O time em volta do responsável. Lista completa: o que vier substitui. */
-  participantesIds: z.array(z.string()).optional(),
-  /** Cliente atendido. Vazio = projeto interno. */
-  clienteId: z.string().optional().nullable(),
+  /** O time em volta do responsável, com o papel de cada um. Lista completa. */
+  participantes: z.array(z.object({
+    userId: z.string(),
+    papel: ProjetoPapelEnum.default('EXECUTANTE'),
+  })).optional(),
+  /** Empresas-cliente envolvidas. Lista vazia = projeto interno. */
+  clientesIds: z.array(z.string()).optional(),
   dataInicio: z.string().optional().nullable(),
   dataPrevisao: z.string().optional().nullable(),
 })
@@ -80,6 +87,56 @@ export const listProjetosSchema = paginationSchema.extend({
   responsavelId: z.string().optional(),
   clienteId: z.string().optional(),
 })
+
+// ── Envolvidos ──────────────────────────────────────────────
+
+
+export const PROJETO_PAPEL_LABELS: Record<ProjetoPapel, string> = {
+  EXECUTANTE: 'Executantes',
+  COLABORADOR: 'Colaboradores',
+}
+
+// ── Rodadas e apontamentos ──────────────────────────────────
+
+export const ProjetoApontamentoSituacaoEnum = z.enum(['ABERTO', 'RESOLVIDO', 'DESCARTADO'])
+export type ProjetoApontamentoSituacao = z.infer<typeof ProjetoApontamentoSituacaoEnum>
+
+export const APONTAMENTO_SITUACAO_LABELS: Record<ProjetoApontamentoSituacao, string> = {
+  ABERTO: 'Aberto',
+  RESOLVIDO: 'Resolvido',
+  DESCARTADO: 'Descartado',
+}
+
+export const createRodadaSchema = z.object({
+  projetoId: z.string().min(1),
+  titulo: z.string().optional().nullable(),
+  descricao: z.string().optional().nullable(),
+  entregueEm: z.string().optional().nullable(),
+})
+
+export const updateRodadaSchema = z.object({
+  titulo: z.string().optional().nullable(),
+  descricao: z.string().optional().nullable(),
+  entregueEm: z.string().optional().nullable(),
+})
+
+export const createApontamentoSchema = z.object({
+  rodadaId: z.string().min(1),
+  texto: z.string().min(1, 'Escreva o apontamento'),
+  /** Quem apontou: usuário do sistema OU nome livre (analista sem login). */
+  autorId: z.string().optional().nullable(),
+  autorNome: z.string().optional().nullable(),
+})
+
+export const updateApontamentoSchema = z.object({
+  texto: z.string().min(1).optional(),
+  situacao: ProjetoApontamentoSituacaoEnum.optional(),
+})
+
+export type CreateRodadaInput = z.infer<typeof createRodadaSchema>
+export type UpdateRodadaInput = z.infer<typeof updateRodadaSchema>
+export type CreateApontamentoInput = z.infer<typeof createApontamentoSchema>
+export type UpdateApontamentoInput = z.infer<typeof updateApontamentoSchema>
 
 export type CreateProjetoInput = z.infer<typeof createProjetoSchema>
 export type UpdateProjetoInput = z.infer<typeof updateProjetoSchema>

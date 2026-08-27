@@ -13,6 +13,10 @@ import {
   updateProjetoTagSchema,
   addComentarioTarefaSchema,
   addAnexoTarefaSchema,
+  createRodadaSchema,
+  updateRodadaSchema,
+  createApontamentoSchema,
+  updateApontamentoSchema,
 } from '@saas/types'
 import { ProjetoService } from './projeto.service'
 
@@ -51,6 +55,35 @@ export function createProjetoRouter(svc: ProjetoService) {
     listPessoas: readProcedure(MODULE)
       .input(z.object({ busca: z.string().optional() }).optional())
       .query(({ input, ctx }) => svc.listPessoas(input?.busca, ctx)),
+
+    // ── Rodadas e apontamentos ────────────────────────────────
+    listRodadas: readProcedure(MODULE)
+      .input(z.object({ projetoId: z.string() }))
+      .query(({ input }) => svc.listRodadas(input.projetoId)),
+
+    createRodada: writeProcedure(MODULE)
+      .input(createRodadaSchema)
+      .mutation(({ input, ctx }) => svc.createRodada(input, ctx.userId ?? null)),
+
+    updateRodada: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), data: updateRodadaSchema }))
+      .mutation(({ input }) => svc.updateRodada(input.id, input.data)),
+
+    deleteRodada: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => svc.deleteRodada(input.id)),
+
+    createApontamento: writeProcedure(MODULE)
+      .input(createApontamentoSchema)
+      .mutation(({ input, ctx }) => svc.createApontamento(input, ctx.userId ?? null)),
+
+    updateApontamento: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), data: updateApontamentoSchema }))
+      .mutation(({ input, ctx }) => svc.updateApontamento(input.id, input.data, ctx.userId ?? null)),
+
+    deleteApontamento: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => svc.deleteApontamento(input.id)),
 
     // ── Tarefas ───────────────────────────────────────────────
     listTarefas: readProcedure(MODULE)

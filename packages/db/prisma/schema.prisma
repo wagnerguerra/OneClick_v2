@@ -718,7 +718,7 @@ model Cliente {
   dossieColetas   ClienteDossieColeta[]
   dossieFatos     ClienteDossieFato[]
   dossieSugestoes ClienteDossieSugestao[]
-  projetos        Projeto[]
+  projetos        ProjetoCliente[]
 
   // Integração
   idSistema      String? @map("id_sistema")
@@ -7162,22 +7162,84 @@ model Projeto {
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
-  /// Cliente atendido pelo projeto. Opcional: projeto interno não tem cliente.
-  clienteId     String?       @map("cliente_id")
-
   tarefas       ProjetoTarefa[]
   tags          ProjetoTag[]
   mensagens     ProjetoMensagem[]
   anexos        ProjetoAnexo[]
   eventos       ProjetoEvento[]
   participantes ProjetoParticipante[]
-
-  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  clientes      ProjetoCliente[]
+  rodadas       ProjetoRodada[]
 
   @@index([status, isActive])
   @@index([responsavelId])
-  @@index([clienteId])
   @@map("projetos")
+}
+
+/// Empresas-cliente envolvidas no projeto.
+///
+/// É lista, e não um campo no projeto, porque uma ferramenta costuma ser
+/// desenvolvida atendendo vários clientes ao mesmo tempo. Projeto sem nenhum
+/// registro aqui é projeto interno.
+model ProjetoCliente {
+  id        String   @id @default(cuid())
+  projetoId String   @map("projeto_id")
+  clienteId String   @map("cliente_id")
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  projeto Projeto @relation(fields: [projetoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([projetoId, clienteId])
+  @@index([clienteId])
+  @@map("projeto_clientes")
+}
+
+/// Um ciclo de trabalho: a TI entrega, os envolvidos apontam, nasce a rodada
+/// seguinte. É o que o time chama de "rodada" no projeto Centria.
+model ProjetoRodada {
+  id         String    @id @default(cuid())
+  projetoId  String    @map("projeto_id")
+  /// Sequencial DENTRO do projeto: Rodada 1, Rodada 2…
+  numero     Int
+  titulo     String?
+  descricao  String?   @db.Text
+  /// Quando a rodada foi entregue para avaliação. Nulo = ainda em produção.
+  entregueEm DateTime? @map("entregue_em")
+  criadoEm   DateTime  @default(now()) @map("criado_em")
+  criadoPor  String?   @map("criado_por")
+
+  projeto      Projeto              @relation(fields: [projetoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  apontamentos ProjetoApontamento[]
+
+  @@unique([projetoId, numero])
+  @@index([projetoId])
+  @@map("projeto_rodadas")
+}
+
+/// O que um envolvido apontou sobre uma rodada.
+///
+/// O autor pode ser alguém de dentro (`autorId`) ou de fora (`autorNome`) — o
+/// analista do cliente nem sempre tem usuário no sistema, e perder o nome de
+/// quem apontou tiraria o sentido do registro.
+model ProjetoApontamento {
+  id       String @id @default(cuid())
+  rodadaId String @map("rodada_id")
+
+  texto      String  @db.Text
+  autorId    String? @map("autor_id")
+  autorNome  String? @map("autor_nome")
+  /// ABERTO | RESOLVIDO | DESCARTADO
+  situacao   String  @default("ABERTO")
+
+  resolvidoEm  DateTime? @map("resolvido_em")
+  resolvidoPor String?   @map("resolvido_por")
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+
+  rodada ProjetoRodada @relation(fields: [rodadaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([rodadaId, situacao])
+  @@map("projeto_apontamentos")
 }
 
 /// Quem mais está envolvido no projeto, além do responsável.
@@ -7188,6 +7250,9 @@ model ProjetoParticipante {
   id        String   @id @default(cuid())
   projetoId String   @map("projeto_id")
   userId    String   @map("user_id")
+  /// EXECUTANTE (faz) | COLABORADOR (apoia, valida, aponta).
+  /// O responsável NÃO entra aqui — ele é `Projeto.responsavelId`.
+  papel     String   @default("EXECUTANTE")
   criadoEm  DateTime @default(now()) @map("criado_em")
 
   projeto Projeto @relation(fields: [projetoId], references: [id], onDelete: Cascade, onUpdate: NoAction)

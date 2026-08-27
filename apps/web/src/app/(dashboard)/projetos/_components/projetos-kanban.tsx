@@ -41,8 +41,8 @@ export interface KanbanProjeto {
   responsavel: { id: string; name: string; image: string | null } | null
   /** Time em volta do responsável. Vazio quando ninguém mais foi envolvido. */
   participantes?: Array<{ id: string; name: string; image: string | null }>
-  /** Cliente atendido. Nulo = projeto interno. */
-  cliente?: { id: string; razaoSocial: string; nomeFantasia: string | null } | null
+  /** Empresas-cliente envolvidas. Lista vazia = projeto interno. */
+  clientes?: Array<{ id: string; razaoSocial: string; nomeFantasia: string | null }>
   tarefaProximoVencimento: { id: string; titulo: string; prazo: Date | string } | null
 }
 
@@ -375,7 +375,7 @@ function KanbanCardContent({
   onDelete: () => void
   showMenu: boolean
 }) {
-  const cliente = projeto.cliente
+  const clientes = projeto.clientes ?? []
   return (
     <div className="flex flex-col">
       {/* Cabeçalho — título e menu, no espaçamento do /orcamentos */}
@@ -410,11 +410,18 @@ function KanbanCardContent({
 
       {/* Corpo */}
       <div className="px-3 pb-2 space-y-1">
-        {/* Cliente atendido — sem ele o projeto é interno, e aí nada aparece. */}
-        {cliente && (
-          <div className="flex items-center gap-1.5 text-[11px] text-foreground/75">
+        {/* Clientes envolvidos — nenhum quer dizer projeto interno, e aí nada aparece.
+            No card cabe um nome; o resto vira "+N", com todos no title. */}
+        {clientes.length > 0 && (
+          <div
+            className="flex items-center gap-1.5 text-[11px] text-foreground/75"
+            title={clientes.map(c => c.nomeFantasia || c.razaoSocial).join(', ')}
+          >
             <Building2 className="h-3 w-3 shrink-0 text-muted-foreground/70" />
-            <span className="truncate">{cliente.nomeFantasia || cliente.razaoSocial}</span>
+            <span className="truncate">{clientes[0]!.nomeFantasia || clientes[0]!.razaoSocial}</span>
+            {clientes.length > 1 && (
+              <span className="shrink-0 text-muted-foreground">+{clientes.length - 1}</span>
+            )}
           </div>
         )}
 

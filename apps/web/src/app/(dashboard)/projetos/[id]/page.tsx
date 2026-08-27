@@ -6,7 +6,7 @@ import {
   Plus, MoreVertical, Pencil, Trash2, Loader2,
   ListChecks, Flag, Search, LayoutGrid, List,
   Info, MessageSquare, Kanban,
-  FolderKanban, Building2, Calendar, User as UserIcon,
+  FolderKanban, Building2, Calendar, User as UserIcon, Users, PackageCheck,
 } from 'lucide-react'
 import { cn } from '@saas/ui'
 import Link from 'next/link'
@@ -17,6 +17,8 @@ import { ProjetoKanban, type KanbanTarefa } from './_components/projeto-kanban'
 import { TarefaDetalheModal } from './_components/tarefa-detalhe-modal'
 import { ProjetoTabDetalhes } from './_components/projeto-tab-detalhes'
 import { ProjetoTabMensagens } from './_components/projeto-tab-mensagens'
+import { ProjetoTabEnvolvidos } from './_components/projeto-tab-envolvidos'
+import { ProjetoTabRodadas } from './_components/projeto-tab-rodadas'
 import { ProjetoSidebar } from './_components/projeto-sidebar'
 import {
   Button, Input, Card, Badge,
@@ -62,8 +64,8 @@ interface ProjetoDetail {
   dataPrevisao: Date | string | null
   responsavelId: string | null
   responsavel: { id: string; name: string; image: string | null } | null
-  participantes?: Array<{ id: string; name: string; image: string | null }>
-  cliente?: { id: string; razaoSocial: string; nomeFantasia: string | null } | null
+  participantes?: Array<{ id: string; name: string; image: string | null; papel?: string }>
+  clientes?: Array<{ id: string; razaoSocial: string; nomeFantasia: string | null }>
   createdAt?: Date | string
   _count: { tarefas: number; mensagens?: number; anexos?: number }
 }
@@ -80,7 +82,7 @@ interface TarefaRow {
   _count: { anexos: number; eventos: number; children: number }
 }
 
-type TabKey = 'detalhes' | 'mensagens' | 'tarefas'
+type TabKey = 'detalhes' | 'mensagens' | 'tarefas' | 'rodadas' | 'envolvidos'
 
 export default function ProjetoDetailPage() {
   const router = useRouter()
@@ -228,10 +230,18 @@ export default function ProjetoDetailPage() {
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
                         {PROJETO_STATUS_LABELS[projeto.status]}
                       </span>
-                      {projeto.cliente && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
+                      {(projeto.clientes ?? []).slice(0, 2).map(c => (
+                        <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
                           <Building2 className="h-3 w-3" />
-                          {projeto.cliente.nomeFantasia || projeto.cliente.razaoSocial}
+                          {c.nomeFantasia || c.razaoSocial}
+                        </span>
+                      ))}
+                      {(projeto.clientes?.length ?? 0) > 2 && (
+                        <span
+                          className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold text-white ring-1 ring-white/25 backdrop-blur"
+                          title={(projeto.clientes ?? []).map(c => c.nomeFantasia || c.razaoSocial).join(', ')}
+                        >
+                          +{(projeto.clientes?.length ?? 0) - 2}
                         </span>
                       )}
                     </div>
@@ -293,6 +303,15 @@ export default function ProjetoDetailPage() {
                   <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">{projeto._count.tarefas}</Badge>
                 )}
               </button>
+              <button type="button" onClick={() => setActiveTab('rodadas')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'rodadas' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                <PackageCheck className="h-4 w-4" /> Rodadas
+              </button>
+              <button type="button" onClick={() => setActiveTab('envolvidos')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'envolvidos' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                <Users className="h-4 w-4" /> Envolvidos
+                <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">
+                  {(projeto.participantes?.length ?? 0) + (projeto.responsavel ? 1 : 0) + (projeto.clientes?.length ?? 0)}
+                </Badge>
+              </button>
             </div>
           </div>
         </div>
@@ -301,6 +320,24 @@ export default function ProjetoDetailPage() {
         <div className="pt-5">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
             <div className="min-w-0">
+              <TabsContent value="rodadas" className="mt-0">
+                <ProjetoTabRodadas
+                  projetoId={projeto.id}
+                  canWrite={canWrite}
+                  canDelete={canDelete}
+                  corProjeto={projetoCor}
+                />
+              </TabsContent>
+
+              <TabsContent value="envolvidos" className="mt-0">
+                <ProjetoTabEnvolvidos
+                  responsavel={projeto.responsavel}
+                  participantes={projeto.participantes ?? []}
+                  clientes={projeto.clientes ?? []}
+                  corProjeto={projetoCor}
+                />
+              </TabsContent>
+
               <TabsContent value="detalhes" className="mt-0">
                 <ProjetoTabDetalhes
                   projeto={projeto}
