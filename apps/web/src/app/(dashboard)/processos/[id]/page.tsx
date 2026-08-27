@@ -10,16 +10,30 @@ import {
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Badge, Tabs, TabsList, TabsTrigger, TabsContent,
-  Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter, Label,
+  Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter, Label, Checkbox, cn,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { UserAvatar } from '@/components/ui/user-avatar'
+import { useTheme } from '@/hooks/use-theme'
+import { TEXT, BADGE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl } from '@/lib/api-url'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
+
+// Paleta do fluxo (SVG) — cor de contorno por estado. Fonte única: os nós do DAG
+// (corDoBloco, tema claro) e a legenda leem daqui, pra nunca divergirem.
+const FLUXO_STROKE = {
+  noPrazo:    '#10b981', // emerald-500
+  vencendo:   '#d97706', // amber-600
+  atrasado:   '#dc2626', // red-600
+  aguardando: '#f59e0b', // amber-500
+  concluido:  '#9ca3af', // gray-400
+  cancelado:  '#f43f5e', // rose-500
+  pulado:     '#d1d5db', // gray-300
+} as const
 
 interface Passo {
   id: string
@@ -76,13 +90,15 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELADO: 'Cancelado',
 }
 
+// EM_ANDAMENTO = sky (cor do módulo, retingida sob .mod-administrativo); os demais
+// são status universais. Todos derivam do helper BADGE (par claro+dark garantido).
 const STATUS_BADGE: Record<string, string> = {
-  EM_ANDAMENTO: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400',
-  CONCLUIDO:    'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400',
-  CANCELADO:    'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400',
-  AGUARDANDO_INICIO: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400',
-  AGUARDANDO_RESPOSTA: 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-400',
-  PULADO:       'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400',
+  EM_ANDAMENTO: BADGE.sky,
+  CONCLUIDO:    BADGE.emerald,
+  CANCELADO:    BADGE.rose,
+  AGUARDANDO_INICIO: BADGE.amber,
+  AGUARDANDO_RESPOSTA: BADGE.orange,
+  PULADO:       BADGE.slate,
 }
 
 const EXEC_STATUS_LABELS: Record<string, string> = {
@@ -247,7 +263,7 @@ export default function ProcessoDetalhePage() {
               <Button
                 variant="outline" size="sm"
                 onClick={() => setCancelOpen(true)}
-                className="gap-1.5 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800"
+                className="gap-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800"
               >
                 <Ban className="h-3.5 w-3.5" />Cancelar
               </Button>
@@ -272,7 +288,7 @@ export default function ProcessoDetalhePage() {
             {proc.orcamentoId && (
               <Link
                 href={`/orcamentos/${proc.orcamentoId}`}
-                className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 hover:bg-muted text-violet-700 dark:text-violet-300 px-2.5 py-0.5 text-[11px] font-medium uppercase border border-violet-200/60 dark:border-violet-800/60 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 hover:bg-muted text-sky-700 dark:text-sky-300 px-2.5 py-0.5 text-[11px] font-medium uppercase border border-sky-200/60 dark:border-sky-800/60 transition-colors"
               >
                 Origem: orçamento ↗
               </Link>
@@ -286,36 +302,34 @@ export default function ProcessoDetalhePage() {
         </PageHeaderBar>
 
         {/* Faixa do módulo com as abas — bleed-edge */}
-        <div
-          className="relative -mx-4 sm:-mx-6 overflow-hidden"
-          style={{ backgroundColor: 'rgba(139, 92, 246, .18)' }}
-        >
-          {/* Overlay em gradiente: 0% à esquerda → 80% à direita */}
+        <div className="relative -mx-4 sm:-mx-6 overflow-hidden bg-muted/30">
+          {/* Overlay: tinta suave da cor do módulo crescendo p/ a direita.
+              Base em token (bg-muted/30) garante um fundo coerente nos dois temas. */}
           <div
             className="absolute inset-0"
-            style={{ backgroundImage: 'linear-gradient(to right, rgba(139, 92, 246, 0) 0%, rgba(139, 92, 246, 0.8) 100%)' }}
+            style={{ backgroundImage: 'linear-gradient(to right, transparent 0%, color-mix(in srgb, var(--mod-administrativo, #38bdf8) 22%, transparent) 100%)' }}
           />
 
           {/* TabsList em pills centralizadas — dentro do mesmo wrapper */}
           <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto flex justify-center">
-            <TabsList className="min-w-max !shadow-sm !border !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit h-auto">
-              <TabsTrigger value="visao" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-white data-[state=active]:!shadow-sm data-[state=active]:!text-violet-700 dark:data-[state=active]:!bg-white/90 dark:data-[state=active]:!text-violet-700 gap-1.5">
+            <TabsList className="min-w-max !shadow-sm !border !border-border/60 gap-1.5 !p-1 !bg-muted/60 dark:!bg-muted/40 !rounded-full backdrop-blur-sm w-fit h-auto">
+              <TabsTrigger value="visao" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
                 <Layers className="h-3.5 w-3.5" />Visão geral
               </TabsTrigger>
-              <TabsTrigger value="fluxo" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-white data-[state=active]:!shadow-sm data-[state=active]:!text-violet-700 dark:data-[state=active]:!bg-white/90 dark:data-[state=active]:!text-violet-700 gap-1.5">
+              <TabsTrigger value="fluxo" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
                 <Workflow className="h-3.5 w-3.5" />Fluxo
               </TabsTrigger>
-              <TabsTrigger value="execucoes" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-white data-[state=active]:!shadow-sm data-[state=active]:!text-violet-700 dark:data-[state=active]:!bg-white/90 dark:data-[state=active]:!text-violet-700 gap-1.5">
+              <TabsTrigger value="execucoes" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
                 <ListChecks className="h-3.5 w-3.5" />Execuções
-                <span className="ml-1 text-[10px] px-1.5 rounded-full bg-violet-100 text-violet-700 tabular-nums">{totalExec}</span>
+                <span className="ml-1 text-[10px] px-1.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400 tabular-nums">{totalExec}</span>
               </TabsTrigger>
-              <TabsTrigger value="pendencias" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-white data-[state=active]:!shadow-sm data-[state=active]:!text-violet-700 dark:data-[state=active]:!bg-white/90 dark:data-[state=active]:!text-violet-700 gap-1.5">
+              <TabsTrigger value="pendencias" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
                 <AlertCircle className="h-3.5 w-3.5" />Pendências
                 {pendentes > 0 && (
-                  <span className="ml-1 text-[10px] px-1.5 rounded-full bg-amber-100 text-amber-700 tabular-nums">{pendentes}</span>
+                  <span className="ml-1 text-[10px] px-1.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 tabular-nums">{pendentes}</span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="timeline" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-white data-[state=active]:!shadow-sm data-[state=active]:!text-violet-700 dark:data-[state=active]:!bg-white/90 dark:data-[state=active]:!text-violet-700 gap-1.5">
+              <TabsTrigger value="timeline" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
                 <History className="h-3.5 w-3.5" />Timeline
               </TabsTrigger>
             </TabsList>
@@ -326,8 +340,8 @@ export default function ProcessoDetalhePage() {
         {/* Visão geral */}
         <TabsContent value="visao" className="mt-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard label="Execuções" value={totalExec} Icon={Layers} color="violet" />
-            <KpiCard label="Em andamento" value={emAndamento} Icon={PlayCircle} color="violet" />
+            <KpiCard label="Execuções" value={totalExec} Icon={Layers} color="sky" />
+            <KpiCard label="Em andamento" value={emAndamento} Icon={PlayCircle} color="sky" />
             <KpiCard label="Concluídas" value={concluidas} Icon={CheckCircle2} color="emerald" />
             <KpiCard label="Aguardando" value={pendentes} Icon={Clock} color="amber" />
           </div>
@@ -343,11 +357,8 @@ export default function ProcessoDetalhePage() {
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full transition-all"
-                      style={{
-                        width: `${pct}%`,
-                        backgroundColor: proc.status === 'CONCLUIDO' ? '#10b981' : MODULE_COLOR,
-                      }}
+                      className={cn('h-full transition-all', proc.status === 'CONCLUIDO' ? 'bg-emerald-500' : 'bg-sky-500')}
+                      style={{ width: `${pct}%` }}
                     />
                   </div>
                 </div>
@@ -465,15 +476,22 @@ export default function ProcessoDetalhePage() {
                               return (
                                 <label
                                   key={idx}
+                                  onClick={multi ? () => toggleOpcao(op) : undefined}
                                   className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer text-sm transition-colors ${checked ? 'bg-orange-50 dark:bg-orange-950/30 border-orange-300 dark:border-orange-700' : 'border-border hover:bg-muted/50'}`}
                                 >
-                                  <input
-                                    type={multi ? 'checkbox' : 'radio'}
-                                    name={`pergunta-${exec.id}`}
-                                    checked={checked}
-                                    onChange={() => toggleOpcao(op)}
-                                    className="h-3.5 w-3.5"
-                                  />
+                                  {multi ? (
+                                    // Checkbox centralizado (indicador; o clique é tratado no <label>).
+                                    <Checkbox checked={checked} tabIndex={-1} className="pointer-events-none h-3.5 w-3.5" />
+                                  ) : (
+                                    // Escolha única: radio nativo (não há equivalente centralizado).
+                                    <input
+                                      type="radio"
+                                      name={`pergunta-${exec.id}`}
+                                      checked={checked}
+                                      onChange={() => toggleOpcao(op)}
+                                      className="h-3.5 w-3.5"
+                                    />
+                                  )}
                                   <span>{op}</span>
                                 </label>
                               )
@@ -497,8 +515,7 @@ export default function ProcessoDetalhePage() {
                               size="sm"
                               onClick={() => handleResponderPergunta(exec.id)}
                               disabled={respondendoId === exec.id || escolhidas.length === 0}
-                              className="gap-1.5"
-                              style={{ backgroundColor: '#f59e0b', color: '#fff' }}
+                              className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
                             >
                               {respondendoId === exec.id
                                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -582,13 +599,13 @@ export default function ProcessoDetalhePage() {
                 {proc.eventos.map(ev => (
                   <div key={ev.id} className="flex items-start gap-3 px-4 py-3">
                     <div className="shrink-0 mt-0.5">
-                      {ev.tipo === 'concluido' && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
-                      {ev.tipo === 'cancelado' && <XCircle className="h-4 w-4 text-rose-600" />}
-                      {ev.tipo === 'criado' && <PlayCircle className="h-4 w-4 text-violet-600" />}
-                      {ev.tipo === 'execucao_criada' && <ListChecks className="h-4 w-4 text-violet-600" />}
-                      {ev.tipo === 'execucao_concluida' && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
-                      {ev.tipo === 'sucessor_pulado_condicao' && <Pause className="h-4 w-4 text-gray-500" />}
-                      {ev.tipo === 'sucessor_pulado_manual' && <Pause className="h-4 w-4 text-gray-500" />}
+                      {ev.tipo === 'concluido' && <CheckCircle2 className={cn('h-4 w-4', TEXT.emerald)} />}
+                      {ev.tipo === 'cancelado' && <XCircle className={cn('h-4 w-4', TEXT.rose)} />}
+                      {ev.tipo === 'criado' && <PlayCircle className={cn('h-4 w-4', TEXT.sky)} />}
+                      {ev.tipo === 'execucao_criada' && <ListChecks className={cn('h-4 w-4', TEXT.sky)} />}
+                      {ev.tipo === 'execucao_concluida' && <CheckCircle2 className={cn('h-4 w-4', TEXT.emerald)} />}
+                      {ev.tipo === 'sucessor_pulado_condicao' && <Pause className="h-4 w-4 text-muted-foreground" />}
+                      {ev.tipo === 'sucessor_pulado_manual' && <Pause className="h-4 w-4 text-muted-foreground" />}
                       {!['concluido','cancelado','criado','execucao_criada','execucao_concluida','sucessor_pulado_condicao','sucessor_pulado_manual'].includes(ev.tipo) && (
                         <MessageSquare className="h-4 w-4 text-muted-foreground" />
                       )}
@@ -679,12 +696,13 @@ export default function ProcessoDetalhePage() {
 // ─────────────────────────────────────────────────────────────
 
 function KpiCard({ label, value, Icon, color }: {
-  label: string; value: number; Icon: typeof Workflow; color: 'violet' | 'emerald' | 'amber'
+  label: string; value: number; Icon: typeof Workflow; color: 'sky' | 'emerald' | 'amber'
 }) {
+  // sky = cor do módulo (retingida sob .mod-administrativo); emerald/amber = status.
   const styles: Record<string, string> = {
-    violet:  'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-600',
-    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600',
-    amber:   'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-600',
+    sky:     'bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-800 text-sky-600 dark:text-sky-400',
+    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400',
+    amber:   'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400',
   }
   return (
     <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${styles[color]}`}>
@@ -750,14 +768,14 @@ function ExecucaoCard({ exec }: { exec: Execucao }) {
                   <span className="text-muted-foreground tabular-nums">{pct}%</span>
                 </div>
                 <div className="h-1 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full transition-all" style={{ width: `${pct}%`, backgroundColor: MODULE_COLOR }} />
+                  <div className="h-full transition-all bg-sky-500" style={{ width: `${pct}%` }} />
                 </div>
               </div>
             )}
           </div>
           <Link
             href={`/meus-servicos?exec=${exec.id}`}
-            className="shrink-0 inline-flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700 hover:underline"
+            className="shrink-0 inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:underline"
           >
             Abrir checklist →
           </Link>
@@ -795,6 +813,19 @@ function FluxoGraph({ execucoes, onChanged }: {
       .catch(() => { if (!cancelled) setCanAssign(false) })
     return () => { cancelled = true }
   }, [])
+
+  // Tema resolvido — o SVG não herda `.dark` via CSS (fills são pintados em JS),
+  // então precisamos saber claro/escuro pra escolher a paleta de cada nó.
+  const { theme } = useTheme()
+  const [systemDark, setSystemDark] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    setSystemDark(mq.matches)
+    const h = () => setSystemDark(mq.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [])
+  const isDark = theme === 'dark' || (theme === 'system' && systemDark)
 
   // Bloco em edição (popover aberto). Guarda a exec + retângulo do gatilho na viewport.
   const [editing, setEditing] = useState<{
@@ -866,18 +897,25 @@ function FluxoGraph({ execucoes, onChanged }: {
   //  - EM_ANDAMENTO + ≤3 dias     → amarelo
   //  - EM_ANDAMENTO + folgado     → verde
   type Cores = { fill: string; stroke: string; text: string }
+  // No claro: fundo pastel + texto escuro. No escuro: fundo escuro + texto claro
+  // (mesma família de cor invertida), pra manter contraste sobre o card escuro.
+  const pick = (l: Cores, d: Cores): Cores => (isDark ? d : l)
   function corDoBloco(e: Execucao): Cores {
     if (e.status === 'CONCLUIDO') {
-      return { fill: '#e5e7eb', stroke: '#9ca3af', text: '#4b5563' } // gray
+      return pick({ fill: '#e5e7eb', stroke: FLUXO_STROKE.concluido, text: '#4b5563' },
+                  { fill: '#1f2937', stroke: '#4b5563', text: '#cbd5e1' }) // gray
     }
     if (e.status === 'PULADO') {
-      return { fill: '#f3f4f6', stroke: '#d1d5db', text: '#6b7280' } // gray claro
+      return pick({ fill: '#f3f4f6', stroke: FLUXO_STROKE.pulado, text: '#6b7280' },
+                  { fill: '#111827', stroke: '#374151', text: '#9ca3af' }) // gray claro
     }
     if (e.status === 'CANCELADO') {
-      return { fill: '#ffe4e6', stroke: '#f43f5e', text: '#be123c' } // rose
+      return pick({ fill: '#ffe4e6', stroke: FLUXO_STROKE.cancelado, text: '#be123c' },
+                  { fill: '#4c0519', stroke: '#fb7185', text: '#fecdd3' }) // rose
     }
     if (e.status === 'AGUARDANDO_INICIO') {
-      return { fill: '#fef3c7', stroke: '#f59e0b', text: '#b45309' } // amber
+      return pick({ fill: '#fef3c7', stroke: FLUXO_STROKE.aguardando, text: '#b45309' },
+                  { fill: '#451a03', stroke: '#f59e0b', text: '#fcd34d' }) // amber
     }
     // EM_ANDAMENTO — depende do prazo
     if (e.prazoLimite) {
@@ -885,14 +923,17 @@ function FluxoGraph({ execucoes, onChanged }: {
       const prazo = new Date(e.prazoLimite).getTime()
       const diffDias = Math.ceil((prazo - agora) / (1000 * 60 * 60 * 24))
       if (diffDias < 0) {
-        return { fill: '#fee2e2', stroke: '#dc2626', text: '#991b1b' } // red atrasado
+        return pick({ fill: '#fee2e2', stroke: FLUXO_STROKE.atrasado, text: '#991b1b' },
+                    { fill: '#450a0a', stroke: '#ef4444', text: '#fca5a5' }) // red atrasado
       }
       if (diffDias <= 3) {
-        return { fill: '#fef3c7', stroke: '#d97706', text: '#92400e' } // yellow vencendo
+        return pick({ fill: '#fef3c7', stroke: FLUXO_STROKE.vencendo, text: '#92400e' },
+                    { fill: '#451a03', stroke: '#d97706', text: '#fcd34d' }) // yellow vencendo
       }
     }
     // sem prazo OU prazo folgado → verde "no prazo"
-    return { fill: '#d1fae5', stroke: '#10b981', text: '#047857' }
+    return pick({ fill: '#d1fae5', stroke: FLUXO_STROKE.noPrazo, text: '#047857' },
+                { fill: '#022c22', stroke: '#10b981', text: '#6ee7b7' })
   }
 
   return (
@@ -969,14 +1010,14 @@ function FluxoGraph({ execucoes, onChanged }: {
               {/* mini-barra */}
               {total > 0 && (
                 <>
-                  <rect x={12} y={48} width={NODE_W - 24} height={4} rx={2} ry={2} fill="rgba(0,0,0,0.08)" />
+                  <rect x={12} y={48} width={NODE_W - 24} height={4} rx={2} ry={2} fill={isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)'} />
                   <rect x={12} y={48} width={(NODE_W - 24) * (pct / 100)} height={4} rx={2} ry={2} fill={stroke} />
                 </>
               )}
               {/* Linha de prazo / conclusão */}
-              <PrazoNode exec={e} y={68} />
+              <PrazoNode exec={e} y={68} isDark={isDark} />
               {/* Avatar + nome do responsável */}
-              <ResponsavelNode user={e.responsavel} y={86} />
+              <ResponsavelNode user={e.responsavel} y={86} isDark={isDark} />
               {/* hover/click: link para checklist */}
               <a href={`/meus-servicos?exec=${e.id}`}>
                 <rect width={NODE_W} height={NODE_H} fill="transparent" style={{ cursor: 'pointer' }}>
@@ -1021,13 +1062,13 @@ function FluxoGraph({ execucoes, onChanged }: {
       </svg>
       {/* Legenda — cores combinam status + prazo */}
       <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-        <LegendDot color="#10b981" label="No prazo" />
-        <LegendDot color="#d97706" label="Vencendo (≤3d)" />
-        <LegendDot color="#dc2626" label="Atrasado" />
-        <LegendDot color="#f59e0b" label="Aguardando início" />
-        <LegendDot color="#9ca3af" label="Concluído" />
-        <LegendDot color="#f43f5e" label="Cancelado" />
-        <LegendDot color="#d1d5db" label="Pulado" />
+        <LegendDot color={FLUXO_STROKE.noPrazo} label="No prazo" />
+        <LegendDot color={FLUXO_STROKE.vencendo} label="Vencendo (≤3d)" />
+        <LegendDot color={FLUXO_STROKE.atrasado} label="Atrasado" />
+        <LegendDot color={FLUXO_STROKE.aguardando} label="Aguardando início" />
+        <LegendDot color={FLUXO_STROKE.concluido} label="Concluído" />
+        <LegendDot color={FLUXO_STROKE.cancelado} label="Cancelado" />
+        <LegendDot color={FLUXO_STROKE.pulado} label="Pulado" />
       </div>
       {/* Popover de troca de responsável — só monta quando aberto */}
       {editing && (
@@ -1166,9 +1207,9 @@ function FluxoResponsavelPopover({ exec, triggerRect, onClose, onChanged }: {
       </div>
       {/* Badge de filtro por área — quando o serviço tem categoria que bate com Area.name */}
       {areaFiltro && (
-        <div className="px-2 py-1.5 border-b bg-violet-50 dark:bg-violet-950/30 flex items-center gap-1.5">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
-          <span className="text-[10px] text-violet-700 dark:text-violet-300">
+        <div className="px-2 py-1.5 border-b bg-sky-50 dark:bg-sky-950/30 flex items-center gap-1.5">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-500 shrink-0" />
+          <span className="text-[10px] text-sky-700 dark:text-sky-300">
             Filtrado pela área <strong>{areaFiltro.name}</strong>
           </span>
         </div>
@@ -1183,7 +1224,7 @@ function FluxoResponsavelPopover({ exec, triggerRect, onClose, onChanged }: {
           className="h-7 text-xs w-full bg-transparent border-0 px-1 outline-none"
         />
       </div>
-      <div className="overflow-y-auto py-1" style={{ maxHeight: MAX_H - 80 }}>
+      <div className="overflow-y-auto nice-scrollbar py-1" style={{ maxHeight: MAX_H - 80 }}>
         {loadingCands && (
           <div className="flex items-center justify-center py-4 text-xs text-muted-foreground gap-1.5">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando…
@@ -1208,7 +1249,6 @@ function FluxoResponsavelPopover({ exec, triggerRect, onClose, onChanged }: {
           </p>
         ) : !loadingCands && filtered.map(c => {
           const ehAtual = c.id === (exec.responsavel?.id ?? null)
-          const initials = c.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
           return (
             <button
               key={c.id}
@@ -1219,13 +1259,8 @@ function FluxoResponsavelPopover({ exec, triggerRect, onClose, onChanged }: {
             >
               {salvando === c.id ? (
                 <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-              ) : c.image ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={resolveAssetUrl(c.image)} alt={c.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
               ) : (
-                <span className="h-5 w-5 rounded-full bg-[#5ea3cb] text-white text-[8px] flex items-center justify-center font-bold shrink-0">
-                  {initials}
-                </span>
+                <UserAvatar user={c} className="h-5 w-5 text-[8px] shrink-0" bg="bg-sky-500" />
               )}
               <span className="flex-1 min-w-0">
                 <span className="block truncate font-medium text-foreground">{c.name}</span>
@@ -1261,7 +1296,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 //  - prazo ≤ 3 dias → "⏰ Vence em Xd" em âmbar
 //  - prazo > 3 dias → "📅 Vence em DD/MM" em cinza
 //  - sem prazo definido → "—" em cinza claro
-function PrazoNode({ exec, y }: { exec: Execucao; y: number }) {
+function PrazoNode({ exec, y, isDark }: { exec: Execucao; y: number; isDark: boolean }) {
   const x = 12
   const fmt = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
   const fmtCurto = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
@@ -1305,6 +1340,15 @@ function PrazoNode({ exec, y }: { exec: Execucao; y: number }) {
     cor = '#9ca3af' // gray-400
   }
 
+  // No dark, sobe os tons de status pra versões claras (contraste sobre o nó escuro).
+  if (isDark) {
+    const DARK: Record<string, string> = {
+      '#059669': '#6ee7b7', '#be123c': '#fecdd3', '#dc2626': '#fca5a5',
+      '#d97706': '#fcd34d', '#6b7280': '#cbd5e1', '#9ca3af': '#cbd5e1',
+    }
+    cor = DARK[cor] ?? cor
+  }
+
   return (
     <g style={{ pointerEvents: 'none' }}>
       {icone && (
@@ -1323,9 +1367,10 @@ function PrazoNode({ exec, y }: { exec: Execucao; y: number }) {
 // de um nó SVG do FluxoGraph. Posiciona em x=12, y dado pelo prop. Quando
 // não há responsável, mostra "Sem responsável" em itálico. Imagens usam
 // clipPath circular pra recorte limpo.
-function ResponsavelNode({ user, y }: {
+function ResponsavelNode({ user, y, isDark }: {
   user: { id: string; name: string; image: string | null } | null
   y: number
+  isDark: boolean
 }) {
   const cx = 19  // x=12 + raio=7
   const cy = y - 1
@@ -1336,7 +1381,7 @@ function ResponsavelNode({ user, y }: {
   if (!user) {
     return (
       <g style={{ pointerEvents: 'none' }}>
-        <circle cx={cx} cy={cy} r={r} fill="#e5e7eb" stroke="rgba(0,0,0,0.08)" strokeWidth="0.5" />
+        <circle cx={cx} cy={cy} r={r} fill={isDark ? '#374151' : '#e5e7eb'} stroke={isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)'} strokeWidth="0.5" />
         <text x={cx} y={cy + 3} fontSize="8" fontWeight="700" fill="#9ca3af" textAnchor="middle">?</text>
         <text x={textX} y={textY} fontSize="10" fill="#9ca3af" fontStyle="italic">Sem responsável</text>
       </g>
@@ -1364,7 +1409,7 @@ function ResponsavelNode({ user, y }: {
             clipPath={`url(#${clipId})`}
             preserveAspectRatio="xMidYMid slice"
           />
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth="0.5" />
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke={isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.12)'} strokeWidth="0.5" />
         </>
       ) : (
         <>
@@ -1381,7 +1426,7 @@ function ResponsavelNode({ user, y }: {
           </text>
         </>
       )}
-      <text x={textX} y={textY} fontSize="10" fill="#374151" fontWeight="500">
+      <text x={textX} y={textY} fontSize="10" fill="currentColor" fontWeight="500">
         {truncate(user.name, 22)}
       </text>
     </g>

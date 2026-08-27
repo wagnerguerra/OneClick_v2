@@ -13,15 +13,26 @@ import {
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BADGE } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl } from '@/lib/api-url'
 import { SEGMENTO_SLUGS, SEGMENTO_META, type SegmentoSlug } from '@saas/types'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
+
+// Paleta de status do painel — fonte única p/ ícones de KPI, cabeçalhos de coluna,
+// barras do gantt e swatches de legenda (estilo inline/SVG, onde não cabe classe
+// Tailwind). "andamento" = cor do módulo; os demais são status universais.
+const STATUS_COR = {
+  atrasado:   '#ef4444', // red-500
+  andamento:  MODULE_COLOR,
+  aguardando: '#f59e0b', // amber-500
+  pausado:    '#64748b', // slate-500
+  concluido:  '#10b981', // emerald-500
+} as const
 
 interface Execucao {
   id: string
@@ -46,11 +57,11 @@ interface Execucao {
 type Coluna = 'atrasados' | 'em_andamento' | 'aguardando' | 'pausados' | 'concluidos'
 
 const COLUNAS: { id: Coluna; label: string; icon: typeof Workflow; cor: string; bg: string }[] = [
-  { id: 'atrasados',    label: 'Atrasados',         icon: AlertTriangle, cor: '#ef4444', bg: 'bg-red-50 dark:bg-red-950/20' },
-  { id: 'em_andamento', label: 'Em andamento',      icon: PlayCircle,    cor: '#8b5cf6', bg: 'bg-violet-50 dark:bg-violet-950/20' },
-  { id: 'aguardando',   label: 'Aguardando início', icon: Clock,         cor: '#f59e0b', bg: 'bg-amber-50 dark:bg-amber-950/20' },
-  { id: 'pausados',     label: 'Pausados',          icon: Pause,         cor: '#64748b', bg: 'bg-slate-50 dark:bg-slate-900/30' },
-  { id: 'concluidos',   label: 'Concluídos (7d)',   icon: CheckCircle2,  cor: '#10b981', bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
+  { id: 'atrasados',    label: 'Atrasados',         icon: AlertTriangle, cor: STATUS_COR.atrasado,   bg: 'bg-red-50 dark:bg-red-950/20' },
+  { id: 'em_andamento', label: 'Em andamento',      icon: PlayCircle,    cor: STATUS_COR.andamento,  bg: 'bg-sky-50 dark:bg-sky-950/30' },
+  { id: 'aguardando',   label: 'Aguardando início', icon: Clock,         cor: STATUS_COR.aguardando, bg: 'bg-amber-50 dark:bg-amber-950/20' },
+  { id: 'pausados',     label: 'Pausados',          icon: Pause,         cor: STATUS_COR.pausado,    bg: 'bg-slate-50 dark:bg-slate-900/30' },
+  { id: 'concluidos',   label: 'Concluídos (7d)',   icon: CheckCircle2,  cor: STATUS_COR.concluido,  bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
 ]
 
 export default function PainelOperacionalPage() {
@@ -214,11 +225,11 @@ export default function PainelOperacionalPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-        <KpiCard label="Atrasados"        value={kpis.atrasados}     icon={AlertTriangle} color="#ef4444" critico={kpis.atrasados > 0} onClick={() => setApenasAtrasados(true)} />
-        <KpiCard label="Em andamento"     value={kpis.em_andamento}  icon={PlayCircle}    color="#8b5cf6" />
-        <KpiCard label="Aguardando"       value={kpis.aguardando}    icon={Clock}         color="#f59e0b" />
-        <KpiCard label="Pausados"         value={kpis.pausados}      icon={Pause}         color="#64748b" />
-        <KpiCard label="Concluídos hoje"  value={kpis.concluidosHoje} icon={CheckCircle2} color="#10b981" />
+        <KpiCard label="Atrasados"        value={kpis.atrasados}     icon={AlertTriangle} color={STATUS_COR.atrasado} critico={kpis.atrasados > 0} onClick={() => setApenasAtrasados(true)} />
+        <KpiCard label="Em andamento"     value={kpis.em_andamento}  icon={PlayCircle}    color={STATUS_COR.andamento} />
+        <KpiCard label="Aguardando"       value={kpis.aguardando}    icon={Clock}         color={STATUS_COR.aguardando} />
+        <KpiCard label="Pausados"         value={kpis.pausados}      icon={Pause}         color={STATUS_COR.pausado} />
+        <KpiCard label="Concluídos hoje"  value={kpis.concluidosHoje} icon={CheckCircle2} color={STATUS_COR.concluido} />
       </div>
 
       {/* Toolbar */}
@@ -313,7 +324,7 @@ export default function PainelOperacionalPage() {
                 className={cn(
                   'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                   ativo
-                    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
+                    ? 'bg-sky-100 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
@@ -344,7 +355,7 @@ export default function PainelOperacionalPage() {
                     {items.length}
                   </span>
                 </div>
-                <div className="p-2 space-y-2 max-h-[calc(100vh-380px)] overflow-y-auto">
+                <div className="p-2 space-y-2 max-h-[calc(100vh-380px)] overflow-y-auto nice-scrollbar">
                   {items.length === 0 && (
                     <p className="text-center text-[11px] text-muted-foreground py-6 italic">vazio</p>
                   )}
@@ -370,24 +381,14 @@ export default function PainelOperacionalPage() {
               <div key={resp?.id ?? '__sem__'} className="rounded-lg border bg-card">
                 <div className="flex items-center justify-between gap-2 p-3 border-b bg-muted/30">
                   <div className="flex items-center gap-2 min-w-0">
-                    {resp?.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={resolveAssetUrl(resp.image)} alt={resp.name} className="h-7 w-7 rounded-full object-cover shrink-0" />
-                    ) : (
-                      <div className={cn(
-                        'h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
-                        resp ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'bg-slate-100 text-slate-500',
-                      )}>
-                        {resp ? resp.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() : '?'}
-                      </div>
-                    )}
+                    <UserAvatar user={resp} className="h-7 w-7 text-[10px] shrink-0" bg="bg-sky-500" />
                     <span className="text-sm font-semibold truncate" title={resp?.name ?? 'Sem responsável'}>
                       {resp?.name ?? 'Sem responsável'}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
                     {atrasos > 0 && (
-                      <Badge variant="outline" className="text-[10px] h-5 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
+                      <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.red)}>
                         {atrasos} atras.
                       </Badge>
                     )}
@@ -396,7 +397,7 @@ export default function PainelOperacionalPage() {
                     </span>
                   </div>
                 </div>
-                <div className="p-2 space-y-2 max-h-[calc(100vh-380px)] overflow-y-auto">
+                <div className="p-2 space-y-2 max-h-[calc(100vh-380px)] overflow-y-auto nice-scrollbar">
                   {items.map(e => <ExecucaoCard key={e.id} exec={e} onClick={() => setExecucaoAberta(e.id)} />)}
                 </div>
               </div>
@@ -462,11 +463,11 @@ function TimelineView({ execucoes, apenasAtrasados, onCardClick }: { execucoes: 
   }, [execucoes, apenasAtrasados, hoje])
 
   function statusColor(e: Execucao): string {
-    if (e.status === 'CONCLUIDO') return '#10b981'
-    if (e.status === 'AGUARDANDO_INICIO') return '#f59e0b'
-    if (e.pausado) return '#64748b'
-    if (e.prazoLimite && new Date(e.prazoLimite) < hoje) return '#ef4444'
-    return '#8b5cf6'
+    if (e.status === 'CONCLUIDO') return STATUS_COR.concluido
+    if (e.status === 'AGUARDANDO_INICIO') return STATUS_COR.aguardando
+    if (e.pausado) return STATUS_COR.pausado
+    if (e.prazoLimite && new Date(e.prazoLimite) < hoje) return STATUS_COR.atrasado
+    return STATUS_COR.andamento
   }
 
   // Range visual de cada execução, em pixels
@@ -522,7 +523,7 @@ function TimelineView({ execucoes, apenasAtrasados, onCardClick }: { execucoes: 
                     key={i}
                     className={cn(
                       'shrink-0 text-center text-[9px] py-1 border-r leading-tight',
-                      eHoje && 'bg-violet-100 dark:bg-violet-900/30 font-bold',
+                      eHoje && 'bg-sky-100 dark:bg-sky-950/30 font-bold',
                       dom && !eHoje && 'bg-slate-50 dark:bg-slate-900/30 text-muted-foreground',
                     )}
                     style={{ width: COL_WIDTH }}
@@ -536,7 +537,7 @@ function TimelineView({ execucoes, apenasAtrasados, onCardClick }: { execucoes: 
           </div>
 
           {/* Linhas de execução */}
-          <div className="max-h-[calc(100vh-440px)] overflow-y-auto">
+          <div className="max-h-[calc(100vh-440px)] overflow-y-auto nice-scrollbar">
             {ativas.map(e => {
               const b = bar(e)
               const cor = statusColor(e)
@@ -553,14 +554,7 @@ function TimelineView({ execucoes, apenasAtrasados, onCardClick }: { execucoes: 
                       <p className="text-[10px] text-muted-foreground truncate" title={e.clienteRazaoSocial}>{e.clienteRazaoSocial}</p>
                     </div>
                     {e.responsavel && (
-                      e.responsavel.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={resolveAssetUrl(e.responsavel.image)} alt={e.responsavel.name} className="h-5 w-5 rounded-full object-cover shrink-0" title={e.responsavel.name} />
-                      ) : (
-                        <div className="h-5 w-5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 flex items-center justify-center text-[8px] font-bold shrink-0" title={e.responsavel.name}>
-                          {e.responsavel.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
-                        </div>
-                      )
+                      <UserAvatar user={e.responsavel} className="h-5 w-5 text-[8px] shrink-0" bg="bg-sky-500" title={e.responsavel.name} />
                     )}
                   </div>
                   {/* Track */}
@@ -580,7 +574,7 @@ function TimelineView({ execucoes, apenasAtrasados, onCardClick }: { execucoes: 
                       )
                     })}
                     {/* Marker hoje */}
-                    <div className="absolute top-0 bottom-0 w-0.5 bg-violet-500/70 z-10" style={{ left: 0 }} />
+                    <div className="absolute top-0 bottom-0 w-0.5 bg-sky-500/70 z-10" style={{ left: 0 }} />
                     {/* Barra da execução */}
                     {b && (
                       <div
@@ -610,13 +604,13 @@ function TimelineView({ execucoes, apenasAtrasados, onCardClick }: { execucoes: 
 
         {/* Legenda */}
         <div className="border-t px-4 py-2 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: '#8b5cf6' }} /> Em andamento</span>
-          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: '#ef4444' }} /> Atrasado</span>
-          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: '#f59e0b' }} /> Aguardando</span>
-          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: '#64748b' }} /> Pausado</span>
-          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: '#10b981' }} /> Concluído</span>
+          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: STATUS_COR.andamento }} /> Em andamento</span>
+          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: STATUS_COR.atrasado }} /> Atrasado</span>
+          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: STATUS_COR.aguardando }} /> Aguardando</span>
+          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: STATUS_COR.pausado }} /> Pausado</span>
+          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: STATUS_COR.concluido }} /> Concluído</span>
           <span className="inline-flex items-center gap-1 ml-auto">
-            <span className="w-0.5 h-3 bg-violet-500/70" /> Hoje
+            <span className="w-0.5 h-3 bg-sky-500/70" /> Hoje
           </span>
         </div>
       </CardContent>
@@ -667,16 +661,16 @@ function ExecucaoCard({ exec, onClick }: { exec: Execucao; onClick?: () => void 
     const diffDias = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
     if (diffDias < 0) {
       prazoLabel = `atrasado ${Math.abs(diffDias)}d`
-      prazoCor = '#ef4444'
+      prazoCor = STATUS_COR.atrasado
     } else if (diffDias === 0) {
       prazoLabel = 'vence hoje'
-      prazoCor = '#f59e0b'
+      prazoCor = STATUS_COR.aguardando
     } else if (diffDias <= 3) {
       prazoLabel = `vence em ${diffDias}d`
-      prazoCor = '#f59e0b'
+      prazoCor = STATUS_COR.aguardando
     } else {
       prazoLabel = `vence em ${diffDias}d`
-      prazoCor = '#10b981'
+      prazoCor = STATUS_COR.concluido
     }
   }
 
@@ -712,7 +706,7 @@ function ExecucaoCard({ exec, onClick }: { exec: Execucao; onClick?: () => void 
           <Link
             href={`/processos/${exec.processoId}`}
             onClick={ev => ev.stopPropagation()}
-            className={cn('text-[9px]', TEXT.violet, 'hover:underline truncate max-w-[120px]')}
+            className={cn('text-[9px]', TEXT.sky, 'hover:underline truncate max-w-[120px]')}
             title={`Processo: ${exec.processoNome}`}
           >
             ↗ {exec.processoNome}
@@ -729,8 +723,8 @@ function ExecucaoCard({ exec, onClick }: { exec: Execucao; onClick?: () => void 
           </div>
           <div className="h-1 rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full transition-all"
-              style={{ width: `${pct}%`, backgroundColor: '#8b5cf6' }}
+              className="h-full transition-all bg-sky-500"
+              style={{ width: `${pct}%` }}
             />
           </div>
         </div>
@@ -741,14 +735,7 @@ function ExecucaoCard({ exec, onClick }: { exec: Execucao; onClick?: () => void 
         <div className="flex items-center gap-1.5 min-w-0">
           {exec.responsavel ? (
             <>
-              {exec.responsavel.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={resolveAssetUrl(exec.responsavel.image)} alt={exec.responsavel.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
-              ) : (
-                <div className="h-5 w-5 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center text-[9px] font-bold text-violet-700 dark:text-violet-300 shrink-0">
-                  {exec.responsavel.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
-                </div>
-              )}
+              <UserAvatar user={exec.responsavel} className="h-5 w-5 text-[9px] shrink-0" bg="bg-sky-500" />
               <span className="text-[10px] truncate" title={exec.responsavel.name}>
                 {exec.responsavel.name.split(' ')[0]}
               </span>
@@ -846,8 +833,8 @@ function ChecklistDialog({ execucaoId, onClose, onChanged }: {
 
   return (
     <Dialog open={true} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto">
-        <DialogHeaderIcon icon={Workflow} color="violet">
+      <DialogContent className="sm:max-w-[720px] max-h-[85vh]">
+        <DialogHeaderIcon icon={Workflow} color="sky">
           <DialogTitle>{loading ? 'Carregando...' : data?.servico.nome ?? 'Execução'}</DialogTitle>
           <DialogDescription>
             {data ? `${data.cliente.razaoSocial} · ${fechados}/${total} passos · ${pct}%` : ''}
@@ -864,8 +851,8 @@ function ChecklistDialog({ execucaoId, onClose, onChanged }: {
               {/* Barra de progresso */}
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div
-                  className="h-full transition-all"
-                  style={{ width: `${pct}%`, backgroundColor: data.status === 'CONCLUIDO' ? '#10b981' : '#8b5cf6' }}
+                  className={cn('h-full transition-all', data.status === 'CONCLUIDO' ? 'bg-emerald-500' : 'bg-sky-500')}
+                  style={{ width: `${pct}%` }}
                 />
               </div>
 
@@ -887,7 +874,7 @@ function ChecklistDialog({ execucaoId, onClose, onChanged }: {
                               'mt-0.5 h-4 w-4 shrink-0 rounded border-2 flex items-center justify-center transition-colors',
                               p.concluido && 'bg-emerald-500 border-emerald-500',
                               p.ignorado && 'bg-amber-400 border-amber-400',
-                              !fechado && 'border-border hover:border-violet-500',
+                              !fechado && 'border-border hover:border-sky-500',
                             )}
                             title={p.concluido ? 'Concluído (clique pra reabrir)' : p.ignorado ? 'Ignorado' : 'Marcar como concluído'}
                           >
@@ -901,7 +888,7 @@ function ChecklistDialog({ execucaoId, onClose, onChanged }: {
                             <p className={cn('leading-snug', fechado && 'line-through text-muted-foreground')}>
                               {p.passoNome}
                               {p.obrigatorio && !fechado && (
-                                <span className="ml-1 text-[10px] text-red-600/70 font-semibold">obrig.</span>
+                                <span className="ml-1 text-[10px] text-red-600/70 dark:text-red-400/70 font-semibold">obrig.</span>
                               )}
                             </p>
                             {p.observacao && (
@@ -920,7 +907,7 @@ function ChecklistDialog({ execucaoId, onClose, onChanged }: {
         <DialogFooter className="flex items-center justify-between gap-2">
           <Link
             href={`/meus-servicos?exec=${execucaoId}`}
-            className={cn('text-xs', TEXT.violet, 'hover:underline')}
+            className={cn('text-xs', TEXT.sky, 'hover:underline')}
           >
             Abrir checklist completo →
           </Link>

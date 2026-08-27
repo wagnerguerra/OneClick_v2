@@ -8,15 +8,16 @@ import {
   CheckCircle2, XCircle, PlayCircle, AlertTriangle, Clock,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card,
+  Button, Input, Badge, Card, cn,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { UserAvatar } from '@/components/ui/user-avatar'
+import { BADGE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl } from '@/lib/api-url'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
 const PAGE_SIZES = [10, 20, 50]
@@ -50,10 +51,12 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELADO: 'Cancelado',
 }
 
+// EM_ANDAMENTO = sky (cor do módulo Administrativo, retingida sob .mod-administrativo);
+// CONCLUIDO/CANCELADO = status universais. Todos derivam do helper BADGE.
 const STATUS_BADGE: Record<string, string> = {
-  EM_ANDAMENTO: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400',
-  CONCLUIDO:    'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400',
-  CANCELADO:    'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400',
+  EM_ANDAMENTO: BADGE.sky,
+  CONCLUIDO:    BADGE.emerald,
+  CANCELADO:    BADGE.rose,
 }
 
 export default function ProcessosPage() {
@@ -205,11 +208,8 @@ export default function ProcessosPage() {
                       </div>
                       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                         <div
-                          className="h-full transition-all"
-                          style={{
-                            width: `${pct}%`,
-                            backgroundColor: p.status === 'CONCLUIDO' ? '#10b981' : MODULE_COLOR,
-                          }}
+                          className={cn('h-full transition-all', p.status === 'CONCLUIDO' ? 'bg-emerald-500' : 'bg-sky-500')}
+                          style={{ width: `${pct}%` }}
                         />
                       </div>
                     </div>
@@ -217,14 +217,7 @@ export default function ProcessosPage() {
                   <TableCell className="hidden lg:table-cell">
                     {p.responsavel ? (
                       <div className="flex items-center gap-2">
-                        {p.responsavel.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={resolveAssetUrl(p.responsavel.image)} alt={p.responsavel.name} className="h-6 w-6 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-6 w-6 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center text-[10px] font-bold text-violet-700 dark:text-violet-300">
-                            {p.responsavel.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
-                          </div>
-                        )}
+                        <UserAvatar user={p.responsavel} className="h-6 w-6 text-[10px]" bg="bg-sky-500" />
                         <span className="text-xs">{p.responsavel.name}</span>
                       </div>
                     ) : (
@@ -295,7 +288,7 @@ function PrazoBadge({ status, prazo }: {
   if (prazo.atrasadas > 0) {
     return (
       <span
-        className="inline-flex items-center gap-1 rounded-md text-[11px] font-semibold px-2 py-0.5 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800"
+        className={cn('inline-flex items-center gap-1 rounded-md text-[11px] font-semibold px-2 py-0.5 border', BADGE.red)}
         title={`${prazo.atrasadas} execução(ões) com prazo vencido`}
       >
         <AlertTriangle className="h-3 w-3" />
@@ -317,7 +310,7 @@ function PrazoBadge({ status, prazo }: {
   if (diffDias <= 3) {
     return (
       <span
-        className="inline-flex items-center gap-1 rounded-md text-[11px] font-semibold px-2 py-0.5 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
+        className={cn('inline-flex items-center gap-1 rounded-md text-[11px] font-semibold px-2 py-0.5 border', BADGE.amber)}
         title={`Próximo prazo: ${proximo.toLocaleDateString('pt-BR')}`}
       >
         <Clock className="h-3 w-3" />
@@ -328,7 +321,7 @@ function PrazoBadge({ status, prazo }: {
 
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-md text-[11px] font-semibold px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+      className={cn('inline-flex items-center gap-1 rounded-md text-[11px] font-semibold px-2 py-0.5 border', BADGE.emerald)}
       title={`Próximo prazo: ${proximo.toLocaleDateString('pt-BR')}`}
     >
       <CheckCircle2 className="h-3 w-3" />
