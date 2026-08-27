@@ -438,6 +438,18 @@
   html body[data-scroll-locked] {
     margin-right: 0 !important;
   }
+  /* Mesma história com o SweetAlert2, que é outra biblioteca e compensa de
+     outro jeito: ele mexe só no `body` (`overflow: hidden` + `padding-right`
+     inline do tamanho da barra). Como o `overflow-y: scroll` acima é do `html`,
+     a barra continua lá — e o padding dele, que existia para compensar uma
+     barra que não some mais, vira o deslocamento. Medido na produção: o
+     conteúdo recuava 15px enquanto o rail fixo ficava parado.
+
+     `!important` num seletor vence uma declaração inline sem `!important`, que
+     é como o SweetAlert2 aplica o padding. */
+  html body.swal2-shown {
+    padding-right: 0 !important;
+  }
 
   body {
     @apply bg-background text-foreground antialiased;
