@@ -303,14 +303,14 @@ export default function ProjetoDetailPage() {
                   <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">{projeto._count.tarefas}</Badge>
                 )}
               </button>
-              <button type="button" onClick={() => setActiveTab('rodadas')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'rodadas' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
-                <PackageCheck className="h-4 w-4" /> Rodadas
-              </button>
               <button type="button" onClick={() => setActiveTab('envolvidos')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'envolvidos' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
                 <Users className="h-4 w-4" /> Envolvidos
                 <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">
                   {(projeto.participantes?.length ?? 0) + (projeto.responsavel ? 1 : 0) + (projeto.clientes?.length ?? 0)}
                 </Badge>
+              </button>
+              <button type="button" onClick={() => setActiveTab('rodadas')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'rodadas' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                <PackageCheck className="h-4 w-4" /> Rodadas
               </button>
             </div>
           </div>
@@ -331,10 +331,13 @@ export default function ProjetoDetailPage() {
 
               <TabsContent value="envolvidos" className="mt-0">
                 <ProjetoTabEnvolvidos
+                  projetoId={projeto.id}
                   responsavel={projeto.responsavel}
                   participantes={projeto.participantes ?? []}
                   clientes={projeto.clientes ?? []}
                   corProjeto={projetoCor}
+                  canWrite={canWrite}
+                  onChange={fetchProjeto}
                 />
               </TabsContent>
 
