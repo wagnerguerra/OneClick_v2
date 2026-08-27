@@ -14,6 +14,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { stripHtml } from '@/lib/html'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { PROJETO_STATUS_LABELS, PROJETO_STATUS_ORDEM, type ProjetoStatus } from '@saas/types'
@@ -417,8 +418,11 @@ function KanbanCardContent({
           </div>
         )}
 
-        {projeto.descricao && (
-          <div className="text-[11px] text-muted-foreground line-clamp-2">{projeto.descricao}</div>
+        {/* A descrição é HTML (vem do RichEditor na aba de detalhes). No card
+            ela é prévia de duas linhas, então vai achatada em texto puro —
+            exceção prevista no CLAUDE.md. Sem isso a tag aparecia crua. */}
+        {projeto.descricao && stripHtml(projeto.descricao) && (
+          <div className="text-[11px] text-muted-foreground line-clamp-2">{stripHtml(projeto.descricao)}</div>
         )}
 
         <ContagemTarefas count={projeto._count.tarefas} />

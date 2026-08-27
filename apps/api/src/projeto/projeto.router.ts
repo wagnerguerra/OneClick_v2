@@ -46,11 +46,11 @@ export function createProjetoRouter(svc: ProjetoService) {
     // de clientes nem à administração de usuários.
     listClientesVinculaveis: readProcedure(MODULE)
       .input(z.object({ busca: z.string().optional() }).optional())
-      .query(({ input }) => svc.listClientesVinculaveis(input?.busca)),
+      .query(({ input, ctx }) => svc.listClientesVinculaveis(input?.busca, ctx)),
 
     listPessoas: readProcedure(MODULE)
       .input(z.object({ busca: z.string().optional() }).optional())
-      .query(({ input }) => svc.listPessoas(input?.busca)),
+      .query(({ input, ctx }) => svc.listPessoas(input?.busca, ctx)),
 
     // ── Tarefas ───────────────────────────────────────────────
     listTarefas: readProcedure(MODULE)

@@ -11,12 +11,14 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  RichEditor,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ProjetosKanban, type KanbanProjeto } from './_components/projetos-kanban'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { stripHtml } from '@/lib/html'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -363,8 +365,8 @@ export default function ProjetosPage() {
                 </DropdownMenu>
               </div>
 
-              {p.descricao && (
-                <p className="text-[12px] text-muted-foreground line-clamp-2 mb-3">{p.descricao}</p>
+              {p.descricao && stripHtml(p.descricao) && (
+                <p className="text-[12px] text-muted-foreground line-clamp-2 mb-3">{stripHtml(p.descricao)}</p>
               )}
 
               <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
@@ -417,11 +419,12 @@ export default function ProjetosPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="descricao" className="text-[13px] font-semibold">Descrição</Label>
-              <textarea
-                id="descricao"
+              {/* RichEditor, não textarea: a aba de detalhes do projeto grava
+                  este mesmo campo em HTML. Com textarea aqui, o campo tinha
+                  dois formatos conforme a porta usada para editar. */}
+              <RichEditor
                 value={formDescricao}
-                onChange={(e) => setFormDescricao(e.target.value)}
-                className="w-full min-h-[80px] rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                onChange={setFormDescricao}
                 placeholder="Objetivo do projeto..."
               />
             </div>

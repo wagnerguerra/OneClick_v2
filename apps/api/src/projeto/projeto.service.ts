@@ -209,18 +209,29 @@ export class ProjetoService {
   }
 
   /**
+   * Filtro de tenancy no molde do `ativo.service`: a empresa ATIVA vale para
+   * todos, master incluído — o poder do master é TROCAR de empresa, não ver
+   * todas somadas. Registro global (empresaId nulo) acompanha qualquer empresa.
+   */
+  private tenantWhere(ctx?: { isMaster?: boolean; empresaId?: string }) {
+    if (ctx?.empresaId) return { OR: [{ empresaId: ctx.empresaId }, { empresaId: null }] }
+    return ctx?.isMaster ? {} : { empresaId: null }
+  }
+
+  /**
    * Clientes que podem ser vinculados a um projeto: os MENSAIS e ativos.
    *
    * Rota própria, e não a listagem do módulo Clientes, porque quem trabalha em
    * Projetos não tem necessariamente permissão de ver o cadastro de clientes —
    * e aqui só precisa de nome e id para escolher num campo.
    */
-  async listClientesVinculaveis(busca?: string) {
+  async listClientesVinculaveis(busca?: string, ctx?: { isMaster?: boolean; empresaId?: string }) {
     const termo = (busca ?? '').trim()
     return prisma.cliente.findMany({
       where: {
         situacao: 'MENSAL',
         status: 'ATIVO',
+        ...this.tenantWhere(ctx),
         ...(termo
           ? {
               OR: [
@@ -236,12 +247,13 @@ export class ProjetoService {
     })
   }
 
-  /** Pessoas que podem ser responsável ou participante. */
-  async listPessoas(busca?: string) {
+  /** Pessoas que podem ser responsável ou participante — só as da empresa. */
+  async listPessoas(busca?: string, ctx?: { isMaster?: boolean; empresaId?: string }) {
     const termo = (busca ?? '').trim()
     return prisma.user.findMany({
       where: {
         isActive: true,
+        ...this.tenantWhere(ctx),
         ...(termo ? { name: { contains: termo, mode: 'insensitive' } } : {}),
       },
       select: { id: true, name: true, image: true },
