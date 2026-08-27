@@ -713,6 +713,11 @@ model Cliente {
   /// padrão de quem não personalizou. Espelha User.coverImage.
   coverImage    String?       @map("cover_image")
 
+  // Dossiê (enriquecimento por CNPJ) — satélites aditivas, ver o fim do schema.
+  dossieColetas   ClienteDossieColeta[]
+  dossieFatos     ClienteDossieFato[]
+  dossieSugestoes ClienteDossieSugestao[]
+
   // Integração
   idSistema      String? @map("id_sistema")
   idOmie         String? @map("id_omie")
@@ -9050,4 +9055,117 @@ model ColetaLog {
   @@index([coletaId])
   @@index([legacyId])
   @@map("coleta_logs")
+}
+
+// ============================================================
+// Dossiê do Cliente — enriquecimento por CNPJ
+// ============================================================
+// Tabelas ADITIVAS: o cadastro de clientes é a fonte de verdade do negócio e
+// não é tocado por elas. O dossiê guarda o que veio de fora, com procedência,
+// e PROPÕE mudanças — quem decide é uma pessoa, na aba Dossiê.
+//
+// Deliberadamente NÃO existem aqui "empresas_socios" nem "empresas_estabelecimentos":
+// `Socio` e `cliente_cnaes` já cumprem esse papel e são cadastro editável.
+// Duplicá-los criaria duas verdades sobre o mesmo cliente.
+
+/// Uma tentativa de consulta a um provedor. Guarda o payload cru: reprocessar
+/// o que já foi baixado é grátis, consultar de novo custa tempo e cota.
+model ClienteDossieColeta {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+
+  /// Bloco do dossiê: receita | fiscal | risco | presenca_digital
+  bloco     String
+  /// Identificador do provedor: opencnpj | brasilapi | serpro | ...
+  fonte     String
+  urlFonte  String? @map("url_fonte")
+
+  /// ok | erro | sem_dados
+  status      String
+  erro        String? @db.Text
+  httpStatus  Int?    @map("http_status")
+  latenciaMs  Int?    @map("latencia_ms")
+  /// Resposta crua do provedor, como veio.
+  payload     Json?
+
+  coletadoEm DateTime @default(now()) @map("coletado_em")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([clienteId, bloco])
+  @@index([coletadoEm])
+  @@map("cliente_dossie_coletas")
+}
+
+/// O dado já normalizado, um por campo, com procedência. É daqui que a aba
+/// Dossiê lê — nunca do payload cru.
+model ClienteDossieFato {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+
+  bloco     String
+  /// Nome canônico do campo (ex.: 'situacao_cadastral', 'capital_social').
+  campo     String
+  valor     String? @db.Text
+  /// Valor estruturado quando o campo é lista/objeto (CNAEs, QSA, telefones).
+  valorJson Json?   @map("valor_json")
+
+  fonte      String
+  urlFonte   String?  @map("url_fonte")
+  /// 0.0 a 1.0. Fonte oficial ≈ 1.0; busca web fica bem abaixo — e por regra
+  /// nunca sobrescreve fato oficial.
+  confianca  Decimal  @default(1.0) @db.Decimal(3, 2)
+  oficial    Boolean  @default(true)
+
+  coletadoEm DateTime @default(now()) @map("coletado_em")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([clienteId, bloco, campo])
+  @@index([clienteId])
+  @@map("cliente_dossie_fatos")
+}
+
+/// Divergência entre o cadastro e a fonte oficial. Nada entra no cadastro sem
+/// passar por aqui — exceto o CNAE, que tem resposta única e é aplicado direto.
+model ClienteDossieSugestao {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+
+  /// Campo do CADASTRO que mudaria (ex.: 'razaoSocial', 'inscricaoEstadual').
+  campo        String
+  valorAtual   String? @map("valor_atual") @db.Text
+  valorSugerido String? @map("valor_sugerido") @db.Text
+
+  fonte      String
+  urlFonte   String? @map("url_fonte")
+  coletadoEm DateTime @default(now()) @map("coletado_em")
+
+  /// pendente | aprovada | rejeitada
+  status       String    @default("pendente")
+  decididoPor  String?   @map("decidido_por")
+  decididoEm   DateTime? @map("decidido_em")
+  observacao   String?   @db.Text
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([clienteId, status])
+  @@index([status])
+  @@map("cliente_dossie_sugestoes")
+}
+
+/// Trilha de acesso ao dossiê (LGPD): o QSA traz pessoa física, então fica
+/// registrado quem abriu o dossiê de qual cliente e quando.
+model ClienteDossieAcesso {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+  usuarioId String @map("usuario_id")
+  /// visualizou | atualizou | aprovou_sugestao | rejeitou_sugestao
+  acao      String
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  @@index([clienteId, criadoEm])
+  @@index([usuarioId])
+  @@map("cliente_dossie_acessos")
 }

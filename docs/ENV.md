@@ -161,9 +161,21 @@ Compose (produção, no serviço `api` — adicionar em `/opt/oneclick/docker-co
 PEXELS_API_KEY=
 ```
 
+## Dossiê do Cliente (enriquecimento por CNPJ)
+```env
+# Ordem da cadeia de provedores. Vazio = opencnpj,brasilapi,serpro.
+# As duas primeiras são gratuitas e sem token; o SERPRO é pago por consulta e
+# só entra quando as públicas falham (usa SERPRO_CONSUMER_KEY/SECRET).
+DOSSIE_PROVEDORES=
+```
+Job diário de situação cadastral: ligado por `system_config`
+(`DOSSIE_SITUACAO_ENABLED=true`, `DOSSIE_SITUACAO_CRON` padrão `0 6 * * *`).
+Detalhes em `apps/api/src/cliente/dossie/README.md`.
+
 ## Integrações Externas
 - **SMTP**: Gmail para e-mails transacionais
 - **BrasilAPI**: Consulta de CNPJ e CEP
+- **OpenCNPJ**: Dossiê do cliente — base da Receita, gratuita e sem token
 - **Pexels**: Fotos sugeridas para a capa do cliente (`PEXELS_API_KEY`)
 - **Omie**: ERP de alguns clientes (integração futura)
 - **SCI (Firebird)**: ERP contábil em `\\192.168.0.2`, charset UTF8

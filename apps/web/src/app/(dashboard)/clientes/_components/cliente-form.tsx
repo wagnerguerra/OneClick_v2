@@ -10,7 +10,7 @@ import {
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
   ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2, Check, Hash, Calendar, ClipboardCheck, Sparkles, Paperclip,
-  Globe,
+  Globe, FileSearch,
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
   Image as ImageIcon, Activity, Percent, ShieldCheck,
@@ -28,6 +28,7 @@ import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { CapaClienteModal } from './capa-cliente-modal'
+import { DossieCard } from './dossie-card'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
 import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
@@ -696,6 +697,12 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 <button type="button" onClick={() => setActiveTab('logs')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'logs' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
                   <ListTodo className="h-4 w-4" /> Log&apos;s
                 </button>
+                {/* Dossiê só existe para cliente já salvo — depende do CNPJ gravado. */}
+                {isEdit && (
+                  <button type="button" onClick={() => setActiveTab('dossie')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'dossie' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                    <FileSearch className="h-4 w-4" /> Dossiê
+                  </button>
+                )}
             </div>
           </div>
           </div>
@@ -744,6 +751,15 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                   canEdit={canEditDetails}
                 />
               </TabsContent>
+
+              {/* ======================================================== */}
+              {/* TAB: DOSSIÊ (enriquecimento por CNPJ)                     */}
+              {/* ======================================================== */}
+              {isEdit && clienteId && (
+                <TabsContent value="dossie" className="mt-0">
+                  <DossieCard clienteId={clienteId} podeAtualizar={canEditDetails} />
+                </TabsContent>
+              )}
 
               {/* ======================================================== */}
               {/* TAB: COMERCIAL (card com pills laterais)                  */}

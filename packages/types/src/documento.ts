@@ -73,6 +73,18 @@ export function ehMatrizCnpj(
   return c.substring(8, 12) === '0001' // NULL → numérico/legado
 }
 
+/**
+ * O CNPJ tem letra nas 12 primeiras posições?
+ *
+ * Serve de guarda para os caminhos de CONSULTA externa: nem a Receita nem a
+ * BrasilAPI aceitam CNPJ alfanumérico ainda, então quem consulta precisa
+ * detectar e avisar, em vez de mutilar o documento com `/\D/g` e sair
+ * perguntando por uma empresa que não existe.
+ */
+export function ehCnpjAlfanumerico(documento: string | null | undefined): boolean {
+  return /[A-Z]/.test(limparCnpj(documento))
+}
+
 /** Raiz do CNPJ (8 primeiras posições) — comum a matriz e filiais. '' se inválido. */
 export function raizCnpj(documento: string | null | undefined): string {
   const c = limparCnpj(documento)
