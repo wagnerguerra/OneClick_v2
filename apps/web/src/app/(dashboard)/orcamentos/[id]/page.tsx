@@ -8,7 +8,7 @@ import {
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
   Package, History, Type, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock, Globe,
-  Sparkles, Star, Link2, Hash, Building2, Calendar, Layers,
+  Sparkles, Star, Link2, Hash, Building2, Calendar, Layers, Bell,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label,
@@ -672,11 +672,21 @@ export default function OrcamentoDetailPage() {
   // líderes foi descontinuado (imagem em _backups/modulo-orcamentos-2026-08-19);
   // o vínculo continua existindo só para compor os badges.
   const [areasNotificadas, setAreasNotificadas] = useState<Array<{ areaId: string; areaNome: string }>>([])
-  useEffect(() => {
+  const loadAreasNotificadas = useCallback(() => {
     ;(trpc.orcamento as any).listAreasDoOrcamento.query({ orcamentoId: id })
       .then((r: Array<{ areaId: string; areaNome: string }>) => setAreasNotificadas(r.map(x => ({ areaId: x.areaId, areaNome: x.areaNome }))))
       .catch(() => setAreasNotificadas([]))
   }, [id])
+  useEffect(() => { loadAreasNotificadas() }, [loadAreasNotificadas])
+  // #367 — remover uma área NOTIFICADA (só essas; as derivadas de item vêm dos
+  // serviços). Permissão espelha a de vincular (writeProcedure = escrita no módulo).
+  const canRemoverArea = isMaster || orcPerm?.canWrite === true
+  async function handleRemoverArea(areaId: string) {
+    try {
+      await (trpc.orcamento as any).desvincularArea.mutate({ orcamentoId: id, areaId })
+      loadAreasNotificadas()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
   const chipsAreas = useMemo(() => {
     const m = new Map<string, { nome: string; derivada: boolean }>()
     for (const a of areasDerivadas) m.set(a.id, { nome: a.nome, derivada: true })
@@ -1970,13 +1980,36 @@ export default function OrcamentoDetailPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-xl font-bold tracking-tight text-white drop-shadow">{orc.cliente?.razaoSocial || 'Sem cliente'}</p>
                 <StatusBadge status={orc.status} />
-                {chipsAreas.map(a => (
-                  <span key={a.id}
-                    className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur"
-                    title={a.derivada ? 'Área dos serviços da aba Itens' : 'Área notificada'}>
-                    {a.nome}
-                  </span>
-                ))}
+                {/* Badges de área — #367: distingue por ÍCONE a área derivada dos itens
+                    (Layers) da área apenas notificada (Bell); tooltip do @saas/ui (não o
+                    nativo); e as NOTIFICADAS ganham um × no hover p/ remover (com permissão). */}
+                <TooltipProvider delayDuration={200}>
+                  {chipsAreas.map(a => {
+                    const Icone = a.derivada ? Layers : Bell
+                    const removivel = !a.derivada && canRemoverArea
+                    return (
+                      <Tooltip key={a.id}>
+                        <TooltipTrigger asChild>
+                          <span className="group/area inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
+                            <Icone className="h-3 w-3 opacity-80" />
+                            {a.nome}
+                            {removivel && (
+                              <button type="button"
+                                onClick={(e) => { e.stopPropagation(); handleRemoverArea(a.id) }}
+                                aria-label={`Remover área ${a.nome}`}
+                                className="ml-0.5 -mr-1 hidden items-center rounded-full p-0.5 hover:bg-white/25 group-hover/area:inline-flex">
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          {a.derivada ? 'Área dos serviços (aba Itens)' : 'Área notificada na criação do orçamento'}
+                        </TooltipContent>
+                      </Tooltip>
+                    )
+                  })}
+                </TooltipProvider>
                 {/* Badges de estado, na mesma linha do status e das áreas (vidro, como os chips) */}
                 {orc.paralizado && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur text-amber-200">

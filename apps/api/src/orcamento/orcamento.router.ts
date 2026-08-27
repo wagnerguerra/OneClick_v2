@@ -299,6 +299,9 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
     vincularAreas: writeProcedure(MODULE)
       .input(z.object({ orcamentoId: z.string(), areaIds: z.array(z.string()) }))
       .mutation(({ input, ctx }) => orcamentoService.vincularAreas(input.orcamentoId, input.areaIds, ctx.userId, ctx.empresaId)),
+    desvincularArea: writeProcedure(MODULE)
+      .input(z.object({ orcamentoId: z.string(), areaId: z.string() }))
+      .mutation(({ input, ctx }) => orcamentoService.desvincularArea(input.orcamentoId, input.areaId, ctx.userId)),
     detalharArea: protectedProcedure
       .input(z.object({ id: z.string(), detalhe: z.string().min(1), valor: z.number().nullable().optional() }))
       .mutation(({ input, ctx }) => orcamentoService.detalharArea(input.id, { detalhe: input.detalhe, valor: input.valor }, ctx.userId)),

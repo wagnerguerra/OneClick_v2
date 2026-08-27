@@ -1322,6 +1322,20 @@ export class OrcamentoService {
     }
   }
 
+  /** Remove o vínculo de uma "área a notificar" (OrcamentoArea) de um orçamento.
+   *  #367 — simétrico ao vincularAreas; registra a remoção na timeline. Idempotente. */
+  async desvincularArea(orcamentoId: string, areaId: string, userId?: string) {
+    const oa = await prisma.orcamentoArea.findUnique({
+      where: { orcamentoId_areaId: { orcamentoId, areaId } },
+      select: { id: true },
+    }).catch(() => null)
+    if (!oa) return { ok: true }
+    const area = await prisma.area.findUnique({ where: { id: areaId }, select: { name: true } }).catch(() => null)
+    await prisma.orcamentoArea.delete({ where: { id: oa.id } })
+    await this.addEvento(orcamentoId, userId, 'edicao', null, null, `Área "${area?.name ?? ''}" removida das áreas notificadas`).catch(() => {})
+    return { ok: true }
+  }
+
   /** Notifica (sino + e-mail) o líder/substituto de que a área está envolvida
    *  no orçamento. O workflow de DETALHAMENTO pelos líderes foi descontinuado
    *  (imagem em _backups/modulo-orcamentos-2026-08-19) — o vínculo hoje só
