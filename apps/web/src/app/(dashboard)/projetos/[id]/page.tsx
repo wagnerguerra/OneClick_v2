@@ -6,10 +6,12 @@ import {
   Plus, MoreVertical, Pencil, Trash2, Loader2,
   ListChecks, Flag, Search, LayoutGrid, List,
   Info, MessageSquare, Kanban,
+  FolderKanban, Building2, Calendar, User as UserIcon,
 } from 'lucide-react'
 import { cn } from '@saas/ui'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { fmtDateBR } from '@/lib/date'
 import { BackButton } from '@/components/ui/back-button'
 import { ProjetoKanban, type KanbanTarefa } from './_components/projeto-kanban'
 import { TarefaDetalheModal } from './_components/tarefa-detalhe-modal'
@@ -20,12 +22,13 @@ import {
   Button, Input, Card, Badge,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
-  Tabs, TabsContent, TabsTrigger, SlidingTabsList,
+  Tabs, TabsContent,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import {
+  PROJETO_STATUS_LABELS,
   TAREFA_STATUS_LABELS,
   TAREFA_PRIORIDADE_LABELS,
   type TarefaStatus,
@@ -59,6 +62,9 @@ interface ProjetoDetail {
   dataPrevisao: Date | string | null
   responsavelId: string | null
   responsavel: { id: string; name: string; image: string | null } | null
+  participantes?: Array<{ id: string; name: string; image: string | null }>
+  cliente?: { id: string; razaoSocial: string; nomeFantasia: string | null } | null
+  createdAt?: Date | string
   _count: { tarefas: number; mensagens?: number; anexos?: number }
 }
 
@@ -183,7 +189,7 @@ export default function ProjetoDetailPage() {
         {/* Topo — PADRAO_PAGINAS §1.1 */}
         <PageHeaderBar actions={<>
             {activeTab === 'tarefas' && canWrite && (
-              <Button size="sm" onClick={openCreateTarefa} className="gap-1.5" style={{ background: projetoCor }}>
+              <Button variant="success" size="sm" onClick={openCreateTarefa} className="gap-1.5">
                 <Plus className="h-4 w-4" /> Nova tarefa
               </Button>
             )}
@@ -195,63 +201,99 @@ export default function ProjetoDetailPage() {
             <span className="text-muted-foreground/50">›</span>
             <span>TI</span>
             <span className="text-muted-foreground/50">›</span>
-            <span>Projetos</span>
+            <Link href="/projetos" className="transition-colors hover:text-foreground">Projetos</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span className="truncate">{projeto.nome}</span>
           </p>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            {projeto.descricao && (
-              <span className="line-clamp-1 max-w-2xl">{projeto.descricao}</span>
-            )}
-            <span>{projeto._count.tarefas} {projeto._count.tarefas === 1 ? 'tarefa' : 'tarefas'}</span>
-            {projeto.dataPrevisao && (
-              <span>· previsão {new Date(projeto.dataPrevisao).toLocaleDateString('pt-BR')}</span>
-            )}
-          </div>
         </PageHeaderBar>
 
-        {/* ══════════════ Faixa colorida do projeto (abas) ══════════════ */}
-        <div
-          className="relative -mx-4 sm:-mx-6 overflow-hidden"
-          style={{ backgroundColor: `color-mix(in srgb, ${projetoCor} 12%, transparent)` }}
-        >
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `linear-gradient(to right, color-mix(in srgb, ${projetoCor} 0%, transparent) 0%, color-mix(in srgb, ${projetoCor} 70%, transparent) 100%)`,
-            }}
-          />
+        {/* ═══════════ Hero — PADRAO_PAGINAS §3.2, modelo /clientes/[id] ═══════════
+            Capa em gradiente da cor DO PROJETO (e não do módulo: aqui a cor é
+            do registro, escolhida no formulário), ícone em quadro claro, nome
+            com chips de vidro, meta em linha e os números à direita. */}
+        <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="relative overflow-hidden">
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${projetoCor} 0%, var(--color-primary) 100%)` }} />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
 
-          {/* Tabs em pills centralizadas — padrão helpdesk/orçamentos */}
-          <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto flex justify-center">
-            <SlidingTabsList
-              activeValue={activeTab}
-              className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit"
-            >
-              <TabsTrigger
-                value="detalhes"
-                className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none gap-1.5"
-                style={{ ['--tab-active-color' as string]: projetoCor }}
-              >
-                <Info className="h-3.5 w-3.5" /> Detalhes
-              </TabsTrigger>
-              <TabsTrigger
-                value="mensagens"
-                className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none gap-1.5"
-              >
-                <MessageSquare className="h-3.5 w-3.5" /> Mensagens
+            <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                <div className="flex items-end gap-4">
+                  <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
+                    <FolderKanban className="h-10 w-10" style={{ color: projetoCor }} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xl font-bold tracking-tight text-white drop-shadow">{projeto.nome}</p>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
+                        {PROJETO_STATUS_LABELS[projeto.status]}
+                      </span>
+                      {projeto.cliente && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
+                          <Building2 className="h-3 w-3" />
+                          {projeto.cliente.nomeFantasia || projeto.cliente.razaoSocial}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/85">
+                      <span className="inline-flex items-center gap-1">
+                        <UserIcon className="h-3.5 w-3.5" />
+                        {projeto.responsavel?.name ?? 'Sem responsável'}
+                        {(projeto.participantes?.length ?? 0) > 0 && (
+                          <span className="ml-0.5 opacity-80" title={`Também no projeto: ${(projeto.participantes ?? []).map(u => u.name).join(', ')}`}>
+                            +{projeto.participantes?.length}
+                          </span>
+                        )}
+                      </span>
+                      {projeto.dataPrevisao && (
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          Previsão {fmtDateBR(projeto.dataPrevisao)}
+                        </span>
+                      )}
+                      {projeto.createdAt && (
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          Criado em {fmtDateBR(projeto.createdAt)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-6">
+                  <div className="text-center">
+                    <p className="text-lg font-bold tracking-tight text-white drop-shadow tabular-nums">{projeto._count.tarefas}</p>
+                    <p className="text-xs text-white/75">{projeto._count.tarefas === 1 ? 'Tarefa' : 'Tarefas'}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold tracking-tight text-white drop-shadow tabular-nums">{projeto._count.mensagens ?? 0}</p>
+                    <p className="text-xs text-white/75">Mensagens</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tira de abas na base do hero — botões simples, como no /clientes/[id] */}
+          <div className="border-t border-border px-3">
+            <div className="nice-scrollbar flex gap-1.5 overflow-x-auto py-2">
+              <button type="button" onClick={() => setActiveTab('detalhes')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'detalhes' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                <Info className="h-4 w-4" /> Detalhes
+              </button>
+              <button type="button" onClick={() => setActiveTab('mensagens')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'mensagens' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                <MessageSquare className="h-4 w-4" /> Mensagens
                 {(projeto._count.mensagens ?? 0) > 0 && (
-                  <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{projeto._count.mensagens}</Badge>
+                  <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">{projeto._count.mensagens}</Badge>
                 )}
-              </TabsTrigger>
-              <TabsTrigger
-                value="tarefas"
-                className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none gap-1.5"
-              >
-                <Kanban className="h-3.5 w-3.5" /> Tarefas
+              </button>
+              <button type="button" onClick={() => setActiveTab('tarefas')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'tarefas' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                <Kanban className="h-4 w-4" /> Tarefas
                 {projeto._count.tarefas > 0 && (
-                  <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{projeto._count.tarefas}</Badge>
+                  <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">{projeto._count.tarefas}</Badge>
                 )}
-              </TabsTrigger>
-            </SlidingTabsList>
+              </button>
+            </div>
           </div>
         </div>
 
