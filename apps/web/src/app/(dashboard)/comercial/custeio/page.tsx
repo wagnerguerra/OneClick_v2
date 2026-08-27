@@ -234,7 +234,7 @@ export default function CusteioPage() {
           <DialogHeaderIcon icon={Settings2} color="rose">
             <DialogTitle>Parâmetros de custeio</DialogTitle>
           </DialogHeaderIcon>
-          <DialogBody className="max-h-[65vh] space-y-4 overflow-y-auto nice-scrollbar">
+          <DialogBody className="max-h-[65vh] space-y-4 overflow-y-auto">
                 {!params ? (
                   <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                 ) : (

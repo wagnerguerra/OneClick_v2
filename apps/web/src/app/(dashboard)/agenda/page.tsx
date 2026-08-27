@@ -23,6 +23,7 @@ import {
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { ModuloAcessoButton } from '@/components/modulo-acesso-button'
 import { AgendaTipoHistoricoButton } from '@/components/agenda-tipo-historico-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -492,9 +493,7 @@ export default function AgendaPage() {
             <div key={a.id} className="group rounded-md bg-muted/40 p-3">
               <div className="flex items-center justify-between mb-1 gap-2">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  {a.user?.image
-                    ? <img src={resolveAssetUrl(a.user.image)} alt={a.user.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
-                    : <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">{(a.user?.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}</span>}
+                  <UserAvatar user={a.user} className="h-5 w-5 text-[8px] text-muted-foreground shrink-0" bg="bg-muted" />
                   <span className="text-xs font-semibold truncate">{a.user?.name || 'Sistema'}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
@@ -1618,7 +1617,7 @@ export default function AgendaPage() {
                             className="h-7 text-xs"
                           />
                         </div>
-                        <div className="max-h-56 overflow-y-auto py-1">
+                        <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
                           {filtered.length === 0 ? (
                             <p className="px-3 py-3 text-xs text-muted-foreground text-center">
                               {disponiveis.length === 0 ? 'Todos já selecionados' : 'Nenhum encontrado'}
@@ -1633,14 +1632,7 @@ export default function AgendaPage() {
                               }}
                               className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
                             >
-                              {u.image ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={resolveAssetUrl(u.image)} alt={u.name} className="h-5 w-5 rounded-full object-cover shrink-0 border border-border" />
-                              ) : (
-                                <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center shrink-0 text-[8px] font-bold text-muted-foreground">
-                                  {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                                </span>
-                              )}
+                              <UserAvatar user={{ name: u.name, image: u.image ?? null }} className="h-5 w-5 text-[8px] text-muted-foreground shrink-0 border border-border" bg="bg-muted" />
                               <span className="truncate">{u.name}</span>
                             </button>
                           ))}
@@ -2066,7 +2058,7 @@ export default function AgendaPage() {
               {dayModalTarefas.length > 0 && ` · ${dayModalTarefas.length} tarefa(s)`}
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="max-h-[min(72vh,640px)] nice-scrollbar">
+          <DialogBody className="max-h-[min(72vh,640px)]">
           <div className={dayModalTarefas.length > 0 ? 'grid gap-5 md:grid-cols-[1fr_260px]' : ''}>
           <div className="space-y-4 min-w-0">
             {dayModalGrupos.map(grupo => (
@@ -2159,14 +2151,7 @@ export default function AgendaPage() {
                             className="inline-flex items-center gap-1.5 text-[12px] bg-muted/60 border border-border/60 rounded-full pl-0.5 pr-2.5 py-0.5"
                             title={p.nome}
                           >
-                            {p.image ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={resolveAssetUrl(p.image)} alt={p.nome} className="h-6 w-6 rounded-full object-cover shrink-0" />
-                            ) : (
-                              <span className="h-6 w-6 rounded-full bg-sky-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
-                                {p.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                              </span>
-                            )}
+                            <UserAvatar user={{ name: p.nome, image: p.image }} className="h-6 w-6 text-[9px] shrink-0" bg="bg-sky-500" />
                             <span className="truncate max-w-[140px]">{p.nome}</span>
                           </span>
                         ))}
@@ -2271,7 +2256,7 @@ export default function AgendaPage() {
             </DialogDescription>
           </DialogHeaderIcon>
 
-          <DialogBody className="nice-scrollbar">
+          <DialogBody>
             {/* VIEW MODE */}
             {modalMode === 'view' && selectedEvento && (() => {
               const ev = selectedEvento
@@ -2441,21 +2426,13 @@ export default function AgendaPage() {
                           <div className="flex flex-wrap gap-1.5">
                             {ev.participantes.slice(0, 8).map(p => {
                               const nome = p.usuario?.name ?? p.nomeAvulso ?? '?'
-                              const iniciais = nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
                               return (
                                 <span
                                   key={p.id}
                                   className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full bg-muted/60 border border-border/60"
                                   title={nome}
                                 >
-                                  {p.usuario?.image ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={resolveAssetUrl(p.usuario.image)} alt={nome} className="h-5 w-5 rounded-full object-cover shrink-0" />
-                                  ) : (
-                                    <span className="h-5 w-5 rounded-full bg-sky-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
-                                      {iniciais}
-                                    </span>
-                                  )}
+                                  <UserAvatar user={{ name: nome, image: p.usuario?.image ?? null }} className="h-5 w-5 text-[9px] shrink-0" bg="bg-sky-500" />
                                   <span className="text-[12px] font-medium truncate max-w-[160px] text-foreground">{nome}</span>
                                 </span>
                               )
@@ -2509,14 +2486,7 @@ export default function AgendaPage() {
                           <div className="space-y-1.5">
                             {eventLogs.map(log => (
                               <div key={log.id} className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                {log.usuario?.image ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={resolveAssetUrl(log.usuario.image)} alt={log.usuario.name} className="h-4 w-4 rounded-full object-cover shrink-0" />
-                                ) : (
-                                  <span className="h-4 w-4 rounded-full bg-muted text-muted-foreground text-[7px] font-bold flex items-center justify-center shrink-0">
-                                    {(log.usuario?.name ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                                  </span>
-                                )}
+                                <UserAvatar user={log.usuario} className="h-4 w-4 text-[7px] text-muted-foreground shrink-0" bg="bg-muted" />
                                 <span className="font-medium text-foreground/80 truncate">{log.usuario?.name ?? 'Sistema'}</span>
                                 <span className="capitalize">{log.acao}</span>
                                 <span className="ml-auto shrink-0">{new Date(log.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
@@ -2627,9 +2597,7 @@ export default function AgendaPage() {
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-muted-foreground shrink-0">Responsável</span>
                                 <span className="inline-flex items-center gap-1.5 text-foreground font-medium truncate">
-                                  <span className="h-5 w-5 rounded-full bg-violet-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
-                                    {op.responsavel.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                                  </span>
+                                  <UserAvatar user={{ name: op.responsavel.name, image: null }} className="h-5 w-5 text-[9px] shrink-0" bg="bg-violet-500" />
                                   <span className="truncate">{op.responsavel.name}</span>
                                 </span>
                               </div>
@@ -2812,7 +2780,7 @@ export default function AgendaPage() {
                                   className="h-7 text-xs"
                                 />
                               </div>
-                              <div className="max-h-56 overflow-y-auto py-1">
+                              <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
                                 {filteredTipos.length === 0 ? (
                                   <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhum tipo encontrado</p>
                                 ) : filteredTipos.map(t => (
@@ -3230,14 +3198,7 @@ export default function AgendaPage() {
                           const u = usuarios.find(u => u.id === id)
                           return u ? (
                             <span key={id} className="flex items-center gap-1.5 text-[11px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 pl-0.5 pr-2 py-0.5 rounded-full">
-                              {u.image ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={resolveAssetUrl(u.image)} alt={u.name} className="h-5 w-5 rounded-full object-cover" />
-                              ) : (
-                                <span className="h-5 w-5 rounded-full bg-sky-200 dark:bg-sky-800 flex items-center justify-center text-[8px] font-bold">
-                                  {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                                </span>
-                              )}
+                              <UserAvatar user={{ name: u.name, image: u.image ?? null }} className="h-5 w-5 text-[8px] text-sky-700 dark:text-sky-400" bg="bg-sky-200 dark:bg-sky-800" />
                               {u.name}
                               <button type="button" onClick={() => setForm(f => ({ ...f, participanteIds: f.participanteIds.filter(p => p !== id) }))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
                             </span>
@@ -3313,7 +3274,7 @@ export default function AgendaPage() {
                                   )}
                                 </div>
                               </div>
-                              <div className="max-h-56 overflow-y-auto py-1">
+                              <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
                                 {partFiltered.length === 0 ? (
                                   <p className="px-3 py-3 text-xs text-muted-foreground text-center">
                                     {usuariosDisponiveis.length === 0 ? 'Todos os usuários já estão adicionados' : 'Nenhum usuário encontrado'}
@@ -3329,20 +3290,7 @@ export default function AgendaPage() {
                                     }}
                                     className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
                                   >
-                                    {u.image ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img
-                                        src={resolveAssetUrl(u.image)}
-                                        alt={u.name}
-                                        className="h-6 w-6 rounded-full object-cover shrink-0 border border-border"
-                                      />
-                                    ) : (
-                                      <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                                        <span className="text-[9px] font-bold text-muted-foreground">
-                                          {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                                        </span>
-                                      </span>
-                                    )}
+                                    <UserAvatar user={{ name: u.name, image: u.image ?? null }} className="h-6 w-6 text-[9px] text-muted-foreground shrink-0 border border-border" bg="bg-muted" />
                                     <span className="truncate">{u.name}</span>
                                   </button>
                                 ))}
@@ -3526,7 +3474,7 @@ export default function AgendaPage() {
                               className="h-7 text-xs"
                             />
                           </div>
-                          <div className="max-h-56 overflow-y-auto py-1">
+                          <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
                             {opBuscaLoading ? (
                               <p className="px-3 py-3 text-xs text-muted-foreground text-center flex items-center justify-center gap-2">
                                 <Loader2 className="h-3 w-3 animate-spin" />Buscando...
@@ -3655,7 +3603,7 @@ export default function AgendaPage() {
                     <Plus className="h-3.5 w-3.5" /> Novo
                   </Button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                <div className="flex-1 overflow-y-auto nice-scrollbar p-2 space-y-1">
                   {tipos.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-6">Nenhum tipo cadastrado</p>
                   ) : tipos.map(t => (
@@ -3696,7 +3644,7 @@ export default function AgendaPage() {
               </div>
 
               {/* PAINEL DE EDIÇÃO (direita) */}
-              <div className="flex-1 overflow-y-auto p-5">
+              <div className="flex-1 overflow-y-auto nice-scrollbar p-5">
                 {!(tipoEditando || tipoPainelNovo) ? (
                   <div className="h-full flex flex-col items-center justify-center text-center gap-2 text-muted-foreground">
                     <Palette className="h-9 w-9 opacity-30" />

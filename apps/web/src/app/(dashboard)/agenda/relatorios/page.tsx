@@ -18,8 +18,9 @@ import {
 import { trpc } from '@/lib/trpc'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { BackButton } from '@/components/ui/back-button'
+import { UserAvatar } from '@/components/ui/user-avatar'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import { PageHeaderBar } from '@/components/page-header-bar'
-import { resolveAssetUrl } from '@/lib/api-url'
 
 const MOD = 'var(--mod-administrativo, #38bdf8)'
 
@@ -254,10 +255,7 @@ export default function RelatoriosAgendaPage() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
                       <XAxis dataKey="nome" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={60} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                      <Tooltip
-                        cursor={{ fill: 'rgba(148, 163, 184, 0.15)' }}
-                        contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', color: 'hsl(var(--foreground))' }}
-                      />
+                      <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
                       <Bar dataKey="quantidade" radius={[4, 4, 0, 0]}>
                         <LabelList dataKey="quantidade" position="top" className="fill-foreground" fontSize={11} />
                         {chartData.map((d, i) => <Cell key={i} fill={d.cor} />)}
@@ -294,9 +292,7 @@ export default function RelatoriosAgendaPage() {
                                       title={`${u.nome}: ${u.quantidade}`}
                                       className="inline-flex items-center gap-1 h-[18px] pl-0.5 pr-1.5 rounded-full bg-muted text-[10px] font-semibold text-foreground/80"
                                     >
-                                      {u.image
-                                        ? <img src={resolveAssetUrl(u.image)} alt={u.nome} className="h-3.5 w-3.5 rounded-full object-cover" />
-                                        : <span className="h-3.5 w-3.5 rounded-full bg-background flex items-center justify-center text-[6px] font-bold">{u.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}</span>}
+                                      <UserAvatar user={{ name: u.nome, image: u.image ?? null }} className="h-3.5 w-3.5 text-[6px] text-foreground/80" bg="bg-background" />
                                       {u.quantidade}
                                     </span>
                                   ))}
@@ -331,9 +327,7 @@ export default function RelatoriosAgendaPage() {
                         <tr key={u.usuarioId} className="hover:bg-muted/30 cursor-pointer" onClick={() => abrirDrillUsuario(u)} title="Ver eventos">
                           <td className="px-4 py-2">
                             <div className="flex items-center gap-2 min-w-0">
-                              {u.image
-                                ? <img src={resolveAssetUrl(u.image)} alt={u.nome} className="h-6 w-6 rounded-full object-cover shrink-0" />
-                                : <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">{u.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}</span>}
+                              <UserAvatar user={{ name: u.nome, image: u.image ?? null }} className="h-6 w-6 text-[9px] text-muted-foreground shrink-0" bg="bg-muted" />
                               <span className="truncate">{u.nome}</span>
                               {u.tipos.length > 0 && (
                                 <div className="flex flex-wrap items-center gap-1 sm:shrink-0 ml-1">
@@ -381,7 +375,7 @@ export default function RelatoriosAgendaPage() {
               {drill?.label}{drillData ? ` · ${drillData.total} evento(s) no período` : ''}
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="nice-scrollbar space-y-2 max-h-[60vh]">
+          <DialogBody className="space-y-2 max-h-[60vh]">
             {drillLoading ? (
               <div className="flex justify-center py-10 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
             ) : !drillData || drillData.data.length === 0 ? (

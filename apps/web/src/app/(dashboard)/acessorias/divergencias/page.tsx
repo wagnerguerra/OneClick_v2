@@ -287,7 +287,7 @@ export default function DivergenciasPage() {
                   Só no Acessórias — {rel.somenteNoAcessorias.length} empresa(s) sem cliente aqui
                 </h4>
               </div>
-              <div className="max-h-64 divide-y divide-border/60 overflow-y-auto rounded-lg border border-border">
+              <div className="max-h-64 divide-y divide-border/60 overflow-y-auto nice-scrollbar rounded-lg border border-border">
                 {rel.somenteNoAcessorias.map((e) => (
                   <div key={e.id} className="flex items-center gap-3 px-3 py-2 text-xs">
                     <span className="font-mono text-muted-foreground">{masks.cpfCnpj(e.documento)}</span>
@@ -302,7 +302,7 @@ export default function DivergenciasPage() {
           {rel.somenteNoOneClick.length > 0 && (
             <Card className="p-4">
               <div className="mb-3 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                 <h4 className="text-[13px] font-semibold">
                   Vinculados aqui, ausentes lá — {rel.somenteNoOneClick.length} cliente(s)
                 </h4>
@@ -311,7 +311,7 @@ export default function DivergenciasPage() {
                 Têm código do Acessórias gravado, mas a empresa não apareceu na listagem de lá — pode ter sido
                 removida ou o vínculo está apontando para outro registro.
               </p>
-              <div className="max-h-64 divide-y divide-border/60 overflow-y-auto rounded-lg border border-border">
+              <div className="max-h-64 divide-y divide-border/60 overflow-y-auto nice-scrollbar rounded-lg border border-border">
                 {rel.somenteNoOneClick.map((c) => (
                   <div key={c.clienteId} className="flex items-center gap-3 px-3 py-2 text-xs">
                     <Link href={`/clientes/${c.clienteId}`} target="_blank" className="min-w-0 flex-1 truncate hover:underline">

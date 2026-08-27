@@ -108,7 +108,7 @@ export function OrcamentosLegadoSection({ clienteId, className }: { clienteId?: 
               {[sel?.status, fmtData(sel?.dtFinalizado || sel?.dtAprovado || sel?.dtNovo || null)].filter(Boolean).join(' · ') || 'Histórico do sistema legado'}
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-4 max-h-[min(70vh,640px)] nice-scrollbar">
+          <DialogBody className="space-y-4 max-h-[min(70vh,640px)]">
             {sel && (
               <>
                 {/* Resumo financeiro (com desconto, como no legado) */}

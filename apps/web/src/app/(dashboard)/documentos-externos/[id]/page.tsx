@@ -269,7 +269,7 @@ export default function DocumentoExternoDetalhePage() {
               Os campos vêm preenchidos com a revisão vigente — ajuste o que mudou. A nova revisão passa a valer e a anterior fica no histórico.
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-4 max-h-[60vh] overflow-y-auto nice-scrollbar">
+          <DialogBody className="space-y-4 max-h-[60vh] overflow-y-auto">
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-12 sm:col-span-4">
                 <Label className="text-[13px] font-semibold">Data do registro</Label>

@@ -889,7 +889,7 @@ export default function RelatoriosTiPage() {
             </DialogDescription>
           </DialogHeaderIcon>
 
-          <DialogBody className="nice-scrollbar max-h-[65vh] space-y-4 overflow-y-auto">
+          <DialogBody className="max-h-[65vh] space-y-4 overflow-y-auto">
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-12 space-y-1.5 sm:col-span-4">
                 <Label className="text-[13px] font-semibold">Dia do relatório</Label>
@@ -966,7 +966,7 @@ export default function RelatoriosTiPage() {
             </DialogDescription>
           </DialogHeaderIcon>
 
-          <DialogBody className="nice-scrollbar max-h-[65vh] space-y-2 overflow-y-auto">
+          <DialogBody className="max-h-[65vh] space-y-2 overflow-y-auto">
             {novidades.length === 0 ? (
               <p className="py-10 text-center text-sm italic text-muted-foreground">
                 Nada publicado ainda. Abra um relatório e use &quot;Virar novidade&quot;.
@@ -1100,7 +1100,7 @@ export default function RelatoriosTiPage() {
             </DialogDescription>
           </DialogHeaderIcon>
 
-          <DialogBody className="nice-scrollbar max-h-[65vh] space-y-4 overflow-y-auto">
+          <DialogBody className="max-h-[65vh] space-y-4 overflow-y-auto">
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Área da equipe</Label>
               <select value={cfgAreaId} onChange={e => setCfgAreaId(e.target.value)}

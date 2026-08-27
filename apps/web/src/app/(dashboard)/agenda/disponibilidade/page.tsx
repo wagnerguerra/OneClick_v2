@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Users, ChevronLeft, ChevronRight, Loader2, X, ChevronDown, Calendar, Search,
+  Users, ChevronLeft, ChevronRight, Loader2, X, ChevronDown, Calendar, Search,
   Clock, MapPin, FileText, ExternalLink,
 } from 'lucide-react'
 import {
@@ -14,6 +14,8 @@ import {
   RichContent,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BackButton } from '@/components/ui/back-button'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -293,14 +295,7 @@ export default function AgendaDisponibilidadePage() {
       {/* Header */}
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-        <Button
-          variant="outline" size="icon"
-          onClick={() => router.push('/agenda')}
-          title="Voltar pra Agenda"
-          className="h-9 w-9"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <BackButton href="/agenda" />
       </>}>
         <h1 className="truncate">Disponibilidade combinada</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -365,7 +360,7 @@ export default function AgendaDisponibilidadePage() {
                     className="h-7 text-xs"
                   />
                 </div>
-                <div className="max-h-56 overflow-y-auto py-1">
+                <div className="max-h-56 overflow-y-auto nice-scrollbar py-1">
                   {usuariosFiltrados.length === 0 ? (
                     <p className="px-3 py-3 text-xs text-muted-foreground text-center">
                       {usuarios.length === selecionadosIds.length
@@ -383,11 +378,7 @@ export default function AgendaDisponibilidadePage() {
                       }}
                       className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2"
                     >
-                      <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                        <span className="text-[9px] font-bold text-muted-foreground">
-                          {(u.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                        </span>
-                      </span>
+                      <UserAvatar user={{ name: u.name, image: null }} className="h-6 w-6 text-[9px] text-muted-foreground shrink-0" bg="bg-muted" />
                       <span className="truncate">{u.name}</span>
                     </button>
                   ))}
@@ -427,7 +418,7 @@ export default function AgendaDisponibilidadePage() {
             )}
             {/* Grid posicionado: colunas por dia + blocos absolutos por horário.
                 Eventos sobrepostos dividem a largura em lanes (lado a lado). */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto nice-scrollbar">
               <div className="min-w-[680px]">
                 {/* Cabeçalho dos dias */}
                 <div className="flex sticky top-0 z-20 bg-muted/30">

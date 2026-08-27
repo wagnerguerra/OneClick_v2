@@ -247,7 +247,7 @@ export default function TabelaRegistroDetalhePage() {
               Os campos vêm preenchidos com a versão vigente — ajuste o que mudou. A nova versão passa a valer e a anterior fica no histórico.
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-4 max-h-[60vh] overflow-y-auto nice-scrollbar">
+          <DialogBody className="space-y-4 max-h-[60vh] overflow-y-auto">
             <div>
               <Label className="text-[13px] font-semibold">Data da versão</Label>
               <Input type="date" value={verData} onChange={(e) => setVerData(e.target.value)} className="h-9 text-sm mt-1.5 w-[180px]" />

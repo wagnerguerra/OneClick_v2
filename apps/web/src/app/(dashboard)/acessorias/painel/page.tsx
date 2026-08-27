@@ -525,7 +525,7 @@ export default function PainelEntregasPage() {
         ) : linhasFiltradas.length === 0 ? (
           <VazioPainel />
         ) : (
-          <div className="max-h-[620px] overflow-auto">
+          <div className="max-h-[620px] overflow-auto nice-scrollbar">
             {truncado && (
               <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-[12px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
                 Mostrando as primeiras {truncado.limite} linhas. Os indicadores acima contam

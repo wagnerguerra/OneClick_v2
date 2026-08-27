@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   ListTodo, Plus, Search, Loader2, CheckSquare, Square, Edit2, Trash2,
-  Calendar, AlertCircle, Briefcase, ArrowLeft,
+  Calendar, AlertCircle, Briefcase,
 } from 'lucide-react'
 import {
   Button, Input, Card, Badge, cn,
 } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BackButton } from '@/components/ui/back-button'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
@@ -138,9 +140,7 @@ export default function TarefasPage() {
           >
             <Plus className="h-4 w-4" />Nova tarefa
           </Button>
-          <Button variant="outline" size="icon" asChild className="h-9 w-9" title="Voltar pra Agenda">
-            <Link href="/agenda"><ArrowLeft className="h-4 w-4" /></Link>
-          </Button>
+          <BackButton href="/agenda" />
       </>}>
         <h1 className="truncate">Tarefas</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -276,9 +276,7 @@ export default function TarefasPage() {
                       </span>
                       {t.criador && isMaster && (
                         <span className="inline-flex items-center gap-1 text-muted-foreground">
-                          <span className="inline-block h-3.5 w-3.5 rounded-full bg-muted text-[8px] font-bold uppercase flex items-center justify-center text-muted-foreground">
-                            {t.criador.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
-                          </span>
+                          <UserAvatar user={{ name: t.criador.name, image: t.criador.image }} className="h-3.5 w-3.5 text-[8px] text-muted-foreground" bg="bg-muted" />
                           {t.criador.name}
                         </span>
                       )}

@@ -18,7 +18,7 @@ import {
   History, Search, RefreshCw, AlertCircle, Trash2, Plus, MailWarning, GitCompareArrows, Square, Lock,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Badge, Card, cn,
+  Button, Input, Label, Badge, Card, Checkbox, cn,
   Tabs, TabsTrigger, TabsContent, SlidingTabsList,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
@@ -303,14 +303,14 @@ function CompaniesPanel() {
             <button type="button" className="text-left" onClick={() => setVerGrupo('atualizada')}>
               <Card className="p-3 transition-colors hover:bg-muted/40">
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Atualizadas</div>
-                <div className="text-xl font-semibold tabular-nums text-emerald-600">{lastResult.atualizadas}</div>
+                <div className="text-xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{lastResult.atualizadas}</div>
                 <div className="text-[10px] text-muted-foreground">clique para ver a lista</div>
               </Card>
             </button>
             <button type="button" className="text-left" onClick={() => setVerGrupo('ignorada')}>
               <Card className="p-3 transition-colors hover:bg-muted/40">
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Ignoradas</div>
-                <div className="text-xl font-semibold tabular-nums text-amber-600">{lastResult.ignoradas}</div>
+                <div className="text-xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">{lastResult.ignoradas}</div>
                 <div className="text-[10px] text-muted-foreground">clique para vincular à mão</div>
               </Card>
             </button>
@@ -932,7 +932,7 @@ function MappingPanel() {
                       sem vínculo
                     </button>
                   ) : (
-                    <Badge variant="outline" className="text-[10px] bg-emerald-50 border-emerald-300 text-emerald-700 gap-1">
+                    <Badge variant="outline" className="text-[10px] bg-emerald-50 border-emerald-300 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400 gap-1">
                       <CheckCircle2 className="h-3 w-3" /> {vinculados.length} vínculo{vinculados.length === 1 ? '' : 's'}
                     </Badge>
                   )}
@@ -976,12 +976,10 @@ function MappingPanel() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40px] text-center">
-                      <input
-                        type="checkbox"
-                        className="h-3.5 w-3.5 cursor-pointer"
+                      <Checkbox
                         checked={suggestions.filter(s => s.suggestedServicoId && !s.alreadyMapped).every(s => sugSelected.has(s.nome))}
-                        onChange={e => {
-                          const ck = e.target.checked
+                        onCheckedChange={v => {
+                          const ck = v === true
                           setSugSelected(prev => {
                             const next = new Set(prev)
                             for (const s of suggestions) {
@@ -1007,27 +1005,25 @@ function MappingPanel() {
                     return (
                       <TableRow key={s.nome} className={cn(s.alreadyMapped && 'opacity-50')}>
                         <TableCell className="text-center">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             disabled={!canCheck}
                             checked={checked}
-                            onChange={e => {
+                            onCheckedChange={v => {
                               setSugSelected(prev => {
                                 const next = new Set(prev)
-                                if (e.target.checked) next.add(s.nome); else next.delete(s.nome)
+                                if (v === true) next.add(s.nome); else next.delete(s.nome)
                                 return next
                               })
                             }}
-                            className="h-3.5 w-3.5 cursor-pointer disabled:cursor-not-allowed"
                           />
                         </TableCell>
                         <TableCell className="text-xs font-mono">{s.nome}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn(
                             'text-[10px]',
-                            s.area === 'fiscal' && 'bg-indigo-50 border-indigo-200 text-indigo-700',
-                            s.area === 'contabil' && 'bg-violet-50 border-violet-200 text-violet-700',
-                            s.area === 'trabalhista' && 'bg-lime-50 border-lime-200 text-lime-700',
+                            s.area === 'fiscal' && 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/30 dark:border-indigo-800 dark:text-indigo-400',
+                            s.area === 'contabil' && 'bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/30 dark:border-violet-800 dark:text-violet-400',
+                            s.area === 'trabalhista' && 'bg-lime-50 border-lime-200 text-lime-700 dark:bg-lime-950/30 dark:border-lime-800 dark:text-lime-400',
                             s.area === 'desconhecida' && 'bg-muted text-muted-foreground',
                           )}>
                             {s.area}{s.regime ? ` · ${s.regime}` : ''}
@@ -1048,9 +1044,9 @@ function MappingPanel() {
                         <TableCell className="text-center">
                           <Badge variant="outline" className={cn(
                             'text-[10px]',
-                            s.confidence === 'alta' && 'bg-emerald-50 border-emerald-300 text-emerald-700',
-                            s.confidence === 'media' && 'bg-amber-50 border-amber-300 text-amber-700',
-                            s.confidence === 'baixa' && 'bg-rose-50 border-rose-300 text-rose-700',
+                            s.confidence === 'alta' && 'bg-emerald-50 border-emerald-300 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400',
+                            s.confidence === 'media' && 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-400',
+                            s.confidence === 'baixa' && 'bg-rose-50 border-rose-300 text-rose-700 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400',
                           )}>
                             {s.confidence}
                           </Badge>
@@ -1204,7 +1200,7 @@ function LimparVinculosModal({ onClose, onDone }: { onClose: () => void; onDone:
         <DialogBody className="space-y-3 overflow-y-auto">
           {totalAuto > 0 && (
             <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-amber-300 bg-amber-50/60 px-3 py-2 text-xs dark:border-amber-900 dark:bg-amber-950/20">
-              <input type="checkbox" checked={apenasAuto} onChange={e => setApenasAuto(e.target.checked)} className="mt-0.5 h-4 w-4" />
+              <Checkbox checked={apenasAuto} onCheckedChange={v => setApenasAuto(v === true)} className="mt-0.5" />
               <span>
                 <strong>Remover só os vínculos automáticos</strong> ({totalAuto} no total).
                 Preserva o que foi vinculado à mão. Vínculos criados antes desta atualização não têm
@@ -1224,15 +1220,14 @@ function LimparVinculosModal({ onClose, onDone }: { onClose: () => void; onDone:
               {resumo.map(r => (
                 <div key={r.servicoId}>
                   <label className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-muted/30">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={sel.has(r.servicoId)}
-                      onChange={() => setSel(prev => {
+                      onCheckedChange={() => setSel(prev => {
                         const n = new Set(prev)
                         if (n.has(r.servicoId)) n.delete(r.servicoId); else n.add(r.servicoId)
                         return n
                       })}
-                      className="h-4 w-4 shrink-0"
+                      className="shrink-0"
                     />
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.servicoNome}</span>
                     <Badge variant="outline" className="text-[10px]">{r.total} obrigações</Badge>
@@ -1355,7 +1350,7 @@ function DeliveriesPanel({ firstDay, lastDay, onSyncIniciada }: {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <Card className="p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Criadas</div>
-              <div className="text-xl font-semibold tabular-nums text-emerald-600">{lastResult.novas}</div>
+              <div className="text-xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{lastResult.novas}</div>
             </Card>
             <Card className="p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Atualizadas</div>
@@ -1363,7 +1358,7 @@ function DeliveriesPanel({ firstDay, lastDay, onSyncIniciada }: {
             </Card>
             <Card className="p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Ignoradas</div>
-              <div className="text-xl font-semibold tabular-nums text-amber-600">{lastResult.ignoradas}</div>
+              <div className="text-xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">{lastResult.ignoradas}</div>
               <div className="text-[10px] text-muted-foreground">sem mapping ou mudança</div>
             </Card>
           </div>
@@ -1491,10 +1486,10 @@ function LogsPanel({ atualizarEm }: { atualizarEm?: number }) {
             const counters = log.tipo === 'companies'
               ? `${log.empresasNovas + log.empresasAtualizadas} resolvidas · ${log.empresasIgnoradas} ignoradas`
               : `${log.deliveriesNovas} novas · ${log.deliveriesAtualizadas} atualizadas · ${log.deliveriesIgnoradas} ignoradas`
-            const statusCls = log.status === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-              : log.status === 'partial' ? 'bg-amber-50 border-amber-300 text-amber-700'
-              : log.status === 'error' ? 'bg-rose-50 border-rose-300 text-rose-700'
-              : log.status === 'canceled' ? 'bg-slate-100 border-slate-300 text-slate-600'
+            const statusCls = log.status === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400'
+              : log.status === 'partial' ? 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-400'
+              : log.status === 'error' ? 'bg-rose-50 border-rose-300 text-rose-700 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400'
+              : log.status === 'canceled' ? 'bg-slate-100 border-slate-300 text-slate-600 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'
               : 'bg-sky-50 border-sky-300 text-sky-700'
             const total = log.progressoTotal ?? 0
             const atual = log.progressoAtual ?? 0
@@ -1711,7 +1706,7 @@ function DetalheSyncModal({ log, onClose }: { log: SyncLog; onClose: () => void 
                   : 'Nenhum cliente teve entregas no período. Clientes sem movimento não são listados.'}
               </p>
             ) : (
-              <div className="max-h-72 divide-y divide-border/60 overflow-y-auto rounded-lg border border-border">
+              <div className="max-h-72 divide-y divide-border/60 overflow-y-auto nice-scrollbar rounded-lg border border-border">
                 {linhas.map((l, i) => (
                   <LinhaClienteSync
                     key={l.cliente + '-' + i}
@@ -1823,11 +1818,11 @@ function ExplorerPanel() {
           <div className="px-5 py-2 border-t border-border/60 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               {result.ok ? (
-                <Badge variant="outline" className="text-[10px] bg-emerald-50 border-emerald-300 text-emerald-700 gap-1">
+                <Badge variant="outline" className="text-[10px] bg-emerald-50 border-emerald-300 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400 gap-1">
                   <CheckCircle2 className="h-3 w-3" /> {result.status}
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-[10px] bg-rose-50 border-rose-300 text-rose-700 gap-1">
+                <Badge variant="outline" className="text-[10px] bg-rose-50 border-rose-300 text-rose-700 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-400 gap-1">
                   <XCircle className="h-3 w-3" /> {result.status || '—'}
                 </Badge>
               )}
@@ -1842,7 +1837,7 @@ function ExplorerPanel() {
               <strong>Erro:</strong> {result.error}
             </div>
           )}
-          <pre className="p-4 bg-muted/20 overflow-x-auto text-[11px] leading-relaxed font-mono max-h-[500px] overflow-y-auto border-t">
+          <pre className="p-4 bg-muted/20 overflow-x-auto text-[11px] leading-relaxed font-mono max-h-[500px] overflow-y-auto nice-scrollbar border-t">
 {result.data ? JSON.stringify(result.data, null, 2) : '(sem dados)'}
           </pre>
         </>

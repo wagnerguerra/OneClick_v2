@@ -220,7 +220,7 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
           </DialogDescription>
         </DialogHeaderIcon>
 
-        <DialogBody className="nice-scrollbar max-h-[65vh] space-y-3 overflow-y-auto">
+        <DialogBody className="max-h-[65vh] space-y-3 overflow-y-auto">
           <div
             onClick={() => !lendo && inputRef.current?.click()}
             className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-6 py-8 text-center hover:bg-muted/20"

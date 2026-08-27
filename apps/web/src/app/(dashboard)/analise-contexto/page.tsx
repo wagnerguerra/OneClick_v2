@@ -323,7 +323,7 @@ export default function AnaliseContextoPage() {
               Classifique o item na SWOT, estime o risco e indique o responsável. O plano de ação entra no detalhe.
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-4 max-h-[65vh] overflow-y-auto nice-scrollbar">
+          <DialogBody className="space-y-4 max-h-[65vh] overflow-y-auto">
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-12 sm:col-span-6">
                 <Label className="text-[13px] font-semibold">Análise <span className="text-rose-500">*</span></Label>

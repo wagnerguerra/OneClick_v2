@@ -191,7 +191,7 @@ export function DividirPdfModal({ onClose }: { onClose: () => void }) {
           <DialogDescription>{FERRAMENTA.descricao}</DialogDescription>
         </DialogHeaderIcon>
 
-        <DialogBody className="nice-scrollbar max-h-[70vh] space-y-4 overflow-y-auto">
+        <DialogBody className="max-h-[70vh] space-y-4 overflow-y-auto">
           {!arquivo ? (
             <div
               onDragOver={(e) => { e.preventDefault(); setArrastando(true) }}

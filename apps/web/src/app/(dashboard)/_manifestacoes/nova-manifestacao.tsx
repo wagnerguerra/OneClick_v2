@@ -119,7 +119,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
           <DialogDescription>{config.subtitulo}</DialogDescription>
         </DialogHeaderIcon>
 
-        <DialogBody className="nice-scrollbar max-h-[68vh] space-y-4 overflow-y-auto">
+        <DialogBody className="max-h-[68vh] space-y-4 overflow-y-auto">
           {/* Origem — a novidade em relação ao legado, onde cada tipo tinha um
               lado só e não havia como registrar o contrário. */}
           <div className="grid gap-2 sm:grid-cols-2">

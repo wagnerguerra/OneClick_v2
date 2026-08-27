@@ -2353,7 +2353,7 @@ export default function CertidoesCndPage() {
                 <DialogTitle>Pendências — {munDebitosCliente}</DialogTitle>
                 <DialogDescription>{munDebitos.length} débito(s) encontrado(s)</DialogDescription>
               </DialogHeaderIcon>
-              <DialogBody className="max-h-[400px] overflow-y-auto nice-scrollbar">
+              <DialogBody className="max-h-[400px] overflow-y-auto">
                 {munDebitos.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">Nenhum débito detalhado</p>
                 ) : (

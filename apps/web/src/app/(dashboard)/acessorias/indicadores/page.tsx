@@ -663,7 +663,7 @@ function ListaPendentes({ pendentes }: { pendentes: Pendente[] }) {
         <p className="text-[13px] font-semibold">Obrigações em aberto</p>
         <p className="text-[11px] text-muted-foreground">{pendentes.length} no período · a vencer primeiro</p>
       </div>
-      <div className="max-h-[560px] overflow-auto">
+      <div className="max-h-[560px] overflow-auto nice-scrollbar">
         <table className="w-full table-fixed border-collapse text-sm">
           {/* O fundo vai no <th>: sticky em <thead> não pinta background de
               forma confiável, e a translucidez deixava as linhas passarem por
