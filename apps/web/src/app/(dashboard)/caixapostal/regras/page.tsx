@@ -17,7 +17,8 @@ import {
 import { cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -418,21 +419,24 @@ export default function CaixaPostalRegrasPage() {
       </Dialog>
 
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="fiscal" icon={Shield} />
-          <div>
-            <h1>Regras de Classificação</h1>
-            <p className="text-sm text-muted-foreground">Gerencie regras automáticas de classificação de mensagens da Caixa Postal e-CAC</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" onClick={handleNova} className="gap-1.5">
             <Plus className="h-4 w-4" /> Nova Regra
           </Button>
           <BackButton href="/caixapostal" label="Voltar" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Regras de Classificação</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Caixa Postal e-CAC</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Regras de Classificação</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Regras do Sistema (editáveis) */}
       {(() => {

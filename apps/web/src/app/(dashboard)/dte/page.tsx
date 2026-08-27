@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Search, Loader2, Trash2, RefreshCw, CheckCircle2, AlertTriangle,
-  MailWarning, Eye, Mail, Inbox, Filter, Info, ArrowLeft,
+  Eye, Mail, Inbox, Filter, Info, ArrowLeft,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreVertical,
   Building2, FileText, AlertCircle,
 } from 'lucide-react'
@@ -16,6 +16,8 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -444,26 +446,8 @@ export default function DtePage() {
       {/* ============================================================ */}
       {/* Header */}
       {/* ============================================================ */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ backgroundColor: MODULE_COLOR }}>
-            <MailWarning className="h-6 w-6" />
-          </div>
-          <div>
-            {view === 'clientes' ? (
-              <>
-                <h1 className="text-xl font-semibold">DT-e ES — Domicilio Tributario Eletronico</h1>
-                <p className="text-sm text-muted-foreground">Mensagens do Domicilio Tributario Eletronico — SEFAZ/ES</p>
-              </>
-            ) : (
-              <>
-                <h1 className="text-xl font-semibold">{selectedCliente?.razao_social}</h1>
-                <p className="text-sm text-muted-foreground">{formatDoc(selectedCliente?.documento || '')}</p>
-              </>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {view === 'mensagens' && selectedCliente && (
             <>
               <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs">
@@ -528,8 +512,29 @@ export default function DtePage() {
               <ArrowLeft className="h-4 w-4" /> Voltar
             </Button>
           )}
+      </>}>
+        <h1 className="truncate">DT-e ES — Domicilio Tributario Eletronico</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>DT-e ES</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <div>
+            {view === 'clientes' ? (
+              <>
+              </>
+            ) : (
+              <>
+                <h1 className="text-xl font-semibold">{selectedCliente?.razao_social}</h1>
+                <p className="text-sm text-muted-foreground">{formatDoc(selectedCliente?.documento || '')}</p>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      </PageHeaderBar>
 
       {/* ============================================================ */}
       {/* VIEW 1: Lista de Clientes (agrupado) */}

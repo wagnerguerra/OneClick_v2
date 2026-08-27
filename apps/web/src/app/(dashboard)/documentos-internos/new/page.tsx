@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileText, Upload, Loader2, Save } from 'lucide-react'
+import { Upload, Loader2, Save } from 'lucide-react'
 import {
   Button, Input, Label, Card,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
@@ -10,11 +10,12 @@ import {
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { UserMultiPicker } from '@/components/user-multi-picker'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 
 interface Opcao { id: string; nome: string }
 interface Usuario { id: string; name: string; email: string | null; image: string | null }
@@ -80,24 +81,24 @@ export default function NovoDocumentoInternoPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <FileText className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Novo Documento</h1>
-            <p className="text-sm text-muted-foreground">O documento nasce com a revisão 0 e o seu arquivo</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" onClick={salvar} disabled={salvando}>
             {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Salvar
           </Button>
           <BackButton href="/documentos-internos" label="Voltar" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Novo Documento</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Documentos Internos</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Novo Documento</span>
+        </p>
+      </PageHeaderBar>
 
       <Card className="p-5 space-y-4">
         <div className="grid grid-cols-12 gap-4">

@@ -11,6 +11,7 @@ import {
   Button, Card, CardHeader, Badge, Label,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { BiVisaoGeral } from './_components/bi-visao-geral'
@@ -153,22 +154,22 @@ export default function BiFaturamentoPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <BarChart3 className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Dashboard Financeiro</h1>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Dashboard Financeiro</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Contábil</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Dashboard Financeiro</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
             <p className="text-sm text-muted-foreground">
               Analise financeira e indicadores de desempenho
             </p>
-          </div>
         </div>
-      </div>
+      </PageHeaderBar>
 
       {/* Filter bar */}
       <Card>

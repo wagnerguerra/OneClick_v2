@@ -9,6 +9,7 @@ import {
 import {
   Button, Input, Card, Badge, cn,
 } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
@@ -127,22 +128,8 @@ export default function TarefasPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ backgroundColor: 'var(--mod-administrativo, #38bdf8)' }}
-          >
-            <ListTodo className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Tarefas</h1>
-            <p className="text-sm text-muted-foreground">
-              Tarefas com prazo e participantes — concluídas quando todos os membros dão ciência.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button
             size="sm"
             className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -153,8 +140,23 @@ export default function TarefasPage() {
           <Button variant="outline" size="icon" asChild className="h-9 w-9" title="Voltar pra Agenda">
             <Link href="/agenda"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
+      </>}>
+        <h1 className="truncate">Tarefas</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Agenda Corporativa</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Tarefas</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              Tarefas com prazo e participantes — concluídas quando todos os membros dão ciência.
+            </p>
         </div>
-      </div>
+      </PageHeaderBar>
 
       {/* Filtros */}
       <Card className="p-3">

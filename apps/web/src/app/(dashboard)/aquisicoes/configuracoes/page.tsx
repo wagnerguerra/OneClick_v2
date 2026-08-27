@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Settings, ShieldCheck, ClipboardList, Loader2, Plus, Trash2, Pencil, X, Check,
+  ShieldCheck, ClipboardList, Loader2, Plus, Trash2, Pencil, X, Check,
   AlertTriangle,
 } from 'lucide-react'
 import { Button, Card, Input, Avatar, AvatarImage, AvatarFallback, Badge, cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -54,21 +56,21 @@ export default function AquisicoesConfiguracoesPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <Settings className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Configurações de Aquisições</h1>
-            <p className="text-sm text-muted-foreground">Quem aprova os pedidos e os critérios de avaliação de fornecimento</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <BackButton href="/aquisicoes" label="Voltar" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Configurações de Aquisições</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Aquisições</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações de Aquisições</span>
+        </p>
+      </PageHeaderBar>
 
       <Card className="overflow-hidden">
         <div className="flex min-h-[450px]">

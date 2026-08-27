@@ -19,7 +19,8 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -563,14 +564,8 @@ export default function AgendaConfiguracoesPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="administrativo" icon={Settings} />
-          <div>
-            <h1>Configurações da agenda</h1>
-            <p className="text-sm text-muted-foreground">Regras de conflito e cadastro de salas</p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         <Button
           variant="outline" size="icon"
           onClick={() => router.push('/agenda')}
@@ -579,7 +574,18 @@ export default function AgendaConfiguracoesPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-      </div>
+      </>}>
+        <h1 className="truncate">Configurações da agenda</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Agenda Corporativa</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações da agenda</span>
+        </p>
+      </PageHeaderBar>
 
       {/* ============================================================
           Card com pills laterais — padrão da casa (CLAUDE.md → "Sub-abas")

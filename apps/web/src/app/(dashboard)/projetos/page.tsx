@@ -14,8 +14,9 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { ProjetosKanban, type KanbanProjeto } from './_components/projetos-kanban'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -170,16 +171,8 @@ export default function ProjetosPage() {
   return (
     <div className="space-y-4">
       {/* Header — padrão da casa: PageHeaderIcon + h1 sem className + descrição text-sm */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="ti" icon={FolderKanban} />
-          <div>
-            <h1>Projetos</h1>
-            <p className="text-sm text-muted-foreground">
-              Gestão de projetos de desenvolvimento da TI
-            </p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         <div className="flex items-center gap-2">
           {canWrite && (
             <Button size="sm" onClick={openCreate} className="gap-1.5 text-white" style={{ background: MODULE_COLOR }}>
@@ -197,7 +190,21 @@ export default function ProjetosPage() {
             <Settings className="h-4 w-4" />
           </Button>
         </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Projetos</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>TI</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Projetos</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              Gestão de projetos de desenvolvimento da TI
+            </p>
+        </div>
+      </PageHeaderBar>
 
       {/* Filtros + toggle de visualização */}
       <div className="flex items-center gap-3">

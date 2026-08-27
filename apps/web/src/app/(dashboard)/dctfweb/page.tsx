@@ -16,7 +16,8 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -275,14 +276,8 @@ export default function DctfwebPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="fiscal" icon={ListChecks} />
-          <div>
-            <h1>Controle DCTFWeb</h1>
-            <p className="text-sm text-muted-foreground">Hub de conformidade — eSocial, Reinf, DCTFWeb e DARF</p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         <div className="flex items-center gap-1.5">
           <Select value={competencia} onValueChange={v => { setCompetencia(v); setPage(1) }}>
             <SelectTrigger className="h-9 w-[130px] text-xs font-mono"><SelectValue /></SelectTrigger>
@@ -292,7 +287,16 @@ export default function DctfwebPage() {
             <RefreshCw className="h-3.5 w-3.5" />Sincronizar
           </Button>
         </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Controle DCTFWeb</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>DCTFWeb</span>
+        </p>
+      </PageHeaderBar>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">

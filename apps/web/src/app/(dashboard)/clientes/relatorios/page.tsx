@@ -9,6 +9,8 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts'
 import { BarChart3, Loader2, ArrowUpCircle, ArrowDownCircle, FileSpreadsheet, FileText, Users, Layers, Search, ChevronDown, ChevronsDownUp } from 'lucide-react'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { SITUACAO_LABELS } from '@saas/types'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
@@ -184,19 +186,21 @@ export default function RelatoriosClientesPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <BarChart3 className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Relatórios de Clientes</h1>
-            <p className="text-sm text-muted-foreground">Acompanhamento anual, por área contratada e por responsável.</p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         <BackButton href="/clientes" label="Voltar" />
-      </div>
+      </>}>
+        <h1 className="truncate">Relatórios de Clientes</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Clientes</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Relatórios de Clientes</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-1.5 border-b border-border">

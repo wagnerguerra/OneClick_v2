@@ -1,9 +1,11 @@
 'use client'
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BarChart3, Database, Loader2, RefreshCw, Table2, LayoutGrid, Landmark, PiggyBank, Receipt, Settings2, X, Plus, Trash2, ChevronUp, ChevronDown, Pencil, Coins, FileSpreadsheet } from 'lucide-react'
+import { Database, Loader2, RefreshCw, Table2, LayoutGrid, Landmark, PiggyBank, Receipt, Settings2, X, Plus, Trash2, ChevronUp, ChevronDown, Pencil, Coins, FileSpreadsheet } from 'lucide-react'
 import { Button, Card, cn } from '@saas/ui'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -220,18 +222,17 @@ export default function FolhaBiPage() {
     <div className="flex flex-col gap-5">
       {/* Header padrao do modulo — sem botoes: a acao mora junto do periodo que
           ela usa, do outro lado nao daria para ver o que sera buscado. */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <BarChart3 className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Espelho da Folha</h1>
-            <p className="text-sm text-muted-foreground">Confira a folha do SCI por cliente e competência</p>
-          </div>
-        </div>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Espelho da Folha</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Trabalhista</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Espelho da Folha</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Barra: CLIENTE · periodo DE/ATE · Sincronizar.
           O `Card` ja e flex-col; por isso cada linha vive num filho com flex-row —

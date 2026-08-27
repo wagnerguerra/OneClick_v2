@@ -27,13 +27,13 @@ import {
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { EntityCombobox } from '@/components/ui/entity-combobox'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { masks } from '@/lib/masks'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)' // Sky — Administrativo
 
 type Tab = 'companies' | 'mapping' | 'deliveries' | 'explorer'
 
@@ -142,22 +142,8 @@ export default function AcessoriasPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <Zap className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Acessórias — Sincronização</h1>
-            <p className="text-sm text-muted-foreground">
-              Integração com app.acessorias.com — sincroniza empresas, obrigações e entregas
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="outline" size="sm" asChild>
             <Link href="/acessorias/painel"><MailWarning className="h-4 w-4" />Painel de entregas</Link>
           </Button>
@@ -167,8 +153,23 @@ export default function AcessoriasPage() {
             </Button>
           )}
           <BackButton href="/" />
+      </>}>
+        <h1 className="truncate">Acessórias — Sincronização</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Acessórias</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Acessórias — Sincronização</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              Integração com app.acessorias.com — sincroniza empresas, obrigações e entregas
+            </p>
         </div>
-      </div>
+      </PageHeaderBar>
 
       <AbasAcessorias />
 

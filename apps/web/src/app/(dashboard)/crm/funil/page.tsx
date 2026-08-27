@@ -6,6 +6,8 @@ import { Sparkles, Loader2, Save, Copy, ExternalLink, Flame, Thermometer, Snowfl
 import { Button, Card, Input, Label, Switch, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn, Dialog, DialogContent } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { masks } from '@/lib/masks'
 import { alerts } from '@/lib/alerts'
@@ -147,21 +149,20 @@ export default function CrmFunilPage() {
   return (
     <div className="space-y-5">
       {/* Header — padrão inline de /orcamentos e /crm (ícone gradiente + h1 + descrição) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <Sparkles className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Campanhas de captação (IA)</h1>
-            <p className="text-sm text-muted-foreground">Cada campanha tem seu próprio link e conduz a IA focada no assunto; os leads caem no CRM marcados pela campanha</p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         {/* Ações à direita — botão Voltar sempre à direita (último) */}
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <BackButton href="/crm" label="Voltar" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Campanhas de captação (IA)</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>CRM</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Funil de captação (IA)</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Indicadores (últimos 30 dias, todas as campanhas) */}
       {report && (

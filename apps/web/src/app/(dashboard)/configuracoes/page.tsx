@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useRouter } from 'next/navigation'
@@ -554,16 +555,8 @@ export default function ConfiguracoesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-orange-500 text-white shadow-md">
-            <Settings className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Configurações do Sistema</h1>
-            <p className="text-sm text-muted-foreground">Gerencie variáveis de ambiente e integrações</p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -584,7 +577,16 @@ export default function ConfiguracoesPage() {
             Centro de agendamentos
           </Button>
         </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Configurações do Sistema</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações Gerais</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Card com abas verticais */}
       <Card>

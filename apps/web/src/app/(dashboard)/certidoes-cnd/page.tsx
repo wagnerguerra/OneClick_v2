@@ -19,6 +19,8 @@ import {
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -1042,19 +1044,22 @@ export default function CertidoesCndPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="legalizacao" icon={FileOutput} />
-          <div>
-            <h1>Certidões e Alvarás</h1>
-            <p className="text-sm text-muted-foreground">Emissão e controle de CND's, CNDT, CRF/FGTS, CGU e Alvará de Bombeiros</p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         <Button size="sm" className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white"
           onClick={() => { setCompOpen(true); setCompStep('cnpj'); setCompDoc(''); setCompRazao(''); setCompEmail(''); setCompMsg(''); setCompProgress(null); setCompTipos(new Set(['federal', 'estadual', 'municipal', 'trabalhista', 'fgts', 'cgu', 'alvara_bombeiros', 'alvara_funcionamento'])); setCompForcar(false) }}>
           <Mail className="h-3.5 w-3.5" />Compilar e Enviar
         </Button>
-      </div>
+      </>}>
+        <h1 className="truncate">Certidões e Alvarás</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Legalização</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Certidões e Alvarás</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Abas Federal / Estadual */}
       <div className="flex items-center gap-0 border-b">

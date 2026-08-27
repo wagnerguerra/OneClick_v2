@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, FileSpreadsheet, Loader2, Trash2, ShoppingCart,
+  Plus, Loader2, Trash2, ShoppingCart,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
@@ -13,11 +13,11 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { STATUS_COTACAO_LABELS } from '@saas/types'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 const PAGE_SIZES = [10, 20, 50]
 
 const STATUS_COLORS: Record<string, string> = {
@@ -102,24 +102,24 @@ export default function CotacoesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <FileSpreadsheet className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Cotações</h1>
-            <p className="text-sm text-muted-foreground">Peça preços a vários fornecedores antes de montar o pedido</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" onClick={nova} disabled={criando}>
             {criando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}Nova Cotação
           </Button>
           <BackButton href="/aquisicoes" label="Voltar" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Cotações</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Aquisições</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cotações</span>
+        </p>
+      </PageHeaderBar>
 
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">

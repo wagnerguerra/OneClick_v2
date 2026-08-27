@@ -7,6 +7,8 @@ import {
 } from 'lucide-react'
 import { Card, CardHeader, Label, cn } from '@saas/ui'
 import { Command } from 'cmdk'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { FolhaConfigTab } from './_components/folha-config'
 import { FolhaImportTab } from './_components/folha-import'
@@ -63,17 +65,17 @@ export default function FolhaPagamentoPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <FileSpreadsheet className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Importação de Folha</h1>
-            <p className="text-sm text-muted-foreground">Importação, contabilização e exportação de lançamentos</p>
-          </div>
-        </div>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Importação de Folha</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Trabalhista</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Importação de Folha</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Seletor de cliente */}
       <Card>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  AlertTriangle, Plus, Loader2, Check, X, ClipboardList, Info, RotateCcw, Trash2,
+  Plus, Loader2, Check, X, ClipboardList, Info, RotateCcw, Trash2,
   ThumbsUp, ThumbsDown, CalendarClock, MessageSquare, Paperclip, History, Ban, Download,
 } from 'lucide-react'
 import {
@@ -14,6 +14,8 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
@@ -214,30 +216,8 @@ export default function NaoConformidadeDetalhePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <AlertTriangle className="h-6 w-6" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="truncate">NC {nc.legacyId ? `#${nc.legacyId}` : ''}</h1>
-              <Badge variant="outline" className={cn('text-[11px]', NC_SITUACAO_BADGE[nc.situacao])}>
-                {NC_SITUACAO_LABEL[nc.situacao] ?? nc.situacao}
-              </Badge>
-              {nc.reincidencia && (
-                <Badge variant="outline" className="text-[11px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
-                  <RotateCcw className="h-3 w-3 mr-1" />Reincidência
-                </Badge>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground truncate">
-              {nc.cliente?.razaoSocial ?? 'Sem cliente'} · {(nc.area?.name ?? nc.areaNome) || 'Sem área'} · Registro: {dataBR(nc.registradoEm)}{nc.prazo ? ` · Prazo: ${dataBR(nc.prazo)}` : ''}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 flex-wrap justify-end">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {podeEscrever && !encerrada && nc.situacao === 'AGUARDANDO_CAUSA' && (
             <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white"
               onClick={() => { setCausaTexto(nc.causa ?? ''); setCausaAberta(true) }}>
@@ -256,8 +236,31 @@ export default function NaoConformidadeDetalhePage() {
             </Button>
           )}
           <BackButton href="/nao-conformidades" label="Voltar" />
+      </>}>
+        <h1 className="truncate">NC {nc.legacyId ? `#${nc.legacyId}` : ''}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Não Conformidades</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="min-w-0">
+              <Badge variant="outline" className={cn('text-[11px]', NC_SITUACAO_BADGE[nc.situacao])}>
+                {NC_SITUACAO_LABEL[nc.situacao] ?? nc.situacao}
+              </Badge>
+              {nc.reincidencia && (
+                <Badge variant="outline" className="text-[11px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+                  <RotateCcw className="h-3 w-3 mr-1" />Reincidência
+                </Badge>
+              )}
+            <p className="text-sm text-muted-foreground truncate">
+              {nc.cliente?.razaoSocial ?? 'Sem cliente'} · {(nc.area?.name ?? nc.areaNome) || 'Sem área'} · Registro: {dataBR(nc.registradoEm)}{nc.prazo ? ` · Prazo: ${dataBR(nc.prazo)}` : ''}
+            </p>
+          </div>
         </div>
-      </div>
+      </PageHeaderBar>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">

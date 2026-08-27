@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, FileBox, Trash2, Pencil, Loader2, ExternalLink,
+  Plus, Trash2, Pencil, Loader2, ExternalLink,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
@@ -12,11 +12,11 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 const PAGE_SIZES = [10, 20, 50]
 
 interface Row {
@@ -99,25 +99,23 @@ export default function DocumentosExternosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <FileBox className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Documentos Externos</h1>
-            <p className="text-sm text-muted-foreground">Normas, leis e documentos de terceiros controlados pelo SGQ, com histórico de revisões</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {podeEscrever && (
             <Button variant="success" size="sm" asChild>
               <Link href="/documentos-externos/new"><Plus className="h-4 w-4" />Novo Documento</Link>
             </Button>
           )}
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Documentos Externos</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Documentos Externos</span>
+        </p>
+      </PageHeaderBar>
 
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">

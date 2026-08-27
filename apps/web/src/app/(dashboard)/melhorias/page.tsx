@@ -13,12 +13,12 @@ import {
   RichEditor, RichContent,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { MELHORIA_STATUS_LABEL, STATUS_COMPRA_LABELS } from '@saas/types'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 
 const STATUS_COLORS: Record<string, string> = {
   REGISTRADA: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800',
@@ -131,23 +131,21 @@ export default function MelhoriasPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <TrendingUp className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Melhorias</h1>
-            <p className="text-sm text-muted-foreground">Oportunidades de melhoria registradas e as que chegaram pelas aquisições</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {podeEscrever && (
             <Button variant="success" size="sm" onClick={abrirNova}><Plus className="h-4 w-4" />Nova Melhoria</Button>
           )}
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Melhorias</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Melhorias</span>
+        </p>
+      </PageHeaderBar>
 
       {/* ── Melhorias registradas ── */}
       <Card>

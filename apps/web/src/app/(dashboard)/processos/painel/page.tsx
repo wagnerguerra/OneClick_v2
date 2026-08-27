@@ -14,6 +14,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
@@ -186,26 +187,29 @@ export default function PainelOperacionalPage() {
       </div>
 
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <Workflow className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Painel Operacional</h1>
-            <p className="text-sm text-muted-foreground">
-              Visão consolidada de todas as execuções ativas com responsáveis e prazos.
-            </p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="tabular-nums">{execucoes.length} execuções</span>
           {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
         </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Painel Operacional</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Processos</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Painel Operacional</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              Visão consolidada de todas as execuções ativas com responsáveis e prazos.
+            </p>
+        </div>
+      </PageHeaderBar>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">

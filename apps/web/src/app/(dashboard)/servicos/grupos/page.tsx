@@ -24,6 +24,8 @@ import {
 import { GRUPO_TIPO, GRUPO_TIPO_LABELS, GRUPO_TIPO_HINTS, type GrupoTipo } from '@saas/types'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
@@ -240,28 +242,29 @@ export default function GruposPage() {
   return (
     <div className="space-y-6">
       {/* Header — padrão do módulo Cadastros (ícone + gradiente + título + descrição + ações à direita) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <Layers className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Grupos de Serviço</h1>
-            <p className="text-sm text-muted-foreground">
-              Agrupe serviços por operação — facilita iniciar tudo de uma vez para um cliente
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4" />Novo Grupo
           </Button>
           <BackButton href="/servicos" />
+      </>}>
+        <h1 className="truncate">Grupos de Serviço</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Serviços e Obrigações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Grupos de Serviço</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              Agrupe serviços por operação — facilita iniciar tudo de uma vez para um cliente
+            </p>
         </div>
-      </div>
+      </PageHeaderBar>
 
       {/* KPIs compactos */}
       <Card className="p-0 overflow-hidden">
