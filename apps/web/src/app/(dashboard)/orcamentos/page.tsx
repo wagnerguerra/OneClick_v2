@@ -8,6 +8,7 @@ import {
   Clock, LayoutGrid, List, Eye, Settings2, Package, BarChart3, Activity,
   MessageSquare, Paperclip, RotateCcw, Star, SlidersHorizontal, X, Target,
   Download, FileSpreadsheet, FileDown, CheckCircle2, Pencil, ThumbsDown, Search as SearchIcon,
+  Wrench,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card,
@@ -22,6 +23,7 @@ import { ClienteCombobox } from './_components/cliente-combobox'
 import { UserCombobox } from './_components/user-combobox'
 import { CatalogoCombobox } from './_components/catalogo-combobox'
 import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
+import { ReprocessarServicosModal } from './_components/reprocessar-servicos-modal'
 import { cn } from '@saas/ui'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -507,6 +509,8 @@ export default function OrcamentosPage() {
   // Create modal — espelha o legado crp_orcamentos/modal-create-orc.asp
   const [createOpen, setCreateOpen] = useState(false)
   const [formasModal, setFormasModal] = useState(false)
+  // Recuperação dos aprovados sem serviço (master-only) — ver o componente.
+  const [reprocessarModal, setReprocessarModal] = useState(false)
   // Catálogo de formas de pagamento — alimenta o dropdown do modal de criar.
   const [formasCatalogo, setFormasCatalogo] = useState<Array<{ id: string; valor: string; ordem: number }>>([])
   const loadFormasCatalogo = useCallback(async () => {
@@ -907,6 +911,11 @@ export default function OrcamentosPage() {
                 <DropdownMenuItem onClick={() => setFormasModal(true)}>
                   <CircleDollarSign className="h-4 w-4 mr-2" /> Gerenciar formas de pagamento
                 </DropdownMenuItem>
+                {isMaster && (
+                  <DropdownMenuItem onClick={() => setReprocessarModal(true)}>
+                    <Wrench className="h-4 w-4 mr-2" /> Recuperar serviços de aprovados
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -1205,6 +1214,7 @@ export default function OrcamentosPage() {
 
       {/* Gerência de formas de pagamento (menu do header) */}
       <FormasPagamentoModal open={formasModal} onOpenChange={(o) => { setFormasModal(o); if (!o) void loadFormasCatalogo() }} />
+      <ReprocessarServicosModal open={reprocessarModal} onOpenChange={setReprocessarModal} />
 
       {/* Relatório de uma coluna do kanban (menu ⋮ da coluna) */}
       {relatorioColuna && (
