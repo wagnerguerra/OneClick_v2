@@ -883,14 +883,14 @@ export default function MeusServicosPage() {
       ) : viewMode === 'kanban' ? (
         // Kanban no padrão CRM/Orçamentos — overflow-x-auto + flex-1 ocupa altura disponível
         <div className="nice-scrollbar -mx-1 flex-1 overflow-x-auto overflow-y-hidden pb-4">
-          {/* Coluna ABERTA de largura fixa e trilho com a largura do conteúdo —
-              mesmo do /orcamentos. A coluna elástica mudava de medida conforme
-              a quantidade de status visíveis. */}
-          <div className="flex h-full w-max gap-4 px-1">
+          {/* As três colunas dividem a largura do painel em partes iguais. O piso
+              de 280px mantém o card legível — abaixo disso o trilho rola na
+              horizontal, como no /orcamentos. */}
+          <div className="flex h-full w-full gap-4 px-1">
             {colunasKanban.map(col => (
               <div
                 key={col.key}
-                className="flex h-full w-[340px] shrink-0 flex-col rounded-xl transition-colors"
+                className="flex h-full min-w-[280px] flex-1 flex-col rounded-xl transition-colors"
               >
                 {/* Header: dot da cor + nome + contador em pill tintada */}
                 <div className="flex items-center justify-between gap-2 px-1.5 py-2">
