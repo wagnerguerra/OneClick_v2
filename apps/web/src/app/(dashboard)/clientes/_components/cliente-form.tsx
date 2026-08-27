@@ -10,6 +10,7 @@ import {
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
   ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2, Check, Hash, Calendar, ClipboardCheck, Sparkles, Paperclip,
+  Globe,
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
   Image as ImageIcon, Activity, Percent, ShieldCheck,
@@ -26,6 +27,7 @@ import {
 import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { CapaClienteModal } from './capa-cliente-modal'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
 import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
@@ -156,9 +158,15 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
   // As demais abas (serviços, legalização, contábil, obrigações, protocolos,
   // particularidades) já gatilham internamente pelos seus próprios cards.
   const { canEditDetails, canManageCommercial, canManageFiscal } = useClientesPerms()
+  // Duas camadas: a capa DESTE cliente e a capa padrão do módulo. A do cliente
+  // vence; sem ela, ele segue mostrando a global — quem nunca personalizou não
+  // perde a imagem que já via.
   const [headerCover, setHeaderCover] = useState<string>('')
+  const [capaCliente, setCapaCliente] = useState<string | null>(null)
+  const [capaModal, setCapaModal] = useState(false)
   const [uploadingCover, setUploadingCover] = useState(false)
   const coverInputRef = useRef<HTMLInputElement>(null)
+  const capaEfetiva = capaCliente || headerCover
 
   useEffect(() => {
     ;(async () => {
@@ -168,6 +176,18 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
       } catch { /* silent */ }
     })()
   }, [])
+
+  // A capa do cliente vem do getById; este fetch cobre o caso de ela ter sido
+  // trocada em outra aba desde que a página carregou.
+  useEffect(() => {
+    if (mode !== 'edit' || !clienteId) return
+    ;(async () => {
+      try {
+        const r = await (trpc.cliente as any).getCapaCliente.query({ clienteId })
+        setCapaCliente(r?.coverImage || null)
+      } catch { /* silent */ }
+    })()
+  }, [mode, clienteId])
 
   async function handleCoverUpload(file: File) {
     setUploadingCover(true)
@@ -445,9 +465,9 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
           <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
           <div className="relative overflow-hidden group/cover">
             {/* Capa em cover; sem imagem, gradiente do módulo */}
-            {headerCover ? (
+            {capaEfetiva ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={headerCover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={resolveAssetUrl(capaEfetiva)} alt="" className="absolute inset-0 h-full w-full object-cover" />
             ) : (
               <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, var(--mod-cadastros, #10b981) 0%, var(--color-primary) 100%)' }} />
             )}
@@ -472,41 +492,58 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 style={{ backgroundImage: 'linear-gradient(to right, rgba(106, 218, 125, 0) 0%, rgba(106, 218, 125, 0.8) 100%)' }}
               />
             )}
-            {/* Controles de capa — somente Master, hover, base direita */}
-            {isMaster && (
+            {/* Controles de capa — hover, base direita. A capa virou dado do
+                cadastro, então acompanha a permissão de editar detalhes; a capa
+                GLOBAL (padrão do módulo) segue restrita ao master, no modal. */}
+            {mode === 'edit' && clienteId && canEditDetails && (
               <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => coverInputRef.current?.click()}
-                  disabled={uploadingCover}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-white/30 disabled:opacity-60"
-                  title={headerCover ? 'Trocar imagem de fundo' : 'Personalizar capa'}
+                  onClick={() => setCapaModal(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-white/30"
+                  title={capaCliente ? 'Trocar a capa deste cliente' : 'Personalizar a capa deste cliente'}
                 >
-                  {uploadingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+                  <ImageIcon className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Alterar capa</span>
                 </button>
-                {headerCover && (
-                  <button
-                    type="button"
-                    onClick={handleCoverRemove}
-                    disabled={uploadingCover}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-2.5 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-rose-500/60 disabled:opacity-60"
-                    title="Remover capa"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                {/* Capa PADRÃO do módulo — o que existia antes desta tela ter
+                    capa por cliente. Continua master-only e serve de fundo para
+                    todos os clientes que não personalizaram o seu. */}
+                {isMaster && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => coverInputRef.current?.click()}
+                      disabled={uploadingCover}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-2.5 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-white/30 disabled:opacity-60"
+                      title="Trocar a capa padrão do módulo (vale para todos os clientes sem capa própria)"
+                    >
+                      {uploadingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
+                    </button>
+                    {headerCover && (
+                      <button
+                        type="button"
+                        onClick={handleCoverRemove}
+                        disabled={uploadingCover}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-2.5 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-rose-500/60 disabled:opacity-60"
+                        title="Remover a capa padrão do módulo"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <input
+                      ref={coverInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleCoverUpload(file)
+                        e.target.value = ''
+                      }}
+                    />
+                  </>
                 )}
-                <input
-                  ref={coverInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) handleCoverUpload(file)
-                    e.target.value = ''
-                  }}
-                />
               </div>
             )}
             <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
@@ -919,6 +956,18 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
         onOpenChange={setReativarAberto}
         onConfirm={reativarConfirmado}
       />
+
+      {/* Capa personalizada deste cliente (envio manual ou sugestão). */}
+      {mode === 'edit' && clienteId && (
+        <CapaClienteModal
+          open={capaModal}
+          onOpenChange={setCapaModal}
+          clienteId={clienteId}
+          temCapaPropria={!!capaCliente}
+          podeBuscarAtividade={canManageFiscal}
+          onAplicada={(url) => setCapaCliente(url)}
+        />
+      )}
     </TooltipProvider>
   )
 }

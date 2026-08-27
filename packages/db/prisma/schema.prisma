@@ -708,6 +708,10 @@ model Cliente {
   ehMatriz      Boolean?      @map("eh_matriz")
   tipoCliente   String?       @map("tipo_cliente")
   logoUrl       String?       @map("logo_url")
+  /// Capa do cabeçalho DESTE cliente. Null = usa a capa global do módulo
+  /// (opcoes_cadastro CLIENTE_CONFIG header_cover), que continua sendo o
+  /// padrão de quem não personalizou. Espelha User.coverImage.
+  coverImage    String?       @map("cover_image")
 
   // Integração
   idSistema      String? @map("id_sistema")
