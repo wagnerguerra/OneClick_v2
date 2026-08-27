@@ -97,6 +97,7 @@ export function AreaForm({ mode, areaId, title, description, defaultValues }: Ar
       costType: 'DIRECT',
       costWeight: 1,
       excludeFromCosting: false,
+      notificavelOrcamento: false,
       ...defaultValues,
     },
   })
@@ -239,6 +240,22 @@ export function AreaForm({ mode, areaId, title, description, defaultValues }: Ar
                       />
                       <span className="text-sm">Exibir no organograma</span>
                       <FieldHint text="Quando ativo, esta área será exibida no organograma da empresa." />
+                    </label>
+                  )}
+                />
+                {/* #367 (espelho) — mesma config de "áreas notificáveis" da tela de
+                    configurações de orçamentos, aqui no cadastro da área. */}
+                <Controller
+                  control={control}
+                  name="notificavelOrcamento"
+                  render={({ field }) => (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                      <span className="text-sm">Notificável em orçamentos</span>
+                      <FieldHint text="Quando ativo, esta área fica disponível para ser notificada nos orçamentos (mesma lista da configuração de orçamentos). O líder da área é avisado quando ela é indicada como envolvida num orçamento." />
                     </label>
                   )}
                 />
