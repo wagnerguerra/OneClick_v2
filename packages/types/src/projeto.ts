@@ -63,7 +63,12 @@ export const createProjetoSchema = z.object({
   descricao: z.string().optional().nullable(),
   cor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Cor deve ser hex').optional(),
   status: ProjetoStatusEnum.optional(),
+  /** Quem responde pelo projeto. É UM só. */
   responsavelId: z.string().optional().nullable(),
+  /** O time em volta do responsável. Lista completa: o que vier substitui. */
+  participantesIds: z.array(z.string()).optional(),
+  /** Cliente atendido. Vazio = projeto interno. */
+  clienteId: z.string().optional().nullable(),
   dataInicio: z.string().optional().nullable(),
   dataPrevisao: z.string().optional().nullable(),
 })
@@ -73,6 +78,7 @@ export const updateProjetoSchema = createProjetoSchema.partial()
 export const listProjetosSchema = paginationSchema.extend({
   status: ProjetoStatusEnum.optional(),
   responsavelId: z.string().optional(),
+  clienteId: z.string().optional(),
 })
 
 export type CreateProjetoInput = z.infer<typeof createProjetoSchema>
