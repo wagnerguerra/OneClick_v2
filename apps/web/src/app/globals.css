@@ -288,25 +288,17 @@
 .dark .mod-fiscal .dark\:bg-indigo-950\/30, .dark .mod-fiscal .dark\:bg-indigo-900\/40 { background-color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 18%, transparent); }
 .dark .mod-fiscal .dark\:text-indigo-400, .dark .mod-fiscal .dark\:text-indigo-300 { color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 80%, white); }
 
-/* === Contábil / Processos → violet === */
-.mod-contabil .bg-violet-500, .mod-contabil .bg-violet-600, .mod-processos .bg-violet-500, .mod-processos .bg-violet-600 { background-color: var(--mod-contabil, #a78bfa); }
-.mod-processos .bg-violet-500, .mod-processos .bg-violet-600 { background-color: var(--mod-processos, #8b5cf6); }
+/* === Contábil → violet === */
+/* (Processos deixou de ser cor própria — virou bloco Administrativo/sky; slug remapeado.) */
+.mod-contabil .bg-violet-500, .mod-contabil .bg-violet-600 { background-color: var(--mod-contabil, #a78bfa); }
 .mod-contabil .hover\:bg-violet-600:hover, .mod-contabil .hover\:bg-violet-700:hover { background-color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 87%, black); }
-.mod-processos .hover\:bg-violet-600:hover, .mod-processos .hover\:bg-violet-700:hover { background-color: color-mix(in srgb, var(--mod-processos, #8b5cf6) 87%, black); }
 .mod-contabil .text-violet-500, .mod-contabil .text-violet-600, .mod-contabil .text-violet-700 { color: var(--mod-contabil, #a78bfa); }
-.mod-processos .text-violet-500, .mod-processos .text-violet-600, .mod-processos .text-violet-700 { color: var(--mod-processos, #8b5cf6); }
 .mod-contabil .border-violet-200, .mod-contabil .border-violet-300, .mod-contabil .border-violet-400, .mod-contabil .border-violet-500 { border-color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 40%, transparent); }
-.mod-processos .border-violet-200, .mod-processos .border-violet-300, .mod-processos .border-violet-400, .mod-processos .border-violet-500 { border-color: color-mix(in srgb, var(--mod-processos, #8b5cf6) 40%, transparent); }
 .mod-contabil .bg-violet-50, .mod-contabil .bg-violet-100 { background-color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 12%, transparent); }
-.mod-processos .bg-violet-50, .mod-processos .bg-violet-100 { background-color: color-mix(in srgb, var(--mod-processos, #8b5cf6) 12%, transparent); }
 .mod-contabil .from-violet-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-contabil, #a78bfa) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(167 139 250 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
-.mod-processos .from-violet-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-processos, #8b5cf6) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(139 92 246 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
 .mod-contabil .to-violet-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-contabil, #a78bfa) 80%, black) var(--tw-gradient-to-position); }
-.mod-processos .to-violet-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-processos, #8b5cf6) 80%, black) var(--tw-gradient-to-position); }
 .dark .mod-contabil .dark\:bg-violet-950\/30, .dark .mod-contabil .dark\:bg-violet-900\/40 { background-color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 18%, transparent); }
-.dark .mod-processos .dark\:bg-violet-950\/30, .dark .mod-processos .dark\:bg-violet-900\/40 { background-color: color-mix(in srgb, var(--mod-processos, #8b5cf6) 18%, transparent); }
 .dark .mod-contabil .dark\:text-violet-400, .dark .mod-contabil .dark\:text-violet-300 { color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 80%, white); }
-.dark .mod-processos .dark\:text-violet-400, .dark .mod-processos .dark\:text-violet-300 { color: color-mix(in srgb, var(--mod-processos, #8b5cf6) 80%, white); }
 
 /* === Qualidade → amber === */
 .mod-qualidade .bg-amber-500, .mod-qualidade .bg-amber-600 { background-color: var(--mod-qualidade, #f59e0b); }

@@ -21,7 +21,7 @@ import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { SEGMENTO_SLUGS, SEGMENTO_META, type SegmentoSlug } from '@saas/types'
 
-const MODULE_COLOR = 'var(--mod-processos, #8b5cf6)' // violet (Processos)
+const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
 
 interface Execucao {
   id: string

@@ -37,7 +37,6 @@ export const DEFAULT_MODULE_COLORS: ModuleColorMap = {
   ti:            '#22d3ee',
   qualidade:     '#f59e0b',
   configuracoes: '#f97316',
-  processos:     '#8b5cf6',
   faq:           '#0891b2',
   perfil:        '#5ea3cb',
 }
