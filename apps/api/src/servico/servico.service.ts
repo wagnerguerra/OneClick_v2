@@ -3955,6 +3955,8 @@ export class ServicoService {
     bucket?: string
     /** Traz as dispensadas junto (fora do bucket próprio elas ficam de fora). */
     incluirDispensados?: boolean
+    /** Busca textual: serviço, cliente, nº do orçamento e responsável. */
+    search?: string
     page?: number
     /** Com `limit` a resposta vem paginada ({data,total,...}); sem ele, array puro. */
     limit?: number
@@ -4168,6 +4170,44 @@ export class ServicoService {
       where = where.AND ? { AND: [...where.AND, extra] } : { AND: [where, extra] }
     }
 
+    // Busca textual — server-side de propósito. Enquanto ela vivia no
+    // navegador, filtrava só a página carregada: procurar o orçamento #4674
+    // entre 2.300 execuções devolvia "nenhum serviço encontrado" mesmo com a
+    // execução existindo, porque ela estava na página 12.
+    //
+    // Ignora acento e caixa (mesmo caminho do cliente.service): o Prisma não
+    // expõe `unaccent`, então os IDs candidatos vêm por SQL cru e entram no
+    // where como `id: { in: [...] }`.
+    const termo = filters?.search?.trim()
+    if (termo) {
+      const like = `%${termo}%`
+      // "#4674" e "4674" procuram o mesmo orçamento.
+      const likeNumero = `%${termo.replace(/^#/, '')}%`
+      const candidatos = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT e.id FROM servico_execucoes e
+           LEFT JOIN servicos   s ON s.id = e.servico_id
+           LEFT JOIN clientes   c ON c.id = e.cliente_id
+           LEFT JOIN orcamentos o ON o.id = e.orcamento_id
+           LEFT JOIN users      u ON u.id = e.responsavel_id
+          WHERE unaccent(s.nome)         ILIKE unaccent($1)
+             OR unaccent(c.razao_social) ILIKE unaccent($1)
+             OR unaccent(u.name)         ILIKE unaccent($1)
+             OR o.numero::text           ILIKE $2
+          LIMIT 5000`,
+        like,
+        likeNumero,
+      ).catch((e) => {
+        console.warn('[Servico] Busca textual falhou, seguindo sem filtro:', (e as Error).message)
+        return null
+      })
+      // `null` = a consulta falhou; filtrar por lista vazia esconderia tudo e
+      // pareceria "não existe". Nesse caso a busca é ignorada, não invertida.
+      if (candidatos) {
+        const ids = candidatos.map(r => r.id)
+        where = { AND: [where, { id: { in: ids } }] }
+      }
+    }
+
     // Sem `limit` a rota continua devolvendo tudo (o widget do dashboard e as
     // telas que ainda não paginam dependem disso); com `limit`, pagina.
     const take = filters?.limit && filters.limit > 0 ? Math.min(filters.limit, 200) : undefined
@@ -4290,10 +4330,12 @@ export class ServicoService {
    * A tela buscava a lista COMPLETA uma segunda vez só para somar isso — 358KB
    * e ~7s por carga, para exibir cinco números.
    */
-  async contarMeusServicos(userId: string, filters?: { incluirArquivados?: boolean }) {
+  async contarMeusServicos(userId: string, filters?: { incluirArquivados?: boolean; search?: string }) {
     const buckets = ['em_andamento', 'atrasados', 'pausados', 'concluidos', 'dispensados', 'cancelados'] as const
+    // A busca entra aqui também: chip dizendo "1244 em andamento" ao lado de
+    // uma lista de um item só faz o usuário achar que a tela escondeu algo.
     const pares = await Promise.all(buckets.map(async (b) => {
-      const r = await this.listMeusServicos(userId, { bucket: b, page: 1, limit: 1, incluirArquivados: filters?.incluirArquivados })
+      const r = await this.listMeusServicos(userId, { bucket: b, page: 1, limit: 1, incluirArquivados: filters?.incluirArquivados, search: filters?.search })
       return [b, Array.isArray(r) ? r.length : r.total] as const
     }))
     const mapa = Object.fromEntries(pares) as Record<(typeof buckets)[number], number>

@@ -457,6 +457,17 @@ export default function MeusServicosPage() {
   // 7 de outra, que muitas vezes nem existe.
   useEffect(() => { setPage(1) }, [filter])
   const [busca, setBusca] = useState('')
+  // A busca é do SERVIDOR: filtrar no navegador só alcançava a página
+  // carregada — procurar um orçamento entre milhares de execuções dizia
+  // "nenhum serviço encontrado" com o serviço existindo na página seguinte.
+  // Debounce de 400ms, o mesmo dos demais módulos (PADRAO_MODULOS).
+  const [buscaAplicada, setBuscaAplicada] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setBuscaAplicada(busca.trim()), 400)
+    return () => clearTimeout(t)
+  }, [busca])
+  // Termo novo recomeça a paginação — a página 7 do termo antigo não existe no novo.
+  useEffect(() => { setPage(1) }, [buscaAplicada])
   // Modo de exibição — lista (vertical, denso) vs kanban (colunas por status).
   // Persiste no localStorage para respeitar a preferência do usuário entre sessões.
   const [viewMode, setViewMode] = useState<'lista' | 'kanban'>(() => {
@@ -659,6 +670,7 @@ export default function MeusServicosPage() {
       const bucket = filter === 'todos' ? undefined : filter
       const res = await (trpc.servico as any).listMeusServicos.query({
         ...(bucket ? { bucket } : {}),
+        ...(buscaAplicada ? { search: buscaAplicada } : {}),
         page,
         limit: POR_PAGINA,
       })
@@ -669,7 +681,7 @@ export default function MeusServicosPage() {
       console.warn('[MeusServicos] erro ao listar:', (e as Error).message)
       if (!opts?.silent) setExecucoes([])
     } finally { if (!opts?.silent) setLoading(false) }
-  }, [filter, page])
+  }, [filter, page, buscaAplicada])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -682,10 +694,12 @@ export default function MeusServicosPage() {
   const [contadores, setContadores] = useState<Record<string, number>>({})
   const carregarContadores = useCallback(async () => {
     try {
-      const c = await (trpc.servico as any).contarMeusServicos.query()
+      const c = await (trpc.servico as any).contarMeusServicos.query(
+        buscaAplicada ? { search: buscaAplicada } : undefined,
+      )
       setContadores(c || {})
     } catch { /* sem perm */ }
-  }, [])
+  }, [buscaAplicada])
   useEffect(() => { carregarContadores() }, [carregarContadores])
   /**
    * Atraso segundo a ORIGEM, não segundo a data.
@@ -716,17 +730,10 @@ export default function MeusServicosPage() {
     ativos: contadores.ativos ?? 0,
   }
 
-  // Busca textual — filtra por serviço, cliente, nº do orçamento e responsável
-  // (sem acento, case-insensitive). Alimenta tanto o kanban quanto a lista.
-  const execFiltradas = useMemo(() => {
-    const q = busca.trim().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-    if (!q) return execucoes
-    return execucoes.filter(e => {
-      const alvo = `${e.servico?.nome ?? ''} ${e.cliente?.razaoSocial ?? ''} ${e.orcamento ? '#' + e.orcamento.numero : ''} ${e.responsavelUsuario?.name ?? ''}`
-        .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-      return alvo.includes(q)
-    })
-  }, [execucoes, busca])
+  // A busca já veio filtrada do servidor (serviço, cliente, nº do orçamento e
+  // responsável, sem acento e sem caixa). Repetir o filtro aqui só reduziria o
+  // resultado da página — o nome fica porque alimenta o kanban e a lista.
+  const execFiltradas = execucoes
 
   // Agrupamento em colunas para o modo Kanban — uma execução pertence a UMA coluna.
   // Ordem de precedência: cancelado > concluído > pausado > atrasado > em andamento.
