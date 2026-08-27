@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Calendar, Plus, Edit2, Trash2, MoreVertical, Loader2, Settings, DoorOpen,
+  Calendar, Plus, Edit2, Trash2, MoreVertical, Loader2, Settings, DoorOpen, ArrowLeft,
   Mail, Send, X, ChevronDown, Search, RefreshCw, Check, FileText, Eye, Upload, GripVertical,
 } from 'lucide-react'
 import {
@@ -20,8 +20,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
-import { BackButton } from '@/components/ui/back-button'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -91,7 +91,7 @@ function SortableGrupoCard({ grupo, tiposModelo, tiposEmOutrosGrupos, onPatch, o
             <button type="button" className="h-8 w-10 shrink-0 flex items-center justify-center rounded-md border border-border text-lg hover:bg-muted" title="Trocar ícone">{grupo.icone || '📅'}</button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="p-2">
-            <div className="grid grid-cols-6 gap-1">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1">
               {EMOJI_OPCOES.map(em => (
                 <button key={em} type="button" onClick={() => { onPatch({ icone: em }); setEmojiOpen(false) }}
                   className={cn('h-8 w-8 flex items-center justify-center rounded text-lg hover:bg-muted', grupo.icone === em && 'bg-muted ring-1 ring-ring')}>{em}</button>
@@ -565,16 +565,28 @@ export default function AgendaConfiguracoesPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="administrativo" icon={Settings} />
-          <div>
-            <h1>Configurações da agenda</h1>
-            <p className="text-sm text-muted-foreground">Regras de conflito e cadastro de salas</p>
-          </div>
-        </div>
-        <BackButton href="/agenda" title="Voltar pra Agenda" />
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+        <Button
+          variant="outline" size="icon"
+          onClick={() => router.push('/agenda')}
+          title="Voltar pra Agenda"
+          className="h-9 w-9"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+      </>}>
+        <h1 className="truncate">Configurações da agenda</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Agenda Corporativa</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações da agenda</span>
+        </p>
+      </PageHeaderBar>
 
       {/* ============================================================
           Card com pills laterais — padrão da casa (CLAUDE.md → "Sub-abas")
@@ -619,7 +631,7 @@ export default function AgendaConfiguracoesPage() {
           </div>
 
           {/* Conteúdo */}
-          <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+          <div key={activeTab} className="min-w-0 flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
             {/* ---- SUB-TAB: REGRAS DE CONFLITO ---- */}
             {activeTab === 'regras' && (
@@ -1137,7 +1149,7 @@ export default function AgendaConfiguracoesPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   {/* Editor */}
                   <div className="space-y-4">
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       <div className="col-span-2 space-y-1.5"><Label className="text-[13px] font-semibold">Assunto</Label><Input className="h-9 text-sm" value={tpl.assunto} onChange={e => setTplField('assunto', e.target.value)} /></div>
                       <div className="space-y-1.5"><Label className="text-[13px] font-semibold">Cor de destaque</Label><Input type="color" className="h-9 w-full p-1" value={tpl.accent} onChange={e => setTplField('accent', e.target.value)} /></div>
                     </div>

@@ -123,7 +123,7 @@ function FiliaisSection({ clienteId, filiais, onReload }: { clienteId: string; f
 
       {adding && (
         <Card className="p-4 space-y-3 border-violet-200 bg-violet-50/30">
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             <div className="space-y-1"><label className="text-[10px] font-semibold uppercase text-muted-foreground">CNPJ</label><Input value={form.cnpj} onChange={e => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0000-00" className="h-8 text-xs" /></div>
             <div className="space-y-1"><label className="text-[10px] font-semibold uppercase text-muted-foreground">Código</label><Input value={form.codigoFilial} onChange={e => setForm({ ...form, codigoFilial: e.target.value })} placeholder="MTZ" className="h-8 text-xs" /></div>
             <div className="space-y-1"><label className="text-[10px] font-semibold uppercase text-muted-foreground">Endereço</label><Input value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })} placeholder="Opcional" className="h-8 text-xs" /></div>

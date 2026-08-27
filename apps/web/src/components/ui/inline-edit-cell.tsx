@@ -9,6 +9,10 @@ import { TEXT } from '@/lib/color-styles'
  * Célula editável inline. Render padrão é só texto; ao clicar, vira input
  * (ou select). Enter salva, Esc cancela. onSave faz update otimista —
  * em caso de erro, o componente reseta pro `value` original.
+ *
+ * Compartilhada: nasceu no cadastro de usuários e hoje serve qualquer
+ * listagem (Controle de Férias etc.). Tipos: text | email | number | date |
+ * select. Em `date`, o valor trafega em ISO (yyyy-mm-dd).
  */
 
 interface BaseProps {
@@ -24,9 +28,12 @@ interface BaseProps {
 }
 
 interface TextProps extends BaseProps {
-  type: 'text' | 'email'
+  type: 'text' | 'email' | 'number' | 'date'
   options?: never
   placeholder?: string
+  /** number: limites aceitos (validação além do `validate`). */
+  min?: number
+  max?: number
 }
 
 interface SelectProps extends BaseProps {
@@ -114,7 +121,7 @@ export function InlineEditCell(props: Props) {
               : <span className="text-muted-foreground italic">{emptyLabel}</span>)}
         </span>
         {!disabled && (
-          <Pencil className="h-3 w-3 text-muted-foreground/60 opacity-0 group-hover/edit:opacity-100 transition-opacity shrink-0" />
+          <Pencil className="h-3 w-3 text-muted-foreground/60 opacity-100 sm:opacity-0 sm:group-hover/edit:opacity-100 transition-opacity shrink-0" />
         )}
       </div>
     )
@@ -142,13 +149,14 @@ export function InlineEditCell(props: Props) {
       ) : (
         <Input
           ref={inputRef}
-          type={props.type === 'email' ? 'email' : 'text'}
+          type={props.type === 'email' ? 'email' : props.type === 'number' ? 'number' : props.type === 'date' ? 'date' : 'text'}
+          {...(props.type === 'number' ? { min: props.min, max: props.max, inputMode: 'numeric' as const } : {})}
           value={temp}
           onChange={(e) => setTemp(e.target.value)}
           onKeyDown={onKeyDown}
           onBlur={() => { if (!saving) commit(temp) }}
           placeholder={props.placeholder}
-          className="h-7 text-xs min-w-[160px]"
+          className={cn('h-7 text-xs', props.type === 'number' ? 'w-[72px]' : props.type === 'date' ? 'w-[140px]' : 'min-w-[160px]')}
           disabled={saving}
           aria-invalid={!!error}
         />

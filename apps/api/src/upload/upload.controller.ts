@@ -168,6 +168,18 @@ export class UploadController {
       return
     }
 
+    // SVG é XML e roda script quando aberto direto no navegador — com a sessão
+    // de quem abriu, porque sai deste mesmo domínio. A rota de upload sempre
+    // aceitou `image/*`, então SVG já podia entrar por aqui.
+    //
+    // A CSP proíbe tudo menos o desenho em si: sem script, sem requisição para
+    // fora, sem plugin. `nosniff` impede que outro tipo de arquivo seja tratado
+    // como SVG por adivinhação do navegador.
+    if (extname(safe).toLowerCase() === '.svg') {
+      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+      res.setHeader('X-Content-Type-Options', 'nosniff')
+    }
+
     res.sendFile(filePath)
   }
 

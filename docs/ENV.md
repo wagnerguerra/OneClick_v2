@@ -152,8 +152,33 @@ Compose (produção, no serviço `api` — adicionar em `/opt/oneclick/docker-co
 - **URL local**: `http://192.168.0.58:5173/`
 - **Banco**: MySQL `oneclick_fiscal_serpro` na porta 3001
 
+## Banco de imagens (capa do cliente)
+> Configurável pela tela **Configurações → Dossiê e Imagens**.
+```env
+# Chave gratuita gerada em https://www.pexels.com/api/ (uso comercial liberado,
+# sem exigência de crédito). Alimenta "Alterar capa" no detalhe do cliente →
+# aba "Sugestões da internet". Sem ela, a aba avisa e o envio manual segue
+# funcionando normalmente.
+PEXELS_API_KEY=
+```
+
+## Dossiê do Cliente (enriquecimento por CNPJ)
+> Configuráveis pela tela **Configurações → Dossiê e Imagens** (gravam em
+> `system_config`, que é o que sobrevive ao deploy).
+```env
+# Ordem da cadeia de provedores. Vazio = opencnpj,brasilapi,serpro.
+# As duas primeiras são gratuitas e sem token; o SERPRO é pago por consulta e
+# só entra quando as públicas falham (usa SERPRO_CONSUMER_KEY/SECRET).
+DOSSIE_PROVEDORES=
+```
+Job diário de situação cadastral: ligado por `system_config`
+(`DOSSIE_SITUACAO_ENABLED=true`, `DOSSIE_SITUACAO_CRON` padrão `0 6 * * *`).
+Detalhes em `apps/api/src/cliente/dossie/README.md`.
+
 ## Integrações Externas
 - **SMTP**: Gmail para e-mails transacionais
 - **BrasilAPI**: Consulta de CNPJ e CEP
+- **OpenCNPJ**: Dossiê do cliente — base da Receita, gratuita e sem token
+- **Pexels**: Fotos sugeridas para a capa do cliente (`PEXELS_API_KEY`)
 - **Omie**: ERP de alguns clientes (integração futura)
 - **SCI (Firebird)**: ERP contábil em `\\192.168.0.2`, charset UTF8

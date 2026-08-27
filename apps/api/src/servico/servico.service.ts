@@ -3947,7 +3947,20 @@ export class ServicoService {
    *     onde o responsavel da execucao esta lotado (Area.leaderId == userId)
    *  5. **Responsavel pelo orcamento que originou a execucao**
    */
-  async listMeusServicos(userId: string, filters?: { status?: string; atrasados?: boolean; incluirArquivados?: boolean }) {
+  async listMeusServicos(userId: string, filters?: {
+    status?: string
+    atrasados?: boolean
+    incluirArquivados?: boolean
+    /** Coluna do painel: em_andamento | atrasados | pausados | concluidos | dispensados | cancelados. */
+    bucket?: string
+    /** Traz as dispensadas junto (fora do bucket próprio elas ficam de fora). */
+    incluirDispensados?: boolean
+    /** Busca textual: serviço, cliente, nº do orçamento e responsável. */
+    search?: string
+    page?: number
+    /** Com `limit` a resposta vem paginada ({data,total,...}); sem ele, array puro. */
+    limit?: number
+  }) {
     const agora = new Date()
 
     // Carrega user com info de role/profile pra decidir scope + área (id + nome).
@@ -3969,13 +3982,28 @@ export class ServicoService {
     const cfg = await this.getMeusServicosConfig()
     const limiteConcluidas = new Date(agora.getTime() - cfg.concluidosDiasExibicao * 24 * 60 * 60 * 1000)
 
-    // Filtros base (status / atrasados) — aplicados em todos os caminhos
-    const filtroStatus: any = {}
-    if (filters?.status) filtroStatus.status = filters.status
-    if (filters?.atrasados) {
-      filtroStatus.status = 'EM_ANDAMENTO'
-      filtroStatus.prazoLimite = { lt: agora }
-    }
+    // Filtros base — aplicados em todos os caminhos.
+    //
+    // `bucket` é a coluna do painel. Antes o front recebia tudo e separava as
+    // colunas no navegador; com 2.300 execuções isso virava 188 mil nós de DOM.
+    // Agora cada coluna é uma consulta paginada, e a regra de cada uma mora
+    // aqui — inclusive a de atraso, que o front vinha reimplementando.
+    const filtroStatus: any = filters?.bucket
+      ? this.whereDoBucket(filters.bucket, agora)
+      // Sem bucket, o padrão é o trabalho EM ABERTO: concluído, cancelado e
+      // dispensado saem do painel (26/08/2026) e se consultam em /servicos ›
+      // Execuções. `status` explícito ainda alcança qualquer um deles.
+      : (filters?.status || filters?.incluirArquivados)
+        ? {}
+        : { status: { in: ['EM_ANDAMENTO', 'AGUARDANDO_RESPOSTA'] } }
+    if (!filters?.bucket && filters?.status) filtroStatus.status = filters.status
+    if (!filters?.bucket && filters?.atrasados) Object.assign(filtroStatus, this.whereDoBucket('atrasados', agora))
+    // Dispensada é obrigação que o cliente não deve: em produção são 1.634 de
+    // um total de ~9.100, e nenhuma delas pede trabalho. Só aparece no bucket
+    // próprio ou quando pedida de propósito.
+    const filtroDispensadas = (filters?.bucket === 'dispensados' || filters?.status === 'PULADO' || filters?.incluirDispensados)
+      ? {}
+      : { status: { not: 'PULADO' } }
     // Regra automatica: execucoes CONCLUIDAS/CANCELADAS antigas (concluidoEm < limite)
     // saem da listagem padrao. Tambem excluimos arquivadas manualmente, exceto quando
     // o filtro `incluirArquivados` foi explicitamente ativado.
@@ -3999,9 +4027,13 @@ export class ServicoService {
     const isPriv = user.isMaster || user.role === 'DIRETOR' || user.role === 'COORDENADOR'
     if (isPriv) {
       // Master/Diretor/Coordenador: ve tudo da empresa (orfas tambem para nao perder legado)
+      // `filtroStatus` do bucket traz OR/NOT proprios: espalhar ao lado do OR
+      // de empresa faria uma chave sobrescrever a outra. Vai como AND.
       where = {
-        ...filtroStatus,
-        ...(user.empresaId ? { OR: [{ empresaId: user.empresaId }, { empresaId: null }] } : {}),
+        AND: [
+          filtroStatus,
+          ...(user.empresaId ? [{ OR: [{ empresaId: user.empresaId }, { empresaId: null }] }] : []),
+        ],
       }
     } else {
       // Caso geral: agrega IDs visiveis em paralelo
@@ -4125,20 +4157,66 @@ export class ServicoService {
         })
       }
 
-      where = { ...filtroStatus, OR: orClauses }
+      where = { AND: [filtroStatus, { OR: orClauses }] }
       // Mantem scope por empresa quando user esta scopado
       if (user.empresaId) {
         where = { AND: [where, { OR: [{ empresaId: user.empresaId }, { empresaId: null }] }] }
       }
     }
 
-    // Aplica a janela de tempo + arquivado por cima do where principal
-    if (Object.keys(filtroJanela).length > 0) {
-      where = where.AND ? { AND: [...where.AND, filtroJanela] } : { AND: [where, filtroJanela] }
+    // Aplica a janela de tempo + arquivado + a regra das dispensadas por cima
+    for (const extra of [filtroJanela, filtroDispensadas]) {
+      if (Object.keys(extra).length === 0) continue
+      where = where.AND ? { AND: [...where.AND, extra] } : { AND: [where, extra] }
     }
+
+    // Busca textual — server-side de propósito. Enquanto ela vivia no
+    // navegador, filtrava só a página carregada: procurar o orçamento #4674
+    // entre 2.300 execuções devolvia "nenhum serviço encontrado" mesmo com a
+    // execução existindo, porque ela estava na página 12.
+    //
+    // Ignora acento e caixa (mesmo caminho do cliente.service): o Prisma não
+    // expõe `unaccent`, então os IDs candidatos vêm por SQL cru e entram no
+    // where como `id: { in: [...] }`.
+    const termo = filters?.search?.trim()
+    if (termo) {
+      const like = `%${termo}%`
+      // "#4674" e "4674" procuram o mesmo orçamento.
+      const likeNumero = `%${termo.replace(/^#/, '')}%`
+      const candidatos = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT e.id FROM servico_execucoes e
+           LEFT JOIN servicos   s ON s.id = e.servico_id
+           LEFT JOIN clientes   c ON c.id = e.cliente_id
+           LEFT JOIN orcamentos o ON o.id = e.orcamento_id
+           LEFT JOIN users      u ON u.id = e.responsavel_id
+          WHERE unaccent(s.nome)         ILIKE unaccent($1)
+             OR unaccent(c.razao_social) ILIKE unaccent($1)
+             OR unaccent(u.name)         ILIKE unaccent($1)
+             OR o.numero::text           ILIKE $2
+          LIMIT 5000`,
+        like,
+        likeNumero,
+      ).catch((e) => {
+        console.warn('[Servico] Busca textual falhou, seguindo sem filtro:', (e as Error).message)
+        return null
+      })
+      // `null` = a consulta falhou; filtrar por lista vazia esconderia tudo e
+      // pareceria "não existe". Nesse caso a busca é ignorada, não invertida.
+      if (candidatos) {
+        const ids = candidatos.map(r => r.id)
+        where = { AND: [where, { id: { in: ids } }] }
+      }
+    }
+
+    // Sem `limit` a rota continua devolvendo tudo (o widget do dashboard e as
+    // telas que ainda não paginam dependem disso); com `limit`, pagina.
+    const take = filters?.limit && filters.limit > 0 ? Math.min(filters.limit, 200) : undefined
+    const skip = take ? ((filters?.page ?? 1) - 1) * take : undefined
+    const total = take ? await prisma.servicoExecucao.count({ where }) : undefined
 
     const execs = await prisma.servicoExecucao.findMany({
       where,
+      ...(take ? { take, skip } : {}),
       include: {
         servico: {
           select: {
@@ -4194,11 +4272,74 @@ export class ServicoService {
       const orcs = await prisma.orcamento.findMany({ where: { id: { in: orcIds } }, select: { id: true, numero: true } })
       for (const o of orcs) orcMap.set(o.id, o)
     }
-    return execs.map(e => ({
+    const linhas = execs.map(e => ({
       ...e,
       responsavelUsuario: e.responsavelId ? respMap.get(e.responsavelId) ?? null : null,
       orcamento: e.orcamentoId ? orcMap.get(e.orcamentoId) ?? null : null,
     }))
+    // Compat: sem paginação pedida, devolve o array como sempre devolveu.
+    if (!take) return linhas
+    return {
+      data: linhas,
+      total: total ?? linhas.length,
+      page: filters?.page ?? 1,
+      limit: take,
+      totalPages: Math.max(1, Math.ceil((total ?? linhas.length) / take)),
+    }
+  }
+
+  /**
+   * A regra de cada coluna do painel, num só lugar.
+   *
+   * Atraso segue a ORIGEM: execução vinda do Acessórias está atrasada quando o
+   * Acessórias diz que está (`acessoriasStatus` começando com "Atrasada"), não
+   * quando a data passa — o prazo que guardamos dela é o técnico, interno.
+   * Quem não vem do Acessórias segue pela data, que é o que tem.
+   */
+  private whereDoBucket(bucket: string, agora: Date): any {
+    switch (bucket) {
+      case 'em_andamento':
+        return {
+          status: 'EM_ANDAMENTO',
+          pausado: false,
+          NOT: [
+            { acessoriasStatus: { startsWith: 'Atrasada' } },
+            { AND: [{ acessoriasStatus: null }, { prazoLimite: { lt: agora } }] },
+          ],
+        }
+      case 'atrasados':
+        return {
+          status: 'EM_ANDAMENTO',
+          pausado: false,
+          OR: [
+            { acessoriasStatus: { startsWith: 'Atrasada' } },
+            { AND: [{ acessoriasStatus: null }, { prazoLimite: { lt: agora } }] },
+          ],
+        }
+      case 'pausados':   return { status: 'EM_ANDAMENTO', pausado: true }
+      case 'concluidos': return { status: 'CONCLUIDO' }
+      case 'dispensados': return { status: 'PULADO' }
+      case 'cancelados': return { status: 'CANCELADO' }
+      default: return {}
+    }
+  }
+
+  /**
+   * Os números dos chips, sem trazer uma linha sequer.
+   *
+   * A tela buscava a lista COMPLETA uma segunda vez só para somar isso — 358KB
+   * e ~7s por carga, para exibir cinco números.
+   */
+  async contarMeusServicos(userId: string, filters?: { incluirArquivados?: boolean; search?: string }) {
+    const buckets = ['em_andamento', 'atrasados', 'pausados', 'concluidos', 'dispensados', 'cancelados'] as const
+    // A busca entra aqui também: chip dizendo "1244 em andamento" ao lado de
+    // uma lista de um item só faz o usuário achar que a tela escondeu algo.
+    const pares = await Promise.all(buckets.map(async (b) => {
+      const r = await this.listMeusServicos(userId, { bucket: b, page: 1, limit: 1, incluirArquivados: filters?.incluirArquivados, search: filters?.search })
+      return [b, Array.isArray(r) ? r.length : r.total] as const
+    }))
+    const mapa = Object.fromEntries(pares) as Record<(typeof buckets)[number], number>
+    return { ...mapa, ativos: mapa.em_andamento + mapa.atrasados + mapa.pausados }
   }
 
   /**
@@ -4223,7 +4364,13 @@ export class ServicoService {
     // somente as execucoes ativas (EM_ANDAMENTO + AGUARDANDO_RESPOSTA),
     // filtrando depois pausadas/arquivadas (incluirArquivados=false ja exclui
     // as arquivadas, mas pausadas chegam aqui e a gente filtra em memoria).
-    const todos = await this.listMeusServicos(userId)
+    // Sem `limit`, `listMeusServicos` devolve o array puro — o cast diz isso ao
+    // TypeScript, que agora vê os dois formatos de retorno.
+    // Sem `limit` a resposta é o array puro; o Extract deixa isso explícito
+    // para o TypeScript, que agora conhece os dois formatos.
+    const todos = await this.listMeusServicos(userId) as Extract<
+      Awaited<ReturnType<ServicoService['listMeusServicos']>>, unknown[]
+    >
     const agora = Date.now()
     const limiar48h = agora + 48 * 60 * 60 * 1000
 

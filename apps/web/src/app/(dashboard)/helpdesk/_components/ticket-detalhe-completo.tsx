@@ -868,7 +868,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                         <button
                           type="button"
                           onClick={abrirEditTituloInline}
-                          className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted/60 hover:text-foreground group-hover:opacity-100 focus:opacity-100"
+                          className="shrink-0 rounded-md p-1 text-muted-foreground opacity-100 transition-opacity hover:bg-muted/60 hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
                           title="Editar título"
                           aria-label="Editar título do ticket"
                         >
@@ -895,7 +895,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                 {podeCancelar && (
                   <Button
                     variant="destructive" size="sm"
@@ -924,7 +924,10 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
           </div>
           {/* Tabs — padrão SlidingTabsList (mesmo de /orcamentos/[id]) com
               indicador deslizante animado entre os triggers. */}
-          <div className="relative z-10 px-4 sm:px-6 pb-2 overflow-x-auto flex justify-center">
+          {/* `justify-center` num container que rola corta a primeira aba quando
+              elas não cabem — e o pedaço cortado não volta com a rolagem. Centraliza
+              só quando sobra espaço (`sm:justify-center`). */}
+          <div className="relative z-10 flex justify-start overflow-x-auto px-4 pb-2 sm:justify-center sm:px-6">
             <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
               <TabsTrigger value="conversa" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-700 dark:data-[state=active]:!text-cyan-300 gap-1.5">
                 <MessageSquare className="h-3.5 w-3.5" /> Conversação

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { UserCog } from 'lucide-react'
 import type { CreateUserInput, PermissionInput } from '@saas/types'
 import { numeroParaMoeda, isoParaData } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
@@ -87,7 +86,6 @@ export default function EditUserPage() {
       userId={params.id}
       title="Editar Usuário"
       description="Altere os dados do usuário"
-      icon={<UserCog className="h-6 w-6" />}
       defaultValues={user}
     />
   )

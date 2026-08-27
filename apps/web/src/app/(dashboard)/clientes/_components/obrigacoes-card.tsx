@@ -113,8 +113,8 @@ export function ObrigacoesCard({ clienteId }: { clienteId: string }) {
             <div className="flex gap-1 shrink-0">
               {item.ativo && item.status === 'pendente' && <Button type="button" variant="soft" size="sm" className="h-7 text-[10px]" onClick={() => handleStatusChange(item.id, 'em_andamento')}>Iniciar</Button>}
               {item.ativo && item.status === 'em_andamento' && <Button type="button" variant="success" size="sm" className="h-7 text-[10px]" onClick={() => handleStatusChange(item.id, 'concluida')}>Concluir</Button>}
-              <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleToggle(item.id)} title={item.ativo ? 'Desativar' : 'Ativar'} className="opacity-0 group-hover:opacity-100"><Power className="h-3.5 w-3.5" /></Button>
-              <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleRemove(item.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleToggle(item.id)} title={item.ativo ? 'Desativar' : 'Ativar'} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><Power className="h-3.5 w-3.5" /></Button>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleRemove(item.id)} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
             </div>
           </div>
         ))}

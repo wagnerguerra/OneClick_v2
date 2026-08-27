@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Archive, Download, Upload, Loader2, CheckCircle, FileArchive, AlertTriangle, X, Trash2 } from 'lucide-react'
+import { Download, Upload, Loader2, CheckCircle, FileArchive, AlertTriangle, X, Trash2 } from 'lucide-react'
 import { Button, Card, CardHeader, Checkbox, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@saas/ui'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
@@ -108,17 +110,17 @@ function BackupRestorePageInner() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-orange-500 text-white shadow-md">
-            <Archive className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Backup e Restore</h1>
-            <p className="text-sm text-muted-foreground">Gere backups do sistema e restaure quando necessario</p>
-          </div>
-        </div>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Backup e Restore</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Backup e Restore</span>
+        </p>
+      </PageHeaderBar>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Card: Gerar Backup */}

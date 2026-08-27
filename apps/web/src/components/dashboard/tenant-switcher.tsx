@@ -92,19 +92,21 @@ export function TenantSwitcher() {
         onClick={() => setAberto(v => !v)}
         title="Empresa carregada — clique para trocar"
         className={cn(
-          'flex max-w-[280px] items-center gap-1.5 rounded-lg px-2.5 h-9 text-sm font-medium text-left transition-colors outline-none',
+          'flex max-w-[140px] items-center gap-1.5 rounded-lg px-2 h-9 text-sm font-medium text-left transition-colors outline-none sm:max-w-[280px] sm:px-2.5',
           aberto ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary',
         )}
       >
         <Building2 className="h-4 w-4 shrink-0" />
-        <span className="truncate">
+        {/* No celular fica só o ícone: o nome da empresa levava 197px de um
+            header de 375px. Quem precisa trocar abre e vê a lista inteira. */}
+        <span className="hidden truncate sm:inline">
           {capitalizarNome(empresa.razaoSocial)}
         </span>
         <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 transition-transform', aberto && 'rotate-180')} />
       </button>
 
       {aberto && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-[320px] overflow-hidden rounded-md border border-border bg-popover shadow-lg">
+        <div className="absolute left-0 top-full z-50 mt-1 w-[min(320px,calc(100vw-2rem))] overflow-hidden rounded-md border border-border bg-popover shadow-lg">
           <div className="border-b border-border/60 p-1.5">
             <input
               autoFocus

@@ -7,6 +7,8 @@ import {
   XCircle, Clock, Crown, Users, Sparkles, Shield,
 } from 'lucide-react'
 import { Button, Card, CardHeader, cn } from '@saas/ui'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { BADGE } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
@@ -154,6 +156,35 @@ export default function AssinaturaPage() {
 
   return (
     <div className="space-y-6">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+          {subscription && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={handlePortal}
+              disabled={actionLoading === 'portal'}
+            >
+              {actionLoading === 'portal' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ExternalLink className="h-4 w-4" />
+              )}
+              Portal de Pagamento
+            </Button>
+          )}
+      </>}>
+        <h1 className="truncate">Assinatura</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Assinatura</span>
+        </p>
+      </PageHeaderBar>
+
       {/* Aviso de trial expirado / acesso bloqueado */}
       {bloqueado && !hasActiveSubscription && (
         <div className="flex items-start gap-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
@@ -166,31 +197,6 @@ export default function AssinaturaPage() {
           </div>
         </div>
       )}
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Assinatura</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gerencie seu plano e pagamentos
-          </p>
-        </div>
-        {subscription && (
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={handlePortal}
-            disabled={actionLoading === 'portal'}
-          >
-            {actionLoading === 'portal' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ExternalLink className="h-4 w-4" />
-            )}
-            Portal de Pagamento
-          </Button>
-        )}
-      </div>
 
       {/* Status atual da assinatura */}
       {subscription && (

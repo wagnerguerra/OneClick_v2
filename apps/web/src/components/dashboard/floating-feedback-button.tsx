@@ -348,7 +348,7 @@ export function FloatingFeedbackButton() {
           >
           {/* ── Menu: escolha do serviço ── */}
           {mode === 'menu' && (
-            <div className="p-3 grid grid-cols-3 gap-2.5">
+            <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
               <ServiceCard
                 icon={LifeBuoy}
                 title="Ticket"
@@ -806,7 +806,7 @@ function OrcamentoRequestForm({
                     </div>
                   )}
                   {!a.uploading && (
-                    <button type="button" onClick={() => removerAnexo(a.id)} className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover/anx:opacity-100 transition-opacity" title="Remover">
+                    <button type="button" onClick={() => removerAnexo(a.id)} className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover/anx:opacity-100 transition-opacity" title="Remover">
                       <X className="h-2.5 w-2.5" />
                     </button>
                   )}
@@ -1007,7 +1007,7 @@ function EventoRequestForm({
             {permiteModalidade && (
               <div className="space-y-1.5">
                 <label className="text-[12px] font-medium text-foreground">Modalidade *</label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
                   {([['PRESENCIAL', 'Presencial', Building2], ['ONLINE', 'Online', Video], ['HIBRIDO', 'Híbrido', Monitor]] as const).map(([v, l, I]) => (
                     <button
                       key={v}

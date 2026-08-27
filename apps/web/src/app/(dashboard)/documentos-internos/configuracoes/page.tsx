@@ -1,16 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Settings, Plus, Loader2, Check, X, Pencil } from 'lucide-react'
+import { Plus, Loader2, Check, X, Pencil } from 'lucide-react'
 import {
   Button, Input, Card, Badge, cn,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 
 interface Item { id: string; nome: string; ordem: number; ativo: boolean; legacyId: number | null }
 
@@ -30,21 +31,21 @@ export default function ConfiguracoesDocumentosPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <Settings className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Configurações dos Documentos</h1>
-            <p className="text-sm text-muted-foreground">Tipos de documento e mapa de processos</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <BackButton href="/documentos-internos" label="Voltar" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Configurações dos Documentos</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Documentos Internos</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações dos Documentos</span>
+        </p>
+      </PageHeaderBar>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <ListaCadastro
@@ -158,7 +159,7 @@ function ListaCadastro({ titulo, descricao, carregar, criar, atualizar, podeGere
                     <span className="text-[10px] text-muted-foreground shrink-0" title="Número no sistema antigo">#{it.legacyId}</span>
                   )}
                   {podeGerenciar && (
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                       <Button size="icon-sm" variant="soft-info" title="Renomear"
                         onClick={() => { setEditandoId(it.id); setEditNome(it.nome) }}>
                         <Pencil className="h-3.5 w-3.5" />

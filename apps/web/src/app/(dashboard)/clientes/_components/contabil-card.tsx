@@ -240,7 +240,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
 
           {/* Delete */}
           <button type="button" onClick={() => handleDeleteCat(cat.conta)}
-            className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity p-1">
+            className="shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity p-1">
             <Trash2 className="h-3 w-3" />
           </button>
         </div>

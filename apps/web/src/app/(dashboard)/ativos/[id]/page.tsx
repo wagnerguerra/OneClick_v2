@@ -14,6 +14,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
@@ -232,67 +233,62 @@ export default function AtivoDetalhePage() {
     <div className="space-y-0 pb-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0">
 
-      {/* Wrapper bleed-edge cobrindo Header + Tabs — padrão dos demais módulos de detalhe.
-          Cor TI cyan (rgb 34, 211, 238) com alpha .18 no fundo. */}
-      <div className="relative -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 overflow-hidden group/cover"
-           style={{ backgroundColor: 'rgba(34, 211, 238, .18)' }}>
-
-        <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-4 min-w-0">
-              <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 overflow-hidden shadow-lg" style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}>
-                <Database className="h-10 w-10" style={{ color: MODULE_COLOR }} />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-xl font-semibold uppercase truncate">{nome || 'Sem nome'}</h1>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  <span className="font-mono">{ativo.tag}</span>
-                  {ativo.fabricante && <>&nbsp;&nbsp;|&nbsp;&nbsp;{ativo.fabricante}{ativo.modelo ? ` · ${ativo.modelo}` : ''}</>}
-                  {ativo.serial && <>&nbsp;&nbsp;|&nbsp;&nbsp;Serial: {ativo.serial}</>}
-                </p>
-                <div className="flex flex-wrap gap-2 mt-2.5">
-                  <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border', STATUS_CHIP_CLS[meta.cor])}>
-                    {meta.label}
-                  </span>
-                  {garantiaVencendo && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-3 py-1 text-xs font-medium uppercase border border-amber-200 dark:border-amber-800">
-                      Garantia vencendo
-                    </span>
-                  )}
-                  {garantiaVencida && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 px-3 py-1 text-xs font-medium uppercase border border-rose-200 dark:border-rose-800">
-                      Sem garantia
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Link href={`/ativos/etiquetas?ids=${id}`} target="_blank">
-                <Button size="sm" variant="outline" className="gap-1.5" title="Imprimir etiqueta com QR Code">
-                  <Printer className="h-3.5 w-3.5" /> Etiqueta
-                </Button>
-              </Link>
-              <Link href={`/ativos/${id}/termo`} target="_blank">
-                <Button size="sm" variant="outline" className="gap-1.5" title="Gerar termo de responsabilidade">
-                  <FileText className="h-3.5 w-3.5" /> Termo
-                </Button>
-              </Link>
-              <Button size="sm" variant="outline" onClick={handleDelete} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-800 dark:hover:bg-rose-950/30">
-                <Trash2 className="h-3.5 w-3.5" /> Baixar
-              </Button>
-              <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}>
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                Salvar
-              </Button>
-              <BackButton href="/ativos" />
-            </div>
-          </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar className="mb-0" actions={<>
+          <Link href={`/ativos/etiquetas?ids=${id}`} target="_blank">
+            <Button size="sm" variant="outline" className="gap-1.5" title="Imprimir etiqueta com QR Code">
+              <Printer className="h-3.5 w-3.5" /> Etiqueta
+            </Button>
+          </Link>
+          <Link href={`/ativos/${id}/termo`} target="_blank">
+            <Button size="sm" variant="outline" className="gap-1.5" title="Gerar termo de responsabilidade">
+              <FileText className="h-3.5 w-3.5" /> Termo
+            </Button>
+          </Link>
+          <Button size="sm" variant="outline" onClick={handleDelete} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-800 dark:hover:bg-rose-950/30">
+            <Trash2 className="h-3.5 w-3.5" /> Baixar
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Salvar
+          </Button>
+          <BackButton href="/ativos" />
+      </>}>
+        <h1 className="truncate">{nome || 'Sem nome'}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>TI</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Gestão de Ativos</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="font-mono">{ativo.tag}</span>
+          {ativo.fabricante && <span>· {ativo.fabricante}{ativo.modelo ? ` · ${ativo.modelo}` : ''}</span>}
+          {ativo.serial && <span>· Serial: {ativo.serial}</span>}
+          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border', STATUS_CHIP_CLS[meta.cor])}>
+            {meta.label}
+          </span>
+          {garantiaVencendo && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2.5 py-0.5 text-[11px] font-medium uppercase border border-amber-200 dark:border-amber-800">
+              Garantia vencendo
+            </span>
+          )}
+          {garantiaVencida && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 px-2.5 py-0.5 text-[11px] font-medium uppercase border border-rose-200 dark:border-rose-800">
+              Sem garantia
+            </span>
+          )}
         </div>
+      </PageHeaderBar>
+
+      {/* Faixa das abas — mantém a cor do módulo (TI cyan, rgb 34, 211, 238 com alpha .18). */}
+      <div className="relative -mx-4 sm:-mx-6 mb-4 sm:mb-5 overflow-hidden group/cover"
+           style={{ backgroundColor: 'rgba(34, 211, 238, .18)' }}>
 
         {/* Tabs principais (pills com slide) — padrão das demais páginas de detalhe.
             Classes !-prefixadas vencem as regras globais de [role="tablist"]. */}
-        <div className="relative z-10 px-4 sm:px-6 pb-2 overflow-x-auto flex justify-center">
+        <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto flex justify-center">
           <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
             <TabsTrigger value="identificacao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
               <FileText className="h-3.5 w-3.5" /> Identificação
@@ -323,7 +319,7 @@ export default function AtivoDetalhePage() {
       {/* /wrapper bleed-edge */}
 
       {/* KPIs do ativo — fora do wrapper, espaçados normalmente */}
-      <Card className="p-3 mt-5">
+      <Card className="p-3">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <KpiAtivo icon={Coins} label="Valor de aquisição" value={fmtBRL(valorAquisicao ? Number(valorAquisicao.replace(',', '.')) : null)} />
           <KpiAtivo icon={Coins} label="Valor depreciado" value={valorDeprec !== null ? fmtBRL(valorDeprec) : '—'} hint={cat?.depreciacaoMeses ? `Vida útil: ${cat.depreciacaoMeses} meses` : 'Sem depreciação'} />

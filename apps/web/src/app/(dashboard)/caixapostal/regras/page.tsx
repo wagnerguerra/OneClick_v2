@@ -18,7 +18,8 @@ import { cn } from '@saas/ui'
 import { BADGE, TEXT } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -419,21 +420,24 @@ export default function CaixaPostalRegrasPage() {
       </Dialog>
 
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="fiscal" icon={Shield} />
-          <div>
-            <h1>Regras de Classificação</h1>
-            <p className="text-sm text-muted-foreground">Gerencie regras automáticas de classificação de mensagens da Caixa Postal e-CAC</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" onClick={handleNova} className="gap-1.5">
             <Plus className="h-4 w-4" /> Nova Regra
           </Button>
           <BackButton href="/caixapostal" label="Voltar" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Regras de Classificação</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Caixa Postal e-CAC</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Regras de Classificação</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Regras do Sistema (editáveis) */}
       {(() => {
@@ -496,7 +500,7 @@ export default function CaixaPostalRegrasPage() {
                   {/* Faixas de prioridade */}
                   <div>
                     <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Faixas de Prioridade (Score)</h4>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                       {([
                         { key: 'P0' as const, label: 'P0 — Crítica', icon: AlertTriangle, border: 'border-red-200 dark:border-red-800', bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-400' },
                         { key: 'P1' as const, label: 'P1 — Alta', icon: MailWarning, border: 'border-orange-200 dark:border-orange-800', bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-400' },

@@ -65,3 +65,127 @@ Com `.bak-2026-08-20` de cada arquivo: os **17 modais de escrita**
 bloqueados por redirect no topo (create, delete, lançamento, período,
 pgto, movimento, pagamento e arquivos); banner + botão "Novo" desabilitado
 no `index.asp` — a consulta segue viva.
+
+## 6. Histórico completo e vínculo com o cadastro (25/08)
+
+Três ajustes pedidos pelo Wagner depois do uso real:
+
+1. **Históricos do v1 vieram junto.** A primeira carga trouxe só os 78 períodos
+   com `ativo=1`. No v1, porém, **`ativo=0` é sempre `historico=1`** — não é
+   lixo, é o arquivo morto (2014→2025). Os 65 restantes entraram como
+   `historico=true`, com seus gozos e recibos: **143 períodos (94 históricos),
+   305 gozos, 30 recibos** em dev e produção. Assim ninguém precisa voltar ao
+   sistema antigo para consultar.
+   O gerador passou a resolver colaborador/autor por **subselect de e-mail no
+   destino** (antes embutia ids resolvidos contra o banco local) — a mesma carga
+   vale em dev e produção.
+
+2. **A lista segue o cadastro de usuários.** O payload passou a trazer
+   `colaboradorAtivo` (`true` = ativo, `false` = desligado, `null` = nem existe
+   mais no cadastro). Por padrão a listagem mostra **só colaboradores ativos**;
+   o filtro "Incluir desligados" abre o resto, e os registros ganham o selo
+   *desligado* / *fora do cadastro*. O seletor de colaborador (novo período)
+   lista apenas ativos — não faz sentido abrir período para quem saiu.
+
+3. **Ordenação por qualquer coluna.** Padrão **alfabético pelo colaborador**;
+   clicar no cabeçalho ordena e o segundo clique inverte. Como três colunas são
+   derivadas (nome resolvido, gozados, saldo), o service busca o conjunto
+   filtrado, resolve, ordena e pagina em memória — o volume (centenas) permite.
+
+## 7. Um registro por colaborador (25/08)
+
+A listagem passou a mostrar **apenas o período mais recente de cada
+colaborador** — os anteriores viram **histórico dentro do registro**:
+
+- `listar` agrupa pela chave do colaborador (id ou, no resíduo do v1, o nome) e
+  mantém o de maior `periodoInicial`/`periodoFinal`, devolvendo
+  `periodosAnteriores` (contagem) — a linha ganha o selo "+N períodos".
+  Filtrar por um colaborador específico **desagrupa** (drill-down natural).
+- `getById` devolve `historicoColaborador` com os demais períodos (dias, saldo
+  derivado, previsão, pago/histórico e quantos gozos/anexos), e o detalhe
+  ganhou o card **"Períodos anteriores"** — cada linha abre aquele período.
+
+Efeito prático: de 143 linhas para **67** (uma por colaborador), sem perder
+nada — o arquivo morto continua a um clique.
+
+## 8. Auditoria v1 × v2 × cadastro de usuários (25/08)
+
+Varredura completa dos três lados. **A migração está completa** — o que faltava
+era vínculo, não registro:
+
+| Item | v1 | v2 | Situação |
+|---|---|---|---|
+| Períodos | 143 | **143** | ✅ nada de fora |
+| Gozos | 312 ativos | **305** | 7 são **órfãos no próprio v1** (apontam para períodos apagados lá: ids 35, 44, 52, 57, 61) — impossível portar |
+| Recibos | 30 ativos | **30** | ✅ |
+
+**Vínculo com o cadastro.** 70 usuários do v1 têm férias; 41 existem no v2. Dos
+44 períodos que estavam só com o nome no resíduo, **1 era corrigível** (Kenya
+Brum — ativa no v2, mas o período veio da carga de 19/08, quando ela ainda não
+casava). Os outros 43 são de **28 ex-colaboradores** que não existem no v2 —
+resíduo correto.
+
+Como a carga é idempotente por `legacy_id`, reimportar **não** conserta vínculo:
+criei `packages/db/prisma/sql/reconciliar_ferias_colaboradores.sql`, que liga os
+períodos órfãos ao usuário quando o nome casa com **exatamente um** cadastro
+(nomes ambíguos ficam de fora de propósito). Aplicado em produção: `UPDATE 1`,
+subindo para **100 períodos vinculados**. Pode rodar de novo a cada novo
+colaborador cadastrado.
+
+**O que realmente falta não é do v1.** 14 colaboradores **ativos da Central**
+(mais 50 do JR Grupo) não têm nenhum período — são contratações de 2025/2026,
+que nunca tiveram registro no sistema antigo. 13 dos 14 têm data de admissão no
+cadastro, o que permitiria gerar o primeiro período aquisitivo automaticamente
+(admissão → admissão + 1 ano, 30 dias). **Decisão do Wagner** — não criamos
+registro de RH por conta própria.
+
+## 9. ⚠️ Semântica do `historico` estava invertida (25/08)
+
+A tela do v1 lista **`WHERE historico = '1' AND ativo = '1'`** — ou seja, lá
+**`historico = 1` marca o período VIGENTE** do colaborador (são os 29 registros
+que a tela mostra, um por pessoa). Os `historico = 0` são os períodos
+anteriores e os `ativo = 0`, os excluídos.
+
+A carga tinha lido ao contrário (`historico=1` = arquivado), então o filtro
+padrão "Em aberto" do v2 mostrava justamente os períodos ANTIGOS (12 linhas com
+2020/2021, 2022/2023) e escondia os vigentes — daí a impressão de que faltavam
+registros. Nada faltava: os 143 estavam lá, só marcados errado.
+
+Correção: `packages/db/prisma/sql/corrigir_ferias_historico.sql` (idempotente,
+só toca em quem tem `legacy_id`) — aplicado em dev e produção:
+**29 vigentes / 114 encerrados**, exatamente como o v1. O gerador da carga
+também foi corrigido (`historico = !(v1.historico == 1 && v1.ativo == 1)`).
+
+Detalhe da tela: dos 29 vigentes, 24 são de colaboradores ativos e **5 de
+desligados** (Andreia Salles, Ingrid Rocha, Ivone Torrente, Leonardo Ramos,
+Ludmilla Teodoro). Como a lista segue o cadastro, esses 5 ficam fora por
+padrão — mas a barra de filtros passou a avisar
+*"+5 de colaboradores desligados — mostrar"*, com atalho, para ninguém achar
+que o registro sumiu.
+
+## 10. Cadastro duplicado — o caso Andreia Salles (25/08)
+
+Ela aparecia entre os "desligados" ocultos, mas está ativa. Motivo: **dois
+cadastros para a mesma pessoa** no v2 —
+
+| Cadastro | E-mail | Situação | Admissão |
+|---|---|---|---|
+| Andreia Salles | andre**ia**@central-rnc.com.br | inativo | 01/03/2024 |
+| Andrea Salles | andre**a**@central-rnc.com.br | **ativo** | — |
+
+No v1 o registro é "Andreia Salles" com e-mail **andrea@** — ou seja, o
+cadastro ATIVO. A carga de 19/08 casou pelo **nome** (exato) e prendeu o
+período 140 no cadastro inativo, tirando-o da lista.
+
+Corrigido: período 140 religado ao cadastro ativo (a lista sobe para 25 de
+ativos e 4 de desligados). Para não repetir, o gerador e o
+`reconciliar_ferias_colaboradores.sql` passaram a usar
+`ORDER BY is_active DESC` ao casar por nome.
+
+Os outros 4 ocultos (Ludmilla Teodoro, Leonardo Ramos, Ivone Torrente e Ingrid
+Rocha) **não têm cadastro ativo equivalente** — estão realmente desligados no
+v2; se algum deles voltou, basta reativar o usuário que o período reaparece.
+
+⚠️ **Fica para o Wagner:** o cadastro duplicado da Andreia (dois usuários para
+a mesma pessoa) continua lá — só o vínculo das férias foi corrigido. A
+consolidação é decisão do cadastro de usuários.

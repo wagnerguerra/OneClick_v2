@@ -20,6 +20,8 @@ import { cn } from '@saas/ui'
 import { BADGE, TEXT, SURFACE, type ColorName } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -1043,19 +1045,22 @@ export default function CertidoesCndPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="legalizacao" icon={FileOutput} />
-          <div>
-            <h1>Certidões e Alvarás</h1>
-            <p className="text-sm text-muted-foreground">Emissão e controle de CND's, CNDT, CRF/FGTS, CGU e Alvará de Bombeiros</p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         <Button size="sm" className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white"
           onClick={() => { setCompOpen(true); setCompStep('cnpj'); setCompDoc(''); setCompRazao(''); setCompEmail(''); setCompMsg(''); setCompProgress(null); setCompTipos(new Set(['federal', 'estadual', 'municipal', 'trabalhista', 'fgts', 'cgu', 'alvara_bombeiros', 'alvara_funcionamento'])); setCompForcar(false) }}>
           <Mail className="h-3.5 w-3.5" />Compilar e Enviar
         </Button>
-      </div>
+      </>}>
+        <h1 className="truncate">Certidões e Alvarás</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Legalização</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Certidões e Alvarás</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Abas Federal / Estadual */}
       <div className="flex items-center gap-0 border-b">
@@ -1508,7 +1513,7 @@ export default function CertidoesCndPage() {
                   <p className="text-[11px] text-muted-foreground">{pdfRecord ? formatDoc(pdfRecord.documento) : ''} {pdfRecord?.tipoCertidao ? `· ${pdfRecord.tipoCertidao}` : ''}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                 <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={() => {
                   const url = pdfTab === 'sitfis' && sitfisUrl ? sitfisUrl.replace('/pdf', '/download-pdf') : pdfUrl.replace('/pdf', '/download-pdf')
                   const a = document.createElement('a'); a.href = url; a.download = ''; a.click()
@@ -1913,7 +1918,7 @@ export default function CertidoesCndPage() {
                     )}
 
                     {/* KPIs */}
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 p-2 text-center">
                         <p className={cn('text-lg font-bold', TEXT.emerald)}>{estLoteProgress.emitidas}</p>
                         <p className="text-[10px] text-muted-foreground">Emitidas</p>
@@ -2387,7 +2392,7 @@ export default function CertidoesCndPage() {
                     {munLoteProgress.status === 'running' && (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin shrink-0" /><span className="truncate">{munLoteProgress.currentCliente}</span></div>
                     )}
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 p-2 text-center"><p className={cn('text-lg font-bold', TEXT.emerald)}>{munLoteProgress.emitidas}</p><p className="text-[10px] text-muted-foreground">Emitidas</p></div>
                       <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-2 text-center"><p className={cn('text-lg font-bold', TEXT.amber)}>{munLoteProgress.naoEmitidas}</p><p className="text-[10px] text-muted-foreground">Não emitidas</p></div>
                       <div className="rounded-lg border bg-red-50 dark:bg-red-950/20 p-2 text-center"><p className={cn('text-lg font-bold', TEXT.red)}>{munLoteProgress.erros}</p><p className="text-[10px] text-muted-foreground">Erros</p></div>
@@ -2709,7 +2714,7 @@ export default function CertidoesCndPage() {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 p-2 text-center">
                         <p className={cn('text-lg font-bold', TEXT.emerald)}>{alvLoteProgress.encontrados}</p>
                         <p className="text-[10px] text-muted-foreground">Encontrados</p>

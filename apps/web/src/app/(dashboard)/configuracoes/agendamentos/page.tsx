@@ -9,9 +9,9 @@ import {
   Receipt, FileText, ArrowRight, type LucideIcon,
 } from 'lucide-react'
 import { Button, Card, Badge, cn } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { TEXT } from '@/lib/color-styles'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 
 interface SchedulerItem {
@@ -80,24 +80,28 @@ export default function CentroAgendamentosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="configuracoes" icon={Clock} />
-          <div>
-            <h1>Centro de agendamentos</h1>
-            <p className="text-sm text-muted-foreground">
-              Todos os processos automáticos do sistema — cron, próxima execução e última rodada num só lugar.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-1.5">
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Atualizar
           </Button>
           <BackButton href="/configuracoes" label="Voltar" />
+      </>}>
+        <h1 className="truncate">Centro de agendamentos</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Centro de Agendamentos</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              Todos os processos automáticos do sistema — cron, próxima execução e última rodada num só lugar.
+            </p>
         </div>
-      </div>
+      </PageHeaderBar>
 
       {loading && items.length === 0 ? (
         <Card className="flex items-center justify-center py-16">

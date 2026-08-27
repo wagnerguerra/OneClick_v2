@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  BarChart3, Loader2, AlertTriangle, Search, Video, GraduationCap,
+  Loader2, AlertTriangle, Search, Video, GraduationCap,
   ThumbsUp, MessageSquare, Lightbulb, FileText, ThumbsDown,
 } from 'lucide-react'
 import { Card, cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { NC_SITUACAO_LABEL } from '@saas/types'
 
@@ -91,18 +92,17 @@ export default function PainelQualidadePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <BarChart3 className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Painel da Qualidade</h1>
-            <p className="text-sm text-muted-foreground">Pendências do sistema de gestão da qualidade, consolidadas por módulo</p>
-          </div>
-        </div>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Painel da Qualidade</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Painel da Qualidade</span>
+        </p>
+      </PageHeaderBar>
 
       {loading ? (
         <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>

@@ -8,6 +8,7 @@
  * informativa, diferente do Design System / App Mobile.
  */
 
+import Link from 'next/link'
 import {
   Info,
   Layers,
@@ -19,6 +20,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Card, CardContent, Badge } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 
 // Cor de acento do bloco "Ajuda" (cyan), via token coerente com a sidebar.
 const ACCENT = '#0891b2'
@@ -96,38 +98,29 @@ const TECNOLOGIAS: GrupoTec[] = [
 
 export default function SobrePage() {
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
-      {/* Cabeçalho */}
-      <Card className="overflow-hidden">
-        <div
-          className="h-1.5 w-full"
-          style={{ background: `linear-gradient(90deg, ${ACCENT}, transparent)` }}
-        />
-        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center">
-          <div
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm"
-            style={{ backgroundColor: ACCENT }}
+    <>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">OneClick</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Ajuda</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Sobre</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <Badge
+            variant="outline"
+            className="border-border font-mono text-xs"
+            style={{ color: ACCENT, borderColor: ACCENT }}
           >
-            <Sparkles className="h-7 w-7" />
-          </div>
-          <div className="flex-1 space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">OneClick</h1>
-              <Badge
-                variant="outline"
-                className="border-border font-mono text-xs"
-                style={{ color: ACCENT, borderColor: ACCENT }}
-              >
-                v{VERSAO_WEB}
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              SaaS ERP/CRM multi-tenant para escritórios contábeis (Cadastros, Corporativo,
-              Fiscal, Qualidade), com cobrança recorrente via Stripe.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+            v{VERSAO_WEB}
+          </Badge>
+        </div>
+      </PageHeaderBar>
+
+      <div className="mx-auto max-w-5xl space-y-6">
 
       {/* O que é */}
       <Card>
@@ -227,6 +220,7 @@ export default function SobrePage() {
           <p className="text-xs text-muted-foreground">© {ANO} OneClick</p>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   )
 }

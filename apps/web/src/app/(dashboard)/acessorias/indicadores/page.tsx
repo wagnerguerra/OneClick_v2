@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Recorte } from '../_components/periodos'
 import { AbasAcessorias } from '../_components/abas-acessorias'
@@ -173,21 +174,8 @@ export default function IndicadoresPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <BarChart3 className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>{cab.titulo}</h1>
-            <p className="text-sm text-muted-foreground">
-              Indicadores das obrigações — {cab.nota}
-              {dados?.escopo === 'COLABORADORES' && dados.areaNome ? ` · ${dados.areaNome}` : ''}
-            </p>
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5"
             title="Prazo legal é o do órgão — o que expõe o cliente. Prazo técnico é o acordado com ele — o compromisso do escritório.">
             <span className={cn('text-xs', regua === 'legal' ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
@@ -198,7 +186,6 @@ export default function IndicadoresPage() {
               Técnico
             </span>
           </label>
-
           {/* Um campo só, com as duas formas de recortar o tempo. Separados,
               dava para combinar recortes que se anulam e receber tela vazia. */}
           <Select value={recorte} onValueChange={(v) => setRecorte(v as Recorte)}>
@@ -219,8 +206,22 @@ export default function IndicadoresPage() {
           <Button variant="outline" size="sm" onClick={carregar} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Atualizar
           </Button>
+      </>}>
+        <h1 className="truncate">{cab.titulo}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Acessórias</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              Indicadores das obrigações — {cab.nota}
+              {dados?.escopo === 'COLABORADORES' && dados.areaNome ? ` · ${dados.areaNome}` : ''}
+            </p>
         </div>
-      </div>
+      </PageHeaderBar>
 
       <AbasAcessorias />
 

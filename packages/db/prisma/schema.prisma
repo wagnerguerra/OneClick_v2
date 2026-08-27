@@ -303,6 +303,7 @@ model User {
 
   @@map("users")
   reformaSimulacoes ReformaTributariaSimulacao[]
+  projetoParticipacoes ProjetoParticipante[]
 }
 
 model Session {
@@ -708,6 +709,16 @@ model Cliente {
   ehMatriz      Boolean?      @map("eh_matriz")
   tipoCliente   String?       @map("tipo_cliente")
   logoUrl       String?       @map("logo_url")
+  /// Capa do cabeçalho DESTE cliente. Null = usa a capa global do módulo
+  /// (opcoes_cadastro CLIENTE_CONFIG header_cover), que continua sendo o
+  /// padrão de quem não personalizou. Espelha User.coverImage.
+  coverImage    String?       @map("cover_image")
+
+  // Dossiê (enriquecimento por CNPJ) — satélites aditivas, ver o fim do schema.
+  dossieColetas   ClienteDossieColeta[]
+  dossieFatos     ClienteDossieFato[]
+  dossieSugestoes ClienteDossieSugestao[]
+  projetos        Projeto[]
 
   // Integração
   idSistema      String? @map("id_sistema")
@@ -7151,15 +7162,40 @@ model Projeto {
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
-  tarefas   ProjetoTarefa[]
-  tags      ProjetoTag[]
-  mensagens ProjetoMensagem[]
-  anexos    ProjetoAnexo[]
-  eventos   ProjetoEvento[]
+  /// Cliente atendido pelo projeto. Opcional: projeto interno não tem cliente.
+  clienteId     String?       @map("cliente_id")
+
+  tarefas       ProjetoTarefa[]
+  tags          ProjetoTag[]
+  mensagens     ProjetoMensagem[]
+  anexos        ProjetoAnexo[]
+  eventos       ProjetoEvento[]
+  participantes ProjetoParticipante[]
+
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([status, isActive])
   @@index([responsavelId])
+  @@index([clienteId])
   @@map("projetos")
+}
+
+/// Quem mais está envolvido no projeto, além do responsável.
+///
+/// O responsável continua sendo UM (`Projeto.responsavelId`) — é quem responde
+/// pelo projeto. Os participantes são o time em volta, e é uma lista.
+model ProjetoParticipante {
+  id        String   @id @default(cuid())
+  projetoId String   @map("projeto_id")
+  userId    String   @map("user_id")
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  projeto Projeto @relation(fields: [projetoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([projetoId, userId])
+  @@index([userId])
+  @@map("projeto_participantes")
 }
 
 model ProjetoMensagem {
@@ -8816,6 +8852,9 @@ model FeriasPeriodo {
   id        String  @id @default(cuid())
   empresaId String? @map("empresa_id")
   legacyId  Int?    @map("legacy_id")
+  /// Nº do registro (o da tela do v1): legado mantém o id do crp_ferias, novos
+  /// seguem a sequência criada por add_ferias_numero.sql.
+  numero    Int     @unique @default(autoincrement())
 
   colaboradorId   String? @map("colaborador_id")
   /// Resíduo do v1 quando o colaborador não existe mais no v2.
@@ -8919,6 +8958,54 @@ model ColetaCategoria {
   @@map("coleta_categorias")
 }
 
+/// Agenda de contatos (port do `ger_age` do v1 — módulo crp_contatos).
+/// Cada entrada tem um nome (empresa/pessoa) e 1..N pessoas de contato; o v1
+/// tinha 3 blocos fixos (cts1/tel1/email1 … cts3), que viram linhas.
+model Contato {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+
+  nome        String
+  observacoes String? @db.Text
+
+  /// Contato privado só aparece para o dono (e para o master) — regra do v1.
+  privado  Boolean @default(false)
+  donoId   String? @map("dono_id")
+  /// Resíduo do nome do dono quando o usuário do v1 não existe no v2.
+  donoNome String? @map("dono_nome")
+
+  /// Soft-delete (o `ativo` do v1).
+  ativo Boolean @default(true)
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  pessoas ContatoPessoa[]
+
+  @@index([empresaId, ativo])
+  @@index([donoId])
+  @@index([legacyId])
+  @@map("contatos")
+}
+
+/// Pessoa/telefone dentro de uma entrada da agenda.
+model ContatoPessoa {
+  id        String  @id @default(cuid())
+  contatoId String  @map("contato_id")
+
+  nome     String?
+  telefone String?
+  email    String?
+  ordem    Int     @default(0)
+
+  contato Contato @relation(fields: [contatoId], references: [id], onDelete: Cascade)
+
+  @@index([contatoId])
+  @@map("contato_pessoas")
+}
+
+
 model Coleta {
   id        String  @id @default(cuid())
   empresaId String? @map("empresa_id")
@@ -8948,6 +9035,10 @@ model Coleta {
   /// Quem pediu a coleta/entrega (o "usuario" do v1).
   solicitanteId   String? @map("solicitante_id")
   solicitanteNome String? @map("solicitante_nome")
+  /// Quem digitou o registro. Igual ao solicitante na maioria dos casos; difere
+  /// quando alguém lança em nome de outra pessoa (a recepção pelo setor que
+  /// ligou). Os dois mantêm o direito de editar e excluir.
+  criadoPorId     String? @map("criado_por_id")
 
   descricao String? @db.Text
   notifica  Boolean @default(true)
@@ -8966,6 +9057,7 @@ model Coleta {
   @@index([empresaId, situacao])
   @@index([clienteId])
   @@index([solicitanteId])
+  @@index([criadoPorId])
   @@index([legacyId])
   @@map("coletas")
 }
@@ -8990,4 +9082,117 @@ model ColetaLog {
   @@index([coletaId])
   @@index([legacyId])
   @@map("coleta_logs")
+}
+
+// ============================================================
+// Dossiê do Cliente — enriquecimento por CNPJ
+// ============================================================
+// Tabelas ADITIVAS: o cadastro de clientes é a fonte de verdade do negócio e
+// não é tocado por elas. O dossiê guarda o que veio de fora, com procedência,
+// e PROPÕE mudanças — quem decide é uma pessoa, na aba Dossiê.
+//
+// Deliberadamente NÃO existem aqui "empresas_socios" nem "empresas_estabelecimentos":
+// `Socio` e `cliente_cnaes` já cumprem esse papel e são cadastro editável.
+// Duplicá-los criaria duas verdades sobre o mesmo cliente.
+
+/// Uma tentativa de consulta a um provedor. Guarda o payload cru: reprocessar
+/// o que já foi baixado é grátis, consultar de novo custa tempo e cota.
+model ClienteDossieColeta {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+
+  /// Bloco do dossiê: receita | fiscal | risco | presenca_digital
+  bloco     String
+  /// Identificador do provedor: opencnpj | brasilapi | serpro | ...
+  fonte     String
+  urlFonte  String? @map("url_fonte")
+
+  /// ok | erro | sem_dados
+  status      String
+  erro        String? @db.Text
+  httpStatus  Int?    @map("http_status")
+  latenciaMs  Int?    @map("latencia_ms")
+  /// Resposta crua do provedor, como veio.
+  payload     Json?
+
+  coletadoEm DateTime @default(now()) @map("coletado_em")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([clienteId, bloco])
+  @@index([coletadoEm])
+  @@map("cliente_dossie_coletas")
+}
+
+/// O dado já normalizado, um por campo, com procedência. É daqui que a aba
+/// Dossiê lê — nunca do payload cru.
+model ClienteDossieFato {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+
+  bloco     String
+  /// Nome canônico do campo (ex.: 'situacao_cadastral', 'capital_social').
+  campo     String
+  valor     String? @db.Text
+  /// Valor estruturado quando o campo é lista/objeto (CNAEs, QSA, telefones).
+  valorJson Json?   @map("valor_json")
+
+  fonte      String
+  urlFonte   String?  @map("url_fonte")
+  /// 0.0 a 1.0. Fonte oficial ≈ 1.0; busca web fica bem abaixo — e por regra
+  /// nunca sobrescreve fato oficial.
+  confianca  Decimal  @default(1.0) @db.Decimal(3, 2)
+  oficial    Boolean  @default(true)
+
+  coletadoEm DateTime @default(now()) @map("coletado_em")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([clienteId, bloco, campo])
+  @@index([clienteId])
+  @@map("cliente_dossie_fatos")
+}
+
+/// Divergência entre o cadastro e a fonte oficial. Nada entra no cadastro sem
+/// passar por aqui — exceto o CNAE, que tem resposta única e é aplicado direto.
+model ClienteDossieSugestao {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+
+  /// Campo do CADASTRO que mudaria (ex.: 'razaoSocial', 'inscricaoEstadual').
+  campo        String
+  valorAtual   String? @map("valor_atual") @db.Text
+  valorSugerido String? @map("valor_sugerido") @db.Text
+
+  fonte      String
+  urlFonte   String? @map("url_fonte")
+  coletadoEm DateTime @default(now()) @map("coletado_em")
+
+  /// pendente | aprovada | rejeitada
+  status       String    @default("pendente")
+  decididoPor  String?   @map("decidido_por")
+  decididoEm   DateTime? @map("decidido_em")
+  observacao   String?   @db.Text
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([clienteId, status])
+  @@index([status])
+  @@map("cliente_dossie_sugestoes")
+}
+
+/// Trilha de acesso ao dossiê (LGPD): o QSA traz pessoa física, então fica
+/// registrado quem abriu o dossiê de qual cliente e quando.
+model ClienteDossieAcesso {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+  usuarioId String @map("usuario_id")
+  /// visualizou | atualizou | aprovou_sugestao | rejeitou_sugestao
+  acao      String
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  @@index([clienteId, criadoEm])
+  @@index([usuarioId])
+  @@map("cliente_dossie_acessos")
 }

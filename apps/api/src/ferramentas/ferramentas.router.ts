@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { router, readProcedureAnyOf, readProcedure } from '../trpc/trpc.service'
+import { router, readProcedureAnyOf, readProcedure, readSubProcedure } from '../trpc/trpc.service'
 import { listToolJobsSchema } from '@saas/types'
 import { FerramentasService } from './ferramentas.service'
 import { HtmlPdfService } from './html-pdf.service'
@@ -23,6 +23,13 @@ const SLUGS = ['ferramentas-fiscal', 'ferramentas-contabil']
  * Teto por requisição: converter é caro, e um envio absurdo derrubaria a API.
  */
 const SLUG_GERAIS = 'ferramentas-gerais'
+/**
+ * Assinar usa o certificado A1 da empresa, guardado no cadastro: quem chega
+ * aqui assina em nome dela. Por isso a liberação é nominal (default-deny),
+ * diferente das demais ferramentas do módulo.
+ */
+const SUB_ASSINAR = 'assinar'
+const LABEL_ASSINAR = 'Assinar PDF com o certificado A1 da empresa'
 
 const LIMITE_ARQUIVOS = 30
 const LIMITE_TOTAL_MB = 20
@@ -75,7 +82,7 @@ export function createFerramentasRouter(
       }),
 
     /** Certificados A1 disponíveis para assinar. */
-    certificadosParaAssinar: readProcedure(SLUG_GERAIS)
+    certificadosParaAssinar: readSubProcedure(SLUG_GERAIS, SUB_ASSINAR, LABEL_ASSINAR)
       .query(({ ctx }) => assinar().listarCertificados(ctx.empresaId ?? null)),
 
     /**
@@ -84,7 +91,7 @@ export function createFerramentasRouter(
      * conversão da tela para essa medida é feita no navegador, onde se sabe a
      * escala em que a página foi desenhada.
      */
-    assinarPdf: readProcedure(SLUG_GERAIS)
+    assinarPdf: readSubProcedure(SLUG_GERAIS, SUB_ASSINAR, LABEL_ASSINAR)
       .input(z.object({
         nome: z.string().min(1).max(255),
         pdfBase64: z.string().min(1),
@@ -108,7 +115,7 @@ export function createFerramentasRouter(
       }),
 
     /** Assinaturas recentes de quem está na tela — para não assinar de novo. */
-    historicoAssinaturas: readProcedure(SLUG_GERAIS)
+    historicoAssinaturas: readSubProcedure(SLUG_GERAIS, SUB_ASSINAR, LABEL_ASSINAR)
       .query(({ ctx }) => assinar().historico(ctx.empresaId ?? null, ctx.userId)),
 
     /**
@@ -116,17 +123,17 @@ export function createFerramentasRouter(
      * O navegador manda só o hash — o arquivo não precisa subir para descobrir
      * que ele já passou por aqui.
      */
-    assinaturaPorHash: readProcedure(SLUG_GERAIS)
+    assinaturaPorHash: readSubProcedure(SLUG_GERAIS, SUB_ASSINAR, LABEL_ASSINAR)
       .input(z.object({ hash: z.string().length(64) }))
       .query(({ input, ctx }) => assinar().jaAssinado(input.hash, ctx.empresaId ?? null, ctx.userId)),
 
     /** Devolve o PDF já assinado, sem assinar outra vez. */
-    baixarAssinatura: readProcedure(SLUG_GERAIS)
+    baixarAssinatura: readSubProcedure(SLUG_GERAIS, SUB_ASSINAR, LABEL_ASSINAR)
       .input(z.object({ id: z.string().min(1) }))
       .mutation(({ input, ctx }) => assinar().baixarAssinado(input.id, ctx.empresaId ?? null, ctx.userId)),
 
     /** Tira do histórico — arquivo e registro. */
-    removerAssinatura: readProcedure(SLUG_GERAIS)
+    removerAssinatura: readSubProcedure(SLUG_GERAIS, SUB_ASSINAR, LABEL_ASSINAR)
       .input(z.object({ id: z.string().min(1) }))
       .mutation(({ input, ctx }) => assinar().removerDoHistorico(input.id, ctx.empresaId ?? null, ctx.userId)),
 

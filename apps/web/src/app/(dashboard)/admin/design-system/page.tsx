@@ -14,6 +14,8 @@
  */
 
 import { useRef, useState } from 'react'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import {
   Palette, Layout, Box, Inbox, Hash, Copy, Check, Lock,
   Info, Lightbulb, AlertTriangle, FileCode, Workflow,
@@ -118,24 +120,21 @@ export default function DesignSystemPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-sm"
-               style={{ background: MODULE_COLOR }}>
-            <Sparkles className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Design System</h1>
-            <p className="text-sm text-muted-foreground">
-              Padrões visuais do SaaS — cabeçalhos, formulários, tabelas, modais e componentes do FAQ
-            </p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={
         <Badge variant="outline" className="gap-1.5 h-7">
           <Lock className="h-3 w-3" /> Interno · master only
         </Badge>
-      </div>
+      }>
+        <h1 className="truncate">Design System</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administração</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Design System</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Card com pills laterais (padrão CLAUDE.md, agora theme-aware) */}
       <Card>
@@ -151,7 +150,7 @@ export default function DesignSystemPage() {
           </div>
 
           {/* Conteúdo */}
-          <div key={activeTab} className="flex-1 p-5 overflow-x-auto" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+          <div key={activeTab} className="min-w-0 flex-1 overflow-x-auto p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
             {activeTab === 'tokens'       && <TokensSection />}
             {activeTab === 'page-header'  && <PageHeaderSection />}
             {activeTab === 'kpis'         && <KpisSection />}
@@ -631,7 +630,7 @@ import { Database } from 'lucide-react'
       <p className="text-sm text-muted-foreground">Lembretes pessoais com prazo</p>
     </div>
   </div>
-  <div className="flex items-center gap-2 shrink-0">
+  <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
     <Button className="gap-1.5"><Plus className="h-4 w-4" /> Nova tarefa</Button>
     <Button variant="outline" size="icon" asChild className="h-9 w-9" title="Voltar pra Agenda">
       <Link href="/agenda"><ArrowLeft className="h-4 w-4" /></Link>
@@ -647,7 +646,7 @@ import { Database } from 'lucide-react'
               <p className="text-sm text-muted-foreground">Lembretes pessoais com prazo</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             <Button className="gap-1.5"><Plus className="h-4 w-4" /> Nova tarefa</Button>
             <Button variant="outline" size="icon" className="h-9 w-9" title="Voltar pra Agenda">
               <ArrowLeft className="h-4 w-4" />
@@ -1386,8 +1385,8 @@ function DetailPageSection() {
 
   {/* Controles editáveis: só master, hover, base direita */}
   {isMaster && (
-    <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-0 pointer-events-none
-                    group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
+    <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-100 pointer-events-none
+                    sm:opacity-0 sm:group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
       {/* botões Personalizar/Trocar/Remover */}
     </div>
   )}

@@ -10,7 +10,7 @@ import {
   MODULE_GROUPS, MODULE_LABELS, USER_ROLE_LABELS, USER_PROFILE_LABELS,
   MODULE_SUB_PERMISSIONS,
 } from '@saas/types'
-import { HelpCircle, User, Briefcase, Calendar, Building2, Shield, ChevronDown, ShieldCheck, Save, Handshake, Loader2, Download, Settings } from 'lucide-react'
+import { HelpCircle, User, Briefcase, Calendar, Building2, Shield, ChevronDown, ShieldCheck, Save, Handshake, Loader2, Download, Settings, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import {
   Button, Input, Label, Checkbox, Card, Switch,
@@ -20,8 +20,8 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
-import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { MODULE_ICONS, GROUP_ICONS } from '@/lib/navigation'
 import { masks, moedaParaNumero, numeroParaMoeda, dataParaISO, isoParaData } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
@@ -35,7 +35,6 @@ interface UserFormProps {
   userId?: string
   title: string
   description: string
-  icon?: React.ReactNode
   defaultValues?: Partial<CreateUserInput> & { isMaster?: boolean; permissions?: PermissionInput[] }
 }
 
@@ -130,7 +129,7 @@ function buildPermissionsMap(perms?: PermissionInput[]): Record<string, Permissi
   return map
 }
 
-export function UserForm({ mode, userId, title, description, icon, defaultValues }: UserFormProps) {
+export function UserForm({ mode, userId, title, description, defaultValues }: UserFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -146,7 +145,7 @@ export function UserForm({ mode, userId, title, description, icon, defaultValues
 
   const [importingLegado, setImportingLegado] = useState(false)
 
-  const { register, handleSubmit, control, setValue, getValues, formState: { errors } } = useForm<CreateUserInput>({
+  const { register, handleSubmit, control, setValue, getValues, watch, formState: { errors } } = useForm<CreateUserInput>({
     resolver: zodResolver(schema as typeof createUserSchema),
     defaultValues: {
       name: '', email: '', password: '', telefone: '',
@@ -201,37 +200,101 @@ export function UserForm({ mode, userId, title, description, icon, defaultValues
     finally { setSaving(false) }
   }
 
+  // A aba vive no formulário: a tira fica na base do hero, e o card só
+  // renderiza o conteúdo — antes o estado morava dentro do card, junto com as
+  // pills laterais que saíram.
+  const [activeTab, setActiveTab] = useState<string>('dados')
+  const visibleTabs = USER_TABS.filter(t => t.key !== 'clientes' || mode === 'edit')
+  const nomeAtual = watch('name')
+  const emailAtual = watch('email')
+
   return (
     <TooltipProvider>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {/* Header com ícone + título + botões */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            {icon && (
-              <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-                style={{ backgroundColor: MODULE_COLOR }}
-              >
-                {icon}
-              </div>
-            )}
-            <div>
-              <h1>{title}</h1>
-              <p className="text-sm text-muted-foreground">{description}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button variant="success" size="sm" type="submit" disabled={saving}>
+        {/* Barra da página — PADRAO_PAGINAS §3.1 */}
+        <PageHeaderBar
+          actions={<>
+            <Button variant="success" size="sm" type="submit" disabled={saving} className="gap-1.5">
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>
-            <BackButton href="/usuarios" label="Voltar" />
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/usuarios')}>
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Button>
+          </>}
+        >
+          <h1 className="truncate">{title}</h1>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Cadastros</span>
+            <span className="text-muted-foreground/50">›</span>
+            <Link href="/usuarios" className="transition-colors hover:text-foreground">Usuários</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span className="truncate">{mode === 'edit' ? (nomeAtual || 'Editar') : 'Novo usuário'}</span>
+          </p>
+        </PageHeaderBar>
+
+        {/* ── Hero ── mesma estrutura de /clientes/[id]: capa na cor do módulo,
+            identidade à esquerda e as abas na base. */}
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="relative overflow-hidden">
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
+            <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
+              <div className="flex items-end gap-4">
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
+                  <User className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xl font-bold tracking-tight text-white drop-shadow">
+                      {nomeAtual || (mode === 'edit' ? 'Editar usuário' : 'Novo usuário')}
+                    </p>
+                    {emailAtual && (
+                      <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
+                        {emailAtual}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-xs text-white/85">{description}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tira de abas na base do hero — substitui as pills laterais.
+              Botões simples: o CSS global de [role="tablist"] briga com a pílula. */}
+          <div className="border-t border-border px-3">
+            <div className="nice-scrollbar flex gap-1.5 overflow-x-auto py-2">
+              {visibleTabs.map(tab => {
+                const Icone = tab.icon
+                const ativa = activeTab === tab.key
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    aria-current={ativa ? 'page' : undefined}
+                    className={cn(
+                      'inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors',
+                      ativa ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    <Icone className="h-4 w-4 shrink-0" />
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 
         {error && <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
 
         <UserDetailsCard
+          activeTab={activeTab}
           mode={mode} userId={userId} register={register} control={control} errors={errors}
           areas={areas} cargos={cargos} empresas={empresas} isMaster={isMaster}
           permissionsMap={permissionsMap} setPermissionsMap={setPermissionsMap}
@@ -261,7 +324,8 @@ const USER_TABS = [
   { key: 'clientes', label: 'Clientes', icon: Handshake },
 ] as const
 
-function UserDetailsCard({ mode, userId, register, control, errors, areas, cargos, empresas, isMaster, permissionsMap, setPermissionsMap, subModal, setSubModal, setValue, getValues, importingLegado, setImportingLegado }: {
+function UserDetailsCard({ activeTab, mode, userId, register, control, errors, areas, cargos, empresas, isMaster, permissionsMap, setPermissionsMap, subModal, setSubModal, setValue, getValues, importingLegado, setImportingLegado }: {
+  activeTab: string
   mode: 'create' | 'edit'; userId?: string
   register: any; control: any; errors: any
   areas: SelectOption[]; cargos: SelectOption[]; empresas: EmpresaOption[]
@@ -271,7 +335,6 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
   setValue: any; getValues: any
   importingLegado: boolean; setImportingLegado: (v: boolean) => void
 }) {
-  const [activeTab, setActiveTab] = useState('dados')
   const [, setPermSearchQuery] = useState('')
   const [permGroupTab, setPermGroupTab] = useState(Object.keys(MODULE_GROUPS)[0] || 'Cadastros')
   const [permSaving, setPermSaving] = useState(false)
@@ -306,47 +369,11 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
     return permSaveChain.current
   }, [userId, mode])
 
-  const visibleTabs = USER_TABS.filter(t => t.key !== 'clientes' || mode === 'edit')
-
   return (
     <Card>
-      <div className="flex items-center gap-2 border-b border-hairline px-5 py-3">
-        <User className="h-4 w-4 text-muted-foreground" />
-        <h5 className="text-[13px] font-semibold">Detalhes do Usuário</h5>
-      </div>
-      <div className="flex min-h-[500px]">
-        {/* Pills laterais */}
-        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
-          <div className="space-y-1">
-            {visibleTabs.map(tab => {
-              const Icon = tab.icon
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setActiveTab(tab.key)}
-                  className={cn(
-                    'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
-                    activeTab === tab.key
-                      ? 'text-white shadow-sm'
-                      : 'text-muted-foreground hover:bg-white dark:hover:bg-muted/60 hover:text-foreground',
-                  )}
-                  style={activeTab === tab.key ? { backgroundColor: MODULE_COLOR } : undefined}
-                >
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  {tab.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Conteúdo */}
-        {/* min-w-0: sem isso o item flex-1 não encolhe abaixo da largura
-            intrínseca das pills (whitespace-nowrap) e todo o conteúdo da aba
-            Permissões vaza à direita em telas estreitas/zoom, em vez de as
-            pills rolarem no seu overflow-x-auto. */}
-        <div key={activeTab} className="flex-1 min-w-0" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+      {/* Sem cabeçalho nem pills: o título e as abas moram no hero, como no
+          detalhe do cliente. Aqui fica só o conteúdo da aba escolhida. */}
+      <div key={activeTab} className="min-w-0" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
           {/* DADOS PESSOAIS */}
           {activeTab === 'dados' && (
@@ -660,6 +687,9 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
                 ) : (
                   <div>
                     {/* Abas horizontais dos grupos */}
+                    {/* Quebra em duas linhas quando não cabe. A barra rolava na
+                        horizontal com a rolagem escondida: em 1366px o último
+                        grupo ficava cortado sem nada indicando que havia mais. */}
                     <div className="flex flex-wrap items-center gap-0 border-b px-2">
                       {Object.entries(MODULE_GROUPS).map(([groupName, slugs]) => {
                         const gc = GROUP_COLORS[groupName] || GROUP_COLORS['default']!
@@ -690,14 +720,17 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
                         const filtered = slugs
                         const gc = GROUP_COLORS[groupName] || GROUP_COLORS['default']!
                         return (
-                          <div key={groupName} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          // Colunas por largura disponível, não por breakpoint: em
+                          // 1366px com a barra lateral aberta cabem duas, e o
+                          // `lg:grid-cols-3` forçava três espremendo o card.
+                          <div key={groupName} className="grid gap-2 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
                             {filtered.map((slug) => {
                               const Icon = MODULE_ICONS[slug]
                               const label = MODULE_LABELS[slug] ?? slug
                               const isActive = !!permissionsMap[slug]?.canRead
                               const hasSubs = !!MODULE_SUB_PERMISSIONS[slug]
                               return (
-                                <div key={slug} className={cn('group flex items-center justify-between rounded-[2px] border px-3 py-2.5 transition-all duration-300', isActive ? cn(gc.activeBg, gc.activeBorder) : cn('bg-card border-border/30', gc.hoverBg, gc.hoverBorder))}>
+                                <div key={slug} className={cn('group flex min-w-0 items-center justify-between gap-2 rounded-[2px] border px-3 py-2.5 transition-all duration-300', isActive ? cn(gc.activeBg, gc.activeBorder) : cn('bg-card border-border/30', gc.hoverBg, gc.hoverBorder))}>
                                   <div className="flex items-center gap-2.5 min-w-0">
                                     {Icon && <Icon className={cn('h-4 w-4 shrink-0 transition-colors duration-300', isActive ? gc.icon : 'text-muted-foreground/40 group-hover:text-muted-foreground/60')} />}
                                     {hasSubs ? (
@@ -751,7 +784,6 @@ function UserDetailsCard({ mode, userId, register, control, errors, areas, cargo
           )}
 
         </div>
-      </div>
     </Card>
   )
 }

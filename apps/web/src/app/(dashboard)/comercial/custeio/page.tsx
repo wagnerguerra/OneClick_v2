@@ -16,6 +16,8 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { TEXT } from '@/lib/color-styles'
 import { StatCard } from '@/components/stat-card'
 import { BackButton } from '@/components/ui/back-button'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
@@ -143,19 +145,8 @@ export default function CusteioPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Header inline padrão (subpágina de Comercial) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <Calculator className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Custeio de Clientes</h1>
-            <p className="text-sm text-muted-foreground">Custo de servir × receita de referência — rentabilidade por cliente</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Input type="month" value={refMes} onChange={e => setRefMes(e.target.value)} className="h-9 w-[150px] text-sm" />
           <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={recalcular} disabled={recalculando || loading}>
             {recalculando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -163,8 +154,17 @@ export default function CusteioPage() {
           </Button>
           <Button variant="outline" size="icon-sm" onClick={abrirParams} title="Parâmetros de custeio"><Settings2 className="h-4 w-4" /></Button>
           <BackButton href="/comercial" label="Voltar" />
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Custeio de Clientes</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Contratos</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Custeio de Clientes</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -193,11 +193,11 @@ export default function CusteioPage() {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="text-xs font-semibold uppercase tracking-wider">Cliente</TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Custo direto</TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Rateio apoio</TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">TDABC</TableHead>
+                  <TableHead className="hidden lg:table-cell text-right text-xs font-semibold uppercase tracking-wider">Custo direto</TableHead>
+                  <TableHead className="hidden xl:table-cell text-right text-xs font-semibold uppercase tracking-wider">Rateio apoio</TableHead>
+                  <TableHead className="hidden xl:table-cell text-right text-xs font-semibold uppercase tracking-wider">TDABC</TableHead>
                   <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Custo total</TableHead>
-                  <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Receita ref.</TableHead>
+                  <TableHead className="hidden md:table-cell text-right text-xs font-semibold uppercase tracking-wider">Receita ref.</TableHead>
                   <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Margem</TableHead>
                 </TableRow>
               </TableHeader>
@@ -214,11 +214,11 @@ export default function CusteioPage() {
                       <div className="truncate text-sm font-medium">{l.cliente || '—'}</div>
                       <div className="text-[11px] text-muted-foreground tabular-nums">{fmtCnpj(l.documento)}</div>
                     </TableCell>
-                    <TableCell className="text-right text-sm tabular-nums">{fmtMoeda(l.custoDireto)}</TableCell>
-                    <TableCell className="text-right text-sm tabular-nums">{fmtMoeda(l.custoRateioApoio)}</TableCell>
-                    <TableCell className="text-right text-sm tabular-nums text-muted-foreground">{l.custoTdabc > 0 ? fmtMoeda(l.custoTdabc) : '—'}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-right text-sm tabular-nums">{fmtMoeda(l.custoDireto)}</TableCell>
+                    <TableCell className="hidden xl:table-cell text-right text-sm tabular-nums">{fmtMoeda(l.custoRateioApoio)}</TableCell>
+                    <TableCell className="hidden xl:table-cell text-right text-sm tabular-nums text-muted-foreground">{l.custoTdabc > 0 ? fmtMoeda(l.custoTdabc) : '—'}</TableCell>
                     <TableCell className="text-right text-sm font-medium tabular-nums">{fmtMoeda(l.custoTotal)}</TableCell>
-                    <TableCell className="text-right text-sm tabular-nums">{fmtMoeda(l.receitaReferencia)}</TableCell>
+                    <TableCell className="hidden md:table-cell text-right text-sm tabular-nums">{fmtMoeda(l.receitaReferencia)}</TableCell>
                     <TableCell className="text-center text-sm"><MargemBadge pct={l.margem} /></TableCell>
                   </TableRow>
                 ))}
@@ -251,7 +251,7 @@ export default function CusteioPage() {
                     </div>
                     <div className="rounded border border-border/60 p-3 space-y-3">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Benefícios (custo do colaborador)</p>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         <div className="space-y-1.5">
                           <Label>Alimentação/dia</Label>
                           <Input type="number" value={params.beneficioAlimentacaoDia} onChange={e => upd({ beneficioAlimentacaoDia: Number(e.target.value) || 0 })} />
@@ -268,7 +268,7 @@ export default function CusteioPage() {
                     </div>
                     <div className="rounded border border-border/60 p-3 space-y-3">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Multiplicador por categoria comercial</p>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         <div className="space-y-1.5">
                           <Label>Standard</Label>
                           <Input type="number" step="0.1" value={params.multCategoriaStandard} onChange={e => upd({ multCategoriaStandard: Number(e.target.value) || 0 })} />

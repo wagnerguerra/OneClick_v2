@@ -3,11 +3,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import {
-  ArrowLeft, Plus, MoreVertical, Pencil, Trash2, Loader2,
-  ListChecks, Flag, Search, LayoutGrid, List, FolderKanban,
+  Plus, MoreVertical, Pencil, Trash2, Loader2,
+  ListChecks, Flag, Search, LayoutGrid, List,
   Info, MessageSquare, Kanban,
 } from 'lucide-react'
 import { cn } from '@saas/ui'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
+import { BackButton } from '@/components/ui/back-button'
 import { ProjetoKanban, type KanbanTarefa } from './_components/projeto-kanban'
 import { TarefaDetalheModal } from './_components/tarefa-detalhe-modal'
 import { ProjetoTabDetalhes } from './_components/projeto-tab-detalhes'
@@ -177,9 +180,37 @@ export default function ProjetoDetailPage() {
   return (
     <div className="space-y-0 pb-6">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-0">
-        {/* ══════════════════════ Header bleed-edge ══════════════════════ */}
+        {/* Topo — PADRAO_PAGINAS §1.1 */}
+        <PageHeaderBar actions={<>
+            {activeTab === 'tarefas' && canWrite && (
+              <Button size="sm" onClick={openCreateTarefa} className="gap-1.5" style={{ background: projetoCor }}>
+                <Plus className="h-4 w-4" /> Nova tarefa
+              </Button>
+            )}
+            <BackButton href="/projetos" label="Voltar" />
+        </>}>
+          <h1 className="truncate">{projeto.nome}</h1>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>TI</span>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Projetos</span>
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            {projeto.descricao && (
+              <span className="line-clamp-1 max-w-2xl">{projeto.descricao}</span>
+            )}
+            <span>{projeto._count.tarefas} {projeto._count.tarefas === 1 ? 'tarefa' : 'tarefas'}</span>
+            {projeto.dataPrevisao && (
+              <span>· previsão {new Date(projeto.dataPrevisao).toLocaleDateString('pt-BR')}</span>
+            )}
+          </div>
+        </PageHeaderBar>
+
+        {/* ══════════════ Faixa colorida do projeto (abas) ══════════════ */}
         <div
-          className="relative -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 overflow-hidden"
+          className="relative -mx-4 sm:-mx-6 overflow-hidden"
           style={{ backgroundColor: `color-mix(in srgb, ${projetoCor} 12%, transparent)` }}
         >
           <div
@@ -188,54 +219,9 @@ export default function ProjetoDetailPage() {
               backgroundImage: `linear-gradient(to right, color-mix(in srgb, ${projetoCor} 0%, transparent) 0%, color-mix(in srgb, ${projetoCor} 70%, transparent) 100%)`,
             }}
           />
-          <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex items-start gap-4 min-w-0">
-                <div
-                  className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 shadow-lg"
-                  style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}
-                >
-                  <FolderKanban className="h-8 w-8" style={{ color: projetoCor }} />
-                </div>
-                <div className="min-w-0">
-                  <h1 className="text-xl font-semibold tracking-tight text-foreground truncate">
-                    {projeto.nome}
-                  </h1>
-                  {projeto.descricao && (
-                    <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl line-clamp-2">{projeto.descricao}</p>
-                  )}
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[11px] text-muted-foreground">
-                      {projeto._count.tarefas} {projeto._count.tarefas === 1 ? 'tarefa' : 'tarefas'}
-                    </span>
-                    {projeto.dataPrevisao && (
-                      <span className="text-[11px] text-muted-foreground">
-                        · previsão {new Date(projeto.dataPrevisao).toLocaleDateString('pt-BR')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {activeTab === 'tarefas' && canWrite && (
-                  <Button onClick={openCreateTarefa} className="gap-1.5" style={{ background: projetoCor }}>
-                    <Plus className="h-4 w-4" /> Nova tarefa
-                  </Button>
-                )}
-                <Button
-                  variant="outline" size="icon"
-                  onClick={() => router.push('/projetos')}
-                  title="Voltar pra Projetos"
-                  className="h-8 w-8 bg-white/70 hover:bg-white"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
 
           {/* Tabs em pills centralizadas — padrão helpdesk/orçamentos */}
-          <div className="relative z-10 px-4 sm:px-6 pb-2 overflow-x-auto flex justify-center">
+          <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto flex justify-center">
             <SlidingTabsList
               activeValue={activeTab}
               className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit"
@@ -389,9 +375,9 @@ export default function ProjetoDetailPage() {
                           <TableRow>
                             <TableHead className="w-[40%]">Tarefa</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead>Prioridade</TableHead>
-                            <TableHead>Prazo</TableHead>
-                            <TableHead className="text-right">Est.</TableHead>
+                            <TableHead className="hidden lg:table-cell">Prioridade</TableHead>
+                            <TableHead className="hidden md:table-cell">Prazo</TableHead>
+                            <TableHead className="hidden xl:table-cell text-right">Est.</TableHead>
                             <TableHead className="w-[60px]"></TableHead>
                           </TableRow>
                         </TableHeader>
@@ -419,16 +405,16 @@ export default function ProjetoDetailPage() {
                                   {TAREFA_STATUS_LABELS[t.status]}
                                 </span>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="hidden lg:table-cell">
                                 <span className="flex items-center gap-1 text-[12px]" style={{ color: PRIORIDADE_COLOR[t.prioridade] }}>
                                   <Flag className="h-3 w-3" />
                                   {TAREFA_PRIORIDADE_LABELS[t.prioridade]}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-[12px] text-muted-foreground">
+                              <TableCell className="hidden md:table-cell text-[12px] text-muted-foreground">
                                 {t.prazo ? new Date(t.prazo).toLocaleDateString('pt-BR') : '—'}
                               </TableCell>
-                              <TableCell className="text-right text-[12px] text-muted-foreground">
+                              <TableCell className="hidden xl:table-cell text-right text-[12px] text-muted-foreground">
                                 {t.estimativa ?? '—'}
                               </TableCell>
                               <TableCell>

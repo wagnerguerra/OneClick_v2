@@ -23,6 +23,8 @@ import {
   TooltipProvider,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -50,8 +52,8 @@ const AREA_TABS = [
 interface AreaFormProps {
   mode: 'create' | 'edit'
   title: string
-  description: string
-  icon?: React.ReactNode
+  /** Complemento do título (ex.: código do registro). Some no modo criação. */
+  description?: string
   areaId?: string
   defaultValues?: Partial<CreateAreaInput> & { code?: number }
 }
@@ -69,7 +71,7 @@ function FieldHint({ text }: { text: string }) {
   )
 }
 
-export function AreaForm({ mode, areaId, title, description, icon, defaultValues }: AreaFormProps) {
+export function AreaForm({ mode, areaId, title, description, defaultValues }: AreaFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -128,23 +130,8 @@ export function AreaForm({ mode, areaId, title, description, icon, defaultValues
   return (
     <TooltipProvider>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {/* Header com ícone + título + botões */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            {icon && (
-              <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-                style={{ backgroundColor: MODULE_COLOR }}
-              >
-                {icon}
-              </div>
-            )}
-            <div>
-              <h1>{title}</h1>
-              <p className="text-sm text-muted-foreground">{description}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
+        {/* Topo — PADRAO_PAGINAS §1.1 */}
+        <PageHeaderBar actions={<>
             <Button variant="success" size="sm" type="submit" disabled={saving}>
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}
@@ -153,8 +140,19 @@ export function AreaForm({ mode, areaId, title, description, icon, defaultValues
               <ArrowLeft className="h-4 w-4" />
               Voltar
             </Button>
-          </div>
-        </div>
+        </>}>
+          <h1 className="truncate">{title}</h1>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Cadastros</span>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Áreas</span>
+          </p>
+          {description && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">{description}</div>
+          )}
+        </PageHeaderBar>
 
         {error && (
           <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">

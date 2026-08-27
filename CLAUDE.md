@@ -9,7 +9,9 @@ Pagamento recorrente via Stripe. Reconstrução modernizada do legado **OneClick
 - `docs/MODULOS.md` — lista canônica de módulos por bloco + slugs de cor
 - `docs/ENV.md` — variáveis de ambiente completas + integrações externas
 - `docs/error-registry.md` — registry de erros + gate obrigatório de entrega
+- `docs/PADRAO_PAGINAS.md` — **como se monta uma tela**: listagem (ref. `/clientes`), kanban (ref. `/crm` e `/orcamentos`) e detalhe (ref. `/clientes/[id]` e `/orcamentos/[id]`)
 - `docs/PADRAO_MODULOS.md`, `docs/PADRAO_MASCARAS.md`, `docs/PADRAO_KANBAN_DND.md` — padrões específicos
+- `docs/PADRAO_RESPONSIVIDADE.md` — celular/tablet/notebook 1366×768 (o modelo para toda tela nova ou tocada); baixa da varredura em `docs/responsividade-progresso.md`
 - `docs/PADRAO_ESTADOS_E_PERMISSOES.md` — estado derivado no backend (flags no payload), permissão de campo (`hasSubPermission`), propagação por SSE
 
 ---

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { FileBox, Plus, Loader2, Check, History, Info, ExternalLink } from 'lucide-react'
+import { Plus, Loader2, Check, History, Info, ExternalLink } from 'lucide-react'
 import {
   Button, Input, Label, Card, Badge, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
@@ -11,6 +11,8 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -132,28 +134,29 @@ export default function DocumentoExternoDetalhePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <FileBox className="h-6 w-6" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate">{d.nome}</h1>
-            <p className="text-sm text-muted-foreground">
-              {d.processo?.nome ?? 'Sem processo'} · Revisão {d.versaoAtual?.revisao ?? '—'} · {d.versoes.length} no histórico
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {podeEscrever && (
             <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={abrirNovaRevisao}>
               <Plus className="h-4 w-4" />Nova revisão
             </Button>
           )}
           <BackButton href="/documentos-externos" label="Voltar" />
+      </>}>
+        <h1 className="truncate">{d.nome}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Documentos Externos</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              {d.processo?.nome ?? 'Sem processo'} · Revisão {d.versaoAtual?.revisao ?? '—'} · {d.versoes.length} no histórico
+            </p>
         </div>
-      </div>
+      </PageHeaderBar>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         {/* ── Histórico de revisões ── */}

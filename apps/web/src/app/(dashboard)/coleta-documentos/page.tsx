@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Loader2, Pencil, Trash2, Flag, Settings2,
+  Plus, Loader2, Pencil, Trash2, Flag, Settings2, RotateCcw,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search as SearchIcon, LayoutGrid, List,
+  SlidersHorizontal,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn, Checkbox,
@@ -17,14 +18,20 @@ import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
+import { UserCombobox } from '../orcamentos/_components/user-combobox'
 import { COLETA_TIPO_LABEL, COLETA_SITUACAO_LABEL, COLETA_SITUACOES, COLETA_TIPOS, COLETA_PRIORIDADE_LABEL } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
+import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 import { SITUACAO_BADGE, TIPO_BADGE } from './_components/badges'
 import { ColetaKanban, type KanbanRow } from './_components/kanban'
 
 const PAGE_SIZES = [10, 20, 50]
+
+/** Cor do bloco Administrativo — usada no contador do botão de filtros. */
+const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
 
 interface Row {
   numero: number
@@ -41,6 +48,8 @@ interface Row {
   _count: { logs: number }
 }
 interface Categoria { id: string; nome: string; areaId: string | null; areaNome: string | null; ativo: boolean }
+/** No modal de manutenção a lista traz também as inativas. */
+type CategoriaModal = Categoria
 interface ClienteOpt { id: string; razaoSocial: string; documento: string | null }
 
 const dataBR = (iso: string | null | undefined) =>
@@ -54,8 +63,13 @@ const dataBR = (iso: string | null | undefined) =>
 export default function ColetaDocumentosPage() {
   const router = useRouter()
   const { isMaster, isEmpresaMaster, permissions } = useUserPermissions()
+  const { profile: perfil } = useCurrentUserProfile()
   const perm = permissions.find((p) => p.moduleSlug === 'coleta-documentos')
   const podeEscrever = isMaster || isEmpresaMaster || (perm as { canWrite?: boolean } | undefined)?.canWrite === true
+  // A categoria decide a área de destino na triagem — mexer nela muda o rumo
+  // de tudo que a usa, então exige liberação à parte.
+  const subsColeta = (perm?.subPermissions ?? {}) as Record<string, boolean>
+  const podeCategorias = isMaster || isEmpresaMaster || subsColeta.categorias === true
 
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
@@ -69,6 +83,7 @@ export default function ColetaDocumentosPage() {
   const [loading, setLoading] = useState(true)
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [clientes, setClientes] = useState<ClienteOpt[]>([])
+  const [solicitantes, setSolicitantes] = useState<Array<{ id: string; name: string; email: string | null; image: string | null }>>([])
 
   // Modal novo registro
   const [aberta, setAberta] = useState(false)
@@ -78,6 +93,8 @@ export default function ColetaDocumentosPage() {
   const [mCategoria, setMCategoria] = useState('')
   const [mCompetencia, setMCompetencia] = useState('')
   const [mPrioridade, setMPrioridade] = useState('2')
+  /** Quem está pedindo: abre no próprio usuário, mas pode ser trocado. */
+  const [mSolicitante, setMSolicitante] = useState('')
   const [mDescricao, setMDescricao] = useState('')
   const [salvando, setSalvando] = useState(false)
 
@@ -86,6 +103,8 @@ export default function ColetaDocumentosPage() {
   const [catNome, setCatNome] = useState('')
   const [catArea, setCatArea] = useState('')
   const [areas, setAreas] = useState<Array<{ id: string; name: string }>>([])
+  /** Lista do modal: inclui as inativas, para poder reativar. */
+  const [categoriasModal, setCategoriasModal] = useState<CategoriaModal[]>([])
   const [catSalvando, setCatSalvando] = useState(false)
 
   useEffect(() => {
@@ -96,6 +115,7 @@ export default function ColetaDocumentosPage() {
   const carregarApoios = useCallback(() => {
     ;(trpc as any).coleta.listarCategorias.query({}).then(setCategorias).catch(() => setCategorias([]))
     ;(trpc as any).coleta.listarClientes.query().then(setClientes).catch(() => setClientes([]))
+    ;(trpc as any).coleta.listarSolicitantes.query().then(setSolicitantes).catch(() => setSolicitantes([]))
     ;(trpc as any).coleta.listarAreas.query().then(setAreas).catch(() => setAreas([]))
   }, [])
   useEffect(() => { carregarApoios() }, [carregarApoios])
@@ -141,6 +161,16 @@ export default function ColetaDocumentosPage() {
   }, [debounced, fTipo, fSituacao, fCategoria, fMinhas])
   useEffect(() => { if (viewMode === 'kanban') fetchKanban() }, [viewMode, fetchKanban])
 
+  /**
+   * O registro nasce em nome de quem abre a tela; a recepção troca quando
+   * lança pelo setor que pediu. Sem o campo, toda solicitação telefonada
+   * ficava no nome de quem digitou.
+   */
+  function abrirNovo() {
+    setMSolicitante(perfil?.id ?? '')
+    setAberta(true)
+  }
+
   async function salvar() {
     if (!mCliente && !mContato.trim()) { alerts.error('Falta o cliente', 'Informe o cliente ou ao menos o contato.'); return }
     setSalvando(true)
@@ -152,6 +182,7 @@ export default function ColetaDocumentosPage() {
         categoriaId: mCategoria || null,
         competencia: mCompetencia || null,
         prioridade: Number(mPrioridade),
+        solicitanteId: mSolicitante || null,
         descricao: mDescricao || null,
       })
       alerts.success('Registrado', mTipo === 'RECEBIMENTO' ? 'Documento entregue ao Arquivo.' : 'Solicitação aguardando rota.')
@@ -161,25 +192,49 @@ export default function ColetaDocumentosPage() {
     finally { setSalvando(false) }
   }
 
+  /** Recarrega as categorias; no modal, incluindo as inativas (dá para reativar). */
+  function recarregarCategorias() {
+    ;(trpc as any).coleta.listarCategorias.query({}).then(setCategorias).catch(() => {})
+    if (catAberta) {
+      ;(trpc as any).coleta.listarCategorias.query({ incluirInativas: true })
+        .then(setCategoriasModal).catch(() => {})
+    }
+  }
+
   async function salvarCategoria() {
     if (catNome.trim().length < 2) return
     setCatSalvando(true)
     try {
       await (trpc as any).coleta.criarCategoria.mutate({ nome: catNome.trim(), areaId: catArea || null })
       setCatNome(''); setCatArea('')
-      ;(trpc as any).coleta.listarCategorias.query({}).then(setCategorias).catch(() => {})
+      recarregarCategorias()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
     finally { setCatSalvando(false) }
   }
 
-  async function desativarCategoria(c: Categoria) {
-    try {
-      await (trpc as any).coleta.atualizarCategoria.mutate({ id: c.id, ativo: false })
-      ;(trpc as any).coleta.listarCategorias.query({}).then(setCategorias).catch(() => {})
-    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  /** Edição de uma categoria: nome, área de destino ou situação. */
+  async function editarCategoria(id: string, patch: Record<string, unknown>) {
+    await (trpc as any).coleta.atualizarCategoria.mutate({ id, ...patch })
+    recarregarCategorias()
+  }
+
+  async function alternarCategoria(c: CategoriaModal) {
+    if (c.ativo) {
+      const ok = await alerts.confirm({
+        title: `Desativar a categoria “${c.nome}”?`,
+        text: 'Ela some da lista de escolha nos novos registros. Os registros que já a usam continuam como estão.',
+        icon: 'warning', confirmText: 'Desativar',
+      })
+      if (!ok) return
+    }
+    try { await editarCategoria(c.id, { ativo: !c.ativo }) }
+    catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
   const filtrosAtivos = !!(fTipo || fSituacao || fCategoria || fMinhas)
+  /** Quantos filtros estão ligados — vira o número no botão "Filtros". */
+  const qtdFiltros = [fTipo, fSituacao, fCategoria, fMinhas].filter(Boolean).length
+  const [filtrosOpen, setFiltrosOpen] = useState(false)
   const totalPages = data?.totalPages ?? 1
   const startRecord = data ? (page - 1) * limit + 1 : 0
   const endRecord = data ? Math.min(page * limit, data.total) : 0
@@ -193,6 +248,26 @@ export default function ColetaDocumentosPage() {
             <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Buscar por nº, cliente, contato..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 w-60 pl-8 text-sm" />
           </div>
+          {/* Botão "Filtros" com contador — padrão do /orcamentos. Antes os
+              quatro filtros ficavam abertos dentro da toolbar da tabela, e
+              apareciam até no modo kanban, onde não há tabela para filtrar. */}
+          <button
+            type="button"
+            onClick={() => setFiltrosOpen((v) => !v)}
+            className={cn(
+              'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors',
+              filtrosOpen || qtdFiltros > 0
+                ? 'border-border bg-muted text-foreground'
+                : 'border-border bg-card text-muted-foreground hover:bg-muted/50',
+            )}
+            title="Filtros"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
+            {qtdFiltros > 0 && (
+              <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none text-white" style={{ backgroundColor: MODULE_COLOR }}>{qtdFiltros}</span>
+            )}
+          </button>
           <div className="flex items-center border rounded-lg overflow-hidden">
             <button type="button" className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')} onClick={() => { setViewMode('kanban'); localStorage.setItem('coleta-view-mode', 'kanban') }} title="Kanban">
               <LayoutGrid className="h-4 w-4" />
@@ -207,14 +282,18 @@ export default function ColetaDocumentosPage() {
                 <Button variant="outline" size="sm" className="gap-1.5"><Settings2 className="h-4 w-4" /></Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setCatAberta(true)}>
+                <DropdownMenuItem onClick={() => {
+                  setCatAberta(true)
+                  ;(trpc as any).coleta.listarCategorias.query({ incluirInativas: true })
+                    .then(setCategoriasModal).catch(() => setCategoriasModal([]))
+                }}>
                   <Settings2 className="h-4 w-4 mr-2" />Categorias
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
           {podeEscrever && (
-            <Button size="sm" className="gap-1.5" onClick={() => setAberta(true)}>
+            <Button size="sm" className="gap-1.5" onClick={abrirNovo}>
               <Plus className="h-4 w-4" />Novo Registro
             </Button>
           )}
@@ -230,43 +309,61 @@ export default function ColetaDocumentosPage() {
         </p>
       </PageHeaderBar>
 
+      {/* Painel de filtros — abre e fecha como o do /orcamentos; a margem
+          negativa quando fechado anula o gap do container. */}
+      <div
+        className="grid transition-all duration-[250ms] ease-[cubic-bezier(.16,1,.3,1)] motion-reduce:transition-none"
+        style={{
+          gridTemplateRows: filtrosOpen ? '1fr' : '0fr',
+          opacity: filtrosOpen ? 1 : 0,
+          marginBottom: filtrosOpen ? 0 : '-1.25rem',
+        }}
+        aria-hidden={!filtrosOpen}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
+              <Select value={fTipo || '__all__'} onValueChange={(v) => { setFTipo(v === '__all__' ? '' : v); setPage(1) }}>
+                <SelectTrigger className="h-8 w-[135px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todos os tipos</SelectItem>
+                  {COLETA_TIPOS.map((t) => <SelectItem key={t} value={t}>{COLETA_TIPO_LABEL[t]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={fSituacao || '__all__'} onValueChange={(v) => { setFSituacao(v === '__all__' ? '' : v); setPage(1) }}>
+                <SelectTrigger className="h-8 w-[175px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todas as situações</SelectItem>
+                  {COLETA_SITUACOES.map((s) => <SelectItem key={s} value={s}>{COLETA_SITUACAO_LABEL[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={fCategoria || '__all__'} onValueChange={(v) => { setFCategoria(v === '__all__' ? '' : v); setPage(1) }}>
+                <SelectTrigger className="h-8 w-[175px] text-xs bg-card"><SelectValue placeholder="Categoria" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todas as categorias</SelectItem>
+                  {categorias.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                <Checkbox checked={fMinhas} onCheckedChange={(v) => { setFMinhas(v === true); setPage(1) }} />
+                Só as minhas
+              </label>
+              {filtrosAtivos && (
+                <Button variant="outline" size="xs" onClick={() => { setFTipo(''); setFSituacao(''); setFCategoria(''); setFMinhas(false); setPage(1) }}>
+                  Limpar
+                </Button>
+              )}
+          </div>
+        </div>
+      </div>
+
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={fTipo || '__all__'} onValueChange={(v) => { setFTipo(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[135px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Todos os tipos</SelectItem>
-                {COLETA_TIPOS.map((t) => <SelectItem key={t} value={t}>{COLETA_TIPO_LABEL[t]}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fSituacao || '__all__'} onValueChange={(v) => { setFSituacao(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[175px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Todas as situações</SelectItem>
-                {COLETA_SITUACOES.map((s) => <SelectItem key={s} value={s}>{COLETA_SITUACAO_LABEL[s]}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fCategoria || '__all__'} onValueChange={(v) => { setFCategoria(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[175px] text-xs bg-card"><SelectValue placeholder="Categoria" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Todas as categorias</SelectItem>
-                {categorias.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-              <Checkbox checked={fMinhas} onCheckedChange={(v) => { setFMinhas(v === true); setPage(1) }} />
-              Só as minhas
-            </label>
-            {filtrosAtivos && (
-              <Button variant="outline" size="xs" onClick={() => { setFTipo(''); setFSituacao(''); setFCategoria(''); setFMinhas(false); setPage(1) }}>
-                Limpar
-              </Button>
-            )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
               <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
+            <span className="text-xs text-muted-foreground">por página</span>
           </div>
           {!search && !fSituacao && (
             <p className="text-[11px] text-muted-foreground">
@@ -283,9 +380,12 @@ export default function ColetaDocumentosPage() {
         <Table className="table-fixed">
           <TableHeader>
             <TableRow className="[&_th]:whitespace-nowrap">
-              <TableHead className="w-[76px]">#</TableHead>
+              {/* No celular ficam só cliente, situação e ações — o que
+                  identifica o registro e o que se faz com ele. O número e o
+                  tipo migram para dentro da célula do cliente. */}
+              <TableHead className="hidden sm:table-cell w-[76px]">#</TableHead>
               <TableHead>Cliente</TableHead>
-              <TableHead className="w-[125px]">Tipo</TableHead>
+              <TableHead className="hidden sm:table-cell w-[125px]">Tipo</TableHead>
               <TableHead className="hidden md:table-cell w-[150px]">Categoria</TableHead>
               <TableHead className="hidden sm:table-cell w-[125px] text-center">Competência</TableHead>
               <TableHead className="w-[175px]">Situação</TableHead>
@@ -306,15 +406,20 @@ export default function ColetaDocumentosPage() {
             ) : (
               data.data.map((r) => (
                 <TableRow key={r.id} className="cursor-pointer [&_td]:whitespace-nowrap [&_td]:py-2" onClick={() => router.push(`/coleta-documentos/${r.id}`)}>
-                  <TableCell className="text-xs font-semibold tabular-nums text-muted-foreground">#{r.numero}</TableCell>
+                  <TableCell className="hidden sm:table-cell text-xs font-semibold tabular-nums text-muted-foreground">#{r.numero}</TableCell>
                   <TableCell className="text-sm">
                     <span className="flex items-center gap-1.5 min-w-0">
                       {r.prioridade === 3 && <Flag className="h-3.5 w-3.5 shrink-0 text-rose-500" aria-label="Prioridade alta" />}
                       <span className="truncate font-medium" title={r.contato ?? undefined}>{r.clienteNomeResolvido ?? r.contato ?? '—'}</span>
-                      {r.clienteNomeResolvido && r.contato && <span className="truncate text-[11px] text-muted-foreground">· {r.contato}</span>}
+                      {r.clienteNomeResolvido && r.contato && <span className="hidden truncate text-[11px] text-muted-foreground sm:inline">· {r.contato}</span>}
+                    </span>
+                    {/* Número e tipo, que ganham coluna a partir de `sm` */}
+                    <span className="mt-0.5 flex items-center gap-1.5 sm:hidden">
+                      <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">#{r.numero}</span>
+                      <Badge variant="outline" className={cn('text-[9px]', TIPO_BADGE[r.tipo])}>{COLETA_TIPO_LABEL[r.tipo] ?? r.tipo}</Badge>
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <Badge variant="outline" className={cn('text-[10px]', TIPO_BADGE[r.tipo])}>{COLETA_TIPO_LABEL[r.tipo] ?? r.tipo}</Badge>
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-xs text-muted-foreground truncate">{r.categoria?.nome ?? '—'}</TableCell>
@@ -389,6 +494,17 @@ export default function ColetaDocumentosPage() {
                 </Select>
               </div>
               <div className="col-span-12">
+                <Label className="text-[13px] font-semibold">Solicitante</Label>
+                <div className="mt-1.5">
+                  <UserCombobox users={solicitantes} value={mSolicitante} onSelect={setMSolicitante} placeholder="Quem está solicitando" />
+                </div>
+                {mSolicitante && perfil && mSolicitante !== perfil.id && (
+                  <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                    Registro em nome de outra pessoa — seu nome fica no histórico como autor do lançamento.
+                  </p>
+                )}
+              </div>
+              <div className="col-span-12">
                 <Label className="text-[13px] font-semibold">Cliente</Label>
                 <div className="mt-1.5">
                   <ClienteCombobox clientes={clientes} value={mCliente} onSelect={setMCliente} placeholder="Busque por razão social ou CNPJ" />
@@ -439,6 +555,13 @@ export default function ColetaDocumentosPage() {
             <DialogDescription>A área vinculada recebe o documento na triagem.</DialogDescription>
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
+            {!podeCategorias && (
+              <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                Você pode consultar as categorias, mas não alterá-las — a manutenção depende de liberação
+                específica no seu perfil.
+              </p>
+            )}
+            {podeCategorias && (
             <div className="flex items-end gap-2">
               <div className="flex-1">
                 <Label className="text-[13px] font-semibold">Nova categoria</Label>
@@ -458,18 +581,51 @@ export default function ColetaDocumentosPage() {
                 {catSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               </Button>
             </div>
-            <div className="max-h-[300px] overflow-y-auto nice-scrollbar rounded border border-border">
-              {categorias.length === 0 ? (
+            )}
+            <div className="max-h-[320px] overflow-y-auto nice-scrollbar rounded border border-border">
+              {categoriasModal.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma categoria.</p>
-              ) : categorias.map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2 last:border-0">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{c.nome}</p>
-                    <p className="text-[11px] text-muted-foreground">{c.areaNome ?? 'Sem área vinculada'}</p>
+              ) : categoriasModal.map((c) => (
+                <div key={c.id} className={cn('flex items-center gap-2 border-b border-border/60 px-3 py-2 last:border-0', !c.ativo && 'opacity-60')}>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">
+                      <InlineEditCell
+                        type="text"
+                        value={c.nome}
+                        disabled={!podeCategorias}
+                        validate={(v) => (v.trim().length < 2 ? 'Nome muito curto' : null)}
+                        onSave={(v) => editarCategoria(c.id, { nome: v.trim() })}
+                      />
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      <span className="text-[11px] text-muted-foreground">Área de destino:</span>
+                      {podeCategorias ? (
+                        <Select
+                          value={c.areaId || '__none__'}
+                          onValueChange={(v) => { void editarCategoria(c.id, { areaId: v === '__none__' ? null : v }).catch((e) => alerts.error('Erro', (e as Error).message)) }}
+                        >
+                          <SelectTrigger className="h-6 w-[170px] text-[11px]"><SelectValue placeholder="Sem área" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Sem área</SelectItem>
+                            {areas.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">{c.areaNome ?? 'Sem área vinculada'}</span>
+                      )}
+                    </div>
                   </div>
-                  <Button variant="soft-destructive" size="icon-sm" title="Desativar" onClick={() => desativarCategoria(c)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {!c.ativo && <Badge variant="outline" className="text-[10px]">Inativa</Badge>}
+                  {podeCategorias && (
+                    <Button
+                      variant={c.ativo ? 'soft-destructive' : 'outline'}
+                      size="icon-sm"
+                      title={c.ativo ? 'Desativar' : 'Reativar'}
+                      onClick={() => alternarCategoria(c)}
+                    >
+                      {c.ativo ? <Trash2 className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>

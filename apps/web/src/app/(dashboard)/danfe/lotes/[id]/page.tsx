@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  History, Loader2, Download, RotateCw, X, CheckCircle2,
+  Loader2, Download, RotateCw, X, CheckCircle2,
   AlertOctagon, ExternalLink,
 } from 'lucide-react'
 import {
@@ -14,6 +14,7 @@ import {
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { BADGE, TEXT, BORDER, type ColorName } from '@/lib/color-styles'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -99,65 +100,60 @@ export default function LoteDetalhePage() {
 
   return (
     <div className="space-y-0 pb-6">
-      {/* Header bleed-edge */}
-      <div className="relative -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 overflow-hidden" style={{ backgroundColor: 'rgba(3, 105, 161, .12)' }}>
-        <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-4 min-w-0">
-              <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-card overflow-hidden shadow-lg" style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}>
-                <History className="h-10 w-10" style={{ color: MODULE_COLOR }} />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-xl font-semibold uppercase truncate">{lote.nome}</h1>
-                <p className="text-sm text-muted-foreground mt-0.5">Lote · {new Date(lote.iniciadoEm).toLocaleString('pt-BR')}</p>
-                <div className="flex flex-wrap gap-2 mt-2.5">
-                  <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border', BADGE[STATUS_TONE[lote.status] ?? 'slate'])}>
-                    {lote.status === 'PROCESSANDO' && <Loader2 className="h-3 w-3 animate-spin" />}
-                    {lote.status}
-                  </span>
-                </div>
-                {/* Progresso */}
-                <div className="mt-3 max-w-[400px]">
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
-                    <span>{lote.processados} / {lote.totalXmls} processados</span>
-                    <span className="tabular-nums font-semibold">{pct}%</span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: MODULE_COLOR }} />
-                  </div>
-                  <div className="flex gap-4 mt-2 text-[11px]">
-                    <span className="text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="inline h-3 w-3 mr-1" />{lote.sucesso} OK</span>
-                    {lote.erros > 0 && <span className="text-rose-700 dark:text-rose-400"><AlertOctagon className="inline h-3 w-3 mr-1" />{lote.erros} erros</span>}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {lote.status === 'CONCLUIDO' && lote.sucesso > 0 && (
-                <a href={`${getApiUrl()}/api/danfe/lote/${id}/zip`} target="_blank" rel="noreferrer">
-                  <Button size="sm" variant="outline" className="gap-1.5">
-                    <Download className="h-3.5 w-3.5" /> Baixar ZIP dos PDFs
-                  </Button>
-                </a>
-              )}
-              {lote.status === 'CONCLUIDO' && lote.erros > 0 && (
-                <Button size="sm" variant="outline" onClick={handleReprocessar} className="gap-1.5">
-                  <RotateCw className="h-3.5 w-3.5" /> Reprocessar erros
-                </Button>
-              )}
-              {lote.status === 'PROCESSANDO' && (
-                <Button size="sm" variant="outline" onClick={handleCancelar} className={cn('gap-1.5 hover:bg-rose-50', TEXT.rose, BORDER.rose)}>
-                  <X className="h-3.5 w-3.5" /> Cancelar
-                </Button>
-              )}
-              <BackButton href="/danfe/lotes" />
-            </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+          {lote.status === 'CONCLUIDO' && lote.sucesso > 0 && (
+            <a href={`${getApiUrl()}/api/danfe/lote/${id}/zip`} target="_blank" rel="noreferrer">
+              <Button size="sm" variant="outline" className="gap-1.5">
+                <Download className="h-3.5 w-3.5" /> Baixar ZIP dos PDFs
+              </Button>
+            </a>
+          )}
+          {lote.status === 'CONCLUIDO' && lote.erros > 0 && (
+            <Button size="sm" variant="outline" onClick={handleReprocessar} className="gap-1.5">
+              <RotateCw className="h-3.5 w-3.5" /> Reprocessar erros
+            </Button>
+          )}
+          {lote.status === 'PROCESSANDO' && (
+            <Button size="sm" variant="outline" onClick={handleCancelar} className={cn('gap-1.5 hover:bg-rose-50', TEXT.rose, BORDER.rose)}>
+              <X className="h-3.5 w-3.5" /> Cancelar
+            </Button>
+          )}
+          <BackButton href="/danfe/lotes" />
+      </>}>
+        <h1 className="truncate">{lote.nome}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>DANFE (NFe → PDF)</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <span>Lote · {new Date(lote.iniciadoEm).toLocaleString('pt-BR')}</span>
+          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border', BADGE[STATUS_TONE[lote.status] ?? 'slate'])}>
+            {lote.status === 'PROCESSANDO' && <Loader2 className="h-3 w-3 animate-spin" />}
+            {lote.status}
+          </span>
+        </div>
+        {/* Progresso */}
+        <div className="mt-2 max-w-[400px]">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+            <span>{lote.processados} / {lote.totalXmls} processados</span>
+            <span className="tabular-nums font-semibold">{pct}%</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: MODULE_COLOR }} />
+          </div>
+          <div className="flex gap-4 mt-2 text-[11px]">
+            <span className="text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="inline h-3 w-3 mr-1" />{lote.sucesso} OK</span>
+            {lote.erros > 0 && <span className="text-rose-700 dark:text-rose-400"><AlertOctagon className="inline h-3 w-3 mr-1" />{lote.erros} erros</span>}
           </div>
         </div>
-      </div>
+      </PageHeaderBar>
 
       {/* Tabela de itens */}
-      <Card className="mt-5">
+      <Card>
         <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-4 py-3">
           <h5 className="text-[13px] font-semibold">Itens do lote</h5>
           <Select value={filterStatus} onValueChange={setFilterStatus}>

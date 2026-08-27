@@ -9,10 +9,9 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useRouter } from 'next/navigation'
-import { ListChecks, MoreVertical, Pencil, Trash2, Calendar, AlertCircle, User as UserIcon } from 'lucide-react'
+import { ListChecks, MoreVertical, Pencil, Trash2, Calendar, AlertCircle, Building2, User as UserIcon } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-  Badge,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -39,6 +38,10 @@ export interface KanbanProjeto {
   dataPrevisao: Date | string | null
   _count: { tarefas: number }
   responsavel: { id: string; name: string; image: string | null } | null
+  /** Time em volta do responsável. Vazio quando ninguém mais foi envolvido. */
+  participantes?: Array<{ id: string; name: string; image: string | null }>
+  /** Cliente atendido. Nulo = projeto interno. */
+  cliente?: { id: string; razaoSocial: string; nomeFantasia: string | null } | null
   tarefaProximoVencimento: { id: string; titulo: string; prazo: Date | string } | null
 }
 
@@ -142,7 +145,12 @@ export function ProjetosKanban({ projetos, onChange, canWrite, canDelete, onEdit
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      {/* Trilho no padrão /orcamentos: rolagem horizontal do container, com a
+          scrollbar tematizada. As três colunas dividem a largura em partes
+          iguais (mesma decisão do /meus-servicos, que também tem poucas
+          colunas); o piso de 280px devolve a rolagem em tela estreita. */}
+      <div className="nice-scrollbar -mx-1 flex-1 overflow-x-auto overflow-y-hidden pb-4">
+        <div className="flex h-full w-full gap-4 px-1">
         {STATUS_ORDEM.map((status) => (
           <KanbanColuna
             key={status}
@@ -155,6 +163,7 @@ export function ProjetosKanban({ projetos, onChange, canWrite, canDelete, onEdit
             onChange={onChange}
           />
         ))}
+        </div>
       </div>
 
       <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
@@ -184,25 +193,31 @@ function KanbanColuna({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex-1 min-w-[180px] flex flex-col border border-border/40 overflow-hidden transition-colors duration-200 rounded',
-        isOver && 'border-foreground/30',
+        // Coluna ABERTA: sem caixa nem fundo, os cards flutuam sobre a página.
+        // Só o alvo do arrasto ganha um véu. Igual ao /crm e ao /orcamentos.
+        'flex h-full min-w-[280px] flex-1 flex-col rounded-xl transition-colors',
+        isOver && 'bg-black/[0.03] dark:bg-white/[0.04]',
       )}
+      style={isOver ? { boxShadow: `0 0 0 2px ${cor}55` } : undefined}
     >
-      <div
-        className="px-3 py-2.5 border-b flex items-center justify-between"
-        style={{ backgroundColor: `${cor}12` }}
-      >
+      {/* Cabeçalho: dot da cor + nome + contador em pill tintada */}
+      <div className="flex items-center justify-between gap-2 px-1.5 py-2">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cor }} />
+          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cor }} />
           <span className="text-sm font-semibold truncate">{PROJETO_STATUS_LABELS[status]}</span>
+          <span
+            className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold tabular-nums shrink-0"
+            style={{ backgroundColor: `color-mix(in srgb, ${cor} 15%, transparent)`, color: cor }}
+          >
+            {projetos.length}
+          </span>
         </div>
-        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 shrink-0">{projetos.length}</Badge>
       </div>
 
       <SortableContext items={projetos.map((p) => p.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 p-2 space-y-2 overflow-y-auto min-h-[120px]">
+        <div className="nice-scrollbar min-h-[120px] flex-1 space-y-2 overflow-y-auto px-1.5 pb-2">
           {projetos.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-6 italic">Nenhum projeto</p>
+            <p className="text-xs text-muted-foreground text-center py-6 italic">Vazio</p>
           )}
           {projetos.map((p) => (
             <KanbanCard
@@ -263,15 +278,17 @@ function KanbanCard({
       {...attributes}
       {...listeners}
       className={cn(
-        'rounded-sm bg-white dark:bg-card group touch-none overflow-hidden',
+        // Padrão /orcamentos: cartão sem borda, cantos arredondados e sombra
+        // no hover. A borda vinha do desenho antigo, de coluna com caixa.
+        'rounded-xl bg-white dark:bg-card group touch-none overflow-hidden shadow-sm',
         canWrite ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
-        isDragging ? 'border border-transparent opacity-30' : 'border border-border/50',
+        isDragging ? 'opacity-30' : '',
         !isDragging && !isDraggingAny && 'hover:shadow-md transition-shadow',
       )}
       onClick={() => { if (!isDraggingAny) router.push(`/projetos/${projeto.id}`) }}
     >
       <div className="flex">
-        <div className="w-[3px] shrink-0" style={{ backgroundColor: projeto.cor || '#22d3ee' }} />
+        <div className="w-1 shrink-0" style={{ backgroundColor: projeto.cor || '#22d3ee' }} />
         <div className="flex-1 min-w-0">
           <KanbanCardContent
             projeto={projeto}
@@ -320,16 +337,16 @@ function KanbanCardOverlay({
 
   return (
     <div
-      className="rounded-sm bg-white dark:bg-card overflow-hidden"
+      className="rounded-xl bg-white dark:bg-card overflow-hidden"
       style={{
-        width: width ?? 260,
+        width: width ?? 300,
         transform: `rotate(${rotation.toFixed(2)}deg) scale(1.02)`,
         transformOrigin: 'top center',
         boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
       }}
     >
       <div className="flex">
-        <div className="w-[3px] shrink-0" style={{ backgroundColor: projeto.cor || '#22d3ee' }} />
+        <div className="w-1 shrink-0" style={{ backgroundColor: projeto.cor || '#22d3ee' }} />
         <div className="flex-1 min-w-0">
           <KanbanCardContent
             projeto={projeto}
@@ -357,42 +374,59 @@ function KanbanCardContent({
   onDelete: () => void
   showMenu: boolean
 }) {
+  const cliente = projeto.cliente
   return (
-    <div className="p-2.5 flex flex-col gap-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="text-[13px] font-semibold text-foreground leading-tight line-clamp-2">
+    <div className="flex flex-col">
+      {/* Cabeçalho — título e menu, no espaçamento do /orcamentos */}
+      <div className="flex items-start justify-between gap-1 px-3 pt-2.5 pb-1">
+        <h4 className="min-w-0 text-[13px] font-semibold leading-tight line-clamp-2">
           {projeto.nome}
+        </h4>
+        <div className="h-6 w-6 shrink-0 -mr-1 -mt-0.5">
+          {showMenu && (canWrite || canDelete) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
+                  <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                {canWrite && (
+                  <DropdownMenuItem onClick={() => onEdit(projeto)}>
+                    <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
+                  </DropdownMenuItem>
+                )}
+                {canDelete && (
+                  <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+                    <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-        {showMenu && (canWrite || canDelete) && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <button className="p-0.5 rounded hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                <MoreVertical className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              {canWrite && (
-                <DropdownMenuItem onClick={() => onEdit(projeto)}>
-                  <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
-                </DropdownMenuItem>
-              )}
-              {canDelete && (
-                <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
-                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
       </div>
 
-      {projeto.descricao && (
-        <div className="text-[11px] text-muted-foreground line-clamp-2">{projeto.descricao}</div>
-      )}
+      {/* Corpo */}
+      <div className="px-3 pb-2 space-y-1">
+        {/* Cliente atendido — sem ele o projeto é interno, e aí nada aparece. */}
+        {cliente && (
+          <div className="flex items-center gap-1.5 text-[11px] text-foreground/75">
+            <Building2 className="h-3 w-3 shrink-0 text-muted-foreground/70" />
+            <span className="truncate">{cliente.nomeFantasia || cliente.razaoSocial}</span>
+          </div>
+        )}
 
-      <ContagemTarefas count={projeto._count.tarefas} />
+        {projeto.descricao && (
+          <div className="text-[11px] text-muted-foreground line-clamp-2">{projeto.descricao}</div>
+        )}
 
-      <CardFooter projeto={projeto} />
+        <ContagemTarefas count={projeto._count.tarefas} />
+      </div>
+
+      <div className="px-3 pb-2.5">
+        <CardFooter projeto={projeto} />
+      </div>
     </div>
   )
 }
@@ -435,18 +469,24 @@ function CardFooter({ projeto }: { projeto: KanbanProjeto }) {
 
   return (
     <div className="flex items-center justify-between gap-2 pt-1 mt-1 border-t border-border/40">
-      {/* Responsável (esquerda) */}
+      {/* Responsável e o time (esquerda). Os participantes vêm como pilha de
+          avatares sobrepostos, para não roubar a linha do responsável, que é
+          quem responde pelo projeto. */}
       {projeto.responsavel ? (
         <div className="flex items-center gap-1.5 min-w-0">
           <AvatarPequeno user={projeto.responsavel} />
           <span className="text-[10px] text-muted-foreground truncate">
             {projeto.responsavel.name.split(' ')[0]}
           </span>
+          <PilhaParticipantes participantes={projeto.participantes ?? []} />
         </div>
       ) : (
-        <span className="flex items-center gap-1 text-[10px] text-muted-foreground italic">
-          <UserIcon className="h-3 w-3" /> sem responsável
-        </span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground italic">
+            <UserIcon className="h-3 w-3" /> sem responsável
+          </span>
+          <PilhaParticipantes participantes={projeto.participantes ?? []} />
+        </div>
       )}
 
       {/* Prazo (direita) — mostra fonte se for da tarefa */}
@@ -465,6 +505,30 @@ function CardFooter({ projeto }: { projeto: KanbanProjeto }) {
           {vencido ? <AlertCircle className="h-3 w-3" /> : <Calendar className="h-3 w-3" />}
           {fontePrazo === 'tarefa' && <span className="font-semibold uppercase tracking-wide">T:</span>}
           <span>{dataFmt}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Até três avatares sobrepostos; o resto vira "+N". */
+function PilhaParticipantes({ participantes }: { participantes: Array<{ id: string; name: string; image: string | null }> }) {
+  if (participantes.length === 0) return null
+  const visiveis = participantes.slice(0, 3)
+  const resto = participantes.length - visiveis.length
+  return (
+    <div
+      className="flex items-center -space-x-1.5 shrink-0"
+      title={`Também no projeto: ${participantes.map(p => p.name).join(', ')}`}
+    >
+      {visiveis.map(u => (
+        <div key={u.id} className="ring-2 ring-white dark:ring-card rounded-full">
+          <AvatarPequeno user={u} />
+        </div>
+      ))}
+      {resto > 0 && (
+        <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[9px] font-semibold text-foreground/70 ring-2 ring-white dark:ring-card">
+          +{resto}
         </div>
       )}
     </div>

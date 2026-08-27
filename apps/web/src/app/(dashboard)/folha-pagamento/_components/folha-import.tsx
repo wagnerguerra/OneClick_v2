@@ -107,7 +107,7 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
       {/* Upload */}
       <Card className="p-5 border border-border/50">
         <h4 className="text-sm font-semibold mb-4 flex items-center gap-2"><Upload className="h-4 w-4 text-muted-foreground" />Nova Importação</h4>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold uppercase text-muted-foreground">Competência</label>
             <Input value={competencia} onChange={e => {
@@ -137,7 +137,7 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
       {ultimoResultado && (
         <Card className="p-5 border border-emerald-200 bg-emerald-50/30">
           <h4 className="text-sm font-semibold mb-3 flex items-center gap-2 text-emerald-700"><Check className="h-4 w-4" />Importação Concluída</h4>
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
             <div className="rounded border bg-white px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Seções</p><p className="text-lg font-bold">{ultimoResultado.secoes}</p></div>
             <div className="rounded border bg-white px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Eventos</p><p className="text-lg font-bold">{ultimoResultado.totalLinhas}</p></div>
             <div className="rounded border bg-white px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Status</p><p className="text-sm font-semibold text-emerald-600">Importado</p></div>

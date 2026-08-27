@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Briefcase } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { CargoForm } from '../_components/cargo-form'
 
@@ -65,7 +64,6 @@ export default function EditCargoPage() {
       cargoId={params.id}
       title="Editar Cargo"
       description={`#${cargo.code} — ${cargo.name}`}
-      icon={<Briefcase className="h-6 w-6" />}
       defaultValues={cargo as any}
       linkedUsers={users}
       events={events}

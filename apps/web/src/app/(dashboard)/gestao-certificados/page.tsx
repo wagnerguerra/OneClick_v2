@@ -20,6 +20,8 @@ import { CertAcessoModal } from '@/components/certificado/cert-acesso-modal'
 import { SenhaPfxInput } from '@/components/certificado/senha-pfx-input'
 import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useTabLabel } from '@/hooks/use-tab-label'
@@ -402,21 +404,8 @@ export default function GestaoCertificadosPage() {
 
   return (
     <div className="flex flex-col gap-5 h-[calc(100vh-98px)]" suppressHydrationWarning>
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <ShieldCheck className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Certificados Digitais</h1>
-            <p className="text-sm text-muted-foreground">Cadastro, controle de validade e guarda segura</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {isAdmin && (
             <>
               <Button
@@ -497,8 +486,17 @@ export default function GestaoCertificadosPage() {
           >
             <Plus className="h-4 w-4" /> Novo Certificado
           </Button>
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Certificados Digitais</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Legalização</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Certificados Digitais</span>
+        </p>
+      </PageHeaderBar>
 
       {/* KPIs / Filtros */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -608,11 +606,11 @@ export default function GestaoCertificadosPage() {
                     </TableHead>
                   )}
                   <TableHead>Titular</TableHead>
-                  <TableHead>Documento</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Vínculo</TableHead>
-                  <TableHead>Emissor</TableHead>
-                  <TableHead>Expira em</TableHead>
+                  <TableHead className="hidden md:table-cell">Documento</TableHead>
+                  <TableHead className="hidden xl:table-cell">Tipo</TableHead>
+                  <TableHead className="hidden lg:table-cell">Vínculo</TableHead>
+                  <TableHead className="hidden xl:table-cell">Emissor</TableHead>
+                  <TableHead className="hidden sm:table-cell">Expira em</TableHead>
                   <TableHead className="w-[120px]">Status</TableHead>
                   <TableHead className="w-[44px]"></TableHead>
                 </TableRow>
@@ -637,13 +635,13 @@ export default function GestaoCertificadosPage() {
                       </TableCell>
                     )}
                     <TableCell className="font-medium text-sm max-w-[220px] truncate">{c.titular}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-mono">{formatDocumento(c.documento)}</TableCell>
-                    <TableCell><Badge variant="secondary" className="text-[10px]">{c.tipo}</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
+                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground font-mono">{formatDocumento(c.documento)}</TableCell>
+                    <TableCell className="hidden xl:table-cell"><Badge variant="secondary" className="text-[10px]">{c.tipo}</Badge></TableCell>
+                    <TableCell className="hidden lg:table-cell text-xs text-muted-foreground max-w-[180px] truncate">
                       {c.cliente?.razaoSocial || c.empresa?.razaoSocial || c.socio?.nomeCompleto || '—'}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{c.emissor || '—'}</TableCell>
-                    <TableCell className="text-xs">{formatDate(c.expiraEm)}</TableCell>
+                    <TableCell className="hidden xl:table-cell text-xs text-muted-foreground max-w-[160px] truncate">{c.emissor || '—'}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-xs">{formatDate(c.expiraEm)}</TableCell>
                     <TableCell><StatusBadge status={c.status} expiraEm={c.expiraEm} /></TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <DropdownMenu>

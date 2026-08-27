@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { router, readProcedure, writeProcedure, hasSubPermission } from '../trpc/trpc.service'
+import { router, readProcedure, writeProcedure, writeSubProcedure, hasSubPermission } from '../trpc/trpc.service'
 import {
   criarColetaSchema, atualizarColetaSchema, transitarColetaSchema, excluirColetaSchema,
   criarColetaCategoriaSchema, atualizarColetaCategoriaSchema, listarColetasSchema,
@@ -71,15 +71,19 @@ export function createColetaRouter(service: ColetaService) {
         service.excluir(input, ctx.userId, await papeisDe(ctx), ctx.empresaId)),
 
     // ── Categorias (cadastro do módulo) ──
+    /** Pessoas que podem constar como solicitante (ativas, do escopo). */
+    listarSolicitantes: readProcedure(MODULE)
+      .query(({ ctx }) => service.listarSolicitantes(ctx.empresaId)),
+
     listarCategorias: readProcedure(MODULE)
       .input(z.object({ incluirInativas: z.boolean().optional() }).optional())
       .query(({ input, ctx }) => service.listarCategorias(ctx.empresaId, !input?.incluirInativas)),
 
-    criarCategoria: writeProcedure(MODULE)
+    criarCategoria: writeSubProcedure(MODULE, 'categorias', 'Gerenciar categorias de coleta')
       .input(criarColetaCategoriaSchema)
       .mutation(({ input, ctx }) => service.criarCategoria(input, ctx.empresaId)),
 
-    atualizarCategoria: writeProcedure(MODULE)
+    atualizarCategoria: writeSubProcedure(MODULE, 'categorias', 'Gerenciar categorias de coleta')
       .input(atualizarColetaCategoriaSchema)
       .mutation(({ input }) => service.atualizarCategoria(input)),
 

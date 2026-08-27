@@ -12,6 +12,8 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -91,22 +93,20 @@ export default function PaineisPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header inline (padrão de módulo — /orcamentos, /crm). NÃO usar PageHeader
-          aqui: ele é a capa sangrada de páginas de detalhe [id]. */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ background: `linear-gradient(135deg, ${MOD_COLOR}, color-mix(in srgb, ${MOD_COLOR} 87%, transparent))` }}>
-            <Monitor className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Painéis de Gestão à Vista</h1>
-            <p className="text-sm text-muted-foreground">Crie e edite os painéis exibidos nas TVs dos setores</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" onClick={abrirNovo}><Plus className="h-4 w-4 mr-1.5" /> Novo painel</Button>
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Painéis de Gestão à Vista</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Painéis de TV</span>
+        </p>
+      </PageHeaderBar>
 
       {loading ? (
         <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: MOD_COLOR }} /></div>
@@ -122,8 +122,8 @@ export default function PaineisPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">Painel</TableHead>
-                <TableHead className="text-xs">Slug (URL)</TableHead>
-                <TableHead className="text-xs text-center">Folhas</TableHead>
+                <TableHead className="hidden lg:table-cell text-xs">Slug (URL)</TableHead>
+                <TableHead className="hidden sm:table-cell text-xs text-center">Folhas</TableHead>
                 <TableHead className="text-xs text-center">Status</TableHead>
                 <TableHead className="text-xs w-10"></TableHead>
               </TableRow>
@@ -137,8 +137,8 @@ export default function PaineisPage() {
                       {p.nome}
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground font-mono">/tv/{p.slug}</TableCell>
-                  <TableCell className="text-xs text-center">{p.folhasCount}</TableCell>
+                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground font-mono">/tv/{p.slug}</TableCell>
+                  <TableCell className="hidden sm:table-cell text-xs text-center">{p.folhasCount}</TableCell>
                   <TableCell className="text-center">
                     <Badge variant="secondary" className={`text-[10px] ${p.ativo ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : ''}`}>
                       {p.ativo ? 'Ativo' : 'Inativo'}

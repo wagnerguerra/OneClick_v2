@@ -231,7 +231,7 @@ function NotaCard({ nota, onPatch, onExcluir }: {
       )}
 
       {/* Ações */}
-      <div className="flex items-center gap-0.5 px-1.5 pb-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-0.5 px-1.5 pb-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
         <button title={nota.fixado ? 'Desafixar' : 'Fixar'} onClick={() => onPatch(nota.id, { fixado: !nota.fixado })} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10">
           {nota.fixado ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
         </button>

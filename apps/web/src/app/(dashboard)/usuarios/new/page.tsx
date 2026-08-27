@@ -1,6 +1,5 @@
 'use client'
 
-import { UserCog } from 'lucide-react'
 import { UserForm } from '../_components/user-form'
 
 export default function NewUserPage() {
@@ -9,7 +8,6 @@ export default function NewUserPage() {
       mode="create"
       title="Novo Usuário"
       description="Preencha os dados para cadastrar um novo usuário"
-      icon={<UserCog className="h-6 w-6" />}
     />
   )
 }

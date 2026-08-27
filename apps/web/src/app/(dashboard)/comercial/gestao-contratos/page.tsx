@@ -22,6 +22,8 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { ParametrosContratoModal } from '@/components/contrato/parametros-contrato-modal'
 import { VerificarErpModal } from '@/components/contrato/verificar-erp-modal'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
@@ -304,25 +306,23 @@ export default function GestaoContratosPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Header inline padrão (subpágina de Comercial) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <FileText className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Gestão de Contratos</h1>
-            <p className="text-sm text-muted-foreground">Variação dos parâmetros contratados × movimento atual no ERP</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={exportarCsv} disabled={loading || total === 0}>
             <FileDown className="h-4 w-4" /> CSV
           </Button>
           <BackButton href="/comercial" label="Voltar" />
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Gestão de Contratos</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Contratos</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Gestão de Contratos</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Legenda: cada card é um recorte da carteira e filtra a tabela ao ser
           clicado. Um cliente entra em vários — são pendências, não estados
@@ -395,11 +395,11 @@ export default function GestaoContratosPage() {
                 <TableHeader>
                   <TableRow className="bg-muted/40">
                     <TableHead className="w-8 text-center text-xs font-semibold uppercase tracking-wider" title="Farol"> </TableHead>
-                    <TableHead className="w-12 text-center text-xs font-semibold uppercase tracking-wider">#</TableHead>
-                    <TableHead className="text-xs font-semibold uppercase tracking-wider">CNPJ</TableHead>
+                    <TableHead className="hidden sm:table-cell w-12 text-center text-xs font-semibold uppercase tracking-wider">#</TableHead>
+                    <TableHead className="hidden md:table-cell text-xs font-semibold uppercase tracking-wider">CNPJ</TableHead>
                     <TableHead className="text-xs font-semibold uppercase tracking-wider">Cliente</TableHead>
                     <TableHead className="text-center text-xs font-semibold uppercase tracking-wider">Status</TableHead>
-                    <TableHead className="text-center text-xs font-semibold uppercase tracking-wider" title="Sugestão de renegociação — acende antes do farol">Recomendação</TableHead>
+                    <TableHead className="hidden lg:table-cell text-center text-xs font-semibold uppercase tracking-wider" title="Sugestão de renegociação — acende antes do farol">Recomendação</TableHead>
                     <TableHead className="w-16 text-center text-xs font-semibold uppercase tracking-wider">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -426,8 +426,8 @@ export default function GestaoContratosPage() {
                             <span className="text-[11px] font-semibold tabular-nums" style={{ color: FAROL_COR[r.farol] }}>{r.score}%</span>
                           </button>
                         </TableCell>
-                        <TableCell className="text-center text-xs text-muted-foreground">{r.numero}</TableCell>
-                        <TableCell className="whitespace-nowrap text-sm tabular-nums">{fmtCnpj(r.documento)}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-center text-xs text-muted-foreground">{r.numero}</TableCell>
+                        <TableCell className="hidden md:table-cell whitespace-nowrap text-sm tabular-nums">{fmtCnpj(r.documento)}</TableCell>
                         <TableCell className="max-w-[260px] truncate text-sm font-medium">{r.cliente || '—'}</TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-1">
@@ -458,7 +458,7 @@ export default function GestaoContratosPage() {
                               onClick={r.situacao === 'defasado' ? () => setComparativo(r) : undefined} />
                           </div>
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="hidden lg:table-cell text-center">
                           {/* Abre o comparativo: a recomendação nasce dele, e
                               ver a pill sem poder olhar o porquê obrigaria a
                               refazer o caminho pelo farol. */}

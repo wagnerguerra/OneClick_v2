@@ -236,6 +236,28 @@ model ModuloEvent {
 ### Tabela de listagem:
 - Coluna **Versão** (`v1`, `v2`, etc.) — `hidden md:table-cell`
 
+### Uma linha por registro (regra do Wagner, 25/08/2026)
+Toda listagem tem **uma linha de cabeçalho e uma linha por registro**. Nada de
+sub-linha dentro da célula (nome em cima, complemento embaixo) — isso dobra a
+altura e desalinha as colunas. Só use mais de uma linha quando o Wagner pedir.
+
+O que iria na sub-linha vira **sufixo inline** na mesma célula
+(`NOME · complemento`, em `text-muted-foreground`), coluna própria ou `title`:
+
+```tsx
+<TableRow className="[&_td]:whitespace-nowrap [&_td]:py-2">
+  <TableCell>
+    <span className="flex items-center gap-1.5 min-w-0">
+      <span className="truncate font-medium">{r.nome}</span>
+      {r.contato && <span className="truncate text-[11px] text-muted-foreground">· {r.contato}</span>}
+    </span>
+  </TableCell>
+  …
+  <TableCell className="pr-5 text-right">{/* Ações — pr-5 pra não colar na borda */}</TableCell>
+</TableRow>
+```
+Cabeçalho: `<TableRow className="[&_th]:whitespace-nowrap">`.
+
 ---
 
 ## Backend — Padrão Completo do Service

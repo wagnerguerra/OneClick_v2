@@ -7,6 +7,8 @@
  */
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { getApiUrl } from '@/lib/api-url'
 import {
   Smartphone,
@@ -92,18 +94,22 @@ export default function BaixarAppPage() {
   const ios = data?.ios ?? null
 
   return (
-    <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
-      {/* Cabeçalho */}
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Smartphone className="h-6 w-6 text-muted-foreground" />
-          Baixar o app OneClick ERP
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Instale o aplicativo no seu celular para acompanhar suas obrigações,
-          serviços e notificações onde estiver.
+    <>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Baixar o app OneClick ERP</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Ajuda</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>App Mobile</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Baixar o app OneClick ERP</span>
         </p>
-      </div>
+      </PageHeaderBar>
+
+      <div className="max-w-3xl mx-auto space-y-6">
 
       {/* Loading */}
       {loading && (
@@ -299,6 +305,7 @@ export default function BaixarAppPage() {
           </details>
         </Card>
       )}
-    </div>
+      </div>
+    </>
   )
 }

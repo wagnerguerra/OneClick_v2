@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { Button, Card, Badge, Checkbox, Input, cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -132,18 +133,8 @@ export default function DivergenciasPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <GitCompareArrows className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Divergências com o Acessórias</h1>
-            <p className="text-sm text-muted-foreground">Compara o cadastro de clientes com as empresas de lá</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {sel.size > 0 && (
             <Button variant="success" size="sm" disabled={aplicando} onClick={aplicar}>
               {aplicando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -155,8 +146,18 @@ export default function DivergenciasPage() {
             {rel ? 'Recarregar' : 'Comparar agora'}
           </Button>
           <BackButton href="/" label="Voltar" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Divergências com o Acessórias</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Acessórias</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Divergências com o Acessórias</span>
+        </p>
+      </PageHeaderBar>
 
       <AbasAcessorias />
 

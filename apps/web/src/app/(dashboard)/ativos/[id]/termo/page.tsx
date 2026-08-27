@@ -9,8 +9,10 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Printer, Loader2 } from 'lucide-react'
+import { Printer, Loader2 } from 'lucide-react'
 import { Button } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
@@ -83,20 +85,27 @@ export default function TermoResponsabilidadePage() {
       ` }} />
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between no-print">
-          <div className="flex items-center gap-3">
-            <Link href={`/ativos/${params.id}`} className="text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-            <div>
-              <h1>Termo de Responsabilidade</h1>
-              <p className="text-sm text-muted-foreground">Documento pra impressão e assinatura</p>
-            </div>
-          </div>
-          <Button onClick={() => window.print()} className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white">
-            <Printer className="h-4 w-4" /> Imprimir
-          </Button>
-        </div>
+        {/* Topo — PADRAO_PAGINAS §1.1. `no-print` porque a barra é da tela:
+            o papel começa no próprio termo. */}
+        <PageHeaderBar className="no-print" actions={
+          <>
+            <Button onClick={() => window.print()} className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white">
+              <Printer className="h-4 w-4" /> Imprimir
+            </Button>
+            <BackButton href={`/ativos/${params.id}`} label="Voltar" />
+          </>
+        }>
+          <h1 className="truncate">Termo de Responsabilidade</h1>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>TI</span>
+            <span className="text-muted-foreground/50">›</span>
+            <Link href="/ativos" className="transition-colors hover:text-foreground">Ativos de TI</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Termo de Responsabilidade</span>
+          </p>
+        </PageHeaderBar>
 
         <div className="termo bg-white shadow-md rounded-md">
           <h1>Termo de Responsabilidade pelo uso de Ativo</h1>

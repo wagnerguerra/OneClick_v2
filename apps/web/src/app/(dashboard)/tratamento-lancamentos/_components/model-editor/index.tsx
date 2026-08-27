@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  FileSpreadsheet, Save, Upload, Loader2, Info, Image as ImageIcon,
+  Save, Upload, Loader2, Info, Image as ImageIcon,
   Tag, Columns3, ArrowLeftRight, Network, ArrowLeft, ArrowRight, History, Landmark, AlertTriangle, X,
 } from 'lucide-react'
 import {
@@ -17,7 +17,8 @@ import { DetectedRowsStatus } from '../detected-rows-status'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { fileToBase64 } from '@/lib/file'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { VersionHistoryDialog } from '../version-history-dialog'
 
@@ -965,20 +966,26 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
     return (
       <TooltipProvider>
         <div className="space-y-6 pb-24">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <PageHeaderIcon module="contabil" icon={FileSpreadsheet} />
-              <div>
-                <h1>Novo Modelo de Tratamento</h1>
-                <p className="text-sm text-muted-foreground">
-                  {isReview || !currentStep
-                    ? 'Revise as escolhas e confirme a criação'
-                    : `Passo ${step + 1} de ${wizardSteps.length} — ${currentStep.label}`}
-                </p>
-              </div>
+          {/* Topo — PADRAO_PAGINAS §1.1 */}
+          <PageHeaderBar actions={<>
+              <Button variant="outline" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4" /> Sair</Button>
+          </>}>
+            <h1 className="truncate">Novo Modelo de Tratamento</h1>
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+              <span className="text-muted-foreground/50">›</span>
+              <span>Contábil</span>
+              <span className="text-muted-foreground/50">›</span>
+              <span>Tratamento de Lançamentos</span>
+              <span className="text-muted-foreground/50">›</span>
+              <span>Novo Modelo de Tratamento</span>
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              {isReview || !currentStep
+                ? 'Revise as escolhas e confirme a criação'
+                : `Passo ${step + 1} de ${wizardSteps.length} — ${currentStep.label}`}
             </div>
-            <Button variant="outline" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4" /> Sair</Button>
-          </div>
+          </PageHeaderBar>
 
           <Stepper labels={[...wizardSteps.map((s) => s.label), 'Revisão']} current={step} maxStep={maxStep} onGo={goStep} />
 
@@ -1013,23 +1020,26 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   return (
     <TooltipProvider>
       <div className="space-y-6 pb-24">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <PageHeaderIcon module="contabil" icon={FileSpreadsheet} />
-            <div>
-              <h1>Editar Modelo</h1>
-              <p className="text-sm text-muted-foreground">Configure o mapeamento usado na conversão para o SCI</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
+        {/* Topo — PADRAO_PAGINAS §1.1 */}
+        <PageHeaderBar actions={<>
             {modelId && (
               <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)}>
                 <History className="h-4 w-4" /> Histórico
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4" /> Voltar</Button>
-          </div>
-        </div>
+        </>}>
+          <h1 className="truncate">Editar Modelo</h1>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Contábil</span>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Tratamento de Lançamentos</span>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Editar Modelo</span>
+          </p>
+        </PageHeaderBar>
         {modoRevisao && temRevisao && (
           <div className="flex items-start gap-2 rounded-[4px] border border-border bg-muted/40 px-3 py-2.5 text-xs">
             <Info className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />

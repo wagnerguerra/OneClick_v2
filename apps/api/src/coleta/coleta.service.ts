@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from '@nestjs/common'
+import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common'
 import { prisma, getPrismaSkipTake, buildPaginatedResponse } from '@saas/db'
 import { COLETA_TRANSICOES } from '@saas/types'
 import type {
@@ -48,7 +48,9 @@ export class ColetaService {
     if (input.situacao) filtros.push({ situacao: input.situacao })
     if (input.categoriaId) filtros.push({ categoriaId: input.categoriaId })
     if (input.clienteId) filtros.push({ clienteId: input.clienteId })
-    if (input.somenteMinhas) filtros.push({ solicitanteId: ctx.userId })
+    // "Somente minhas" = as que me dizem respeito: as que pedi e as que lancei
+    // para outra pessoa.
+    if (input.somenteMinhas) filtros.push({ OR: [{ solicitanteId: ctx.userId }, { criadoPorId: ctx.userId }] })
     // "Protocolo Arquivado" é o fim da vida útil do registro: sai da lista
     // padrão e só aparece quando o usuário busca, filtra a situação ou pede.
     const revelaArquivados = !!search || !!input.situacao || !!input.incluirArquivados
@@ -106,7 +108,9 @@ export class ColetaService {
     if (input.situacao) filtros.push({ situacao: input.situacao })
     else filtros.push({ situacao: { not: 'PROTOCOLO_ARQUIVADO' } })
     if (input.categoriaId) filtros.push({ categoriaId: input.categoriaId })
-    if (input.somenteMinhas) filtros.push({ solicitanteId: ctx.userId })
+    // "Somente minhas" = as que me dizem respeito: as que pedi e as que lancei
+    // para outra pessoa.
+    if (input.somenteMinhas) filtros.push({ OR: [{ solicitanteId: ctx.userId }, { criadoPorId: ctx.userId }] })
     if (input.search) {
       const termo = input.search.trim()
       const numero = /^#?\d+$/.test(termo) ? Number(termo.replace('#', '')) : null
@@ -192,6 +196,23 @@ export class ColetaService {
   async criar(input: CriarColetaInput, usuarioId: string, empresaId?: string | null) {
     // Fiel ao adm/enviar.asp: Recebimento já chegou → Entregue ao Arquivo.
     const situacao = input.tipo === 'RECEBIMENTO' ? 'ENTREGUE_ARQUIVO' : 'AGUARDANDO_ROTA'
+
+    // O solicitante é quem registra, a menos que a tela aponte outra pessoa —
+    // a recepção costuma lançar pelo setor que pediu. Só aceita usuário ativo
+    // do escopo da empresa; qualquer outro id cai no próprio autor.
+    let solicitanteId = usuarioId
+    if (input.solicitanteId && input.solicitanteId !== usuarioId) {
+      const escolhido = await prisma.user.findFirst({
+        where: {
+          id: input.solicitanteId,
+          isActive: true,
+          OR: [{ empresaId: empresaId ?? null }, { empresaId: null }],
+        },
+        select: { id: true },
+      })
+      if (!escolhido) throw new BadRequestException('Solicitante inválido.')
+      solicitanteId = escolhido.id
+    }
     const c = await prisma.coleta.create({
       data: {
         empresaId: empresaId ?? null,
@@ -202,12 +223,20 @@ export class ColetaService {
         prioridade: input.prioridade ?? 0,
         clienteId: input.clienteId || null,
         contato: input.contato?.trim() || null,
-        solicitanteId: usuarioId,
+        solicitanteId,
+        criadoPorId: usuarioId,
         descricao: input.descricao || null,
       },
       select: { id: true },
     })
-    await this.log(c.id, 'Registro criado', usuarioId, situacao)
+    // Quem registrou fica no log; o solicitante fica no registro. Quando são
+    // pessoas diferentes, o log precisa dizer, senão a autoria se perde.
+    await this.log(
+      c.id,
+      solicitanteId === usuarioId ? 'Registro criado' : 'Registro criado em nome de outro solicitante',
+      usuarioId,
+      situacao,
+    )
     return c
   }
 
@@ -215,9 +244,12 @@ export class ColetaService {
     const { id, ...c } = input
     const atual = await this.getById(id, papeis, empresaId)
     // Fiel ao usu/enviar_editar.asp: o solicitante edita a própria solicitação;
-    // os papéis (e o master) editam qualquer uma.
-    if (!(papeis.admin || papeis.rota || papeis.arquivo || atual.solicitanteId === usuarioId)) {
-      throw new ForbiddenException('Só o solicitante (ou a Recepção/Arquivo) pode editar este registro.')
+    // os papéis (e o master) editam qualquer uma. Quem digitou também edita —
+    // senão lançar em nome de outra pessoa custaria o direito de corrigir o
+    // próprio erro de digitação.
+    if (!(papeis.admin || papeis.rota || papeis.arquivo
+      || atual.solicitanteId === usuarioId || atual.criadoPorId === usuarioId)) {
+      throw new ForbiddenException('Só o solicitante, quem registrou (ou a Recepção/Arquivo) pode editar este registro.')
     }
     await prisma.coleta.update({
       where: { id },
@@ -256,8 +288,9 @@ export class ColetaService {
   /** Soft-delete com motivo obrigatório, fiel ao modal-delete do v1. */
   async excluir(input: ExcluirColetaInput, usuarioId: string, papeis: Papeis, empresaId?: string | null) {
     const c = await this.getById(input.id, papeis, empresaId)
-    if (!(papeis.admin || papeis.rota || papeis.arquivo || c.solicitanteId === usuarioId)) {
-      throw new ForbiddenException('Só o solicitante (ou a Recepção/Arquivo) pode excluir este registro.')
+    if (!(papeis.admin || papeis.rota || papeis.arquivo
+      || c.solicitanteId === usuarioId || c.criadoPorId === usuarioId)) {
+      throw new ForbiddenException('Só o solicitante, quem registrou (ou a Recepção/Arquivo) pode excluir este registro.')
     }
     await prisma.coleta.update({ where: { id: input.id }, data: { ativo: false, motivoExclusao: input.motivo.trim() } })
     await this.log(input.id, `Excluiu o registro: ${input.motivo.trim()}`, usuarioId)
@@ -265,6 +298,22 @@ export class ColetaService {
   }
 
   // ── Categorias (cadastro) ──────────────────────────────────────
+
+  /**
+   * Quem pode figurar como solicitante: usuarios ativos do escopo da empresa.
+   * A tela abre com o proprio usuario e troca por aqui quando o registro e
+   * feito em nome de outra pessoa.
+   */
+  async listarSolicitantes(empresaId?: string | null) {
+    return prisma.user.findMany({
+      where: {
+        isActive: true,
+        OR: [{ empresaId: empresaId ?? null }, { empresaId: null }],
+      },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, email: true, image: true },
+    })
+  }
 
   async listarCategorias(empresaId?: string | null, apenasAtivas = true) {
     const cats = await prisma.coletaCategoria.findMany({

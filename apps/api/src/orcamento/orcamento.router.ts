@@ -394,6 +394,16 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
         return orcamentoService.setHeaderCover(input.url, ctx.empresaId)
       }),
 
+    // Recuperação: orçamentos aprovados pelo link do cliente que ficaram sem o
+    // serviço (o gatilho não era chamado nesse caminho). Master-only e
+    // idempotente — reexecutar não duplica o que já existe.
+    reprocessarServicosAprovados: protectedProcedure
+      .input(z.object({ dryRun: z.boolean().default(true) }))
+      .mutation(({ input, ctx }) => {
+        if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas o usuário master pode reprocessar os serviços' })
+        return orcamentoService.reprocessarServicosAprovados({ dryRun: input.dryRun, empresaId: ctx.empresaId })
+      }),
+
     // ── Publico (aprovacao do cliente) ─────────────────────
     getByToken: publicProcedure
       .input(z.object({ token: z.string() }))

@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
-  FolderInput, Loader2, Pencil, Trash2, Flag, Route, Inbox, Archive,
+  Loader2, Pencil, Trash2, Flag, Route, Inbox, Archive,
   ArrowRightLeft, PackageCheck, Undo2, Send, FileCheck2, ScanSearch, Save,
 } from 'lucide-react'
 import {
@@ -13,6 +14,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { ClienteCombobox } from '../../orcamentos/_components/cliente-combobox'
 import { COLETA_TIPO_LABEL, COLETA_SITUACAO_LABEL, COLETA_PRIORIDADE_LABEL } from '@saas/types'
 import { trpc } from '@/lib/trpc'
@@ -173,33 +175,32 @@ export default function ColetaDetalhePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <FolderInput className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="flex items-center gap-2">
-              {clienteLabel}
-              {detalhe.prioridade === 3 && <Flag className="h-4 w-4 text-rose-500" aria-label="Prioridade alta" />}
-            </h1>
-            <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="font-semibold tabular-nums text-foreground">#{detalhe.numero}</span>
-              <Badge variant="outline" className={cn('text-[10px]', TIPO_BADGE[detalhe.tipo])}>{COLETA_TIPO_LABEL[detalhe.tipo] ?? detalhe.tipo}</Badge>
-              <Badge variant="outline" className={cn('text-[10px]', SITUACAO_BADGE[detalhe.situacao])}>{COLETA_SITUACAO_LABEL[detalhe.situacao] ?? detalhe.situacao}</Badge>
-              <span>Registrado em {dataHoraBR(detalhe.registradoEm)}</span>
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="soft-info" size="sm" onClick={abrirEdicao}><Pencil className="h-4 w-4" />Editar</Button>
           <Button variant="soft-destructive" size="sm" onClick={() => { setDelMotivo(''); setDelAberta(true) }}>
             <Trash2 className="h-4 w-4" />Excluir
           </Button>
           <BackButton href="/coleta-documentos" label="Voltar" />
+      </>}>
+        <h1 className="flex items-center gap-2 truncate">
+          {clienteLabel}
+          {detalhe.prioridade === 3 && <Flag className="h-4 w-4 text-rose-500" aria-label="Prioridade alta" />}
+        </h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Coleta e Recebimento</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="font-semibold tabular-nums text-foreground">#{detalhe.numero}</span>
+          <Badge variant="outline" className={cn('text-[10px]', TIPO_BADGE[detalhe.tipo])}>{COLETA_TIPO_LABEL[detalhe.tipo] ?? detalhe.tipo}</Badge>
+          <Badge variant="outline" className={cn('text-[10px]', SITUACAO_BADGE[detalhe.situacao])}>{COLETA_SITUACAO_LABEL[detalhe.situacao] ?? detalhe.situacao}</Badge>
+          <span>Registrado em {dataHoraBR(detalhe.registradoEm)}</span>
         </div>
-      </div>
+      </PageHeaderBar>
 
       <div className="grid grid-cols-12 gap-6">
         {/* ── Coluna principal: dados + ações do trâmite ── */}

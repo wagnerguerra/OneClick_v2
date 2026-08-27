@@ -2,24 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   FileText, Loader2, Download, Trash2, RefreshCw,
 } from 'lucide-react'
 import { Button, Card, cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
-import { BADGE, TEXT, BORDER, type ColorName } from '@/lib/color-styles'
+import { TEXT } from '@/lib/color-styles'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 
-const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
-
-const STATUS_TONE: Record<string, ColorName> = {
-  AUTORIZADA: 'emerald',
-  CANCELADA: 'rose',
-  DENEGADA: 'amber',
-  INUTILIZADA: 'slate',
+const STATUS_CHIP: Record<string, string> = {
+  AUTORIZADA: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300',
+  CANCELADA:  'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300',
+  DENEGADA:   'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300',
+  INUTILIZADA: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-950/30 dark:text-slate-300',
 }
 
 function fmtBRL(v: string | number): string {
@@ -87,58 +87,53 @@ export default function DanfeDetalhePage() {
 
   return (
     <div className="space-y-0 pb-6">
-      {/* Header bleed-edge */}
-      <div className="relative -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 overflow-hidden" style={{ backgroundColor: 'rgba(3, 105, 161, .12)' }}>
-        <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-4 min-w-0">
-              <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-card overflow-hidden shadow-lg" style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}>
-                <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-xl font-semibold uppercase truncate">NFe {danfe.numero}/{danfe.serie}</h1>
-                <p className="text-sm text-muted-foreground mt-0.5 font-mono">{danfe.chave}</p>
-                <div className="flex flex-wrap gap-2 mt-2.5">
-                  <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium uppercase border', BADGE[STATUS_TONE[danfe.status] ?? 'emerald'])}>
-                    {danfe.status}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 px-3 py-1 text-xs font-medium uppercase border border-slate-200 dark:border-slate-700">
-                    Modelo {danfe.modelo} ({danfe.modelo === '55' ? 'NFe' : 'NFCe'})
-                  </span>
-                  {danfe.protocolo && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 px-3 py-1 text-xs font-medium uppercase">
-                      Protocolo {danfe.protocolo}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <a href={`${getApiUrl()}/api/danfe/${id}/pdf`} target="_blank" rel="noreferrer">
-                <Button size="sm" variant="outline" className="gap-1.5">
-                  <Download className="h-3.5 w-3.5" /> Baixar PDF
-                </Button>
-              </a>
-              <a href={`${getApiUrl()}/api/danfe/${id}/xml`} target="_blank" rel="noreferrer">
-                <Button size="sm" variant="outline" className="gap-1.5">
-                  <Download className="h-3.5 w-3.5" /> Baixar XML
-                </Button>
-              </a>
-              <Button size="sm" variant="outline" onClick={handleRegerarPdf} disabled={regerando} className="gap-1.5">
-                {regerando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                Regerar PDF
-              </Button>
-              <Button size="sm" variant="outline" onClick={handleDelete} className={cn('gap-1.5 hover:bg-rose-50', TEXT.rose, BORDER.rose)}>
-                <Trash2 className="h-3.5 w-3.5" /> Excluir
-              </Button>
-              <BackButton href="/danfe" />
-            </div>
-          </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+          <a href={`${getApiUrl()}/api/danfe/${id}/pdf`} target="_blank" rel="noreferrer">
+            <Button size="sm" variant="outline" className="gap-1.5">
+              <Download className="h-3.5 w-3.5" /> Baixar PDF
+            </Button>
+          </a>
+          <a href={`${getApiUrl()}/api/danfe/${id}/xml`} target="_blank" rel="noreferrer">
+            <Button size="sm" variant="outline" className="gap-1.5">
+              <Download className="h-3.5 w-3.5" /> Baixar XML
+            </Button>
+          </a>
+          <Button size="sm" variant="outline" onClick={handleRegerarPdf} disabled={regerando} className="gap-1.5">
+            {regerando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Regerar PDF
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleDelete} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50">
+            <Trash2 className="h-3.5 w-3.5" /> Excluir
+          </Button>
+          <BackButton href="/danfe" />
+      </>}>
+        <h1 className="truncate">NFe {danfe.numero}/{danfe.serie}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>DANFE (NFe → PDF)</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="font-mono">{danfe.chave}</span>
+          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border', STATUS_CHIP[danfe.status] ?? STATUS_CHIP.AUTORIZADA)}>
+            {danfe.status}
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 px-2.5 py-0.5 text-[11px] font-medium uppercase border border-slate-200 dark:border-slate-700">
+            Modelo {danfe.modelo} ({danfe.modelo === '55' ? 'NFe' : 'NFCe'})
+          </span>
+          {danfe.protocolo && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 px-2.5 py-0.5 text-[11px] font-medium uppercase">
+              Protocolo {danfe.protocolo}
+            </span>
+          )}
         </div>
-      </div>
+      </PageHeaderBar>
 
       {/* Cards de metadata + viewer */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-1 p-4 space-y-3 h-fit">
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Emitente</p>

@@ -474,7 +474,7 @@ function NodeEdgeButtons({ data, hidden }: { data: ServicoNodeData; hidden?: boo
     <>
       {/* Lado esquerdo — predecessor + (topo) */}
       {data.onAddPred && (
-        <div className="absolute -left-3.5 top-[22%] -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
+        <div className="absolute -left-3.5 top-[22%] -translate-y-1/2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); data.onAddPred!(n.id) }}
@@ -488,7 +488,7 @@ function NodeEdgeButtons({ data, hidden }: { data: ServicoNodeData; hidden?: boo
       )}
       {/* Lado esquerdo — predecessor − (base) */}
       {data.onRemovePred && predCount > 0 && (
-        <div className="absolute -left-3.5 top-[78%] -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
+        <div className="absolute -left-3.5 top-[78%] -translate-y-1/2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); data.onRemovePred!(n.id) }}
@@ -502,7 +502,7 @@ function NodeEdgeButtons({ data, hidden }: { data: ServicoNodeData; hidden?: boo
       )}
       {/* Lado direito — sucessor + (topo) */}
       {data.onAddSucc && (
-        <div className="absolute -right-3.5 top-[22%] -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
+        <div className="absolute -right-3.5 top-[22%] -translate-y-1/2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); data.onAddSucc!(n.id) }}
@@ -516,7 +516,7 @@ function NodeEdgeButtons({ data, hidden }: { data: ServicoNodeData; hidden?: boo
       )}
       {/* Lado direito — sucessor − (base) */}
       {data.onRemoveSucc && succCount > 0 && (
-        <div className="absolute -right-3.5 top-[78%] -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
+        <div className="absolute -right-3.5 top-[78%] -translate-y-1/2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pointer-events-auto z-20">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); data.onRemoveSucc!(n.id) }}
@@ -2052,7 +2052,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                   {/* Seção: Novo bloco primitivo */}
                   <div className="px-3 py-2 border-b bg-muted/30">
                     <div className="text-[11px] font-semibold mb-1.5">Novo bloco</div>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
                       {([
                         { tipo: 'ATIVIDADE' as const, label: 'Ativ.', color: '#10b981', shape: 'rect' },
                         { tipo: 'DECISAO' as const, label: 'Decis.', color: '#a855f7', shape: 'diamond' },
@@ -2175,7 +2175,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
                             style={{ background: s.tipo === 'DECISAO' ? '#a855f7' : '#10b981' }}
                           />
                           <span className="text-[12px] font-medium truncate flex-1">{s.nome}</span>
-                          <Plus className={cn('h-3 w-3 opacity-0 group-hover:opacity-100 shrink-0', TEXT.emerald)} />
+                          <Plus className={cn('h-3 w-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shrink-0', TEXT.emerald)} />
                         </div>
                         {s.area?.name && (
                           <div className="text-[10px] text-muted-foreground ml-3 truncate">{s.area.name}</div>
@@ -2306,7 +2306,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
             </div>
 
             {rotuloDialog.mode === 'decisao' ? (
-              <div className="grid grid-cols-3 gap-2 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-1">
                 <Button
                   size="sm"
                   onClick={() => aplicarRotulo('Sim')}
@@ -3160,7 +3160,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
             {/* Quem responde — usuário fixo, área (setor) ou herdado do orçamento */}
             <div className="space-y-1.5 border-t pt-2">
               <label className="text-[10px] font-semibold text-foreground">Quem responde *</label>
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
                 {([
                   { v: 'ORCAMENTO', label: 'Orçamento' },
                   { v: 'MANUAL_FIXO', label: 'Usuário' },

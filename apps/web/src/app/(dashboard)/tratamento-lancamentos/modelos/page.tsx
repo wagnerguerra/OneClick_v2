@@ -6,7 +6,7 @@ import {
   Plus, Pencil, Trash2, Copy, History, MoreVertical,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  FileSpreadsheet,
+  
 } from 'lucide-react'
 import {
   Button, Input, Badge,
@@ -14,10 +14,11 @@ import {
   Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { BackButton } from '@/components/ui/back-button'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { VersionHistoryDialog } from '../_components/version-history-dialog'
 
@@ -153,23 +154,29 @@ export default function ModelosTratamentoPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="contabil" icon={FileSpreadsheet} />
-          <div>
-            <h1>Modelos de Tratamento</h1>
-            <p className="text-sm text-muted-foreground">
-              Crie e gerencie os modelos usados na conversão de lançamentos para o SCI
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4" />Novo Modelo
           </Button>
           <BackButton href="/tratamento-lancamentos" label="Voltar" />
+      </>}>
+        <h1 className="truncate">Modelos de Tratamento</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Ferramentas</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Tratamento de Lançamentos</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Modelos de Tratamento</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              Crie e gerencie os modelos usados na conversão de lançamentos para o SCI
+            </p>
         </div>
-      </div>
+      </PageHeaderBar>
 
       <Card>
         {/* Toolbar */}

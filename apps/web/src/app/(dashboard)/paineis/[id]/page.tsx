@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
-  Monitor, ArrowLeft, Plus, Trash2, Loader2, Save,
+  Plus, Trash2, Loader2, Save,
   LayoutGrid, RefreshCw, ExternalLink, Pencil, Copy, GripVertical, X,
   ChevronDown, ChevronRight,
 } from 'lucide-react'
@@ -13,6 +14,8 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -189,20 +192,23 @@ export default function PainelEditorPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <Button variant="outline" size="icon-sm" onClick={() => router.push('/paineis')} title="Voltar"><ArrowLeft className="h-4 w-4" /></Button>
-          <span className="h-8 w-8 rounded-lg flex items-center justify-center text-white shrink-0" style={{ background: accent }}><Monitor className="h-4 w-4" /></span>
-          <div className="min-w-0">
-            <h1 className="text-lg font-semibold truncate">{painel.nome}</h1>
-            <p className="text-xs text-muted-foreground font-mono">/tv/{painel.slug}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="outline" size="sm" onClick={() => window.open(`/tv/${painel.slug}`, '_blank')}><ExternalLink className="h-4 w-4 mr-1.5" /> Abrir TV</Button>
+          <BackButton href="/paineis" />
+      </>}>
+        <h1 className="truncate">{painel.nome}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Painéis de TV</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="font-mono">/tv/{painel.slug}</span>
         </div>
-      </div>
+      </PageHeaderBar>
 
       {/* Metadados */}
       <Card className="p-4">
@@ -384,7 +390,7 @@ export default function PainelEditorPage() {
                 </div>
               </div>
             )}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <label className="text-[13px] font-semibold">Visual</label>
                 <select className={inputCls} value={blocoForm.visual} onChange={(e) => setBlocoForm((f) => ({ ...f, visual: e.target.value }))}>
@@ -400,7 +406,7 @@ export default function PainelEditorPage() {
                 <input type="number" min={1} max={4} className={inputCls} value={blocoForm.rowSpan} onChange={(e) => setBlocoForm((f) => ({ ...f, rowSpan: Math.min(4, Math.max(1, Number(e.target.value) || 1)) }))} />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {blocoForm.visual === 'kpi' ? (
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-semibold">Tamanho da fonte</label>

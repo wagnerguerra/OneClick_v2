@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  ClipboardCheck, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, Copy, ArrowLeft,
+  ClipboardCheck, Loader2, Plus, MoreVertical, Trash2, Edit, Pencil, Copy, 
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   Clock, CheckCircle2, LayoutGrid, List, Play, XCircle, Eye,
   GripVertical, Pause, MessageSquare, Paperclip, Send, ChevronDown, ChevronUp,
@@ -23,6 +23,8 @@ import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ServicoWizard } from './_components/servico-wizard'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
@@ -233,7 +235,13 @@ function tipoLabel(s: Servico): string {
 
 export default function ServicosPage() {
   const router = useRouter()
-  const [view, setView] = useState<'templates' | 'execucoes'>('templates')
+  // Aceita ?view=execucoes&status=CONCLUIDO — é por aqui que o Gerenciador de
+  // Serviços manda quem procura o que já saiu do painel (concluído, dispensado,
+  // cancelado).
+  const paramsUrl = useSearchParams()
+  const [view, setView] = useState<'templates' | 'execucoes'>(
+    paramsUrl.get('view') === 'execucoes' ? 'execucoes' : 'templates',
+  )
   const [viewMode, setViewMode] = useState<'tabela' | 'kanban'>(() => {
     if (typeof window !== 'undefined') return (localStorage.getItem('servicos-view-mode') as 'tabela' | 'kanban') || 'tabela'
     return 'tabela'
@@ -1006,28 +1014,8 @@ export default function ServicosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          {view === 'execucoes' && (
-            <Button variant="ghost" size="icon-sm" onClick={() => { setView('templates'); setSearch(''); setPage(1) }}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          )}
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <ClipboardCheck className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>{view === 'templates' ? 'Serviços e Obrigações' : 'Execuções'}</h1>
-            <p className="text-sm text-muted-foreground">
-              {view === 'templates' ? 'Gerencie serviços, obrigações acessórias e suas execuções' : 'Acompanhe o andamento das execuções de serviços'}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {view === 'templates' && (
             <>
               <div className="flex items-center border rounded-[2px] overflow-hidden">
@@ -1052,8 +1040,17 @@ export default function ServicosPage() {
               </Button>
             </>
           )}
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">{view === 'templates' ? 'Serviços e Obrigações' : 'Execuções'}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Serviços e Obrigações</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Indicadores compactos clicaveis — atuam como filtros rapidos da tabela.
           Cada KPI muda view + statusFilter e marca-se como ativo (ring + bg
@@ -1285,7 +1282,7 @@ export default function ServicosPage() {
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
-                            <button className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted shrink-0">
+                            <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted shrink-0">
                               <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
                             </button>
                           </DropdownMenuTrigger>
@@ -1368,7 +1365,8 @@ export default function ServicosPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[40px] text-center">
+                  {/* Seleção em massa é operação de desktop — no celular só atrapalha o espaço. */}
+                  <TableHead className="hidden w-[40px] text-center sm:table-cell">
                     <input
                       type="checkbox"
                       className="h-3.5 w-3.5 rounded cursor-pointer align-middle"
@@ -1378,11 +1376,11 @@ export default function ServicosPage() {
                       aria-label="Selecionar todos"
                     />
                   </TableHead>
-                  <TableHead className="w-[140px] whitespace-nowrap"><button onClick={() => toggleSort('categoria')} className="flex items-center gap-1 hover:text-foreground transition-colors">Área <SortIcon column="categoria" /></button></TableHead>
-                  <TableHead className="w-[170px] whitespace-nowrap"><button onClick={() => toggleSort('tipo')} className="flex items-center gap-1 hover:text-foreground transition-colors">Tipo <SortIcon column="tipo" /></button></TableHead>
-                  <TableHead className="w-[180px] whitespace-nowrap"><button onClick={() => toggleSort('grupo')} className="flex items-center gap-1 hover:text-foreground transition-colors">Grupo <SortIcon column="grupo" /></button></TableHead>
+                  <TableHead className="hidden lg:table-cell w-[140px] whitespace-nowrap"><button onClick={() => toggleSort('categoria')} className="flex items-center gap-1 hover:text-foreground transition-colors">Área <SortIcon column="categoria" /></button></TableHead>
+                  <TableHead className="hidden md:table-cell w-[170px] whitespace-nowrap"><button onClick={() => toggleSort('tipo')} className="flex items-center gap-1 hover:text-foreground transition-colors">Tipo <SortIcon column="tipo" /></button></TableHead>
+                  <TableHead className="hidden xl:table-cell w-[180px] whitespace-nowrap"><button onClick={() => toggleSort('grupo')} className="flex items-center gap-1 hover:text-foreground transition-colors">Grupo <SortIcon column="grupo" /></button></TableHead>
                   <TableHead className="whitespace-nowrap"><button onClick={() => toggleSort('nome')} className="flex items-center gap-1 hover:text-foreground transition-colors">Nome <SortIcon column="nome" /></button></TableHead>
-                  <TableHead className="w-[90px] text-center whitespace-nowrap"><button onClick={() => toggleSort('execucoes')} className="flex items-center gap-1 mx-auto hover:text-foreground transition-colors">Execuções <SortIcon column="execucoes" /></button></TableHead>
+                  <TableHead className="hidden sm:table-cell w-[90px] text-center whitespace-nowrap"><button onClick={() => toggleSort('execucoes')} className="flex items-center gap-1 mx-auto hover:text-foreground transition-colors">Execuções <SortIcon column="execucoes" /></button></TableHead>
                   <TableHead className="w-[50px] text-right whitespace-nowrap">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1401,7 +1399,7 @@ export default function ServicosPage() {
                     className={cn('cursor-pointer hover:bg-muted/40', selectedIds.has(s.id) && 'bg-muted/30')}
                     onClick={() => openEditServico(s.id)}
                   >
-                    <TableCell className="text-center" onClick={e => e.stopPropagation()}>
+                    <TableCell className="hidden text-center sm:table-cell" onClick={e => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         className="h-3.5 w-3.5 rounded cursor-pointer align-middle"
@@ -1410,12 +1408,12 @@ export default function ServicosPage() {
                         aria-label={`Selecionar ${s.nome}`}
                       />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className="hidden lg:table-cell whitespace-nowrap">
                       {s.area?.name
                         ? <Badge variant="secondary" className="text-[10px]">{s.area.name}</Badge>
                         : <span className="text-xs text-muted-foreground italic">—</span>}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className="hidden md:table-cell whitespace-nowrap">
                       {(() => {
                         const t = tipoDoServico(s)
                         const dono = s.categoriaServico === 'FLUXO' && s.servicoPai ? ` · ${s.servicoPai.nome}` : ''
@@ -1429,7 +1427,7 @@ export default function ServicosPage() {
                         )
                       })()}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className="hidden xl:table-cell whitespace-nowrap">
                       {s.grupos && s.grupos.length > 0 ? (
                         <div className="flex flex-wrap items-center gap-1 max-w-[180px]">
                           {s.grupos.slice(0, 2).map(({ grupo }) => (
@@ -1485,7 +1483,7 @@ export default function ServicosPage() {
                         })()}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center text-xs whitespace-nowrap">{s._count?.execucoes ?? 0}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-center text-xs whitespace-nowrap">{s._count?.execucoes ?? 0}</TableCell>
                     <TableCell className="text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -1552,8 +1550,8 @@ export default function ServicosPage() {
                 <TableHead className="whitespace-nowrap">Serviço</TableHead>
                 <TableHead className="whitespace-nowrap">Cliente</TableHead>
                 <TableHead className="w-[120px] whitespace-nowrap">Status</TableHead>
-                <TableHead className="w-[120px] text-center whitespace-nowrap">Progresso</TableHead>
-                <TableHead className="w-[110px] whitespace-nowrap">Iniciado em</TableHead>
+                <TableHead className="hidden md:table-cell w-[120px] text-center whitespace-nowrap">Progresso</TableHead>
+                <TableHead className="hidden lg:table-cell w-[110px] whitespace-nowrap">Iniciado em</TableHead>
                 <TableHead className="w-[50px] text-right whitespace-nowrap">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -1574,7 +1572,7 @@ export default function ServicosPage() {
                     <TableCell className="text-sm font-medium whitespace-nowrap">{exec.servico?.nome || '—'}</TableCell>
                     <TableCell className="text-sm whitespace-nowrap">{exec.cliente?.razaoSocial || '—'}</TableCell>
                     <TableCell className="whitespace-nowrap"><StatusBadge status={exec.status} pausado={(exec as any).pausado} /></TableCell>
-                    <TableCell className="text-center whitespace-nowrap">
+                    <TableCell className="hidden md:table-cell text-center whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                           <div
@@ -1588,7 +1586,7 @@ export default function ServicosPage() {
                         <span className="text-[10px] text-muted-foreground font-medium shrink-0">{cPassos}/{tPassos}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(exec.iniciadoEm)}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-xs text-muted-foreground whitespace-nowrap">{formatDate(exec.iniciadoEm)}</TableCell>
                     <TableCell className="text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -1973,7 +1971,7 @@ export default function ServicosPage() {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                         <Button variant="ghost" size="icon-xs" onClick={() => openEditEnc(enc)} title="Editar">
                           <Edit className="h-3.5 w-3.5" />
                         </Button>
@@ -2710,7 +2708,7 @@ function PassoExtras({ passoId, editavel }: { passoId: string; editavel: boolean
                   </a>
                   {a.fileSize && <span className="text-[10px] text-muted-foreground">{Math.round(a.fileSize / 1024)} KB</span>}
                   {editavel && (
-                    <button type="button" onClick={() => removerAnexo(a.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity">
+                    <button type="button" onClick={() => removerAnexo(a.id)} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity">
                       <Trash2 className="h-3 w-3" />
                     </button>
                   )}

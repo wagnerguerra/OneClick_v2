@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Activity, Search, DollarSign, Hash, FileText, Save } from 'lucide-react'
+import { Search, DollarSign, Hash, FileText, Save } from 'lucide-react'
 import {
   Button, Input, Label, Card, CardHeader,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { MasterGate } from '@/components/auth/master-gate'
 import { alerts } from '@/lib/alerts'
@@ -64,17 +66,17 @@ function MetricasPageInner() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-orange-500 text-white shadow-md">
-            <Activity className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Métricas</h1>
-            <p className="text-sm text-muted-foreground">Acompanhe o consumo de APIs externas e custos estimados</p>
-          </div>
-        </div>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Métricas</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Métricas</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Filtros */}
       <Card>

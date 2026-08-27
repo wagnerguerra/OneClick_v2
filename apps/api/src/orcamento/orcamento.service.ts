@@ -1892,114 +1892,12 @@ export class OrcamentoService {
     // (A pesquisa de satisfação agora é enviada MANUALMENTE pelo comercial —
     //  sem disparo automático no FINALIZADO.)
 
-    // Trigger: ao APROVAR pela primeira vez, cria automaticamente uma ServicoExecucao
-    // para CADA item de tipo SERVICO do orçamento (catalogoId aponta para Servico template).
-    // O responsável da execução é o mesmo do orçamento.
-    if (novoStatus === 'APROVADO' && isFirstTransition && orc.clienteId) {
-      try {
-        // Carrega itens do orçamento com tipo SERVICO + catalogoId preenchido
-        const itensServico = await prisma.orcamentoItem.findMany({
-          where: { orcamentoId: id, tipo: 'SERVICO', catalogoId: { not: null } },
-          select: { id: true, catalogoId: true, descricao: true },
-        })
-
-        // Filtra somente os catalogoIds que efetivamente existem como Servico template
-        // (catalogo unificado mistura Servico + ServicoCatalogo; só Servico gera execução).
-        const catalogoIds = itensServico.map(i => i.catalogoId).filter((s): s is string => !!s)
-        const servicosValidos = catalogoIds.length > 0
-          ? await prisma.servico.findMany({
-              where: { id: { in: catalogoIds }, ativo: true },
-              select: { id: true, nome: true },
-            })
-          : []
-        const servicoMap = new Map(servicosValidos.map(s => [s.id, s]))
-
-        // Para a notificação pessoal — busca razão social do cliente uma vez
-        const clienteInfo = await prisma.cliente.findUnique({
-          where: { id: orc.clienteId },
-          select: { razaoSocial: true },
-        }).catch(() => null)
-        const clienteNome = clienteInfo?.razaoSocial || 'cliente'
-
-        let criadas = 0
-        const servicosCriadosNomes: string[] = []
-        for (const item of itensServico) {
-          if (!item.catalogoId || !servicoMap.has(item.catalogoId)) continue
-          const svc = servicoMap.get(item.catalogoId)!
-          try {
-            // Cria o Processo agregador (Fase 3). Mesmo serviços sem encadeamento
-            // ficam num processo de 1 execução só — uniformiza a UI e prepara o
-            // futuro caso onde o template ganhe sucessores e execuções existentes
-            // já fiquem agrupadas.
-            const proc = await this.processoService.create(
-              {
-                nome: `${svc.nome} — ${clienteNome}`,
-                clienteId: orc.clienteId,
-                servicoRaizId: item.catalogoId,
-                orcamentoId: orc.id,
-                responsavelId: orc.responsavelId || undefined,
-              },
-              orc.empresaId || undefined,
-              userId,
-            )
-
-            // Cria a execução-raiz vinculada ao processo. Sem predecessor —
-            // por isso é ela quem finaliza o orçamento ao concluir (decisão 1a).
-            //
-            // IMPORTANTE: NÃO passar `responsavelId` aqui. A regra de atribuição
-            // é configurada na pill "Identificação" do serviço-template
-            // (Colaboradores / Setores / Resp. do orçamento / Resp. cliente na
-            // área). `createExecucao` chama `resolverCandidatos` que consulta
-            // essas 4 fontes. Forçar o responsável do orçamento aqui ignora a
-            // configuração — mesmo bug que vimos no fluxo Constituição de Empresa.
-            await this.servicoService.createExecucao(
-              {
-                servicoId: item.catalogoId,
-                clienteId: orc.clienteId,
-                orcamentoId: orc.id,
-              },
-              orc.empresaId || undefined,
-              { processoId: proc.id, statusInicial: 'EM_ANDAMENTO' },
-            )
-
-            criadas++
-            servicosCriadosNomes.push(svc.nome)
-          } catch (e) {
-            console.warn('[Orcamento] Falha ao criar processo/execucao para item:', item.descricao, (e as Error).message)
-          }
-        }
-
-        if (criadas > 0) {
-          await this.addEvento(
-            id, userId, 'servico_iniciado', null, null,
-            `${criadas} processo${criadas > 1 ? 's' : ''} de serviço iniciado${criadas > 1 ? 's' : ''} automaticamente`,
-          )
-
-          // Notificação pessoal: avisa o responsável dos serviços (sino global).
-          // Pula se o próprio responsável fez a aprovação (já sabe do que criou).
-          if (orc.responsavelId && orc.responsavelId !== userId) {
-            const titulo = criadas === 1
-              ? 'Novo serviço atribuído a você'
-              : `${criadas} novos serviços atribuídos a você`
-            const mensagem = criadas === 1
-              ? `${clienteNome} — ${servicosCriadosNomes[0]}`
-              : `${clienteNome} — ${servicosCriadosNomes.slice(0, 3).join(', ')}${criadas > 3 ? ` e mais ${criadas - 3}` : ''}`
-            this.notificationService.criar({
-              userId: orc.responsavelId,
-              titulo,
-              mensagem,
-              tipo: 'info',
-              link: '/meus-servicos',
-              origem: 'servicos',
-              empresaId: orc.empresaId || null,
-            }).catch(e => {
-              console.warn('[Orcamento] Falha ao criar notificação para responsável:', (e as Error).message)
-            })
-          }
-        }
-      } catch (e) {
-        console.warn('[Orcamento] Falha ao processar criação de execuções de serviço:', (e as Error).message)
-      }
+    // Trigger: ao APROVAR pela primeira vez, cria o Processo + a ServicoExecucao
+    // de cada item de tipo SERVICO. A rotina mora num método próprio porque a
+    // aprovação também chega pelo link público (`registrarDecisao`), que não
+    // passa por aqui — era assim que o serviço deixava de nascer.
+    if (novoStatus === 'APROVADO' && isFirstTransition) {
+      await this.dispararServicosDaAprovacao(id, userId)
     }
 
     // Notificações: somente na primeira ocorrência da transição (idempotente).
@@ -2023,6 +1921,246 @@ export class OrcamentoService {
 
     this.emitEvent('kanban', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
     return updated
+  }
+
+  /**
+   * Cria o Processo + a ServicoExecucao de cada item de tipo SERVICO do
+   * orçamento aprovado.
+   *
+   * Vive fora do `changeStatus` porque a aprovação tem DUAS portas: o comercial
+   * mudando o status por dentro e o cliente decidindo pelo link público
+   * (`registrarDecisao`). A segunda gravava o status direto no banco e nunca
+   * chamava este gatilho — o serviço simplesmente não nascia, e o orçamento
+   * seguia para LIBERADO sem ninguém notar a falta.
+   *
+   * É idempotente **por item**: um item que já tem execução deste orçamento é
+   * pulado. Isso permite reprocessar um orçamento sem duplicar o que já existe
+   * e cobre o caso do orçamento com dois serviços em que só um vingou.
+   */
+  private async dispararServicosDaAprovacao(
+    orcamentoId: string,
+    userId?: string,
+    opts?: { silencioso?: boolean },
+  ): Promise<{ criadas: number; nomes: string[]; puladas: number }> {
+    const vazio = { criadas: 0, nomes: [] as string[], puladas: 0 }
+    try {
+      const orc = await prisma.orcamento.findUnique({
+        where: { id: orcamentoId },
+        select: { id: true, numero: true, clienteId: true, empresaId: true, responsavelId: true },
+      })
+      // Sem cliente não há a quem prestar o serviço — o orçamento ainda é rascunho.
+      if (!orc?.clienteId) return vazio
+
+      // Itens de tipo SERVICO com catalogoId preenchido
+      const itensServico = await prisma.orcamentoItem.findMany({
+        where: { orcamentoId, tipo: 'SERVICO', catalogoId: { not: null } },
+        select: { id: true, catalogoId: true, descricao: true },
+      })
+      if (itensServico.length === 0) return vazio
+
+      // Filtra somente os catalogoIds que efetivamente existem como Servico template
+      // (catalogo unificado mistura Servico + ServicoCatalogo; só Servico gera execução).
+      const catalogoIds = itensServico.map(i => i.catalogoId).filter((s): s is string => !!s)
+      const servicosValidos = await prisma.servico.findMany({
+        where: { id: { in: catalogoIds }, ativo: true },
+        select: { id: true, nome: true },
+      })
+      const servicoMap = new Map(servicosValidos.map(s => [s.id, s]))
+
+      // O que este orçamento já gerou — base da idempotência por item.
+      const jaExistem = await prisma.servicoExecucao.findMany({
+        where: { orcamentoId },
+        select: { servicoId: true },
+      })
+      const servicosComExecucao = new Set(jaExistem.map(e => e.servicoId))
+
+      // Para a notificação pessoal — busca razão social do cliente uma vez
+      const clienteInfo = await prisma.cliente.findUnique({
+        where: { id: orc.clienteId },
+        select: { razaoSocial: true },
+      }).catch(() => null)
+      const clienteNome = clienteInfo?.razaoSocial || 'cliente'
+
+      let criadas = 0
+      let puladas = 0
+      const servicosCriadosNomes: string[] = []
+      for (const item of itensServico) {
+        if (!item.catalogoId || !servicoMap.has(item.catalogoId)) continue
+        if (servicosComExecucao.has(item.catalogoId)) { puladas++; continue }
+        const svc = servicoMap.get(item.catalogoId)!
+        try {
+          // Cria o Processo agregador (Fase 3). Mesmo serviços sem encadeamento
+          // ficam num processo de 1 execução só — uniformiza a UI e prepara o
+          // futuro caso onde o template ganhe sucessores e execuções existentes
+          // já fiquem agrupadas.
+          const proc = await this.processoService.create(
+            {
+              nome: `${svc.nome} — ${clienteNome}`,
+              clienteId: orc.clienteId,
+              servicoRaizId: item.catalogoId,
+              orcamentoId: orc.id,
+              responsavelId: orc.responsavelId || undefined,
+            },
+            orc.empresaId || undefined,
+            userId,
+          )
+
+          // Cria a execução-raiz vinculada ao processo. Sem predecessor —
+          // por isso é ela quem finaliza o orçamento ao concluir (decisão 1a).
+          //
+          // IMPORTANTE: NÃO passar `responsavelId` aqui. A regra de atribuição
+          // é configurada na pill "Identificação" do serviço-template
+          // (Colaboradores / Setores / Resp. do orçamento / Resp. cliente na
+          // área). `createExecucao` chama `resolverCandidatos` que consulta
+          // essas 4 fontes. Forçar o responsável do orçamento aqui ignora a
+          // configuração — mesmo bug que vimos no fluxo Constituição de Empresa.
+          await this.servicoService.createExecucao(
+            {
+              servicoId: item.catalogoId,
+              clienteId: orc.clienteId,
+              orcamentoId: orc.id,
+            },
+            orc.empresaId || undefined,
+            { processoId: proc.id, statusInicial: 'EM_ANDAMENTO' },
+          )
+
+          criadas++
+          servicosCriadosNomes.push(svc.nome)
+        } catch (e) {
+          console.warn('[Orcamento] Falha ao criar processo/execucao para item:', item.descricao, (e as Error).message)
+        }
+      }
+
+      if (criadas > 0) {
+        await this.addEvento(
+          orcamentoId, userId, 'servico_iniciado', null, null,
+          `${criadas} processo${criadas > 1 ? 's' : ''} de serviço iniciado${criadas > 1 ? 's' : ''} automaticamente`,
+        )
+
+        // Notificação pessoal: avisa o responsável dos serviços (sino global).
+        // Pula se o próprio responsável fez a aprovação (já sabe do que criou).
+        // No reprocessamento em lote `silencioso` evita ressuscitar avisos de
+        // meses atrás no sino de quem já tocou (ou não) esse trabalho.
+        if (orc.responsavelId && orc.responsavelId !== userId && !opts?.silencioso) {
+          const titulo = criadas === 1
+            ? 'Novo serviço atribuído a você'
+            : `${criadas} novos serviços atribuídos a você`
+          const mensagem = criadas === 1
+            ? `${clienteNome} — ${servicosCriadosNomes[0]}`
+            : `${clienteNome} — ${servicosCriadosNomes.slice(0, 3).join(', ')}${criadas > 3 ? ` e mais ${criadas - 3}` : ''}`
+          this.notificationService.criar({
+            userId: orc.responsavelId,
+            titulo,
+            mensagem,
+            tipo: 'info',
+            link: '/meus-servicos',
+            origem: 'servicos',
+            empresaId: orc.empresaId || null,
+          }).catch(e => {
+            console.warn('[Orcamento] Falha ao criar notificação para responsável:', (e as Error).message)
+          })
+        }
+      }
+
+      return { criadas, nomes: servicosCriadosNomes, puladas }
+    } catch (e) {
+      console.warn('[Orcamento] Falha ao processar criação de execuções de serviço:', (e as Error).message)
+      return vazio
+    }
+  }
+
+  /**
+   * Recupera os orçamentos que foram aprovados mas ficaram sem o serviço.
+   *
+   * Existem porque a aprovação pelo link público não chamava o gatilho — e não
+   * se curam sozinhos: o `dtAprovado` já está gravado, então uma nova passagem
+   * pelo `changeStatus` enxerga a transição como repetida e não dispara nada.
+   *
+   * Recorte: só **trabalho vivo** (APROVADO ou LIBERADO). Um orçamento
+   * FINALIZADO teve seu ciclo encerrado e um ENCERRADO foi recusado/cancelado —
+   * abrir execução neles agora empurraria trabalho vencido para o painel de
+   * alguém. Eles saem no relatório como `ignorados`, para decisão caso a caso.
+   *
+   * `dryRun` (padrão) só relata; nada é criado.
+   */
+  async reprocessarServicosAprovados(opts?: { dryRun?: boolean; empresaId?: string }) {
+    const dryRun = opts?.dryRun !== false
+    const STATUS_VIVOS = ['APROVADO', 'LIBERADO']
+
+    // "Foi aprovado" tem três provas, e nenhuma sozinha cobre tudo: a data do
+    // marco, a decisão registrada pelo link, e o próprio status vivo (APROVADO
+    // e LIBERADO só se alcançam passando pela aprovação). Dois órfãos reais
+    // estavam LIBERADO sem `dtAprovado` — só a terceira prova os alcança.
+    const candidatos = await prisma.orcamento.findMany({
+      where: {
+        OR: [
+          { dtAprovado: { not: null } },
+          { decisaoTipo: 'APROVADO' },
+          { status: { in: STATUS_VIVOS as any } },
+        ],
+        ...(opts?.empresaId ? { empresaId: opts.empresaId } : {}),
+        itens: { some: { tipo: 'SERVICO', catalogoId: { not: null } } },
+      },
+      select: {
+        id: true, numero: true, status: true, dtAprovado: true, clienteId: true,
+        itens: {
+          where: { tipo: 'SERVICO', catalogoId: { not: null } },
+          select: { catalogoId: true, descricao: true },
+        },
+      },
+      orderBy: { dtAprovado: 'asc' },
+    })
+
+    // Orcamento guarda só o `clienteId` (não há relação `cliente` no schema) —
+    // o nome vem numa consulta à parte, só para o relatório.
+    const clientes = await prisma.cliente.findMany({
+      where: { id: { in: candidatos.map(o => o.clienteId).filter((c): c is string => !!c) } },
+      select: { id: true, razaoSocial: true },
+    })
+    const nomeCliente = new Map(clientes.map(c => [c.id, c.razaoSocial]))
+
+    const execucoes = await prisma.servicoExecucao.findMany({
+      where: { orcamentoId: { in: candidatos.map(o => o.id) } },
+      select: { orcamentoId: true, servicoId: true },
+    })
+    const porOrcamento = new Map<string, Set<string>>()
+    for (const e of execucoes) {
+      if (!e.orcamentoId) continue
+      const set = porOrcamento.get(e.orcamentoId) ?? new Set<string>()
+      set.add(e.servicoId)
+      porOrcamento.set(e.orcamentoId, set)
+    }
+
+    const pendentes: Array<{ id: string; numero: number; status: string; cliente: string; faltando: string[] }> = []
+    const ignorados: Array<{ numero: number; status: string; cliente: string; motivo: string }> = []
+    for (const o of candidatos) {
+      const jaTem = porOrcamento.get(o.id) ?? new Set<string>()
+      const faltando = o.itens
+        .filter(i => i.catalogoId && !jaTem.has(i.catalogoId))
+        .map(i => i.descricao.trim())
+      if (faltando.length === 0) continue
+      const linha = { numero: o.numero, status: o.status as string, cliente: (o.clienteId && nomeCliente.get(o.clienteId)) || '—' }
+      if (!STATUS_VIVOS.includes(o.status as string)) {
+        ignorados.push({ ...linha, motivo: o.status === 'ENCERRADO' ? 'orçamento encerrado' : 'ciclo já finalizado' })
+        continue
+      }
+      pendentes.push({ id: o.id, ...linha, faltando })
+    }
+
+    if (dryRun) {
+      return { dryRun: true, pendentes: pendentes.map(({ id: _id, ...r }) => r), ignorados, criadas: 0 }
+    }
+
+    let criadas = 0
+    const resultado: Array<{ numero: number; criadas: number; nomes: string[] }> = []
+    for (const o of pendentes) {
+      // `silencioso`: não dispara o sino do responsável. São aprovações de até
+      // dois meses atrás — o aviso chegaria como novidade de algo antigo.
+      const r = await this.dispararServicosDaAprovacao(o.id, undefined, { silencioso: true })
+      criadas += r.criadas
+      resultado.push({ numero: o.numero, criadas: r.criadas, nomes: r.nomes })
+    }
+    return { dryRun: false, criadas, resultado, ignorados }
   }
 
   // ── Paralizacao / Retomada ────────────────────────────────
@@ -2281,7 +2419,17 @@ export class OrcamentoService {
     const parseDataDedicada = (v: string): Date =>
       /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T12:00:00.000Z`) : new Date(v)
 
-    const data: any = { [campo]: valor ? parseDataDedicada(valor) : null }
+    // Valor ANTES da edição — vira o `de` do evento (fonte primária do "original"
+    // exibido no card Datas Importantes; o front cai no status_change como fallback
+    // p/ edições antigas, feitas antes deste registro passar a existir).
+    const antes = await prisma.orcamento.findUnique({
+      where: { id },
+      select: { dtEnviado: true, dtAprovado: true, dtLiberado: true, dtFinalizado: true, dtEncerrado: true, dtCancelado: true },
+    })
+    const valorAntes = (antes as Record<string, Date | null> | null)?.[campo] ?? null
+
+    const novoValor = valor ? parseDataDedicada(valor) : null
+    const data: any = { [campo]: novoValor }
     const updated = await prisma.orcamento.update({ where: { id }, data })
 
     const labels: Record<string, string> = {
@@ -2292,7 +2440,13 @@ export class OrcamentoService {
       dtEncerrado: 'data de encerramento',
       dtCancelado: 'data de cancelamento',
     }
-    await this.addEvento(id, userId, 'edicao_data', null, null, `${labels[campo]} ${valor ? 'definida para ' + parseDataDedicada(valor).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'removida'}`)
+    // de = valor anterior (ISO) · para = novo valor (ISO) — histórico completo da edição.
+    await this.addEvento(
+      id, userId, 'edicao_data',
+      valorAntes ? valorAntes.toISOString() : null,
+      novoValor ? novoValor.toISOString() : null,
+      `${labels[campo]} ${valor ? 'definida para ' + parseDataDedicada(valor).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'removida'}`,
+    )
     this.emitEvent('dados-gerais', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
     return updated
   }
@@ -3145,6 +3299,17 @@ export class OrcamentoService {
         : isRevisao ? `Cliente (${decisao.nome}) solicitou revisão da proposta`
         : `Decisão do cliente (${decisao.nome}): Recusado`,
     )
+    // Aprovou pelo link → o serviço tem que nascer igual ao caminho interno.
+    // Este gatilho vivia dentro do `changeStatus`, por onde a decisão do cliente
+    // não passa: o orçamento ficava APROVADO e o serviço nunca aparecia em
+    // /meus-servicos. Como aqui o `dtAprovado` já é gravado acima, uma passagem
+    // posterior pelo `changeStatus` também não recuperaria (a transição deixa de
+    // ser a primeira). Best-effort: falhar em criar o serviço não pode derrubar
+    // a decisão do cliente, que é o ato importante desta chamada.
+    if (isAprovado) {
+      await this.dispararServicosDaAprovacao(orc.id, undefined)
+        .catch(e => console.warn('[Orcamento] Falha ao criar serviços da aprovação pelo link:', (e as Error).message))
+    }
     // Dispara as notificações internas (comercial/financeiro + aprovações) — antes
     // o fluxo do link público não notificava ninguém, só o de status direto. Agora
     // aprovação/recusa pelo link avisa os mesmos destinatários. Best-effort.

@@ -64,7 +64,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
 
   return (
     <header className={cn('z-30 flex h-[var(--app-header-offset)] items-center justify-between border-b border-border bg-card/80 backdrop-blur-sm shadow-[0_2px_8px_rgba(15,23,42,0.04)] px-4 sm:px-6', prefs.headerFixo ? 'sticky top-0' : 'relative')}>
-      <div className="flex items-center gap-4 sm:gap-6">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-6">
         {/* Hamburger — mobile only */}
         <Button
           variant="ghost"
@@ -85,7 +85,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
               <img
                 src={resolveAssetUrl(empresa.logoUrl)}
                 alt={empresa.nomeFantasia ?? empresa.razaoSocial}
-                className={`h-8 w-auto max-w-[140px] object-contain ${empresa.logoDarkUrl ? 'dark:hidden' : ''}`}
+                className={`h-8 w-auto max-w-[104px] object-contain sm:max-w-[140px] ${empresa.logoDarkUrl ? 'dark:hidden' : ''}`}
               />
               {/* Logo escuro (mostra só no dark) */}
               {empresa.logoDarkUrl && (
@@ -93,7 +93,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                 <img
                   src={resolveAssetUrl(empresa.logoDarkUrl)}
                   alt={empresa.nomeFantasia ?? empresa.razaoSocial}
-                  className="h-8 w-auto max-w-[140px] object-contain hidden dark:block"
+                  className="hidden h-8 w-auto max-w-[104px] object-contain sm:max-w-[140px] dark:block"
                 />
               )}
             </>
@@ -116,21 +116,25 @@ export function Header({ onOpenMobile }: HeaderProps) {
         {/* Só o master vê: diz qual tenant está carregada e deixa trocar. */}
         <TenantSwitcher />
 
-        {/* Acesso rápido — módulos fixados pelo usuário (sucessor da guia de abas) */}
-        {session?.user && prefs.acessoRapido && <QuickAccessMenu />}
+        {/* Acesso rápido — módulos fixados pelo usuário (sucessor da guia de abas).
+            Escondido no celular: é atalho, e atalho não vale espremer o header. */}
+        {session?.user && prefs.acessoRapido && (
+          <span className="hidden sm:block"><QuickAccessMenu /></span>
+        )}
       </div>
 
       {/* Grupo direito no padrão do modelo: ícones h-10 w-10 rounded-lg, gap-1 */}
       <div className="flex items-center gap-1">
-        {/* Configurações de layout (customizer do modelo) */}
-        {session?.user && <LayoutCustomizer />}
+        {/* Configurações de layout (customizer do modelo) — ajuste fino de
+            desktop; no celular o layout é um só e o ícone só tomaria espaço. */}
+        {session?.user && <span className="hidden sm:block"><LayoutCustomizer /></span>}
         {/* Theme toggle */}
         {themeMounted && (
           <button
             type="button"
             onClick={toggleTheme}
             aria-label="Alternar tema"
-            className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg text-foreground transition-colors hover:bg-muted"
+            className="hidden h-10 w-10 items-center justify-center overflow-hidden rounded-lg text-foreground transition-colors hover:bg-muted sm:inline-flex"
           >
             <span key={resolvedDark ? 'sun' : 'moon'} className="flex animate-[fadeSlideIn_.15s_ease-out]">
               {resolvedDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}

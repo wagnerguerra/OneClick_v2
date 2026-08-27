@@ -506,7 +506,7 @@ function TimelineDateRow({
               type="button"
               onClick={startEdit}
               title="Editar"
-              className="text-muted-foreground hover:text-foreground p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              className="text-muted-foreground hover:text-foreground p-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"
             >
               <Pencil className="h-3 w-3" />
             </button>
@@ -1704,7 +1704,7 @@ export default function OrcamentoDetailPage() {
         )}
         {/* Controles de capa — base do background, visiveis apenas para Master ao passar o mouse */}
         {isMaster && (
-          <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
+          <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-100 pointer-events-none sm:opacity-0 sm:group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
             <button
               type="button"
               onClick={() => coverInputRef.current?.click()}
@@ -1803,7 +1803,7 @@ export default function OrcamentoDetailPage() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             {autoSaveStatus !== 'idle' && (
               <span className={cn(
                 'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md transition-opacity',
@@ -2965,7 +2965,7 @@ export default function OrcamentoDetailPage() {
                       {arq.publico ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
                       {arq.publico ? 'Público' : 'Privado'}
                     </button>
-                    <button type="button" onClick={() => handleRemoveArquivo(arq.id)} className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 transition-opacity">
+                    <button type="button" onClick={() => handleRemoveArquivo(arq.id)} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-destructive hover:text-destructive/80 transition-opacity">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -3216,7 +3216,7 @@ export default function OrcamentoDetailPage() {
                     <button
                       type="button"
                       onClick={() => handleDeleteForma(f.id, f.valor)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                      className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -3629,7 +3629,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
           {(podeEditar || podeExcluir || onResponder) && !editando && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded hover:bg-muted shrink-0">
+                <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded hover:bg-muted shrink-0">
                   <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>

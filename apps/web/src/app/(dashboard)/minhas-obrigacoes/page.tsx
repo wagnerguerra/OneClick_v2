@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import {
-  ClipboardCheck, Search, Loader2, Filter,
+  Search, Loader2, Filter,
   MoreVertical, CalendarDays, List, LayoutGrid,
   CheckCircle2, AlertCircle, Clock, History, FileText,
 } from 'lucide-react'
@@ -13,6 +13,8 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { EntregarDialog } from './_components/entregar-dialog'
@@ -121,22 +123,8 @@ export default function MinhasObrigacoesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ backgroundColor: MODULE_COLOR }}
-          >
-            <ClipboardCheck className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Minhas Obrigações</h1>
-            <p className="text-sm text-muted-foreground">
-              Painel das obrigações sob sua responsabilidade — direta ou por área contratada
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <div className="flex items-center rounded border border-border/60 bg-card overflow-hidden">
             <button
               type="button"
@@ -163,8 +151,21 @@ export default function MinhasObrigacoesPage() {
               <LayoutGrid className="h-3.5 w-3.5" />Calendário
             </button>
           </div>
+      </>}>
+        <h1 className="truncate">Minhas Obrigações</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Minhas Obrigações</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              Painel das obrigações sob sua responsabilidade — direta ou por área contratada
+            </p>
         </div>
-      </div>
+      </PageHeaderBar>
 
       {/* Stats cards */}
       {stats && (

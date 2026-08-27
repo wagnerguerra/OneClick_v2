@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { UserPlus } from 'lucide-react'
 import type { CreateSocioInput } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { SocioForm } from '../_components/socio-form'
@@ -56,5 +55,5 @@ export default function EditSocioPage() {
   if (loading) return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
   if (error || !socio) return <div className="py-12 text-center text-muted-foreground">{error ?? 'Sócio não encontrado'}</div>
 
-  return <SocioForm mode="edit" socioId={params.id} title="Editar Sócio" description={`Altere os dados do sócio #${socio.code}`} icon={<UserPlus className="h-6 w-6" />} defaultValues={socio} />
+  return <SocioForm mode="edit" socioId={params.id} title="Editar Sócio" description={`Sócio #${socio.code}`} defaultValues={socio} />
 }

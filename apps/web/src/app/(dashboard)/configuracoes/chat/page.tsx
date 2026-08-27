@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { MessageSquare, Loader2, Save } from 'lucide-react'
+import { Loader2, Save } from 'lucide-react'
 import { Button, Card, Input } from '@saas/ui'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { alerts } from '@/lib/alerts'
 
@@ -58,20 +59,24 @@ export default function ChatConfigPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="configuracoes" icon={MessageSquare} />
-          <div>
-            <h1>Chat interno</h1>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+          <BackButton href="/configuracoes" label="Voltar" />
+      </>}>
+        <h1 className="truncate">Chat interno</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Chat Interno</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
             <p className="text-sm text-muted-foreground">
               Comportamento global do chat — quando o usuário fica ausente, regras de presença, etc. Edição restrita ao master.
             </p>
-          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <BackButton href="/configuracoes" label="Voltar" />
-        </div>
-      </div>
+      </PageHeaderBar>
 
       <Card className="p-5 space-y-5">
         <div className="space-y-1.5">

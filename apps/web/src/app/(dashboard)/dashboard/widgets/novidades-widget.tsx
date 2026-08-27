@@ -2,8 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Sparkles, Wrench, Bug, Megaphone } from 'lucide-react'
-import { Card, CardContent, cn } from '@saas/ui'
+import { Sparkles, Wrench, Bug, Megaphone, ArrowRight } from 'lucide-react'
+import {
+  Button, Card, CardContent, cn,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+} from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { TEXT } from '@/lib/color-styles'
 import { EmptyState } from './empty-state'
@@ -18,11 +22,22 @@ interface Novidade {
 }
 
 /** Cada natureza tem cor e ícone próprios — dá para separar de relance. */
-const TIPOS: Record<string, { label: string; icon: typeof Sparkles; cor: string; fundo: string }> = {
-  NOVO: { label: 'Novo', icon: Sparkles, cor: 'text-emerald-700 dark:text-emerald-400', fundo: 'bg-emerald-100 dark:bg-emerald-900/30' },
-  MELHORIA: { label: 'Melhoria', icon: Wrench, cor: 'text-sky-700 dark:text-sky-400', fundo: 'bg-sky-100 dark:bg-sky-900/30' },
-  CORRECAO: { label: 'Correção', icon: Bug, cor: 'text-amber-700 dark:text-amber-400', fundo: 'bg-amber-100 dark:bg-amber-900/30' },
+const TIPOS: Record<string, {
+  label: string
+  icon: typeof Sparkles
+  cor: string
+  fundo: string
+  /** Cor do cabeçalho do modal (paleta do DialogHeaderIcon). */
+  modal: 'emerald' | 'sky' | 'amber'
+}> = {
+  NOVO: { label: 'Novo', icon: Sparkles, cor: 'text-emerald-700 dark:text-emerald-400', fundo: 'bg-emerald-100 dark:bg-emerald-900/30', modal: 'emerald' },
+  MELHORIA: { label: 'Melhoria', icon: Wrench, cor: 'text-sky-700 dark:text-sky-400', fundo: 'bg-sky-100 dark:bg-sky-900/30', modal: 'sky' },
+  CORRECAO: { label: 'Correção', icon: Bug, cor: 'text-amber-700 dark:text-amber-400', fundo: 'bg-amber-100 dark:bg-amber-900/30', modal: 'amber' },
 }
+
+/** Data por extenso — no modal cabe a data inteira, ao contrário da lista. */
+const dataCompleta = (iso: string) =>
+  new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
 /** "hoje", "ontem", "há 3 dias" — a data exata importa menos que a recência. */
 function quando(iso: string): string {
@@ -55,6 +70,8 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
 }) {
   const titulo = title ?? 'Novidades do sistema'
   const [itens, setItens] = useState<Novidade[] | null>(null)
+  /** Novidade aberta no modal — a lista trunca, aqui o texto vem inteiro. */
+  const [detalhe, setDetalhe] = useState<Novidade | null>(null)
 
   useEffect(() => {
     if (!canRead) return
@@ -105,14 +122,51 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
                 </div>
               </div>
             )
-            // Com módulo, a novidade leva até ele — ler "agora dá para dividir
-            // PDF" e não saber onde seria meio caminho.
-            return n.moduloSlug
-              ? <Link key={n.id} href={`/${n.moduloSlug}`} className="block">{corpo}</Link>
-              : <div key={n.id}>{corpo}</div>
+            // O clique abre o detalhe: na lista o texto é cortado em uma linha,
+            // e o aviso costuma ter mais a dizer do que cabe ali. O caminho
+            // para o módulo continua, agora como botão dentro do modal.
+            return (
+              <button key={n.id} type="button" onClick={() => setDetalhe(n)} className="block w-full text-left">
+                {corpo}
+              </button>
+            )
           })}
         </div>
       </CardContent>
+
+      {/* Detalhe da novidade */}
+      <Dialog open={!!detalhe} onOpenChange={(o) => { if (!o) setDetalhe(null) }}>
+        <DialogContent className="max-w-lg">
+          {detalhe && (() => {
+            const t = TIPOS[detalhe.tipo] ?? TIPOS.NOVO!
+            return (
+              <>
+                <DialogHeaderIcon icon={t.icon} color={t.modal}>
+                  <DialogTitle>{detalhe.titulo}</DialogTitle>
+                  <DialogDescription>
+                    {t.label} · publicado em {dataCompleta(detalhe.publicadoEm)}
+                  </DialogDescription>
+                </DialogHeaderIcon>
+                <DialogBody>
+                  {detalhe.descricao
+                    ? <p className="whitespace-pre-line text-sm leading-relaxed text-foreground">{detalhe.descricao}</p>
+                    : <p className="text-sm italic text-muted-foreground">Sem detalhamento — só o título foi publicado.</p>}
+                </DialogBody>
+                <DialogFooter>
+                  {detalhe.moduloSlug && (
+                    <Button asChild variant="outline" size="sm" className="mr-auto gap-1.5">
+                      <Link href={`/${detalhe.moduloSlug}`} onClick={() => setDetalhe(null)}>
+                        Ir para o módulo<ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => setDetalhe(null)}>Fechar</Button>
+                </DialogFooter>
+              </>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

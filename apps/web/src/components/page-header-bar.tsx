@@ -38,7 +38,9 @@ export function PageHeaderBar({
       )}
     >
       <div className="min-w-0 flex-1">{children}</div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {/* `shrink-0` só a partir de `sm`: no celular o grupo de ações precisa
+          quebrar em linha, senão empurra a barra inteira para fora da tela. */}
+      {actions && <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>}
     </div>
   )
 }

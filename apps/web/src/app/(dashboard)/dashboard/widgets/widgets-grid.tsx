@@ -12,6 +12,7 @@ import { alerts } from '@/lib/alerts'
 import { WIDGET_REGISTRY, DEFAULT_LAYOUT, COLOR_CLASSES } from './registry'
 import { CompactPendingFlag } from './compact-pending-flag'
 import { WidgetErrorBoundary } from '@/components/dashboard/widget-error-boundary'
+import { useIsMobile } from '@/hooks/use-media-query'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useEmpresaAtiva } from '@/hooks/use-empresa-ativa'
@@ -69,6 +70,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
   const [layout, setLayout] = useState<SavedItem[]>([])
   const [loaded, setLoaded] = useState(false)
   const [editing, setEditing] = useState(false)
+  const isMobile = useIsMobile()
   const [saving, setSaving] = useState(false)
   const [draftLayout, setDraftLayout] = useState<SavedItem[] | null>(null)
   const [expandedWidget, setExpandedWidget] = useState<string | null>(null)
@@ -404,6 +406,44 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
         {header}
       </PageHeaderBar>
 
+      {/*
+        No celular a grade de 12 colunas não serve: cada coluna fica com ~28px,
+        um widget de 6 colunas nasce com 170px e nada é legível — sem contar
+        que arrastar e redimensionar com o dedo não é tarefa de celular. Ali os
+        widgets viram uma pilha de largura inteira, na ordem em que estão no
+        layout salvo (de cima para baixo, da esquerda para a direita). O layout
+        do desktop fica intacto: nada aqui grava posição.
+      */}
+      {isMobile ? (
+        <div className="flex flex-col gap-4">
+          {visibleLayout
+            .slice()
+            .sort((a, b) => (a.y - b.y) || (a.x - b.x))
+            .map(item => {
+              const def = WIDGET_REGISTRY[item.i]
+              if (!def) return null
+              const Component = def.Component
+              const c = COLOR_CLASSES[def.color]
+              const canRead = def.requiresModule
+                ? isMaster || !!permissions.find(p => p.moduleSlug === def.requiresModule)?.canRead
+                : item.visibility
+                  ? isAdmin || passVisibility(item.visibility, myUserId, myAreaId, isAdmin)
+                  : true
+              if (!canRead) return null
+              const blocoHref = def.groupHref ?? (def.requiresModule ? `/${def.requiresModule}` : '/')
+              const blocoHex = getGroupHexForHref(blocoHref)
+              // Altura livre: no desktop ela vem das linhas do grid; aqui o
+              // conteúdo manda, com um piso para os widgets de lista.
+              return (
+                <div key={item.i} className="min-h-[220px]">
+                  <WidgetErrorBoundary label={def.label} borderColor={c.borderLeft}>
+                    <Component canRead={canRead} title={item.customLabel} bloco={blocoHex} />
+                  </WidgetErrorBoundary>
+                </div>
+              )
+            })}
+        </div>
+      ) : (
       <ResponsiveGrid
         className={cn('layout', editing && 'is-editing')}
         layout={visibleLayout as Layout[]}
@@ -500,6 +540,15 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
                     </div>
                   )
                 })()
+              ) : isCompact && def.acaoDireta ? (
+                // Widget de ação em 1×1: ele mesmo desenha o botão e abre o que
+                // tem para abrir. Passar pelo modal "ampliado" do grid só
+                // empilharia um modal em cima do outro.
+                <div className={cn('h-full', editing && 'pointer-events-none opacity-95')}>
+                  <WidgetErrorBoundary label={def.label} borderColor={c.borderLeft}>
+                    <Component canRead={canRead} title={item.customLabel} bloco={blocoHex} compact />
+                  </WidgetErrorBoundary>
+                </div>
               ) : isCompact ? (
                 // Modo compacto: botão clean no estilo Card (mesmo padrão dos outros widgets)
                 (() => {
@@ -538,7 +587,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
                       onClick={(e) => { e.stopPropagation(); setExpandedWidget(item.i) }}
                       title="Ampliar"
                       aria-label="Ampliar widget"
-                      className="absolute top-2 right-2 z-10 inline-flex items-center justify-center h-7 w-7 rounded-md bg-card/80 backdrop-blur-sm border border-border/60 text-muted-foreground opacity-0 group-hover/widget:opacity-100 hover:bg-card hover:text-foreground hover:border-border transition-all shadow-sm"
+                      className="absolute top-2 right-2 z-10 inline-flex items-center justify-center h-7 w-7 rounded-md bg-card/80 backdrop-blur-sm border border-border/60 text-muted-foreground opacity-100 sm:opacity-0 sm:group-hover/widget:opacity-100 hover:bg-card hover:text-foreground hover:border-border transition-all shadow-sm"
                     >
                       <Maximize2 className="h-3.5 w-3.5" />
                     </button>
@@ -552,6 +601,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
           )
         })}
       </ResponsiveGrid>
+      )}
 
       {/* Modal de widget expandido (quando 1×1 é clicado) */}
       <Dialog open={!!expandedWidget} onOpenChange={(o) => !o && setExpandedWidget(null)}>
@@ -638,7 +688,7 @@ export function WidgetsGrid({ header }: { header?: React.ReactNode }) {
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-3 gap-1.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
                         {([
                           { v: 'all',   label: 'Todos',     icon: Users },
                           { v: 'users', label: 'Usuários',  icon: UserIcon },

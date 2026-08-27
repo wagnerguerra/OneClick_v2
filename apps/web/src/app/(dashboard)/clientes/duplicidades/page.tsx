@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Copy, Loader2, AlertTriangle, ExternalLink, ShieldCheck, Merge, ArrowRight } from 'lucide-react'
+import { Loader2, AlertTriangle, ExternalLink, ShieldCheck, Merge, ArrowRight } from 'lucide-react'
 import {
   Button, Card, Badge, Checkbox, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -131,21 +132,21 @@ export default function DuplicidadesPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <Copy className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Cadastros repetidos</h1>
-            <p className="text-sm text-muted-foreground">Clientes com o mesmo CNPJ/CPF em mais de um cadastro</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <BackButton href="/clientes" label="Voltar" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Cadastros repetidos</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Clientes</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros repetidos</span>
+        </p>
+      </PageHeaderBar>
 
       <Card className="border-sky-200 bg-sky-50/60 p-4 text-sm dark:border-sky-900 dark:bg-sky-950/20">
         <div className="flex gap-3">

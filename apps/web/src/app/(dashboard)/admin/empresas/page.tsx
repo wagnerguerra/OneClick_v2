@@ -7,19 +7,20 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { Building2, MoreVertical, Clock, Lock, Loader2, CalendarPlus, Ban, RotateCcw, Users } from 'lucide-react'
+import { MoreVertical, Clock, Lock, Loader2, CalendarPlus, Ban, RotateCcw, Users } from 'lucide-react'
 import {
   Button, Card, CardContent, Input, Badge, cn,
   Dialog, DialogContent, DialogTitle, DialogFooter, DialogBody,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { TEXT } from '@/lib/color-styles'
 
-const MODULE_COLOR = 'var(--mod-configuracoes, #f97316)'
 
 type TenantState = 'ACTIVE' | 'TRIAL' | 'TRIAL_EXPIRED' | 'SUSPENDED'
 
@@ -129,29 +130,25 @@ export default function AdminEmpresasPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Header inline (padrão de módulo) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <Building2 className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Empresas (tenants)</h1>
-            <p className="text-sm text-muted-foreground">Gestão de assinaturas e períodos de teste da plataforma</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Input
             placeholder="Buscar por nome…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-9 w-56 text-sm"
           />
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Empresas (tenants)</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Empresas (tenants)</span>
+        </p>
+      </PageHeaderBar>
 
       <Card>
         <div className="overflow-x-auto">

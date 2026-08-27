@@ -357,7 +357,7 @@ export function HelpdeskIaSection() {
         {/* Pesos por tipo */}
         <div className="space-y-2">
           <Label className="text-[12px] font-medium">Pesos por tipo de ticket</Label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             {TIPOS_TICKET.map(tipo => (
               <div key={tipo} className="space-y-1">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{tipo}</p>
@@ -668,7 +668,7 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
               )}
 
               {(arquivos.length > 0 || riscos || tempo) && (
-                <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2 border-t border-border">
                   {arquivos.length > 0 && (
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Arquivos prováveis</p>

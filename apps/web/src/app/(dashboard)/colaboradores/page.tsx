@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  Users, FileUp, Download,
+  FileUp, Download,
 } from 'lucide-react'
 import {
   Button, Input, Badge,
@@ -15,12 +15,12 @@ import {
   Card,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
 import { TIPO_CONTRATO_LABELS } from '@saas/types'
 import { BackButton } from '@/components/ui/back-button'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { ImportModal } from './_components/import-modal'
 
 interface Colaborador {
@@ -154,16 +154,8 @@ export default function ColaboradoresPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="cadastros" icon={Users} />
-          <div>
-            <h1>Colaboradores</h1>
-            <p className="text-sm text-muted-foreground">Gerencie os colaboradores da empresa</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" asChild>
             <Link href="/colaboradores/new"><Plus className="h-4 w-4" />Novo Colaborador</Link>
           </Button>
@@ -174,8 +166,17 @@ export default function ColaboradoresPage() {
             <Download className="h-4 w-4" />Excel
           </Button>
           <BackButton href="/dashboard" label="Voltar" />
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Colaboradores</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Colaboradores</span>
+        </p>
+      </PageHeaderBar>
 
       {/* DataTable */}
       <Card>

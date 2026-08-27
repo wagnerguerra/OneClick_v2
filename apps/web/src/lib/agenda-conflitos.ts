@@ -11,6 +11,11 @@ export interface ConflitoAgenda {
   /** Evento particular que o solicitante não pode ver — explica por que ele
    *  não aparece na agenda (não é um conflito fantasma). */
   particularOculto?: boolean
+  /** Data (ou intervalo) do evento em conflito — dd/mm/aaaa. #365 */
+  data?: string
+  /** Quem agendou/criou o evento em conflito. Ausente quando é compromisso
+   *  particular alheio (não vaza o organizador). #365 */
+  organizador?: string
 }
 
 /**
@@ -45,19 +50,20 @@ export function renderConflitosHtml(conflitos: ConflitoAgenda[], bloqueado: bool
       <span>Compromisso <strong>particular</strong>: você não tem acesso ao detalhe e por isso ele não aparece na sua agenda. Mesmo assim, ele ocupa o horário desta pessoa.</span>
     </div>`
 
-  const card = (visual: string, color: string, badge: string, nome: string, evento: string, horario: string, particularOculto?: boolean) => `
+  const card = (c: ConflitoAgenda, visual: string, color: string, badge: string) => `
     <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;text-align:left">
       ${visual}
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap">
           <span style="display:inline-block;padding:1px 7px;border-radius:999px;background:${color}1a;color:${color};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px">${badge}</span>
-          <span style="font-weight:600;color:#0f172a;font-size:13px">${esc(nome)}</span>
+          <span style="font-weight:600;color:#0f172a;font-size:13px">${esc(c.nome)}</span>
         </div>
         <div style="font-size:12px;color:#64748b">
-          Em <span style="color:#0f172a;font-weight:500">"${esc(evento)}"</span>
+          Evento: <span style="color:#0f172a;font-weight:500">"${esc(c.evento)}"</span>
         </div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:2px;font-variant-numeric:tabular-nums">⏰ ${esc(horario)}</div>
-        ${particularOculto ? notaOculto : ''}
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px;font-variant-numeric:tabular-nums">${c.data ? `📅 ${esc(c.data)}&nbsp;&nbsp;` : ''}⏰ ${esc(c.horario)}</div>
+        ${c.organizador ? `<div style="margin-top:4px;font-size:11px;color:#64748b">Agendado por <span style="color:#0f172a;font-weight:500">${esc(c.organizador)}</span></div>` : ''}
+        ${c.particularOculto ? notaOculto : ''}
       </div>
     </div>
   `
@@ -68,7 +74,7 @@ export function renderConflitosHtml(conflitos: ConflitoAgenda[], bloqueado: bool
       <div style="margin-top:8px">
         <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Participantes ocupados (${participantes.length})</div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          ${participantes.map(c => card(avatar(c.nome, '#0ea5e9', c.image), '#0ea5e9', 'Participante', c.nome, c.evento, c.horario, c.particularOculto)).join('')}
+          ${participantes.map(c => card(c, avatar(c.nome, '#0ea5e9', c.image), '#0ea5e9', 'Participante')).join('')}
         </div>
       </div>`)
   }
@@ -77,7 +83,7 @@ export function renderConflitosHtml(conflitos: ConflitoAgenda[], bloqueado: bool
       <div style="margin-top:8px">
         <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Salas ocupadas (${salas.length})</div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          ${salas.map(c => card(iconBox('🚪', '#a855f7'), '#a855f7', 'Sala', c.nome, c.evento, c.horario, c.particularOculto)).join('')}
+          ${salas.map(c => card(c, iconBox('🚪', '#a855f7'), '#a855f7', 'Sala')).join('')}
         </div>
       </div>`)
   }

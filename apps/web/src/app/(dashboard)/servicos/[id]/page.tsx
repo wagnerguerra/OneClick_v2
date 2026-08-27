@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  Workflow, Loader2, Save, Plus, Trash2, Edit, AlertCircle,
+  Loader2, Save, Plus, Trash2, Edit, AlertCircle,
   Play, Pause, FileText, Layers, GitBranch, History, ListChecks,
   GripVertical, Clock, X, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check, Search, Users,
   Bell, Mail, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database,
@@ -28,9 +28,10 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { BADGE, STRONG, SURFACE, TEXT } from '@/lib/color-styles'
+import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 import { FluxoEditor, type FluxoNode, type FluxoEdge } from './_components/fluxo-editor'
 import { FluxoAssistant } from './_components/fluxo-assistant'
 import { MateriaisSection, type Material } from './_components/materiais-section'
@@ -1097,87 +1098,84 @@ export default function ServicoDetailPage() {
   return (
     <div className="space-y-0 pb-6">
       <Tabs value={activeTab} onValueChange={v => setActiveTab(v as typeof activeTab)} className="space-y-0">
-        {/* Header bleed-edge */}
+        {/* Topo — PADRAO_PAGINAS §1.1 */}
+        <PageHeaderBar actions={<>
+            <BackButton href="/servicos" title="Voltar para Serviços e Obrigações" />
+        </>}>
+          <h1 className="truncate">{nome || '—'}</h1>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Cadastros</span>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Serviços e Obrigações</span>
+          </p>
+          {/* Linha única: área + segmento + badges (SLA / Previsão / Prioridade / etc) */}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <span>
+              {areaNome || 'Sem área'}
+              {segmentoSlug && ` · ${segmentoSlug}`}
+              {categoriaServico === 'FLUXO' && ' · Item de fluxo'}
+            </span>
+            <span className="text-muted-foreground/40">|</span>
+            <Badge
+              className="text-[11px] h-5 px-2 gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800 font-medium"
+              title="SLA total = soma dos passos"
+            >
+              <Clock className="h-3 w-3" /> SLA {formatSlaRich(totalServicoMin)}
+            </Badge>
+            {totalServicoMin > 0 && (() => {
+              const previsao = calcularPrevisaoConclusao(totalServicoMin)
+              const fmt = previsao.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+              const hr = previsao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+              return (
+                <Badge
+                  className="text-[11px] h-5 px-2 gap-1.5 bg-sky-100 text-sky-800 border border-sky-200 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-800 font-medium"
+                  title="Considerando jornada útil 8h × 5d/sem (seg-sex, 09h-17h), iniciando agora"
+                >
+                  Previsão {fmt} · {hr}
+                </Badge>
+              )
+            })()}
+            {(() => {
+              const priMedia = { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-800 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800' }
+              const pri: Record<string, { bg: string; text: string; border: string }> = {
+                BAIXA:    { bg: 'bg-slate-100 dark:bg-slate-800/60', text: 'text-slate-700 dark:text-slate-300',  border: 'border-slate-200 dark:border-slate-700' },
+                MEDIA:    priMedia,
+                ALTA:     { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-800 dark:text-amber-300',  border: 'border-amber-300 dark:border-amber-800' },
+                URGENTE:  { bg: 'bg-rose-100 dark:bg-rose-900/30',   text: 'text-rose-800 dark:text-rose-300',    border: 'border-rose-300 dark:border-rose-800' },
+              }
+              const p = pri[prioridade] ?? priMedia
+              return (
+                <Badge className={cn('text-[11px] h-5 px-2 border font-medium', p.bg, p.text, p.border)}>
+                  Prioridade {prioridade}
+                </Badge>
+              )
+            })()}
+            {disponivelOrcamento && (
+              <Badge className="text-[11px] h-5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0 font-medium">
+                Em orçamentos
+              </Badge>
+            )}
+            {categoriaServico === 'MENSAL' && (
+              <Badge className="text-[11px] h-5 px-2 bg-violet-100 text-violet-800 border border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-800 font-medium">
+                Mensal
+              </Badge>
+            )}
+          </div>
+        </PageHeaderBar>
+
+        {/* Faixa do módulo com as abas — bleed-edge */}
         <div
-          className="relative -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 overflow-hidden"
+          className="relative -mx-4 sm:-mx-6 overflow-hidden"
           style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 12%, transparent)` }}
         >
           <div
             className="absolute inset-0"
             style={{ backgroundImage: `linear-gradient(to right, color-mix(in srgb, ${MODULE_COLOR} 0%, transparent) 0%, color-mix(in srgb, ${MODULE_COLOR} 80%, transparent) 100%)` }}
           />
-          <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex items-start gap-4">
-                <div
-                  className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 overflow-hidden shadow-lg"
-                  style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}
-                >
-                  <Workflow className="h-10 w-10" style={{ color: MODULE_COLOR }} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-mono text-muted-foreground">Template de serviço</p>
-                  <h1 className="text-xl font-semibold truncate">{nome || '—'}</h1>
-                  {/* Linha única: área + segmento + badges (SLA / Previsão / Prioridade / etc) */}
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mt-2">
-                    <span className="text-sm text-muted-foreground">
-                      {areaNome || 'Sem área'}
-                      {segmentoSlug && ` · ${segmentoSlug}`}
-                      {categoriaServico === 'FLUXO' && ' · Item de fluxo'}
-                    </span>
-                    <span className="text-muted-foreground/40">|</span>
-                    <Badge
-                      className="text-[11px] h-6 px-2.5 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm font-medium"
-                      title="SLA total = soma dos passos"
-                    >
-                      <Clock className="h-3 w-3" /> SLA {formatSlaRich(totalServicoMin)}
-                    </Badge>
-                    {totalServicoMin > 0 && (() => {
-                      const previsao = calcularPrevisaoConclusao(totalServicoMin)
-                      const fmt = previsao.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
-                      const hr = previsao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                      return (
-                        <Badge
-                          variant="outline"
-                          className={cn('text-[11px] h-6 px-2.5 gap-1.5 border shadow-sm font-medium', STRONG.sky)}
-                          title="Considerando jornada útil 8h × 5d/sem (seg-sex, 09h-17h), iniciando agora"
-                        >
-                          Previsão {fmt} · {hr}
-                        </Badge>
-                      )
-                    })()}
-                    {(() => {
-                      const pri: Record<string, string> = {
-                        BAIXA:   STRONG.slate,
-                        MEDIA:   STRONG.blue,
-                        ALTA:    STRONG.amber,
-                        URGENTE: STRONG.rose,
-                      }
-                      const p = pri[prioridade] ?? STRONG.blue
-                      return (
-                        <Badge variant="outline" className={cn('text-[11px] h-6 px-2.5 border shadow-sm font-medium', p)}>
-                          Prioridade {prioridade}
-                        </Badge>
-                      )
-                    })()}
-                    {disponivelOrcamento && (
-                      <Badge className="text-[11px] h-6 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm font-medium">
-                        Em orçamentos
-                      </Badge>
-                    )}
-                    {categoriaServico === 'MENSAL' && (
-                      <Badge variant="outline" className={cn('text-[11px] h-6 px-2.5 border shadow-sm font-medium', STRONG.violet)}>
-                        Mensal
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <BackButton href="/servicos" title="Voltar para Serviços e Obrigações" className="shrink-0" />
-            </div>
-          </div>
           {/* Tabs */}
-          <div className="relative z-10 px-4 sm:px-6 pb-2 overflow-x-auto flex justify-center">
+          <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto flex justify-center">
             <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
               <TabsTrigger value="visao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
                 <FileText className="h-3.5 w-3.5" /> Visão geral
@@ -1799,7 +1797,7 @@ export default function ServicoDetailPage() {
                           Quando preenchido, o vencimento do mês <strong>sobrescreve</strong> a regra padrão de
                           Recorrência. Deixe "Não tem" pra usar o padrão.
                         </p>
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
                           <Button
                             variant="outline"
                             size="sm"
@@ -2462,7 +2460,7 @@ export default function ServicoDetailPage() {
                           <p className="text-[11px] text-muted-foreground mt-1 truncate">{enc.observacao}</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                         <Button variant="ghost" size="icon-xs" onClick={() => openEditEnc(enc)} title="Editar">
                           <Edit className="h-3.5 w-3.5" />
                         </Button>

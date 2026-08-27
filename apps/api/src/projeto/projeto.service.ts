@@ -25,6 +25,7 @@ export class ProjetoService {
     const where: any = { isActive: true }
     if (input.status) where.status = input.status
     if (input.responsavelId) where.responsavelId = input.responsavelId
+    if (input.clienteId) where.clienteId = input.clienteId
     if (input.search) {
       where.OR = [
         { nome: { contains: input.search, mode: 'insensitive' } },
@@ -45,6 +46,10 @@ export class ProjetoService {
         take: input.limit,
         include: {
           _count: { select: { tarefas: true } },
+          cliente: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
+          participantes: {
+            select: { user: { select: { id: true, name: true, image: true } } },
+          },
         },
       }),
     ])
@@ -86,6 +91,8 @@ export class ProjetoService {
     const enriched = items.map((p) => ({
       ...p,
       responsavel: p.responsavelId ? respById.get(p.responsavelId) ?? null : null,
+      // O card quer a lista de gente, não a tabela de ligação.
+      participantes: p.participantes.map((pp) => pp.user),
       tarefaProximoVencimento: tarefaPorProjeto.get(p.id) ?? null,
     }))
 
@@ -98,6 +105,10 @@ export class ProjetoService {
       include: {
         tags: true,
         _count: { select: { tarefas: true, mensagens: true, anexos: true } },
+        cliente: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
+        participantes: {
+          select: { user: { select: { id: true, name: true, image: true } } },
+        },
       },
     })
     if (!projeto) throw new TRPCError({ code: 'NOT_FOUND', message: 'Projeto não encontrado' })
@@ -108,7 +119,7 @@ export class ProjetoService {
           select: { id: true, name: true, image: true },
         })
       : null
-    return { ...projeto, responsavel }
+    return { ...projeto, responsavel, participantes: projeto.participantes.map((p) => p.user) }
   }
 
   async createProjeto(input: CreateProjetoInput, userId: string | null) {
@@ -119,10 +130,22 @@ export class ProjetoService {
         cor: input.cor ?? '#22d3ee',
         status: input.status ?? 'NOVO',
         responsavelId: input.responsavelId ?? userId ?? null,
+        clienteId: input.clienteId || null,
         dataInicio: input.dataInicio ? new Date(input.dataInicio) : null,
         dataPrevisao: input.dataPrevisao ? new Date(input.dataPrevisao) : null,
+        ...(input.participantesIds?.length
+          ? { participantes: { create: this.participantesUnicos(input.participantesIds, input.responsavelId ?? userId).map(userId2 => ({ userId: userId2 })) } }
+          : {}),
       },
     })
+  }
+
+  /**
+   * O responsável não entra como participante: ele já aparece à parte, e
+   * repetido viraria dois avatares da mesma pessoa no card.
+   */
+  private participantesUnicos(ids: string[], responsavelId?: string | null): string[] {
+    return Array.from(new Set(ids.filter(Boolean))).filter(id => id !== responsavelId)
   }
 
   async updateProjeto(id: string, input: UpdateProjetoInput, autorId: string | null = null) {
@@ -154,6 +177,7 @@ export class ProjetoService {
         ...(input.cor !== undefined && { cor: input.cor }),
         ...(input.status !== undefined && { status: input.status }),
         ...(input.responsavelId !== undefined && { responsavelId: input.responsavelId }),
+        ...(input.clienteId !== undefined && { clienteId: input.clienteId || null }),
         ...(input.dataInicio !== undefined && {
           dataInicio: input.dataInicio ? new Date(input.dataInicio) : null,
         }),
@@ -163,12 +187,67 @@ export class ProjetoService {
       },
     })
 
+    // Participantes: a lista que chega é a lista final. Trocar tudo é mais
+    // simples e mais previsível do que calcular entra/sai — são poucos nomes.
+    if (input.participantesIds !== undefined) {
+      const responsavelFinal = input.responsavelId !== undefined ? input.responsavelId : atual.responsavelId
+      const ids = this.participantesUnicos(input.participantesIds, responsavelFinal)
+      await prisma.$transaction([
+        prisma.projetoParticipante.deleteMany({ where: { projetoId: id } }),
+        ...(ids.length > 0
+          ? [prisma.projetoParticipante.createMany({ data: ids.map(userId => ({ projetoId: id, userId })) })]
+          : []),
+      ])
+    }
+
     // Grava eventos fora da update
     for (const ev of eventos) {
       await this.gravarEventoProjeto(id, ev.tipo, autorId, null, ev.antes, ev.depois)
     }
 
     return projeto
+  }
+
+  /**
+   * Clientes que podem ser vinculados a um projeto: os MENSAIS e ativos.
+   *
+   * Rota própria, e não a listagem do módulo Clientes, porque quem trabalha em
+   * Projetos não tem necessariamente permissão de ver o cadastro de clientes —
+   * e aqui só precisa de nome e id para escolher num campo.
+   */
+  async listClientesVinculaveis(busca?: string) {
+    const termo = (busca ?? '').trim()
+    return prisma.cliente.findMany({
+      where: {
+        situacao: 'MENSAL',
+        status: 'ATIVO',
+        ...(termo
+          ? {
+              OR: [
+                { razaoSocial: { contains: termo, mode: 'insensitive' } },
+                { nomeFantasia: { contains: termo, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      select: { id: true, razaoSocial: true, nomeFantasia: true },
+      orderBy: { razaoSocial: 'asc' },
+      take: 50,
+    })
+  }
+
+  /** Pessoas que podem ser responsável ou participante. */
+  async listPessoas(busca?: string) {
+    const termo = (busca ?? '').trim()
+    return prisma.user.findMany({
+      where: {
+        isActive: true,
+        ...(termo ? { name: { contains: termo, mode: 'insensitive' } } : {}),
+      },
+      select: { id: true, name: true, image: true },
+      orderBy: { name: 'asc' },
+      take: 100,
+    })
   }
 
   async deleteProjeto(id: string) {

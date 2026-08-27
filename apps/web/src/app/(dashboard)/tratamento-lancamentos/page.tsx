@@ -10,6 +10,8 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { DetectedRowsStatus } from './_components/detected-rows-status'
@@ -17,7 +19,6 @@ import { DebugViewer } from './_components/debug-viewer'
 import { PendenciasPanel } from './_components/pendencias-panel'
 import { fileToBase64 } from '@/lib/file'
 import { extractClient } from './lib/extract-client'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 interface ModelOption { id: string; nome: string; code: number }
@@ -226,25 +227,24 @@ export default function TratamentoLancamentosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="contabil" icon={FileSpreadsheet} />
-          <div>
-            <h1>Tratamento de Lançamentos</h1>
-            <p className="text-sm text-muted-foreground">
-              Converta um arquivo de lançamentos e gere o arquivo de importação do SCI em 3 passos
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {canManage && (
             <Button variant="outline" size="sm" onClick={() => router.push('/tratamento-lancamentos/modelos')}>
               <Settings2 className="h-4 w-4" /> Gerenciar modelos
             </Button>
           )}
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Tratamento de Lançamentos</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Ferramentas</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Tratamento de Lançamentos</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Cards full-width; conteúdo centralizado dentro de cada um */}
       <div className="space-y-5">

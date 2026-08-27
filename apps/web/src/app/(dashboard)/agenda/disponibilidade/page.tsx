@@ -14,7 +14,7 @@ import {
   RichContent,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -291,14 +291,8 @@ export default function AgendaDisponibilidadePage() {
     <TooltipProvider delayDuration={250}>
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="administrativo" icon={Users} />
-          <div>
-            <h1>Disponibilidade combinada</h1>
-            <p className="text-sm text-muted-foreground">Veja em quais horários os participantes selecionados estão livres ou ocupados</p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         <Button
           variant="outline" size="icon"
           onClick={() => router.push('/agenda')}
@@ -307,7 +301,18 @@ export default function AgendaDisponibilidadePage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-      </div>
+      </>}>
+        <h1 className="truncate">Disponibilidade combinada</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Agenda Corporativa</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Disponibilidade combinada</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Toolbar: participantes + navegação de semana */}
       <Card className="p-4 space-y-3">

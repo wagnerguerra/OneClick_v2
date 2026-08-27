@@ -20,6 +20,8 @@ import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import { refreshCurrentUserProfile } from '@/hooks/use-current-user-profile'
@@ -714,10 +716,20 @@ export default function MeuPerfilPage() {
 
   return (
     <div className="space-y-0 pb-12">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Meu perfil</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Perfil</span>
+        </p>
+      </PageHeaderBar>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0">
       {/* Banner de fundo + Avatar/Nome + Tabs — wrapper unico (mesmo padrao /orcamentos/[id]) */}
       <div
-        className="-mx-4 sm:-mx-6 -mt-4 sm:-mt-6 relative overflow-hidden group/cover"
+        className="-mx-4 sm:-mx-6 relative overflow-hidden group/cover"
         style={{
           background: profile.coverImage
             ? undefined
@@ -754,7 +766,7 @@ export default function MeuPerfilPage() {
         )}
 
         {/* Botoes para gerenciar a capa — z-20 para ficar acima do conteudo (z-10) e das tabs */}
-        <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
+        <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 opacity-100 pointer-events-none sm:opacity-0 sm:group-hover/cover:opacity-100 group-hover/cover:pointer-events-auto transition-opacity">
           <button
             type="button"
             onClick={() => coverInputRef.current?.click()}
@@ -839,7 +851,7 @@ export default function MeuPerfilPage() {
                   (#HLP0085). Usamos text-foreground/85 (versão atenuada do foreground principal) que
                   mantém legibilidade nos dois temas e sobre qualquer cor de fundo. */}
               <div className="min-w-0">
-                <h1 className="text-xl font-semibold">{profile.name}</h1>
+                <p className="text-xl font-semibold">{profile.name}</p>
                 <p className="text-sm text-foreground/85 mt-0.5">
                   {profile.cargo?.name || (USER_ROLE_LABELS[profile.role as keyof typeof USER_ROLE_LABELS] ?? 'Não informado')}
                 </p>
@@ -1277,7 +1289,7 @@ export default function MeuPerfilPage() {
                           </span>
                         ))}
                       </div>
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0" />
                     </a>
                   ))}
                 </div>

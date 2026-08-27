@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import {
-  ShoppingCart, Save, Plus, Trash2, Loader2, Send, Check, Ban, PackageCheck, ClipboardCheck,
+  Save, Plus, Trash2, Loader2, Send, Check, Ban, PackageCheck, ClipboardCheck,
   FileText, Package, MessageSquare, Printer,
 } from 'lucide-react'
 import {
@@ -15,6 +15,8 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
@@ -121,21 +123,8 @@ export default function PedidoDetalhePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <ShoppingCart className="h-6 w-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1>Pedido #{c.code}</h1>
-              <Badge className={cn('text-[11px]', STATUS_COLORS[c.status])}>{STATUS_COMPRA_LABELS[c.status] ?? c.status}</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">{c.fornecedor?.razaoSocial ?? '—'}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {editavel && <Button variant="success" size="sm" onClick={salvar} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Salvar</Button>}
           {(c.status === 'NOVO' || c.status === 'REPROVADO') && <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" disabled={acting} onClick={() => acao(() => (trpc.compra as any).enviar.mutate({ id: c.id }), 'Enviado para aprovação.')}><Send className="h-4 w-4" />Enviar p/ aprovação</Button>}
           {c.status === 'AGUARDANDO_APROVACAO' && podeAprovar && <>
@@ -153,8 +142,22 @@ export default function PedidoDetalhePage() {
             </a>
           </Button>
           <BackButton href="/aquisicoes" label="Voltar" />
+      </>}>
+        <h1 className="truncate">Pedido #{c.code}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Aquisições</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <div>
+              <Badge className={cn('text-[11px]', STATUS_COLORS[c.status])}>{STATUS_COMPRA_LABELS[c.status] ?? c.status}</Badge>
+            <p className="text-sm text-muted-foreground">{c.fornecedor?.razaoSocial ?? '—'}</p>
+          </div>
         </div>
-      </div>
+      </PageHeaderBar>
 
       {c.status === 'REPROVADO' && c.motivoReprovacao && (
         <Card className="p-3 border-rose-300 bg-rose-50 dark:bg-rose-950/20 text-sm text-rose-700 dark:text-rose-400"><strong>Reprovado:</strong> {c.motivoReprovacao}</Card>

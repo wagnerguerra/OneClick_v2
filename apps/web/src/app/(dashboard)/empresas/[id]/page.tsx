@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Building2 } from 'lucide-react'
 import type { CreateEmpresaInput } from '@saas/types'
 import { trpc } from '@/lib/trpc'
 import { EmpresaForm } from '../_components/empresa-form'
@@ -93,8 +92,7 @@ export default function EditEmpresaPage() {
       mode="edit"
       empresaId={params.id}
       title="Editar Empresa"
-      description={`Altere os dados da empresa #${empresa.code}`}
-      icon={<Building2 className="h-6 w-6" />}
+      description={`Empresa #${empresa.code}`}
       defaultValues={empresa}
     />
   )

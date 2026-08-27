@@ -3,13 +3,14 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Settings, ArrowLeft, Mail, Loader2, Bell, Clock, Inbox, Users, AlertTriangle,
+  ArrowLeft, Mail, Loader2, Bell, Clock, Inbox, Users, AlertTriangle,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card, Switch,
 } from '@saas/ui'
 import { EmailChipsInput } from '@/components/ui/email-chips-input'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -122,14 +123,8 @@ export default function HelpdeskConfiguracoesPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="ti" icon={Settings} />
-          <div>
-            <h1>Configurações do HelpDesk</h1>
-            <p className="text-sm text-muted-foreground">Notificações, SLA padrão e inbound de e-mail</p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         <Button
           variant="outline" size="icon"
           onClick={() => router.push('/helpdesk')}
@@ -138,7 +133,18 @@ export default function HelpdeskConfiguracoesPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-      </div>
+      </>}>
+        <h1 className="truncate">Configurações do HelpDesk</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>TI</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>HelpDesk</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações do HelpDesk</span>
+        </p>
+      </PageHeaderBar>
 
       {loading ? (
         <div className="flex items-center justify-center py-20 text-muted-foreground">

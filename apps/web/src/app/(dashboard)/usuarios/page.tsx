@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2, Eye,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown, ShieldCheck, ShieldOff,
-  UserCog, MoreVertical, FileUp, FileDown, Copy,
+  MoreVertical, FileUp, FileDown, Copy, Filter, FilterX, ChevronDown,
 } from 'lucide-react'
 import {
   Button, Input, Card, Checkbox, Switch,
@@ -17,10 +17,12 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
+import { USER_ROLE_LABELS } from '@saas/types'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
-import { InlineEditCell } from './_components/inline-edit-cell'
+import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 import { CopyPermissionsModal } from './_components/copy-permissions-modal'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
 
@@ -87,6 +89,9 @@ const PROFILE_CONFIG: Record<string, { label: string; color: string }> = {
 export default function UsuariosPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
+  const [filtroPerfil, setFiltroPerfil] = useState('')
+  const [incluirInativos, setIncluirInativos] = useState(false)
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false)
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
@@ -113,16 +118,20 @@ export default function UsuariosPage() {
     return () => clearTimeout(timer)
   }, [search])
 
+  const filtrosAtivos = (filtroPerfil ? 1 : 0) + (incluirInativos ? 1 : 0)
+
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
       const result = await trpc.user.list.query({
         page, limit, search: debouncedSearch || undefined, sortBy: sort.column, sortDir: sort.dir,
+        role: (filtroPerfil || undefined) as never,
+        incluirInativos: incluirInativos || undefined,
       })
       setData(result)
       setSelected(new Set()) // limpa seleção ao refetch (mudou página/filtro)
     } catch { /* silencioso */ } finally { setLoading(false) }
-  }, [page, limit, debouncedSearch, sort])
+  }, [page, limit, debouncedSearch, sort, filtroPerfil, incluirInativos])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
 
@@ -381,22 +390,11 @@ export default function UsuariosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-emerald-500 text-white shadow-md">
-            <UserCog className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Usuários</h1>
-            <p className="text-sm text-muted-foreground">
-              Cadastre, edite permissões e sincronize com o OneClick v1
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="success" size="sm" asChild>
-            <Link href="/usuarios/new"><Plus className="h-4 w-4" />Novo Usuário</Link>
+      {/* Barra da página — PADRAO_PAGINAS §1.1 (referência /clientes) */}
+      <PageHeaderBar
+        actions={<>
+          <Button variant="outline" size="sm" asChild className="gap-1.5">
+            <Link href="/usuarios/permissoes"><ShieldCheck className="h-4 w-4" />Permissões em massa</Link>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -404,7 +402,7 @@ export default function UsuariosPage() {
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuItem onClick={() => setImportOpen(true)}>
                 <FileUp className="h-4 w-4" />Importar CSV
               </DropdownMenuItem>
@@ -414,16 +412,81 @@ export default function UsuariosPage() {
               <DropdownMenuItem onClick={() => handleExport()} disabled={exporting}>
                 <FileDown className="h-4 w-4" />Exportar
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/usuarios/permissoes"><ShieldCheck className="h-4 w-4" />Permissões em massa</Link>
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setCopyPermsOpen(true)}>
-                <Copy className="h-4 w-4" />Copiar Permissões
+                <Copy className="h-4 w-4" />Copiar permissões entre usuários
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button size="sm" asChild className="gap-1.5">
+            <Link href="/usuarios/new"><Plus className="h-4 w-4" />Novo Usuário</Link>
+          </Button>
+        </>}
+      >
+        <h1 className="truncate">Usuários</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Usuários</span>
+        </p>
+      </PageHeaderBar>
+
+      {/* Filtros — PADRAO_PAGINAS §1.2: card colapsável, contador e "Limpar" */}
+      <Card className="overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/20 px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setFiltrosAbertos(v => !v)}
+            className="flex items-center gap-2 text-sm font-medium"
+          >
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            Filtros
+            {filtrosAtivos > 0 && (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-100 px-1.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                {filtrosAtivos}
+              </span>
+            )}
+            <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', filtrosAbertos && 'rotate-180')} />
+          </button>
+          {filtrosAtivos > 0 && (
+            <Button
+              variant="outline"
+              size="xs"
+              className="gap-1"
+              onClick={() => { setFiltroPerfil(''); setIncluirInativos(false); setPage(1) }}
+            >
+              <FilterX className="h-3.5 w-3.5" />Limpar
+            </Button>
+          )}
         </div>
-      </div>
+        <div
+          className="grid transition-[grid-template-rows,opacity] duration-[250ms] ease-[cubic-bezier(.16,1,.3,1)]"
+          style={{ gridTemplateRows: filtrosAbertos ? '1fr' : '0fr', opacity: filtrosAbertos ? 1 : 0 }}
+          aria-hidden={!filtrosAbertos}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/60 px-4 py-3">
+              <Select value={filtroPerfil || '__all__'} onValueChange={(v) => { setFiltroPerfil(v === '__all__' ? '' : v); setPage(1) }}>
+                <SelectTrigger className="h-8 w-full bg-card text-xs sm:w-[190px]"><SelectValue placeholder="Perfil" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todos os perfis</SelectItem>
+                  {Object.entries(USER_ROLE_LABELS).map(([v, label]) => (
+                    <SelectItem key={v} value={v}>{label as string}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={incluirInativos ? 'TODOS' : 'ATIVOS'} onValueChange={(v) => { setIncluirInativos(v === 'TODOS'); setPage(1) }}>
+                <SelectTrigger className="h-8 w-full bg-card text-xs sm:w-[190px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ATIVOS">Somente ativos</SelectItem>
+                  <SelectItem value="TODOS">Incluir desligados</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {/* Banner de seleção em lote */}
       {selected.size > 0 && (

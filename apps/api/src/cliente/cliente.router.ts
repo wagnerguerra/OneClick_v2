@@ -36,6 +36,10 @@ export function createClienteRouter(
   omieService?: OmieService,
   duplicidadeService?: DuplicidadeService,
   mesclagemService?: MesclagemService,
+  capaService?: import('./cliente-capa.service').ClienteCapaService,
+  dossieService?: import('./dossie/dossie.service').DossieService,
+  dossieBackfillService?: import('./dossie/dossie-backfill.service').DossieBackfillService,
+  logoService?: import('./cliente-logo.service').ClienteLogoService,
 ) {
   return router({
     // Listagem (ativos)
@@ -1251,6 +1255,117 @@ export function createClienteRouter(
       .mutation(({ input, ctx }) => {
         if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas o usuário master pode alterar a imagem de fundo' })
         return clienteService.setHeaderCover(input.url, ctx.empresaId)
+      }),
+
+    // ── Logomarca do cliente (envio manual ou busca pelo domínio) ────
+    sugerirLogos: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string().optional(), dominio: z.string().optional() }))
+      .query(({ input }) => {
+        if (!logoService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Busca de logomarca indisponível.' })
+        return logoService.sugerirLogos(input)
+      }),
+
+    aplicarLogoSugerida: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ clienteId: z.string(), url: z.string() }))
+      .mutation(({ input }) => {
+        if (!logoService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Busca de logomarca indisponível.' })
+        return logoService.aplicarLogoSugerida(input.clienteId, input.url)
+      }),
+
+    // ── Dossiê do Cliente (enriquecimento por CNPJ) ──────────────────
+    // Ler é leitura do módulo; aprovar divergência escreve no cadastro e por
+    // isso exige a mesma permissão de editar detalhes.
+    getDossie: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input, ctx }) => {
+        if (!dossieService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Dossiê indisponível.' })
+        return dossieService.getDossie(input.clienteId, ctx.userId ?? undefined)
+      }),
+
+    atualizarDossie: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ clienteId: z.string(), forcar: z.boolean().default(true) }))
+      .mutation(({ input, ctx }) => {
+        if (!dossieService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Dossiê indisponível.' })
+        return dossieService.enriquecer(input.clienteId, { forcar: input.forcar, usuarioId: ctx.userId ?? undefined })
+      }),
+
+    decidirSugestaoDossie: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({
+        id: z.string(),
+        decisao: z.enum(['aprovada', 'rejeitada']),
+        observacao: z.string().optional(),
+      }))
+      .mutation(({ input, ctx }) => {
+        if (!dossieService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Dossiê indisponível.' })
+        return dossieService.decidirSugestao(input.id, input.decisao, ctx.userId ?? undefined, input.observacao)
+      }),
+
+    // Varredura da base. Master-only: fala com fontes externas em nome de toda
+    // a carteira e, na cauda da cadeia, gasta consulta paga do SERPRO.
+    backfillDossie: protectedProcedure
+      .input(z.object({
+        dryRun: z.boolean().default(true),
+        limite: z.number().int().min(1).max(5000).optional(),
+        delayMs: z.number().int().min(0).max(5000).optional(),
+      }))
+      .mutation(({ input, ctx }) => {
+        if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas o usuário master pode rodar a varredura.' })
+        if (!dossieBackfillService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Varredura indisponível.' })
+        return dossieBackfillService.executar({ ...input, empresaId: ctx.empresaId, usuarioId: ctx.userId ?? undefined })
+      }),
+
+    progressoBackfillDossie: protectedProcedure
+      .query(({ ctx }) => {
+        if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas o usuário master.' })
+        if (!dossieBackfillService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Varredura indisponível.' })
+        return dossieBackfillService.getProgresso()
+      }),
+
+    cancelarBackfillDossie: protectedProcedure
+      .mutation(({ ctx }) => {
+        if (!ctx.isMaster) throw new TRPCError({ code: 'FORBIDDEN', message: 'Apenas o usuário master.' })
+        if (!dossieBackfillService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Varredura indisponível.' })
+        dossieBackfillService.pedirCancelamento()
+        return { ok: true }
+      }),
+
+    // ── Capa DO CLIENTE (personalizada; cai na global quando vazia) ──
+    // Quem edita os detalhes do cliente edita a capa dele: a imagem virou dado
+    // do cadastro, não mais configuração do módulo (essa continua master-only).
+    getCapaCliente: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => {
+        if (!capaService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço de capa indisponível.' })
+        return capaService.getCapa(input.clienteId)
+      }),
+
+    setCapaCliente: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ clienteId: z.string(), url: z.string().nullable() }))
+      .mutation(({ input }) => {
+        if (!capaService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço de capa indisponível.' })
+        return capaService.setCapa(input.clienteId, input.url)
+      }),
+
+    sugerirCapas: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string().optional(), termo: z.string().optional(), page: z.number().int().min(1).max(20).optional() }))
+      .query(({ input }) => {
+        if (!capaService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço de capa indisponível.' })
+        return capaService.sugerirCapas(input)
+      }),
+
+    aplicarCapaSugerida: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ clienteId: z.string(), url: z.string() }))
+      .mutation(({ input }) => {
+        if (!capaService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço de capa indisponível.' })
+        return capaService.aplicarCapaSugerida(input.clienteId, input.url)
+      }),
+
+    // Busca a atividade na Receita sem sair do modal da capa.
+    buscarAtividadeParaCapa: writeSubProcedure(MODULE, 'manage_fiscal', 'Gerenciar aba fiscal')
+      .input(z.object({ clienteId: z.string() }))
+      .mutation(({ input }) => {
+        if (!capaService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço de capa indisponível.' })
+        return capaService.enriquecerEDevolverTermo(input.clienteId)
       }),
 
     // ── Enriquecimento de CNAE (BrasilAPI → SERPRO fallback) ─────────

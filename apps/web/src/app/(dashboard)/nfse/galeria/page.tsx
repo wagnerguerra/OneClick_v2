@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
-  FileText, Loader2, Search, Building2, Receipt,
+  FileText, Loader2, Search, Building2,
   Download, ExternalLink, Maximize2, X,
   ArrowDownToLine, ArrowUpFromLine, Calendar,
 } from 'lucide-react'
@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 
@@ -210,21 +211,21 @@ export default function NfseGaleriaPage() {
 
   return (
     <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: MODULE_COLOR }}>
-            <Receipt className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Galeria NFS-e</h1>
-            <p className="text-sm text-muted-foreground">Cliente → lista de notas de serviço → visualização do PDF</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <BackButton href="/nfse" />
-        </div>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+        <BackButton href="/nfse" />
+      </>}>
+        <h1 className="truncate">Galeria NFS-e</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>NFS-e</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Galeria</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Layout 3 colunas */}
       <div className="grid grid-cols-12 gap-3 min-h-[calc(100vh-180px)]">
@@ -465,7 +466,7 @@ export default function NfseGaleriaPage() {
                       {selecionado.prestadorRazao} · {fmtCnpj(selecionado.prestadorCnpj)} · {fmtDate(selecionado.dataEmissao)} · {fmtBRL(selecionado.valorServicos)}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                     
                     <Button
                       variant="outline"

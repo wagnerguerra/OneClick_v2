@@ -1426,7 +1426,19 @@ export class AgendaService {
       /** true quando o evento em conflito é particular e o solicitante NÃO pode
        *  vê-lo — o front explica que é um compromisso oculto (não um fantasma). */
       particularOculto?: boolean
+      /** Data (ou intervalo) do evento em conflito — dd/mm/aaaa. #365 */
+      data?: string
+      /** Quem agendou/criou o evento em conflito. Só quando o solicitante pode ver o
+       *  evento — não vaza o organizador de compromisso particular. #365 */
+      organizador?: string
     }> = []
+    // #365 — data do evento em conflito (com intervalo quando multi-dia).
+    const fmtDataConflito = (ini: Date, fim?: Date | null) => {
+      const f = (d: Date) => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' })
+      const a = f(ini)
+      const b = fim && new Date(fim).getTime() !== new Date(ini).getTime() ? f(fim) : null
+      return b ? `${a} — ${b}` : a
+    }
 
     // Se o tipo escolhido não bloqueia agenda, ele NUNCA gera nem sofre conflito —
     // retorna lista vazia sem nem consultar o BD. Defesa em profundidade: o frontend
@@ -1466,6 +1478,7 @@ export class AgendaService {
         participantes: { where: { isActive: true } },
         tipo: { select: { nome: true } },
         salaRef: { select: { id: true, nome: true } },
+        criador: { select: { name: true } }, // #365 — "agendado por"
       },
     })
 
@@ -1481,6 +1494,8 @@ export class AgendaService {
         const participantesEvento = ev.participantes.map(p => p.usuarioId).filter(Boolean) as string[]
         const conflitados = participanteIds.filter(id => participantesEvento.includes(id))
         if (conflitados.length > 0) {
+          const podeVer = this.podeVerEvento(ev, viewerId)
+          const dataConf = fmtDataConflito(ev.data, ev.dataFim)
           // Buscar nomes + avatar pra exibir no alerta de conflito
           const users = await prisma.user.findMany({
             where: { id: { in: conflitados } },
@@ -1495,7 +1510,10 @@ export class AgendaService {
               evento: this.tituloVisivelPara(ev, viewerId),
               horario: `${ev.horaInicio} — ${ev.horaFim}`,
               image: u.image ?? null,
-              particularOculto: !!ev.particular && !this.podeVerEvento(ev, viewerId),
+              particularOculto: !!ev.particular && !podeVer,
+              data: dataConf,
+              // #365 — só revela quem agendou quando o solicitante pode ver o evento.
+              organizador: podeVer ? (ev.criador?.name ?? undefined) : undefined,
             })
           }
         }
@@ -1509,7 +1527,13 @@ export class AgendaService {
     // produção, 97 eventos recentes gravam apenas a string legada `sala` contra
     // 27 com a FK. Uma reserva nova (com FK) nunca colidia com os que só têm a
     // string, e vice-versa. Comparar também pelo nome cobre os dois sentidos.
-    if (salaId || (sala && sala.trim())) {
+    // #365 — "Outro local" (sentinela sala='Outro', sem salaId) NÃO é sala real:
+    // significa "fora das salas da empresa". Nunca gera nem sofre conflito de sala —
+    // senão dois eventos em "outro local" disputariam uma "sala" inexistente. Vale
+    // para o alvo (pula todo o check) e para os existentes (ignora no loop).
+    const ehOutroLocal = (sId: string | null | undefined, sStr: string | null | undefined) =>
+      !sId && (sStr ?? '').trim().toLowerCase() === 'outro'
+    if ((salaId || (sala && sala.trim())) && !ehOutroLocal(salaId, sala)) {
       const salaInfo = salaId
         ? await prisma.agendaSala.findUnique({ where: { id: salaId }, select: { nome: true } })
         : null
@@ -1517,10 +1541,12 @@ export class AgendaService {
       const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
       const alvoNome = norm(salaNome)
       for (const ev of conflitantes) {
+        if (ehOutroLocal(ev.salaId, ev.sala)) continue // evento em "outro local" não ocupa sala
         // Identidade da sala do evento existente, nas duas gerações de dado.
         const mesmaFk = !!salaId && ev.salaId === salaId
         const mesmoNome = !!alvoNome && (norm(ev.salaRef?.nome) === alvoNome || norm(ev.sala) === alvoNome)
         if (mesmaFk || mesmoNome) {
+          const podeVer = this.podeVerEvento(ev, viewerId)
           conflitos.push({
             tipo: 'sala',
             nome: salaNome,
@@ -1528,7 +1554,10 @@ export class AgendaService {
             // evento particular alheio, redige o título (#HLP0270).
             evento: this.tituloVisivelPara(ev, viewerId),
             horario: `${ev.horaInicio} — ${ev.horaFim}`,
-            particularOculto: !!ev.particular && !this.podeVerEvento(ev, viewerId),
+            particularOculto: !!ev.particular && !podeVer,
+            data: fmtDataConflito(ev.data, ev.dataFim),
+            // #365 — só revela quem agendou quando o solicitante pode ver o evento.
+            organizador: podeVer ? (ev.criador?.name ?? undefined) : undefined,
           })
         }
       }

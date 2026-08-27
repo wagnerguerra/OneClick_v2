@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Search, Loader2, Trash2, RefreshCw, CheckCircle2, AlertTriangle,
-  MailWarning, Eye, Mail, Inbox, Filter, Info, ArrowLeft,
+  Eye, Mail, Inbox, Filter, Info, ArrowLeft,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreVertical,
   Building2, FileText, AlertCircle,
 } from 'lucide-react'
@@ -16,6 +16,8 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -444,26 +446,8 @@ export default function DtePage() {
       {/* ============================================================ */}
       {/* Header */}
       {/* ============================================================ */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md" style={{ backgroundColor: MODULE_COLOR }}>
-            <MailWarning className="h-6 w-6" />
-          </div>
-          <div>
-            {view === 'clientes' ? (
-              <>
-                <h1 className="text-xl font-semibold">DT-e ES — Domicilio Tributario Eletronico</h1>
-                <p className="text-sm text-muted-foreground">Mensagens do Domicilio Tributario Eletronico — SEFAZ/ES</p>
-              </>
-            ) : (
-              <>
-                <h1 className="text-xl font-semibold">{selectedCliente?.razao_social}</h1>
-                <p className="text-sm text-muted-foreground">{formatDoc(selectedCliente?.documento || '')}</p>
-              </>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {view === 'mensagens' && selectedCliente && (
             <>
               <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs">
@@ -528,8 +512,29 @@ export default function DtePage() {
               <ArrowLeft className="h-4 w-4" /> Voltar
             </Button>
           )}
+      </>}>
+        <h1 className="truncate">DT-e ES — Domicilio Tributario Eletronico</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>DT-e ES</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <div>
+            {view === 'clientes' ? (
+              <>
+              </>
+            ) : (
+              <>
+                <h1 className="text-xl font-semibold">{selectedCliente?.razao_social}</h1>
+                <p className="text-sm text-muted-foreground">{formatDoc(selectedCliente?.documento || '')}</p>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      </PageHeaderBar>
 
       {/* ============================================================ */}
       {/* VIEW 1: Lista de Clientes (agrupado) */}
@@ -659,10 +664,10 @@ export default function DtePage() {
                   <TableHeader>
                     <TableRow className="whitespace-nowrap">
                       <TableHead>Razao Social</TableHead>
-                      <TableHead className="w-[150px]">CNPJ</TableHead>
-                      <TableHead className="w-[80px] text-center">Msgs</TableHead>
+                      <TableHead className="hidden lg:table-cell w-[150px]">CNPJ</TableHead>
+                      <TableHead className="hidden md:table-cell w-[80px] text-center">Msgs</TableHead>
                       <TableHead className="w-[80px] text-center">Nao lidas</TableHead>
-                      <TableHead className="w-[120px]">Ultima msg</TableHead>
+                      <TableHead className="hidden xl:table-cell w-[120px]">Ultima msg</TableHead>
                       <TableHead className="w-[44px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -674,8 +679,8 @@ export default function DtePage() {
                         onClick={() => navigateToMensagens(cliente)}
                       >
                         <TableCell className="font-medium text-sm truncate max-w-[300px] uppercase">{cliente.razao_social}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs">{formatDoc(cliente.documento)}</TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{formatDoc(cliente.documento)}</TableCell>
+                        <TableCell className="hidden md:table-cell text-center">
                           <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-[10px]">{cliente.total}</Badge>
                         </TableCell>
                         <TableCell className="text-center">
@@ -684,7 +689,7 @@ export default function DtePage() {
                             : <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 text-[10px]">0</Badge>
                           }
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-xs">{cliente.ultimaMensagem || '--'}</TableCell>
+                        <TableCell className="hidden xl:table-cell text-muted-foreground text-xs">{cliente.ultimaMensagem || '--'}</TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -812,7 +817,7 @@ export default function DtePage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="whitespace-nowrap">
-                      <TableHead className="w-[36px]">
+                      <TableHead className="hidden sm:table-cell w-[36px]">
                         <input
                           type="checkbox"
                           className="rounded border-gray-300"
@@ -823,7 +828,7 @@ export default function DtePage() {
                           }}
                         />
                       </TableHead>
-                      <TableHead className="w-[100px]">Tipo</TableHead>
+                      <TableHead className="hidden md:table-cell w-[100px]">Tipo</TableHead>
                       <TableHead className="w-[44px]"></TableHead>
                       <TableHead>Assunto</TableHead>
                       <TableHead className="w-[110px]">Data</TableHead>
@@ -841,7 +846,7 @@ export default function DtePage() {
                         )}
                         onClick={() => setDetailMsg(msg)}
                       >
-                        <TableCell onClick={e => e.stopPropagation()}>
+                        <TableCell className="hidden sm:table-cell" onClick={e => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             className="rounded border-gray-300"
@@ -852,7 +857,7 @@ export default function DtePage() {
                             }}
                           />
                         </TableCell>
-                        <TableCell><TipoBadge tipo={msg.tipo} /></TableCell>
+                        <TableCell className="hidden md:table-cell"><TipoBadge tipo={msg.tipo} /></TableCell>
                         <TableCell>
                           {msg.status === 'nao_lida'
                             ? <AlertCircle className="h-4 w-4 text-amber-500" />

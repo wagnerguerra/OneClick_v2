@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import {
-  Search, Plus, Loader2, Check, X, ClipboardList, Info, RotateCcw, Trash2,
+  Plus, Loader2, Check, X, ClipboardList, Info, RotateCcw, Trash2,
   ThumbsUp, ThumbsDown, CalendarClock,
 } from 'lucide-react'
 import {
@@ -14,6 +14,8 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import {
@@ -217,28 +219,8 @@ export default function AnaliseContextoDetalhePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <Search className="h-6 w-6" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="truncate">{r.identificacao}</h1>
-              <Badge variant="outline" className={cn('text-[11px]', ANALISE_BADGE[r.analise])}>
-                {ANALISE_CONTEXTO_ANALISE_LABEL[r.analise] ?? r.analise}
-              </Badge>
-              <Badge variant="outline" className={cn('text-[11px]', TIPO_BADGE[r.tipo])}>
-                {ANALISE_CONTEXTO_TIPO_LABEL[r.tipo] ?? r.tipo}
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {r.processo ?? 'Sem processo'} · Risco {r.grauRisco ?? '—'} · {r.acoes.length} {r.acoes.length === 1 ? 'ação' : 'ações'} no plano
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {podeEscrever && !r.avaliado && (
             <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white"
               onClick={() => { setAvTexto(r.avaliacao ?? ''); setAvEficaz(r.eficaz); setAvData(hoje()); setAvAberta(true) }}>
@@ -246,8 +228,29 @@ export default function AnaliseContextoDetalhePage() {
             </Button>
           )}
           <BackButton href="/analise-contexto" label="Voltar" />
+      </>}>
+        <h1 className="truncate">{r.identificacao}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Análise de Contexto</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="min-w-0">
+              <Badge variant="outline" className={cn('text-[11px]', ANALISE_BADGE[r.analise])}>
+                {ANALISE_CONTEXTO_ANALISE_LABEL[r.analise] ?? r.analise}
+              </Badge>
+              <Badge variant="outline" className={cn('text-[11px]', TIPO_BADGE[r.tipo])}>
+                {ANALISE_CONTEXTO_TIPO_LABEL[r.tipo] ?? r.tipo}
+              </Badge>
+            <p className="text-sm text-muted-foreground">
+              {r.processo ?? 'Sem processo'} · Risco {r.grauRisco ?? '—'} · {r.acoes.length} {r.acoes.length === 1 ? 'ação' : 'ações'} no plano
+            </p>
+          </div>
         </div>
-      </div>
+      </PageHeaderBar>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
@@ -305,7 +308,7 @@ export default function AnaliseContextoDetalhePage() {
                         )}
                       </div>
                       {podeEscrever && (
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                           {!a.concluida && (
                             <Button variant="soft-info" size="icon-sm" onClick={() => abrirEditarAcao(a)} title="Editar">
                               <ClipboardList className="h-3.5 w-3.5" />

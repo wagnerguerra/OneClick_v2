@@ -87,7 +87,7 @@ function DiaTooltip({ feriados, posicaoTopo }: { feriados: Feriado[]; posicaoTop
   return (
     <div
       className={cn(
-        'invisible opacity-0 group-hover:visible group-hover:opacity-100',
+        'invisible opacity-100 group-hover:visible sm:opacity-0 sm:group-hover:opacity-100',
         'absolute left-1/2 -translate-x-1/2 z-50 w-[240px] pointer-events-none',
         'transition-opacity duration-150',
         posicaoTopo ? 'bottom-full mb-2' : 'top-full mt-2',

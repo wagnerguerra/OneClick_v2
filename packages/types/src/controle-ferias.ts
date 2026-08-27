@@ -46,13 +46,45 @@ export const criarFeriasEventoSchema = z.object({
   path: ['dataFim'],
 })
 
+/**
+ * Correção de um gozo já lançado. Cada campo é opcional porque a tela edita
+ * uma célula por vez; a validação de ordem das datas roda no service, que
+ * conhece os valores atuais do registro.
+ */
+export const atualizarFeriasEventoSchema = z.object({
+  id: z.string().min(1),
+  dataInicio: dataISO.optional(),
+  dataFim: dataISO.optional(),
+  descricao: z.string().max(200).optional().nullable(),
+})
+
 export const listarFeriasPeriodosSchema = paginationSchema.extend({
   colaboradorId: z.string().optional(),
   /** ABERTOS = fora do histórico; HISTORICO = consolidados. */
   situacao: z.enum(['ABERTOS', 'HISTORICO']).optional(),
+  /**
+   * A lista segue o cadastro de usuários: por padrão mostra só quem está ATIVO
+   * no v2. `TODOS` inclui desligados e os que nem existem mais no cadastro
+   * (períodos que ficaram só com o nome no resíduo).
+   */
+  colaboradores: z.enum(['ATIVOS', 'TODOS']).optional(),
+  /**
+   * Recorte vindo dos indicadores do topo da tela. São os mesmos números do
+   * painel de relatórios, só que aplicados à listagem — clicar no cartão
+   * mostra exatamente as linhas que o formam.
+   */
+  indicador: z.enum(['SALDO', 'VENCIDOS', 'VENCENDO', 'GOZO_MES', 'A_PAGAR']).optional(),
 })
 
+/** Filtro comum dos relatórios: recorte por área e inclusão de desligados. */
+export const filtroRelatorioFeriasSchema = z.object({
+  areaId: z.string().optional(),
+  incluirInativos: z.boolean().optional(),
+})
+
+export type FiltroRelatorioFeriasInput = z.infer<typeof filtroRelatorioFeriasSchema>
 export type CriarFeriasPeriodoInput = z.infer<typeof criarFeriasPeriodoSchema>
 export type AtualizarFeriasPeriodoInput = z.infer<typeof atualizarFeriasPeriodoSchema>
 export type CriarFeriasEventoInput = z.infer<typeof criarFeriasEventoSchema>
+export type AtualizarFeriasEventoInput = z.infer<typeof atualizarFeriasEventoSchema>
 export type ListarFeriasPeriodosInput = z.infer<typeof listarFeriasPeriodosSchema>

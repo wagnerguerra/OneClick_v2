@@ -7,7 +7,7 @@ import {
   Plus, Pencil,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
-  UserPlus, FileUp, Download, Users, UserX,
+  FileUp, Download, Users, UserX,
 } from 'lucide-react'
 import {
   Button, Input, Badge,
@@ -15,6 +15,7 @@ import {
   Card,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { exportToExcel } from '@/lib/export-data'
@@ -22,7 +23,6 @@ import { TIPO_SOCIO_LABELS } from '@saas/types'
 import { ImportModal } from './_components/import-modal'
 import { QsaImportModal } from './_components/qsa-import-modal'
 import { BackButton } from '@/components/ui/back-button'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
 import type { inferRouterOutputs } from '@trpc/server'
 import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
 
@@ -107,19 +107,23 @@ export default function SociosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="cadastros" icon={UserPlus} />
-          <div><h1>Sócios</h1><p className="text-sm text-muted-foreground">Gerencie o quadro societário</p></div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" asChild><Link href="/socios/new"><Plus className="h-4 w-4" />Novo Sócio</Link></Button>
           <Button variant="default" size="sm" onClick={() => setQsaOpen(true)} className="gap-1"><Users className="h-4 w-4" />Importar QSA</Button>
           <Button variant="soft" size="sm" onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4" />Excel</Button>
           <BackButton href="/dashboard" label="Voltar" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Sócios</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Sócios</span>
+        </p>
+      </PageHeaderBar>
 
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">

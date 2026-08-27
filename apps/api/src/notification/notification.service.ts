@@ -35,6 +35,13 @@ export const NOTIFICATION_ORIGENS: OrigemCatalogo[] = [
     removivelPadrao: false,
   },
   {
+    origem: 'controle-ferias',
+    label: 'Controle de Férias',
+    descricao: 'Férias vencidas e a vencer — somem quando o período é gozado ou regularizado.',
+    modulo: 'Controle de Férias',
+    removivelPadrao: false,
+  },
+  {
     origem: 'servicos',
     label: 'Meus Serviços',
     descricao: 'Atribuição e atraso de execução de serviços.',

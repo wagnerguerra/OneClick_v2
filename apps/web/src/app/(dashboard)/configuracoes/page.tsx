@@ -5,6 +5,7 @@ import {
   Settings, Save, Eye, EyeOff, HelpCircle, X, Loader2,
   Shield, Database, Server, Mail, CreditCard, HardDrive,
   Landmark, Globe, MessageSquare, Bot, Brain, Calendar,
+  FileSearch,
   Key, Clock, type LucideIcon, Zap, CheckCircle2, XCircle,
   Play, Terminal, Bookmark, FolderOpen, Trash2, ChevronDown, Search, Pencil, Check, Maximize2, Minimize2,
   FileSignature, Bell, Lock, Unlock, Headphones, HardDriveDownload, ClipboardCheck,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { Button, Input, Label, Card, CardHeader, cn, Switch } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
@@ -47,6 +49,7 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
   'Stripe': CreditCard,
   'WhatsApp': MessageSquare,
   'Captcha': Bot,
+  'Dossiê e Imagens': FileSearch,
   'Abas': Bookmark,
   'Notificações': Bell,
   'Helpdesk': Headphones,
@@ -555,16 +558,8 @@ export default function ConfiguracoesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-orange-500 text-white shadow-md">
-            <Settings className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Configurações do Sistema</h1>
-            <p className="text-sm text-muted-foreground">Gerencie variáveis de ambiente e integrações</p>
-          </div>
-        </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -585,7 +580,16 @@ export default function ConfiguracoesPage() {
             Centro de agendamentos
           </Button>
         </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Configurações do Sistema</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Configurações Gerais</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Card com abas verticais */}
       <Card>
@@ -961,7 +965,7 @@ export default function ConfiguracoesPage() {
                                         <div className="text-[10px] text-muted-foreground font-mono truncate">{q.sql}</div>
                                       </div>
                                       {editingQueryId !== q.id && (
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                        <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                                           <button type="button" onClick={(e) => { e.stopPropagation(); setEditingQueryId(q.id); setEditingQueryName(q.name) }} className="text-muted-foreground hover:text-orange-600" title="Renomear">
                                             <Pencil className="h-3.5 w-3.5" />
                                           </button>

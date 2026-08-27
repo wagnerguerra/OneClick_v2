@@ -9,6 +9,8 @@
  */
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { getApiUrl } from '@/lib/api-url'
 import {
   Smartphone,
@@ -20,7 +22,6 @@ import {
   Clock,
   History,
   MonitorDown,
-  DownloadCloud,
   Server,
 } from 'lucide-react'
 import { Button, Card, cn } from '@saas/ui'
@@ -155,18 +156,20 @@ export default function DownloadsPage() {
   const launcherExe = launcher?.files?.find((f) => f.endsWith('.exe'))
 
   return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
-      {/* Cabeçalho */}
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <DownloadCloud className="h-6 w-6 text-muted-foreground" />
-          Downloads
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Aplicativos do OneClick — instale onde precisar para acompanhar suas
-          obrigações, conversar com a equipe e gerenciar os serviços.
+    <>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">Downloads</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Ajuda</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Downloads</span>
         </p>
-      </div>
+      </PageHeaderBar>
+
+      <div className="max-w-5xl mx-auto space-y-6">
 
       <div className="grid md:grid-cols-2 gap-4">
         {/* ============================================================ */}
@@ -435,6 +438,7 @@ export default function DownloadsPage() {
           )}
         </Card>
       </div>
-    </div>
+      </div>
+    </>
   )
 }

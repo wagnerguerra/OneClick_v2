@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
@@ -54,9 +55,6 @@ interface AtivoRow {
 interface TipoOpt { id: string; nome: string; cor: string | null; icone: string | null; _count?: { ativos: number; categorias: number } }
 
 const PAGE_SIZES = [10, 20, 50, 100]
-// Cor do módulo TI — vem das CSS vars do ThemeProvider (editável no Design System).
-// Fallback estático mantido pra primeiro render antes do fetch.
-const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
 
 export default function AtivosPage() {
   const [tipos, setTipos] = useState<TipoOpt[]>([])
@@ -148,24 +146,21 @@ export default function AtivosPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div
-            className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-sm"
-            style={{ background: MODULE_COLOR }}
-          >
-            <Database className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Gestão de Ativos</h1>
-            <p className="text-sm text-muted-foreground">Patrimônio de TI, mobiliário e equipamentos</p>
-          </div>
-        </div>
-        <Button onClick={() => setCreateOpen(true)} className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white">
-          <Plus className="h-4 w-4" /> Novo ativo
-        </Button>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+          <Button onClick={() => setCreateOpen(true)} className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white">
+            <Plus className="h-4 w-4" /> Novo ativo
+          </Button>
+      </>}>
+        <h1 className="truncate">Gestão de Ativos</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>TI</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Gestão de Ativos</span>
+        </p>
+      </PageHeaderBar>
 
       {/* KPIs — vêm do getEstatisticas (consolidado backend, ignora filtros/paginação) */}
       <Card className="p-3">
@@ -256,7 +251,7 @@ export default function AtivosPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[36px]">
+              <TableHead className="hidden sm:table-cell w-[36px]">
                 <input
                   type="checkbox"
                   checked={data.length > 0 && data.every(a => selectedIds.has(a.id))}
@@ -270,10 +265,10 @@ export default function AtivosPage() {
               </TableHead>
               <TableHead className="w-[88px]">Tag</TableHead>
               <TableHead>Ativo</TableHead>
-              <TableHead className="w-[180px]">Categoria</TableHead>
-              <TableHead className="w-[200px]">Responsável</TableHead>
+              <TableHead className="hidden lg:table-cell w-[180px]">Categoria</TableHead>
+              <TableHead className="hidden md:table-cell w-[200px]">Responsável</TableHead>
               <TableHead className="w-[120px]">Status</TableHead>
-              <TableHead className="w-[140px] text-right">Valor</TableHead>
+              <TableHead className="hidden xl:table-cell w-[140px] text-right">Valor</TableHead>
               <TableHead className="w-[60px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -307,7 +302,7 @@ export default function AtivosPage() {
               )
               return (
                 <TableRow key={a.id} className="hover:bg-muted/40">
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(a.id)}
@@ -334,13 +329,13 @@ export default function AtivosPage() {
                       )}
                     </Link>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     <div className="flex flex-col">
                       <span className="text-[12px] font-medium" style={{ color: a.tipo.cor ?? undefined }}>{a.tipo.nome}</span>
                       <span className="text-[10px] text-muted-foreground">{a.categoria.nome}</span>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden md:table-cell">
                     {a.responsavel ? (
                       <div className="text-[12px] font-medium truncate" title={a.responsavel.name}>{a.responsavel.name}</div>
                     ) : a.cliente ? (
@@ -358,7 +353,7 @@ export default function AtivosPage() {
                       {meta.label}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="hidden xl:table-cell text-right">
                     <div className="text-[12px] font-medium tabular-nums">{fmtBRL(a.valorAquisicao)}</div>
                     {valorDeprec !== null && a.valorAquisicao && (
                       <div className="text-[10px] text-muted-foreground tabular-nums" title="Valor depreciado atual">

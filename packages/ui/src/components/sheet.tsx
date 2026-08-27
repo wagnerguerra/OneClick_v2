@@ -39,7 +39,10 @@ const SheetContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'sheet-content fixed z-50 flex flex-col bg-card shadow-2xl border-l border-border/60 overflow-hidden inset-y-0 w-[70vw]',
+        // Largura: tela inteira no celular, 70% a partir de `sm`. Um painel de
+        // 70vw num aparelho de 390px sobra 117px de fundo inútil e espreme o
+        // conteúdo — no celular o certo é ocupar tudo.
+        'sheet-content fixed z-50 flex flex-col bg-card shadow-2xl border-l border-border/60 overflow-hidden inset-y-0 w-full sm:w-[70vw]',
         side === 'right' && 'right-0 sheet-slide-right',
         side === 'left' && 'left-0 sheet-slide-left',
         SIZES[size],

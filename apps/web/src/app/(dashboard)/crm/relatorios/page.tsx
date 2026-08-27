@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import {
   TrendingUp, Target, ArrowRight, Clock, Loader2, BarChart3,
 } from 'lucide-react'
@@ -12,6 +13,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { BackButton } from '@/components/ui/back-button'
@@ -66,16 +68,8 @@ export default function CrmRelatoriosPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <BackButton href="/crm" />
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Relatorios do CRM</h1>
-            <p className="text-xs text-muted-foreground">Analise de oportunidades, funil e desempenho</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Select value={periodo} onValueChange={setPeriodo}>
             <SelectTrigger className="w-[180px] h-8 text-xs">
               <SelectValue />
@@ -86,8 +80,19 @@ export default function CrmRelatoriosPage() {
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </div>
+          <BackButton href="/crm" />
+      </>}>
+        <h1 className="truncate">Relatorios do CRM</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Comercial</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>CRM</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Relatórios</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Tabs */}
       <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
@@ -147,7 +152,7 @@ function TabFunil({ dias }: { dias?: number }) {
   return (
     <div className="space-y-4">
       {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard label="Total de Oportunidades" value={String(data.totalOportunidades)} />
         <KpiCard label="Valor Total" value={formatCurrency(data.valorTotal)} />
         <KpiCard label="Taxa de Conversao Geral" value={`${data.taxaGeral}%`} />

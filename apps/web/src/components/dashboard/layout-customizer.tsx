@@ -80,7 +80,7 @@ export function LayoutCustomizer() {
             <div className="flex-1 overflow-y-auto nice-scrollbar">
               {/* Aparência — tema */}
               <Secao titulo="Aparência">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {([
                     { v: 'light', label: 'Claro', Icon: Sun },
                     { v: 'dark', label: 'Escuro', Icon: Moon },

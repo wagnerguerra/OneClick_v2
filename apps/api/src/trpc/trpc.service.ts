@@ -23,6 +23,10 @@ import { AdminTenantService } from '../admin-tenant/admin-tenant.service'
 import { createAdminTenantRouter } from '../admin-tenant/admin-tenant.router'
 import { ClienteService } from '../cliente/cliente.service'
 import { ClienteEnriquecimentoService } from '../cliente/cliente-enriquecimento.service'
+import { ClienteCapaService } from '../cliente/cliente-capa.service'
+import { DossieService } from '../cliente/dossie/dossie.service'
+import { DossieBackfillService } from '../cliente/dossie/dossie-backfill.service'
+import { ClienteLogoService } from '../cliente/cliente-logo.service'
 import { SincronizarResponsaveisService } from '../cliente/sincronizar-responsaveis.service'
 import { ImportOneclickService } from '../cliente/import-oneclick.service'
 import { DuplicidadeService } from '../cliente/duplicidade.service'
@@ -176,9 +180,12 @@ import { createDocumentoExternoRouter } from '../documento-externo/documento-ext
 import { QualidadeService } from '../qualidade/qualidade.service'
 import { createQualidadeRouter } from '../qualidade/qualidade.router'
 import { ControleFeriasService } from '../controle-ferias/controle-ferias.service'
+import { ControleFeriasReportsService } from '../controle-ferias/controle-ferias-reports.service'
 import { createControleFeriasRouter } from '../controle-ferias/controle-ferias.router'
 import { ColetaService } from '../coleta/coleta.service'
+import { ContatoService } from '../contato/contato.service'
 import { createColetaRouter } from '../coleta/coleta.router'
+import { createContatoRouter } from '../contato/contato.router'
 import { createManifestacaoRouter } from '../manifestacao/manifestacao.router'
 import { MinhasObrigacoesService } from '../minhas-obrigacoes/minhas-obrigacoes.service'
 import { AtivoService } from '../ativo/ativo.service'
@@ -654,6 +661,10 @@ export class TrpcService {
     @Inject(ClienteService) private readonly clienteService: ClienteService,
     @Inject(ImportOneclickService) private readonly importOneclickService: ImportOneclickService,
     @Inject(ClienteEnriquecimentoService) private readonly clienteEnriquecimentoService: ClienteEnriquecimentoService,
+    @Inject(ClienteCapaService) private readonly clienteCapaService: ClienteCapaService,
+    @Inject(DossieService) private readonly dossieService: DossieService,
+    @Inject(DossieBackfillService) private readonly dossieBackfillService: DossieBackfillService,
+    @Inject(ClienteLogoService) private readonly clienteLogoService: ClienteLogoService,
     @Inject(SincronizarResponsaveisService) private readonly sincronizarResponsaveisService: SincronizarResponsaveisService,
     @Inject(LegacyImportService) private readonly legacyImportService: LegacyImportService,
     @Inject(SciService) private readonly sciService: SciService,
@@ -751,7 +762,9 @@ export class TrpcService {
     @Inject(DocumentoExternoService) private readonly documentoExternoService: DocumentoExternoService,
     @Inject(QualidadeService) private readonly qualidadeService: QualidadeService,
     @Inject(ControleFeriasService) private readonly controleFeriasService: ControleFeriasService,
+    @Inject(ControleFeriasReportsService) private readonly controleFeriasReportsService: ControleFeriasReportsService,
     @Inject(ColetaService) private readonly coletaService: ColetaService,
+    @Inject(ContatoService) private readonly contatoService: ContatoService,
     @Inject(ClientErrorService) private readonly clientErrorService: ClientErrorService,
     @Inject(ThemeService) private readonly themeService: ThemeService,
     @Inject(DanfeService) private readonly danfeService: DanfeService,
@@ -803,7 +816,7 @@ export class TrpcService {
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
       adminTenant: createAdminTenantRouter(this.adminTenantService),
-      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService),
+      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService, this.clienteCapaService, this.dossieService, this.dossieBackfillService, this.clienteLogoService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
       fornecedor: createFornecedorRouter(this.fornecedorService),
@@ -867,8 +880,9 @@ export class TrpcService {
       naoConformidade: createNaoConformidadeRouter(this.naoConformidadeService),
       documentoExterno: createDocumentoExternoRouter(this.documentoExternoService),
       qualidade: createQualidadeRouter(this.qualidadeService),
-      controleFerias: createControleFeriasRouter(this.controleFeriasService),
+      controleFerias: createControleFeriasRouter(this.controleFeriasService, this.controleFeriasReportsService),
       coleta: createColetaRouter(this.coletaService),
+      contato: createContatoRouter(this.contatoService),
       minhasObrigacoes: createMinhasObrigacoesRouter(this.minhasObrigacoesService),
     })
   }

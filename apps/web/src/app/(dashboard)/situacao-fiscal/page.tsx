@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Search, Loader2, Download, Trash2, RefreshCw, CheckCircle2, XCircle, AlertTriangle, Clock,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText, Eye, RotateCcw,
-  Archive, Filter, ChevronDown, X, Shield, Play, Square, Users,
+  Archive, Filter, ChevronDown, X, Play, Square, Users,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card,
@@ -13,7 +13,8 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -556,7 +557,7 @@ export default function SituacaoFiscalPage() {
                   {loteSelecionados.size} de {loteClientes.length}
                 </Badge>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                 <label className="text-[11px] text-muted-foreground whitespace-nowrap">Intervalo:</label>
                 <Select value={String(loteDelay)} onValueChange={v => setLoteDelay(Number(v))} disabled={loteStatus === 'running'}>
                   <SelectTrigger className="h-8 w-[80px] text-xs"><SelectValue /></SelectTrigger>
@@ -717,18 +718,8 @@ export default function SituacaoFiscalPage() {
         </>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="fiscal" icon={Shield} />
-          <div>
-            <h1>{trashMode ? 'Lixeira — Situação Fiscal' : 'Situação Fiscal'}</h1>
-            <p className="text-sm text-muted-foreground">
-              {trashMode ? 'Consultas excluídas. Restaure ou exclua permanentemente.' : 'Consulte a situação fiscal de clientes junto à Receita Federal via SERPRO'}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {!trashMode ? (
             <>
               <Button variant="success" size="sm" onClick={handleConsultar} disabled={consultando} className="gap-1.5">
@@ -754,8 +745,17 @@ export default function SituacaoFiscalPage() {
               <RotateCcw className="h-4 w-4" />Voltar aos ativos
             </Button>
           )}
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">{trashMode ? 'Lixeira — Situação Fiscal' : 'Situação Fiscal'}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Situação Fiscal</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Filtros */}
       {!trashMode && (

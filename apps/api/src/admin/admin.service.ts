@@ -39,6 +39,7 @@ const SECRET_KEYS = new Set([
   'TWILIO_AUTH_TOKEN',
   'WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_APP_SECRET',
   'CAPTCHA_2CAPTCHA_API_KEY', 'CAPTCHA_FREECAPTCHA_API_KEY',
+  'PEXELS_API_KEY',
   'OPENAI_API_KEY',
   'GOOGLE_CLIENT_SECRET',
   'GOOGLE_CALENDAR_CLIENT_SECRET',
@@ -118,6 +119,12 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'TWILIO_ACCOUNT_SID', label: 'Account SID (Twilio)', group: 'WhatsApp', type: 'text' },
   { key: 'TWILIO_AUTH_TOKEN', label: 'Auth Token (Twilio)', group: 'WhatsApp', type: 'password', secret: true },
   { key: 'TWILIO_WHATSAPP_FROM', label: 'Número WhatsApp (Twilio)', group: 'WhatsApp', type: 'text', placeholder: '+5527999078863' },
+
+  // Dossiê do Cliente e capa — fontes externas de dados e de imagem
+  { key: 'PEXELS_API_KEY', label: 'API Key (Pexels)', group: 'Dossiê e Imagens', type: 'password', secret: true, help: 'Chave gratuita de pexels.com/api — habilita as fotos sugeridas em "Alterar capa" no cliente. Sem ela, só o envio manual funciona' },
+  { key: 'DOSSIE_PROVEDORES', label: 'Ordem dos provedores de CNPJ', group: 'Dossiê e Imagens', type: 'text', placeholder: 'opencnpj,brasilapi,serpro', help: 'Vazio usa opencnpj,brasilapi,serpro. As duas primeiras são gratuitas; o SERPRO é pago por consulta e só entra quando as públicas falham' },
+  { key: 'DOSSIE_SITUACAO_ENABLED', label: 'Revalidar situação cadastral diariamente', group: 'Dossiê e Imagens', type: 'text', default: '0', help: '1 = liga o job diário que avisa quando um cliente ativo é baixado, suspenso ou declarado inapto na Receita' },
+  { key: 'DOSSIE_SITUACAO_CRON', label: 'Horário da revalidação', group: 'Dossiê e Imagens', type: 'text', placeholder: '0 6 * * *', help: 'Formato cron. Padrão: todo dia às 6h' },
 
   // Captcha Providers
   { key: 'CAPTCHA_2CAPTCHA_API_KEY', label: 'API Key (2Captcha)', group: 'Captcha', type: 'password', secret: true, help: 'Chave da API do 2captcha.com — usado para resolver hCaptcha, reCAPTCHA e captchas de imagem' },

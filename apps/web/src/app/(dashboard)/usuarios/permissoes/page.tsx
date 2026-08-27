@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ShieldCheck, Loader2, Search, Users, ChevronDown, ChevronRight, Save, RotateCcw,
+  Loader2, Search, Users, ChevronDown, ChevronRight, Save, RotateCcw,
   Circle, Wrench, type LucideIcon,
 } from 'lucide-react'
 import { Button, Card, Input, Badge, Checkbox, cn } from '@saas/ui'
@@ -11,6 +11,8 @@ import { MODULE_GROUPS, MODULE_LABELS, PLATFORM_ADMIN_MODULES } from '@saas/type
 import { BackButton } from '@/components/ui/back-button'
 import { MODULE_ICONS, GROUP_ICONS } from '@/lib/navigation'
 import { useModuleColors } from '@/components/theme/module-colors'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -192,18 +194,8 @@ export default function PermissoesEmMassaPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <ShieldCheck className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Permissões em massa</h1>
-            <p className="text-sm text-muted-foreground">Libere blocos e módulos para vários usuários de uma vez</p>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {qtdPendentes > 0 && (
             <Button size="sm" variant="outline" onClick={() => setPendentes({})}>
               <RotateCcw className="h-3.5 w-3.5" /> Descartar
@@ -214,8 +206,18 @@ export default function PermissoesEmMassaPage() {
             {salvando ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Aplicando…</> : <><Save className="h-3.5 w-3.5" /> Aplicar</>}
           </Button>
           <BackButton href="/usuarios" label="Voltar" />
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Permissões em massa</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Usuários</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Permissões em massa</span>
+        </p>
+      </PageHeaderBar>
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         {/* ── quem recebe ── */}

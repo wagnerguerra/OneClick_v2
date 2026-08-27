@@ -390,7 +390,7 @@ function KanbanCardContent({
         {showMenu && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <button className="p-0.5 rounded hover:bg-muted text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+              <button className="p-0.5 rounded hover:bg-muted text-muted-foreground opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                 <MoreVertical className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>

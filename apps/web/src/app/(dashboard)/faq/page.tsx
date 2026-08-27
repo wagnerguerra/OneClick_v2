@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { HelpCircle, Search, ArrowRight, Plus, MoreVertical, Pencil, Trash2, EyeOff } from 'lucide-react'
+import { Search, ArrowRight, Plus, MoreVertical, Pencil, Trash2, EyeOff } from 'lucide-react'
 import {
   Card, CardContent, Input, Button,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -12,11 +12,11 @@ import { TEXT } from '@/lib/color-styles'
 import { useState, useMemo, useEffect, useCallback, type ComponentType } from 'react'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { trpc } from '@/lib/trpc'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { alerts } from '@/lib/alerts'
 import { FAQ_ARTIGOS, CATEGORIA_ORDEM } from './_components/articles-catalog'
 import { resolveFaqIcon } from './_components/faq-icons'
 
-const MODULE_COLOR = 'var(--mod-faq, #0891b2)' // cyan-600
 
 /** Artigo unificado p/ render no hub (código ou banco). */
 interface HubArtigo {
@@ -44,9 +44,6 @@ export default function FaqHubPage() {
   const { profile } = useCurrentUserProfile()
   const isMaster = !!(profile?.isMaster || profile?.isEmpresaMaster)
   const router = useRouter()
-  // Header padronizado com /materiais/icon_faqs.png; se a imagem não existir,
-  // cai no ícone atual (HelpCircle) — some o fallback assim que ela for colocada.
-  const [iconErro, setIconErro] = useState(false)
 
   const carregar = useCallback(async () => {
     try {
@@ -117,33 +114,21 @@ export default function FaqHubPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          {iconErro ? (
-            <div
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-              style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-            >
-              <HelpCircle className="h-6 w-6" />
-            </div>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src="/materiais/icon_faqs.png" alt="FAQ" className="h-12 w-12 object-contain shrink-0" onError={() => setIconErro(true)} />
-          )}
-          <div>
-            <h1>FAQ&apos;s</h1>
-            <p className="text-sm text-muted-foreground">
-              Documentação dos fluxos do sistema · {total} artigo{total === 1 ? '' : 's'}
-            </p>
-          </div>
-        </div>
-        {isMaster && (
-          <Button variant="success" size="sm" asChild>
-            <Link href="/faq/novo"><Plus className="h-4 w-4" /> Novo artigo</Link>
-          </Button>
-        )}
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={isMaster ? (
+        <Button variant="success" size="sm" asChild>
+          <Link href="/faq/novo"><Plus className="h-4 w-4" /> Novo artigo</Link>
+        </Button>
+      ) : undefined}>
+        <h1 className="truncate">FAQ&apos;s</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>FAQ&apos;s</span>
+          <span className="text-muted-foreground/50">·</span>
+          <span>{total} artigo{total === 1 ? '' : 's'}</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Busca */}
       <div className="relative max-w-md">

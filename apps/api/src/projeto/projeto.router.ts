@@ -41,6 +41,17 @@ export function createProjetoRouter(svc: ProjetoService) {
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => svc.deleteProjeto(input.id)),
 
+    // Alimentam os campos de vínculo do formulário. Ficam no módulo Projetos
+    // porque quem edita projeto não tem, necessariamente, acesso ao cadastro
+    // de clientes nem à administração de usuários.
+    listClientesVinculaveis: readProcedure(MODULE)
+      .input(z.object({ busca: z.string().optional() }).optional())
+      .query(({ input }) => svc.listClientesVinculaveis(input?.busca)),
+
+    listPessoas: readProcedure(MODULE)
+      .input(z.object({ busca: z.string().optional() }).optional())
+      .query(({ input }) => svc.listPessoas(input?.busca)),
+
     // ── Tarefas ───────────────────────────────────────────────
     listTarefas: readProcedure(MODULE)
       .input(listTarefasSchema)

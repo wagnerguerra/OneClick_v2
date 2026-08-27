@@ -914,15 +914,18 @@ export default function CrmPage() {
             />
           </div>
           {campanhasList.length > 0 && (
-            <select
-              className="h-9 rounded-md border border-input bg-transparent px-2 text-sm max-w-[180px]"
-              value={campanhaFiltro}
-              onChange={e => { const v = e.target.value; setCampanhaFiltro(v); campanhaFiltroRef.current = v; reloadKanban() }}
-              title="Filtrar por campanha"
+            <Select
+              value={campanhaFiltro || '__all__'}
+              onValueChange={v => { const val = v === '__all__' ? '' : v; setCampanhaFiltro(val); campanhaFiltroRef.current = val; reloadKanban() }}
             >
-              <option value="">Todas as campanhas</option>
-              {campanhasList.map(c => <option key={c.slug} value={c.slug}>{c.nome || c.slug}</option>)}
-            </select>
+              {/* Componente da casa no lugar do <select> nativo: o nativo ignora
+                  os tokens de tema e aparecia branco no dark. */}
+              <SelectTrigger className="h-9 w-full text-sm sm:w-[180px]"><SelectValue placeholder="Campanha" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas as campanhas</SelectItem>
+                {campanhasList.map(c => <SelectItem key={c.slug} value={c.slug}>{c.nome || c.slug}</SelectItem>)}
+              </SelectContent>
+            </Select>
           )}
           <div className="flex items-center border rounded-lg overflow-hidden">
             <button type="button" className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')} onClick={() => { setViewMode('kanban'); localStorage.setItem('crm-view-mode', 'kanban') }} title="Kanban">
@@ -988,13 +991,13 @@ export default function CrmPage() {
         </p>
       </PageHeaderBar>
 
-      {/* ── Board / Table ── */}
-      {loading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      )}
-      {!loading && viewMode === 'tabela' ? (
+      {/* ── Board / Table ──
+          O carregamento é overlay, como no /orcamentos: antes a condição do
+          ternário era `!loading && viewMode === 'tabela'`, então toda recarga
+          em modo tabela caía no ramo do kanban e a tela trocava de visão
+          sozinha por um instante. Manter o DndContext montado também é o que
+          o PADRAO_KANBAN_DND pede. */}
+      {viewMode === 'tabela' ? (
         /* ── Visao Tabela ── */
         <Card>
           {filteredOps.length === 0 ? (
@@ -1005,8 +1008,8 @@ export default function CrmPage() {
                 <TableRow className="whitespace-nowrap">
                   <TableHead>Titulo</TableHead>
                   <TableHead className="w-[140px]">Etapa</TableHead>
-                  <TableHead className="w-[180px]">Cliente</TableHead>
-                  <TableHead className="w-[100px]">Criado</TableHead>
+                  <TableHead className="hidden md:table-cell w-[180px]">Cliente</TableHead>
+                  <TableHead className="hidden lg:table-cell w-[100px]">Criado</TableHead>
                   <TableHead className="w-[44px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -1020,8 +1023,8 @@ export default function CrmPage() {
                     <TableCell>
                       <Badge className="text-[10px] px-1.5 py-0.5 text-white" style={{ backgroundColor: op.etapa.cor }}>{op.etapa.nome}</Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-xs truncate max-w-[180px]">{(op as any).cliente?.razaoSocial || '--'}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{new Date(op.createdAt).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground text-xs truncate max-w-[180px]">{(op as any).cliente?.razaoSocial || '--'}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{new Date(op.createdAt).toLocaleDateString('pt-BR')}</TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -1044,9 +1047,23 @@ export default function CrmPage() {
               </TableBody>
             </Table>
           )}
+          {/* Rodapé com a contagem — padrão do /orcamentos. Sem paginação: são
+              69 oportunidades em produção, o volume cabe numa página. */}
+          {filteredOps.length > 0 && (
+            <div className="border-t border-border/60 bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
+              Mostrando <span className="font-medium text-foreground">{filteredOps.length}</span> oportunidade(s)
+              {search && <> para “<span className="font-medium text-foreground">{search}</span>”</>}
+            </div>
+          )}
         </Card>
       ) : (
         /* ── Visao Kanban ── */
+        <div className="relative flex min-h-0 flex-1 flex-col">
+        {loading && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/70 backdrop-blur-[1px]">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
         <DndContext sensors={kanbanSensors} collisionDetection={closestCenter} onDragStart={handleKanbanDragStart} onDragMove={handleKanbanDragMove} onDragOver={handleKanbanDragOver} onDragEnd={handleKanbanDragEnd} onDragCancel={handleKanbanDragCancel}>
         <div className="overflow-x-auto nice-scrollbar pb-4 -mx-1 flex-1">
           <div className="flex gap-4 px-1 h-full" style={{ minWidth: etapas.length > 0 ? `${etapas.length * 250}px` : undefined, width: '100%' }}>
@@ -1060,11 +1077,12 @@ export default function CrmPage() {
           {activeCard && <KanbanCardOverlay op={activeCard} diasDesde={diasDesde} velocityX={dragDeltaX} width={activeCardWidth} />}
         </DragOverlay>
         </DndContext>
+        </div>
       )}
 
       {/* ── Create Sheet ── */}
       <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-        <SheetContent side="right" size="xl" className="w-[75vw] max-w-[1200px]">
+        <SheetContent side="right" size="xl" className="w-full sm:w-[75vw] max-w-[1200px]">
           <SheetHeader className="border-b-0 bg-transparent">
             <div className="absolute right-14 top-4 z-10 flex items-center gap-1">
               <button
@@ -1228,7 +1246,7 @@ export default function CrmPage() {
 
       {/* ── Detail Sheet (slide-over) ── */}
       <Sheet open={detailOpen} onOpenChange={open => { setDetailOpen(open); if (!open) fetchAll(true) }}>
-        <SheetContent side="right" size="xl" className="w-[75vw] max-w-[1200px]">
+        <SheetContent side="right" size="xl" className="w-full sm:w-[75vw] max-w-[1200px]">
           {detailLoading || !detail ? (
             <div className="flex items-center justify-center py-16 flex-1">
               <SheetTitle className="sr-only">Carregando</SheetTitle>
@@ -1407,7 +1425,7 @@ export default function CrmPage() {
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                              <div className="flex flex-wrap items-center gap-1 sm:shrink-0 opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100 transition-opacity">
                                 <button type="button" onClick={() => { setTarefaEditando(t); setTarefaModalOpen(true) }}
                                   className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Editar">
                                   <Edit2 className="h-3.5 w-3.5" />
@@ -2132,12 +2150,12 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
             {op.titulo}
           </h4>
         </div>
-        <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-0.5">
+        <div className="flex flex-wrap items-center gap-0.5 sm:shrink-0 -mr-1 -mt-0.5">
           <div className="h-6 w-6">
           {showMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
-                <button className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
+                <button className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded hover:bg-muted">
                   <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
@@ -2327,12 +2345,12 @@ function ArquivosTab({ arquivos, uploading, onUpload, onRemove }: {
                   <span>{new Date(arq.createdAt).toLocaleDateString('pt-BR')}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                 <a
                   href={arq.fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
+                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
                   onClick={e => e.stopPropagation()}
                   title="Baixar"
                 >
@@ -2340,7 +2358,7 @@ function ArquivosTab({ arquivos, uploading, onUpload, onRemove }: {
                 </a>
                 <button
                   onClick={() => onRemove(arq.id, arq.fileName)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-destructive"
+                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-destructive"
                   title="Excluir"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -2511,7 +2529,7 @@ function SortableEtapaRow({ etapa, onSave, onChangeName, onChangeSla, onDelete }
       </button>
       <input type="color" value={etapa.cor} onChange={e => onSave(etapa.id, { cor: e.target.value })} className="h-7 w-7 rounded border cursor-pointer shrink-0" />
       <Input value={etapa.nome} onChange={e => onChangeName(etapa.id, e.target.value)} onBlur={() => onSave(etapa.id, { nome: etapa.nome })} className="h-8 text-sm flex-1" />
-      <div className="flex items-center gap-1 shrink-0" title="SLA em dias">
+      <div className="flex flex-wrap items-center gap-1 sm:shrink-0" title="SLA em dias">
         <Clock className="h-3 w-3 text-muted-foreground" />
         <Input
           type="number"

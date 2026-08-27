@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import {
-  FileText, Plus, Loader2, Download, Upload, Check, Ban, Send, X, History, Info,
+  Plus, Loader2, Download, Upload, Check, Ban, Send, X, History, Info,
 } from 'lucide-react'
 import {
   Button, Input, Label, Card, Badge, cn,
@@ -14,6 +14,8 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { UserMultiPicker } from '@/components/user-multi-picker'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
@@ -172,27 +174,8 @@ export default function DocumentoInternoDetalhePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}>
-            <FileText className="h-6 w-6" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="truncate">{d.nome}</h1>
-              {vigente && (
-                <Badge variant="outline" className={cn('text-[11px]', SITUACAO_COLORS[vigente.situacao])}>
-                  {DOCUMENTO_SITUACAO_LABEL[vigente.situacao as keyof typeof DOCUMENTO_SITUACAO_LABEL] ?? vigente.situacao}
-                </Badge>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {d.tipo?.nome ?? 'Sem tipo'} · Revisão {d.versaoAtual?.revisao ?? '—'} · {d.versoes.length} no histórico
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {vigente && (
             <Button variant="outline" size="sm" asChild>
               <a href={`${getApiUrl()}${vigente.arquivoPath}`} target="_blank" rel="noopener noreferrer">
@@ -206,8 +189,28 @@ export default function DocumentoInternoDetalhePage() {
             </Button>
           )}
           <BackButton href="/documentos-internos" label="Voltar" />
+      </>}>
+        <h1 className="truncate">{d.nome}</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Qualidade</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Documentos Internos</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="min-w-0">
+              {vigente && (
+                <Badge variant="outline" className={cn('text-[11px]', SITUACAO_COLORS[vigente.situacao])}>
+                  {DOCUMENTO_SITUACAO_LABEL[vigente.situacao as keyof typeof DOCUMENTO_SITUACAO_LABEL] ?? vigente.situacao}
+                </Badge>
+              )}
+            <p className="text-sm text-muted-foreground">
+              {d.tipo?.nome ?? 'Sem tipo'} · Revisão {d.versaoAtual?.revisao ?? '—'} · {d.versoes.length} no histórico
+            </p>
+          </div>
         </div>
-      </div>
+      </PageHeaderBar>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         {/* ── Histórico de revisões ── */}
@@ -234,7 +237,7 @@ export default function DocumentoInternoDetalhePage() {
                       {ehVigente && <Badge variant="secondary" className="text-[10px]">Vigente</Badge>}
                       <span className="text-[11px] text-muted-foreground">{dataBR(v.dataVersao)}</span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                       <Button variant="soft" size="icon-sm" asChild title="Baixar esta revisão">
                         <a href={`${getApiUrl()}${v.arquivoPath}`} target="_blank" rel="noopener noreferrer">
                           <Download className="h-3.5 w-3.5" />

@@ -10,6 +10,7 @@ import {
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
   ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2, Check, Hash, Calendar, ClipboardCheck, Sparkles, Paperclip,
+  Globe, FileSearch,
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
   Image as ImageIcon, Activity, Percent, ShieldCheck,
@@ -26,6 +27,9 @@ import {
 import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { CapaClienteModal } from './capa-cliente-modal'
+import { DossieCard } from './dossie-card'
+import { LogoClienteModal } from './logo-cliente-modal'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
 import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
@@ -157,9 +161,16 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
   // As demais abas (serviços, legalização, contábil, obrigações, protocolos,
   // particularidades) já gatilham internamente pelos seus próprios cards.
   const { canEditDetails, canManageCommercial, canManageFiscal } = useClientesPerms()
+  // Duas camadas: a capa DESTE cliente e a capa padrão do módulo. A do cliente
+  // vence; sem ela, ele segue mostrando a global — quem nunca personalizou não
+  // perde a imagem que já via.
   const [headerCover, setHeaderCover] = useState<string>('')
+  const [capaCliente, setCapaCliente] = useState<string | null>(null)
+  const [capaModal, setCapaModal] = useState(false)
+  const [logoModal, setLogoModal] = useState(false)
   const [uploadingCover, setUploadingCover] = useState(false)
   const coverInputRef = useRef<HTMLInputElement>(null)
+  const capaEfetiva = capaCliente || headerCover
 
   useEffect(() => {
     ;(async () => {
@@ -169,6 +180,18 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
       } catch { /* silent */ }
     })()
   }, [])
+
+  // A capa do cliente vem do getById; este fetch cobre o caso de ela ter sido
+  // trocada em outra aba desde que a página carregou.
+  useEffect(() => {
+    if (mode !== 'edit' || !clienteId) return
+    ;(async () => {
+      try {
+        const r = await (trpc.cliente as any).getCapaCliente.query({ clienteId })
+        setCapaCliente(r?.coverImage || null)
+      } catch { /* silent */ }
+    })()
+  }, [mode, clienteId])
 
   async function handleCoverUpload(file: File) {
     setUploadingCover(true)
@@ -446,9 +469,9 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
           <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
           <div className="relative overflow-hidden group/cover">
             {/* Capa em cover; sem imagem, gradiente do módulo */}
-            {headerCover ? (
+            {capaEfetiva ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={headerCover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={resolveAssetUrl(capaEfetiva)} alt="" className="absolute inset-0 h-full w-full object-cover" />
             ) : (
               <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, var(--mod-cadastros, #10b981) 0%, var(--color-primary) 100%)' }} />
             )}
@@ -473,41 +496,58 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 style={{ backgroundImage: 'linear-gradient(to right, rgba(106, 218, 125, 0) 0%, rgba(106, 218, 125, 0.8) 100%)' }}
               />
             )}
-            {/* Controles de capa — somente Master, hover, base direita */}
-            {isMaster && (
+            {/* Controles de capa — hover, base direita. A capa virou dado do
+                cadastro, então acompanha a permissão de editar detalhes; a capa
+                GLOBAL (padrão do módulo) segue restrita ao master, no modal. */}
+            {mode === 'edit' && clienteId && canEditDetails && (
               <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => coverInputRef.current?.click()}
-                  disabled={uploadingCover}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-white/30 disabled:opacity-60"
-                  title={headerCover ? 'Trocar imagem de fundo' : 'Personalizar capa'}
+                  onClick={() => setCapaModal(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-white/30"
+                  title={capaCliente ? 'Trocar a capa deste cliente' : 'Personalizar a capa deste cliente'}
                 >
-                  {uploadingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+                  <ImageIcon className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Alterar capa</span>
                 </button>
-                {headerCover && (
-                  <button
-                    type="button"
-                    onClick={handleCoverRemove}
-                    disabled={uploadingCover}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-2.5 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-rose-500/60 disabled:opacity-60"
-                    title="Remover capa"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                {/* Capa PADRÃO do módulo — o que existia antes desta tela ter
+                    capa por cliente. Continua master-only e serve de fundo para
+                    todos os clientes que não personalizaram o seu. */}
+                {isMaster && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => coverInputRef.current?.click()}
+                      disabled={uploadingCover}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-2.5 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-white/30 disabled:opacity-60"
+                      title="Trocar a capa padrão do módulo (vale para todos os clientes sem capa própria)"
+                    >
+                      {uploadingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
+                    </button>
+                    {headerCover && (
+                      <button
+                        type="button"
+                        onClick={handleCoverRemove}
+                        disabled={uploadingCover}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-2.5 py-1.5 text-xs font-medium text-white ring-1 ring-white/30 backdrop-blur transition-colors hover:bg-rose-500/60 disabled:opacity-60"
+                        title="Remover a capa padrão do módulo"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <input
+                      ref={coverInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleCoverUpload(file)
+                        e.target.value = ''
+                      }}
+                    />
+                  </>
                 )}
-                <input
-                  ref={coverInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) handleCoverUpload(file)
-                    e.target.value = ''
-                  }}
-                />
               </div>
             )}
             <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
@@ -527,35 +567,18 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                     <Handshake className="h-10 w-10 text-emerald-500" />
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white ring-1 ring-white/40 backdrop-blur transition-colors hover:bg-white/30"
-                  onClick={() => {
-                    const input = document.createElement('input')
-                    input.type = 'file'
-                    input.accept = 'image/*'
-                    input.onchange = async (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0]
-                      if (!file) return
-                      const formData = new FormData()
-                      formData.append('file', file)
-                      try {
-                        const apiUrl = getApiUrl()
-                        const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData, credentials: 'include' })
-                        if (!res.ok) { alerts.error('Erro', 'Falha no upload.'); return }
-                        const data = await res.json()
-                        const logoUrl = data.url && data.url.startsWith('http') ? data.url : `${apiUrl}/api/upload/${data.filename}`
-                        setClienteLogo(logoUrl)
-                        if (clienteId) {
-                          await trpc.cliente.update.mutate({ id: clienteId, data: { logoUrl } as never })
-                        }
-                      } catch { alerts.error('Erro', 'Falha no upload da imagem.') }
-                    }
-                    input.click()
-                  }}
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                </button>
+                {/* Antes abria o seletor de arquivo direto; agora o modal, que
+                    tem também a busca da marca pelo domínio da empresa. */}
+                {isEdit && clienteId && canEditDetails && (
+                  <button
+                    type="button"
+                    className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white ring-1 ring-white/40 backdrop-blur transition-colors hover:bg-white/30"
+                    onClick={() => setLogoModal(true)}
+                    title="Alterar logomarca"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -660,27 +683,34 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 <button type="button" onClick={() => setActiveTab('logs')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'logs' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
                   <ListTodo className="h-4 w-4" /> Log&apos;s
                 </button>
+                {/* Dossiê só existe para cliente já salvo — depende do CNPJ gravado. */}
+                {isEdit && (
+                  <button type="button" onClick={() => setActiveTab('dossie')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'dossie' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                    <FileSearch className="h-4 w-4" /> Dossiê
+                  </button>
+                )}
             </div>
           </div>
           </div>
           {/* /hero */}
           </>
         ) : (
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-emerald-500 text-white shadow-md">
-                <Handshake className="h-6 w-6" />
-              </div>
-              <div>
-                <h1>Novo Cliente</h1>
-                <p className="text-sm text-muted-foreground">Preencha os dados para cadastrar um novo cliente</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
+          /* Topo — PADRAO_PAGINAS §1.1 */
+          <PageHeaderBar actions={<>
               {canEditDetails && <Button variant="success" size="sm" type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>}
               <BackButton href="/clientes" label="Voltar" />
-            </div>
-          </div>
+          </>}>
+            <h1 className="truncate">Novo Cliente</h1>
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+              <span className="text-muted-foreground/50">›</span>
+              <span>Cadastros</span>
+              <span className="text-muted-foreground/50">›</span>
+              <span>Clientes</span>
+              <span className="text-muted-foreground/50">›</span>
+              <span>Novo Cliente</span>
+            </p>
+          </PageHeaderBar>
         )}
 
         {error && <div className={cn('rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive', isEdit && 'mt-4')}>{error}</div>}
@@ -707,6 +737,15 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                   canEdit={canEditDetails}
                 />
               </TabsContent>
+
+              {/* ======================================================== */}
+              {/* TAB: DOSSIÊ (enriquecimento por CNPJ)                     */}
+              {/* ======================================================== */}
+              {isEdit && clienteId && (
+                <TabsContent value="dossie" className="mt-0">
+                  <DossieCard clienteId={clienteId} podeAtualizar={canEditDetails} />
+                </TabsContent>
+              )}
 
               {/* ======================================================== */}
               {/* TAB: COMERCIAL (card com pills laterais)                  */}
@@ -919,6 +958,28 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
         onOpenChange={setReativarAberto}
         onConfirm={reativarConfirmado}
       />
+
+      {/* Logomarca: envio manual ou busca pelo domínio. */}
+      {mode === 'edit' && clienteId && (
+        <LogoClienteModal
+          open={logoModal}
+          onOpenChange={setLogoModal}
+          clienteId={clienteId}
+          onAplicada={(url) => setClienteLogo(url)}
+        />
+      )}
+
+      {/* Capa personalizada deste cliente (envio manual ou sugestão). */}
+      {mode === 'edit' && clienteId && (
+        <CapaClienteModal
+          open={capaModal}
+          onOpenChange={setCapaModal}
+          clienteId={clienteId}
+          temCapaPropria={!!capaCliente}
+          podeBuscarAtividade={canManageFiscal}
+          onAplicada={(url) => setCapaCliente(url)}
+        />
+      )}
     </TooltipProvider>
   )
 }
@@ -995,7 +1056,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
 
         {/* Conteúdo — fieldset desabilita TODOS os campos quando sem permissão 'edit_details' */}
         <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0 [&:disabled_*]:pointer-events-none">
-        <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+        <div key={activeTab} className="min-w-0 flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
 
           {/* ---- SUB-TAB: DADOS GERAIS (tela única — igual ao v1) ---- */}
           {activeTab === 'dados' && (
@@ -1673,7 +1734,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
 
         {/* Conteúdo — read-only sem permissão 'manage_commercial' (mantém as pills) */}
         <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0 [&:disabled_*]:pointer-events-none">
-        <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+        <div key={activeTab} className="min-w-0 flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {activeTab === 'cadastros' && (
             <div className="-m-5">
               <div className="px-5 py-3 border-b border-border">
@@ -2101,7 +2162,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                             </div>
                           </div>
                           {/* Actions */}
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                             <a href={fullUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" title="Visualizar">
                               <ExternalLink className="h-3.5 w-3.5" />
                             </a>
@@ -2403,7 +2464,7 @@ function FiscalCard({ control, clienteId, isEdit, documento, canEdit }: {
 
         {/* Conteúdo — read-only sem permissão 'manage_fiscal' (mantém as pills) */}
         <fieldset disabled={!canEdit} className="flex-1 min-w-0 border-0 m-0 p-0 [&:disabled_*]:pointer-events-none">
-        <div key={activeTab} className="flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+        <div key={activeTab} className="min-w-0 flex-1 p-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
           {activeTab === 'dados' && (
             <div className="-m-5">
               <div className="px-5 py-3 border-b border-border">
@@ -3211,7 +3272,7 @@ function AtivBenefActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="ml-auto opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity">
+        <button type="button" className="ml-auto opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity">
           <MoreVertical className="h-3.5 w-3.5" />
         </button>
       </DropdownMenuTrigger>
@@ -3440,7 +3501,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                     </p>
                     {cert.observacoes && <p className="text-muted-foreground truncate" title={cert.observacoes}>{cert.observacoes}</p>}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex flex-wrap items-center gap-1 sm:shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     {canEditCertificados && (
                       <button type="button" onClick={(e) => { e.stopPropagation(); setEditingCert({ id: cert.id, titular: cert.titular || '', emissor: cert.emissor || '', observacoes: cert.observacoes || '' }) }} className="text-muted-foreground hover:text-foreground" title="Editar observações">
                         <Pencil className="h-3.5 w-3.5" />
@@ -3510,7 +3571,7 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                     {[formatSize(arq.fileSize), arq.user?.name, formatDate(arq.createdAt)].filter(Boolean).join(' · ')}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex flex-wrap items-center gap-1 sm:shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <a
                     href={arq.fileUrl}
                     target="_blank"
@@ -3910,7 +3971,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
                     <td className="py-2.5 px-3 text-muted-foreground">{c.email || '—'}</td>
                     <td className="py-2.5 px-3 text-muted-foreground max-w-[180px] truncate">{c.observacoes || '—'}</td>
                     <td className="py-2.5 px-3">
-                      <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button type="button" title="Editar" onClick={() => startEdit(c)}
                           className="p-1 rounded hover:bg-sky-100 text-sky-600 transition-colors">
                           <Pencil className="h-3.5 w-3.5" />

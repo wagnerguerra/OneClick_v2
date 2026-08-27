@@ -103,7 +103,7 @@ export default function NovaManifestacaoPublicaPage() {
       <p className="text-sm text-muted-foreground mt-1 mb-6">Elogio, reclamação ou sugestão — leva um minuto.</p>
 
       {/* Tipo */}
-      <div className="grid grid-cols-3 gap-2 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-5">
         {TIPOS.map(({ valor, rotulo, desc, Icon, cor, bg, borda }) => (
           <button key={valor} type="button" onClick={() => setTipo(valor)}
             className={`rounded-xl border-2 p-3 text-center transition-colors ${tipo === valor ? `${borda} ${bg}` : 'border-border bg-card hover:border-muted-foreground/40'}`}>

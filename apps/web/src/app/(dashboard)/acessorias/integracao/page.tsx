@@ -27,13 +27,13 @@ import {
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { EntityCombobox } from '@/components/ui/entity-combobox'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { masks } from '@/lib/masks'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)' // Sky — Administrativo
 
 type Tab = 'companies' | 'mapping' | 'deliveries' | 'explorer'
 
@@ -142,22 +142,8 @@ export default function AcessoriasPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <Zap className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Acessórias — Sincronização</h1>
-            <p className="text-sm text-muted-foreground">
-              Integração com app.acessorias.com — sincroniza empresas, obrigações e entregas
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="outline" size="sm" asChild>
             <Link href="/acessorias/painel"><MailWarning className="h-4 w-4" />Painel de entregas</Link>
           </Button>
@@ -167,8 +153,23 @@ export default function AcessoriasPage() {
             </Button>
           )}
           <BackButton href="/" />
+      </>}>
+        <h1 className="truncate">Acessórias — Sincronização</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Acessórias</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Acessórias — Sincronização</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              Integração com app.acessorias.com — sincroniza empresas, obrigações e entregas
+            </p>
         </div>
-      </div>
+      </PageHeaderBar>
 
       <AbasAcessorias />
 
@@ -291,7 +292,7 @@ function CompaniesPanel() {
           do Acessórias se for diferente. <strong>Não cria clientes novos</strong> — clientes ausentes ficam como "ignoradas".
         </div>
         {lastResult && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <button type="button" className="text-left" onClick={() => setVerGrupo('casada')}>
               <Card className="p-3 transition-colors hover:bg-muted/40">
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Já casadas</div>
@@ -791,7 +792,7 @@ function MappingPanel() {
             Casa o nome da obrigação no Acessórias com uma Obrigação Acessória do OneClick. Sem vínculo, a entrega é ignorada na sincronização.
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button variant="outline" size="sm" onClick={carregarSugestoes} disabled={sugLoading} className="gap-1.5">
             {sugLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
             Sugerir mapeamentos
@@ -1351,7 +1352,7 @@ function DeliveriesPanel({ firstDay, lastDay, onSyncIniciada }: {
           </div>
         </div>
         {lastResult && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <Card className="p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Criadas</div>
               <div className="text-xl font-semibold tabular-nums text-emerald-600">{lastResult.novas}</div>

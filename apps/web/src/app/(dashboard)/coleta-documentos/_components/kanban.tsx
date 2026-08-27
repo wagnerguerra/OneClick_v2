@@ -135,7 +135,9 @@ function Coluna({ situacao, items, isOver, dropDisabled, activeId, onOpen }: {
       ref={setNodeRef}
       className={cn(
         // Padrão do /crm (LuminAux): coluna aberta, sem caixa; véu só no alvo do drop
-        'w-[300px] shrink-0 flex flex-col rounded-xl transition-colors relative',
+        // 340px: a mesma coluna do /orcamentos — antes esta era a única do
+        // sistema em 300px.
+        'relative flex w-[340px] shrink-0 flex-col rounded-xl transition-colors',
         isOver && !dropDisabled && 'bg-black/[0.03] dark:bg-white/[0.04]',
         dropDisabled && 'opacity-40 grayscale',
       )}
@@ -196,7 +198,7 @@ function CardConteudo({ row }: { row: KanbanRow }) {
         </div>
         <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
           <span className="flex items-center gap-1 truncate"><Users className="h-3 w-3 shrink-0" />{row.solicitanteNomeResolvido ?? '—'}</span>
-          <span className="flex items-center gap-1 shrink-0 tabular-nums"><CalendarDays className="h-3 w-3" />{dataBR(row.registradoEm)}</span>
+          <span className="flex flex-wrap items-center gap-1 sm:shrink-0 tabular-nums"><CalendarDays className="h-3 w-3" />{dataBR(row.registradoEm)}</span>
         </div>
       </div>
     </div>

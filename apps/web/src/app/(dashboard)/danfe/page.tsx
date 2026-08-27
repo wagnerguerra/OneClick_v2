@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { BuscarNotasModal } from './_components/buscar-notas-modal'
 import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
@@ -87,18 +88,8 @@ export default function DanfePage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: MODULE_COLOR }}>
-            <FileText className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>DANFE</h1>
-            <p className="text-sm text-muted-foreground">Sincronização e visualização de NFe por cliente</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Link href="/danfe/galeria">
             <Button variant="outline" size="sm" className="gap-1.5">
               <LayoutGrid className="h-3.5 w-3.5" /> Galeria por Cliente
@@ -120,8 +111,16 @@ export default function DanfePage() {
           <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}>
             <Upload className="h-3.5 w-3.5" /> Upload XML
           </Button>
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">DANFE</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Fiscal</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>DANFE (NFe → PDF)</span>
+        </p>
+      </PageHeaderBar>
 
       {/* KPIs */}
       <Card className="p-3">
@@ -150,10 +149,10 @@ export default function DanfePage() {
           <TableHeader>
             <TableRow>
               <TableHead className="text-xs">Cliente</TableHead>
-              <TableHead className="text-xs">CNPJ</TableHead>
+              <TableHead className="hidden lg:table-cell text-xs">CNPJ</TableHead>
               <TableHead className="text-xs text-center">Notas</TableHead>
               <TableHead className="text-xs text-right">Valor total</TableHead>
-              <TableHead className="text-xs">Última emissão</TableHead>
+              <TableHead className="hidden md:table-cell text-xs">Última emissão</TableHead>
               <TableHead className="text-xs text-right w-[100px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -194,7 +193,7 @@ export default function DanfePage() {
                     </span>
                   </Link>
                 </TableCell>
-                <TableCell className="text-[11px] font-mono text-muted-foreground">
+                <TableCell className="hidden lg:table-cell text-[11px] font-mono text-muted-foreground">
                   {c.documento ? fmtCnpj(c.documento) : '—'}
                 </TableCell>
                 <TableCell className="text-center text-[12px] tabular-nums font-semibold">
@@ -203,7 +202,7 @@ export default function DanfePage() {
                 <TableCell className="text-right text-[12px] tabular-nums font-semibold">
                   {fmtBRL(c.valorTotal)}
                 </TableCell>
-                <TableCell className="text-[11px] tabular-nums">{fmtDate(c.ultimaNota)}</TableCell>
+                <TableCell className="hidden md:table-cell text-[11px] tabular-nums">{fmtDate(c.ultimaNota)}</TableCell>
                 <TableCell className="text-right">
                   <Link href={c.clienteId ? `/danfe/galeria?cliente=${c.clienteId}` : '/danfe/galeria?cliente=__null__'}>
                     <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">

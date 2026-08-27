@@ -2089,12 +2089,19 @@ function registerIpcHandlers() {
     let vpsReachable = false
     let pendingDeploy = []
     let schemaChanged = false
+    let publishedSha = ''
+    let publishIncomplete = false
     if (cfg && cfg.SSH_HOST && remoteDir) {
       const sshArgs = sshCmd(cfg)
-      const vpsResult = spawnSync('ssh', [...sshArgs, `cd ${remoteDir} && git rev-parse HEAD 2>/dev/null`], { encoding: 'utf8', timeout: 15000, windowsHide: true })
-      vpsSha = (vpsResult.stdout || '').trim()
+      const vpsResult = spawnSync('ssh', [...sshArgs, `cd ${remoteDir} && echo "$(git rev-parse HEAD 2>/dev/null) $(cat /opt/oneclick/.deployed-sha 2>/dev/null)"`], { encoding: 'utf8', timeout: 15000, windowsHide: true })
+      const shasVps = (vpsResult.stdout || '').trim().split(' ').filter(Boolean)
+      publishedSha = (shasVps[1] || '').trim()
+      vpsSha = (shasVps[0] || '').trim()
       vpsShort = vpsSha.slice(0, 7)
       vpsReachable = vpsResult.status === 0 && vpsSha.length > 0
+      // Sem carimbo (VPS de antes desta mudança) não dá para afirmar que ficou
+      // pela metade — na dúvida, não incomoda.
+      publishIncomplete = def.id === 'core' && vpsReachable && !!publishedSha && publishedSha !== vpsSha
       if (vpsReachable && hasTrunk && vpsSha !== remoteSha) {
         pendingDeploy = gitOutput(['log', `${vpsSha}..${remoteSha}`, '--format=%H%x09%h%x09%s'], cwd)
           .split('\n').filter(Boolean)
@@ -2117,6 +2124,7 @@ function registerIpcHandlers() {
       remoteConfigured: hasRemote,
       vpsConfigured: !!remoteDir,
       pendingPush, pendingDeploy, schemaChanged,
+      publishedSha, publishedShort: publishedSha.slice(0, 7), publishIncomplete,
       synced: vpsReachable && vpsSha === localSha && hasTrunk && pendingPush.length === 0 && dirtyRelevant.length === 0,
       error: !remoteDir ? 'Caminho remoto da VPS não configurado.' : null,
       remoteBranchMissing: !hasTrunk,
@@ -2791,6 +2799,12 @@ function registerIpcHandlers() {
         deployRunning = false
         return { ok: false, error: 'Reinício ou verificação de saúde falhou' }
       }
+      // Carimbo do que EFETIVAMENTE subiu. O `git reset` na VPS acontece lá no
+      // começo, então o commit estar lá não prova que ele foi publicado: um
+      // deploy que morre no meio (SQL preso, build sem memória) deixa a VPS e o
+      // origin iguais e a fila vazia — e o botão Publicar desabilitado, sem
+      // caminho de volta. Só aqui, com a API respondendo, é que está publicado.
+      await sshExec(cfg, `printf '%s' ${shellQuote(targetSha)} > /opt/oneclick/.deployed-sha`, null, 20000)
       } else {
         deployEmit(90, 'restart', '· Core/API/Web não selecionado (ignorado)', 'info')
       }

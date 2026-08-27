@@ -267,12 +267,26 @@ export function resolveHelpdeskScope(
 }
 
 export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
+  // Contatos: a agenda é de consulta para a equipe toda; incluir, editar e
+  // excluir exigem liberação explícita (pedido do Wagner, 25/08).
+  contatos: [
+    { key: 'gerenciar', label: 'Gerenciar contatos (incluir, editar e excluir)', group: 'Manutenção' },
+  ],
+  // Controle de Férias: a provisão em R$ usa o salário do cadastro, então
+  // depende de liberação à parte — ver o controle de dias não implica ver
+  // quanto cada um ganha.
+  'controle-ferias': [
+    { key: 'valores', label: 'Ver valores e provisão de férias (R$)', group: 'Financeiro' },
+  ],
   // Coleta e Recebimento: os papéis do v1 viraram sub-permissões — adm/ era a
   // Recepção (rota) e arq/ o Arquivo. Quem não tem nenhuma só cria e acompanha
   // as próprias solicitações.
   'coleta-documentos': [
     { key: 'rota', label: 'Recepção/Rota (confirmar rota, receber, entregar ao arquivo)', group: 'Papéis' },
     { key: 'arquivo', label: 'Arquivo (triagem, entregar ao setor, arquivar protocolo)', group: 'Papéis' },
+    // A categoria decide para qual área o documento vai na triagem: renomear ou
+    // trocar a área de uma categoria muda o destino de tudo que a usa.
+    { key: 'categorias', label: 'Gerenciar categorias (criar, editar e desativar)', group: 'Manutenção' },
   ],
   // Ferramentas (integração webapp). Sub-permissão por tool = opt-out:
   // desmarcar bloqueia aquela ferramenta; marcado/ausente = liberado.
@@ -285,6 +299,13 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'comparacao-nfse', label: 'Comparador NFS-e (OCR)', group: 'Ferramentas' },
     { key: 'sci-portal-nacional', label: 'Conciliador NFS-e (Portal Nacional)', group: 'Ferramentas' },
     { key: 'nfse-pdf', label: 'NFS-e → PDF (DANFSe)', group: 'Ferramentas' },
+  ],
+  // Ferramentas gerais: aqui a sub-permissão é OPT-IN, ao contrário das
+  // ferramentas fiscais/contábeis acima. Assinar usa o certificado A1 da
+  // empresa guardado no cadastro — quem tem o botão assina em nome dela, e
+  // isso se libera nome a nome, nunca por omissão.
+  'ferramentas-gerais': [
+    { key: 'assinar', label: 'Assinar PDF com o certificado A1 da empresa', group: 'Ferramentas' },
   ],
   'ferramentas-contabil': [
     { key: 'gnre', label: 'Extrator GNRE', group: 'Ferramentas' },

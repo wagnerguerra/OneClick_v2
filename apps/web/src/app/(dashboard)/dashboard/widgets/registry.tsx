@@ -1,7 +1,7 @@
 'use client'
 
 import { ComponentType } from 'react'
-import { Mail, Shield, FileLock, ListChecks, Landmark, Calendar, CalendarClock, Phone, FileText, Megaphone } from 'lucide-react'
+import { Mail, Shield, FileLock, ListChecks, Landmark, Calendar, CalendarClock, Phone, FileText, Megaphone, PenLine } from 'lucide-react'
 import { TEXT } from '@/lib/color-styles'
 import { CaixaPostalWidget } from './caixa-postal-widget'
 import { CndFederaisWidget } from './cnd-federais-widget'
@@ -13,6 +13,7 @@ import { RamaisWidget } from './ramais-widget'
 import { OrcamentosWidget } from './orcamentos-widget'
 import { NovidadesWidget } from './novidades-widget'
 import { HojeWidget } from './hoje-widget'
+import { AssinarDocumentoWidget } from './assinar-documento-widget'
 
 export type WidgetColor = 'sky' | 'indigo' | 'fuchsia' | 'violet' | 'emerald' | 'amber'
 
@@ -21,11 +22,18 @@ export interface WidgetDef {
   label: string
   icon: typeof Mail
   color: WidgetColor
-  Component: ComponentType<{ canRead: boolean; title?: string; expanded?: boolean; bloco?: string }>
+  Component: ComponentType<{ canRead: boolean; title?: string; expanded?: boolean; bloco?: string; compact?: boolean }>
   /** Posição/tamanho default no grid (12 cols). h é em "rows" do grid (~30px cada). */
   defaultLayout: { w: number; h: number; minW: number; minH: number; maxH?: number }
   /** Permission slug exigido (master sempre tem acesso). */
   requiresModule?: string
+  /**
+   * Widget de AÇÃO: em 1×1 o clique dispara a ação do próprio widget (ele
+   * recebe `compact` e desenha o botão), em vez de abrir o modal "ampliado" do
+   * grid. Sem isso, um widget cuja única função é abrir um modal ficaria com
+   * dois modais empilhados: o do grid e o dele.
+   */
+  acaoDireta?: boolean
   /** Override do href usado pra derivar a cor do grupo da sidebar. Útil quando
    *  o widget não tem requiresModule (ex: ramais) ou o módulo está em grupo
    *  diferente do desejado visualmente. */
@@ -121,6 +129,20 @@ export const WIDGET_REGISTRY: Record<string, WidgetDef> = {
     // relatórios esconderia o aviso justamente de quem ele informa. O endpoint
     // é protectedProcedure e devolve só o que foi publicado.
     groupHref: '/relatorios-ti', // cor visual do bloco TI
+  },
+  'assinar-documento': {
+    id: 'assinar-documento',
+    label: 'Assinar Documento',
+    icon: PenLine,
+    color: 'emerald',
+    Component: AssinarDocumentoWidget,
+    // Nasce 1×1, como os atalhos de Ramais e Certificados: é um botão, não um
+    // painel. Cresce se o usuário quiser a versão com texto.
+    defaultLayout: { w: 1, h: 1, minW: 1, minH: 1, maxH: 6 },
+    acaoDireta: true,
+    // O módulo abre a porta; a sub-permissão `assinar` é conferida dentro do
+    // componente e no backend — ver o comentário do widget.
+    requiresModule: 'ferramentas-gerais',
   },
   'orcamentos': {
     id: 'orcamentos',

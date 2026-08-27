@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  ArrowLeft, Clock, Users, FileBarChart, Loader2, CalendarDays, Lock,
+  Clock, Users, Loader2, CalendarDays, Lock,
   ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, MapPin,
 } from 'lucide-react'
 import {
@@ -17,7 +17,8 @@ import {
 } from 'recharts'
 import { trpc } from '@/lib/trpc'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import { BackButton } from '@/components/ui/back-button'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { resolveAssetUrl } from '@/lib/api-url'
 
 const MOD = 'var(--mod-administrativo, #38bdf8)'
@@ -163,19 +164,21 @@ export default function RelatoriosAgendaPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="administrativo" icon={FileBarChart} />
-          <div>
-            <h1>Relatórios da Agenda</h1>
-            <p className="text-sm text-muted-foreground">Tempo em reuniões, visitas, cursos e mais — por tipo e por usuário</p>
-          </div>
-        </div>
-        <Button asChild variant="outline" size="sm" className="gap-1.5 shrink-0">
-          <Link href="/agenda"><ArrowLeft className="h-4 w-4" /> Voltar à agenda</Link>
-        </Button>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+          <BackButton href="/agenda" label="Voltar à agenda" />
+      </>}>
+        <h1 className="truncate">Relatórios da Agenda</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Agenda Corporativa</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Relatórios da Agenda</span>
+        </p>
+      </PageHeaderBar>
 
       {permsLoading ? (
         <div className="flex items-center justify-center py-20 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
@@ -284,7 +287,7 @@ export default function RelatoriosAgendaPage() {
                               <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda || t.cor }} />
                               <span className="truncate">{t.nome}</span>
                               {t.usuarios.length > 0 && (
-                                <div className="flex items-center gap-1 shrink-0 ml-1">
+                                <div className="flex flex-wrap items-center gap-1 sm:shrink-0 ml-1">
                                   {t.usuarios.slice(0, 8).map(u => (
                                     <span
                                       key={u.usuarioId}
@@ -333,7 +336,7 @@ export default function RelatoriosAgendaPage() {
                                 : <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">{u.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}</span>}
                               <span className="truncate">{u.nome}</span>
                               {u.tipos.length > 0 && (
-                                <div className="flex items-center gap-1 shrink-0 ml-1">
+                                <div className="flex flex-wrap items-center gap-1 sm:shrink-0 ml-1">
                                   {u.tipos.slice(0, 8).map(tc => (
                                     <span
                                       key={tc.tipoId}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  FileText, Loader2, Plus, MoreVertical, Search, Eye, FileSignature, FileX,
+  Loader2, Plus, MoreVertical, Search, Eye, FileSignature, FileX,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label,
@@ -11,8 +11,9 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { PageHeaderIcon } from '@/components/ui/page-header-icon'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { CONTRATO_STATUS_LABELS, CONTRATO_STATUS_COLORS, type ContratoStatus } from '@saas/types'
@@ -156,19 +157,21 @@ export default function ContratosPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <PageHeaderIcon module="comercial" icon={FileText} />
-          <div>
-            <h1>Contratos</h1>
-            <p className="text-sm text-muted-foreground">Geração, assinatura e gestão de contratos com cláusulas versionadas</p>
-          </div>
-        </div>
-        <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={abrirNovo}>
-          <Plus className="h-4 w-4" /> Novo Contrato
-        </Button>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
+          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={abrirNovo}>
+            <Plus className="h-4 w-4" /> Novo Contrato
+          </Button>
+      </>}>
+        <h1 className="truncate">Contratos</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Comercial</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Contratos</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Filtros */}
       <Card className="p-3">

@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import {
   Search, Loader2, Save, ChevronDown, ChevronRight, Plus, Trash2, Calculator,
   RefreshCw, Copy, Eraser, Download, Upload, ChevronsDown, ChevronsUp,
-  MoreHorizontal, BarChart3, FolderTree, Link2, Building2, ChevronsUpDown, Check,
+  MoreHorizontal, FolderTree, Link2, Building2, ChevronsUpDown, Check,
 } from 'lucide-react'
 import { Command } from 'cmdk'
 import {
@@ -16,6 +16,8 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import Swal from 'sweetalert2'
@@ -1042,20 +1044,17 @@ export default function BiCategoriasBalancetePage() {
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={onFileImport} />
 
       {/* Header — mesmo padrão do BI Faturamento */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <BarChart3 className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>BI — Categorias do Balancete</h1>
-            <p className="text-sm text-muted-foreground">Gerencie as categorias do balancete para análise no BI</p>
-          </div>
-        </div>
-      </div>
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar>
+        <h1 className="truncate">BI — Categorias do Balancete</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Contábil</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Categorias de Balancete</span>
+        </p>
+      </PageHeaderBar>
 
       {/* Filter bar — uma única linha, mesmo padrão do BI Faturamento */}
       <Card>
@@ -1428,7 +1427,7 @@ export default function BiCategoriasBalancetePage() {
                               try { await trpc.cliente.biDeleteCategoria.mutate({ clienteId, conta: cat.conta }); setCategorias((prev) => prev.filter((c) => c.conta !== cat.conta)); setSelected((prev) => { const n = new Set(prev); n.delete(cat.conta); return n }) }
                               catch { alerts.error('Erro', 'Falha ao excluir categoria') }
                             }}
-                            className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-900/20"
+                            className="rounded p-1 text-muted-foreground opacity-100 transition-opacity hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 dark:hover:bg-red-900/20"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>

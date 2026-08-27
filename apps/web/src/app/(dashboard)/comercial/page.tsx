@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Gauge, Target, TrendingUp, Percent, CircleDollarSign, FileText, AlertTriangle,
+  Target, TrendingUp, Percent, CircleDollarSign, FileText, AlertTriangle,
   FileCheck, Landmark, CalendarClock, RefreshCw, Loader2, BarChart3,
   ChevronDown, Filter, Users,
 } from 'lucide-react'
@@ -15,6 +15,8 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { StatCard } from '@/components/stat-card'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -157,20 +159,8 @@ export default function ComercialPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <Gauge className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Painel Comercial</h1>
-            <p className="text-sm text-muted-foreground">Gestão à vista — CRM, Orçamentos e Contratos</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           {refreshing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
           <Select value={periodo} onValueChange={setPeriodo}>
             <SelectTrigger className="w-[170px] h-8 text-xs">
@@ -219,8 +209,16 @@ export default function ComercialPage() {
           >
             <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
           </Button>
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Painel Comercial</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Comercial</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Painel Comercial</span>
+        </p>
+      </PageHeaderBar>
 
       {loading ? (
         <div className="flex items-center justify-center py-24">
@@ -434,9 +432,9 @@ export default function ComercialPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs">Contrato</TableHead>
+                    <TableHead className="hidden sm:table-cell text-xs">Contrato</TableHead>
                     <TableHead className="text-xs">Cliente</TableHead>
-                    <TableHead className="text-xs text-center">Vence em</TableHead>
+                    <TableHead className="hidden md:table-cell text-xs text-center">Vence em</TableHead>
                     <TableHead className="text-xs text-center">Dias restantes</TableHead>
                     <TableHead className="text-xs text-right">Honorário mensal</TableHead>
                   </TableRow>
@@ -444,9 +442,9 @@ export default function ComercialPage() {
                 <TableBody>
                   {aVencer.map((c) => (
                     <TableRow key={c.id}>
-                      <TableCell className="text-xs font-medium">#{c.numero}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs font-medium">#{c.numero}</TableCell>
                       <TableCell className="text-xs">{c.cliente}</TableCell>
-                      <TableCell className="text-xs text-center">
+                      <TableCell className="hidden md:table-cell text-xs text-center">
                         {c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '—'}
                       </TableCell>
                       <TableCell className="text-xs text-center">

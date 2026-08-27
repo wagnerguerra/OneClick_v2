@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-  ArrowUpDown, ArrowUp, ArrowDown, Briefcase, FileUp, FileDown,
+  ArrowUpDown, ArrowUp, ArrowDown, FileUp, FileDown,
   Loader2, MoreVertical,
 } from 'lucide-react'
 import {
@@ -16,6 +16,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
@@ -239,17 +240,8 @@ export default function CargosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] bg-emerald-500 text-white shadow-md">
-            <Briefcase className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Cargos</h1>
-            <p className="text-sm text-muted-foreground">Gerencie os cargos da empresa</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Topo — PADRAO_PAGINAS §1.1 */}
+      <PageHeaderBar actions={<>
           <Button variant="success" size="sm" asChild><Link href="/cargos/new"><Plus className="h-4 w-4" />Novo Cargo</Link></Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -266,8 +258,16 @@ export default function CargosPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      </div>
+      </>}>
+        <h1 className="truncate">Cargos</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cadastros</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Cargos</span>
+        </p>
+      </PageHeaderBar>
       <Card>
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="hidden sm:inline">Exibir</span><Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}><SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger><SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent></Select><span className="hidden sm:inline">registros</span></div>

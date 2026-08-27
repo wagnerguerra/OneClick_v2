@@ -62,6 +62,11 @@ const anoMes = z.string().regex(/^\d{2}\/\d{4}$/, 'Use MM/AAAA.').optional().nul
 
 export const criarColetaSchema = z.object({
   tipo: z.enum(COLETA_TIPOS),
+  /**
+   * Quem está pedindo. Vazio = quem registrou; preenchido = registro lançado
+   * em nome de outra pessoa (a recepção lança pelo setor que ligou).
+   */
+  solicitanteId: z.string().optional().nullable(),
   clienteId: z.string().optional().nullable(),
   contato: z.string().max(160).optional().nullable(),
   categoriaId: z.string().optional().nullable(),

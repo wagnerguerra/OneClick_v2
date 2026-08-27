@@ -800,7 +800,7 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
       </button>
 
       <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetContent side="right" size="xl" className="w-[80vw] max-w-[1200px] p-0 flex flex-col">
+        <SheetContent side="right" size="xl" className="w-full sm:w-[80vw] max-w-[1200px] p-0 flex flex-col">
           {panelContent}
         </SheetContent>
       </Sheet>
@@ -1025,7 +1025,7 @@ function ConversasList({ conversas, meuId, conversaAtivaId, onClickConversa, onH
                 <button
                   type="button"
                   onClick={e => e.stopPropagation()}
-                  className="absolute top-1.5 right-1.5 h-6 w-6 rounded hover:bg-muted flex items-center justify-center opacity-0 group-hover/conv:opacity-100 transition-opacity"
+                  className="absolute top-1.5 right-1.5 h-6 w-6 rounded hover:bg-muted flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover/conv:opacity-100 transition-opacity"
                   title="Mais opções"
                 >
                   <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1717,7 +1717,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
                 {/* Menu de ações no hover */}
                 {!isEditando && !isDeletada && (
                   <div className={cn(
-                    'absolute top-0 z-10 opacity-0 group-hover/msg:opacity-100 transition-opacity flex gap-0.5 bg-card border border-border rounded-md shadow-md px-1 py-0.5',
+                    'absolute top-0 z-10 opacity-100 sm:opacity-0 sm:group-hover/msg:opacity-100 transition-opacity flex gap-0.5 bg-card border border-border rounded-md shadow-md px-1 py-0.5',
                     ehMinha ? 'right-10' : 'left-10',
                   )}>
                     <button type="button" onClick={() => setEmojiPickerFor(emojiPickerFor === m.id ? null : m.id)} className="h-6 w-6 flex items-center justify-center hover:bg-muted rounded" title="Reagir">

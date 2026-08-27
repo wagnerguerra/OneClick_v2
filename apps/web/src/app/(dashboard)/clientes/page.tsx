@@ -10,6 +10,7 @@ import {
   ArrowUpDown, ArrowUp, ArrowDown,
   MoreVertical, FileUp, FileDown, Plug, BarChart3,
   ChevronDown, X, Database, Loader2, Sparkles, UserCog,
+  FileSearch,
   Ban, RotateCcw, Building2, ExternalLink, Copy,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
   ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
@@ -37,6 +38,7 @@ import { exportToExcel, type ExportColumn } from '@/lib/export-data'
 import { SITUACAO_LABELS, SITUACAO_COLORS } from '@saas/types'
 import { masks } from '@/lib/masks'
 import { EnriquecerCnaeDialog } from './_components/enriquecer-cnae-dialog'
+import { DossieBackfillModal } from './_components/dossie-backfill-modal'
 import { SincronizarResponsaveisDialog } from './_components/sincronizar-responsaveis-dialog'
 import { useClientesPerms } from './_components/use-clientes-perms'
 import type { inferRouterOutputs } from '@trpc/server'
@@ -103,6 +105,8 @@ export default function ClientesPage() {
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
   const [enriquecimentoOpen, setEnriquecimentoOpen] = useState(false)
+  // Varredura do dossiê (master) — ver o componente.
+  const [dossieOpen, setDossieOpen] = useState(false)
   const [responsaveisOpen, setResponsaveisOpen] = useState(false)
   const [integracoesOpen, setIntegracoesOpen] = useState(false)
 
@@ -501,6 +505,11 @@ export default function ClientesPage() {
                       <Copy className="h-4 w-4 text-amber-600" />Cadastros repetidos
                     </DropdownMenuItem>
                   )}
+                  {isMaster && (
+                    <DropdownMenuItem onClick={() => setDossieOpen(true)}>
+                      <FileSearch className="h-4 w-4 text-violet-600" />Varredura do dossiê
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
           {canCreate && (
@@ -885,6 +894,7 @@ export default function ClientesPage() {
 
       <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onSuccess={fetchClientes} />
       <IntegracoesModal open={integracoesOpen} onClose={() => setIntegracoesOpen(false)} onRefreshList={fetchClientes} />
+      <DossieBackfillModal open={dossieOpen} onOpenChange={setDossieOpen} />
       <EnriquecerCnaeDialog
         open={enriquecimentoOpen}
         onOpenChange={setEnriquecimentoOpen}
@@ -1022,7 +1032,7 @@ export default function ClientesPage() {
                           {op.count}
                         </span>
                       ) : null}
-                      <button type="button" className="shrink-0 p-1 rounded text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all" onClick={() => handleDeleteOpcao(op.id, op.valor, op.count || 0)} title="Excluir">
+                      <button type="button" className="shrink-0 p-1 rounded text-muted-foreground/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all" onClick={() => handleDeleteOpcao(op.id, op.valor, op.count || 0)} title="Excluir">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>

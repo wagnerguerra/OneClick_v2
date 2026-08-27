@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react'
+import Link from 'next/link'
+import { PageHeaderBar } from '@/components/page-header-bar'
 import { createPortal } from 'react-dom'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import {
@@ -71,7 +73,11 @@ function passoAtual(passos: ExecucaoMinha['passos']): ExecucaoMinha['passos'][nu
   return passos.find(p => !p.concluido && !p.ignorado) ?? null
 }
 
-type FilterKind = 'todos' | 'em_andamento' | 'atrasados' | 'concluidos'
+type FilterKind = 'todos' | 'em_andamento' | 'atrasados' | 'pausados'
+
+/** Cartões por página. Acima disso o navegador começa a engasgar: cada cartão
+ *  custa ~70 nós de DOM, e a tela chegou a 188 mil com tudo de uma vez. */
+const POR_PAGINA = 50
 
 function formatDateTime(d: string): string {
   return new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -436,6 +442,9 @@ export default function MeusServicosPage() {
   const { profile } = useCurrentUserProfile()
   const canManageConfig = !!(profile?.isMaster || (profile as any)?.isEmpresaMaster)
   const [execucoes, setExecucoes] = useState<ExecucaoMinha[]>([])
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [totalPaginas, setTotalPaginas] = useState(1)
   // Estado das respostas em andamento por execução (PERGUNTA)
   const [respostaOpcoes, setRespostaOpcoes] = useState<Record<string, string[]>>({})
   const [respostaObs, setRespostaObs] = useState<Record<string, string>>({})
@@ -445,7 +454,21 @@ export default function MeusServicosPage() {
   // pausados, concluídos, cancelados). A janela de "concluídos visíveis" é
   // controlada pela config `meus_servicos.concluidos_dias_exibicao` no backend.
   const [filter, setFilter] = useState<FilterKind>('todos')
+  // Trocar de coluna recomeça a paginação — senão a página 7 de uma vira página
+  // 7 de outra, que muitas vezes nem existe.
+  useEffect(() => { setPage(1) }, [filter])
   const [busca, setBusca] = useState('')
+  // A busca é do SERVIDOR: filtrar no navegador só alcançava a página
+  // carregada — procurar um orçamento entre milhares de execuções dizia
+  // "nenhum serviço encontrado" com o serviço existindo na página seguinte.
+  // Debounce de 400ms, o mesmo dos demais módulos (PADRAO_MODULOS).
+  const [buscaAplicada, setBuscaAplicada] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setBuscaAplicada(busca.trim()), 400)
+    return () => clearTimeout(t)
+  }, [busca])
+  // Termo novo recomeça a paginação — a página 7 do termo antigo não existe no novo.
+  useEffect(() => { setPage(1) }, [buscaAplicada])
   // Modo de exibição — lista (vertical, denso) vs kanban (colunas por status).
   // Persiste no localStorage para respeitar a preferência do usuário entre sessões.
   const [viewMode, setViewMode] = useState<'lista' | 'kanban'>(() => {
@@ -608,11 +631,7 @@ export default function MeusServicosPage() {
     try {
       await (trpc.servico as any).arquivarExecucao.mutate({ id: execId })
       await fetchData({ silent: true })
-      // KPIs também
-      try {
-        const data = await (trpc.servico as any).listMeusServicos.query()
-        setStatsAll(data || [])
-      } catch { /* ignora */ }
+      carregarContadores()
     } catch (err) {
       alerts.error('Erro', (err as Error).message)
     }
@@ -632,11 +651,7 @@ export default function MeusServicosPage() {
       })
       setNovoOpen(false)
       await fetchData()
-      // recarrega KPIs
-      try {
-        const data = await (trpc.servico as any).listMeusServicos.query()
-        setStatsAll(data || [])
-      } catch { /* ignora */ }
+      carregarContadores()
       await alerts.success('Criado', 'Serviço iniciado e atribuído a você.')
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
@@ -650,33 +665,43 @@ export default function MeusServicosPage() {
   const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
     try {
-      const input = filter === 'atrasados'
-        ? { atrasados: true }
-        : filter === 'em_andamento'
-        ? { status: 'EM_ANDAMENTO' }
-        : filter === 'concluidos'
-        ? { status: 'CONCLUIDO' }
-        : undefined
-      const data = await (trpc.servico as any).listMeusServicos.query(input)
-      setExecucoes(data || [])
+      // Uma coluna por vez, paginada. "Todos" significa o trabalho ativo
+      // (em andamento + atrasados + pausados) — dispensados e concluídos têm
+      // chip próprio, e são 6.777 dos 9.100 registros.
+      const bucket = filter === 'todos' ? undefined : filter
+      const res = await (trpc.servico as any).listMeusServicos.query({
+        ...(bucket ? { bucket } : {}),
+        ...(buscaAplicada ? { search: buscaAplicada } : {}),
+        page,
+        limit: POR_PAGINA,
+      })
+      setExecucoes(res?.data ?? [])
+      setTotal(res?.total ?? 0)
+      setTotalPaginas(res?.totalPages ?? 1)
     } catch (e) {
       console.warn('[MeusServicos] erro ao listar:', (e as Error).message)
       if (!opts?.silent) setExecucoes([])
     } finally { if (!opts?.silent) setLoading(false) }
-  }, [filter])
+  }, [filter, page, buscaAplicada])
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // KPIs (sempre visíveis, calculados a partir de uma busca completa)
-  const [statsAll, setStatsAll] = useState<ExecucaoMinha[]>([])
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await (trpc.servico as any).listMeusServicos.query()
-        setStatsAll(data || [])
-      } catch { /* sem perm */ }
-    })()
-  }, [])
+  /**
+   * Contadores dos chips — vêm prontos do servidor.
+   *
+   * Antes a tela buscava a lista COMPLETA uma segunda vez só para somá-los:
+   * 358KB e ~7s por carga, para exibir cinco números.
+   */
+  const [contadores, setContadores] = useState<Record<string, number>>({})
+  const carregarContadores = useCallback(async () => {
+    try {
+      const c = await (trpc.servico as any).contarMeusServicos.query(
+        buscaAplicada ? { search: buscaAplicada } : undefined,
+      )
+      setContadores(c || {})
+    } catch { /* sem perm */ }
+  }, [buscaAplicada])
+  useEffect(() => { carregarContadores() }, [carregarContadores])
   /**
    * Atraso segundo a ORIGEM, não segundo a data.
    *
@@ -695,31 +720,21 @@ export default function MeusServicosPage() {
     return !!e.prazoLimite && new Date(e.prazoLimite).getTime() < agora
   }
 
-  const kpis = useMemo(() => {
-    const agora = Date.now()
-    const emAndamento = statsAll.filter(e => e.status === 'EM_ANDAMENTO').length
-    const atrasados = statsAll.filter(e => estaAtrasada(e, agora)).length
-    const concluidos = statsAll.filter(e => e.status === 'CONCLUIDO').length
-    const concluidosHoje = statsAll.filter(e => {
-      if (e.status !== 'CONCLUIDO' || !e.concluidoEm) return false
-      const d = new Date(e.concluidoEm)
-      const hoje = new Date()
-      return d.getFullYear() === hoje.getFullYear() && d.getMonth() === hoje.getMonth() && d.getDate() === hoje.getDate()
-    }).length
-    return { emAndamento, atrasados, concluidos, concluidosHoje }
-  }, [statsAll])
+  // Os números vêm do servidor (contarMeusServicos). O cálculo antigo dependia
+  // de ter a lista inteira no navegador — que era exatamente o problema.
+  const kpis = {
+    emAndamento: contadores.em_andamento ?? 0,
+    atrasados: contadores.atrasados ?? 0,
+    pausados: contadores.pausados ?? 0,
+    concluidos: contadores.concluidos ?? 0,
+    dispensados: contadores.dispensados ?? 0,
+    ativos: contadores.ativos ?? 0,
+  }
 
-  // Busca textual — filtra por serviço, cliente, nº do orçamento e responsável
-  // (sem acento, case-insensitive). Alimenta tanto o kanban quanto a lista.
-  const execFiltradas = useMemo(() => {
-    const q = busca.trim().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-    if (!q) return execucoes
-    return execucoes.filter(e => {
-      const alvo = `${e.servico?.nome ?? ''} ${e.cliente?.razaoSocial ?? ''} ${e.orcamento ? '#' + e.orcamento.numero : ''} ${e.responsavelUsuario?.name ?? ''}`
-        .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-      return alvo.includes(q)
-    })
-  }, [execucoes, busca])
+  // A busca já veio filtrada do servidor (serviço, cliente, nº do orçamento e
+  // responsável, sem acento e sem caixa). Repetir o filtro aqui só reduziria o
+  // resultado da página — o nome fica porque alimenta o kanban e a lista.
+  const execFiltradas = execucoes
 
   // Agrupamento em colunas para o modo Kanban — uma execução pertence a UMA coluna.
   // Ordem de precedência: cancelado > concluído > pausado > atrasado > em andamento.
@@ -730,24 +745,17 @@ export default function MeusServicosPage() {
       em_andamento: { key: 'em_andamento', titulo: 'Em Andamento', cor: '#38bdf8', items: [] },
       atrasados: { key: 'atrasados', titulo: 'Atrasados', cor: '#ef4444', items: [] },
       pausados: { key: 'pausados', titulo: 'Pausados', cor: '#f59e0b', items: [] },
-      concluidos: { key: 'concluidos', titulo: 'Concluídos', cor: '#10b981', items: [] },
-      dispensados: { key: 'dispensados', titulo: 'Dispensados', cor: '#a78bfa', items: [] },
-      cancelados: { key: 'cancelados', titulo: 'Cancelados', cor: '#94a3b8', items: [] },
     }
+    // O painel é do trabalho EM ABERTO. Concluído, dispensado e cancelado não
+    // pedem ação — e eram 6.779 dos ~9.100 registros. Consulta deles fica em
+    // /servicos › Execuções, que lista tudo com filtro por status.
     for (const e of execFiltradas) {
-      if (e.status === 'CANCELADO') cols.cancelados!.items.push(e)
-      else if (e.status === 'CONCLUIDO') cols.concluidos!.items.push(e)
-      // PULADO é obrigação DISPENSADA no Acessórias — o cliente não a deve.
-      // Precisa sair antes do teste de prazo: como toda dispensada carrega o
-      // prazo original, ela caía em "Atrasados" e respondia por 1.519 dos 2.737
-      // cartões da coluna. Mais da metade do "atraso" eram obrigações que nunca
-      // venceram porque nunca foram devidas.
-      else if (e.status === 'PULADO') cols.dispensados!.items.push(e)
-      else if (e.pausado) cols.pausados!.items.push(e)
+      if (e.status === 'CANCELADO' || e.status === 'CONCLUIDO' || e.status === 'PULADO') continue
+      if (e.pausado) cols.pausados!.items.push(e)
       else if (estaAtrasada(e, agora)) cols.atrasados!.items.push(e)
       else cols.em_andamento!.items.push(e)
     }
-    return [cols.em_andamento!, cols.atrasados!, cols.pausados!, cols.concluidos!, cols.dispensados!, cols.cancelados!]
+    return [cols.em_andamento!, cols.atrasados!, cols.pausados!]
   }, [execFiltradas])
 
   // Lista de filtros (chips) — mantém função de filtragem mas no padrão visual CRM/Orçamentos:
@@ -755,39 +763,31 @@ export default function MeusServicosPage() {
   const filtros: Array<{ key: FilterKind; label: string; icon: typeof Play; cor: string; count: number }> = [
     { key: 'em_andamento', label: 'Em Andamento', icon: Play, cor: '#38bdf8', count: kpis.emAndamento },
     { key: 'atrasados', label: 'Atrasados', icon: AlertTriangle, cor: '#ef4444', count: kpis.atrasados },
-    { key: 'concluidos', label: 'Concluídos', icon: CheckCircle2, cor: '#10b981', count: kpis.concluidos },
-    { key: 'todos', label: 'Todos', icon: ListChecks, cor: '#94a3b8', count: statsAll.length },
+    { key: 'pausados', label: 'Pausados', icon: Pause, cor: '#f59e0b', count: kpis.pausados },
+    { key: 'todos', label: 'Ativos', icon: ListChecks, cor: '#94a3b8', count: kpis.ativos },
   ]
 
   return (
     <div className="flex flex-col gap-5 h-[calc(100vh-90px)]" suppressHydrationWarning>
-      {/* ── Header (padrão CRM/Orçamentos) ── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[4px] text-white shadow-md"
-            style={{ background: `linear-gradient(135deg, ${MODULE_COLOR}, color-mix(in srgb, ${MODULE_COLOR} 87%, transparent))` }}
-          >
-            <ListChecks className="h-6 w-6" />
-          </div>
-          <div>
-            <h1>Gerenciador de Serviços</h1>
-            <p className="text-sm text-muted-foreground">Execuções de serviço atribuídas a você</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Busca — padrão CRM/Orçamentos/Helpdesk (cliente, serviço, nº orçamento, responsável) */}
+      {/* ── Topo — PADRAO_PAGINAS §1.1, com as ações e a busca na barra ── */}
+      <PageHeaderBar className="mb-0 shrink-0 sm:mb-0" actions={<>
+          {/* Concluído, dispensado e cancelado saíram do painel: consulta deles
+              é no /servicos › Execuções, com filtro por status. */}
+          <Button variant="outline" size="sm" asChild className="gap-1.5">
+            <Link href="/servicos?view=execucoes"><Receipt className="h-4 w-4" />Histórico completo</Link>
+          </Button>
+          {/* Busca — medida do /orcamentos (h-9, 224px) */}
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={busca}
               onChange={e => setBusca(e.target.value)}
               placeholder="Buscar cliente, serviço, #orçamento..."
-              className="h-8 w-[260px] pl-7 text-xs"
+              className="h-9 w-56 pl-8 text-sm"
             />
           </div>
-          {/* Toggle Kanban/Lista — padrão CRM */}
-          <div className="flex items-center border rounded-[2px] overflow-hidden">
+          {/* Toggle Kanban/Lista — padrão CRM/Orçamentos */}
+          <div className="flex items-center overflow-hidden rounded-lg border">
             <button
               type="button"
               className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')}
@@ -829,8 +829,17 @@ export default function MeusServicosPage() {
               <Plus className="h-4 w-4" /> Novo Serviço
             </Button>
           )}
-        </div>
-      </div>
+        </>}
+      >
+        <h1 className="truncate">Gerenciador de Serviços</h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Administrativo</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Gerenciador de Serviços</span>
+        </p>
+      </PageHeaderBar>
 
       {/* ── Barra de filtros (chips horizontais) ── */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -881,17 +890,20 @@ export default function MeusServicosPage() {
         </Card>
       ) : viewMode === 'kanban' ? (
         // Kanban no padrão CRM/Orçamentos — overflow-x-auto + flex-1 ocupa altura disponível
-        <div className="overflow-x-auto overflow-y-hidden pb-4 -mx-1 flex-1">
-          <div className="flex gap-3 px-1 h-full" style={{ minWidth: `${colunasKanban.length * 240}px` }}>
+        <div className="nice-scrollbar -mx-1 flex-1 overflow-x-auto overflow-y-hidden pb-4">
+          {/* As três colunas dividem a largura do painel em partes iguais. O piso
+              de 280px mantém o card legível — abaixo disso o trilho rola na
+              horizontal, como no /orcamentos. */}
+          <div className="flex h-full w-full gap-4 px-1">
             {colunasKanban.map(col => (
               <div
                 key={col.key}
-                className="flex-1 min-w-[240px] flex flex-col overflow-hidden rounded-lg transition-colors bg-black/[0.04] dark:bg-white/[0.04]"
+                className="flex h-full min-w-[280px] flex-1 flex-col rounded-xl transition-colors"
               >
-                {/* Header — padrão /helpdesk: sem bg/border, dot + título + pill colorida */}
-                <div className="px-3 py-2.5 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: col.cor }} />
+                {/* Header: dot da cor + nome + contador em pill tintada */}
+                <div className="flex items-center justify-between gap-2 px-1.5 py-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: col.cor }} />
                     <span className="text-sm font-semibold truncate">{col.titulo}</span>
                     <span
                       className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-semibold text-white shrink-0"
@@ -902,8 +914,8 @@ export default function MeusServicosPage() {
                   </div>
                 </div>
 
-                {/* Body da coluna */}
-                <div className="flex-1 p-2 space-y-2 overflow-y-auto nice-scrollbar min-h-[120px]">
+                {/* Body da coluna — espaçamento do /orcamentos */}
+                <div className="nice-scrollbar min-h-[120px] flex-1 space-y-2 overflow-y-auto px-1.5 pb-2">
                   {col.items.length === 0 && (
                     <p className="text-xs text-muted-foreground text-center py-6 italic">Vazio</p>
                   )}
@@ -985,13 +997,13 @@ export default function MeusServicosPage() {
                                   Vida: <span className="font-medium text-foreground/80 truncate">{tempoVida(exec.iniciadoEm, exec.concluidoEm)}</span>
                                 </span>
                                 {exec.status === 'EM_ANDAMENTO' && exec.prazoLimite && (
-                                  <span className="inline-flex items-center gap-1 shrink-0" title={`Previsão de conclusão: ${formatDateTime(exec.prazoLimite)}`}>
+                                  <span className="inline-flex flex-wrap items-center gap-1 sm:shrink-0" title={`Previsão de conclusão: ${formatDateTime(exec.prazoLimite)}`}>
                                     <Calendar className="h-3 w-3 opacity-60 shrink-0" />
                                     Previsão: <span className="font-medium text-foreground/80">{formatDate(exec.prazoLimite)}</span>
                                   </span>
                                 )}
                                 {exec.status === 'CONCLUIDO' && exec.concluidoEm && (
-                                  <span className="inline-flex items-center gap-1 shrink-0">
+                                  <span className="inline-flex flex-wrap items-center gap-1 sm:shrink-0">
                                     <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
                                     Concluído: <span className="font-medium text-foreground/80">{formatDateTime(exec.concluidoEm)}</span>
                                   </span>
@@ -1034,7 +1046,7 @@ export default function MeusServicosPage() {
                                   <ResponsavelChip user={exec.responsavelUsuario} size="xs" />
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                                 {totalComentarios > 0 && (
                                   <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title={`${totalComentarios} comentário${totalComentarios > 1 ? 's' : ''}`}>
                                     <MessageSquare className="h-3 w-3" /> {totalComentarios}
@@ -1405,6 +1417,26 @@ export default function MeusServicosPage() {
               )
             })}
           </div>
+          {/* Rodapé de paginação — padrão da casa (PADRAO_PAGINAS §1.3). A lista
+              carrega 50 por vez: era ela, com ~2.700 cartões, que travava a tela. */}
+          {total > 0 && (
+            <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 text-xs sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-muted-foreground">
+                Mostrando <span className="font-medium text-foreground">{(page - 1) * POR_PAGINA + 1}</span> a{' '}
+                <span className="font-medium text-foreground">{Math.min(page * POR_PAGINA, total)}</span> de{' '}
+                <span className="font-medium text-foreground">{total}</span> registro(s)
+              </p>
+              {totalPaginas > 1 && (
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="icon-xs" disabled={page <= 1} onClick={() => setPage(1)} title="Primeira">«</Button>
+                  <Button variant="outline" size="icon-xs" disabled={page <= 1} onClick={() => setPage(p => p - 1)} title="Anterior">‹</Button>
+                  <span className="px-2 tabular-nums text-muted-foreground">{page} / {totalPaginas}</span>
+                  <Button variant="outline" size="icon-xs" disabled={page >= totalPaginas} onClick={() => setPage(p => p + 1)} title="Próxima">›</Button>
+                  <Button variant="outline" size="icon-xs" disabled={page >= totalPaginas} onClick={() => setPage(totalPaginas)} title="Última">»</Button>
+                </div>
+              )}
+            </div>
+          )}
         </Card>
       )}
 
