@@ -303,7 +303,7 @@ model User {
 
   @@map("users")
   reformaSimulacoes ReformaTributariaSimulacao[]
-  projetoParticipacoes ProjetoParticipante[]
+  projetoParticipacoes ProjetoExecucaoParticipante[]
 }
 
 model Session {
@@ -718,7 +718,7 @@ model Cliente {
   dossieColetas   ClienteDossieColeta[]
   dossieFatos     ClienteDossieFato[]
   dossieSugestoes ClienteDossieSugestao[]
-  projetos        ProjetoCliente[]
+  projetoExecucoes ProjetoExecucao[]
 
   // Integração
   idSistema      String? @map("id_sistema")
@@ -7162,45 +7162,78 @@ model Projeto {
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
-  tarefas       ProjetoTarefa[]
-  tags          ProjetoTag[]
-  mensagens     ProjetoMensagem[]
-  anexos        ProjetoAnexo[]
-  eventos       ProjetoEvento[]
-  participantes ProjetoParticipante[]
-  clientes      ProjetoCliente[]
-  rodadas       ProjetoRodada[]
+  tarefas   ProjetoTarefa[]
+  tags      ProjetoTag[]
+  mensagens ProjetoMensagem[]
+  anexos    ProjetoAnexo[]
+  eventos   ProjetoEvento[]
+  execucoes ProjetoExecucao[]
 
   @@index([status, isActive])
   @@index([responsavelId])
   @@map("projetos")
 }
 
-/// Empresas-cliente envolvidas no projeto.
+/// Uma frente de trabalho do projeto, para um cliente.
 ///
-/// É lista, e não um campo no projeto, porque uma ferramenta costuma ser
-/// desenvolvida atendendo vários clientes ao mesmo tempo. Projeto sem nenhum
-/// registro aqui é projeto interno.
-model ProjetoCliente {
-  id        String   @id @default(cuid())
-  projetoId String   @map("projeto_id")
-  clienteId String   @map("cliente_id")
+/// O mesmo projeto roda várias ao mesmo tempo — a ferramenta é uma só, mas cada
+/// cliente tem seu ciclo, seu responsável e seu time. Por isso cliente,
+/// responsável e participantes moram AQUI, e não no projeto: no projeto eles
+/// seriam uma média de todos, que não descreve nenhuma.
+///
+/// O responsável da execução é outra pessoa que o responsável do projeto: um
+/// responde pela frente, o outro pelo todo.
+model ProjetoExecucao {
+  id        String @id @default(cuid())
+  projetoId String @map("projeto_id")
+
+  /// Nome da frente. Vazio, a tela mostra o nome do cliente.
+  titulo    String?
+  clienteId String? @map("cliente_id")
+  /// Quem responde por ESTA execução.
+  responsavelId String? @map("responsavel_id")
+
+  ordem     Int      @default(0)
+  ativa     Boolean  @default(true)
   criadoEm  DateTime @default(now()) @map("criado_em")
+  criadoPor String?  @map("criado_por")
 
-  projeto Projeto @relation(fields: [projetoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  projeto       Projeto                       @relation(fields: [projetoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cliente       Cliente?                      @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  participantes ProjetoExecucaoParticipante[]
+  rodadas       ProjetoRodada[]
 
-  @@unique([projetoId, clienteId])
+  @@index([projetoId])
   @@index([clienteId])
-  @@map("projeto_clientes")
+  @@map("projeto_execucoes")
+}
+
+/// O time de UMA execução.
+///
+/// EXECUTANTE faz; COLABORADOR é o analista que aponta e valida. O responsável
+/// da execução não entra aqui — ele é campo da própria execução, e repetido
+/// apareceria duas vezes no mesmo ramo do fluxograma.
+model ProjetoExecucaoParticipante {
+  id         String   @id @default(cuid())
+  execucaoId String   @map("execucao_id")
+  userId     String   @map("user_id")
+  papel      String   @default("EXECUTANTE")
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  execucao ProjetoExecucao @relation(fields: [execucaoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([execucaoId, userId])
+  @@index([userId])
+  @@map("projeto_execucao_participantes")
 }
 
 /// Um ciclo de trabalho: a TI entrega, os envolvidos apontam, nasce a rodada
 /// seguinte. É o que o time chama de "rodada" no projeto Centria.
 model ProjetoRodada {
   id         String    @id @default(cuid())
-  projetoId  String    @map("projeto_id")
-  /// Sequencial DENTRO do projeto: Rodada 1, Rodada 2…
+  execucaoId String    @map("execucao_id")
+  /// Sequencial DENTRO da execução: cada frente tem sua Rodada 1.
   numero     Int
   titulo     String?
   descricao  String?   @db.Text
@@ -7209,11 +7242,11 @@ model ProjetoRodada {
   criadoEm   DateTime  @default(now()) @map("criado_em")
   criadoPor  String?   @map("criado_por")
 
-  projeto      Projeto              @relation(fields: [projetoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  execucao     ProjetoExecucao      @relation(fields: [execucaoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   apontamentos ProjetoApontamento[]
 
-  @@unique([projetoId, numero])
-  @@index([projetoId])
+  @@unique([execucaoId, numero])
+  @@index([execucaoId])
   @@map("projeto_rodadas")
 }
 
@@ -7240,27 +7273,6 @@ model ProjetoApontamento {
 
   @@index([rodadaId, situacao])
   @@map("projeto_apontamentos")
-}
-
-/// Quem mais está envolvido no projeto, além do responsável.
-///
-/// O responsável continua sendo UM (`Projeto.responsavelId`) — é quem responde
-/// pelo projeto. Os participantes são o time em volta, e é uma lista.
-model ProjetoParticipante {
-  id        String   @id @default(cuid())
-  projetoId String   @map("projeto_id")
-  userId    String   @map("user_id")
-  /// EXECUTANTE (faz) | COLABORADOR (apoia, valida, aponta).
-  /// O responsável NÃO entra aqui — ele é `Projeto.responsavelId`.
-  papel     String   @default("EXECUTANTE")
-  criadoEm  DateTime @default(now()) @map("criado_em")
-
-  projeto Projeto @relation(fields: [projetoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([projetoId, userId])
-  @@index([userId])
-  @@map("projeto_participantes")
 }
 
 model ProjetoMensagem {

@@ -4,6 +4,8 @@ import { prisma } from '@saas/db'
 import type {
   CreateProjetoInput,
   UpdateProjetoInput,
+  CreateProjetoExecucaoInput,
+  UpdateProjetoExecucaoInput,
   CreateRodadaInput,
   UpdateRodadaInput,
   CreateApontamentoInput,
@@ -29,7 +31,7 @@ export class ProjetoService {
     const where: any = { isActive: true }
     if (input.status) where.status = input.status
     if (input.responsavelId) where.responsavelId = input.responsavelId
-    if (input.clienteId) where.clientes = { some: { clienteId: input.clienteId } }
+    if (input.clienteId) where.execucoes = { some: { clienteId: input.clienteId } }
     if (input.search) {
       where.OR = [
         { nome: { contains: input.search, mode: 'insensitive' } },
@@ -50,11 +52,13 @@ export class ProjetoService {
         take: input.limit,
         include: {
           _count: { select: { tarefas: true } },
-          clientes: {
-            select: { cliente: { select: { id: true, razaoSocial: true, nomeFantasia: true } } },
-          },
-          participantes: {
-            select: { papel: true, user: { select: { id: true, name: true, image: true } } },
+          execucoes: {
+            where: { ativa: true },
+            select: {
+              id: true,
+              cliente: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
+              participantes: { select: { userId: true } },
+            },
           },
         },
       }),
@@ -97,9 +101,11 @@ export class ProjetoService {
     const enriched = items.map((p) => ({
       ...p,
       responsavel: p.responsavelId ? respById.get(p.responsavelId) ?? null : null,
-      // O card quer a lista de gente, não a tabela de ligação.
-      participantes: p.participantes.map((pp) => ({ ...pp.user, papel: pp.papel })),
-      clientes: p.clientes.map((pc) => pc.cliente),
+      // O card resume: quantas frentes, para quais clientes e quanta gente.
+      // O detalhe de quem é quem fica na aba Envolvidos.
+      execucoes: p.execucoes.length,
+      clientes: p.execucoes.map((e) => e.cliente).filter((c): c is NonNullable<typeof c> => !!c),
+      envolvidos: new Set(p.execucoes.flatMap((e) => e.participantes.map((pp) => pp.userId))).size,
       tarefaProximoVencimento: tarefaPorProjeto.get(p.id) ?? null,
     }))
 
@@ -112,12 +118,7 @@ export class ProjetoService {
       include: {
         tags: true,
         _count: { select: { tarefas: true, mensagens: true, anexos: true } },
-        clientes: {
-          select: { cliente: { select: { id: true, razaoSocial: true, nomeFantasia: true } } },
-        },
-        participantes: {
-          select: { papel: true, user: { select: { id: true, name: true, image: true } } },
-        },
+
       },
     })
     if (!projeto) throw new TRPCError({ code: 'NOT_FOUND', message: 'Projeto não encontrado' })
@@ -128,12 +129,7 @@ export class ProjetoService {
           select: { id: true, name: true, image: true },
         })
       : null
-    return {
-      ...projeto,
-      responsavel,
-      participantes: projeto.participantes.map((p) => ({ ...p.user, papel: p.papel })),
-      clientes: projeto.clientes.map((c) => c.cliente),
-    }
+    return { ...projeto, responsavel }
   }
 
   async createProjeto(input: CreateProjetoInput, userId: string | null) {
@@ -146,19 +142,13 @@ export class ProjetoService {
         responsavelId: input.responsavelId ?? userId ?? null,
         dataInicio: input.dataInicio ? new Date(input.dataInicio) : null,
         dataPrevisao: input.dataPrevisao ? new Date(input.dataPrevisao) : null,
-        ...(input.participantes?.length
-          ? { participantes: { create: this.participantesUnicos(input.participantes, input.responsavelId ?? userId) } }
-          : {}),
-        ...(input.clientesIds?.length
-          ? { clientes: { create: Array.from(new Set(input.clientesIds.filter(Boolean))).map(clienteId => ({ clienteId })) } }
-          : {}),
       },
     })
   }
 
   /**
-   * O responsável não entra como participante: ele já aparece à parte no
-   * organograma, e repetido viraria a mesma pessoa em duas caixas.
+   * O responsável da execução não entra como participante dela: já aparece à
+   * parte no fluxograma, e repetido viraria a mesma pessoa em duas caixas.
    */
   private participantesUnicos(
     lista: Array<{ userId: string; papel?: string }>,
@@ -211,31 +201,6 @@ export class ProjetoService {
         }),
       },
     })
-
-    // Participantes: a lista que chega é a lista final. Trocar tudo é mais
-    // simples e mais previsível do que calcular entra/sai — são poucos nomes.
-    if (input.participantes !== undefined) {
-      const responsavelFinal = input.responsavelId !== undefined ? input.responsavelId : atual.responsavelId
-      const lista = this.participantesUnicos(input.participantes, responsavelFinal)
-      await prisma.$transaction([
-        prisma.projetoParticipante.deleteMany({ where: { projetoId: id } }),
-        ...(lista.length > 0
-          ? [prisma.projetoParticipante.createMany({ data: lista.map(p => ({ projetoId: id, userId: p.userId, papel: p.papel })) })]
-          : []),
-      ])
-    }
-
-    // Clientes envolvidos: mesma regra dos participantes — a lista que chega é
-    // a lista final.
-    if (input.clientesIds !== undefined) {
-      const ids = Array.from(new Set(input.clientesIds.filter(Boolean)))
-      await prisma.$transaction([
-        prisma.projetoCliente.deleteMany({ where: { projetoId: id } }),
-        ...(ids.length > 0
-          ? [prisma.projetoCliente.createMany({ data: ids.map(clienteId => ({ projetoId: id, clienteId })) })]
-          : []),
-      ])
-    }
 
     // Grava eventos fora da update
     for (const ev of eventos) {
@@ -299,15 +264,109 @@ export class ProjetoService {
     })
   }
 
+  // ── Execuções ───────────────────────────────────────────────
+  //
+  // Cada frente de trabalho do projeto: um cliente, um responsável próprio e um
+  // time. Rodam em paralelo — a ferramenta é a mesma, o ciclo de cada cliente
+  // não é.
+
+  async listExecucoes(projetoId: string) {
+    const execucoes = await prisma.projetoExecucao.findMany({
+      where: { projetoId },
+      orderBy: [{ ordem: 'asc' }, { criadoEm: 'asc' }],
+      include: {
+        cliente: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
+        participantes: {
+          select: { papel: true, user: { select: { id: true, name: true, image: true } } },
+        },
+        _count: { select: { rodadas: true } },
+      },
+    })
+
+    // Responsável de cada frente, em lote — são poucos, mas um lookup por
+    // execução seria N+1 numa tela que abre inteira.
+    const ids = execucoes.map(e => e.responsavelId).filter((x): x is string => !!x)
+    const pessoas = ids.length > 0
+      ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, image: true } })
+      : []
+    const porId = new Map(pessoas.map(u => [u.id, u]))
+
+    return execucoes.map(e => ({
+      ...e,
+      responsavel: e.responsavelId ? porId.get(e.responsavelId) ?? null : null,
+      participantes: e.participantes.map(pp => ({ ...pp.user, papel: pp.papel })),
+    }))
+  }
+
+  async createExecucao(input: CreateProjetoExecucaoInput, userId: string | null) {
+    const ultima = await prisma.projetoExecucao.findFirst({
+      where: { projetoId: input.projetoId },
+      orderBy: { ordem: 'desc' },
+      select: { ordem: true },
+    })
+    return prisma.projetoExecucao.create({
+      data: {
+        projetoId: input.projetoId,
+        titulo: input.titulo || null,
+        clienteId: input.clienteId || null,
+        responsavelId: input.responsavelId || null,
+        ordem: (ultima?.ordem ?? -1) + 1,
+        criadoPor: userId,
+      },
+    })
+  }
+
+  async updateExecucao(id: string, input: UpdateProjetoExecucaoInput) {
+    const atual = await prisma.projetoExecucao.findUnique({
+      where: { id },
+      select: { responsavelId: true },
+    })
+    if (!atual) throw new TRPCError({ code: 'NOT_FOUND', message: 'Execução não encontrada' })
+
+    const execucao = await prisma.projetoExecucao.update({
+      where: { id },
+      data: {
+        ...(input.titulo !== undefined && { titulo: input.titulo || null }),
+        ...(input.clienteId !== undefined && { clienteId: input.clienteId || null }),
+        ...(input.responsavelId !== undefined && { responsavelId: input.responsavelId || null }),
+        ...(input.ativa !== undefined && { ativa: input.ativa }),
+      },
+    })
+
+    // Time da execução: a lista que chega é a lista final — trocar tudo é mais
+    // previsível que calcular entra/sai para meia dúzia de nomes.
+    if (input.participantes !== undefined) {
+      const responsavelFinal = input.responsavelId !== undefined ? input.responsavelId : atual.responsavelId
+      const lista = this.participantesUnicos(input.participantes, responsavelFinal)
+      await prisma.$transaction([
+        prisma.projetoExecucaoParticipante.deleteMany({ where: { execucaoId: id } }),
+        ...(lista.length > 0
+          ? [prisma.projetoExecucaoParticipante.createMany({
+              data: lista.map(p2 => ({ execucaoId: id, userId: p2.userId, papel: p2.papel })),
+            })]
+          : []),
+      ])
+    }
+
+    return execucao
+  }
+
+  async deleteExecucao(id: string) {
+    // Rodadas e apontamentos vão junto (cascade): rodada sem a frente de onde
+    // veio é registro que ninguém sabe ler.
+    await prisma.projetoExecucao.delete({ where: { id } })
+    return { ok: true }
+  }
+
   // ── Rodadas e apontamentos ──────────────────────────────────
   //
   // O ciclo do projeto: a TI entrega uma rodada, os envolvidos apontam o que
   // falta, a TI corrige e entrega a seguinte. Antes isso vivia em conversa de
   // corredor e no e-mail de cada um.
 
-  async listRodadas(projetoId: string) {
+  async listRodadas(execucaoId: string) {
     const rodadas = await prisma.projetoRodada.findMany({
-      where: { projetoId },
+      where: { execucaoId },
       orderBy: { numero: 'desc' },
       include: {
         apontamentos: { orderBy: { criadoEm: 'asc' } },
@@ -344,18 +403,19 @@ export class ProjetoService {
   }
 
   /**
-   * O número da rodada é sequencial dentro do projeto e o banco garante a
-   * unicidade — dois cliques rápidos no botão não criam duas "Rodada 3".
+   * O número da rodada é sequencial dentro da EXECUÇÃO — cada frente tem sua
+   * Rodada 1 — e o banco garante a unicidade: dois cliques rápidos no botão
+   * não criam duas "Rodada 3".
    */
   async createRodada(input: CreateRodadaInput, userId: string | null) {
     const ultima = await prisma.projetoRodada.findFirst({
-      where: { projetoId: input.projetoId },
+      where: { execucaoId: input.execucaoId },
       orderBy: { numero: 'desc' },
       select: { numero: true },
     })
     return prisma.projetoRodada.create({
       data: {
-        projetoId: input.projetoId,
+        execucaoId: input.execucaoId,
         numero: (ultima?.numero ?? 0) + 1,
         titulo: input.titulo || null,
         descricao: input.descricao || null,

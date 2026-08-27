@@ -6,7 +6,7 @@ import {
   Plus, MoreVertical, Pencil, Trash2, Loader2,
   ListChecks, Flag, Search, LayoutGrid, List,
   Info, MessageSquare, Kanban,
-  FolderKanban, Building2, Calendar, User as UserIcon, Users, PackageCheck,
+  FolderKanban, Calendar, User as UserIcon, Users, PackageCheck,
 } from 'lucide-react'
 import { cn } from '@saas/ui'
 import Link from 'next/link'
@@ -64,8 +64,6 @@ interface ProjetoDetail {
   dataPrevisao: Date | string | null
   responsavelId: string | null
   responsavel: { id: string; name: string; image: string | null } | null
-  participantes?: Array<{ id: string; name: string; image: string | null; papel?: string }>
-  clientes?: Array<{ id: string; razaoSocial: string; nomeFantasia: string | null }>
   createdAt?: Date | string
   _count: { tarefas: number; mensagens?: number; anexos?: number }
 }
@@ -230,30 +228,11 @@ export default function ProjetoDetailPage() {
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
                         {PROJETO_STATUS_LABELS[projeto.status]}
                       </span>
-                      {(projeto.clientes ?? []).slice(0, 2).map(c => (
-                        <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
-                          <Building2 className="h-3 w-3" />
-                          {c.nomeFantasia || c.razaoSocial}
-                        </span>
-                      ))}
-                      {(projeto.clientes?.length ?? 0) > 2 && (
-                        <span
-                          className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold text-white ring-1 ring-white/25 backdrop-blur"
-                          title={(projeto.clientes ?? []).map(c => c.nomeFantasia || c.razaoSocial).join(', ')}
-                        >
-                          +{(projeto.clientes?.length ?? 0) - 2}
-                        </span>
-                      )}
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/85">
                       <span className="inline-flex items-center gap-1">
                         <UserIcon className="h-3.5 w-3.5" />
                         {projeto.responsavel?.name ?? 'Sem responsável'}
-                        {(projeto.participantes?.length ?? 0) > 0 && (
-                          <span className="ml-0.5 opacity-80" title={`Também no projeto: ${(projeto.participantes ?? []).map(u => u.name).join(', ')}`}>
-                            +{projeto.participantes?.length}
-                          </span>
-                        )}
                       </span>
                       {projeto.dataPrevisao && (
                         <span className="inline-flex items-center gap-1">
@@ -305,9 +284,6 @@ export default function ProjetoDetailPage() {
               </button>
               <button type="button" onClick={() => setActiveTab('envolvidos')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'envolvidos' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
                 <Users className="h-4 w-4" /> Envolvidos
-                <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">
-                  {(projeto.participantes?.length ?? 0) + (projeto.responsavel ? 1 : 0) + (projeto.clientes?.length ?? 0)}
-                </Badge>
               </button>
               <button type="button" onClick={() => setActiveTab('rodadas')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'rodadas' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
                 <PackageCheck className="h-4 w-4" /> Rodadas
@@ -332,12 +308,9 @@ export default function ProjetoDetailPage() {
               <TabsContent value="envolvidos" className="mt-0">
                 <ProjetoTabEnvolvidos
                   projetoId={projeto.id}
-                  responsavel={projeto.responsavel}
-                  participantes={projeto.participantes ?? []}
-                  clientes={projeto.clientes ?? []}
                   corProjeto={projetoCor}
                   canWrite={canWrite}
-                  onChange={fetchProjeto}
+                  canDelete={canDelete}
                 />
               </TabsContent>
 

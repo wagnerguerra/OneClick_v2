@@ -13,6 +13,8 @@ import {
   updateProjetoTagSchema,
   addComentarioTarefaSchema,
   addAnexoTarefaSchema,
+  createProjetoExecucaoSchema,
+  updateProjetoExecucaoSchema,
   createRodadaSchema,
   updateRodadaSchema,
   createApontamentoSchema,
@@ -56,10 +58,27 @@ export function createProjetoRouter(svc: ProjetoService) {
       .input(z.object({ busca: z.string().optional() }).optional())
       .query(({ input, ctx }) => svc.listPessoas(input?.busca, ctx)),
 
+    // ── Execuções (frentes de trabalho do projeto) ────────────
+    listExecucoes: readProcedure(MODULE)
+      .input(z.object({ projetoId: z.string() }))
+      .query(({ input }) => svc.listExecucoes(input.projetoId)),
+
+    createExecucao: writeProcedure(MODULE)
+      .input(createProjetoExecucaoSchema)
+      .mutation(({ input, ctx }) => svc.createExecucao(input, ctx.userId ?? null)),
+
+    updateExecucao: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), data: updateProjetoExecucaoSchema }))
+      .mutation(({ input }) => svc.updateExecucao(input.id, input.data)),
+
+    deleteExecucao: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => svc.deleteExecucao(input.id)),
+
     // ── Rodadas e apontamentos ────────────────────────────────
     listRodadas: readProcedure(MODULE)
-      .input(z.object({ projetoId: z.string() }))
-      .query(({ input }) => svc.listRodadas(input.projetoId)),
+      .input(z.object({ execucaoId: z.string() }))
+      .query(({ input }) => svc.listRodadas(input.execucaoId)),
 
     createRodada: writeProcedure(MODULE)
       .input(createRodadaSchema)

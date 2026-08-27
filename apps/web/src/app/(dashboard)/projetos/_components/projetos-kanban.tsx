@@ -9,7 +9,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useRouter } from 'next/navigation'
-import { ListChecks, MoreVertical, Pencil, Trash2, Calendar, AlertCircle, Building2, User as UserIcon } from 'lucide-react'
+import { ListChecks, MoreVertical, Pencil, Trash2, Calendar, AlertCircle, Building2, Layers, User as UserIcon } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
@@ -39,8 +39,9 @@ export interface KanbanProjeto {
   dataPrevisao: Date | string | null
   _count: { tarefas: number }
   responsavel: { id: string; name: string; image: string | null } | null
-  /** Time em volta do responsável. Vazio quando ninguém mais foi envolvido. */
-  participantes?: Array<{ id: string; name: string; image: string | null }>
+  /** Quantas frentes de trabalho e quanta gente somada nelas. */
+  execucoes?: number
+  envolvidos?: number
   /** Empresas-cliente envolvidas. Lista vazia = projeto interno. */
   clientes?: Array<{ id: string; razaoSocial: string; nomeFantasia: string | null }>
   tarefaProximoVencimento: { id: string; titulo: string; prazo: Date | string } | null
@@ -489,14 +490,14 @@ function CardFooter({ projeto }: { projeto: KanbanProjeto }) {
           <span className="text-[10px] text-muted-foreground truncate">
             {projeto.responsavel.name.split(' ')[0]}
           </span>
-          <PilhaParticipantes participantes={projeto.participantes ?? []} />
+          <ResumoFrentes execucoes={projeto.execucoes ?? 0} envolvidos={projeto.envolvidos ?? 0} />
         </div>
       ) : (
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="flex items-center gap-1 text-[10px] text-muted-foreground italic">
             <UserIcon className="h-3 w-3" /> sem responsável
           </span>
-          <PilhaParticipantes participantes={projeto.participantes ?? []} />
+          <ResumoFrentes execucoes={projeto.execucoes ?? 0} envolvidos={projeto.envolvidos ?? 0} />
         </div>
       )}
 
@@ -522,27 +523,22 @@ function CardFooter({ projeto }: { projeto: KanbanProjeto }) {
   )
 }
 
-/** Até três avatares sobrepostos; o resto vira "+N". */
-function PilhaParticipantes({ participantes }: { participantes: Array<{ id: string; name: string; image: string | null }> }) {
-  if (participantes.length === 0) return null
-  const visiveis = participantes.slice(0, 3)
-  const resto = participantes.length - visiveis.length
+/**
+ * Resumo das frentes. O card não lista nomes: com várias execuções em paralelo,
+ * a pilha de avatares viraria uma sopa de gente sem dizer de qual frente é
+ * cada um. Quem é quem está na aba Envolvidos.
+ */
+function ResumoFrentes({ execucoes, envolvidos }: { execucoes: number; envolvidos: number }) {
+  if (execucoes === 0) return null
   return (
-    <div
-      className="flex items-center -space-x-1.5 shrink-0"
-      title={`Também no projeto: ${participantes.map(p => p.name).join(', ')}`}
+    <span
+      className="inline-flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground"
+      title={`${execucoes} execução(ões) em andamento, ${envolvidos} pessoa(s) envolvida(s)`}
     >
-      {visiveis.map(u => (
-        <div key={u.id} className="ring-2 ring-white dark:ring-card rounded-full">
-          <AvatarPequeno user={u} />
-        </div>
-      ))}
-      {resto > 0 && (
-        <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[9px] font-semibold text-foreground/70 ring-2 ring-white dark:ring-card">
-          +{resto}
-        </div>
-      )}
-    </div>
+      <Layers className="h-3 w-3" />
+      {execucoes}
+      {envolvidos > 0 && <span className="opacity-70">· {envolvidos}</span>}
+    </span>
   )
 }
 

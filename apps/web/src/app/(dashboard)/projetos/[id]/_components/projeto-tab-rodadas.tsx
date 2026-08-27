@@ -14,7 +14,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Plus, Loader2, Check, X, Trash2, MessageSquarePlus, PackageCheck, Undo2, ChevronDown,
+  Plus, Loader2, Check, X, Trash2, MessageSquarePlus, PackageCheck, Undo2, ChevronDown, Layers,
 } from 'lucide-react'
 import {
   Button, Input, Card, Badge, cn,
@@ -56,9 +56,15 @@ const CORES_SITUACAO: Record<Apontamento['situacao'], string> = {
   DESCARTADO: 'bg-muted text-muted-foreground',
 }
 
+type ExecucaoRef = { id: string; titulo: string | null; cliente: { razaoSocial: string; nomeFantasia: string | null } | null }
+
 export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto }: {
   projetoId: string; canWrite: boolean; canDelete: boolean; corProjeto: string
 }) {
+  // As rodadas pertencem a uma EXECUÇÃO, não ao projeto: cada frente tem seu
+  // próprio ciclo, e a de número 1 de uma nada tem a ver com a da outra.
+  const [execucoes, setExecucoes] = useState<ExecucaoRef[]>([])
+  const [execucaoId, setExecucaoId] = useState<string>('')
   const [rodadas, setRodadas] = useState<Rodada[]>([])
   const [carregando, setCarregando] = useState(true)
   const [abertas, setAbertas] = useState<Set<string>>(new Set())
@@ -70,11 +76,12 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto }
   const [rascunho, setRascunho] = useState<Record<string, { texto: string; autorNome: string }>>({})
 
   const carregar = useCallback(async () => {
+    if (!execucaoId) { setRodadas([]); setCarregando(false); return }
     setCarregando(true)
     try {
       const r = await (trpc.projetos as never as {
-        listRodadas: { query: (i: { projetoId: string }) => Promise<Rodada[]> }
-      }).listRodadas.query({ projetoId })
+        listRodadas: { query: (i: { execucaoId: string }) => Promise<Rodada[]> }
+      }).listRodadas.query({ execucaoId })
       setRodadas(r)
       // A rodada mais recente já abre expandida: é onde o trabalho está.
       if (r.length > 0 && abertas.size === 0) setAbertas(new Set([r[0]!.id]))
@@ -83,6 +90,20 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto }
     } finally { setCarregando(false) }
   // `abertas` de propósito fora: recarregar não deve fechar o que o usuário abriu.
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [execucaoId])
+
+  // Lista de frentes; a primeira já vem selecionada.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await (trpc.projetos as never as {
+          listExecucoes: { query: (i: { projetoId: string }) => Promise<ExecucaoRef[]> }
+        }).listExecucoes.query({ projetoId })
+        setExecucoes(r)
+        if (r.length > 0) setExecucaoId(atual => atual || r[0]!.id)
+        else setCarregando(false)
+      } catch (e) { alerts.error('Erro', (e as Error).message); setCarregando(false) }
+    })()
   }, [projetoId])
 
   useEffect(() => { void carregar() }, [carregar])
@@ -99,8 +120,8 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto }
     setSalvando(true)
     try {
       await (trpc.projetos as never as {
-        createRodada: { mutate: (i: { projetoId: string; titulo?: string | null; entregueEm?: string | null }) => Promise<unknown> }
-      }).createRodada.mutate({ projetoId, titulo: formTitulo.trim() || null, entregueEm: formEntrega || null })
+        createRodada: { mutate: (i: { execucaoId: string; titulo?: string | null; entregueEm?: string | null }) => Promise<unknown> }
+      }).createRodada.mutate({ execucaoId, titulo: formTitulo.trim() || null, entregueEm: formEntrega || null })
       setModalRodada(false)
       setFormTitulo(''); setFormEntrega('')
       await carregar()
@@ -173,12 +194,41 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto }
               : <>{rodadas.length} rodada(s) · {totalAbertos} apontamento(s) em aberto</>}
           </p>
         </div>
-        {canWrite && (
+        {canWrite && execucoes.length > 0 && (
           <Button variant="success" size="sm" className="gap-1.5" onClick={() => setModalRodada(true)}>
             <Plus className="h-4 w-4" /> Nova rodada
           </Button>
         )}
       </div>
+
+      {/* Seletor de frente — sem escolher uma, não há rodada que faça sentido */}
+      {execucoes.length > 0 && (
+        <div className="nice-scrollbar mb-4 flex gap-1.5 overflow-x-auto pb-1">
+          {execucoes.map(e => (
+            <button
+              key={e.id}
+              type="button"
+              onClick={() => setExecucaoId(e.id)}
+              className={cn(
+                'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                execucaoId === e.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              {e.titulo || e.cliente?.nomeFantasia || e.cliente?.razaoSocial || 'Sem nome'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {execucoes.length === 0 && !carregando && (
+        <div className="flex flex-col items-center gap-2 py-12 text-center">
+          <Layers className="h-8 w-8 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">
+            Crie uma execução na aba Envolvidos — as rodadas pertencem a uma frente de trabalho.
+          </p>
+        </div>
+      )}
 
       {carregando && (
         <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
@@ -186,7 +236,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto }
         </div>
       )}
 
-      {!carregando && rodadas.length === 0 && (
+      {!carregando && execucoes.length > 0 && rodadas.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
           <PackageCheck className="h-8 w-8 text-muted-foreground/50" />
           <p className="text-sm text-muted-foreground">

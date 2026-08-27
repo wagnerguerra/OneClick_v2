@@ -69,13 +69,6 @@ export const createProjetoSchema = z.object({
   status: ProjetoStatusEnum.optional(),
   /** Quem responde pelo projeto. É UM só. */
   responsavelId: z.string().optional().nullable(),
-  /** O time em volta do responsável, com o papel de cada um. Lista completa. */
-  participantes: z.array(z.object({
-    userId: z.string(),
-    papel: ProjetoPapelEnum.default('EXECUTANTE'),
-  })).optional(),
-  /** Empresas-cliente envolvidas. Lista vazia = projeto interno. */
-  clientesIds: z.array(z.string()).optional(),
   dataInicio: z.string().optional().nullable(),
   dataPrevisao: z.string().optional().nullable(),
 })
@@ -96,6 +89,34 @@ export const PROJETO_PAPEL_LABELS: Record<ProjetoPapel, string> = {
   COLABORADOR: 'Colaboradores',
 }
 
+// ── Execuções ───────────────────────────────────────────────
+//
+// Uma frente de trabalho do projeto, para um cliente. O mesmo projeto roda
+// várias ao mesmo tempo.
+
+export const createProjetoExecucaoSchema = z.object({
+  projetoId: z.string().min(1),
+  titulo: z.string().optional().nullable(),
+  clienteId: z.string().optional().nullable(),
+  /** Responde por ESTA frente — outra pessoa que o responsável do projeto. */
+  responsavelId: z.string().optional().nullable(),
+})
+
+export const updateProjetoExecucaoSchema = z.object({
+  titulo: z.string().optional().nullable(),
+  clienteId: z.string().optional().nullable(),
+  responsavelId: z.string().optional().nullable(),
+  ativa: z.boolean().optional(),
+  /** Time da execução. Lista completa: o que vier substitui. */
+  participantes: z.array(z.object({
+    userId: z.string(),
+    papel: ProjetoPapelEnum.default('EXECUTANTE'),
+  })).optional(),
+})
+
+export type CreateProjetoExecucaoInput = z.infer<typeof createProjetoExecucaoSchema>
+export type UpdateProjetoExecucaoInput = z.infer<typeof updateProjetoExecucaoSchema>
+
 // ── Rodadas e apontamentos ──────────────────────────────────
 
 export const ProjetoApontamentoSituacaoEnum = z.enum(['ABERTO', 'RESOLVIDO', 'DESCARTADO'])
@@ -108,7 +129,7 @@ export const APONTAMENTO_SITUACAO_LABELS: Record<ProjetoApontamentoSituacao, str
 }
 
 export const createRodadaSchema = z.object({
-  projetoId: z.string().min(1),
+  execucaoId: z.string().min(1),
   titulo: z.string().optional().nullable(),
   descricao: z.string().optional().nullable(),
   entregueEm: z.string().optional().nullable(),
