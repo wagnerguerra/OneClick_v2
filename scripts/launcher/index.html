@@ -4503,12 +4503,17 @@
         const selectedPrs = deploySelectedPrs()
         const hasPending = selectedCommits.length > 0 || extraProjectPending || selectedPrs.length > 0
         const hasDirty = (r.localDirty || 0) > 0
+        // Publicacao que morreu depois do push: a VPS e o origin ficam iguais,
+        // a fila zera e o botao desabilita — sem caminho de volta pela tela. O
+        // carimbo .deployed-sha diz o que de fato subiu; se ele nao bate com o
+        // codigo que esta na VPS, ainda ha o que publicar.
+        const republicar = visibleProjects.some(p => p.publishIncomplete)
         if (deployState.running) {
           btn.disabled = true
           btn.style.opacity = '0.4'
           hint.textContent = 'Deploy em andamento...'
           hint.style.color = '#f59e0b'
-        } else if (hasDirty || hasPending) {
+        } else if (hasDirty || hasPending || republicar) {
           btn.disabled = false
           btn.style.opacity = '1'
           const parts = []
@@ -4516,7 +4521,13 @@
           if (selectedCommits.length) parts.push(`${selectedCommits.length} commit(s) selecionado(s)`)
           if (extraProjectPending) parts.push('deploy extra selecionado')
           if (selectedPrs.length) parts.push(`${selectedPrs.length} PR(s) selecionado(s)`)
-          deployUpdateSelectionHint()
+          if (republicar && !hasDirty && !hasPending) {
+            const incompleto = visibleProjects.find(p => p.publishIncomplete)
+            hint.textContent = `A última publicação não terminou (no ar: ${incompleto.publishedShort}, na VPS: ${incompleto.vpsShort}). Republicar.`
+            hint.style.color = '#f59e0b'
+          } else {
+            deployUpdateSelectionHint()
+          }
         } else {
           btn.disabled = true
           btn.style.opacity = '0.4'
