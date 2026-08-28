@@ -5,7 +5,7 @@ import type { Prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { NotificationService } from '../notification/notification.service'
 import { AgendaConfigService } from './agenda-config.service'
-import { dataBrKey } from './data-br.util'
+import { dataBrKey, horaBrKey } from './data-br.util'
 
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -1026,13 +1026,19 @@ export class AgendaService {
       : (oportunidadeId ? [oportunidadeId] : [])
     const principalOpp = oppIds[0] ?? null
 
-    // Bloqueia agendamento em data passada (só no create — editar evento antigo
-    // continua permitido). [QA #14] "Hoje" em BRASÍLIA via helper único — antes
+    // Bloqueia agendamento no passado (só no create — editar evento antigo
+    // continua permitido). [QA #14] "Agora" em BRASÍLIA via helper único — antes
     // usava o relógio do servidor (UTC no docker), que entre 21h e 00h BR
     // adiantava o dia e recusava eventos válidos.
     const hojeStr = dataBrKey()
     if (data && data < hojeStr) {
       throw new Error('Não é possível agendar eventos em dias que já passaram.')
+    }
+    // E, dentro de HOJE, a hora também conta: marcar reunião para as 9h às 15h
+    // não agenda nada, só suja a agenda de quem lê. Dia inteiro escapa — não tem
+    // hora para comparar e vale até o fim do dia.
+    if (data === hojeStr && !diaInteiro && horaInicio && horaInicio < horaBrKey()) {
+      throw new Error(`Não é possível agendar às ${horaInicio}: esse horário já passou hoje.`)
     }
 
     // Gate de conflito conforme AgendaConfig — pula se diaInteiro/sem horários

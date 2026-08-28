@@ -1043,11 +1043,21 @@ export default function AgendaPage() {
   async function handleSave() {
     if (!form.titulo.trim()) { alerts.error('Erro', 'Título é obrigatório.'); return }
     if (!form.tipoId) { alerts.error('Erro', 'Selecione um tipo.'); return }
-    // Bloqueio de data passada — só no create. Editar evento antigo continua permitido.
+    // Bloqueio de passado — só no create. Editar evento antigo continua
+    // permitido: corrigir o registro de ontem é legítimo, marcar reunião para
+    // ontem não é.
     if (modalMode === 'create' && form.data) {
-      const hojeStr = formatDate(new Date())
+      const agora = new Date()
+      const hojeStr = formatDate(agora)
       if (form.data < hojeStr) {
         alerts.error('Data inválida', 'Não é possível agendar eventos em dias que já passaram.')
+        return
+      }
+      // Dentro de hoje, a hora conta. Dia inteiro escapa: não tem hora para
+      // comparar e vale até o fim do dia.
+      const horaAgora = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`
+      if (form.data === hojeStr && !form.diaInteiro && form.horaInicio && form.horaInicio < horaAgora) {
+        alerts.error('Horário inválido', `Não é possível agendar às ${form.horaInicio}: esse horário já passou hoje.`)
         return
       }
     }
