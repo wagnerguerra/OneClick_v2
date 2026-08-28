@@ -15,7 +15,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   FileSearch, RefreshCw, Loader2, Check, X, AlertTriangle, ChevronDown,
-  Building2, Activity, MapPin, Users, Receipt, ShieldCheck, ExternalLink, Share2, Network,
+  Building2, Activity, MapPin, Users, Receipt, ShieldCheck, ExternalLink, Share2, Network, Gavel, Copy,
 } from 'lucide-react'
 import {
   Button, Card, Badge, cn,
@@ -176,6 +176,8 @@ type PerfilSocio = {
   confirmado: boolean
 }
 
+type ConsultaPublica = { rotulo: string; url: string; colar: boolean; nota?: string }
+
 type Participacao = {
   clienteId: string
   razaoSocial: string
@@ -223,6 +225,8 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
   // acompanhou os passos costuma querer reler o que cada provedor respondeu.
   const [sociosComPerfis, setSociosComPerfis] = useState<SocioComPerfis[]>([])
   const [participacoes, setParticipacoes] = useState<SocioParticipacoes[]>([])
+  const [consultas, setConsultas] = useState<ConsultaPublica[]>([])
+  const [cpfCopiado, setCpfCopiado] = useState<string | null>(null)
   const [socioAberto, setSocioAberto] = useState<string | null>(null)
   const [urlNova, setUrlNova] = useState('')
   const [ocupadoSocio, setOcupadoSocio] = useState<string | null>(null)
@@ -258,6 +262,13 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
         listParticipacoesSocios: { query: (i: { clienteId: string }) => Promise<SocioParticipacoes[]> }
       }).listParticipacoesSocios.query({ clienteId })
       setParticipacoes(r)
+    } catch { /* idem */ }
+
+    try {
+      const r = await (trpc.cliente as never as {
+        listConsultasPublicas: { query: () => Promise<ConsultaPublica[]> }
+      }).listConsultasPublicas.query()
+      setConsultas(r)
     } catch { /* idem */ }
   }, [clienteId])
 
@@ -329,6 +340,18 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
     } catch (e) {
       setConclusao(`Erro: ${(e as Error).message}`)
     } finally { setAtualizando(false) }
+  }
+
+  /**
+   * A maioria dos portais não recebe o CPF pela URL — é preciso colar lá
+   * dentro. Copiar antes de abrir poupa a viagem de volta ao cadastro.
+   */
+  async function copiarCpf(cpf: string) {
+    try {
+      await navigator.clipboard.writeText(cpf.replace(/\D/g, ''))
+      setCpfCopiado(cpf)
+      setTimeout(() => setCpfCopiado(null), 2000)
+    } catch { alerts.error('Não deu para copiar', 'Copie o CPF manualmente do quadro societário.') }
   }
 
   async function adicionarPerfil(socioId: string) {
@@ -586,6 +609,72 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
             <p className="mt-2 text-[11px] text-muted-foreground/80">
               Cruzamento com a própria carteira, pelo CPF quando ele é conhecido. O que casa só
               pelo nome vem marcado — homônimo existe.
+            </p>
+          </Bloco>
+
+          <Bloco titulo="Consultas públicas" icone={Gavel} aberto={false}>
+            {/* Atalho, e não integração, de propósito: a API pública do DataJud
+                não indexa as partes — busca por número de processo, classe e
+                órgão julgador. "Quais processos o João tem" não é pergunta que
+                se responda de graça por API; quem faz esse caminho cobra. O que
+                dá para eliminar é o trabalho de lembrar onde fica cada portal e
+                de garimpar o CPF em outra aba. */}
+            {participacoes.length === 0 ? (
+              <p className="py-2 text-sm text-muted-foreground">
+                Nenhum sócio cadastrado. Importe o QSA na aba Legalização.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {participacoes.map(p => {
+                  const socio = sociosComPerfis.find(x => x.id === p.socioId)
+                  const cpf = socio?.cpf ?? ''
+                  const temCpf = cpf.replace(/\D/g, '').length === 11
+                  return (
+                    <div key={p.socioId} className="rounded-lg border border-border p-3">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-[13px] font-semibold text-foreground">{p.nomeCompleto}</p>
+                        {temCpf ? (
+                          <Button
+                            variant="outline" size="sm" className="h-7 gap-1.5 text-xs"
+                            onClick={() => void copiarCpf(cpf)}
+                          >
+                            {cpfCopiado === cpf
+                              ? <><Check className="h-3.5 w-3.5" /> CPF copiado</>
+                              : <><Copy className="h-3.5 w-3.5" /> Copiar CPF</>}
+                          </Button>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">
+                            CPF incompleto — importe o QSA na Legalização
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {consultas.map(c => {
+                          const url = c.url
+                            .replace(/\{cpf\}/gi, encodeURIComponent(cpf.replace(/\D/g, '')))
+                            .replace(/\{nome\}/gi, encodeURIComponent(p.nomeCompleto))
+                          return (
+                            <a
+                              key={`${p.socioId}-${c.rotulo}`}
+                              href={url} target="_blank" rel="noopener noreferrer"
+                              title={c.nota ? `${c.nota}${c.colar ? ' · cole o CPF no portal' : ''}` : undefined}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/20 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted"
+                            >
+                              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                              {c.rotulo}
+                            </a>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <p className="mt-3 text-[11px] text-muted-foreground/80">
+              Os portais abrem em outra aba e a consulta é feita lá — quase nenhum aceita o CPF
+              pelo endereço, por isso o botão de copiar. Para acrescentar o tribunal do seu
+              estado: Configurações → Dossiê e Imagens → Consultas públicas sobre sócios.
             </p>
           </Bloco>
 

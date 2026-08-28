@@ -12,6 +12,7 @@ import { ImportOneclickService } from './import-oneclick.service'
 import { DuplicidadeService } from './duplicidade.service'
 import { MesclagemService } from './mesclagem.service'
 import { CnpjService } from '../cnpj/cnpj.service'
+import { consultasPublicas } from './dossie/consultas-publicas'
 
 const MODULE = 'clientes'
 
@@ -1277,6 +1278,11 @@ export function createClienteRouter(
         if (!socioPerfisService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Perfis de sócios indisponível.' })
         return socioPerfisService.listarPorCliente(input.clienteId)
       }),
+
+    // Atalhos das consultas públicas sobre pessoa física. Só a LISTA vem do
+    // servidor; quem troca {cpf} e {nome} é a tela, por sócio.
+    listConsultasPublicas: readProcedure(MODULE)
+      .query(() => consultasPublicas()),
 
     // Onde mais os sócios aparecem, dentro da própria carteira.
     listParticipacoesSocios: readProcedure(MODULE)
