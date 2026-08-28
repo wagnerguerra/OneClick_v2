@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { FileInput, Plus, Loader2, Trash2, CheckCircle, Clock, ChevronDown } from 'lucide-react'
 import { Button, Card, Input } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { MioloColapsavel } from './card-colapsavel'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useClientesPerms } from './use-clientes-perms'
@@ -79,7 +80,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
         </button>
       </div>
 
-      <div className={cn(!cardAberto && 'hidden')}>
+      <MioloColapsavel aberto={cardAberto}>
       {adding && (
         <div className="px-5 py-3 border-b border-border/40 bg-emerald-50/30 dark:bg-emerald-950/10">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -127,7 +128,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
           </div>
         ))}
       </div>
-      </div>
+      </MioloColapsavel>
     </Card>
   )
 }

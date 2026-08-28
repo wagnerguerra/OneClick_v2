@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { StickyNote, Save, Loader2, User, Clock, Lock, ChevronDown } from 'lucide-react'
 import { Button, Card, RichEditor, cn } from '@saas/ui'
+import { MioloColapsavel } from './card-colapsavel'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -110,7 +111,7 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
         </button>
       </div>
 
-      <div className={cn(!cardAberto && 'hidden')}>
+      <MioloColapsavel aberto={cardAberto}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
         <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 space-y-1">
@@ -193,7 +194,7 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
           {rows.filter(r => r.texto.trim()).length} de {rows.length} areas com particularidades preenchidas
         </p>
       </div>
-      </div>
+      </MioloColapsavel>
     </Card>
   )
 }

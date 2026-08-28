@@ -9,6 +9,7 @@ import {
   Button, Input, Card, Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { MioloColapsavel } from './card-colapsavel'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useClientesPerms } from './use-clientes-perms'
@@ -310,7 +311,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
         </button>
       </div>
 
-      <div className={cn(!cardAberto && 'hidden')}>
+      <MioloColapsavel aberto={cardAberto}>
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-5 py-2 border-b border-border/40 bg-muted/10">
         <div className="relative flex-1 max-w-xs">
@@ -378,7 +379,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
           </p>
         )}
       </div>
-      </div>
+      </MioloColapsavel>
     </Card>
   )
 }

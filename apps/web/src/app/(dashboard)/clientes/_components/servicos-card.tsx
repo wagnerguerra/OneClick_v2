@@ -15,6 +15,7 @@ import {
   DialogTitle, DialogDescription, DialogClose,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { MioloColapsavel } from './card-colapsavel'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -189,7 +190,7 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
             </div>
           </div>
 
-        <div className={cn(!cardAberto && 'hidden')}>          {canManageServices && (
+          {canManageServices && (
             <Button variant="success" size="sm" onClick={handleSave} disabled={saving || !dirty} className="gap-1.5">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
@@ -206,6 +207,7 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
           </button>
         </div>
 
+        <MioloColapsavel aberto={cardAberto}>
         {/* Table */}
         <div className="overflow-x-auto">
           <Table>
@@ -344,7 +346,7 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
             {dirty && <span className="ml-2 text-amber-600 font-medium">Alteracoes nao salvas</span>}
           </p>
         </div>
-        </div>
+        </MioloColapsavel>
       </Card>
 
       {/* Dialogs */}

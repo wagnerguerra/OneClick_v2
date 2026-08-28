@@ -10,6 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { MioloColapsavel } from './card-colapsavel'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
 import { ImportStatusModal, type ImportStep } from './import-status-modal'
@@ -515,7 +516,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         </button>
       </div>
 
-      <div className={cn(!cardAberto && 'hidden')}>      <div className="flex min-h-[400px]">
+      <MioloColapsavel aberto={cardAberto}>
+      <div className="flex min-h-[400px]">
         {/* Pills laterais */}
         <div className="w-[160px] shrink-0 border-r border-border bg-muted/40 p-3 space-y-1">
           {pills.map(pill => {
@@ -1295,7 +1297,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           )}
         </div>
       </div>
-      </div>
+      </MioloColapsavel>
     </Card>
 
     {/* Modal Acesso */}

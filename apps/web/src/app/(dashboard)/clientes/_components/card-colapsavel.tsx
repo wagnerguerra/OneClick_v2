@@ -15,9 +15,42 @@
  * com faixa `bg-muted/20`, outras lisas): o pedido foi contrair, não repintar.
  */
 
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Card, CardHeader, cn } from '@saas/ui'
+
+/**
+ * O miolo que abre e fecha com altura animada.
+ *
+ * O truque é a linha do grid indo de `1fr` a `0fr`: o navegador interpola a
+ * altura sem que ninguém precise medi-la, e o conteúdo continua MONTADO — que
+ * é o requisito do formulário. `max-height` fixo exigiria chutar um teto, e
+ * chutar alto deixa a animação lenta no card curto.
+ */
+export function MioloColapsavel({ aberto, children }: { aberto: boolean; children: ReactNode }) {
+  const [animando, setAnimando] = useState(false)
+  const primeiraVez = useRef(true)
+
+  useEffect(() => {
+    // A montagem não é transição: sem isto, todo card piscaria ao abrir a aba.
+    if (primeiraVez.current) { primeiraVez.current = false; return }
+    setAnimando(true)
+    const t = setTimeout(() => setAnimando(false), 300)
+    return () => clearTimeout(t)
+  }, [aberto])
+
+  return (
+    <div
+      className="grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none"
+      style={{ gridTemplateRows: aberto ? '1fr' : '0fr' }}
+    >
+      {/* `overflow-hidden` é o que corta o conteúdo enquanto a altura anda.
+          Terminada a animação ele sai do caminho: mantido para sempre, um
+          elemento `sticky` lá dentro deixaria de grudar. */}
+      <div className={cn('min-h-0', (!aberto || animando) && 'overflow-hidden')}>{children}</div>
+    </div>
+  )
+}
 
 export function CardColapsavel({
   titulo, subtitulo, icone: Icone, corIcone, acoes, children,
@@ -70,7 +103,7 @@ export function CardColapsavel({
           />
         </button>
       </CardHeader>
-      <div className={cn(!aberto && 'hidden')}>{children}</div>
+      <MioloColapsavel aberto={aberto}>{children}</MioloColapsavel>
     </Card>
   )
 }

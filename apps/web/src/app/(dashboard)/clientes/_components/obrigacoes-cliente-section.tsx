@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   cn,
 } from '@saas/ui'
+import { MioloColapsavel } from './card-colapsavel'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { useClientesPerms } from './use-clientes-perms'
@@ -449,7 +450,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
           </button>
         </CardHeader>
 
-        <div className={cn(!cardAberto && 'hidden')}>
+        <MioloColapsavel aberto={cardAberto}>
         {view === 'calendario' ? (
           <CalendarioObrigacoesCliente clienteId={clienteId} />
         ) : (
@@ -621,7 +622,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
         </div>
         </>
         )}
-        </div>
+        </MioloColapsavel>
       </Card>
 
       {/* Dialog: Aplicar grupo */}
