@@ -124,7 +124,7 @@ function LembretesDialog({ passoId, lembretes, loading, readOnly, onClose, onRef
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[720px] max-h-[88vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[720px] max-h-[88vh]">
         <DialogHeaderIcon icon={Bell} color="amber">
           <DialogTitle>Lembretes do passo (agenda corporativa)</DialogTitle>
           <DialogDescription>

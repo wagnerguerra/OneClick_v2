@@ -2266,7 +2266,7 @@ export default function ServicosPage() {
 
       {/* ══════════════════ MODAL: Checklist ══════════════════ */}
       <Dialog open={checklistOpen} onOpenChange={setChecklistOpen}>
-        <DialogContent className="sm:max-w-[750px] max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[750px] max-h-[85vh]">
           {checklistLoading ? (
             <>
               {/* DialogTitle visualmente oculto durante loading — Radix exige

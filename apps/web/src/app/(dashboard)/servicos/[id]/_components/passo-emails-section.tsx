@@ -217,7 +217,7 @@ function EmailTemplatesDialog({ passoId, templates, loading, readOnly, onClose, 
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[1360px] max-h-[88vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[1360px] max-h-[88vh]">
         <DialogHeaderIcon icon={Mail} color="indigo">
           <DialogTitle>E-mails de conclusão do passo</DialogTitle>
           <DialogDescription>

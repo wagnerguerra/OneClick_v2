@@ -368,7 +368,7 @@ function MateriaisListDialog({ tipo, materiais, readOnly, deletingId, onAdd, onE
   const titulo = tipo === 'NOTA' ? 'Notas / Instruções' : tipo === 'LINK' ? 'Links externos' : 'Arquivos anexados'
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[600px] max-h-[88vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[88vh]">
         <DialogHeaderIcon icon={Icon} color={tipo === 'NOTA' ? 'amber' : tipo === 'LINK' ? 'sky' : 'emerald'}>
           <DialogTitle>{titulo}</DialogTitle>
           <DialogDescription>

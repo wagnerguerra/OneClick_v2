@@ -98,7 +98,7 @@ export function PassoCamposClienteSection({ passoId, readOnly, controlled, onCou
   if (!open) return null
   return (
     <Dialog open onOpenChange={(o) => !o && setOpen(false)}>
-      <DialogContent className="sm:max-w-[640px] max-h-[88vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[640px] max-h-[88vh]">
         <DialogHeaderIcon icon={Database} color="sky">
           <DialogTitle>Campos do cliente vinculados ao passo</DialogTitle>
           <DialogDescription>
