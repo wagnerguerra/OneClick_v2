@@ -678,12 +678,6 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 <button type="button" onClick={() => setActiveTab('logs')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'logs' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
                   <ListTodo className="h-4 w-4" /> Log&apos;s
                 </button>
-                {/* Dossiê só existe para cliente já salvo — depende do CNPJ gravado. */}
-                {isEdit && (
-                  <button type="button" onClick={() => setActiveTab('dossie')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'dossie' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
-                    <FileSearch className="h-4 w-4" /> Dossiê
-                  </button>
-                )}
             </div>
           </div>
           </div>
@@ -765,15 +759,6 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
               </TabsContent>
 
               {/* ======================================================== */}
-              {/* TAB: DOSSIÊ (enriquecimento por CNPJ)                     */}
-              {/* ======================================================== */}
-              {isEdit && clienteId && (
-                <TabsContent value="dossie" className="mt-0">
-                  <DossieCard clienteId={clienteId} podeAtualizar={canEditDetails} />
-                </TabsContent>
-              )}
-
-              {/* ======================================================== */}
               {/* TAB: COMERCIAL (card com pills laterais)                  */}
               {/* ======================================================== */}
               <TabsContent value="comercial" className="mt-0">
@@ -783,6 +768,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                   chatAsCliente={chatAsCliente} setChatAsCliente={setChatAsCliente}
                   clienteId={clienteId}
                   opcoesOrigem={opcoesOrigem} opcoesGrupo={opcoesGrupo} canEdit={canManageCommercial}
+                  podeAtualizarDossie={canEditDetails}
                   onPedirInativar={abrirInativar}
                 />
               </TabsContent>
@@ -1645,7 +1631,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   )
 }
 
-function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, opcoesGrupo, canEdit, onPedirInativar }: {
+function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, opcoesGrupo, canEdit, podeAtualizarDossie, onPedirInativar }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -1656,6 +1642,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
   opcoesOrigem: Array<{ id: string; valor: string }>
   opcoesGrupo: Array<{ id: string; valor: string }>
   canEdit: boolean
+  podeAtualizarDossie: boolean
   onPedirInativar: (dataSaida: string) => void
 }) {
   /**
@@ -1717,6 +1704,8 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
     { key: 'contratos', label: 'Contratos', icon: File },
     { key: 'orcamentos', label: 'Orçamentos', icon: FileBarChart },
     { key: 'historicos', label: 'Históricos', icon: History },
+    // O dossiê depende do CNPJ gravado, então só existe para cliente já salvo.
+    ...(clienteId ? [{ key: 'dossie', label: 'Dossiê', icon: FileSearch }] : []),
   ]
 
   return (
@@ -1895,6 +1884,11 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
                 </div>
               </div>
             </div>
+          )}
+
+          {/* ---- SUB-TAB: DOSSIÊ (enriquecimento por CNPJ) ---- */}
+          {activeTab === 'dossie' && clienteId && (
+            <DossieCard clienteId={clienteId} podeAtualizar={podeAtualizarDossie} semCartao />
           )}
         </div>
         </fieldset>

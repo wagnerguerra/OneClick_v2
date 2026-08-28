@@ -143,7 +143,12 @@ function Linhas({ fatos, campos }: { fatos: Fato[]; campos: string[] }) {
   )
 }
 
-export function DossieCard({ clienteId, podeAtualizar }: { clienteId: string; podeAtualizar: boolean }) {
+export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
+  clienteId: string
+  podeAtualizar: boolean
+  /** Dentro de uma pill da aba Comercial já existe um cartão em volta. */
+  semCartao?: boolean
+}) {
   const [dossie, setDossie] = useState<Dossie | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
@@ -196,8 +201,8 @@ export function DossieCard({ clienteId, podeAtualizar }: { clienteId: string; po
   const cnaes = (receita.find(f => f.campo === 'cnaes')?.valorJson as Cnae[] | undefined) ?? []
   const socios = (receita.find(f => f.campo === 'socios')?.valorJson as Socio[] | undefined) ?? []
 
-  return (
-    <Card className="p-5">
+  const conteudo = (
+    <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-[13px] font-semibold text-foreground">Dossiê do cliente</h2>
@@ -338,6 +343,9 @@ export function DossieCard({ clienteId, podeAtualizar }: { clienteId: string; po
           )}
         </div>
       )}
-    </Card>
+    </>
   )
+
+  if (semCartao) return conteudo
+  return <Card className="p-5">{conteudo}</Card>
 }
