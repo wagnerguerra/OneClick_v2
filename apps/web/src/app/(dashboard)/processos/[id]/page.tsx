@@ -17,7 +17,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { useTheme } from '@/hooks/use-theme'
-import { TEXT, BADGE } from '@/lib/color-styles'
+import { TEXT, BADGE, SURFACE, FILL } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -357,7 +357,7 @@ export default function ProcessoDetalhePage() {
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div
-                      className={cn('h-full transition-all', proc.status === 'CONCLUIDO' ? 'bg-emerald-500' : 'bg-sky-500')}
+                      className={cn('h-full transition-all', proc.status === 'CONCLUIDO' ? FILL.emerald : FILL.sky)}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -699,10 +699,11 @@ function KpiCard({ label, value, Icon, color }: {
   label: string; value: number; Icon: typeof Workflow; color: 'sky' | 'emerald' | 'amber'
 }) {
   // sky = cor do módulo (retingida sob .mod-administrativo); emerald/amber = status.
+  // Derivam do helper (SURFACE = fundo+borda, TEXT = texto); a largura `border` fica no layout.
   const styles: Record<string, string> = {
-    sky:     'bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-800 text-sky-600 dark:text-sky-400',
-    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400',
-    amber:   'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400',
+    sky:     cn(SURFACE.sky, TEXT.sky),
+    emerald: cn(SURFACE.emerald, TEXT.emerald),
+    amber:   cn(SURFACE.amber, TEXT.amber),
   }
   return (
     <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${styles[color]}`}>
@@ -768,7 +769,7 @@ function ExecucaoCard({ exec }: { exec: Execucao }) {
                   <span className="text-muted-foreground tabular-nums">{pct}%</span>
                 </div>
                 <div className="h-1 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full transition-all bg-sky-500" style={{ width: `${pct}%` }} />
+                  <div className={cn('h-full transition-all', FILL.sky)} style={{ width: `${pct}%` }} />
                 </div>
               </div>
             )}

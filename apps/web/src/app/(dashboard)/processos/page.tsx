@@ -15,7 +15,7 @@ import {
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { UserAvatar } from '@/components/ui/user-avatar'
-import { BADGE } from '@/lib/color-styles'
+import { BADGE, FILL } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -208,7 +208,7 @@ export default function ProcessosPage() {
                       </div>
                       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                         <div
-                          className={cn('h-full transition-all', p.status === 'CONCLUIDO' ? 'bg-emerald-500' : 'bg-sky-500')}
+                          className={cn('h-full transition-all', p.status === 'CONCLUIDO' ? FILL.emerald : FILL.sky)}
                           style={{ width: `${pct}%` }}
                         />
                       </div>

@@ -13,7 +13,7 @@ import {
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT, BADGE } from '@/lib/color-styles'
+import { TEXT, BADGE, FILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { UserAvatar } from '@/components/ui/user-avatar'
@@ -723,7 +723,7 @@ function ExecucaoCard({ exec, onClick }: { exec: Execucao; onClick?: () => void 
           </div>
           <div className="h-1 rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full transition-all bg-sky-500"
+              className={cn('h-full transition-all', FILL.sky)}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -851,7 +851,7 @@ function ChecklistDialog({ execucaoId, onClose, onChanged }: {
               {/* Barra de progresso */}
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div
-                  className={cn('h-full transition-all', data.status === 'CONCLUIDO' ? 'bg-emerald-500' : 'bg-sky-500')}
+                  className={cn('h-full transition-all', data.status === 'CONCLUIDO' ? FILL.emerald : FILL.sky)}
                   style={{ width: `${pct}%` }}
                 />
               </div>

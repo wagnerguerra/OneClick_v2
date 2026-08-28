@@ -49,7 +49,12 @@ export type ColorName =
   | 'purple'
   | 'slate'
 
-/** Etiqueta pastel: fundo + texto + borda (claro + escuro). */
+/**
+ * Etiqueta PASTEL de baixa ênfase: fundo + texto + borda, tudo junto (claro+escuro).
+ * Para tags/badges/pílulas de status suaves. Já traz o texto — NÃO combinar com TEXT.
+ * Precisa de mais saturação (status forte de kanban) → `STRONG`. Sem texto (só a
+ * superfície de um card) → `SURFACE`.
+ */
 export const BADGE: Record<ColorName, string> = {
   emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
   rose: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800',
@@ -110,7 +115,11 @@ export const TEXT: Record<ColorName, string> = {
   slate: 'text-slate-600 dark:text-slate-400',
 }
 
-/** Superfície suave: fundo + borda, SEM texto (cards / pílulas). */
+/**
+ * Superfície suave: fundo + borda, **SEM texto** (cards, painéis, pílulas cujo texto
+ * é neutro ou vem separado). Precisa de texto colorido junto? Combine com `TEXT`:
+ * `cn(SURFACE.sky, TEXT.sky)`. Se o texto é a própria cor da etiqueta, prefira `BADGE`.
+ */
 export const SURFACE: Record<ColorName, string> = {
   emerald: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800',
   rose: 'bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800',
@@ -148,8 +157,37 @@ export const BORDER: Record<ColorName, string> = {
   slate: 'border-slate-200 dark:border-slate-700',
 }
 
-/** Bolinha / indicador sólido. */
+/**
+ * Indicador PONTUAL pequeno: a bolinha sólida (`bg-<c>-500`) de legendas, status
+ * dots, marcadores em badges. É a menor mancha de cor. Para PREENCHER uma área
+ * (barra de progresso, medidor, célula), use `FILL` — mesma cor, intenção outra.
+ */
 export const DOT: Record<ColorName, string> = {
+  emerald: 'bg-emerald-500',
+  rose: 'bg-rose-500',
+  amber: 'bg-amber-500',
+  sky: 'bg-sky-500',
+  indigo: 'bg-indigo-500',
+  lime: 'bg-lime-500',
+  violet: 'bg-violet-500',
+  cyan: 'bg-cyan-500',
+  teal: 'bg-teal-500',
+  fuchsia: 'bg-fuchsia-500',
+  orange: 'bg-orange-500',
+  blue: 'bg-blue-500',
+  red: 'bg-red-500',
+  purple: 'bg-purple-500',
+  slate: 'bg-slate-500',
+}
+
+/**
+ * Preenchimento SÓLIDO de área: barra de progresso, medidor, célula/faixa colorida.
+ * Hoje é o mesmo tom do `DOT` (`bg-<c>-500`), mas papel à parte de propósito — a
+ * intenção é distinta (preencher vs. pontuar) e os dois podem divergir de shade no
+ * futuro sem quebrar quem usa. Sob `.mod-<slug>`, o `bg-<c>-500` da cor do módulo
+ * retinge pro `var(--mod-<slug>)` (fill vira a cor do módulo). NÃO usar em texto/borda.
+ */
+export const FILL: Record<ColorName, string> = {
   emerald: 'bg-emerald-500',
   rose: 'bg-rose-500',
   amber: 'bg-amber-500',
