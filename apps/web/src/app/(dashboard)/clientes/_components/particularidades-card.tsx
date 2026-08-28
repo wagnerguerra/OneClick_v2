@@ -93,21 +93,21 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
     <Card>
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-border/60 bg-muted/20 px-5 py-3">
-        <button
-          type="button"
-          onClick={() => setCardAberto(a => !a)}
-          aria-expanded={cardAberto}
-          title={cardAberto ? 'Recolher' : 'Expandir'}
-          className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
-        </button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h4 className="text-sm font-semibold flex items-center gap-2">
             <StickyNote className="h-4 w-4 text-emerald-600" /> Particularidades por Area
           </h4>
           <p className="text-[11px] text-muted-foreground mt-0.5">Notas e observacoes especificas de cada area contratada.</p>
         </div>
+        <button
+          type="button"
+          onClick={() => setCardAberto(a => !a)}
+          aria-expanded={cardAberto}
+          title={cardAberto ? 'Recolher' : 'Expandir'}
+          className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
+        </button>
       </div>
 
       <div className={cn(!cardAberto && 'hidden')}>

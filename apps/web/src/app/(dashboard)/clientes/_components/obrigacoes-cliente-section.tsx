@@ -390,17 +390,8 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
 
       <Card>
         {/* Header do card — título + ações */}
-        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 flex-wrap">
-          <div className="flex items-center gap-2 min-w-0">
-            <button
-              type="button"
-              onClick={() => setCardAberto(a => !a)}
-              aria-expanded={cardAberto}
-              title={cardAberto ? 'Recolher' : 'Expandir'}
-              className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
-            </button>
+        <CardHeader className="flex flex-row items-center gap-3 space-y-0 flex-wrap">
+          <div className="flex flex-1 items-center gap-2 min-w-0">
             <ListChecks className="h-4 w-4 text-muted-foreground shrink-0" />
             <h5 className="text-sm font-semibold mb-0">Obrigações do cliente</h5>
             <Badge variant="outline" className="h-5 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
@@ -447,6 +438,15 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               <Plus className="h-4 w-4" />Adicionar individual
             </Button>
           </div>
+          <button
+            type="button"
+            onClick={() => setCardAberto(a => !a)}
+            aria-expanded={cardAberto}
+            title={cardAberto ? 'Recolher' : 'Expandir'}
+            className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
+          </button>
         </CardHeader>
 
         <div className={cn(!cardAberto && 'hidden')}>

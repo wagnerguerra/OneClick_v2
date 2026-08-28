@@ -179,17 +179,8 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
     <>
       <Card>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-5 py-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCardAberto(a => !a)}
-              aria-expanded={cardAberto}
-              title={cardAberto ? 'Recolher' : 'Expandir'}
-              className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
-            </button>
+        <div className="flex items-center gap-2 border-b border-border/60 bg-muted/20 px-5 py-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <div>
               <h4 className="text-sm font-semibold flex items-center gap-2">
                 <Briefcase className="h-4 w-4 text-emerald-600" /> Servicos Contratados
@@ -204,6 +195,15 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
               Salvar
             </Button>
           )}
+          <button
+            type="button"
+            onClick={() => setCardAberto(a => !a)}
+            aria-expanded={cardAberto}
+            title={cardAberto ? 'Recolher' : 'Expandir'}
+            className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
+          </button>
         </div>
 
         {/* Table */}

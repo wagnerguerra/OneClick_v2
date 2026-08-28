@@ -40,6 +40,8 @@ export function CardColapsavel({
   return (
     <Card className={className}>
       <CardHeader className={cn('flex flex-row items-center gap-2 space-y-0', headerClassName)}>
+        {/* O título todo é gatilho, mas o chevron mora na ponta direita: é onde
+            o olho procura o "abre e fecha" de um painel. */}
         <button
           type="button"
           onClick={() => setAberto(a => !a)}
@@ -47,12 +49,6 @@ export function CardColapsavel({
           title={aberto ? 'Recolher' : 'Expandir'}
           className="group/colapsa flex min-w-0 flex-1 items-center gap-2 text-left"
         >
-          <ChevronDown
-            className={cn(
-              'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
-              !aberto && '-rotate-90',
-            )}
-          />
           {Icone && <Icone className={cn('h-4 w-4 shrink-0', corIcone ?? 'text-muted-foreground')} />}
           <div className="min-w-0">
             <h5 className="mb-0 truncate text-sm font-semibold transition-colors group-hover/colapsa:text-foreground">
@@ -62,6 +58,17 @@ export function CardColapsavel({
           </div>
         </button>
         {acoes && <div className="flex shrink-0 items-center gap-2">{acoes}</div>}
+        <button
+          type="button"
+          onClick={() => setAberto(a => !a)}
+          aria-expanded={aberto}
+          title={aberto ? 'Recolher' : 'Expandir'}
+          className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <ChevronDown
+            className={cn('h-4 w-4 transition-transform duration-200', !aberto && '-rotate-90')}
+          />
+        </button>
       </CardHeader>
       <div className={cn(!aberto && 'hidden')}>{children}</div>
     </Card>
