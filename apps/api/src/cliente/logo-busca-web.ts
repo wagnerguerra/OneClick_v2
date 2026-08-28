@@ -1,104 +1,145 @@
 /**
- * Busca de imagem na web aberta, para achar logomarca de quem não tem site
- * conhecido — ou cujo site esconde a marca atrás de um og:image de campanha.
+ * Busca de logomarca fora do site da empresa — para quem não tem site
+ * conhecido, ou cujo site esconde a marca atrás de um og:image de campanha.
  *
- * O buscador é PLUGÁVEL e OPCIONAL. Sem chave configurada, a função devolve
- * lista vazia e a sugestão de logos segue só com o site e os serviços de ícone,
- * como sempre foi: nenhuma tela quebra por falta de chave.
+ * As duas fontes daqui são GRATUITAS e OPCIONAIS. Sem nenhuma configurada, as
+ * funções devolvem lista vazia e a sugestão segue só com o site e os serviços
+ * de ícone, como sempre foi: nenhuma tela quebra por falta de chave.
  *
- * Dois adaptadores, escolhidos pela chave que estiver preenchida em
- * Configurações → Dossiê e Imagens:
+ * Por que não Google nem Brave (conferido em 28/08/2026):
  *
- *  - Google Programmable Search (`GOOGLE_CSE_KEY` + `GOOGLE_CSE_CX`) — 100
- *    buscas por dia no plano gratuito. Exige criar um mecanismo de pesquisa e
- *    ligar "Pesquisar em toda a web" + "Pesquisa de imagens".
- *  - Brave Search (`BRAVE_SEARCH_KEY`) — 2.000 buscas por mês no plano
- *    gratuito, sem mecanismo para configurar.
+ *  - Google Programmable Search: fechado para novos clientes desde 2025 e com
+ *    desligamento marcado para 01/01/2027. Não dá nem para assinar.
+ *  - Brave Search API: o plano gratuito acabou em fevereiro/2026. Virou US$ 5
+ *    por mil buscas, com cartão cadastrado.
  *
- * O que volta daqui são URLs CANDIDATAS, não logos. Quem valida é o
- * `medirImagem` do serviço de logo, que já mede, checa tipo e aplica a guarda
- * de SSRF — este arquivo não busca imagem nenhuma, só pergunta ao buscador.
+ * O que sobrou, e que resolve o mesmo problema sem custo:
+ *
+ *  1. Logo.dev (`LOGODEV_TOKEN`) — sucessora da Clearbit. 10 mil requisições
+ *     por mês no plano gratuito, exigindo atribuição. Busca logo por DOMÍNIO e
+ *     por NOME da empresa, que é exatamente o que faltava.
+ *  2. SearXNG (`SEARXNG_URL`) — metabuscador de código aberto. Sem chave, sem
+ *     cota e sem custo, porque roda num contêiner nosso; devolve imagens de
+ *     vários buscadores de uma vez. Exige subir o serviço na VPS.
+ *
+ * O que sai daqui são URLs CANDIDATAS, não logos. Quem valida é o
+ * `medirImagem` do serviço de logo, que mede, checa tipo e aplica a guarda de
+ * SSRF — este arquivo não baixa imagem nenhuma, só pergunta onde procurar.
  */
 
 export type CandidataWeb = { url: string; fonte: string }
 
 const TEMPO_LIMITE_MS = 8000
 
-/** Qual buscador está configurado — serve para a tela explicar o que fez. */
-export function buscadorConfigurado(): 'google' | 'brave' | null {
-  if (process.env.GOOGLE_CSE_KEY && process.env.GOOGLE_CSE_CX) return 'google'
-  if (process.env.BRAVE_SEARCH_KEY) return 'brave'
-  return null
+/** Fontes ligadas agora — a tela usa para explicar o que dá para fazer. */
+export function fontesConfiguradas(): Array<'logodev' | 'searxng'> {
+  const fontes: Array<'logodev' | 'searxng'> = []
+  if (process.env.LOGODEV_TOKEN) fontes.push('logodev')
+  if (process.env.SEARXNG_URL) fontes.push('searxng')
+  return fontes
+}
+
+export function temBuscaWeb(): boolean {
+  return fontesConfiguradas().length > 0
 }
 
 /**
- * Procura imagens para um termo já pronto (ex.: `CARDPACK COMERCIO logomarca`).
+ * Candidatas do Logo.dev: por domínio e por nome.
  *
- * Erro de rede, cota estourada ou resposta estranha não sobem: a busca por
- * logo é um extra, e derrubar o modal inteiro porque a cota do dia acabou
- * seria trocar um resultado a menos por uma tela quebrada.
+ * `fallback=404` é essencial. Sem ele, o serviço devolve 200 com um monograma
+ * preto-e-branco da primeira letra quando não conhece a marca — e um monograma
+ * gerado entraria na lista se passando por logomarca.
  */
-export async function buscarImagensWeb(termo: string, limite = 8): Promise<CandidataWeb[]> {
-  const alvo = termo.trim()
-  if (!alvo) return []
+export function logodevCandidatas(dominio: string, nome: string): CandidataWeb[] {
+  const token = process.env.LOGODEV_TOKEN
+  if (!token) return []
 
-  try {
-    switch (buscadorConfigurado()) {
-      case 'google': return await viaGoogle(alvo, limite)
-      case 'brave': return await viaBrave(alvo, limite)
-      default: return []
-    }
-  } catch {
-    return []
+  const comuns = `token=${encodeURIComponent(token)}&size=512&format=png&fallback=404`
+  const saida: CandidataWeb[] = []
+
+  if (dominio) {
+    saida.push({
+      url: `https://img.logo.dev/${encodeURIComponent(dominio)}?${comuns}`,
+      fonte: 'Logo.dev (domínio)',
+    })
   }
+
+  // A busca por nome quer a marca, não a razão social inteira: "CARDPACK
+  // COMERCIO E SERVICO LTDA" não é o nome de marca de ninguém.
+  const marca = nome
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(w => w.length >= 3 && !/^(ltda|me|epp|eireli|sa|cia|comercio|comercial|servico|servicos|industria|industrial|distribuidora)$/.test(w))
+    .slice(0, 2)
+    .join(' ')
+    .trim()
+
+  if (marca) {
+    saida.push({
+      url: `https://img.logo.dev/name/${encodeURIComponent(marca)}?${comuns}`,
+      fonte: 'Logo.dev (nome)',
+    })
+  }
+
+  return saida
 }
 
-async function pegar(url: string, init?: RequestInit): Promise<unknown> {
+/**
+ * Imagens de um SearXNG nosso. Erro de rede, serviço fora do ar ou resposta
+ * estranha não sobem: a busca por logo é um extra, e derrubar o modal inteiro
+ * porque o contêiner caiu seria trocar um resultado a menos por uma tela
+ * quebrada.
+ */
+export async function searxngImagens(termo: string, limite = 8): Promise<CandidataWeb[]> {
+  const base = (process.env.SEARXNG_URL ?? '').trim().replace(/\/+$/, '')
+  const alvo = termo.trim()
+  if (!base || !alvo) return []
+
+  const params = new URLSearchParams({
+    q: alvo,
+    categories: 'images',
+    format: 'json',
+    safesearch: '1',
+  })
+
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), TEMPO_LIMITE_MS)
   try {
-    const res = await fetch(url, { ...init, signal: ctrl.signal })
-    if (!res.ok) return null
-    return await res.json()
+    const res = await fetch(`${base}/search?${params}`, { signal: ctrl.signal })
+    if (!res.ok) return []
+    const dados = await res.json() as {
+      results?: Array<{ img_src?: string; engine?: string }>
+    }
+    return (dados.results ?? [])
+      .map(r => ({
+        url: String(r.img_src ?? ''),
+        fonte: `busca web (${r.engine || 'SearXNG'})`,
+      }))
+      .filter(c => /^https?:\/\//i.test(c.url))
+      .slice(0, limite)
+  } catch {
+    return []
   } finally {
     clearTimeout(t)
   }
 }
 
-async function viaGoogle(termo: string, limite: number): Promise<CandidataWeb[]> {
-  const params = new URLSearchParams({
-    key: process.env.GOOGLE_CSE_KEY ?? '',
-    cx: process.env.GOOGLE_CSE_CX ?? '',
-    q: termo,
-    searchType: 'image',
-    // `num` do Google vai até 10; pedir mais devolve erro 400, não mais itens.
-    num: String(Math.min(limite, 10)),
-    safe: 'active',
-  })
-  const dados = await pegar(`https://www.googleapis.com/customsearch/v1?${params}`) as
-    { items?: Array<{ link?: string; displayLink?: string }> } | null
+/** Tudo que as fontes configuradas têm a oferecer, sem repetir URL. */
+export async function candidatasDaWeb(dominio: string, nome: string): Promise<CandidataWeb[]> {
+  const saida: CandidataWeb[] = []
+  const vistas = new Set<string>()
 
-  return (dados?.items ?? [])
-    .map(i => ({ url: String(i.link ?? ''), fonte: `busca web (${i.displayLink || 'Google'})` }))
-    .filter(c => /^https?:\/\//i.test(c.url))
-    .slice(0, limite)
-}
+  const juntar = (lista: CandidataWeb[]) => {
+    for (const c of lista) {
+      if (vistas.has(c.url)) continue
+      vistas.add(c.url)
+      saida.push(c)
+    }
+  }
 
-async function viaBrave(termo: string, limite: number): Promise<CandidataWeb[]> {
-  const params = new URLSearchParams({
-    q: termo,
-    count: String(Math.min(limite, 20)),
-    safesearch: 'strict',
-  })
-  const dados = await pegar(`https://api.search.brave.com/res/v1/images/search?${params}`, {
-    headers: {
-      Accept: 'application/json',
-      'X-Subscription-Token': process.env.BRAVE_SEARCH_KEY ?? '',
-    },
-  }) as { results?: Array<{ properties?: { url?: string }; source?: string }> } | null
+  juntar(logodevCandidatas(dominio, nome))
+  if (nome) juntar(await searxngImagens(`${nome} logomarca`))
 
-  return (dados?.results ?? [])
-    .map(r => ({ url: String(r.properties?.url ?? ''), fonte: `busca web (${r.source || 'Brave'})` }))
-    .filter(c => /^https?:\/\//i.test(c.url))
-    .slice(0, limite)
+  return saida
 }

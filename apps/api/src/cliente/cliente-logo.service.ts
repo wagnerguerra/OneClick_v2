@@ -5,7 +5,7 @@ import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { lookup as dnsLookup } from 'dns/promises'
 import { isIP } from 'net'
-import { buscarImagensWeb, buscadorConfigurado, type CandidataWeb } from './logo-busca-web'
+import { candidatasDaWeb, temBuscaWeb, type CandidataWeb } from './logo-busca-web'
 
 /**
  * Logomarca do cliente: envio manual (que já existia) e busca na internet.
@@ -27,8 +27,9 @@ import { buscarImagensWeb, buscadorConfigurado, type CandidataWeb } from './logo
  *  1. PALPITES DE DOMÍNIO a partir do nome fantasia / razão social
  *     (`cardpack` → cardpack.com.br, cardpack.com…). Custa uma requisição por
  *     palpite e resolve o caso comum da empresa que só tem e-mail de gmail.
- *  2. BUSCA NA WEB ABERTA, em `logo-busca-web.ts`, quando há chave de buscador
- *     configurada. É o único caminho que acha marca de quem não tem site.
+ *  2. FONTES DE MARCA, em `logo-busca-web.ts` — Logo.dev e um SearXNG nosso,
+ *     as duas gratuitas e opcionais. É o único caminho que acha a marca de
+ *     quem não tem site nenhum.
  *
  * Nenhuma das duas substitui o site: quando ele existe e publica og:image, ele
  * continua vindo primeiro, porque é a marca escolhida por quem fez o site.
@@ -212,15 +213,15 @@ export class ClienteLogoService {
 
     // Termo de busca da web: o que o usuário digitou, ou o nome do cadastro.
     const nomeParaBusca = termoLivre || cliente?.nomeFantasia || cliente?.razaoSocial || ''
-    const temBuscador = buscadorConfigurado() !== null
+    const temBuscador = temBuscaWeb()
 
     if (!dominio && !(temBuscador && nomeParaBusca)) {
       return {
         logos: [], dominio: '', origem,
         aviso: temBuscador
           ? 'Não há por onde procurar: sem site conhecido e sem nome para buscar. Envie o arquivo.'
-          : 'Não achei o site da empresa. Digite o endereço dele, ou configure um buscador em '
-            + 'Configurações → Dossiê e Imagens para procurar pelo nome na internet.',
+          : 'Não achei o site da empresa. Digite o endereço dele, ou ligue uma fonte de marca em '
+            + 'Configurações → Dossiê e Imagens para procurar pelo nome.',
       }
     }
 
@@ -236,18 +237,17 @@ export class ClienteLogoService {
       candidatas.add(`https://icons.duckduckgo.com/ip3/${encodeURIComponent(dominio)}.ico`)
     }
 
-    // 3) A web aberta, quando há buscador configurado. Entra por último na
-    //    montagem, mas concorre de igual para igual na ordenação — o resultado
-    //    da busca costuma ser a marca em alta resolução, melhor que o favicon.
-    if (temBuscador && nomeParaBusca) {
-      const termo = `${nomeParaBusca} logomarca`
-      const achadas: CandidataWeb[] = await buscarImagensWeb(termo)
+    // 3) Logo.dev e SearXNG, quando configurados. Entram por último na
+    //    montagem, mas concorrem de igual para igual na ordenação — a marca
+    //    devolvida por eles costuma ser bem melhor que o favicon.
+    if (temBuscador) {
+      const achadas: CandidataWeb[] = await candidatasDaWeb(dominio, nomeParaBusca)
       for (const c of achadas) {
         if (candidatas.has(c.url)) continue
         candidatas.add(c.url)
         fonteWeb.set(c.url, c.fonte)
       }
-      if (achadas.length > 0 && !dominio) origem = 'busca na web'
+      if (achadas.length > 0 && !dominio) origem = 'busca por nome'
     }
 
     const logos: LogoSugerida[] = []
@@ -279,7 +279,7 @@ export class ClienteLogoService {
             aviso: `Nada aproveitável encontrado para ${alvo}.`
               + (temBuscador
                 ? ' Tente outro endereço ou nome, ou envie o arquivo.'
-                : ' Um buscador configurado em Configurações → Dossiê e Imagens ampliaria a procura para a web toda.'),
+                : ' Uma fonte de marca em Configurações → Dossiê e Imagens ampliaria a procura para além do site.'),
           }
         : {}),
     }
