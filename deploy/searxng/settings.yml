@@ -1,0 +1,49 @@
+# SearXNG — metabuscador interno do OneClick
+#
+# Destino na VPS: /opt/oneclick/searxng/settings.yml
+#
+# Serve a UMA coisa: dar ao dossiê uma busca na web que não custe nada e não
+# dependa de chave de terceiro. É usado para achar a logomarca do cliente e para
+# sugerir perfis de rede social dos sócios.
+#
+# `use_default_settings: true` herda tudo do arquivo que vem na imagem; abaixo
+# só ficam as diferenças. Assim uma atualização da imagem traz motores novos e
+# correções sem precisar reconciliar um arquivo de 2 mil linhas.
+
+use_default_settings: true
+
+server:
+  # TROQUE antes de subir:  openssl rand -hex 32
+  secret_key: "TROQUE_POR_UMA_CHAVE_ALEATORIA"
+
+  # O limitador existe para instância pública, que apanha de robô. Esta não é
+  # publicada — não tem porta exposta, só os containers da stack a alcançam — e
+  # o limitador aqui só atrapalharia a própria API.
+  limiter: false
+
+  # Sem proxy de imagem: quem baixa a imagem é a API, com a guarda de SSRF
+  # (common/fetch-seguro.ts). Ter dois caminhos para o mesmo download seria uma
+  # porta a mais para vigiar.
+  image_proxy: false
+
+search:
+  # O motivo de existir este arquivo. Por padrão a imagem só responde HTML, e a
+  # API precisa de JSON.
+  formats:
+    - html
+    - json
+
+  safe_search: 1
+  autocomplete: ""
+
+  # Um pedido que demora demais atrasa a tela do dossiê. Melhor devolver menos
+  # resultados que segurar o usuário.
+  default_lang: "pt-BR"
+
+outgoing:
+  request_timeout: 6.0
+  max_request_timeout: 10.0
+  # IP de datacenter apanha mais de buscador que IP residencial: alguns
+  # respondem captcha. Duas tentativas, e o que falhar fica de fora.
+  pool_connections: 50
+  pool_maxsize: 10
