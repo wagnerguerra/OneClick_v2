@@ -65,21 +65,34 @@ export class CadeiaProvedoresService {
     return d
   }
 
-  async consultar(documento: string): Promise<ResultadoCadeia> {
+  /**
+   * `onTentativa` existe para a tela de progresso: sem ele, a cadeia só conta o
+   * que fez depois de terminar, e o usuário fica olhando um spinner mudo
+   * enquanto três provedores são tentados em sequência.
+   */
+  async consultar(
+    documento: string,
+    onTentativa?: (t: TentativaProvedor & { iniciando?: boolean }) => void,
+  ): Promise<ResultadoCadeia> {
     const tentativas: TentativaProvedor[] = []
 
     for (const provedor of this.ordem()) {
       const disj = this.disjuntor(provedor.nome)
       if (disj.aberto) {
-        tentativas.push({ fonte: provedor.nome, status: 'pulado', erro: 'disjuntor aberto', latenciaMs: 0 })
+        const pulado: TentativaProvedor = { fonte: provedor.nome, status: 'pulado', erro: 'disjuntor aberto', latenciaMs: 0 }
+        tentativas.push(pulado)
+        onTentativa?.(pulado)
         continue
       }
 
       const inicio = Date.now()
+      onTentativa?.({ fonte: provedor.nome, status: 'ok', latenciaMs: 0, iniciando: true })
       try {
         const dados = await provedor.consultar(documento)
         disj.registrarSucesso()
-        tentativas.push({ fonte: provedor.nome, status: 'ok', latenciaMs: Date.now() - inicio })
+        const ok: TentativaProvedor = { fonte: provedor.nome, status: 'ok', latenciaMs: Date.now() - inicio }
+        tentativas.push(ok)
+        onTentativa?.(ok)
         return { dados, tentativas }
       } catch (e) {
         const erro = e as Error
@@ -88,11 +101,15 @@ export class CadeiaProvedoresService {
         // ainda. Insistir na cadeia só gastaria três consultas para o mesmo
         // resultado — e no SERPRO isso é dinheiro.
         if (erro instanceof CnpjAlfanumericoNaoSuportadoError) {
-          tentativas.push({ fonte: provedor.nome, status: 'erro', erro: erro.message, latenciaMs })
+          const t: TentativaProvedor = { fonte: provedor.nome, status: 'erro', erro: erro.message, latenciaMs }
+          tentativas.push(t)
+          onTentativa?.(t)
           return { dados: null, tentativas, erroTerminal: erro.message }
         }
         disj.registrarFalha()
-        tentativas.push({ fonte: provedor.nome, status: 'erro', erro: erro.message, latenciaMs })
+        const t: TentativaProvedor = { fonte: provedor.nome, status: 'erro', erro: erro.message, latenciaMs }
+        tentativas.push(t)
+        onTentativa?.(t)
       }
     }
 

@@ -17,7 +17,12 @@ import {
   FileSearch, RefreshCw, Loader2, Check, X, AlertTriangle, ChevronDown,
   Building2, Activity, MapPin, Users, Receipt, ShieldCheck, ExternalLink,
 } from 'lucide-react'
-import { Button, Card, Badge, cn } from '@saas/ui'
+import {
+  Button, Card, Badge, cn,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+} from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { getApiUrl } from '@/lib/api-url'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { fmtDateBR } from '@/lib/date'
@@ -43,7 +48,15 @@ type Dossie = {
 }
 
 type Cnae = { codigo: string; descricao: string; principal: boolean }
-type Socio = { nome: string; documento: string; qualificacao: string; dataEntrada: string | null }
+type Socio = {
+  nome: string
+  documento: string
+  qualificacao: string
+  dataEntrada: string | null
+  /** Veio da Legalização (PDF da Situação Fiscal), então não está mascarado. */
+  documentoCompleto?: boolean
+  participacao?: number | null
+}
 
 const ROTULOS: Record<string, string> = {
   razao_social: 'Razão social', nome_fantasia: 'Nome fantasia',
@@ -143,6 +156,16 @@ function Linhas({ fatos, campos }: { fatos: Fato[]; campos: string[] }) {
   )
 }
 
+/** CPF completo ganha máscara; o mascarado da Receita já vem formatado. */
+function formatarCpf(doc: string): string {
+  const so = doc.replace(/\D/g, '')
+  return so.length === 11
+    ? so.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+    : doc
+}
+
+type Passo = { chave: string; rotulo: string; status: 'rodando' | 'ok' | 'erro'; detalhe?: string }
+
 export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
   clienteId: string
   podeAtualizar: boolean
@@ -154,6 +177,11 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
   const [atualizando, setAtualizando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [decidindo, setDecidindo] = useState<string | null>(null)
+  // Painel de progresso da coleta. Fica aberto até o usuário fechar — quem
+  // acompanhou os passos costuma querer reler o que cada provedor respondeu.
+  const [passos, setPassos] = useState<Passo[]>([])
+  const [painelAberto, setPainelAberto] = useState(false)
+  const [conclusao, setConclusao] = useState<string | null>(null)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -170,17 +198,70 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
 
   useEffect(() => { void carregar() }, [carregar])
 
+  /**
+   * A coleta é lida como STREAM: o backend narra cada passo (cache, provedor
+   * tentado, gravação, comparação) e a tela vai marcando. Sem isso, a espera de
+   * dezenas de segundos era um spinner mudo — e três provedores encadeados
+   * podem levar mesmo esse tempo.
+   */
   async function atualizar() {
     setAtualizando(true)
+    setPassos([])
+    setConclusao(null)
+    setPainelAberto(true)
+
+    // Um passo é identificado pela chave: o mesmo passo volta 'rodando' e
+    // depois 'ok', e a linha é atualizada no lugar em vez de duplicar.
+    const marcar = (p: Passo) => setPassos(atual => {
+      const i = atual.findIndex(x => x.chave === p.chave)
+      if (i === -1) return [...atual, p]
+      const copia = [...atual]
+      copia[i] = p
+      return copia
+    })
+
     try {
-      const r = await (trpc.cliente as never as {
-        atualizarDossie: { mutate: (i: { clienteId: string; forcar: boolean }) => Promise<{ ok: boolean; motivo?: string; fonte?: string; divergencias?: number }> }
-      }).atualizarDossie.mutate({ clienteId, forcar: true })
-      if (!r.ok) { alerts.error('Não foi possível consultar', r.motivo || 'Sem detalhes.'); return }
-      await carregar()
-      await alerts.success('Dossiê atualizado', `Fonte: ${r.fonte}${r.divergencias ? ` · ${r.divergencias} divergência(s) para revisar` : ''}`)
+      const resp = await fetch(`${getApiUrl()}/api/clientes/${clienteId}/dossie/coletar-stream?forcar=1`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!resp.ok || !resp.body) throw new Error(`A coleta não respondeu (HTTP ${resp.status})`)
+
+      const leitor = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      for (;;) {
+        const { done, value } = await leitor.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        // Evento SSE termina em linha em branco; o resto fica no buffer para
+        // o próximo pedaço.
+        const partes = buffer.split('\n\n')
+        buffer = partes.pop() ?? ''
+        for (const parte of partes) {
+          const linha = parte.split('\n').find(l => l.startsWith('data: '))
+          if (!linha) continue
+          try {
+            const ev = JSON.parse(linha.slice(6)) as
+              | (Passo & { tipo: 'passo' })
+              | { tipo: 'fim'; resultado: { ok: boolean; motivo?: string; fonte?: string; divergencias?: number; doCache?: boolean } }
+            if (ev.tipo === 'passo') { marcar(ev); continue }
+
+            const r = ev.resultado
+            setConclusao(
+              !r.ok ? `Não deu certo: ${r.motivo || 'sem detalhes'}`
+                : r.doCache ? 'Já havia coleta recente; nada foi consultado de novo.'
+                : `Concluído pela fonte ${r.fonte}.`
+                  + (r.divergencias ? ` ${r.divergencias} divergência(s) para você revisar abaixo.` : ' Sem divergências.'),
+            )
+            if (r.ok) await carregar()
+          } catch { /* linha malformada não derruba o acompanhamento */ }
+        }
+      }
     } catch (e) {
-      alerts.error('Erro', (e as Error).message)
+      setConclusao(`Erro: ${(e as Error).message}`)
     } finally { setAtualizando(false) }
   }
 
@@ -316,15 +397,30 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
                     {socios.map((s, i) => (
                       <li key={`${s.nome}-${i}`} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/40 py-1 text-sm">
                         <span className="font-medium text-foreground">{s.nome}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {s.qualificacao}{s.documento ? ` · ${s.documento}` : ''}
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          {s.qualificacao}
+                          {s.documento && <> · <span className={cn(s.documentoCompleto && 'font-medium text-foreground')}>{formatarCpf(s.documento)}</span></>}
+                          {s.participacao != null && <> · {s.participacao}%</>}
+                          {s.documentoCompleto && (
+                            <span
+                              className="rounded-full bg-emerald-100 px-1.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300"
+                              title="CPF completo, obtido da Situação Fiscal na aba Legalização"
+                            >
+                              completo
+                            </span>
+                          )}
                         </span>
                       </li>
                     ))}
                   </ul>
+                  {/* Dois documentos convivem aqui, e a diferença importa: o
+                      que vem da consulta pública é mascarado pela Receita; o
+                      completo é o que a Legalização obteve do PDF da Situação
+                      Fiscal, como contador da empresa. */}
                   <p className="mt-2 text-[11px] text-muted-foreground/80">
-                    O documento dos sócios é gravado mascarado — o dossiê identifica quem responde
-                    pela empresa, não é base de CPF.
+                    {socios.some(s => !s.documentoCompleto)
+                      ? 'O CPF mascarado é o que a consulta pública devolve. Para completá-lo, use "Importar QSA" na aba Legalização — ele vem do PDF da Situação Fiscal.'
+                      : 'CPF completo, vindo da Situação Fiscal (aba Legalização).'}
                   </p>
                 </>
               )}
@@ -346,6 +442,55 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
     </>
   )
 
-  if (semCartao) return conteudo
-  return <Card className="p-5">{conteudo}</Card>
+  const painel = (
+    <Dialog open={painelAberto} onOpenChange={setPainelAberto}>
+      <DialogContent className="sm:max-w-[560px]">
+        <DialogHeaderIcon icon={RefreshCw} color="sky">
+          <DialogTitle>Coletando o dossiê</DialogTitle>
+          <DialogDescription>
+            Cada linha é um passo da coleta. A janela fica aberta até você fechar.
+          </DialogDescription>
+        </DialogHeaderIcon>
+        <DialogBody>
+          <div className="nice-scrollbar max-h-[320px] space-y-1.5 overflow-y-auto">
+            {passos.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">Começando…</p>
+            )}
+            {passos.map(p => (
+              <div key={p.chave} className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/20 px-3 py-2">
+                <span className="mt-0.5 shrink-0">
+                  {p.status === 'rodando' && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  {p.status === 'ok' && <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+                  {p.status === 'erro' && <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-foreground">{p.rotulo}</p>
+                  {p.detalhe && <p className="text-[11px] text-muted-foreground">{p.detalhe}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+          {conclusao && (
+            <p className="mt-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground">
+              {conclusao}
+            </p>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            variant={conclusao ? 'success' : 'outline'} size="sm"
+            onClick={() => setPainelAberto(false)}
+          >
+            Fechar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  if (semCartao) return <>{conteudo}{painel}</>
+  return <>
+    <Card className="p-5">{conteudo}</Card>
+    {painel}
+  </>
 }

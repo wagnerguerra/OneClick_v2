@@ -55,6 +55,23 @@ export class DossieService {
     // LGPD: o dossiê expõe QSA, que é pessoa física. Fica registrado quem abriu.
     if (usuarioId) await this.registrarAcesso(clienteId, usuarioId, 'visualizou')
 
+    // CPF completo dos sócios — vem da tabela `socios`, preenchida pela
+    // Legalização a partir do PDF da Situação Fiscal (Integra Contador).
+    //
+    // O documento que o PROVEDOR devolve continua mascarado no fato gravado, e
+    // isso não muda: a base de CPF é aquela, obtida como contador da empresa,
+    // e não uma cópia feita a partir da consulta pública.
+    const socios = await prisma.socio.findMany({
+      where: { clienteId, cpf: { not: '' } },
+      select: { nomeCompleto: true, cpf: true, participacao: true },
+    }).catch(() => [])
+    const cpfPorNome = new Map(
+      socios.map(s => [this.chaveNome(s.nomeCompleto), {
+        cpf: s.cpf,
+        participacao: s.participacao != null ? Number(s.participacao) : null,
+      }]),
+    )
+
     const blocos: Record<string, Array<{ campo: string; valor: string | null; valorJson: unknown; fonte: string; urlFonte: string | null; coletadoEm: Date; oficial: boolean }>> = {}
     for (const f of fatos) {
       const lista = blocos[f.bloco] ?? []
@@ -70,12 +87,41 @@ export class DossieService {
       blocos[f.bloco] = lista
     }
 
+    // O quadro societário do dossiê ganha o CPF que a casa já tem. Casar por
+    // nome é o único caminho: o documento do provedor vem mascarado, então não
+    // serve de chave.
+    const doQsa = blocos['receita']?.find(f => f.campo === 'socios')
+    if (doQsa && Array.isArray(doQsa.valorJson) && cpfPorNome.size > 0) {
+      doQsa.valorJson = (doQsa.valorJson as Array<Record<string, unknown>>).map(s => {
+        const conhecido = cpfPorNome.get(this.chaveNome(String(s.nome ?? '')))
+        return conhecido
+          ? { ...s, documento: conhecido.cpf, documentoCompleto: true, participacao: conhecido.participacao }
+          : s
+      })
+    }
+
     return {
       blocos,
       sugestoes,
       ultimaColeta: ultimaColeta ?? null,
       vazio: fatos.length === 0,
+      /** Quantos sócios ainda estão sem CPF completo — a tela oferece buscar. */
+      sociosSemCpf: Array.isArray(doQsa?.valorJson)
+        ? (doQsa.valorJson as Array<Record<string, unknown>>).filter(x => !x.documentoCompleto).length
+        : 0,
     }
+  }
+
+  /**
+   * Nome vira chave comparável: sem acento, sem pontuação, caixa única.
+   * "JOSÉ DA SILVA" e "Jose da Silva" são a mesma pessoa no QSA.
+   */
+  private chaveNome(nome: string): string {
+    return nome
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, ' ')
+      .trim()
   }
 
   async registrarAcesso(clienteId: string, usuarioId: string, acao: string) {
@@ -89,7 +135,20 @@ export class DossieService {
    * `forcar` ignora o TTL — é o "Atualizar agora" da tela. Sem ele, cliente
    * consultado há menos de 60 dias responde do que já está gravado.
    */
-  async enriquecer(clienteId: string, opts?: { forcar?: boolean; usuarioId?: string }): Promise<ResultadoEnriquecimento> {
+  async enriquecer(
+    clienteId: string,
+    opts?: {
+      forcar?: boolean
+      usuarioId?: string
+      /**
+       * Narra o que está acontecendo, passo a passo. Existe porque a coleta
+       * encadeia até tres provedores e pode levar dezenas de segundos: sem
+       * isso, a tela mostra um spinner mudo e ninguem sabe se travou.
+       */
+      passo?: (p: { chave: string; rotulo: string; status: 'rodando' | 'ok' | 'erro'; detalhe?: string }) => void
+    },
+  ): Promise<ResultadoEnriquecimento> {
+    const passo = opts?.passo
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteId },
       select: {
@@ -105,12 +164,31 @@ export class DossieService {
     }
 
     if (!opts?.forcar) {
+      passo?.({ chave: 'cache', rotulo: 'Vendo se já há coleta recente', status: 'rodando' })
       const recente = await this.coletaDentroDoTtl(clienteId)
+      passo?.({
+        chave: 'cache', rotulo: 'Vendo se já há coleta recente', status: 'ok',
+        detalhe: recente ? `sim, de ${recente.fonte} — nada a consultar` : 'não; vamos consultar',
+      })
       if (recente) return { clienteId, ok: true, doCache: true, fonte: recente.fonte }
     }
 
     const documento = cliente.cnpjAcessorias || cliente.documento
-    const { dados, tentativas, erroTerminal } = await this.cadeia.consultar(documento)
+    passo?.({ chave: 'consulta', rotulo: `Consultando o CNPJ ${documento}`, status: 'rodando' })
+
+    const { dados, tentativas, erroTerminal } = await this.cadeia.consultar(documento, (t) => {
+      if (t.iniciando) {
+        passo?.({ chave: `prov-${t.fonte}`, rotulo: `Perguntando ao ${t.fonte}`, status: 'rodando' })
+        return
+      }
+      passo?.({
+        chave: `prov-${t.fonte}`,
+        rotulo: `Perguntando ao ${t.fonte}`,
+        status: t.status === 'ok' ? 'ok' : 'erro',
+        detalhe: t.status === 'ok' ? `${t.latenciaMs} ms` : (t.erro ?? t.status),
+      })
+    })
+    passo?.({ chave: 'consulta', rotulo: `Consultando o CNPJ ${documento}`, status: dados ? 'ok' : 'erro' })
 
     // Toda tentativa vira log, inclusive as que falharam — é o que permite
     // entender depois por que um cliente ficou sem dossiê.
@@ -149,9 +227,24 @@ export class DossieService {
       uf: cliente.uf,
     }
 
+    passo?.({ chave: 'fatos', rotulo: 'Gravando os dados coletados', status: 'rodando' })
     await this.gravarFatos(clienteId, dados)
+    passo?.({ chave: 'fatos', rotulo: 'Gravando os dados coletados', status: 'ok' })
+
+    passo?.({ chave: 'auto', rotulo: 'Preenchendo o que estava em branco no cadastro', status: 'rodando' })
     const aplicadosDireto = await this.aplicarAutomaticos(clienteId, comparavel, dados)
+    passo?.({
+      chave: 'auto', rotulo: 'Preenchendo o que estava em branco no cadastro', status: 'ok',
+      detalhe: aplicadosDireto.length > 0 ? `${aplicadosDireto.length} campo(s)` : 'nada a preencher',
+    })
+
+    passo?.({ chave: 'div', rotulo: 'Comparando com o cadastro atual', status: 'rodando' })
     const divergencias = await this.registrarDivergencias(clienteId, comparavel, dados)
+    passo?.({
+      chave: 'div', rotulo: 'Comparando com o cadastro atual', status: 'ok',
+      detalhe: divergencias > 0 ? `${divergencias} divergência(s) para decidir` : 'sem divergências',
+    })
+
     if (opts?.usuarioId) await this.registrarAcesso(clienteId, opts.usuarioId, 'atualizou')
 
     return { clienteId, ok: true, fonte: dados.fonte, divergencias, aplicadosDireto }
