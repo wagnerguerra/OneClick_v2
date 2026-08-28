@@ -328,12 +328,14 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
         </div>
       )}
 
-      <div className="space-y-4">
+      {/* Uma coluna por frente, lado a lado: elas rodam em paralelo, e empilhadas
+          o paralelismo sumia — cada uma parecia uma etapa da anterior. */}
+      <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
         {execucoes.map(e => {
           const executantes = e.participantes.filter(p => (p.papel ?? 'EXECUTANTE') === 'EXECUTANTE')
           const colaboradores = e.participantes.filter(p => p.papel === 'COLABORADOR')
           return (
-            <div key={e.id} className="rounded-xl border border-border p-4">
+            <div key={e.id} className="flex flex-col rounded-xl border border-border p-4">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="truncate text-[13px] font-semibold text-foreground">
                   {e.titulo || e.cliente?.nomeFantasia || e.cliente?.razaoSocial || 'Execução sem nome'}
@@ -350,7 +352,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
                 )}
               </div>
 
-              <div className="flex flex-col items-center">
+              <div className="flex flex-1 flex-col items-center">
                 {/* 1 — o cliente encabeça o ramo */}
                 <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-0.5">
                   <Building2 className="h-3 w-3" style={{ color: corProjeto }} />
@@ -457,17 +459,16 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
           : escolha?.tipo === 'COLABORADOR' ? 'Adicionar colaboradores' : 'Adicionar executantes'}
         descricao={escolha?.tipo === 'RESPONSAVEL'
           ? 'É um só por frente, e não precisa ser o mesmo do projeto.'
-          : 'Quem já está nesta execução não aparece na lista.'}
+          : 'Quem já está neste degrau não aparece na lista.'}
         opcoes={pessoas.map(u => ({ id: u.id, rotulo: u.name }))}
         aoBuscar={buscarPessoas}
         buscando={buscando}
+        // Quem responde pela frente continua na lista de executantes: em time
+        // pequeno, quem responde também faz. Só não se repete no mesmo degrau.
         jaDentro={new Set(
           escolha?.tipo === 'RESPONSAVEL'
             ? (execucaoAtual?.responsavel ? [execucaoAtual.responsavel.id] : [])
-            : [
-                ...(execucaoAtual?.participantes.map(p => p.id) ?? []),
-                ...(execucaoAtual?.responsavel ? [execucaoAtual.responsavel.id] : []),
-              ],
+            : (execucaoAtual?.participantes.map(p => p.id) ?? []),
         )}
         salvando={salvando}
         aoConfirmar={(ids) => {
@@ -475,12 +476,9 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
           if (escolha.tipo === 'RESPONSAVEL') {
             const novo = ids[0]
             if (!novo) return
-            // Quem assume a frente sai do time: o mesmo nome em dois degraus do
-            // fluxograma não diz nada a mais.
-            void salvarExecucao(escolha.execucaoId, {
-              responsavelId: novo,
-              participantes: listaTime(execucaoAtual).filter(p => p.userId !== novo),
-            })
+            // Assumir a frente não tira ninguém do time: responder e executar
+            // são coisas distintas, e a mesma pessoa pode fazer as duas.
+            void salvarExecucao(escolha.execucaoId, { responsavelId: novo })
             return
           }
           const papel: Papel = escolha.tipo === 'COLABORADOR' ? 'COLABORADOR' : 'EXECUTANTE'

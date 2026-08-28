@@ -147,17 +147,19 @@ export class ProjetoService {
   }
 
   /**
-   * O responsável da execução não entra como participante dela: já aparece à
-   * parte no fluxograma, e repetido viraria a mesma pessoa em duas caixas.
+   * Tira só repetição: a mesma pessoa não entra duas vezes no time.
+   *
+   * Quem responde pela frente PODE executar nela — em time pequeno é a regra,
+   * não a exceção. O fluxograma mostra a pessoa nos dois degraus porque são
+   * dois fatos diferentes: um é quem responde, o outro é quem faz.
    */
   private participantesUnicos(
     lista: Array<{ userId: string; papel?: string }>,
-    responsavelId?: string | null,
   ): Array<{ userId: string; papel: string }> {
     const vistos = new Set<string>()
     const saida: Array<{ userId: string; papel: string }> = []
     for (const p of lista) {
-      if (!p.userId || p.userId === responsavelId || vistos.has(p.userId)) continue
+      if (!p.userId || vistos.has(p.userId)) continue
       vistos.add(p.userId)
       saida.push({ userId: p.userId, papel: p.papel ?? 'EXECUTANTE' })
     }
@@ -322,11 +324,8 @@ export class ProjetoService {
   }
 
   async updateExecucao(id: string, input: UpdateProjetoExecucaoInput) {
-    const atual = await prisma.projetoExecucao.findUnique({
-      where: { id },
-      select: { responsavelId: true },
-    })
-    if (!atual) throw new TRPCError({ code: 'NOT_FOUND', message: 'Execução não encontrada' })
+    const existe = await prisma.projetoExecucao.count({ where: { id } })
+    if (existe === 0) throw new TRPCError({ code: 'NOT_FOUND', message: 'Execução não encontrada' })
 
     const execucao = await prisma.projetoExecucao.update({
       where: { id },
@@ -341,8 +340,7 @@ export class ProjetoService {
     // Time da execução: a lista que chega é a lista final — trocar tudo é mais
     // previsível que calcular entra/sai para meia dúzia de nomes.
     if (input.participantes !== undefined) {
-      const responsavelFinal = input.responsavelId !== undefined ? input.responsavelId : atual.responsavelId
-      const lista = this.participantesUnicos(input.participantes, responsavelFinal)
+      const lista = this.participantesUnicos(input.participantes)
       await prisma.$transaction([
         prisma.projetoExecucaoParticipante.deleteMany({ where: { execucaoId: id } }),
         ...(lista.length > 0
