@@ -9,11 +9,12 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useRouter } from 'next/navigation'
-import { ListChecks, MoreVertical, Pencil, Trash2, Calendar, AlertCircle, Building2, User as UserIcon } from 'lucide-react'
+import { ListChecks, MoreVertical, Pencil, Trash2, Calendar, AlertCircle, Building2, Layers, User as UserIcon } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { stripHtml } from '@/lib/html'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { PROJETO_STATUS_LABELS, PROJETO_STATUS_ORDEM, type ProjetoStatus } from '@saas/types'
@@ -38,10 +39,11 @@ export interface KanbanProjeto {
   dataPrevisao: Date | string | null
   _count: { tarefas: number }
   responsavel: { id: string; name: string; image: string | null } | null
-  /** Time em volta do responsável. Vazio quando ninguém mais foi envolvido. */
-  participantes?: Array<{ id: string; name: string; image: string | null }>
-  /** Cliente atendido. Nulo = projeto interno. */
-  cliente?: { id: string; razaoSocial: string; nomeFantasia: string | null } | null
+  /** Quantas frentes de trabalho e quanta gente somada nelas. */
+  execucoes?: number
+  envolvidos?: number
+  /** Empresas-cliente envolvidas. Lista vazia = projeto interno. */
+  clientes?: Array<{ id: string; razaoSocial: string; nomeFantasia: string | null }>
   tarefaProximoVencimento: { id: string; titulo: string; prazo: Date | string } | null
 }
 
@@ -374,7 +376,7 @@ function KanbanCardContent({
   onDelete: () => void
   showMenu: boolean
 }) {
-  const cliente = projeto.cliente
+  const clientes = projeto.clientes ?? []
   return (
     <div className="flex flex-col">
       {/* Cabeçalho — título e menu, no espaçamento do /orcamentos */}
@@ -409,16 +411,26 @@ function KanbanCardContent({
 
       {/* Corpo */}
       <div className="px-3 pb-2 space-y-1">
-        {/* Cliente atendido — sem ele o projeto é interno, e aí nada aparece. */}
-        {cliente && (
-          <div className="flex items-center gap-1.5 text-[11px] text-foreground/75">
+        {/* Clientes envolvidos — nenhum quer dizer projeto interno, e aí nada aparece.
+            No card cabe um nome; o resto vira "+N", com todos no title. */}
+        {clientes.length > 0 && (
+          <div
+            className="flex items-center gap-1.5 text-[11px] text-foreground/75"
+            title={clientes.map(c => c.nomeFantasia || c.razaoSocial).join(', ')}
+          >
             <Building2 className="h-3 w-3 shrink-0 text-muted-foreground/70" />
-            <span className="truncate">{cliente.nomeFantasia || cliente.razaoSocial}</span>
+            <span className="truncate">{clientes[0]!.nomeFantasia || clientes[0]!.razaoSocial}</span>
+            {clientes.length > 1 && (
+              <span className="shrink-0 text-muted-foreground">+{clientes.length - 1}</span>
+            )}
           </div>
         )}
 
-        {projeto.descricao && (
-          <div className="text-[11px] text-muted-foreground line-clamp-2">{projeto.descricao}</div>
+        {/* A descrição é HTML (vem do RichEditor na aba de detalhes). No card
+            ela é prévia de duas linhas, então vai achatada em texto puro —
+            exceção prevista no CLAUDE.md. Sem isso a tag aparecia crua. */}
+        {projeto.descricao && stripHtml(projeto.descricao) && (
+          <div className="text-[11px] text-muted-foreground line-clamp-2">{stripHtml(projeto.descricao)}</div>
         )}
 
         <ContagemTarefas count={projeto._count.tarefas} />
@@ -478,14 +490,14 @@ function CardFooter({ projeto }: { projeto: KanbanProjeto }) {
           <span className="text-[10px] text-muted-foreground truncate">
             {projeto.responsavel.name.split(' ')[0]}
           </span>
-          <PilhaParticipantes participantes={projeto.participantes ?? []} />
+          <ResumoFrentes execucoes={projeto.execucoes ?? 0} envolvidos={projeto.envolvidos ?? 0} />
         </div>
       ) : (
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="flex items-center gap-1 text-[10px] text-muted-foreground italic">
             <UserIcon className="h-3 w-3" /> sem responsável
           </span>
-          <PilhaParticipantes participantes={projeto.participantes ?? []} />
+          <ResumoFrentes execucoes={projeto.execucoes ?? 0} envolvidos={projeto.envolvidos ?? 0} />
         </div>
       )}
 
@@ -511,27 +523,22 @@ function CardFooter({ projeto }: { projeto: KanbanProjeto }) {
   )
 }
 
-/** Até três avatares sobrepostos; o resto vira "+N". */
-function PilhaParticipantes({ participantes }: { participantes: Array<{ id: string; name: string; image: string | null }> }) {
-  if (participantes.length === 0) return null
-  const visiveis = participantes.slice(0, 3)
-  const resto = participantes.length - visiveis.length
+/**
+ * Resumo das frentes. O card não lista nomes: com várias execuções em paralelo,
+ * a pilha de avatares viraria uma sopa de gente sem dizer de qual frente é
+ * cada um. Quem é quem está na aba Envolvidos.
+ */
+function ResumoFrentes({ execucoes, envolvidos }: { execucoes: number; envolvidos: number }) {
+  if (execucoes === 0) return null
   return (
-    <div
-      className="flex items-center -space-x-1.5 shrink-0"
-      title={`Também no projeto: ${participantes.map(p => p.name).join(', ')}`}
+    <span
+      className="inline-flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground"
+      title={`${execucoes} execução(ões) em andamento, ${envolvidos} pessoa(s) envolvida(s)`}
     >
-      {visiveis.map(u => (
-        <div key={u.id} className="ring-2 ring-white dark:ring-card rounded-full">
-          <AvatarPequeno user={u} />
-        </div>
-      ))}
-      {resto > 0 && (
-        <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[9px] font-semibold text-foreground/70 ring-2 ring-white dark:ring-card">
-          +{resto}
-        </div>
-      )}
-    </div>
+      <Layers className="h-3 w-3" />
+      {execucoes}
+      {envolvidos > 0 && <span className="opacity-70">· {envolvidos}</span>}
+    </span>
   )
 }
 

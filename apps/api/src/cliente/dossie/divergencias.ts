@@ -18,9 +18,16 @@ export type CadastroComparavel = {
   cep: string | null
   logradouro: string | null
   numero: string | null
+  complemento: string | null
   bairro: string | null
   cidade: string | null
   uf: string | null
+  telefone: string | null
+  email: string | null
+  dataAbertura: string | null
+  naturezaJuridica: string | null
+  porte: string | null
+  situacaoCadastral: string | null
 }
 
 export type Divergencia = {
@@ -38,7 +45,7 @@ export type Divergencia = {
  */
 function equivalente(a: string | null | undefined, b: string | null | undefined): boolean {
   const normalizar = (v: string | null | undefined) => String(v ?? '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim()
   return normalizar(a) === normalizar(b)
 }
@@ -54,9 +61,18 @@ const CAMPOS: Array<{
   { campo: 'cep', valor: d => d.cep },
   { campo: 'logradouro', valor: d => d.logradouro },
   { campo: 'numero', valor: d => d.numero },
+  { campo: 'complemento', valor: d => d.complemento },
   { campo: 'bairro', valor: d => d.bairro },
   { campo: 'cidade', valor: d => d.municipio },
   { campo: 'uf', valor: d => d.uf },
+  // A Receita devolve vários telefones; o cadastro tem um campo só. Vai o
+  // primeiro — e quem quiser os outros vê a lista no bloco de contato.
+  { campo: 'telefone', valor: d => d.telefones[0] ?? null },
+  { campo: 'email', valor: d => d.email },
+  { campo: 'dataAbertura', valor: d => d.dataAbertura },
+  { campo: 'naturezaJuridica', valor: d => d.naturezaJuridica },
+  { campo: 'porte', valor: d => d.porte },
+  { campo: 'situacaoCadastral', valor: d => d.situacaoCadastral },
 ]
 
 export function detectarDivergencias(cadastro: CadastroComparavel, dados: DadosCnpj): Divergencia[] {
@@ -67,7 +83,12 @@ export function detectarDivergencias(cadastro: CadastroComparavel, dados: DadosC
     if (!sugerido) continue
     const atual = cadastro[campo]
     const atualTexto = atual == null ? null : String(atual)
-    if (equivalente(atualTexto, sugerido)) continue
+    // E-mail e telefone não passam pelo normalizador de texto: ele apaga @, ponto
+    // e traço, e aí `contato@x.com.br` e `contato@x.com` virariam o mesmo valor.
+    const iguais = campo === 'email' || campo === 'telefone'
+      ? String(atualTexto ?? '').replace(/\s+/g, '').toLowerCase() === sugerido.replace(/\s+/g, '').toLowerCase()
+      : equivalente(atualTexto, sugerido)
+    if (iguais) continue
     saida.push({
       campo,
       valorAtual: atualTexto,

@@ -113,6 +113,8 @@ export const createClienteSchema = z.object({
   grupo: z.coerce.string().optional().or(z.literal('')),
   categoria: z.coerce.string().optional().or(z.literal('')),
   origem: z.coerce.string().optional().or(z.literal('')),
+  /** Abertura na Receita — não é a entrada na casa, que é `dataEntrada`. */
+  dataAbertura: z.coerce.string().optional().or(z.literal('')),
   dataEntrada: z.coerce.string().optional().or(z.literal('')),
   dataSaida: z.coerce.string().optional().or(z.literal('')),
   observacoes: z.coerce.string().optional().or(z.literal('')),
@@ -120,6 +122,10 @@ export const createClienteSchema = z.object({
   // Fiscal
   tributacao: z.enum(['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI', 'IMUNE', 'ISENTA']).nullish(),
   regime: z.enum(['CAIXA', 'COMPETENCIA']).nullish(),
+  /** ME, EPP, DEMAIS — texto livre: a nomenclatura muda com a lei. */
+  porte: z.coerce.string().optional().or(z.literal('')),
+  /** Retrato da Receita na última coleta; não é o `status` do cliente aqui. */
+  situacaoCadastral: z.coerce.string().optional().or(z.literal('')),
   inscricaoEstadual: z.coerce.string().optional().or(z.literal('')),
   inscricaoMunicipal: z.coerce.string().optional().or(z.literal('')),
 
@@ -127,6 +133,7 @@ export const createClienteSchema = z.object({
   areasContratadas: z.coerce.string().optional().or(z.literal('')),
 
   // Legalização
+  naturezaJuridica: z.coerce.string().optional().or(z.literal('')),
   nire: z.coerce.string().optional().or(z.literal('')),
   rgEdificacao: z.coerce.string().optional().or(z.literal('')),
   codigoSimples: z.coerce.string().optional().or(z.literal('')),

@@ -4,6 +4,14 @@ import { prisma } from '@saas/db'
 import type {
   CreateProjetoInput,
   UpdateProjetoInput,
+  CreateProjetoExecucaoInput,
+  UpdateProjetoExecucaoInput,
+  CreateRodadaInput,
+  UpdateRodadaInput,
+  CreateRodadaMensagemInput,
+  AddRodadaArquivoInput,
+  CreateApontamentoInput,
+  UpdateApontamentoInput,
   ListProjetosInput,
   CreateTarefaInput,
   UpdateTarefaInput,
@@ -25,7 +33,7 @@ export class ProjetoService {
     const where: any = { isActive: true }
     if (input.status) where.status = input.status
     if (input.responsavelId) where.responsavelId = input.responsavelId
-    if (input.clienteId) where.clienteId = input.clienteId
+    if (input.clienteId) where.execucoes = { some: { clienteId: input.clienteId } }
     if (input.search) {
       where.OR = [
         { nome: { contains: input.search, mode: 'insensitive' } },
@@ -46,9 +54,13 @@ export class ProjetoService {
         take: input.limit,
         include: {
           _count: { select: { tarefas: true } },
-          cliente: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
-          participantes: {
-            select: { user: { select: { id: true, name: true, image: true } } },
+          execucoes: {
+            where: { ativa: true },
+            select: {
+              id: true,
+              cliente: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
+              participantes: { select: { userId: true } },
+            },
           },
         },
       }),
@@ -91,8 +103,11 @@ export class ProjetoService {
     const enriched = items.map((p) => ({
       ...p,
       responsavel: p.responsavelId ? respById.get(p.responsavelId) ?? null : null,
-      // O card quer a lista de gente, não a tabela de ligação.
-      participantes: p.participantes.map((pp) => pp.user),
+      // O card resume: quantas frentes, para quais clientes e quanta gente.
+      // O detalhe de quem é quem fica na aba Envolvidos.
+      execucoes: p.execucoes.length,
+      clientes: p.execucoes.map((e) => e.cliente).filter((c): c is NonNullable<typeof c> => !!c),
+      envolvidos: new Set(p.execucoes.flatMap((e) => e.participantes.map((pp) => pp.userId))).size,
       tarefaProximoVencimento: tarefaPorProjeto.get(p.id) ?? null,
     }))
 
@@ -105,10 +120,7 @@ export class ProjetoService {
       include: {
         tags: true,
         _count: { select: { tarefas: true, mensagens: true, anexos: true } },
-        cliente: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
-        participantes: {
-          select: { user: { select: { id: true, name: true, image: true } } },
-        },
+
       },
     })
     if (!projeto) throw new TRPCError({ code: 'NOT_FOUND', message: 'Projeto não encontrado' })
@@ -119,7 +131,7 @@ export class ProjetoService {
           select: { id: true, name: true, image: true },
         })
       : null
-    return { ...projeto, responsavel, participantes: projeto.participantes.map((p) => p.user) }
+    return { ...projeto, responsavel }
   }
 
   async createProjeto(input: CreateProjetoInput, userId: string | null) {
@@ -130,22 +142,30 @@ export class ProjetoService {
         cor: input.cor ?? '#22d3ee',
         status: input.status ?? 'NOVO',
         responsavelId: input.responsavelId ?? userId ?? null,
-        clienteId: input.clienteId || null,
         dataInicio: input.dataInicio ? new Date(input.dataInicio) : null,
         dataPrevisao: input.dataPrevisao ? new Date(input.dataPrevisao) : null,
-        ...(input.participantesIds?.length
-          ? { participantes: { create: this.participantesUnicos(input.participantesIds, input.responsavelId ?? userId).map(userId2 => ({ userId: userId2 })) } }
-          : {}),
       },
     })
   }
 
   /**
-   * O responsável não entra como participante: ele já aparece à parte, e
-   * repetido viraria dois avatares da mesma pessoa no card.
+   * Tira só repetição: a mesma pessoa não entra duas vezes no time.
+   *
+   * Quem responde pela frente PODE executar nela — em time pequeno é a regra,
+   * não a exceção. O fluxograma mostra a pessoa nos dois degraus porque são
+   * dois fatos diferentes: um é quem responde, o outro é quem faz.
    */
-  private participantesUnicos(ids: string[], responsavelId?: string | null): string[] {
-    return Array.from(new Set(ids.filter(Boolean))).filter(id => id !== responsavelId)
+  private participantesUnicos(
+    lista: Array<{ userId: string; papel?: string }>,
+  ): Array<{ userId: string; papel: string }> {
+    const vistos = new Set<string>()
+    const saida: Array<{ userId: string; papel: string }> = []
+    for (const p of lista) {
+      if (!p.userId || vistos.has(p.userId)) continue
+      vistos.add(p.userId)
+      saida.push({ userId: p.userId, papel: p.papel ?? 'EXECUTANTE' })
+    }
+    return saida
   }
 
   async updateProjeto(id: string, input: UpdateProjetoInput, autorId: string | null = null) {
@@ -177,7 +197,6 @@ export class ProjetoService {
         ...(input.cor !== undefined && { cor: input.cor }),
         ...(input.status !== undefined && { status: input.status }),
         ...(input.responsavelId !== undefined && { responsavelId: input.responsavelId }),
-        ...(input.clienteId !== undefined && { clienteId: input.clienteId || null }),
         ...(input.dataInicio !== undefined && {
           dataInicio: input.dataInicio ? new Date(input.dataInicio) : null,
         }),
@@ -186,19 +205,6 @@ export class ProjetoService {
         }),
       },
     })
-
-    // Participantes: a lista que chega é a lista final. Trocar tudo é mais
-    // simples e mais previsível do que calcular entra/sai — são poucos nomes.
-    if (input.participantesIds !== undefined) {
-      const responsavelFinal = input.responsavelId !== undefined ? input.responsavelId : atual.responsavelId
-      const ids = this.participantesUnicos(input.participantesIds, responsavelFinal)
-      await prisma.$transaction([
-        prisma.projetoParticipante.deleteMany({ where: { projetoId: id } }),
-        ...(ids.length > 0
-          ? [prisma.projetoParticipante.createMany({ data: ids.map(userId => ({ projetoId: id, userId })) })]
-          : []),
-      ])
-    }
 
     // Grava eventos fora da update
     for (const ev of eventos) {
@@ -209,26 +215,42 @@ export class ProjetoService {
   }
 
   /**
+   * Filtro de tenancy no molde do `ativo.service`: a empresa ATIVA vale para
+   * todos, master incluído — o poder do master é TROCAR de empresa, não ver
+   * todas somadas. Registro global (empresaId nulo) acompanha qualquer empresa.
+   */
+  private tenantWhere(ctx?: { isMaster?: boolean; empresaId?: string }) {
+    if (ctx?.empresaId) return { OR: [{ empresaId: ctx.empresaId }, { empresaId: null }] }
+    return ctx?.isMaster ? {} : { empresaId: null }
+  }
+
+  /**
    * Clientes que podem ser vinculados a um projeto: os MENSAIS e ativos.
    *
    * Rota própria, e não a listagem do módulo Clientes, porque quem trabalha em
    * Projetos não tem necessariamente permissão de ver o cadastro de clientes —
    * e aqui só precisa de nome e id para escolher num campo.
    */
-  async listClientesVinculaveis(busca?: string) {
+  async listClientesVinculaveis(busca?: string, ctx?: { isMaster?: boolean; empresaId?: string }) {
     const termo = (busca ?? '').trim()
     return prisma.cliente.findMany({
       where: {
         situacao: 'MENSAL',
         status: 'ATIVO',
-        ...(termo
-          ? {
-              OR: [
-                { razaoSocial: { contains: termo, mode: 'insensitive' } },
-                { nomeFantasia: { contains: termo, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
+        // AND explícito, e não spread: o filtro de tenant e a busca usam os
+        // dois a chave `OR`, e a segunda apagaria a primeira — o que faria a
+        // busca enxergar cliente de outra empresa.
+        AND: [
+          this.tenantWhere(ctx),
+          ...(termo
+            ? [{
+                OR: [
+                  { razaoSocial: { contains: termo, mode: 'insensitive' as const } },
+                  { nomeFantasia: { contains: termo, mode: 'insensitive' as const } },
+                ],
+              }]
+            : []),
+        ],
       },
       select: { id: true, razaoSocial: true, nomeFantasia: true },
       orderBy: { razaoSocial: 'asc' },
@@ -236,18 +258,306 @@ export class ProjetoService {
     })
   }
 
-  /** Pessoas que podem ser responsável ou participante. */
-  async listPessoas(busca?: string) {
+  /** Pessoas que podem ser responsável ou participante — só as da empresa. */
+  async listPessoas(busca?: string, ctx?: { isMaster?: boolean; empresaId?: string }) {
     const termo = (busca ?? '').trim()
     return prisma.user.findMany({
       where: {
         isActive: true,
+        ...this.tenantWhere(ctx),
         ...(termo ? { name: { contains: termo, mode: 'insensitive' } } : {}),
       },
       select: { id: true, name: true, image: true },
       orderBy: { name: 'asc' },
       take: 100,
     })
+  }
+
+  // ── Execuções ───────────────────────────────────────────────
+  //
+  // Cada frente de trabalho do projeto: um cliente, um responsável próprio e um
+  // time. Rodam em paralelo — a ferramenta é a mesma, o ciclo de cada cliente
+  // não é.
+
+  async listExecucoes(projetoId: string) {
+    const execucoes = await prisma.projetoExecucao.findMany({
+      where: { projetoId },
+      orderBy: [{ ordem: 'asc' }, { criadoEm: 'asc' }],
+      include: {
+        cliente: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
+        participantes: {
+          select: { papel: true, user: { select: { id: true, name: true, image: true } } },
+        },
+        _count: { select: { rodadas: true } },
+      },
+    })
+
+    // Responsável de cada frente, em lote — são poucos, mas um lookup por
+    // execução seria N+1 numa tela que abre inteira.
+    const ids = execucoes.map(e => e.responsavelId).filter((x): x is string => !!x)
+    const pessoas = ids.length > 0
+      ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, image: true } })
+      : []
+    const porId = new Map(pessoas.map(u => [u.id, u]))
+
+    return execucoes.map(e => ({
+      ...e,
+      responsavel: e.responsavelId ? porId.get(e.responsavelId) ?? null : null,
+      participantes: e.participantes.map(pp => ({ ...pp.user, papel: pp.papel })),
+    }))
+  }
+
+  async createExecucao(input: CreateProjetoExecucaoInput, userId: string | null) {
+    const ultima = await prisma.projetoExecucao.findFirst({
+      where: { projetoId: input.projetoId },
+      orderBy: { ordem: 'desc' },
+      select: { ordem: true },
+    })
+    return prisma.projetoExecucao.create({
+      data: {
+        projetoId: input.projetoId,
+        titulo: input.titulo || null,
+        clienteId: input.clienteId || null,
+        responsavelId: input.responsavelId || null,
+        ordem: (ultima?.ordem ?? -1) + 1,
+        criadoPor: userId,
+      },
+    })
+  }
+
+  async updateExecucao(
+    id: string,
+    input: UpdateProjetoExecucaoInput,
+    ctx?: { isMaster?: boolean },
+  ) {
+    const existe = await prisma.projetoExecucao.count({ where: { id } })
+    if (existe === 0) throw new TRPCError({ code: 'NOT_FOUND', message: 'Execução não encontrada' })
+
+    // A cor do cabeçalho é do master. A tela já esconde a opção, mas esconder
+    // botão não é regra — a regra é esta, e vale para qualquer chamada.
+    if (input.cor !== undefined && !ctx?.isMaster) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Só o usuário master altera a cor do cabeçalho da execução',
+      })
+    }
+
+    const execucao = await prisma.projetoExecucao.update({
+      where: { id },
+      data: {
+        ...(input.titulo !== undefined && { titulo: input.titulo || null }),
+        ...(input.clienteId !== undefined && { clienteId: input.clienteId || null }),
+        ...(input.responsavelId !== undefined && { responsavelId: input.responsavelId || null }),
+        ...(input.ativa !== undefined && { ativa: input.ativa }),
+        ...(input.progresso !== undefined && { progresso: input.progresso }),
+        ...(input.cor !== undefined && { cor: input.cor || null }),
+      },
+    })
+
+    // Time da execução: a lista que chega é a lista final — trocar tudo é mais
+    // previsível que calcular entra/sai para meia dúzia de nomes.
+    if (input.participantes !== undefined) {
+      const lista = this.participantesUnicos(input.participantes)
+      await prisma.$transaction([
+        prisma.projetoExecucaoParticipante.deleteMany({ where: { execucaoId: id } }),
+        ...(lista.length > 0
+          ? [prisma.projetoExecucaoParticipante.createMany({
+              data: lista.map(p2 => ({ execucaoId: id, userId: p2.userId, papel: p2.papel })),
+            })]
+          : []),
+      ])
+    }
+
+    return execucao
+  }
+
+  async deleteExecucao(id: string) {
+    // Rodadas e apontamentos vão junto (cascade): rodada sem a frente de onde
+    // veio é registro que ninguém sabe ler.
+    await prisma.projetoExecucao.delete({ where: { id } })
+    return { ok: true }
+  }
+
+  // ── Rodadas e apontamentos ──────────────────────────────────
+  //
+  // O ciclo do projeto: a TI entrega uma rodada, os envolvidos apontam o que
+  // falta, a TI corrige e entrega a seguinte. Antes isso vivia em conversa de
+  // corredor e no e-mail de cada um.
+
+  async listRodadas(execucaoId: string) {
+    const rodadas = await prisma.projetoRodada.findMany({
+      where: { execucaoId },
+      orderBy: { numero: 'desc' },
+      include: {
+        apontamentos: { orderBy: { criadoEm: 'asc' } },
+        mensagens: { orderBy: { criadoEm: 'asc' } },
+        arquivos: { orderBy: { criadoEm: 'desc' } },
+      },
+    })
+
+    // Nome de quem apontou, resolveu, falou ou enviou, em lote — a lista de
+    // rodadas abre inteira e um lookup por item seria N+1 na cara.
+    const ids = new Set<string>()
+    for (const r of rodadas) {
+      if (r.criadoPor) ids.add(r.criadoPor)
+      for (const a of r.apontamentos) {
+        if (a.autorId) ids.add(a.autorId)
+        if (a.resolvidoPor) ids.add(a.resolvidoPor)
+      }
+      for (const m of r.mensagens) if (m.autorId) ids.add(m.autorId)
+      for (const f of r.arquivos) if (f.enviadoPor) ids.add(f.enviadoPor)
+    }
+    const pessoas = ids.size > 0
+      ? await prisma.user.findMany({ where: { id: { in: [...ids] } }, select: { id: true, name: true, image: true } })
+      : []
+    const porId = new Map(pessoas.map(u => [u.id, u]))
+
+    return rodadas.map(r => {
+      const impedimentos = r.apontamentos.filter(a => a.impeditivo && a.situacao === 'ABERTO').length
+      return {
+        ...r,
+        criadoPorUsuario: r.criadoPor ? porId.get(r.criadoPor) ?? null : null,
+        abertos: r.apontamentos.filter(a => a.situacao === 'ABERTO').length,
+        // Estado derivado vai pronto no payload: a tela compõe, não recalcula.
+        // Uma rodada está travada enquanto houver impeditivo em aberto.
+        impedimentos,
+        travada: impedimentos > 0,
+        apontamentos: r.apontamentos.map(a => ({
+          ...a,
+          // Autor de dentro tem usuário; o analista do cliente costuma vir só
+          // como nome digitado.
+          autor: a.autorId ? porId.get(a.autorId) ?? null : null,
+          resolvidoPorUsuario: a.resolvidoPor ? porId.get(a.resolvidoPor) ?? null : null,
+        })),
+        mensagens: r.mensagens.map(m => ({
+          ...m,
+          autor: m.autorId ? porId.get(m.autorId) ?? null : null,
+        })),
+        arquivos: r.arquivos.map(f => ({
+          ...f,
+          enviadoPorUsuario: f.enviadoPor ? porId.get(f.enviadoPor) ?? null : null,
+        })),
+      }
+    })
+  }
+
+  /**
+   * O número da rodada é sequencial dentro da EXECUÇÃO — cada frente tem sua
+   * Rodada 1 — e o banco garante a unicidade: dois cliques rápidos no botão
+   * não criam duas "Rodada 3".
+   */
+  async createRodada(input: CreateRodadaInput, userId: string | null) {
+    const ultima = await prisma.projetoRodada.findFirst({
+      where: { execucaoId: input.execucaoId },
+      orderBy: { numero: 'desc' },
+      select: { numero: true },
+    })
+    return prisma.projetoRodada.create({
+      data: {
+        execucaoId: input.execucaoId,
+        numero: (ultima?.numero ?? 0) + 1,
+        titulo: input.titulo || null,
+        descricao: input.descricao || null,
+        entregueEm: input.entregueEm ? new Date(input.entregueEm) : null,
+        criadoPor: userId,
+      },
+    })
+  }
+
+  async updateRodada(id: string, input: UpdateRodadaInput) {
+    return prisma.projetoRodada.update({
+      where: { id },
+      data: {
+        ...(input.titulo !== undefined && { titulo: input.titulo || null }),
+        ...(input.descricao !== undefined && { descricao: input.descricao || null }),
+        ...(input.entregueEm !== undefined && {
+          entregueEm: input.entregueEm ? new Date(input.entregueEm) : null,
+        }),
+      },
+    })
+  }
+
+  async deleteRodada(id: string) {
+    // Os apontamentos vão junto (cascade): rodada apagada sem os apontamentos
+    // dela deixaria registro órfão que ninguém sabe de onde veio.
+    await prisma.projetoRodada.delete({ where: { id } })
+    return { ok: true }
+  }
+
+  async createApontamento(input: CreateApontamentoInput, userId: string | null) {
+    return prisma.projetoApontamento.create({
+      data: {
+        rodadaId: input.rodadaId,
+        texto: input.texto,
+        // Sem autor escolhido, o autor é quem está registrando.
+        autorId: input.autorId ?? (input.autorNome ? null : userId),
+        autorNome: input.autorNome || null,
+        impeditivo: input.impeditivo ?? false,
+      },
+    })
+  }
+
+  async updateApontamento(id: string, input: UpdateApontamentoInput, userId: string | null) {
+    const marcandoResolvido = input.situacao === 'RESOLVIDO'
+    return prisma.projetoApontamento.update({
+      where: { id },
+      data: {
+        ...(input.texto !== undefined && { texto: input.texto }),
+        ...(input.impeditivo !== undefined && { impeditivo: input.impeditivo }),
+        ...(input.situacao !== undefined && {
+          situacao: input.situacao,
+          // Quem resolveu e quando só fazem sentido enquanto está resolvido;
+          // reabrir limpa os dois.
+          resolvidoEm: marcandoResolvido ? new Date() : null,
+          resolvidoPor: marcandoResolvido ? userId : null,
+        }),
+      },
+    })
+  }
+
+  async deleteApontamento(id: string) {
+    await prisma.projetoApontamento.delete({ where: { id } })
+    return { ok: true }
+  }
+
+  // ── Conversa e arquivos de uma rodada ───────────────────────
+  //
+  // Vêm junto no `listRodadas`; estas rotas existem para escrever e apagar.
+
+  async createRodadaMensagem(input: CreateRodadaMensagemInput, userId: string | null) {
+    return prisma.projetoRodadaMensagem.create({
+      data: {
+        rodadaId: input.rodadaId,
+        texto: input.texto,
+        // Nome digitado quer dizer "não fui eu que falei" — então não se
+        // carimba o usuário logado por cima.
+        autorId: input.autorNome ? null : userId,
+        autorNome: input.autorNome || null,
+      },
+    })
+  }
+
+  async deleteRodadaMensagem(id: string) {
+    await prisma.projetoRodadaMensagem.delete({ where: { id } })
+    return { ok: true }
+  }
+
+  async addRodadaArquivo(input: AddRodadaArquivoInput, userId: string | null) {
+    return prisma.projetoRodadaArquivo.create({
+      data: {
+        rodadaId: input.rodadaId,
+        nome: input.nome,
+        url: input.url,
+        tamanho: input.tamanho,
+        mimeType: input.mimeType ?? null,
+        enviadoPor: userId,
+      },
+    })
+  }
+
+  async removerRodadaArquivo(id: string) {
+    await prisma.projetoRodadaArquivo.delete({ where: { id } })
+    return { ok: true }
   }
 
   async deleteProjeto(id: string) {

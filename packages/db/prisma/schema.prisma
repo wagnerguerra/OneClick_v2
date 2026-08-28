@@ -303,7 +303,7 @@ model User {
 
   @@map("users")
   reformaSimulacoes ReformaTributariaSimulacao[]
-  projetoParticipacoes ProjetoParticipante[]
+  projetoParticipacoes ProjetoExecucaoParticipante[]
 }
 
 model Session {
@@ -718,7 +718,7 @@ model Cliente {
   dossieColetas   ClienteDossieColeta[]
   dossieFatos     ClienteDossieFato[]
   dossieSugestoes ClienteDossieSugestao[]
-  projetos        Projeto[]
+  projetoExecucoes ProjetoExecucao[]
 
   // Integração
   idSistema      String? @map("id_sistema")
@@ -745,6 +745,10 @@ model Cliente {
   // Capital social (vem do QSA/Receita ou da importação legada). Lido/gravado por
   // socio.* e cnpj.service; precisa existir fisicamente (era usado só em SQL cru).
   capitalSocial Decimal?      @map("capital_social") @db.Decimal(14, 2)
+  /// Abertura da empresa na Receita — não confundir com `dataEntrada`, que é
+  /// quando ela virou cliente da casa. Vem do dossiê; fica ao lado da entrada
+  /// na aba Comercial justamente para a diferença ficar à vista.
+  dataAbertura DateTime?      @map("data_abertura")
   dataEntrada DateTime?       @map("data_entrada")
   dataSaida   DateTime?       @map("data_saida")
   observacoes String?         @db.Text
@@ -752,8 +756,18 @@ model Cliente {
   // Fiscal
   tributacao         TaxRegime?
   regime             RegimeContabil?
+  /// ME, EPP, DEMAIS — como a Receita classifica. Texto livre porque a
+  /// nomenclatura muda com a lei e um enum obrigaria migração a cada mudança.
+  porte              String?
+  /// ATIVA, BAIXADA, SUSPENSA, INAPTA, NULA. Retrato do que a Receita dizia na
+  /// última coleta do dossiê — não é o `status` do cliente na casa.
+  situacaoCadastral  String?         @map("situacao_cadastral")
   inscricaoEstadual  String?         @map("inscricao_estadual")
   inscricaoMunicipal String?         @map("inscricao_municipal")
+
+  /// Natureza jurídica da Receita ("2062 - Sociedade Empresária Limitada").
+  /// Mora na Legalização, junto de NIRE e CNAE, que é onde se consulta.
+  naturezaJuridica String? @map("natureza_juridica")
 
   // Áreas contratadas (semicolon-separated: "Contabil;Fiscal;Trabalhista")
   areasContratadas String? @map("areas_contratadas") @db.Text
@@ -2404,10 +2418,46 @@ model Socio {
   arquivos             SocioArquivo[]
   mensagens            SocioMensagem[]
   certificadosDigitais CertificadoDigital[] @relation("CertificadoSocio")
+  perfisSociais        SocioPerfilSocial[]
 
   @@index([cpf])
   @@index([clienteId])
   @@map("socios")
+}
+
+/// Perfil público de um sócio numa rede social — o que o comercial já procurava
+/// à mão antes de uma reunião, agora guardado.
+///
+/// Só o ENDEREÇO do perfil fica aqui, nunca uma cópia do que a pessoa publica:
+/// o objetivo é abrir o perfil na hora, não manter arquivo do que ela postou.
+///
+/// `confirmado` existe porque busca por nome erra muito — homônimo é regra, não
+/// exceção. O que a busca acha nasce como SUGESTÃO e só vira perfil do sócio
+/// quando uma pessoa confere e confirma.
+model SocioPerfilSocial {
+  id      String @id @default(cuid())
+  socioId String @map("socio_id")
+
+  /// INSTAGRAM | FACEBOOK | LINKEDIN | X | YOUTUBE | TIKTOK | OUTRO
+  rede       String
+  url        String  @db.Text
+  identificador String? @map("identificador")
+  observacao String? @db.Text
+
+  /// manual (alguém colou o link) | sugerido (veio da busca)
+  origem     String  @default("manual")
+  confirmado Boolean @default(false)
+
+  criadoPor     String?   @map("criado_por")
+  criadoEm      DateTime  @default(now()) @map("criado_em")
+  confirmadoPor String?   @map("confirmado_por")
+  confirmadoEm  DateTime? @map("confirmado_em")
+
+  socio Socio @relation(fields: [socioId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([socioId, url])
+  @@index([socioId, confirmado])
+  @@map("socio_perfis_sociais")
 }
 
 model SocioArquivo {
@@ -7162,40 +7212,168 @@ model Projeto {
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
-  /// Cliente atendido pelo projeto. Opcional: projeto interno não tem cliente.
-  clienteId     String?       @map("cliente_id")
-
-  tarefas       ProjetoTarefa[]
-  tags          ProjetoTag[]
-  mensagens     ProjetoMensagem[]
-  anexos        ProjetoAnexo[]
-  eventos       ProjetoEvento[]
-  participantes ProjetoParticipante[]
-
-  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tarefas   ProjetoTarefa[]
+  tags      ProjetoTag[]
+  mensagens ProjetoMensagem[]
+  anexos    ProjetoAnexo[]
+  eventos   ProjetoEvento[]
+  execucoes ProjetoExecucao[]
 
   @@index([status, isActive])
   @@index([responsavelId])
-  @@index([clienteId])
   @@map("projetos")
 }
 
-/// Quem mais está envolvido no projeto, além do responsável.
+/// Uma frente de trabalho do projeto, para um cliente.
 ///
-/// O responsável continua sendo UM (`Projeto.responsavelId`) — é quem responde
-/// pelo projeto. Os participantes são o time em volta, e é uma lista.
-model ProjetoParticipante {
-  id        String   @id @default(cuid())
-  projetoId String   @map("projeto_id")
-  userId    String   @map("user_id")
+/// O mesmo projeto roda várias ao mesmo tempo — a ferramenta é uma só, mas cada
+/// cliente tem seu ciclo, seu responsável e seu time. Por isso cliente,
+/// responsável e participantes moram AQUI, e não no projeto: no projeto eles
+/// seriam uma média de todos, que não descreve nenhuma.
+///
+/// O responsável da execução é outra pessoa que o responsável do projeto: um
+/// responde pela frente, o outro pelo todo.
+model ProjetoExecucao {
+  id        String @id @default(cuid())
+  projetoId String @map("projeto_id")
+
+  /// Nome da frente. Vazio, a tela mostra o nome do cliente.
+  titulo    String?
+  clienteId String? @map("cliente_id")
+  /// Quem responde por ESTA execução.
+  responsavelId String? @map("responsavel_id")
+
+  ordem     Int      @default(0)
+  ativa     Boolean  @default(true)
+  /// Quanto da frente já está concluído, 0 a 100. É INFORMADO por quem conduz,
+  /// não derivado: rodada entregue não significa etapa concluída, e só quem
+  /// está na frente sabe o quanto falta.
+  progresso Int      @default(0)
+  /// Cor do cabeçalho do card, em hex. Nulo herda a cor do projeto — que é o
+  /// certo enquanto a frente não pediu para se distinguir das outras.
+  cor       String?
   criadoEm  DateTime @default(now()) @map("criado_em")
+  criadoPor String?  @map("criado_por")
 
-  projeto Projeto @relation(fields: [projetoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  projeto       Projeto                       @relation(fields: [projetoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cliente       Cliente?                      @relation(fields: [clienteId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  participantes ProjetoExecucaoParticipante[]
+  rodadas       ProjetoRodada[]
 
-  @@unique([projetoId, userId])
+  @@index([projetoId])
+  @@index([clienteId])
+  @@map("projeto_execucoes")
+}
+
+/// O time de UMA execução.
+///
+/// EXECUTANTE faz; COLABORADOR é o analista que aponta e valida. O responsável
+/// da execução não entra aqui — ele é campo da própria execução, e repetido
+/// apareceria duas vezes no mesmo ramo do fluxograma.
+model ProjetoExecucaoParticipante {
+  id         String   @id @default(cuid())
+  execucaoId String   @map("execucao_id")
+  userId     String   @map("user_id")
+  papel      String   @default("EXECUTANTE")
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  execucao ProjetoExecucao @relation(fields: [execucaoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([execucaoId, userId])
   @@index([userId])
-  @@map("projeto_participantes")
+  @@map("projeto_execucao_participantes")
+}
+
+/// Um ciclo de trabalho: a TI entrega, os envolvidos apontam, nasce a rodada
+/// seguinte. É o que o time chama de "rodada" no projeto Centria.
+model ProjetoRodada {
+  id         String    @id @default(cuid())
+  execucaoId String    @map("execucao_id")
+  /// Sequencial DENTRO da execução: cada frente tem sua Rodada 1.
+  numero     Int
+  titulo     String?
+  descricao  String?   @db.Text
+  /// Quando a rodada foi entregue para avaliação. Nulo = ainda em produção.
+  entregueEm DateTime? @map("entregue_em")
+  criadoEm   DateTime  @default(now()) @map("criado_em")
+  criadoPor  String?   @map("criado_por")
+
+  execucao     ProjetoExecucao         @relation(fields: [execucaoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  apontamentos ProjetoApontamento[]
+  mensagens    ProjetoRodadaMensagem[]
+  arquivos     ProjetoRodadaArquivo[]
+
+  @@unique([execucaoId, numero])
+  @@index([execucaoId])
+  @@map("projeto_rodadas")
+}
+
+/// O que um envolvido apontou sobre uma rodada.
+///
+/// O autor pode ser alguém de dentro (`autorId`) ou de fora (`autorNome`) — o
+/// analista do cliente nem sempre tem usuário no sistema, e perder o nome de
+/// quem apontou tiraria o sentido do registro.
+model ProjetoApontamento {
+  id       String @id @default(cuid())
+  rodadaId String @map("rodada_id")
+
+  texto      String  @db.Text
+  autorId    String? @map("autor_id")
+  autorNome  String? @map("autor_nome")
+  /// ABERTO | RESOLVIDO | DESCARTADO
+  situacao   String  @default("ABERTO")
+  /// Impediu a rodada de seguir. Aberto e impeditivo = a frente está travada,
+  /// e é essa a diferença entre "falta ajustar" e "não dá para continuar".
+  impeditivo Boolean @default(false)
+
+  resolvidoEm  DateTime? @map("resolvido_em")
+  resolvidoPor String?   @map("resolvido_por")
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+
+  rodada ProjetoRodada @relation(fields: [rodadaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([rodadaId, situacao])
+  @@map("projeto_apontamentos")
+}
+
+/// Conversa de uma rodada. Separada das mensagens do projeto de propósito: a
+/// discussão de uma entrega específica não deve se diluir no mural geral.
+model ProjetoRodadaMensagem {
+  id       String @id @default(cuid())
+  rodadaId String @map("rodada_id")
+
+  texto     String  @db.Text
+  autorId   String? @map("autor_id")
+  /// Nome livre de quem não tem login — mesmo motivo do apontamento.
+  autorNome String? @map("autor_nome")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  rodada ProjetoRodada @relation(fields: [rodadaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([rodadaId, criadoEm])
+  @@map("projeto_rodada_mensagens")
+}
+
+/// Arquivo entregue ou recebido numa rodada — a versão do software, a planilha
+/// de conferência, o print do erro.
+model ProjetoRodadaArquivo {
+  id       String @id @default(cuid())
+  rodadaId String @map("rodada_id")
+
+  nome     String
+  url      String  @db.Text
+  mimeType String? @map("mime_type")
+  tamanho  Int
+
+  enviadoPor String?  @map("enviado_por")
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  rodada ProjetoRodada @relation(fields: [rodadaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([rodadaId])
+  @@map("projeto_rodada_arquivos")
 }
 
 model ProjetoMensagem {

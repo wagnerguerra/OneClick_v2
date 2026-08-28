@@ -50,13 +50,22 @@ export class AreaService {
       if (!isMaster && empresaId && area.empresaId !== empresaId) {
         throw new Error('Acesso negado.')
       }
+      // #367 (espelho) — estado do vínculo "notificável em orçamentos"
+      // (OrcamentoAreaHabilitada). Não é coluna da Area; é derivado. Anexado ao
+      // objeto SEM alterar o tipo do retorno (o spread `{...area, x}` degradava a
+      // inferência do output do trpc, tornando `data` any no front); o front lê via cast.
+      const habil = await db.orcamentoAreaHabilitada.findFirst({
+        where: { empresaId: empresaId ?? null, areaId: id, ativo: true },
+        select: { id: true },
+      })
+      ;(area as typeof area & { notificavelOrcamento?: boolean }).notificavelOrcamento = !!habil
       return area
     })
   }
 
   async create(input: CreateAreaInput, _isMaster: boolean, empresaId?: string, tenantSchema?: string) {
-    return scoped(tenantSchema, (db) =>
-      db.area.create({
+    return scoped(tenantSchema, async (db) => {
+      const area = await db.area.create({
         data: {
           name: input.name,
           isActive: input.isActive,
@@ -70,8 +79,13 @@ export class AreaService {
           excludeFromCosting: input.excludeFromCosting,
           empresaId: empresaId || null,
         },
-      }),
-    )
+      })
+      // #367 (espelho) — habilita p/ notificação em orçamentos (OrcamentoAreaHabilitada).
+      if (input.notificavelOrcamento) {
+        await db.orcamentoAreaHabilitada.create({ data: { empresaId: empresaId || null, areaId: area.id, ativo: true, ordem: 0 } })
+      }
+      return area
+    })
   }
 
   async update(id: string, input: UpdateAreaInput, isMaster: boolean, empresaId?: string, tenantSchema?: string) {
@@ -80,7 +94,7 @@ export class AreaService {
         const existing = await db.area.findUniqueOrThrow({ where: { id } })
         if (existing.empresaId !== empresaId) throw new Error('Acesso negado.')
       }
-      return db.area.update({
+      const area = await db.area.update({
         where: { id },
         data: {
           ...(input.name !== undefined && { name: input.name }),
@@ -95,6 +109,19 @@ export class AreaService {
           ...(input.excludeFromCosting !== undefined && { excludeFromCosting: input.excludeFromCosting }),
         },
       })
+      // #367 (espelho) — sincroniza o vínculo "notificável em orçamentos" (presença
+      // = habilitada, como o saveConfigAreas). Só quando o campo veio no payload.
+      if (input.notificavelOrcamento !== undefined) {
+        const empId = empresaId ?? null
+        if (input.notificavelOrcamento) {
+          const existing = await db.orcamentoAreaHabilitada.findFirst({ where: { empresaId: empId, areaId: id } })
+          if (!existing) await db.orcamentoAreaHabilitada.create({ data: { empresaId: empId, areaId: id, ativo: true, ordem: 0 } })
+          else if (!existing.ativo) await db.orcamentoAreaHabilitada.update({ where: { id: existing.id }, data: { ativo: true } })
+        } else {
+          await db.orcamentoAreaHabilitada.deleteMany({ where: { empresaId: empId, areaId: id } })
+        }
+      }
+      return area
     })
   }
 

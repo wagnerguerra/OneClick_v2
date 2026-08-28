@@ -17,7 +17,7 @@ import {
   Lock, RotateCcw, Ban,
 } from 'lucide-react'
 import {
-  cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor, Badge,
+  cn, Button, Input, Label, Card, Checkbox, RichEditor, Badge,
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tabs, TabsContent, TooltipProvider,
@@ -29,6 +29,7 @@ import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { CapaClienteModal } from './capa-cliente-modal'
 import { DossieCard } from './dossie-card'
+import { CardColapsavel } from './card-colapsavel'
 import { LogoClienteModal } from './logo-cliente-modal'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
@@ -38,7 +39,7 @@ import { VerificarErpModal } from '@/components/contrato/verificar-erp-modal'
 import { OrcamentosTab } from './orcamentos-tab'
 import { InativarClienteModal } from './inativar-cliente-modal'
 import { ReativarClienteModal } from './reativar-cliente-modal'
-import { EVENT_BADGE_CLASS, INATIVAR_BTN_CLASS } from './cliente-status-ui'
+import { EVENT_BADGE_CLASS, INATIVAR_BTN_CLASS, ZONA_PERIGO_SURFACE_CLASS } from './cliente-status-ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { toDateInputValue } from '@/lib/date'
@@ -227,7 +228,8 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
     defaultValues: {
       razaoSocial: '', nomeFantasia: '', documento: '', tipoDocumento: 'CNPJ',
       tipoCliente: 'A DEFINIR', situacao: 'MENSAL', status: 'ATIVO', grupo: '', origem: '',
-      dataEntrada: '', dataSaida: '', observacoes: '',
+      dataAbertura: '', dataEntrada: '', dataSaida: '', observacoes: '',
+      porte: '', situacaoCadastral: '', naturezaJuridica: '',
       tributacao: undefined, regime: undefined,
       inscricaoEstadual: '', inscricaoMunicipal: '',
       areasContratadas: '',
@@ -444,11 +446,6 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
           {/* ── Barra de página (padrão LuminAux): título + trilha; ações à direita ── */}
           <PageHeaderBar className="mb-0 sm:mb-0"
             actions={<>
-              {isEdit && canEditDetails && watchedValues.status === 'ATIVO' && (
-                <Button type="button" variant="outline" className={INATIVAR_BTN_CLASS} size="sm" onClick={() => abrirInativar()} title="Inativar cliente">
-                  <Ban className="h-4 w-4" />Inativar
-                </Button>
-              )}
               {canEditDetails && <Button size="sm" type="submit" disabled={saving} className="gap-1.5"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>}
               <BackButton href="/clientes" />
             </>}
@@ -683,12 +680,6 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 <button type="button" onClick={() => setActiveTab('logs')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'logs' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
                   <ListTodo className="h-4 w-4" /> Log&apos;s
                 </button>
-                {/* Dossiê só existe para cliente já salvo — depende do CNPJ gravado. */}
-                {isEdit && (
-                  <button type="button" onClick={() => setActiveTab('dossie')} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors', activeTab === 'dossie' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
-                    <FileSearch className="h-4 w-4" /> Dossiê
-                  </button>
-                )}
             </div>
           </div>
           </div>
@@ -736,16 +727,38 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                   consultarCartaoCnpj={consultarCartaoCnpj} cnpjCard={cnpjCard} cnpjCardLoading={cnpjCardLoading} setCnpjCard={setCnpjCard}
                   canEdit={canEditDetails}
                 />
-              </TabsContent>
 
-              {/* ======================================================== */}
-              {/* TAB: DOSSIÊ (enriquecimento por CNPJ)                     */}
-              {/* ======================================================== */}
-              {isEdit && clienteId && (
-                <TabsContent value="dossie" className="mt-0">
-                  <DossieCard clienteId={clienteId} podeAtualizar={canEditDetails} />
-                </TabsContent>
-              )}
+                {/* Zona de perigo — a inativação sai da barra de topo, onde ficava
+                    encostada no Salvar, e desce para o fim da aba. Quem inativa um
+                    cliente rolou a tela inteira até aqui; quem salva um telefone
+                    não passa nem perto. */}
+                {isEdit && canEditDetails && watchedValues.status === 'ATIVO' && (
+                  <div className={cn('mt-5 rounded-xl border p-5', ZONA_PERIGO_SURFACE_CLASS)}>
+                    <h5 className="mb-0 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                      Zona de perigo
+                    </h5>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Ações que tiram o cliente de operação.
+                    </p>
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold text-foreground">Inativar cliente</p>
+                        <p className="text-xs text-muted-foreground">
+                          Ele deixa as listagens e as rotinas ativas. Dá para reativar depois,
+                          pelo aviso &ldquo;Cliente inativado&rdquo; na lateral.
+                        </p>
+                      </div>
+                      <Button
+                        type="button" variant="outline" size="sm"
+                        className={cn('shrink-0 gap-1.5', INATIVAR_BTN_CLASS)}
+                        onClick={() => abrirInativar()}
+                      >
+                        <Ban className="h-4 w-4" /> Inativar cliente
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
 
               {/* ======================================================== */}
               {/* TAB: COMERCIAL (card com pills laterais)                  */}
@@ -757,6 +770,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                   chatAsCliente={chatAsCliente} setChatAsCliente={setChatAsCliente}
                   clienteId={clienteId}
                   opcoesOrigem={opcoesOrigem} opcoesGrupo={opcoesGrupo} canEdit={canManageCommercial}
+                  podeAtualizarDossie={canEditDetails}
                   onPedirInativar={abrirInativar}
                 />
               </TabsContent>
@@ -1021,12 +1035,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   ]
 
   return (
-    <Card>
-      <CardHeader>
-        <h5 className="text-sm font-semibold mb-0 flex items-center gap-2">
-          <FileText className="h-4 w-4 text-muted-foreground" /> Detalhes do Cliente
-        </h5>
-      </CardHeader>
+    <CardColapsavel titulo="Detalhes do Cliente" icone={FileText}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
         <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
@@ -1620,11 +1629,11 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
         </Dialog>
         )
       })()}
-    </Card>
+    </CardColapsavel>
   )
 }
 
-function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, opcoesGrupo, canEdit, onPedirInativar }: {
+function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCliente, setChatAsCliente, clienteId, opcoesOrigem, opcoesGrupo, canEdit, podeAtualizarDossie, onPedirInativar }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   watch: ReturnType<typeof useForm<CreateClienteInput>>['watch']
@@ -1635,6 +1644,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
   opcoesOrigem: Array<{ id: string; valor: string }>
   opcoesGrupo: Array<{ id: string; valor: string }>
   canEdit: boolean
+  podeAtualizarDossie: boolean
   onPedirInativar: (dataSaida: string) => void
 }) {
   /**
@@ -1696,15 +1706,12 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
     { key: 'contratos', label: 'Contratos', icon: File },
     { key: 'orcamentos', label: 'Orçamentos', icon: FileBarChart },
     { key: 'historicos', label: 'Históricos', icon: History },
+    // O dossiê depende do CNPJ gravado, então só existe para cliente já salvo.
+    ...(clienteId ? [{ key: 'dossie', label: 'Dossiê', icon: FileSearch }] : []),
   ]
 
   return (
-    <Card>
-      <CardHeader>
-        <h5 className="text-sm font-semibold mb-0 flex items-center gap-2">
-          <ShoppingCart className="h-4 w-4 text-muted-foreground" /> Comercial
-        </h5>
-      </CardHeader>
+    <CardColapsavel titulo="Comercial" icone={ShoppingCart}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
         <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
@@ -1754,6 +1761,13 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
                       </Select>
                     )
                   }} />
+                </div>
+                {/* Abertura ao lado da entrada de propósito: uma é quando a
+                    empresa nasceu, a outra quando virou cliente da casa, e ver
+                    as duas juntas é o que evita confundi-las. */}
+                <div className="col-span-6 md:col-span-3 space-y-1.5">
+                  <Label>Data de Abertura</Label>
+                  <Input type="date" {...register('dataAbertura')} />
                 </div>
                 <div className="col-span-6 md:col-span-3 space-y-1.5">
                   <Label>Data Entrada</Label>
@@ -1880,10 +1894,15 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
               </div>
             </div>
           )}
+
+          {/* ---- SUB-TAB: DOSSIÊ (enriquecimento por CNPJ) ---- */}
+          {activeTab === 'dossie' && clienteId && (
+            <DossieCard clienteId={clienteId} podeAtualizar={podeAtualizarDossie} semCartao />
+          )}
         </div>
         </fieldset>
       </div>
-    </Card>
+    </CardColapsavel>
   )
 }
 
@@ -2410,7 +2429,7 @@ function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
 // FiscalCard — pills laterais (padrão igual ComercialCard)
 // ============================================================
 
-function FiscalCard({ control, clienteId, isEdit, documento, canEdit }: {
+function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   clienteId?: string
@@ -2429,12 +2448,7 @@ function FiscalCard({ control, clienteId, isEdit, documento, canEdit }: {
   ]
 
   return (
-    <Card>
-      <CardHeader>
-        <h5 className="text-sm font-semibold mb-0 flex items-center gap-2">
-          <Receipt className="h-4 w-4 text-muted-foreground" /> Fiscal
-        </h5>
-      </CardHeader>
+    <CardColapsavel titulo="Fiscal" icone={Receipt}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
         <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
@@ -2494,6 +2508,17 @@ function FiscalCard({ control, clienteId, isEdit, documento, canEdit }: {
                       </SelectContent>
                     </Select>
                   )} />
+                </div>
+                {/* Os dois vêm da Receita, pelo dossiê. Texto livre: a
+                    nomenclatura do porte muda com a lei, e a situação cadastral
+                    ganha valor novo quando a Receita inventa um. */}
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label>Porte</Label>
+                  <Input placeholder="ME, EPP, DEMAIS" {...register('porte')} />
+                </div>
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label>Situação cadastral</Label>
+                  <Input placeholder="ATIVA, BAIXADA, SUSPENSA…" {...register('situacaoCadastral')} />
                 </div>
               </div>
 
@@ -2593,7 +2618,7 @@ function FiscalCard({ control, clienteId, isEdit, documento, canEdit }: {
         </div>
         </fieldset>
       </div>
-    </Card>
+    </CardColapsavel>
   )
 }
 

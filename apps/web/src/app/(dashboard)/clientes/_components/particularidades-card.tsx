@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { StickyNote, Save, Loader2, User, Clock, Lock } from 'lucide-react'
+import { StickyNote, Save, Loader2, User, Clock, Lock, ChevronDown } from 'lucide-react'
 import { Button, Card, RichEditor, cn } from '@saas/ui'
+import { MioloColapsavel } from './card-colapsavel'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -18,6 +19,8 @@ interface ParticularidadeRow {
 }
 
 export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
+  // Contrai o card pelo cabecalho; abre expandido a cada visita.
+  const [cardAberto, setCardAberto] = useState(true)
   const [rows, setRows] = useState<ParticularidadeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState<string | null>(null)
@@ -90,13 +93,25 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
   return (
     <Card>
       {/* Header */}
-      <div className="border-b border-border/60 bg-muted/20 px-5 py-3">
-        <h4 className="text-sm font-semibold flex items-center gap-2">
-          <StickyNote className="h-4 w-4 text-emerald-600" /> Particularidades por Area
-        </h4>
-        <p className="text-[11px] text-muted-foreground mt-0.5">Notas e observacoes especificas de cada area contratada.</p>
+      <div className="flex items-center gap-2 border-b border-border/60 bg-muted/20 px-5 py-3">
+        <div className="min-w-0 flex-1">
+          <h4 className="text-sm font-semibold flex items-center gap-2">
+            <StickyNote className="h-4 w-4 text-emerald-600" /> Particularidades por Area
+          </h4>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Notas e observacoes especificas de cada area contratada.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCardAberto(a => !a)}
+          aria-expanded={cardAberto}
+          title={cardAberto ? 'Recolher' : 'Expandir'}
+          className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
+        </button>
       </div>
 
+      <MioloColapsavel aberto={cardAberto}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
         <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 space-y-1">
@@ -179,6 +194,7 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
           {rows.filter(r => r.texto.trim()).length} de {rows.length} areas com particularidades preenchidas
         </p>
       </div>
+      </MioloColapsavel>
     </Card>
   )
 }

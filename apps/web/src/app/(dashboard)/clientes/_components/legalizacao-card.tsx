@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, Check, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, X, MoreVertical } from 'lucide-react'
+import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, Check, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, X, MoreVertical, ChevronDown } from 'lucide-react'
 import {
   Button, Input, Label, Card, Checkbox,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
@@ -11,6 +11,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { BADGE, TEXT } from '@/lib/color-styles'
+import { MioloColapsavel } from './card-colapsavel'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
 import { ImportStatusModal, type ImportStep } from './import-status-modal'
@@ -67,6 +68,8 @@ interface Acesso { id: string; portal: string; usuario: string | null; senha: st
 interface Vencimento { id: string; descricao: string; data_vencimento: string; alerta_dias: number; observacoes: string | null; concluido: boolean }
 
 export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoCardProps) {
+  // Contrai o card pelo cabecalho; abre expandido a cada visita.
+  const [cardAberto, setCardAberto] = useState(true)
   const { canManageRegistration, canManageFiscal } = useClientesPerms()
   const [activeTab, setActiveTab] = useState('pop')
   // Detalhes do certificado (modal compartilhado com o módulo Legalização). #HLP0301
@@ -418,10 +421,12 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   return (
     <>
     <Card>
-      <div className="flex items-center justify-between border-b border-border px-5 py-3">
-        <div className="flex items-center gap-2">
-          <Shield className={cn('h-4 w-4', TEXT.emerald)} />
-          <h5 className="text-[13px] font-semibold">Legalização</h5>
+      <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Shield className={cn('h-4 w-4', TEXT.emerald)} />
+            <h5 className="text-[13px] font-semibold">Legalização</h5>
+          </div>
         </div>
         {clienteId && (<div className="flex items-center gap-1.5">
           {documento && (
@@ -501,7 +506,18 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
             <Printer className="h-3 w-3" />Imprimir Resumo
           </Button>
         </div>)}
+        <button
+          type="button"
+          onClick={() => setCardAberto(a => !a)}
+          aria-expanded={cardAberto}
+          title={cardAberto ? 'Recolher' : 'Expandir'}
+          className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
+        </button>
       </div>
+
+      <MioloColapsavel aberto={cardAberto}>
       <div className="flex min-h-[400px]">
         {/* Pills laterais */}
         <div className="w-[160px] shrink-0 border-r border-border bg-muted/40 p-3 space-y-1">
@@ -546,6 +562,12 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
                 {/* Inscrição Estadual/Municipal migradas para a aba Fiscal → Registro de Inscrições. */}
+                {/* Natureza jurídica vem da Receita pelo dossiê e mora aqui,
+                    junto de NIRE e CNAE, que é onde se consulta. */}
+                <div className="col-span-12 md:col-span-4 space-y-1.5">
+                  <Label>Natureza Jurídica</Label>
+                  <Input placeholder="2062 - Sociedade Empresária Limitada" {...register('naturezaJuridica' as any)} />
+                </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label>CNAE Principal</Label>
                   <Input placeholder="0000-0/00" {...register('cnaePrincipal' as any)} />
@@ -1282,6 +1304,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           )}
         </div>
       </div>
+      </MioloColapsavel>
     </Card>
 
     {/* Modal Acesso */}

@@ -8,7 +8,7 @@ import {
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
   Package, History, Type, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock, Globe,
-  Sparkles, Star, Link2, Hash, Building2, Calendar, Layers,
+  Sparkles, Star, Link2, Hash, Building2, Calendar, Layers, Bell,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label, Checkbox,
@@ -673,11 +673,21 @@ export default function OrcamentoDetailPage() {
   // líderes foi descontinuado (imagem em _backups/modulo-orcamentos-2026-08-19);
   // o vínculo continua existindo só para compor os badges.
   const [areasNotificadas, setAreasNotificadas] = useState<Array<{ areaId: string; areaNome: string }>>([])
-  useEffect(() => {
+  const loadAreasNotificadas = useCallback(() => {
     ;(trpc.orcamento as any).listAreasDoOrcamento.query({ orcamentoId: id })
       .then((r: Array<{ areaId: string; areaNome: string }>) => setAreasNotificadas(r.map(x => ({ areaId: x.areaId, areaNome: x.areaNome }))))
       .catch(() => setAreasNotificadas([]))
   }, [id])
+  useEffect(() => { loadAreasNotificadas() }, [loadAreasNotificadas])
+  // #367 — remover uma área NOTIFICADA (só essas; as derivadas de item vêm dos
+  // serviços). Permissão espelha a de vincular (writeProcedure = escrita no módulo).
+  const canRemoverArea = isMaster || orcPerm?.canWrite === true
+  async function handleRemoverArea(areaId: string) {
+    try {
+      await (trpc.orcamento as any).desvincularArea.mutate({ orcamentoId: id, areaId })
+      loadAreasNotificadas()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
   const chipsAreas = useMemo(() => {
     const m = new Map<string, { nome: string; derivada: boolean }>()
     for (const a of areasDerivadas) m.set(a.id, { nome: a.nome, derivada: true })
@@ -1107,19 +1117,20 @@ export default function OrcamentoDetailPage() {
   // Avanca/regredi o status via mesmo endpoint usado pelo kanban
   /** Textos do alerta de confirmação por status de destino (pedido do Wagner, 21/08:
    *  toda troca de status passa por confirmação antes de efetivar). */
-  const CONFIRM_STATUS: Record<string, { title: string; text: string; confirmText: string; icon: 'warning' | 'question' }> = {
+  const CONFIRM_STATUS: Record<string, { title: string; text: string; confirmText: string; cancelText?: string; icon: 'warning' | 'question' }> = {
     APROVADO:   { title: 'Aprovar orçamento?',   text: 'O orçamento será marcado como aprovado pelo cliente e ficará congelado para edição.', confirmText: 'Aprovar', icon: 'question' },
     LIBERADO:   { title: 'Liberar para execução?', text: 'O orçamento será liberado para a área executar o serviço. As áreas envolvidas serão notificadas.', confirmText: 'Liberar', icon: 'question' },
     FINALIZADO: { title: 'Finalizar orçamento?', text: 'Confirma que o serviço foi concluído? O orçamento será marcado como finalizado.', confirmText: 'Finalizar', icon: 'question' },
-    ENCERRADO:  { title: 'Encerrar orçamento?',  text: 'O orçamento será encerrado e sairá do fluxo ativo. Essa ação fica registrada na timeline.', confirmText: 'Encerrar', icon: 'warning' },
-    CANCELADO:  { title: 'Cancelar orçamento?',  text: 'O orçamento será cancelado. Essa ação fica registrada na timeline.', confirmText: 'Cancelar orçamento', icon: 'warning' },
+    ENCERRADO:  { title: 'Encerrar orçamento?',  text: 'O orçamento será encerrado e sairá do fluxo ativo. Essa ação fica registrada na timeline.', confirmText: 'Encerrar', cancelText: 'Voltar', icon: 'warning' },
+    CANCELADO:  { title: 'Cancelar orçamento?',  text: 'O orçamento será cancelado. Essa ação fica registrada na timeline.', confirmText: 'Cancelar orçamento', cancelText: 'Voltar', icon: 'warning' },
     ENVIADO:    { title: 'Marcar como enviado?', text: 'O status passará para enviado.', confirmText: 'Confirmar', icon: 'question' },
   }
 
-  async function handleStatusAction(novoStatus: string, mensagemSucesso: string) {
-    const c = CONFIRM_STATUS[novoStatus] ?? { title: 'Alterar status?', text: `O status do orçamento passará para ${STATUS_LABELS[novoStatus] || novoStatus}.`, confirmText: 'Confirmar', icon: 'question' as const }
-    const ok = await alerts.confirm({ title: c.title, text: c.text, confirmText: c.confirmText, icon: c.icon })
-    if (!ok) return
+  // Executa a troca de status SEM confirmar — a confirmação fica com quem chama.
+  // Extraído para evitar o duplo diálogo: handleStatusActionConfirm mostra o seu
+  // diálogo específico e aplica direto por aqui, sem repassar por handleStatusAction
+  // (que confirmaria de novo com o diálogo genérico do CONFIRM_STATUS).
+  async function applyStatusChange(novoStatus: string, mensagemSucesso: string) {
     try {
       await (trpc.orcamento as any).changeStatus.mutate({ id, status: novoStatus })
       alerts.success('Atualizado', mensagemSucesso)
@@ -1127,12 +1138,22 @@ export default function OrcamentoDetailPage() {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  // Confirma uma transicao destrutiva (recusa/cancelamento/encerramento) antes de aplicar
+  async function handleStatusAction(novoStatus: string, mensagemSucesso: string) {
+    const c = CONFIRM_STATUS[novoStatus] ?? { title: 'Alterar status?', text: `O status do orçamento passará para ${STATUS_LABELS[novoStatus] || novoStatus}.`, confirmText: 'Confirmar', icon: 'question' as const }
+    const ok = await alerts.confirm({ title: c.title, text: c.text, confirmText: c.confirmText, cancelText: c.cancelText, icon: c.icon })
+    if (!ok) return
+    await applyStatusChange(novoStatus, mensagemSucesso)
+  }
+
+  // Confirma uma transicao destrutiva (recusa/cancelamento/encerramento) com um
+  // diálogo ESPECÍFICO e aplica direto — não passa por handleStatusAction (senão
+  // reconfirmaria com o diálogo genérico → duplo diálogo, #leva-11).
   async function handleStatusActionConfirm(opts: {
     novoStatus: string
     title: string
     text: string
     confirmText: string
+    cancelText?: string
     successMsg: string
     icon?: 'warning' | 'question'
   }) {
@@ -1140,10 +1161,11 @@ export default function OrcamentoDetailPage() {
       title: opts.title,
       text: opts.text,
       confirmText: opts.confirmText,
+      cancelText: opts.cancelText,
       icon: opts.icon ?? 'warning',
     })
     if (!ok) return
-    await handleStatusAction(opts.novoStatus, opts.successMsg)
+    await applyStatusChange(opts.novoStatus, opts.successMsg)
   }
 
   async function handleEnviar() {
@@ -1779,6 +1801,7 @@ export default function OrcamentoDetailPage() {
                     title: 'Reprovar orçamento?',
                     text: 'O cliente recusou a proposta. O orçamento será encerrado e marcado como reprovado.',
                     confirmText: 'Reprovar',
+                    cancelText: 'Voltar',
                     successMsg: 'Orçamento reprovado',
                   })}>
                     <ThumbsDown className="h-4 w-4" /> Reprovar
@@ -1786,7 +1809,9 @@ export default function OrcamentoDetailPage() {
                 )}
               </>
             )}
-            {/* APROVADO → LIBERADO ou Cancelar administrativamente */}
+            {/* APROVADO → LIBERADO ou Encerrar (perda de negócio ganho → ENCERRADO).
+                NÃO é "Cancelar": cancelar (→CANCELADO) é descarte que sai do funil sem
+                contar; encerrar um aprovado registra a perda. Rótulos desambiguados (#354). */}
             {orc.status === 'APROVADO' && (
               <>
                 {canLiberar && (
@@ -1797,12 +1822,13 @@ export default function OrcamentoDetailPage() {
                 {canEncerrar && (
                   <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => handleStatusActionConfirm({
                     novoStatus: 'ENCERRADO',
-                    title: 'Cancelar orçamento aprovado?',
-                    text: 'Cancelamento administrativo após aprovação. Esta ação não pode ser desfeita pelo fluxo normal — apenas via Reabrir orçamento.',
-                    confirmText: 'Cancelar',
-                    successMsg: 'Orçamento cancelado',
+                    title: 'Encerrar orçamento aprovado?',
+                    text: 'Encerramento administrativo após a aprovação — registra o orçamento como perda. Não pode ser desfeito pelo fluxo normal, apenas via Reabrir orçamento.',
+                    confirmText: 'Encerrar orçamento',
+                    cancelText: 'Voltar',
+                    successMsg: 'Orçamento encerrado',
                   })}>
-                    <X className="h-4 w-4" /> Cancelar
+                    <Archive className="h-4 w-4" /> Encerrar
                   </Button>
                 )}
               </>
@@ -1820,6 +1846,7 @@ export default function OrcamentoDetailPage() {
                 title: 'Encerrar orçamento?',
                 text: 'O orçamento será arquivado no fluxo. O ciclo está completo.',
                 confirmText: 'Encerrar',
+                cancelText: 'Voltar',
                 successMsg: 'Orçamento encerrado',
                 icon: 'question',
               })}>
@@ -1954,13 +1981,36 @@ export default function OrcamentoDetailPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-xl font-bold tracking-tight text-white drop-shadow">{orc.cliente?.razaoSocial || 'Sem cliente'}</p>
                 <StatusBadge status={orc.status} />
-                {chipsAreas.map(a => (
-                  <span key={a.id}
-                    className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur"
-                    title={a.derivada ? 'Área dos serviços da aba Itens' : 'Área notificada'}>
-                    {a.nome}
-                  </span>
-                ))}
+                {/* Badges de área — #367: distingue por ÍCONE a área derivada dos itens
+                    (Layers) da área apenas notificada (Bell); tooltip do @saas/ui (não o
+                    nativo); e as NOTIFICADAS ganham um × no hover p/ remover (com permissão). */}
+                <TooltipProvider delayDuration={200}>
+                  {chipsAreas.map(a => {
+                    const Icone = a.derivada ? Layers : Bell
+                    const removivel = !a.derivada && canRemoverArea
+                    return (
+                      <Tooltip key={a.id}>
+                        <TooltipTrigger asChild>
+                          <span className="group/area inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
+                            <Icone className="h-3 w-3 opacity-80" />
+                            {a.nome}
+                            {removivel && (
+                              <button type="button"
+                                onClick={(e) => { e.stopPropagation(); handleRemoverArea(a.id) }}
+                                aria-label={`Remover área ${a.nome}`}
+                                className="ml-0.5 -mr-1 hidden items-center rounded-full p-0.5 hover:bg-white/25 group-hover/area:inline-flex">
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          {a.derivada ? 'Área dos serviços (aba Itens)' : 'Área notificada na criação do orçamento'}
+                        </TooltipContent>
+                      </Tooltip>
+                    )
+                  })}
+                </TooltipProvider>
                 {/* Badges de estado, na mesma linha do status e das áreas (vidro, como os chips) */}
                 {orc.paralizado && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur text-amber-200">

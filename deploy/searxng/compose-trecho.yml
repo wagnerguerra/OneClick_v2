@@ -1,0 +1,22 @@
+# Trecho para colar em /opt/oneclick/docker-compose.yml, dentro de `services:`
+# (na mesma indentação de `api`, `web`, `redis` e `docker-proxy`).
+#
+# NÃO tem `ports:` de propósito. Sem porta publicada, o serviço só é alcançável
+# pelos containers da stack — que é tudo de que a API precisa. Um SearXNG aberto
+# na internet vira relé de busca de terceiro em questão de dias.
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: oneclick-searxng
+    restart: unless-stopped
+    volumes:
+      # O settings.yml deste diretório do repo, copiado para cá.
+      - /opt/oneclick/searxng:/etc/searxng:rw
+    environment:
+      # Precisa ser o endereço pelo qual os OUTROS containers o alcançam.
+      SEARXNG_BASE_URL: http://searxng:8080/
+      # Uma instância só para nós não precisa de vários workers.
+      UWSGI_WORKERS: "2"
+      UWSGI_THREADS: "2"
+    mem_limit: 384m
+    mem_reservation: 128m

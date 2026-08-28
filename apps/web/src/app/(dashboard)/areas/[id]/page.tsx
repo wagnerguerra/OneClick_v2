@@ -29,6 +29,7 @@ export default function EditAreaPage() {
           costType: data.costType as 'DIRECT' | 'INDIRECT',
           costWeight: Number(data.costWeight),
           excludeFromCosting: data.excludeFromCosting,
+          notificavelOrcamento: (data as { notificavelOrcamento?: boolean }).notificavelOrcamento ?? false,
         })
       })
       .catch(() => setError('Área não encontrada'))

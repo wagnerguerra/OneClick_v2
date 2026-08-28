@@ -764,6 +764,7 @@ export default function OrcamentosPage() {
       title: 'Cancelar este orçamento?',
       text: 'Ele sai do funil e fica registrado como Cancelado no cadastro do cliente (Comercial → Orçamentos). Nada é apagado.',
       confirmText: 'Cancelar orçamento',
+      cancelText: 'Voltar',
       icon: 'warning',
     })
     if (!ok) return

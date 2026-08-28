@@ -27,6 +27,18 @@ import { STRONG } from '@/lib/color-styles'
  * seleção esmeralda), onde o `soft-warning` (tint 10%) sumia. Usar com
  * `variant="outline"` (que fornece a estrutura de borda/sombra).
  */
+/**
+ * Superfície da "Zona de perigo" no rodapé da aba Detalhes — o lugar onde mora
+ * a inativação, longe do Salvar.
+ *
+ * Âmbar, e não vermelho como a zona de perigo de outros sistemas: lá a ação é
+ * excluir, que é definitiva; aqui é inativar, que se desfaz pelo aviso
+ * "Cliente inativado". Pintar de vermelho prometeria uma gravidade que a ação
+ * não tem — e contrariaria a convenção do módulo (inativo = âmbar), logo acima.
+ */
+export const ZONA_PERIGO_SURFACE_CLASS =
+  'border-amber-300 dark:border-amber-800/70 bg-amber-50/40 dark:bg-amber-900/10'
+
 export const INATIVAR_BTN_CLASS =
   'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 ' +
   'text-amber-600 dark:text-amber-300 ' +

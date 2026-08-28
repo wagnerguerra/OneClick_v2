@@ -11,12 +11,14 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  RichEditor,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ProjetosKanban, type KanbanProjeto } from './_components/projetos-kanban'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { stripHtml } from '@/lib/html'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -39,9 +41,9 @@ interface ProjetoRow {
   status: ProjetoStatus
   dataPrevisao: Date | string | null
   responsavelId: string | null
-  clienteId?: string | null
-  participantes?: Array<{ id: string; name: string; image: string | null }>
-  cliente?: { id: string; razaoSocial: string; nomeFantasia: string | null } | null
+  execucoes?: number
+  envolvidos?: number
+  clientes?: Array<{ id: string; razaoSocial: string; nomeFantasia: string | null }>
   _count: { tarefas: number }
   createdAt: Date | string
 }
@@ -74,12 +76,10 @@ export default function ProjetosPage() {
   const [formStatus, setFormStatus] = useState<ProjetoStatus>('NOVO')
   const [formDataPrevisao, setFormDataPrevisao] = useState('')
   const [formResponsavelId, setFormResponsavelId] = useState<string>('')
-  const [formParticipantes, setFormParticipantes] = useState<string[]>([])
-  const [formClienteId, setFormClienteId] = useState<string>('')
   // Listas dos campos de vínculo. Carregam uma vez, ao abrir o modal pela
   // primeira vez — são poucas dezenas de linhas e não mudam durante a edição.
   const [pessoas, setPessoas] = useState<Array<{ id: string; name: string; image: string | null }>>([])
-  const [clientesMensais, setClientesMensais] = useState<Array<{ id: string; razaoSocial: string; nomeFantasia: string | null }>>([])
+
   const [saving, setSaving] = useState(false)
 
   // Debounce do search
@@ -113,13 +113,11 @@ export default function ProjetosPage() {
     if (!modalOpen || pessoas.length > 0) return
     void (async () => {
       try {
-        const [ps, cs] = await Promise.all([
-          (trpc.projetos as never as { listPessoas: { query: () => Promise<typeof pessoas> } }).listPessoas.query(),
-          (trpc.projetos as never as { listClientesVinculaveis: { query: () => Promise<typeof clientesMensais> } }).listClientesVinculaveis.query(),
-        ])
+        const ps = await (trpc.projetos as never as {
+          listPessoas: { query: () => Promise<typeof pessoas> }
+        }).listPessoas.query()
         setPessoas(ps)
-        setClientesMensais(cs)
-      } catch { /* sem as listas o resto do formulário continua utilizável */ }
+      } catch { /* sem a lista o resto do formulário continua utilizável */ }
     })()
   }, [modalOpen, pessoas.length])
 
@@ -131,8 +129,6 @@ export default function ProjetosPage() {
     setFormStatus('NOVO')
     setFormDataPrevisao('')
     setFormResponsavelId('')
-    setFormParticipantes([])
-    setFormClienteId('')
     setModalOpen(true)
   }
 
@@ -144,8 +140,6 @@ export default function ProjetosPage() {
     setFormStatus(p.status)
     setFormDataPrevisao(p.dataPrevisao ? new Date(p.dataPrevisao).toISOString().slice(0, 10) : '')
     setFormResponsavelId(p.responsavelId ?? '')
-    setFormParticipantes((p.participantes ?? []).map(u => u.id))
-    setFormClienteId(p.clienteId ?? '')
     setModalOpen(true)
   }
 
@@ -163,8 +157,6 @@ export default function ProjetosPage() {
         status: formStatus,
         dataPrevisao: formDataPrevisao || null,
         responsavelId: formResponsavelId || null,
-        participantesIds: formParticipantes,
-        clienteId: formClienteId || null,
       }
       if (editingId) {
         await trpc.projetos.update.mutate({ id: editingId, data })
@@ -363,8 +355,8 @@ export default function ProjetosPage() {
                 </DropdownMenu>
               </div>
 
-              {p.descricao && (
-                <p className="text-[12px] text-muted-foreground line-clamp-2 mb-3">{p.descricao}</p>
+              {p.descricao && stripHtml(p.descricao) && (
+                <p className="text-[12px] text-muted-foreground line-clamp-2 mb-3">{stripHtml(p.descricao)}</p>
               )}
 
               <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
@@ -417,11 +409,12 @@ export default function ProjetosPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="descricao" className="text-[13px] font-semibold">Descrição</Label>
-              <textarea
-                id="descricao"
+              {/* RichEditor, não textarea: a aba de detalhes do projeto grava
+                  este mesmo campo em HTML. Com textarea aqui, o campo tinha
+                  dois formatos conforme a porta usada para editar. */}
+              <RichEditor
                 value={formDescricao}
-                onChange={(e) => setFormDescricao(e.target.value)}
-                className="w-full min-h-[80px] rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                onChange={setFormDescricao}
                 placeholder="Objetivo do projeto..."
               />
             </div>
@@ -464,7 +457,7 @@ export default function ProjetosPage() {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="responsavel" className="text-[13px] font-semibold">Responsável</Label>
+                <Label htmlFor="responsavel" className="text-[13px] font-semibold">Responsável do projeto</Label>
                 <Select value={formResponsavelId || SEM_VINCULO} onValueChange={(v) => setFormResponsavelId(v === SEM_VINCULO ? '' : v)}>
                   <SelectTrigger id="responsavel" className="h-9 text-sm">
                     <SelectValue placeholder="Selecione" />
@@ -477,61 +470,15 @@ export default function ProjetosPage() {
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="cliente" className="text-[13px] font-semibold">Cliente</Label>
-                <Select value={formClienteId || SEM_VINCULO} onValueChange={(v) => setFormClienteId(v === SEM_VINCULO ? '' : v)}>
-                  <SelectTrigger id="cliente" className="h-9 text-sm">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={SEM_VINCULO}>Projeto interno (sem cliente)</SelectItem>
-                    {clientesMensais.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.nomeFantasia || c.razaoSocial}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">Só clientes mensais e ativos aparecem aqui.</p>
-              </div>
             </div>
 
-            {/* Participantes — o time em volta do responsável. Lista de marcar,
-                e não um select: escolher cinco nomes num select é sofrimento. */}
-            <div className="space-y-1.5">
-              <Label className="text-[13px] font-semibold">
-                Outras pessoas envolvidas
-                {formParticipantes.length > 0 && (
-                  <span className="ml-1.5 font-normal text-muted-foreground">({formParticipantes.length})</span>
-                )}
-              </Label>
-              <div className="nice-scrollbar max-h-[160px] space-y-0.5 overflow-y-auto rounded-md border border-border bg-muted/20 p-2">
-                {pessoas.filter((u) => u.id !== formResponsavelId).length === 0 && (
-                  <p className="py-2 text-center text-xs text-muted-foreground">Nenhuma pessoa disponível.</p>
-                )}
-                {pessoas.filter((u) => u.id !== formResponsavelId).map((u) => {
-                  const marcado = formParticipantes.includes(u.id)
-                  return (
-                    <label
-                      key={u.id}
-                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm transition-colors hover:bg-muted/60"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={marcado}
-                        onChange={() => setFormParticipantes((atual) =>
-                          marcado ? atual.filter((id) => id !== u.id) : [...atual, u.id],
-                        )}
-                        className="h-3.5 w-3.5 accent-current"
-                      />
-                      <span className="truncate">{u.name}</span>
-                    </label>
-                  )
-                })}
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                O responsável não entra nesta lista — ele já aparece à parte no card.
-              </p>
-            </div>
+            {/* Executantes, colaboradores e clientes moram na aba Envolvidos do
+                projeto: lá eles são por EXECUÇÃO, e cada frente tem o seu time.
+                Repetir aqui uma composição única contradiria aquilo. */}
+            <p className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              Clientes, executantes e colaboradores são definidos por execução, na aba
+              <span className="font-medium text-foreground"> Envolvidos</span> do projeto.
+            </p>
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>

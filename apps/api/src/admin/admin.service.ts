@@ -122,6 +122,11 @@ const CONFIG_FIELDS: ConfigField[] = [
 
   // Dossiê do Cliente e capa — fontes externas de dados e de imagem
   { key: 'PEXELS_API_KEY', label: 'API Key (Pexels)', group: 'Dossiê e Imagens', type: 'password', secret: true, help: 'Chave gratuita de pexels.com/api — habilita as fotos sugeridas em "Alterar capa" no cliente. Sem ela, só o envio manual funciona' },
+  { key: 'LOGODEV_TOKEN', label: 'Token público (Logo.dev)', group: 'Dossiê e Imagens', type: 'password', secret: true, help: 'Habilita a busca de logomarca pelo NOME da empresa, além do site. Gratuito até 10 mil requisições/mês, exigindo atribuição — crie em logo.dev. Sucessora da Clearbit' },
+  { key: 'SEARXNG_URL', label: 'Endereço do SearXNG', group: 'Dossiê e Imagens', type: 'text', placeholder: 'http://searxng:8080', help: 'Metabuscador de código aberto rodando em contêiner nosso: sem chave, sem cota e sem custo. Amplia a busca de logomarca para vários buscadores. Requer subir o serviço na VPS' },
+
+  { key: 'CONSULTAS_SOCIO', label: 'Consultas públicas sobre sócios', group: 'Dossiê e Imagens', type: 'text', placeholder: 'TJES — processos|https://sistemas.tjes.jus.br/...', help: 'Atalhos extras no dossiê, um por linha, no formato Rótulo|URL|nota. As nacionais (CNDT, CNJ improbidade, CEIS/CNEP, Receita) já vêm prontas; aqui entram os tribunais que a casa usa. {cpf} e {nome} na URL são trocados pelo dado do sócio' },
+
   { key: 'DOSSIE_PROVEDORES', label: 'Ordem dos provedores de CNPJ', group: 'Dossiê e Imagens', type: 'text', placeholder: 'opencnpj,brasilapi,serpro', help: 'Vazio usa opencnpj,brasilapi,serpro. As duas primeiras são gratuitas; o SERPRO é pago por consulta e só entra quando as públicas falham' },
   { key: 'DOSSIE_SITUACAO_ENABLED', label: 'Revalidar situação cadastral diariamente', group: 'Dossiê e Imagens', type: 'text', default: '0', help: '1 = liga o job diário que avisa quando um cliente ativo é baixado, suspenso ou declarado inapto na Receita' },
   { key: 'DOSSIE_SITUACAO_CRON', label: 'Horário da revalidação', group: 'Dossiê e Imagens', type: 'text', placeholder: '0 6 * * *', help: 'Formato cron. Padrão: todo dia às 6h' },

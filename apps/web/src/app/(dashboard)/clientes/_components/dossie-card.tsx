@@ -15,9 +15,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   FileSearch, RefreshCw, Loader2, Check, X, AlertTriangle, ChevronDown,
-  Building2, Activity, MapPin, Users, Receipt, ShieldCheck, ExternalLink,
+  Building2, Activity, MapPin, Users, Receipt, ShieldCheck, ExternalLink, Share2, Network, Gavel, Copy, Sparkles,
 } from 'lucide-react'
-import { Button, Card, Badge, cn } from '@saas/ui'
+import {
+  Button, Card, Badge, cn,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+} from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { getApiUrl } from '@/lib/api-url'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { fmtDateBR } from '@/lib/date'
@@ -43,7 +48,15 @@ type Dossie = {
 }
 
 type Cnae = { codigo: string; descricao: string; principal: boolean }
-type Socio = { nome: string; documento: string; qualificacao: string; dataEntrada: string | null }
+type Socio = {
+  nome: string
+  documento: string
+  qualificacao: string
+  dataEntrada: string | null
+  /** Veio da Legalização (PDF da Situação Fiscal), então não está mascarado. */
+  documentoCompleto?: boolean
+  participacao?: number | null
+}
 
 const ROTULOS: Record<string, string> = {
   razao_social: 'Razão social', nome_fantasia: 'Nome fantasia',
@@ -59,8 +72,11 @@ const ROTULOS: Record<string, string> = {
 
 const CAMPOS_CADASTRO: Record<string, string> = {
   razaoSocial: 'Razão social', nomeFantasia: 'Nome fantasia', capitalSocial: 'Capital social',
-  cep: 'CEP', logradouro: 'Logradouro', numero: 'Número', bairro: 'Bairro',
-  cidade: 'Cidade', uf: 'UF',
+  cep: 'CEP', logradouro: 'Logradouro', numero: 'Número', complemento: 'Complemento',
+  bairro: 'Bairro', cidade: 'Cidade', uf: 'UF',
+  telefone: 'Telefone', email: 'E-mail',
+  dataAbertura: 'Data de abertura', naturezaJuridica: 'Natureza jurídica',
+  porte: 'Porte', situacaoCadastral: 'Situação cadastral',
 }
 
 /** A fonte devolve data como 'AAAA-MM-DD'; na tela é sempre dd/mm/aaaa. */
@@ -143,12 +159,84 @@ function Linhas({ fatos, campos }: { fatos: Fato[]; campos: string[] }) {
   )
 }
 
-export function DossieCard({ clienteId, podeAtualizar }: { clienteId: string; podeAtualizar: boolean }) {
+/** CPF completo ganha máscara; o mascarado da Receita já vem formatado. */
+function formatarCpf(doc: string): string {
+  const so = doc.replace(/\D/g, '')
+  return so.length === 11
+    ? so.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+    : doc
+}
+
+type PerfilAchado = { rede: string; url: string; identificador: string }
+
+type PerfilSocio = {
+  id: string
+  rede: string
+  url: string
+  identificador: string | null
+  observacao: string | null
+  origem: string
+  confirmado: boolean
+}
+
+type ConsultaPublica = { rotulo: string; url: string; colar: boolean; nota?: string }
+
+type Participacao = {
+  clienteId: string
+  razaoSocial: string
+  nomeFantasia: string | null
+  documento: string
+  status: string
+  tipoSocio: string
+  participacao: number | null
+  /** Casou por CPF (fato) ou só pelo nome (palpite)? */
+  porCpf: boolean
+}
+
+type SocioParticipacoes = {
+  socioId: string
+  nomeCompleto: string
+  participacoes: Participacao[]
+}
+
+type SocioComPerfis = {
+  id: string
+  nomeCompleto: string
+  cpf: string
+  perfisSociais: PerfilSocio[]
+}
+
+const ROTULO_REDE: Record<string, string> = {
+  INSTAGRAM: 'Instagram', FACEBOOK: 'Facebook', LINKEDIN: 'LinkedIn',
+  X: 'X', YOUTUBE: 'YouTube', TIKTOK: 'TikTok', OUTRO: 'Perfil',
+}
+
+type Passo = { chave: string; rotulo: string; status: 'rodando' | 'ok' | 'erro'; detalhe?: string }
+
+export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
+  clienteId: string
+  podeAtualizar: boolean
+  /** Dentro de uma pill da aba Comercial já existe um cartão em volta. */
+  semCartao?: boolean
+}) {
   const [dossie, setDossie] = useState<Dossie | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [decidindo, setDecidindo] = useState<string | null>(null)
+  // Painel de progresso da coleta. Fica aberto até o usuário fechar — quem
+  // acompanhou os passos costuma querer reler o que cada provedor respondeu.
+  const [sociosComPerfis, setSociosComPerfis] = useState<SocioComPerfis[]>([])
+  const [participacoes, setParticipacoes] = useState<SocioParticipacoes[]>([])
+  const [consultas, setConsultas] = useState<ConsultaPublica[]>([])
+  const [cpfCopiado, setCpfCopiado] = useState<string | null>(null)
+  const [preenchendo, setPreenchendo] = useState(false)
+  const [socioAberto, setSocioAberto] = useState<string | null>(null)
+  const [urlNova, setUrlNova] = useState('')
+  const [ocupadoSocio, setOcupadoSocio] = useState<string | null>(null)
+  const [passos, setPassos] = useState<Passo[]>([])
+  const [painelAberto, setPainelAberto] = useState(false)
+  const [conclusao, setConclusao] = useState<string | null>(null)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -163,20 +251,168 @@ export function DossieCard({ clienteId, podeAtualizar }: { clienteId: string; po
     } finally { setCarregando(false) }
   }, [clienteId])
 
-  useEffect(() => { void carregar() }, [carregar])
-
-  async function atualizar() {
-    setAtualizando(true)
+  // Perfis vêm em chamada própria: são de outra tabela e mudam por ação do
+  // usuário, sem precisar recoletar o dossiê inteiro.
+  const carregarSocios = useCallback(async () => {
     try {
       const r = await (trpc.cliente as never as {
-        atualizarDossie: { mutate: (i: { clienteId: string; forcar: boolean }) => Promise<{ ok: boolean; motivo?: string; fonte?: string; divergencias?: number }> }
-      }).atualizarDossie.mutate({ clienteId, forcar: true })
-      if (!r.ok) { alerts.error('Não foi possível consultar', r.motivo || 'Sem detalhes.'); return }
-      await carregar()
-      await alerts.success('Dossiê atualizado', `Fonte: ${r.fonte}${r.divergencias ? ` · ${r.divergencias} divergência(s) para revisar` : ''}`)
+        listPerfisSocios: { query: (i: { clienteId: string }) => Promise<SocioComPerfis[]> }
+      }).listPerfisSocios.query({ clienteId })
+      setSociosComPerfis(r)
+    } catch { /* sem perfis, o resto do dossiê continua servindo */ }
+
+    try {
+      const r = await (trpc.cliente as never as {
+        listParticipacoesSocios: { query: (i: { clienteId: string }) => Promise<SocioParticipacoes[]> }
+      }).listParticipacoesSocios.query({ clienteId })
+      setParticipacoes(r)
+    } catch { /* idem */ }
+
+    try {
+      const r = await (trpc.cliente as never as {
+        listConsultasPublicas: { query: () => Promise<ConsultaPublica[]> }
+      }).listConsultasPublicas.query()
+      setConsultas(r)
+    } catch { /* idem */ }
+  }, [clienteId])
+
+  useEffect(() => { void carregar() }, [carregar])
+  useEffect(() => { void carregarSocios() }, [carregarSocios])
+
+  /**
+   * A coleta é lida como STREAM: o backend narra cada passo (cache, provedor
+   * tentado, gravação, comparação) e a tela vai marcando. Sem isso, a espera de
+   * dezenas de segundos era um spinner mudo — e três provedores encadeados
+   * podem levar mesmo esse tempo.
+   */
+  async function atualizar() {
+    setAtualizando(true)
+    setPassos([])
+    setConclusao(null)
+    setPainelAberto(true)
+
+    // Um passo é identificado pela chave: o mesmo passo volta 'rodando' e
+    // depois 'ok', e a linha é atualizada no lugar em vez de duplicar.
+    const marcar = (p: Passo) => setPassos(atual => {
+      const i = atual.findIndex(x => x.chave === p.chave)
+      if (i === -1) return [...atual, p]
+      const copia = [...atual]
+      copia[i] = p
+      return copia
+    })
+
+    try {
+      const resp = await fetch(`${getApiUrl()}/api/clientes/${clienteId}/dossie/coletar-stream?forcar=1`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!resp.ok || !resp.body) throw new Error(`A coleta não respondeu (HTTP ${resp.status})`)
+
+      const leitor = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      for (;;) {
+        const { done, value } = await leitor.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        // Evento SSE termina em linha em branco; o resto fica no buffer para
+        // o próximo pedaço.
+        const partes = buffer.split('\n\n')
+        buffer = partes.pop() ?? ''
+        for (const parte of partes) {
+          const linha = parte.split('\n').find(l => l.startsWith('data: '))
+          if (!linha) continue
+          try {
+            const ev = JSON.parse(linha.slice(6)) as
+              | (Passo & { tipo: 'passo' })
+              | { tipo: 'fim'; resultado: { ok: boolean; motivo?: string; fonte?: string; divergencias?: number; doCache?: boolean } }
+            if (ev.tipo === 'passo') { marcar(ev); continue }
+
+            const r = ev.resultado
+            setConclusao(
+              !r.ok ? `Não deu certo: ${r.motivo || 'sem detalhes'}`
+                : r.doCache ? 'Já havia coleta recente; nada foi consultado de novo.'
+                : `Concluído pela fonte ${r.fonte}.`
+                  + (r.divergencias ? ` ${r.divergencias} campo(s) para revisar abaixo.` : ' Nada a revisar.'),
+            )
+            if (r.ok) await carregar()
+          } catch { /* linha malformada não derruba o acompanhamento */ }
+        }
+      }
     } catch (e) {
-      alerts.error('Erro', (e as Error).message)
+      setConclusao(`Erro: ${(e as Error).message}`)
     } finally { setAtualizando(false) }
+  }
+
+  /**
+   * A maioria dos portais não recebe o CPF pela URL — é preciso colar lá
+   * dentro. Copiar antes de abrir poupa a viagem de volta ao cadastro.
+   */
+  async function copiarCpf(cpf: string) {
+    try {
+      await navigator.clipboard.writeText(cpf.replace(/\D/g, ''))
+      setCpfCopiado(cpf)
+      setTimeout(() => setCpfCopiado(null), 2000)
+    } catch { alerts.error('Não deu para copiar', 'Copie o CPF manualmente do quadro societário.') }
+  }
+
+  async function adicionarPerfil(socioId: string) {
+    const url = urlNova.trim()
+    if (!url) return
+    setOcupadoSocio(socioId)
+    try {
+      await (trpc.cliente as never as {
+        addPerfilSocio: { mutate: (i: { socioId: string; url: string; rede: string }) => Promise<unknown> }
+      }).addPerfilSocio.mutate({ socioId, url, rede: 'OUTRO' })
+      setUrlNova('')
+      await carregarSocios()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setOcupadoSocio(null) }
+  }
+
+  async function sugerirPerfis(socioId: string) {
+    setOcupadoSocio(socioId)
+    try {
+      const r = await (trpc.cliente as never as {
+        sugerirPerfisSocio: { mutate: (i: { socioId: string }) => Promise<{ sugeridos: number; aviso?: string }> }
+      }).sugerirPerfisSocio.mutate({ socioId })
+      await carregarSocios()
+      if (r.aviso) alerts.info('Busca de perfis', r.aviso)
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setOcupadoSocio(null) }
+  }
+
+  async function confirmarPerfil(id: string) {
+    try {
+      await (trpc.cliente as never as { confirmarPerfilSocio: { mutate: (i: { id: string }) => Promise<unknown> } })
+        .confirmarPerfilSocio.mutate({ id })
+      await carregarSocios()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
+  async function removerPerfil(id: string) {
+    try {
+      await (trpc.cliente as never as { removerPerfilSocio: { mutate: (i: { id: string }) => Promise<unknown> } })
+        .removerPerfilSocio.mutate({ id })
+      await carregarSocios()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
+  async function preencherVazios() {
+    setPreenchendo(true)
+    try {
+      const r = await (trpc.cliente as never as {
+        preencherVaziosDossie: { mutate: (i: { clienteId: string }) => Promise<{ aplicados: number }> }
+      }).preencherVaziosDossie.mutate({ clienteId })
+      await carregar()
+      await alerts.success(
+        'Cadastro preenchido',
+        `${r.aplicados} campo(s) que estavam em branco receberam o dado oficial.`,
+      )
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setPreenchendo(false) }
   }
 
   async function decidir(id: string, decisao: 'aprovada' | 'rejeitada') {
@@ -195,9 +431,14 @@ export function DossieCard({ clienteId, podeAtualizar }: { clienteId: string; po
   const fiscal = dossie?.blocos.fiscal ?? []
   const cnaes = (receita.find(f => f.campo === 'cnaes')?.valorJson as Cnae[] | undefined) ?? []
   const socios = (receita.find(f => f.campo === 'socios')?.valorJson as Socio[] | undefined) ?? []
+  // A sugestão sem valor atual não é divergência: é lacuna.
+  const vazios = (dossie?.sugestoes ?? []).filter(x => !x.valorAtual?.trim())
+  const conflitos = (dossie?.sugestoes ?? []).filter(x => !!x.valorAtual?.trim())
+  const perfisEmpresa = ((dossie?.blocos?.redes ?? [])
+    .find(f => f.campo === 'perfis')?.valorJson as PerfilAchado[] | undefined) ?? []
 
-  return (
-    <Card className="p-5">
+  const conteudo = (
+    <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-[13px] font-semibold text-foreground">Dossiê do cliente</h2>
@@ -238,14 +479,42 @@ export function DossieCard({ clienteId, podeAtualizar }: { clienteId: string; po
 
       {!carregando && !erro && dossie && !dossie.vazio && (
         <div className="space-y-3">
-          {dossie.sugestoes.length > 0 && (
-            <Bloco titulo={`Divergências a revisar (${dossie.sugestoes.length})`} icone={AlertTriangle}>
+          {/* Preencher um campo VAZIO e sobrescrever um campo PREENCHIDO são
+              decisões de peso diferente, e juntá-las numa fila só fazia a
+              segunda contaminar a primeira: dez campos em branco viravam dez
+              cliques de "revisar divergência". Separados, o que é ganho puro se
+              aplica de uma vez, e o que exige julgamento continua um a um. */}
+          {vazios.length > 0 && (
+            <Bloco titulo={`Campos em branco que o dossiê preenche (${vazios.length})`} icone={Sparkles}>
               <p className="mb-2 text-xs text-muted-foreground">
-                O cadastro e a fonte oficial discordam. Nem sempre a fonte está certa — o endereço
-                novo pode não ter chegado lá ainda. Aprove só o que fizer sentido.
+                Estes campos estão vazios no cadastro e a fonte oficial tem o valor. Preencher não
+                apaga nada — só completa o que falta.
+              </p>
+              <ul className="mb-3 space-y-1">
+                {vazios.map(s => (
+                  <li key={s.id} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/40 py-1 text-sm">
+                    <span className="font-medium text-foreground">{CAMPOS_CADASTRO[s.campo] ?? s.campo}</span>
+                    <span className="min-w-0 truncate text-xs text-muted-foreground">{s.valorSugerido}</span>
+                  </li>
+                ))}
+              </ul>
+              {podeAtualizar && (
+                <Button variant="success" size="sm" className="gap-1.5" onClick={() => void preencherVazios()} disabled={preenchendo}>
+                  {preenchendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Preencher os {vazios.length} campo(s)
+                </Button>
+              )}
+            </Bloco>
+          )}
+
+          {conflitos.length > 0 && (
+            <Bloco titulo={`Divergências a revisar (${conflitos.length})`} icone={AlertTriangle}>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Aqui o cadastro tem um valor e a fonte tem outro. Nem sempre a fonte está certa — o
+                endereço novo pode não ter chegado lá ainda. Aprove só o que fizer sentido.
               </p>
               <ul className="space-y-2">
-                {dossie.sugestoes.map(s => (
+                {conflitos.map(s => (
                   <li key={s.id} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0">
@@ -311,18 +580,296 @@ export function DossieCard({ clienteId, podeAtualizar }: { clienteId: string; po
                     {socios.map((s, i) => (
                       <li key={`${s.nome}-${i}`} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/40 py-1 text-sm">
                         <span className="font-medium text-foreground">{s.nome}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {s.qualificacao}{s.documento ? ` · ${s.documento}` : ''}
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          {s.qualificacao}
+                          {s.documento && <> · <span className={cn(s.documentoCompleto && 'font-medium text-foreground')}>{formatarCpf(s.documento)}</span></>}
+                          {s.participacao != null && <> · {s.participacao}%</>}
+                          {s.documentoCompleto && (
+                            <span
+                              className="rounded-full bg-emerald-100 px-1.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300"
+                              title="CPF completo, obtido da Situação Fiscal na aba Legalização"
+                            >
+                              completo
+                            </span>
+                          )}
                         </span>
                       </li>
                     ))}
                   </ul>
+                  {/* Dois documentos convivem aqui, e a diferença importa: o
+                      que vem da consulta pública é mascarado pela Receita; o
+                      completo é o que a Legalização obteve do PDF da Situação
+                      Fiscal, como contador da empresa. */}
                   <p className="mt-2 text-[11px] text-muted-foreground/80">
-                    O documento dos sócios é gravado mascarado — o dossiê identifica quem responde
-                    pela empresa, não é base de CPF.
+                    {socios.some(s => !s.documentoCompleto)
+                      ? 'O CPF mascarado é o que a consulta pública devolve. Para completá-lo, use "Importar QSA" na aba Legalização — ele vem do PDF da Situação Fiscal.'
+                      : 'CPF completo, vindo da Situação Fiscal (aba Legalização).'}
                   </p>
                 </>
               )}
+          </Bloco>
+
+          <Bloco titulo="Participações dos sócios" icone={Network} aberto={false}>
+            {/* Só a nossa carteira. Não existe fonte pública gratuita que vá de
+                CPF a empresas — a base de QSA da Receita mascara o documento do
+                sócio, e quem faz esse caminho cobra. O que temos aqui é exato e
+                é nosso. */}
+            {participacoes.every(p => p.participacoes.length === 0) ? (
+              <p className="py-2 text-sm text-muted-foreground">
+                Nenhum sócio deste cliente aparece em outro cliente da carteira.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {participacoes.filter(p => p.participacoes.length > 0).map(p => (
+                  <div key={p.socioId}>
+                    <p className="mb-1 text-[13px] font-semibold text-foreground">{p.nomeCompleto}</p>
+                    <ul className="space-y-1">
+                      {p.participacoes.map(x => (
+                        <li key={`${p.socioId}-${x.clienteId}`} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/40 py-1 text-sm">
+                          <a
+                            href={`/clientes/${x.clienteId}`}
+                            className="min-w-0 truncate font-medium text-foreground hover:underline"
+                          >
+                            {x.nomeFantasia || x.razaoSocial}
+                          </a>
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            {x.tipoSocio.replace(/_/g, ' ').toLowerCase()}
+                            {x.participacao != null && <> · {x.participacao}%</>}
+                            {x.status !== 'ATIVO' && (
+                              <span className="rounded-full bg-muted px-1.5 text-[10px] font-semibold">
+                                {x.status.toLowerCase()}
+                              </span>
+                            )}
+                            {!x.porCpf && (
+                              <span
+                                className="rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
+                                title="Casou pelo nome, não pelo CPF — pode ser homônimo"
+                              >
+                                por nome
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="mt-2 text-[11px] text-muted-foreground/80">
+              Cruzamento com a própria carteira, pelo CPF quando ele é conhecido. O que casa só
+              pelo nome vem marcado — homônimo existe.
+            </p>
+          </Bloco>
+
+          <Bloco titulo="Consultas públicas" icone={Gavel} aberto={false}>
+            {/* Atalho, e não integração, de propósito: a API pública do DataJud
+                não indexa as partes — busca por número de processo, classe e
+                órgão julgador. "Quais processos o João tem" não é pergunta que
+                se responda de graça por API; quem faz esse caminho cobra. O que
+                dá para eliminar é o trabalho de lembrar onde fica cada portal e
+                de garimpar o CPF em outra aba. */}
+            {participacoes.length === 0 ? (
+              <p className="py-2 text-sm text-muted-foreground">
+                Nenhum sócio cadastrado. Importe o QSA na aba Legalização.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {participacoes.map(p => {
+                  const socio = sociosComPerfis.find(x => x.id === p.socioId)
+                  const cpf = socio?.cpf ?? ''
+                  const temCpf = cpf.replace(/\D/g, '').length === 11
+                  return (
+                    <div key={p.socioId} className="rounded-lg border border-border p-3">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-[13px] font-semibold text-foreground">{p.nomeCompleto}</p>
+                        {temCpf ? (
+                          <Button
+                            variant="outline" size="sm" className="h-7 gap-1.5 text-xs"
+                            onClick={() => void copiarCpf(cpf)}
+                          >
+                            {cpfCopiado === cpf
+                              ? <><Check className="h-3.5 w-3.5" /> CPF copiado</>
+                              : <><Copy className="h-3.5 w-3.5" /> Copiar CPF</>}
+                          </Button>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">
+                            CPF incompleto — importe o QSA na Legalização
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {consultas.map(c => {
+                          const url = c.url
+                            .replace(/\{cpf\}/gi, encodeURIComponent(cpf.replace(/\D/g, '')))
+                            .replace(/\{nome\}/gi, encodeURIComponent(p.nomeCompleto))
+                          return (
+                            <a
+                              key={`${p.socioId}-${c.rotulo}`}
+                              href={url} target="_blank" rel="noopener noreferrer"
+                              title={c.nota ? `${c.nota}${c.colar ? ' · cole o CPF no portal' : ''}` : undefined}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/20 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted"
+                            >
+                              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                              {c.rotulo}
+                            </a>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <p className="mt-3 text-[11px] text-muted-foreground/80">
+              Os portais abrem em outra aba e a consulta é feita lá — quase nenhum aceita o CPF
+              pelo endereço, por isso o botão de copiar. Para acrescentar o tribunal do seu
+              estado: Configurações → Dossiê e Imagens → Consultas públicas sobre sócios.
+            </p>
+          </Bloco>
+
+          <Bloco titulo="Redes sociais" icone={Share2} aberto={false}>
+            {/* Da EMPRESA: o link está publicado no rodapé do próprio site,
+                então não há palpite — vem sozinho na coleta. */}
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Da empresa
+            </p>
+            {perfisEmpresa.length === 0 ? (
+              <p className="py-1 text-sm text-muted-foreground">
+                Nenhum perfil encontrado no site da empresa.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {perfisEmpresa.map(perfil => (
+                  <a
+                    key={perfil.url}
+                    href={perfil.url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/20 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted"
+                  >
+                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                    <span className="font-medium">{ROTULO_REDE[perfil.rede] ?? perfil.rede}</span>
+                    <span className="text-muted-foreground">@{perfil.identificador}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {/* Dos SÓCIOS: aqui não há certeza nenhuma. Homônimo é regra, então
+                o que a busca acha fica marcado como "a conferir" até alguém
+                abrir, olhar e confirmar que é a pessoa certa. */}
+            <p className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Dos sócios
+            </p>
+            {socios.length === 0 && (
+              <p className="py-1 text-sm text-muted-foreground">
+                Nenhum sócio cadastrado. Importe o QSA na aba Legalização.
+              </p>
+            )}
+            <div className="space-y-2">
+              {sociosComPerfis.map(socio => {
+                const aberto = socioAberto === socio.id
+                const confirmados = socio.perfisSociais.filter(x => x.confirmado)
+                return (
+                  <div key={socio.id} className="rounded-lg border border-border">
+                    <button
+                      type="button"
+                      onClick={() => { setSocioAberto(aberto ? null : socio.id); setUrlNova('') }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left"
+                    >
+                      <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', !aberto && '-rotate-90')} />
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{socio.nomeCompleto}</span>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        {confirmados.length > 0
+                          ? `${confirmados.length} perfil(is)`
+                          : socio.perfisSociais.length > 0 ? `${socio.perfisSociais.length} a conferir` : 'sem perfil'}
+                      </span>
+                    </button>
+
+                    {aberto && (
+                      <div className="space-y-2 border-t border-border px-3 py-2.5">
+                        {socio.perfisSociais.map(perfil => (
+                          <div key={perfil.id} className="flex items-center gap-2 text-sm">
+                            <a
+                              href={perfil.url} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex min-w-0 flex-1 items-center gap-1.5 text-foreground hover:underline"
+                            >
+                              <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              <span className="shrink-0 font-medium">{ROTULO_REDE[perfil.rede] ?? perfil.rede}</span>
+                              <span className="truncate text-muted-foreground">
+                                {perfil.identificador ? `@${perfil.identificador}` : perfil.url}
+                              </span>
+                            </a>
+                            {!perfil.confirmado && (
+                              <>
+                                <span className="shrink-0 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                                  a conferir
+                                </span>
+                                {podeAtualizar && (
+                                  <Button
+                                    variant="soft" size="icon-sm" title="É esta pessoa — confirmar"
+                                    onClick={() => void confirmarPerfil(perfil.id)}
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            {podeAtualizar && (
+                              <Button
+                                variant="soft-destructive" size="icon-sm" title="Remover"
+                                onClick={() => void removerPerfil(perfil.id)}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+
+                        {socio.perfisSociais.length === 0 && (
+                          <p className="text-xs italic text-muted-foreground">
+                            Nenhum perfil ainda. Cole o endereço abaixo, ou peça uma busca.
+                          </p>
+                        )}
+
+                        {podeAtualizar && (
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <input
+                              value={urlNova}
+                              onChange={e => setUrlNova(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void adicionarPerfil(socio.id) } }}
+                              placeholder="https://instagram.com/perfil"
+                              className="h-8 min-w-[220px] flex-1 rounded-md border border-border bg-background px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                            <Button
+                              size="sm" variant="outline" className="h-8"
+                              disabled={!urlNova.trim() || ocupadoSocio === socio.id}
+                              onClick={() => void adicionarPerfil(socio.id)}
+                            >
+                              Adicionar
+                            </Button>
+                            <Button
+                              size="sm" variant="outline" className="h-8 gap-1.5"
+                              disabled={ocupadoSocio === socio.id}
+                              onClick={() => void sugerirPerfis(socio.id)}
+                            >
+                              {ocupadoSocio === socio.id
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <FileSearch className="h-3.5 w-3.5" />}
+                              Procurar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            <p className="mt-3 text-[11px] text-muted-foreground/80">
+              Só o endereço do perfil fica guardado — o conteúdo é aberto na rede, na hora.
+              O que a busca acha entra como &ldquo;a conferir&rdquo;: nome igual não é a mesma pessoa.
+            </p>
           </Bloco>
 
           <Bloco titulo="Fiscal" icone={Receipt} aberto={false}>
@@ -338,6 +885,58 @@ export function DossieCard({ clienteId, podeAtualizar }: { clienteId: string; po
           )}
         </div>
       )}
-    </Card>
+    </>
   )
+
+  const painel = (
+    <Dialog open={painelAberto} onOpenChange={setPainelAberto}>
+      <DialogContent className="sm:max-w-[560px]">
+        <DialogHeaderIcon icon={RefreshCw} color="sky">
+          <DialogTitle>Coletando o dossiê</DialogTitle>
+          <DialogDescription>
+            Cada linha é um passo da coleta. A janela fica aberta até você fechar.
+          </DialogDescription>
+        </DialogHeaderIcon>
+        <DialogBody>
+          <div className="nice-scrollbar max-h-[320px] space-y-1.5 overflow-y-auto">
+            {passos.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">Começando…</p>
+            )}
+            {passos.map(p => (
+              <div key={p.chave} className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/20 px-3 py-2">
+                <span className="mt-0.5 shrink-0">
+                  {p.status === 'rodando' && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  {p.status === 'ok' && <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+                  {p.status === 'erro' && <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-foreground">{p.rotulo}</p>
+                  {p.detalhe && <p className="text-[11px] text-muted-foreground">{p.detalhe}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+          {conclusao && (
+            <p className="mt-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground">
+              {conclusao}
+            </p>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            variant={conclusao ? 'success' : 'outline'} size="sm"
+            onClick={() => setPainelAberto(false)}
+          >
+            Fechar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
+  if (semCartao) return <>{conteudo}{painel}</>
+  return <>
+    <Card className="p-5">{conteudo}</Card>
+    {painel}
+  </>
 }

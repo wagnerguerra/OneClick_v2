@@ -13,6 +13,14 @@ import {
   updateProjetoTagSchema,
   addComentarioTarefaSchema,
   addAnexoTarefaSchema,
+  createProjetoExecucaoSchema,
+  updateProjetoExecucaoSchema,
+  createRodadaSchema,
+  updateRodadaSchema,
+  createApontamentoSchema,
+  updateApontamentoSchema,
+  createRodadaMensagemSchema,
+  addRodadaArquivoSchema,
 } from '@saas/types'
 import { ProjetoService } from './projeto.service'
 
@@ -46,11 +54,75 @@ export function createProjetoRouter(svc: ProjetoService) {
     // de clientes nem à administração de usuários.
     listClientesVinculaveis: readProcedure(MODULE)
       .input(z.object({ busca: z.string().optional() }).optional())
-      .query(({ input }) => svc.listClientesVinculaveis(input?.busca)),
+      .query(({ input, ctx }) => svc.listClientesVinculaveis(input?.busca, ctx)),
 
     listPessoas: readProcedure(MODULE)
       .input(z.object({ busca: z.string().optional() }).optional())
-      .query(({ input }) => svc.listPessoas(input?.busca)),
+      .query(({ input, ctx }) => svc.listPessoas(input?.busca, ctx)),
+
+    // ── Execuções (frentes de trabalho do projeto) ────────────
+    listExecucoes: readProcedure(MODULE)
+      .input(z.object({ projetoId: z.string() }))
+      .query(({ input }) => svc.listExecucoes(input.projetoId)),
+
+    createExecucao: writeProcedure(MODULE)
+      .input(createProjetoExecucaoSchema)
+      .mutation(({ input, ctx }) => svc.createExecucao(input, ctx.userId ?? null)),
+
+    updateExecucao: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), data: updateProjetoExecucaoSchema }))
+      .mutation(({ input, ctx }) => svc.updateExecucao(input.id, input.data, ctx)),
+
+    deleteExecucao: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => svc.deleteExecucao(input.id)),
+
+    // ── Rodadas e apontamentos ────────────────────────────────
+    listRodadas: readProcedure(MODULE)
+      .input(z.object({ execucaoId: z.string() }))
+      .query(({ input }) => svc.listRodadas(input.execucaoId)),
+
+    createRodada: writeProcedure(MODULE)
+      .input(createRodadaSchema)
+      .mutation(({ input, ctx }) => svc.createRodada(input, ctx.userId ?? null)),
+
+    updateRodada: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), data: updateRodadaSchema }))
+      .mutation(({ input }) => svc.updateRodada(input.id, input.data)),
+
+    deleteRodada: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => svc.deleteRodada(input.id)),
+
+    createApontamento: writeProcedure(MODULE)
+      .input(createApontamentoSchema)
+      .mutation(({ input, ctx }) => svc.createApontamento(input, ctx.userId ?? null)),
+
+    updateApontamento: writeProcedure(MODULE)
+      .input(z.object({ id: z.string(), data: updateApontamentoSchema }))
+      .mutation(({ input, ctx }) => svc.updateApontamento(input.id, input.data, ctx.userId ?? null)),
+
+    deleteApontamento: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => svc.deleteApontamento(input.id)),
+
+    // ── Conversa e arquivos da rodada ─────────────────────────
+    // A leitura vem dentro de listRodadas; aqui só se escreve e apaga.
+    createRodadaMensagem: writeProcedure(MODULE)
+      .input(createRodadaMensagemSchema)
+      .mutation(({ input, ctx }) => svc.createRodadaMensagem(input, ctx.userId ?? null)),
+
+    deleteRodadaMensagem: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => svc.deleteRodadaMensagem(input.id)),
+
+    addRodadaArquivo: writeProcedure(MODULE)
+      .input(addRodadaArquivoSchema)
+      .mutation(({ input, ctx }) => svc.addRodadaArquivo(input, ctx.userId ?? null)),
+
+    removerRodadaArquivo: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => svc.removerRodadaArquivo(input.id)),
 
     // ── Tarefas ───────────────────────────────────────────────
     listTarefas: readProcedure(MODULE)

@@ -68,6 +68,9 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
         const ct = (r.data.costType ?? '').toLowerCase().trim()
         return {
           name: r.data.name ?? '', email: r.data.email ?? '', isActive: true,
+          // Área importada nasce fora da notificação de orçamento — quem
+          // importa não escolheu isso, e avisar por engano é pior que faltar.
+          notificavelOrcamento: false,
           costType: ct === 'indireta' || ct === 'indirect' ? 'INDIRECT' as const : 'DIRECT' as const,
           costWeight: r.data.costWeight ? Number(r.data.costWeight) : 1,
           availableForHiring: parseBooleanPt(r.data.availableForHiring ?? ''),

@@ -12,6 +12,7 @@ import { ImportOneclickService } from './import-oneclick.service'
 import { DuplicidadeService } from './duplicidade.service'
 import { MesclagemService } from './mesclagem.service'
 import { CnpjService } from '../cnpj/cnpj.service'
+import { consultasPublicas } from './dossie/consultas-publicas'
 
 const MODULE = 'clientes'
 
@@ -40,6 +41,7 @@ export function createClienteRouter(
   dossieService?: import('./dossie/dossie.service').DossieService,
   dossieBackfillService?: import('./dossie/dossie-backfill.service').DossieBackfillService,
   logoService?: import('./cliente-logo.service').ClienteLogoService,
+  socioPerfisService?: import('./dossie/socio-perfis.service').SocioPerfisService,
 ) {
   return router({
     // Listagem (ativos)
@@ -1263,6 +1265,80 @@ export function createClienteRouter(
       .query(({ input }) => {
         if (!logoService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Busca de logomarca indisponível.' })
         return logoService.sugerirLogos(input)
+      }),
+
+    // ── Perfis dos sócios nas redes (preparo de reunião) ────────
+    //
+    // Guarda o ENDEREÇO do perfil, nunca o que a pessoa publica. Leitura sob a
+    // permissão do cadastro; escrita sob `edit_details`, porque confirmar um
+    // perfil é afirmar que aquela pessoa é aquela.
+    listPerfisSocios: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => {
+        if (!socioPerfisService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Perfis de sócios indisponível.' })
+        return socioPerfisService.listarPorCliente(input.clienteId)
+      }),
+
+    // Aplica de uma vez o que só preenche campo vazio — ver o comentário do
+    // service para a diferença entre preencher e sobrescrever.
+    preencherVaziosDossie: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ clienteId: z.string() }))
+      .mutation(({ input, ctx }) => {
+        if (!dossieService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Dossiê indisponível.' })
+        return dossieService.preencherVazios(input.clienteId, ctx.userId ?? undefined)
+      }),
+
+    // Atalhos das consultas públicas sobre pessoa física. Só a LISTA vem do
+    // servidor; quem troca {cpf} e {nome} é a tela, por sócio.
+    listConsultasPublicas: readProcedure(MODULE)
+      .query(() => consultasPublicas()),
+
+    // Onde mais os sócios aparecem, dentro da própria carteira.
+    listParticipacoesSocios: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => {
+        if (!socioPerfisService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Perfis de sócios indisponível.' })
+        return socioPerfisService.participacoes(input.clienteId)
+      }),
+
+    addPerfilSocio: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({
+        socioId: z.string(),
+        rede: z.string().default('OUTRO'),
+        url: z.string().min(1),
+        observacao: z.string().optional().nullable(),
+      }))
+      .mutation(({ input, ctx }) => {
+        if (!socioPerfisService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Perfis de sócios indisponível.' })
+        return socioPerfisService.adicionar(input, ctx.userId ?? null)
+      }),
+
+    confirmarPerfilSocio: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => {
+        if (!socioPerfisService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Perfis de sócios indisponível.' })
+        return socioPerfisService.confirmar(input.id, ctx.userId ?? null)
+      }),
+
+    anotarPerfilSocio: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ id: z.string(), observacao: z.string().nullable() }))
+      .mutation(({ input }) => {
+        if (!socioPerfisService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Perfis de sócios indisponível.' })
+        return socioPerfisService.anotar(input.id, input.observacao)
+      }),
+
+    removerPerfilSocio: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => {
+        if (!socioPerfisService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Perfis de sócios indisponível.' })
+        return socioPerfisService.remover(input.id)
+      }),
+
+    sugerirPerfisSocio: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ socioId: z.string() }))
+      .mutation(({ input }) => {
+        if (!socioPerfisService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Perfis de sócios indisponível.' })
+        return socioPerfisService.sugerir(input.socioId)
       }),
 
     aplicarLogoSugerida: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')

@@ -19,6 +19,9 @@ export const createAreaSchema = z.object({
   costType: z.enum(['DIRECT', 'INDIRECT']).default('DIRECT'),
   costWeight: z.coerce.number().min(0, 'Peso deve ser positivo').default(1),
   excludeFromCosting: z.boolean().default(false),
+  // #367 (espelho) — se a área pode ser notificada em orçamentos. NÃO é coluna da
+  // Area: espelha o vínculo OrcamentoAreaHabilitada (o service sincroniza no save).
+  notificavelOrcamento: z.boolean().default(false),
 })
 
 export const updateAreaSchema = createAreaSchema.partial()
