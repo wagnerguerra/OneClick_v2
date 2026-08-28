@@ -3,6 +3,8 @@ import { prisma } from '@saas/db'
 import { CadeiaProvedoresService } from './cadeia-provedores.service'
 import { detectarDivergencias, CAMPOS_AUTOMATICOS, type CadastroComparavel } from './divergencias'
 import type { DadosCnpj } from './provedor-cnpj'
+import { perfisDoSite } from './redes-sociais'
+import { buscarComGuarda } from '../../common/fetch-seguro'
 
 /**
  * Orquestra o dossiê: consulta, guarda com procedência, compara com o cadastro
@@ -153,6 +155,7 @@ export class DossieService {
       where: { id: clienteId },
       select: {
         id: true, documento: true, cnpjAcessorias: true, tipoDocumento: true,
+        email: true,
         razaoSocial: true, nomeFantasia: true, cnaePrincipal: true,
         inscricaoEstadual: true, capitalSocial: true,
         cep: true, logradouro: true, numero: true, bairro: true, cidade: true, uf: true,
@@ -245,9 +248,57 @@ export class DossieService {
       detalhe: divergencias > 0 ? `${divergencias} divergência(s) para decidir` : 'sem divergências',
     })
 
+    passo?.({ chave: 'redes', rotulo: 'Procurando as redes sociais no site da empresa', status: 'rodando' })
+    const redes = await this.coletarRedes(clienteId, cliente.email, dados.email)
+    passo?.({
+      chave: 'redes', rotulo: 'Procurando as redes sociais no site da empresa', status: 'ok',
+      detalhe: redes > 0 ? `${redes} perfil(is)` : 'nenhum perfil no site',
+    })
+
     if (opts?.usuarioId) await this.registrarAcesso(clienteId, opts.usuarioId, 'atualizou')
 
     return { clienteId, ok: true, fonte: dados.fonte, divergencias, aplicadosDireto }
+  }
+
+  /**
+   * Perfis da empresa nas redes, lidos do rodapé do próprio site.
+   *
+   * Não é palpite: o link está publicado lá por quem fez o site. O domínio sai
+   * do e-mail do cadastro ou do que a Receita devolveu — o mesmo caminho que a
+   * busca de logomarca usa.
+   */
+  private async coletarRedes(
+    clienteId: string,
+    emailCadastro: string | null,
+    emailReceita: string | null,
+  ): Promise<number> {
+    const dominio = this.dominioDeEmail(emailCadastro) || this.dominioDeEmail(emailReceita)
+    if (!dominio) return 0
+
+    const perfis = await perfisDoSite(dominio, (url) => buscarComGuarda(url, { redirect: 'follow' }))
+    if (perfis.length === 0) return 0
+
+    await this.upsertFato(clienteId, 'redes', 'perfis', {
+      valorJson: perfis as never,
+      fonte: `site (${dominio})`,
+      urlFonte: `https://${dominio}`,
+      // Não é dado oficial da Receita: é o que a empresa publica de si mesma.
+      oficial: false,
+      coletadoEm: new Date(),
+    })
+    return perfis.length
+  }
+
+  /** Provedor gratuito não é o domínio da empresa; o resto é. */
+  private dominioDeEmail(bruto: string | null | undefined): string {
+    const m = String(bruto ?? '').match(/[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/)
+    const d = (m?.[1] ?? '').toLowerCase().replace(/\.$/, '')
+    const GRATUITOS = new Set([
+      'gmail.com', 'hotmail.com', 'hotmail.com.br', 'outlook.com', 'outlook.com.br',
+      'yahoo.com', 'yahoo.com.br', 'uol.com.br', 'bol.com.br', 'terra.com.br',
+      'live.com', 'icloud.com', 'globo.com', 'ig.com.br', 'me.com', 'msn.com',
+    ])
+    return d && !GRATUITOS.has(d) ? d : ''
   }
 
   private async coletaDentroDoTtl(clienteId: string) {

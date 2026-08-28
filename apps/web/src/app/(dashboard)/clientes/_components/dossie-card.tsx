@@ -15,7 +15,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   FileSearch, RefreshCw, Loader2, Check, X, AlertTriangle, ChevronDown,
-  Building2, Activity, MapPin, Users, Receipt, ShieldCheck, ExternalLink,
+  Building2, Activity, MapPin, Users, Receipt, ShieldCheck, ExternalLink, Share2,
 } from 'lucide-react'
 import {
   Button, Card, Badge, cn,
@@ -164,6 +164,30 @@ function formatarCpf(doc: string): string {
     : doc
 }
 
+type PerfilAchado = { rede: string; url: string; identificador: string }
+
+type PerfilSocio = {
+  id: string
+  rede: string
+  url: string
+  identificador: string | null
+  observacao: string | null
+  origem: string
+  confirmado: boolean
+}
+
+type SocioComPerfis = {
+  id: string
+  nomeCompleto: string
+  cpf: string
+  perfisSociais: PerfilSocio[]
+}
+
+const ROTULO_REDE: Record<string, string> = {
+  INSTAGRAM: 'Instagram', FACEBOOK: 'Facebook', LINKEDIN: 'LinkedIn',
+  X: 'X', YOUTUBE: 'YouTube', TIKTOK: 'TikTok', OUTRO: 'Perfil',
+}
+
 type Passo = { chave: string; rotulo: string; status: 'rodando' | 'ok' | 'erro'; detalhe?: string }
 
 export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
@@ -179,6 +203,10 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
   const [decidindo, setDecidindo] = useState<string | null>(null)
   // Painel de progresso da coleta. Fica aberto até o usuário fechar — quem
   // acompanhou os passos costuma querer reler o que cada provedor respondeu.
+  const [sociosComPerfis, setSociosComPerfis] = useState<SocioComPerfis[]>([])
+  const [socioAberto, setSocioAberto] = useState<string | null>(null)
+  const [urlNova, setUrlNova] = useState('')
+  const [ocupadoSocio, setOcupadoSocio] = useState<string | null>(null)
   const [passos, setPassos] = useState<Passo[]>([])
   const [painelAberto, setPainelAberto] = useState(false)
   const [conclusao, setConclusao] = useState<string | null>(null)
@@ -196,7 +224,19 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
     } finally { setCarregando(false) }
   }, [clienteId])
 
+  // Perfis vêm em chamada própria: são de outra tabela e mudam por ação do
+  // usuário, sem precisar recoletar o dossiê inteiro.
+  const carregarSocios = useCallback(async () => {
+    try {
+      const r = await (trpc.cliente as never as {
+        listPerfisSocios: { query: (i: { clienteId: string }) => Promise<SocioComPerfis[]> }
+      }).listPerfisSocios.query({ clienteId })
+      setSociosComPerfis(r)
+    } catch { /* sem perfis, o resto do dossiê continua servindo */ }
+  }, [clienteId])
+
   useEffect(() => { void carregar() }, [carregar])
+  useEffect(() => { void carregarSocios() }, [carregarSocios])
 
   /**
    * A coleta é lida como STREAM: o backend narra cada passo (cache, provedor
@@ -265,6 +305,48 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
     } finally { setAtualizando(false) }
   }
 
+  async function adicionarPerfil(socioId: string) {
+    const url = urlNova.trim()
+    if (!url) return
+    setOcupadoSocio(socioId)
+    try {
+      await (trpc.cliente as never as {
+        addPerfilSocio: { mutate: (i: { socioId: string; url: string; rede: string }) => Promise<unknown> }
+      }).addPerfilSocio.mutate({ socioId, url, rede: 'OUTRO' })
+      setUrlNova('')
+      await carregarSocios()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setOcupadoSocio(null) }
+  }
+
+  async function sugerirPerfis(socioId: string) {
+    setOcupadoSocio(socioId)
+    try {
+      const r = await (trpc.cliente as never as {
+        sugerirPerfisSocio: { mutate: (i: { socioId: string }) => Promise<{ sugeridos: number; aviso?: string }> }
+      }).sugerirPerfisSocio.mutate({ socioId })
+      await carregarSocios()
+      if (r.aviso) alerts.info('Busca de perfis', r.aviso)
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setOcupadoSocio(null) }
+  }
+
+  async function confirmarPerfil(id: string) {
+    try {
+      await (trpc.cliente as never as { confirmarPerfilSocio: { mutate: (i: { id: string }) => Promise<unknown> } })
+        .confirmarPerfilSocio.mutate({ id })
+      await carregarSocios()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
+  async function removerPerfil(id: string) {
+    try {
+      await (trpc.cliente as never as { removerPerfilSocio: { mutate: (i: { id: string }) => Promise<unknown> } })
+        .removerPerfilSocio.mutate({ id })
+      await carregarSocios()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
   async function decidir(id: string, decisao: 'aprovada' | 'rejeitada') {
     setDecidindo(id)
     try {
@@ -281,6 +363,8 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
   const fiscal = dossie?.blocos.fiscal ?? []
   const cnaes = (receita.find(f => f.campo === 'cnaes')?.valorJson as Cnae[] | undefined) ?? []
   const socios = (receita.find(f => f.campo === 'socios')?.valorJson as Socio[] | undefined) ?? []
+  const perfisEmpresa = ((dossie?.blocos?.redes ?? [])
+    .find(f => f.campo === 'perfis')?.valorJson as PerfilAchado[] | undefined) ?? []
 
   const conteudo = (
     <>
@@ -424,6 +508,150 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
                   </p>
                 </>
               )}
+          </Bloco>
+
+          <Bloco titulo="Redes sociais" icone={Share2} aberto={false}>
+            {/* Da EMPRESA: o link está publicado no rodapé do próprio site,
+                então não há palpite — vem sozinho na coleta. */}
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Da empresa
+            </p>
+            {perfisEmpresa.length === 0 ? (
+              <p className="py-1 text-sm text-muted-foreground">
+                Nenhum perfil encontrado no site da empresa.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {perfisEmpresa.map(perfil => (
+                  <a
+                    key={perfil.url}
+                    href={perfil.url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/20 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted"
+                  >
+                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                    <span className="font-medium">{ROTULO_REDE[perfil.rede] ?? perfil.rede}</span>
+                    <span className="text-muted-foreground">@{perfil.identificador}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {/* Dos SÓCIOS: aqui não há certeza nenhuma. Homônimo é regra, então
+                o que a busca acha fica marcado como "a conferir" até alguém
+                abrir, olhar e confirmar que é a pessoa certa. */}
+            <p className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Dos sócios
+            </p>
+            {socios.length === 0 && (
+              <p className="py-1 text-sm text-muted-foreground">
+                Nenhum sócio cadastrado. Importe o QSA na aba Legalização.
+              </p>
+            )}
+            <div className="space-y-2">
+              {sociosComPerfis.map(socio => {
+                const aberto = socioAberto === socio.id
+                const confirmados = socio.perfisSociais.filter(x => x.confirmado)
+                return (
+                  <div key={socio.id} className="rounded-lg border border-border">
+                    <button
+                      type="button"
+                      onClick={() => { setSocioAberto(aberto ? null : socio.id); setUrlNova('') }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left"
+                    >
+                      <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', !aberto && '-rotate-90')} />
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{socio.nomeCompleto}</span>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        {confirmados.length > 0
+                          ? `${confirmados.length} perfil(is)`
+                          : socio.perfisSociais.length > 0 ? `${socio.perfisSociais.length} a conferir` : 'sem perfil'}
+                      </span>
+                    </button>
+
+                    {aberto && (
+                      <div className="space-y-2 border-t border-border px-3 py-2.5">
+                        {socio.perfisSociais.map(perfil => (
+                          <div key={perfil.id} className="flex items-center gap-2 text-sm">
+                            <a
+                              href={perfil.url} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex min-w-0 flex-1 items-center gap-1.5 text-foreground hover:underline"
+                            >
+                              <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              <span className="shrink-0 font-medium">{ROTULO_REDE[perfil.rede] ?? perfil.rede}</span>
+                              <span className="truncate text-muted-foreground">
+                                {perfil.identificador ? `@${perfil.identificador}` : perfil.url}
+                              </span>
+                            </a>
+                            {!perfil.confirmado && (
+                              <>
+                                <span className="shrink-0 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                                  a conferir
+                                </span>
+                                {podeAtualizar && (
+                                  <Button
+                                    variant="soft" size="icon-sm" title="É esta pessoa — confirmar"
+                                    onClick={() => void confirmarPerfil(perfil.id)}
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            {podeAtualizar && (
+                              <Button
+                                variant="soft-destructive" size="icon-sm" title="Remover"
+                                onClick={() => void removerPerfil(perfil.id)}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+
+                        {socio.perfisSociais.length === 0 && (
+                          <p className="text-xs italic text-muted-foreground">
+                            Nenhum perfil ainda. Cole o endereço abaixo, ou peça uma busca.
+                          </p>
+                        )}
+
+                        {podeAtualizar && (
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <input
+                              value={urlNova}
+                              onChange={e => setUrlNova(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void adicionarPerfil(socio.id) } }}
+                              placeholder="https://instagram.com/perfil"
+                              className="h-8 min-w-[220px] flex-1 rounded-md border border-border bg-background px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                            <Button
+                              size="sm" variant="outline" className="h-8"
+                              disabled={!urlNova.trim() || ocupadoSocio === socio.id}
+                              onClick={() => void adicionarPerfil(socio.id)}
+                            >
+                              Adicionar
+                            </Button>
+                            <Button
+                              size="sm" variant="outline" className="h-8 gap-1.5"
+                              disabled={ocupadoSocio === socio.id}
+                              onClick={() => void sugerirPerfis(socio.id)}
+                            >
+                              {ocupadoSocio === socio.id
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <FileSearch className="h-3.5 w-3.5" />}
+                              Procurar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            <p className="mt-3 text-[11px] text-muted-foreground/80">
+              Só o endereço do perfil fica guardado — o conteúdo é aberto na rede, na hora.
+              O que a busca acha entra como &ldquo;a conferir&rdquo;: nome igual não é a mesma pessoa.
+            </p>
           </Bloco>
 
           <Bloco titulo="Fiscal" icone={Receipt} aberto={false}>

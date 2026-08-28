@@ -2404,10 +2404,46 @@ model Socio {
   arquivos             SocioArquivo[]
   mensagens            SocioMensagem[]
   certificadosDigitais CertificadoDigital[] @relation("CertificadoSocio")
+  perfisSociais        SocioPerfilSocial[]
 
   @@index([cpf])
   @@index([clienteId])
   @@map("socios")
+}
+
+/// Perfil público de um sócio numa rede social — o que o comercial já procurava
+/// à mão antes de uma reunião, agora guardado.
+///
+/// Só o ENDEREÇO do perfil fica aqui, nunca uma cópia do que a pessoa publica:
+/// o objetivo é abrir o perfil na hora, não manter arquivo do que ela postou.
+///
+/// `confirmado` existe porque busca por nome erra muito — homônimo é regra, não
+/// exceção. O que a busca acha nasce como SUGESTÃO e só vira perfil do sócio
+/// quando uma pessoa confere e confirma.
+model SocioPerfilSocial {
+  id      String @id @default(cuid())
+  socioId String @map("socio_id")
+
+  /// INSTAGRAM | FACEBOOK | LINKEDIN | X | YOUTUBE | TIKTOK | OUTRO
+  rede       String
+  url        String  @db.Text
+  identificador String? @map("identificador")
+  observacao String? @db.Text
+
+  /// manual (alguém colou o link) | sugerido (veio da busca)
+  origem     String  @default("manual")
+  confirmado Boolean @default(false)
+
+  criadoPor     String?   @map("criado_por")
+  criadoEm      DateTime  @default(now()) @map("criado_em")
+  confirmadoPor String?   @map("confirmado_por")
+  confirmadoEm  DateTime? @map("confirmado_em")
+
+  socio Socio @relation(fields: [socioId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([socioId, url])
+  @@index([socioId, confirmado])
+  @@map("socio_perfis_sociais")
 }
 
 model SocioArquivo {

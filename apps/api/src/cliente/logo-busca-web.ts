@@ -91,14 +91,18 @@ export function logodevCandidatas(dominio: string, nome: string): CandidataWeb[]
  * porque o contêiner caiu seria trocar um resultado a menos por uma tela
  * quebrada.
  */
-export async function searxngImagens(termo: string, limite = 8): Promise<CandidataWeb[]> {
+async function searxng(
+  termo: string,
+  categorias: 'images' | 'general',
+  limite: number,
+): Promise<CandidataWeb[]> {
   const base = (process.env.SEARXNG_URL ?? '').trim().replace(/\/+$/, '')
   const alvo = termo.trim()
   if (!base || !alvo) return []
 
   const params = new URLSearchParams({
     q: alvo,
-    categories: 'images',
+    categories: categorias,
     format: 'json',
     safesearch: '1',
   })
@@ -109,11 +113,12 @@ export async function searxngImagens(termo: string, limite = 8): Promise<Candida
     const res = await fetch(`${base}/search?${params}`, { signal: ctrl.signal })
     if (!res.ok) return []
     const dados = await res.json() as {
-      results?: Array<{ img_src?: string; engine?: string }>
+      results?: Array<{ img_src?: string; url?: string; engine?: string }>
     }
     return (dados.results ?? [])
       .map(r => ({
-        url: String(r.img_src ?? ''),
+        // Em `images` o que interessa é o arquivo; em `general`, a página.
+        url: String((categorias === 'images' ? r.img_src : r.url) ?? ''),
         fonte: `busca web (${r.engine || 'SearXNG'})`,
       }))
       .filter(c => /^https?:\/\//i.test(c.url))
@@ -123,6 +128,15 @@ export async function searxngImagens(termo: string, limite = 8): Promise<Candida
   } finally {
     clearTimeout(t)
   }
+}
+
+export function searxngImagens(termo: string, limite = 8): Promise<CandidataWeb[]> {
+  return searxng(termo, 'images', limite)
+}
+
+/** Busca de páginas — é o que serve para achar perfil de rede social. */
+export function searxngPaginas(termo: string, limite = 20): Promise<CandidataWeb[]> {
+  return searxng(termo, 'general', limite)
 }
 
 /** Tudo que as fontes configuradas têm a oferecer, sem repetir URL. */

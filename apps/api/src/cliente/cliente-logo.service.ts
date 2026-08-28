@@ -3,8 +3,7 @@ import { prisma } from '@saas/db'
 import { randomUUID } from 'crypto'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
-import { lookup as dnsLookup } from 'dns/promises'
-import { isIP } from 'net'
+import { buscarComGuarda } from '../common/fetch-seguro'
 import { candidatasDaWeb, temBuscaWeb, type CandidataWeb } from './logo-busca-web'
 
 /**
@@ -146,7 +145,7 @@ export class ClienteLogoService {
   /** Palpite só vale se o endereço existir de verdade. */
   private async dominioResponde(dominio: string): Promise<boolean> {
     for (const base of [`https://${dominio}`, `https://www.${dominio}`]) {
-      const r = await this.buscarComGuarda(base, { redirect: 'follow' }).catch(() => null)
+      const r = await buscarComGuarda(base, { redirect: 'follow' }).catch(() => null)
       if (r?.ok) return true
     }
     return false
@@ -297,7 +296,7 @@ export class ClienteLogoService {
   private async doSite(dominio: string): Promise<string[]> {
     for (const base of [`https://${dominio}`, `https://www.${dominio}`]) {
       try {
-        const resp = await this.buscarComGuarda(base, { redirect: 'follow' })
+        const resp = await buscarComGuarda(base, { redirect: 'follow' })
         if (!resp?.ok) continue
         const tipo = resp.headers.get('content-type') || ''
         if (!tipo.includes('html')) continue
@@ -343,48 +342,10 @@ export class ClienteLogoService {
    * 127.0.0.1 ou para a rede interna faria a API buscar a si mesma ou a um
    * serviço que só existe atrás do firewall (SSRF).
    */
-  private async buscarComGuarda(url: string, init?: RequestInit): Promise<Response | null> {
-    let alvo: URL
-    try { alvo = new URL(url) } catch { return null }
-    if (alvo.protocol !== 'https:') return null
-    if (!(await this.hostEhPublico(alvo.hostname))) return null
-    try {
-      return await fetch(alvo.toString(), { ...init, signal: AbortSignal.timeout(10_000) })
-    } catch { return null }
-  }
-
-  private async hostEhPublico(hostname: string): Promise<boolean> {
-    try {
-      const enderecos = isIP(hostname)
-        ? [{ address: hostname, family: isIP(hostname) }]
-        : await dnsLookup(hostname, { all: true })
-      if (enderecos.length === 0) return false
-      return enderecos.every(e => this.ipEhPublico(e.address))
-    } catch { return false }
-  }
-
-  private ipEhPublico(ip: string): boolean {
-    if (ip.includes(':')) {
-      const v6 = ip.toLowerCase()
-      // ::1 (loopback), fc00::/7 (privado), fe80::/10 (link-local)
-      return !(v6 === '::1' || v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe8')
-        || v6.startsWith('fe9') || v6.startsWith('fea') || v6.startsWith('feb'))
-    }
-    const p = ip.split('.').map(Number)
-    if (p.length !== 4 || p.some(n => !Number.isInteger(n))) return false
-    const [a, b] = p as [number, number, number, number]
-    if (a === 10 || a === 127 || a === 0) return false
-    if (a === 172 && b >= 16 && b <= 31) return false
-    if (a === 192 && b === 168) return false
-    if (a === 169 && b === 254) return false // link-local / metadata da nuvem
-    if (a === 100 && b >= 64 && b <= 127) return false // CGNAT
-    return true
-  }
-
   // ── Medição ──────────────────────────────────────────────────
 
   private async medirImagem(url: string): Promise<LogoSugerida | null> {
-    const resp = await this.buscarComGuarda(url, { redirect: 'follow' })
+    const resp = await buscarComGuarda(url, { redirect: 'follow' })
     if (!resp?.ok) return null
     const tipo = (resp.headers.get('content-type') || '').split(';')[0]?.trim() ?? ''
     if (!tipo.startsWith('image/')) return null
@@ -481,7 +442,7 @@ export class ClienteLogoService {
 
   /** Baixa a imagem escolhida para o nosso `uploads/` e grava em `logoUrl`. */
   async aplicarLogoSugerida(clienteId: string, url: string) {
-    const resp = await this.buscarComGuarda(url, { redirect: 'follow' })
+    const resp = await buscarComGuarda(url, { redirect: 'follow' })
     if (!resp?.ok) throw new Error('Não foi possível baixar a imagem escolhida.')
     const tipo = (resp.headers.get('content-type') || '').split(';')[0]?.trim() ?? ''
     if (!tipo.startsWith('image/')) throw new Error('O endereço não devolveu uma imagem.')

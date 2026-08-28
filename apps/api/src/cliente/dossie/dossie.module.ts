@@ -9,6 +9,7 @@ import { DossieService } from './dossie.service'
 import { DossieBackfillService } from './dossie-backfill.service'
 import { DossieSchedulerService } from './dossie.scheduler'
 import { DossieStreamController } from './dossie-stream.controller'
+import { SocioPerfisService } from './socio-perfis.service'
 
 /**
  * Dossiê do Cliente. Módulo próprio para não engordar o `ClienteModule`, que já
@@ -25,7 +26,8 @@ import { DossieStreamController } from './dossie-stream.controller'
     DossieService,
     DossieBackfillService,
     DossieSchedulerService,
+    SocioPerfisService,
   ],
-  exports: [DossieService, DossieBackfillService, DossieSchedulerService],
+  exports: [DossieService, DossieBackfillService, DossieSchedulerService, SocioPerfisService],
 })
 export class DossieModule {}
