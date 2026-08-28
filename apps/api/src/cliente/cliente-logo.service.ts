@@ -5,6 +5,7 @@ import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { lookup as dnsLookup } from 'dns/promises'
 import { isIP } from 'net'
+import { buscarImagensWeb, buscadorConfigurado, type CandidataWeb } from './logo-busca-web'
 
 /**
  * Logomarca do cliente: envio manual (que já existia) e busca na internet.
@@ -20,6 +21,17 @@ import { isIP } from 'net'
  *
  * A API da Clearbit, citada em todo tutorial de logo por domínio, está morta:
  * `logo.clearbit.com` não resolve nem para github.com. Ficou de fora.
+ *
+ * Além do domínio, há duas frentes para quem não tem site conhecido:
+ *
+ *  1. PALPITES DE DOMÍNIO a partir do nome fantasia / razão social
+ *     (`cardpack` → cardpack.com.br, cardpack.com…). Custa uma requisição por
+ *     palpite e resolve o caso comum da empresa que só tem e-mail de gmail.
+ *  2. BUSCA NA WEB ABERTA, em `logo-busca-web.ts`, quando há chave de buscador
+ *     configurada. É o único caminho que acha marca de quem não tem site.
+ *
+ * Nenhuma das duas substitui o site: quando ele existe e publica og:image, ele
+ * continua vindo primeiro, porque é a marca escolhida por quem fez o site.
  */
 
 const UPLOADS_DIR = join(process.cwd(), 'uploads')
@@ -93,6 +105,53 @@ export class ClienteLogoService {
   }
 
   /**
+   * Palpites de domínio a partir do nome da empresa.
+   *
+   * "CARDPACK COMERCIO E SERVICO LTDA" vira `cardpack`, e daí saem
+   * cardpack.com.br, cardpack.com e cardpack.ind.br. Não há adivinhação de
+   * graça: cada palpite custa uma requisição, então só as duas primeiras
+   * palavras entram e os sufixos param em três.
+   *
+   * As palavras de forma jurídica e de ramo ficam de fora — nenhuma empresa
+   * registra `comercio.com.br` por causa do próprio nome.
+   */
+  private palpitesDeDominio(nomes: Array<string | null | undefined>): string[] {
+    const RUIDO = new Set([
+      'ltda', 'me', 'epp', 'eireli', 'sa', 's', 'a', 'cia', 'comercio', 'comercial',
+      'servico', 'servicos', 'industria', 'industrial', 'e', 'de', 'da', 'do', 'das',
+      'dos', 'do', 'em', 'brasil', 'grupo', 'empresa', 'distribuidora', 'representacoes',
+    ])
+    const raizes: string[] = []
+    for (const nome of nomes) {
+      const palavras = String(nome ?? '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter(w => w.length >= 3 && !RUIDO.has(w))
+      if (palavras.length === 0) continue
+      // A primeira palavra sozinha, e as duas primeiras coladas: "cardpack" e
+      // "adriabrasil" nascem assim.
+      raizes.push(palavras[0]!)
+      if (palavras.length > 1) raizes.push(palavras[0]! + palavras[1]!)
+    }
+
+    const saida: string[] = []
+    for (const raiz of Array.from(new Set(raizes)).slice(0, 2)) {
+      for (const sufixo of ['.com.br', '.com', '.ind.br']) saida.push(raiz + sufixo)
+    }
+    return saida
+  }
+
+  /** Palpite só vale se o endereço existir de verdade. */
+  private async dominioResponde(dominio: string): Promise<boolean> {
+    for (const base of [`https://${dominio}`, `https://www.${dominio}`]) {
+      const r = await this.buscarComGuarda(base, { redirect: 'follow' }).catch(() => null)
+      if (r?.ok) return true
+    }
+    return false
+  }
+
+  /**
    * Um campo de e-mail do cadastro guarda coisas como
    * "fulano@empresa.com.br / contato@empresa.com.br" e até
    * "empresa.com.br/contato" — o domínio precisa sair limpo disso.
@@ -116,36 +175,80 @@ export class ClienteLogoService {
     let dominio = this.normalizarDominio(digitado)
     let origem = 'domínio digitado'
 
-    // Digitou algo que NÃO é endereço (o nome da empresa, por exemplo). Antes
-    // isso caía calado no domínio do cadastro e a tela dizia estar procurando
-    // em outro lugar — o texto do usuário sumia sem explicação.
-    if (digitado && !dominio) {
-      return {
-        logos: [], dominio: '', origem: 'termo inválido',
-        aviso: `"${digitado}" não é um endereço de site. A busca é pelo domínio da empresa — algo como empresa.com.br. `
-          + 'Procurar por nome não encontra logomarca.',
-      }
-    }
+    // Nome da empresa a partir do cadastro — alimenta tanto os palpites de
+    // domínio quanto a busca na web.
+    const cliente = input.clienteId
+      ? await prisma.cliente.findUnique({
+          where: { id: input.clienteId },
+          select: { razaoSocial: true, nomeFantasia: true },
+        }).catch(() => null)
+      : null
+
+    // Digitou algo que NÃO é endereço — o nome da empresa, tipicamente. Isso
+    // deixou de ser erro: vira termo de busca, e as duas primeiras palavras
+    // viram palpite de domínio.
+    const termoLivre = digitado && !dominio ? digitado : ''
 
     if (!dominio && input.clienteId) {
       const c = await this.dominiosCandidatos(input.clienteId)
       dominio = c.dominios[0] ?? ''
       origem = c.origem
     }
+
+    // Sem domínio no cadastro, tenta adivinhar pelo nome. Cada palpite custa
+    // uma requisição, então só entra aqui quando não há nada melhor.
     if (!dominio) {
+      const palpites = this.palpitesDeDominio(
+        termoLivre ? [termoLivre] : [cliente?.nomeFantasia, cliente?.razaoSocial],
+      )
+      for (const palpite of palpites) {
+        if (await this.dominioResponde(palpite)) {
+          dominio = palpite
+          origem = 'palpite pelo nome'
+          break
+        }
+      }
+    }
+
+    // Termo de busca da web: o que o usuário digitou, ou o nome do cadastro.
+    const nomeParaBusca = termoLivre || cliente?.nomeFantasia || cliente?.razaoSocial || ''
+    const temBuscador = buscadorConfigurado() !== null
+
+    if (!dominio && !(temBuscador && nomeParaBusca)) {
       return {
         logos: [], dominio: '', origem,
-        aviso: 'Não há domínio para procurar: o cliente não tem e-mail com domínio próprio. Digite o site dele.',
+        aviso: temBuscador
+          ? 'Não há por onde procurar: sem site conhecido e sem nome para buscar. Envie o arquivo.'
+          : 'Não achei o site da empresa. Digite o endereço dele, ou configure um buscador em '
+            + 'Configurações → Dossiê e Imagens para procurar pelo nome na internet.',
       }
     }
 
     const candidatas = new Set<string>()
-    // 1) O site da empresa é a melhor fonte: og:image e apple-touch-icon são
-    //    imagens grandes, escolhidas por quem fez o site.
-    for (const u of await this.doSite(dominio)) candidatas.add(u)
-    // 2) Serviços de ícone, como rede: sempre respondem algo, mas pequeno.
-    candidatas.add(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(dominio)}&sz=256`)
-    candidatas.add(`https://icons.duckduckgo.com/ip3/${encodeURIComponent(dominio)}.ico`)
+    const fonteWeb = new Map<string, string>()
+
+    if (dominio) {
+      // 1) O site da empresa é a melhor fonte: og:image e apple-touch-icon são
+      //    imagens grandes, escolhidas por quem fez o site.
+      for (const u of await this.doSite(dominio)) candidatas.add(u)
+      // 2) Serviços de ícone, como rede: sempre respondem algo, mas pequeno.
+      candidatas.add(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(dominio)}&sz=256`)
+      candidatas.add(`https://icons.duckduckgo.com/ip3/${encodeURIComponent(dominio)}.ico`)
+    }
+
+    // 3) A web aberta, quando há buscador configurado. Entra por último na
+    //    montagem, mas concorre de igual para igual na ordenação — o resultado
+    //    da busca costuma ser a marca em alta resolução, melhor que o favicon.
+    if (temBuscador && nomeParaBusca) {
+      const termo = `${nomeParaBusca} logomarca`
+      const achadas: CandidataWeb[] = await buscarImagensWeb(termo)
+      for (const c of achadas) {
+        if (candidatas.has(c.url)) continue
+        candidatas.add(c.url)
+        fonteWeb.set(c.url, c.fonte)
+      }
+      if (achadas.length > 0 && !dominio) origem = 'busca na web'
+    }
 
     const logos: LogoSugerida[] = []
     for (const url of candidatas) {
@@ -160,7 +263,7 @@ export class ClienteLogoService {
         const ladoOk = img.largura == null || Math.min(img.largura, img.altura ?? img.largura) >= LADO_MINIMO
         if (!ladoOk || img.bytes < 700) continue
       }
-      logos.push(img)
+      logos.push(fonteWeb.has(url) ? { ...img, fonte: fonteWeb.get(url)! } : img)
     }
 
     // Vetor primeiro: é o melhor resultado possível e não tem largura
@@ -168,10 +271,16 @@ export class ClienteLogoService {
     logos.sort((a, b) => Number(b.vetorial) - Number(a.vetorial)
       || (b.largura ?? 0) - (a.largura ?? 0)
       || b.bytes - a.bytes)
+    const alvo = dominio || nomeParaBusca
     return {
       logos, dominio, origem,
       ...(logos.length === 0
-        ? { aviso: `Nada aproveitável encontrado para ${dominio}. Tente outro endereço ou envie o arquivo.` }
+        ? {
+            aviso: `Nada aproveitável encontrado para ${alvo}.`
+              + (temBuscador
+                ? ' Tente outro endereço ou nome, ou envie o arquivo.'
+                : ' Um buscador configurado em Configurações → Dossiê e Imagens ampliaria a procura para a web toda.'),
+          }
         : {}),
     }
   }

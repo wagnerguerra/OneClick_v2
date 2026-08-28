@@ -122,6 +122,10 @@ const CONFIG_FIELDS: ConfigField[] = [
 
   // Dossiê do Cliente e capa — fontes externas de dados e de imagem
   { key: 'PEXELS_API_KEY', label: 'API Key (Pexels)', group: 'Dossiê e Imagens', type: 'password', secret: true, help: 'Chave gratuita de pexels.com/api — habilita as fotos sugeridas em "Alterar capa" no cliente. Sem ela, só o envio manual funciona' },
+  { key: 'GOOGLE_CSE_KEY', label: 'API Key (Google Programmable Search)', group: 'Dossiê e Imagens', type: 'password', secret: true, help: 'Habilita a busca de logomarca na web aberta, pelo NOME da empresa — hoje a procura depende de descobrir o site. 100 buscas/dia no plano gratuito. Precisa da chave E do ID abaixo' },
+  { key: 'GOOGLE_CSE_CX', label: 'ID do mecanismo (Google, cx)', group: 'Dossiê e Imagens', type: 'text', placeholder: 'a1b2c3d4e5f6g7h8i', help: 'Crie em programmablesearchengine.google.com com "Pesquisar em toda a web" e "Pesquisa de imagens" ligados' },
+  { key: 'BRAVE_SEARCH_KEY', label: 'API Key (Brave Search)', group: 'Dossiê e Imagens', type: 'password', secret: true, help: 'Alternativa ao Google para a mesma busca de logomarca: 2.000 buscas/mês no plano gratuito e sem mecanismo para configurar. Só é usada quando o Google acima está vazio' },
+
   { key: 'DOSSIE_PROVEDORES', label: 'Ordem dos provedores de CNPJ', group: 'Dossiê e Imagens', type: 'text', placeholder: 'opencnpj,brasilapi,serpro', help: 'Vazio usa opencnpj,brasilapi,serpro. As duas primeiras são gratuitas; o SERPRO é pago por consulta e só entra quando as públicas falham' },
   { key: 'DOSSIE_SITUACAO_ENABLED', label: 'Revalidar situação cadastral diariamente', group: 'Dossiê e Imagens', type: 'text', default: '0', help: '1 = liga o job diário que avisa quando um cliente ativo é baixado, suspenso ou declarado inapto na Receita' },
   { key: 'DOSSIE_SITUACAO_CRON', label: 'Horário da revalidação', group: 'Dossiê e Imagens', type: 'text', placeholder: '0 6 * * *', help: 'Formato cron. Padrão: todo dia às 6h' },

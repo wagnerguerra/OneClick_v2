@@ -1,7 +1,8 @@
 'use client'
 
 /**
- * Logomarca do cliente — envio manual ou busca pelo domínio da empresa.
+ * Logomarca do cliente — envio manual ou busca na internet, pelo site da
+ * empresa ou pelo nome dela.
  *
  * A busca parte do domínio (que costuma estar no e-mail do cadastro) e olha
  * onde a marca de fato mora: o site da empresa e os serviços de ícone. Não
@@ -25,6 +26,15 @@ type Logo = {
   vetorial: boolean
 }
 type Sugestoes = { logos: Logo[]; dominio: string; origem: string; aviso?: string }
+
+/**
+ * A origem vira frase. "e-mail do cadastro" pede "veio do"; "palpite pelo nome"
+ * e "busca na web" já são frases inteiras e ficariam tortas com o prefixo.
+ */
+function rotuloOrigem(origem: string): string {
+  if (origem.startsWith('e-mail')) return `veio do ${origem}`
+  return origem
+}
 
 type Props = {
   open: boolean
@@ -108,7 +118,7 @@ export function LogoClienteModal({ open, onOpenChange, clienteId, onAplicada }: 
         <DialogHeaderIcon icon={ImageIcon} color="sky">
           <DialogTitle>Logomarca do cliente</DialogTitle>
           <DialogDescription>
-            Envie o arquivo ou procure pela marca a partir do domínio da empresa.
+            Envie o arquivo ou procure pela marca — pelo site da empresa ou pelo nome dela.
           </DialogDescription>
         </DialogHeaderIcon>
 
@@ -164,7 +174,7 @@ export function LogoClienteModal({ open, onOpenChange, clienteId, onAplicada }: 
                     value={dominio}
                     onChange={(e) => setDominio(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void buscar(dominio) } }}
-                    placeholder="site da empresa — ex.: adriabrasil.com"
+                    placeholder="site ou nome da empresa — ex.: adriabrasil.com"
                     className="h-9 pl-8 text-sm"
                   />
                 </div>
@@ -176,7 +186,7 @@ export function LogoClienteModal({ open, onOpenChange, clienteId, onAplicada }: 
               {sug && sug.dominio && (
                 <p className="text-xs text-muted-foreground">
                   Procurando em <span className="font-medium text-foreground">{sug.dominio}</span>
-                  {sug.origem && sug.origem !== 'domínio digitado' ? <> · veio do {sug.origem}</> : null}
+                  {sug.origem && sug.origem !== 'domínio digitado' ? <> · {rotuloOrigem(sug.origem)}</> : null}
                 </p>
               )}
 
