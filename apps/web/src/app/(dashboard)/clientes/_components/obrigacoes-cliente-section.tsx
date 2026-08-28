@@ -16,7 +16,8 @@ import {
 import { MioloColapsavel } from './card-colapsavel'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
-import { BADGE, TEXT, SURFACE, BORDER, type ColorName } from '@/lib/color-styles'
+import { BADGE, TEXT, SURFACE, BORDER } from '@/lib/color-styles'
+import { areaTone } from '../_lib/area-tone'
 import { useClientesPerms } from './use-clientes-perms'
 import { alerts } from '@/lib/alerts'
 
@@ -64,22 +65,10 @@ interface AreaResponsavel {
   substitutoNome: string | null
 }
 
-/**
- * Cor de cada área/categoria de serviço NESTE módulo → deriva de color-styles (fonte
- * única, com tema escuro). Área = Categoria; a mesma cor vale para as pílulas de
- * categoria e para o card de responsáveis. Ver apps/web/src/lib/color-styles.ts.
- */
-const AREA_TONE: Record<string, ColorName> = {
-  Fiscal: 'indigo',
-  Trabalhista: 'lime',
-  'Contábil': 'violet',
-  'Legalização': 'fuchsia',
-}
-
-/** Classe de badge da categoria (via BADGE de color-styles); vazio quando a categoria não é mapeada. */
+/** Classe de badge da categoria — cor via a fonte única `areaTone` (BADGE, dark-correto).
+ *  A mesma cor vale para as pílulas de categoria e para o card de responsáveis. */
 function categoriaBadge(categoria: string): string {
-  const tone = AREA_TONE[categoria]
-  return tone ? BADGE[tone] : ''
+  return BADGE[areaTone(categoria)]
 }
 
 function iniciais(nome: string): string {
@@ -318,24 +307,24 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             {areasResponsaveis.map((ar) => {
-              const areaTone = AREA_TONE[ar.areaNome] ?? 'slate'
+              const tone = areaTone(ar.areaNome)
               return (
                 <div key={ar.areaId} className="relative">
                   <button
                     type="button"
                     disabled={!canManageResponsible}
                     onClick={() => { if (!canManageResponsible) return; setEditArea(editArea === ar.areaId ? null : ar.areaId) }}
-                    className={cn('group w-full text-left rounded-md border p-2.5 flex items-center gap-2.5 transition', canManageResponsible && 'hover:brightness-[0.97]', SURFACE[areaTone])}
+                    className={cn('group w-full text-left rounded-md border p-2.5 flex items-center gap-2.5 transition', canManageResponsible && 'hover:brightness-[0.97]', SURFACE[tone])}
                     title={canManageResponsible ? 'Clique para atribuir responsável/substituto' : 'Sem permissão para gerenciar responsáveis'}
                   >
                     <div className={cn(
                       'h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
-                      ar.responsavelNome ? 'bg-card text-foreground border-2 ' + BORDER[areaTone] : 'bg-muted/50 text-muted-foreground border border-dashed',
+                      ar.responsavelNome ? 'bg-card text-foreground border-2 ' + BORDER[tone] : 'bg-muted/50 text-muted-foreground border border-dashed',
                     )}>
                       {ar.responsavelNome ? iniciais(ar.responsavelNome) : '?'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className={cn('text-[10px] uppercase tracking-wide font-semibold', TEXT[areaTone])}>
+                      <div className={cn('text-[10px] uppercase tracking-wide font-semibold', TEXT[tone])}>
                         {ar.areaNome}
                       </div>
                       {ar.responsavelNome ? (
@@ -515,8 +504,8 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
         </div>
 
         {selected.size > 0 && (
-          <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2">
-            <span className="text-xs font-medium text-amber-900">
+          <div className={cn('flex items-center justify-between border-b px-4 py-2', SURFACE.amber)}>
+            <span className="text-xs font-medium text-amber-900 dark:text-amber-200">
               {selected.size} obrigação(ões) selecionada(s)
             </span>
             <div className="flex items-center gap-2">

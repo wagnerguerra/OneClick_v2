@@ -26,6 +26,8 @@ import {
   cn,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BADGE } from '@/lib/color-styles'
+import { areaTone } from './_lib/area-tone'
 import { trpc } from '@/lib/trpc'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { alerts } from '@/lib/alerts'
@@ -415,18 +417,19 @@ export default function ClientesPage() {
     return tipo === 'CPF' ? masks.cpf(doc) : masks.cnpj(doc)
   }
 
-  // Identidade visual dos badges de área: cor base + ícone (chave normalizada
-  // sem acento). Pílula com fundo suave tintado, texto/borda na cor, rótulo = nome.
-  const AREA_BADGE_MAP: Record<string, { color: string; Icon: LucideIcon }> = {
-    contabil: { color: '#0284c7', Icon: Calculator },
-    fiscal: { color: '#475569', Icon: FileText },
-    trabalhista: { color: '#16a34a', Icon: Users },
-    societario: { color: '#7c3aed', Icon: Briefcase },
-    legalizacao: { color: '#e11d48', Icon: Building2 },
-    administrativo: { color: '#64748b', Icon: ClipboardList },
-    financeiro: { color: '#0891b2', Icon: Wallet },
-    pessoal: { color: '#ea580c', Icon: UserCog },
-    dp: { color: '#ea580c', Icon: UserCog },
+  // Ícone por área (chave normalizada, sem acento). A COR vem da fonte única
+  // `areaTone` (→ BADGE do color-styles, dark-correto) — a mesma de /clientes/[id]
+  // aba Obrigações. O ícone herda a cor do texto do badge (currentColor).
+  const AREA_ICON: Record<string, LucideIcon> = {
+    contabil: Calculator,
+    fiscal: FileText,
+    trabalhista: Users,
+    societario: Briefcase,
+    legalizacao: Building2,
+    administrativo: ClipboardList,
+    financeiro: Wallet,
+    pessoal: UserCog,
+    dp: UserCog,
   }
 
   function renderAreas(areas: string | null) {
@@ -437,17 +440,14 @@ export default function ClientesPage() {
           const trimmed = area.trim()
           if (!trimmed) return null
           const key = trimmed.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          const conf = AREA_BADGE_MAP[key]
-          const color = conf?.color || '#6b7280'
-          const Icon = conf?.Icon || Tag
+          const Icon = AREA_ICON[key] ?? Tag
           return (
             <span
               key={trimmed}
               title={trimmed}
-              className="inline-flex items-center gap-1 rounded-[4px] border px-1.5 py-[1px] text-[9px] font-semibold uppercase leading-tight tracking-wide"
-              style={{ backgroundColor: `${color}14`, color, borderColor: `${color}40` }}
+              className={cn('inline-flex items-center gap-1 rounded-[4px] border px-1.5 py-[1px] text-[9px] font-semibold uppercase leading-tight tracking-wide', BADGE[areaTone(trimmed)])}
             >
-              <Icon className="h-2.5 w-2.5 shrink-0" style={{ color }} />
+              <Icon className="h-2.5 w-2.5 shrink-0" />
               {trimmed}
             </span>
           )
