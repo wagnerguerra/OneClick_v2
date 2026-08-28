@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { Card, Button } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { SURFACE, TEXT } from '@/lib/color-styles'
 
 interface ItemMin {
   id: string
@@ -110,11 +111,11 @@ export function CalendarioMinhasObrigacoes({ items, loading, onSelecionar }: Cal
                   {cel.dia !== null && (
                     <>
                       <div className="flex items-center justify-between mb-1">
-                        <span className={cn('font-semibold', ehHoje ? 'text-sky-700' : 'text-foreground/80')}>
+                        <span className={cn('font-semibold', ehHoje ? 'text-sky-700 dark:text-sky-400' : 'text-foreground/80')}>
                           {cel.dia}
                         </span>
                         {eventos.length > 0 && (
-                          <span className="text-[9px] font-medium px-1 py-0.5 rounded bg-sky-100 text-sky-700 tabular-nums">
+                          <span className="text-[9px] font-medium px-1 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400 tabular-nums">
                             {eventos.length}
                           </span>
                         )}
@@ -122,12 +123,12 @@ export function CalendarioMinhasObrigacoes({ items, loading, onSelecionar }: Cal
                       <div className="flex-1 space-y-0.5 overflow-hidden">
                         {eventos.slice(0, 3).map((ev) => {
                           const corBg = ev.status === 'CONCLUIDO'
-                            ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
+                            ? cn(SURFACE.emerald, 'hover:bg-emerald-100 dark:hover:bg-emerald-900/40')
                             : ev.atrasada
-                              ? 'bg-red-50 hover:bg-red-100 border-red-200'
-                              : 'bg-sky-50 hover:bg-sky-100 border-sky-200'
+                              ? cn(SURFACE.red, 'hover:bg-red-100 dark:hover:bg-red-900/40')
+                              : cn(SURFACE.sky, 'hover:bg-sky-100 dark:hover:bg-sky-900/40')
                           const Icon = ev.status === 'CONCLUIDO' ? CheckCircle2 : ev.atrasada ? AlertCircle : Clock
-                          const corIcon = ev.status === 'CONCLUIDO' ? 'text-emerald-600' : ev.atrasada ? 'text-red-600' : 'text-sky-600'
+                          const corIcon = ev.status === 'CONCLUIDO' ? TEXT.emerald : ev.atrasada ? TEXT.red : TEXT.sky
                           return (
                             <button
                               key={ev.id}

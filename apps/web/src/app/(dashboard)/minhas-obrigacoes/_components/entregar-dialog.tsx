@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import {
-  Button, Input, Label,
+  Button, Input, Label, Textarea,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -65,13 +65,13 @@ export function EntregarDialog({ open, onOpenChange, execucao, onEntregue }: Ent
         <DialogBody className="space-y-4">
           <div className="space-y-1.5">
             <Label className="text-[13px] font-semibold">Observação (opcional)</Label>
-            <textarea
+            <Textarea
               value={observacao}
               onChange={(e) => setObservacao(e.target.value)}
               placeholder="Detalhes sobre a entrega, número de protocolo, observações..."
               rows={3}
               maxLength={500}
-              className="w-full rounded border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+              className="resize-none"
             />
             <span className="text-[10px] text-muted-foreground">{observacao.length}/500</span>
           </div>
@@ -91,7 +91,7 @@ export function EntregarDialog({ open, onOpenChange, execucao, onEntregue }: Ent
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+          <Button onClick={handleSubmit} disabled={saving} variant="success">
             {saving ? <><Loader2 className="h-4 w-4 animate-spin" />Salvando</> : <><CheckCircle2 className="h-4 w-4" />Confirmar entrega</>}
           </Button>
         </DialogFooter>

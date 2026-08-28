@@ -17,18 +17,18 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, STRONG } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl } from '@/lib/api-url'
 import { useSession } from '@/lib/auth-client'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { PRIORIDADE_LABELS, PRIORIDADE_COLORS, type PrioridadeServico } from '@saas/types'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { ExecucaoChecklistModal } from '../_components/execucao-checklist-modal'
 
-const MODULE_COLOR = 'var(--mod-corporativo, #38bdf8)' // Administrativo (sky)
+const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
 
 interface ExecucaoMinha {
   id: string
@@ -103,17 +103,9 @@ function ResponsavelChip({ user, size = 'sm' }: {
       </span>
     )
   }
-  const initials = user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
   return (
     <span className={cn('inline-flex items-center gap-1', txt)} title={`Responsável: ${user.name}`}>
-      {user.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={resolveAssetUrl(user.image)} alt={user.name} className={cn('rounded-full object-cover border border-background shrink-0', dim)} />
-      ) : (
-        <span className={cn('rounded-full bg-[#5ea3cb] text-white flex items-center justify-center font-bold border border-background shrink-0', dim)}>
-          {initials}
-        </span>
-      )}
+      <UserAvatar user={user} className={cn('border border-background shrink-0', dim)} bg="bg-sky-500" />
       <span className="font-medium text-foreground/80 truncate max-w-[140px]">{user.name}</span>
     </span>
   )
@@ -238,7 +230,7 @@ function ResponsavelEditor({
           className="h-7 text-xs border-0 px-1 focus-visible:ring-0"
         />
       </div>
-      <div className="overflow-y-auto py-1" style={{ maxHeight: POPOVER_MAX_H - 44 }}>
+      <div className="overflow-y-auto nice-scrollbar py-1" style={{ maxHeight: POPOVER_MAX_H - 44 }}>
         {/* Opção: remover responsável */}
         {exec.responsavelUsuario && (
           <button
@@ -256,7 +248,6 @@ function ResponsavelEditor({
         {filtered.length === 0 ? (
           <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhuma pessoa encontrada</p>
         ) : filtered.map(c => {
-          const inicialOpcao = c.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
           const ehAtual = c.id === (exec.responsavelUsuario?.id ?? null)
           return (
             <button
@@ -271,13 +262,8 @@ function ResponsavelEditor({
             >
               {salvando === c.id ? (
                 <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-              ) : c.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={resolveAssetUrl(c.image)} alt={c.name} className="h-5 w-5 rounded-full object-cover shrink-0" />
               ) : (
-                <span className="h-5 w-5 rounded-full bg-[#5ea3cb] text-white text-[8px] flex items-center justify-center font-bold shrink-0">
-                  {inicialOpcao}
-                </span>
+                <UserAvatar user={c} className="h-5 w-5 text-[8px] shrink-0" bg="bg-sky-500" />
               )}
               <span className="flex-1 min-w-0">
                 <span className="block truncate font-medium text-foreground">{c.name}</span>
@@ -372,7 +358,7 @@ function ServicoCombobox({ servicos, value, onSelect, placeholder }: {
               className="h-7 text-xs"
             />
           </div>
-          <div className="max-h-64 overflow-y-auto py-1">
+          <div className="max-h-64 overflow-y-auto nice-scrollbar py-1">
             {filtered.length === 0 ? (
               <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhum serviço encontrado</p>
             ) : filtered.map(s => (
@@ -742,7 +728,7 @@ export default function MeusServicosPage() {
   const colunasKanban: KanbanCol[] = useMemo(() => {
     const agora = Date.now()
     const cols: Record<string, KanbanCol> = {
-      em_andamento: { key: 'em_andamento', titulo: 'Em Andamento', cor: '#38bdf8', items: [] },
+      em_andamento: { key: 'em_andamento', titulo: 'Em Andamento', cor: MODULE_COLOR, items: [] },
       atrasados: { key: 'atrasados', titulo: 'Atrasados', cor: '#ef4444', items: [] },
       pausados: { key: 'pausados', titulo: 'Pausados', cor: '#f59e0b', items: [] },
     }
@@ -761,7 +747,7 @@ export default function MeusServicosPage() {
   // Lista de filtros (chips) — mantém função de filtragem mas no padrão visual CRM/Orçamentos:
   // barra horizontal de chips em vez de KPIs em cards grandes.
   const filtros: Array<{ key: FilterKind; label: string; icon: typeof Play; cor: string; count: number }> = [
-    { key: 'em_andamento', label: 'Em Andamento', icon: Play, cor: '#38bdf8', count: kpis.emAndamento },
+    { key: 'em_andamento', label: 'Em Andamento', icon: Play, cor: MODULE_COLOR, count: kpis.emAndamento },
     { key: 'atrasados', label: 'Atrasados', icon: AlertTriangle, cor: '#ef4444', count: kpis.atrasados },
     { key: 'pausados', label: 'Pausados', icon: Pause, cor: '#f59e0b', count: kpis.pausados },
     { key: 'todos', label: 'Ativos', icon: ListChecks, cor: '#94a3b8', count: kpis.ativos },
@@ -936,7 +922,7 @@ export default function MeusServicosPage() {
                       <div
                         key={exec.id}
                         onClick={() => abrirChecklist(exec.id)}
-                        className="rounded-sm bg-white dark:bg-card cursor-pointer group overflow-hidden border border-border/50 hover:shadow-md transition-shadow"
+                        className="rounded-sm bg-card cursor-pointer group overflow-hidden border border-border/50 hover:shadow-md transition-shadow"
                         title={exec.pausado && exec.pausadoMotivo ? `Pausado — ${exec.pausadoMotivo}` : undefined}
                       >
                         <div className="flex">
@@ -1083,7 +1069,7 @@ export default function MeusServicosPage() {
       ) : (
         // Lista — Card limpo com scroll interno (filtros e header já estão acima)
         <Card className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-y-auto divide-y divide-border/60">
+          <div className="flex-1 overflow-y-auto nice-scrollbar divide-y divide-border/60">
             {execFiltradas.map(exec => {
               // ── PERGUNTA — card destacado em laranja pra responder no lugar ──
               if (exec.status === 'AGUARDANDO_RESPOSTA' && exec.servico.tipo === 'PERGUNTA') {
@@ -1356,7 +1342,7 @@ export default function MeusServicosPage() {
                     {/* Prazo */}
                     <div className="col-span-12 sm:col-span-3 min-w-0 flex items-center justify-end gap-2">
                       {exec.status === 'CONCLUIDO' ? (
-                        <Badge className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 h-5 gap-1">
+                        <Badge variant="outline" className={cn('text-[10px] px-2 py-0.5 h-5 gap-1', STRONG.emerald)}>
                           <CheckCircle2 className="h-3 w-3" /> Concluído
                         </Badge>
                       ) : exec.status === 'PULADO' ? (
@@ -1391,10 +1377,10 @@ export default function MeusServicosPage() {
                         <span
                           className={cn(
                             'inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded',
-                            tempo.cor === 'red' && 'text-rose-700 bg-rose-50 dark:bg-rose-900/20',
-                            tempo.cor === 'amber' && 'text-amber-700 bg-amber-50 dark:bg-amber-900/20',
-                            tempo.cor === 'emerald' && 'text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20',
-                            tempo.cor === 'slate' && 'text-slate-600 bg-muted',
+                            tempo.cor === 'red' && 'text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20',
+                            tempo.cor === 'amber' && 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20',
+                            tempo.cor === 'emerald' && 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
+                            tempo.cor === 'slate' && 'text-slate-600 dark:text-slate-400 bg-muted',
                           )}
                         >
                           <Clock className="h-3 w-3" /> {tempo.texto}

@@ -1,3 +1,5 @@
+import { BADGE } from '@/lib/color-styles'
+
 /** Cores dos badges de situação — um tom por etapa do trâmite. */
 export const SITUACAO_BADGE: Record<string, string> = {
   AGUARDANDO_ROTA: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
@@ -15,7 +17,7 @@ export const SITUACAO_BADGE: Record<string, string> = {
 }
 
 export const TIPO_BADGE: Record<string, string> = {
-  ENTREGA: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800',
-  COLETA: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800',
-  RECEBIMENTO: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
+  ENTREGA: BADGE.sky,
+  COLETA: BADGE.amber,
+  RECEBIMENTO: BADGE.emerald,
 }

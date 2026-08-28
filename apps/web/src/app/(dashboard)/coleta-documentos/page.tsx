@@ -17,6 +17,7 @@ import {
 import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { TEXT } from '@/lib/color-styles'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { UserCombobox } from '../orcamentos/_components/user-combobox'
 import { COLETA_TIPO_LABEL, COLETA_SITUACAO_LABEL, COLETA_SITUACOES, COLETA_TIPOS, COLETA_PRIORIDADE_LABEL } from '@saas/types'
@@ -499,7 +500,7 @@ export default function ColetaDocumentosPage() {
                   <UserCombobox users={solicitantes} value={mSolicitante} onSelect={setMSolicitante} placeholder="Quem está solicitando" />
                 </div>
                 {mSolicitante && perfil && mSolicitante !== perfil.id && (
-                  <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                  <p className={cn('mt-1 text-[11px]', TEXT.amber)}>
                     Registro em nome de outra pessoa — seu nome fica no histórico como autor do lançamento.
                   </p>
                 )}

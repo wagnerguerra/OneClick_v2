@@ -36,17 +36,17 @@ const ROUTE_PREFIXES: Array<[string, string]> = [
   ['/contrato-templates', 'comercial'],
   ['/clausulas', 'comercial'],
 
-  // Processos (sub-bloco de Comercial mas tem cor própria)
-  ['/processos', 'administrativo'],
-
-  // Administrativo
+  // Administrativo (grupo da sidebar — ver docs/MODULOS.md / navigation.ts)
   ['/agenda', 'administrativo'],
   ['/acessorias', 'administrativo'],
+  ['/coleta-documentos', 'administrativo'],
+  ['/contatos', 'administrativo'],
+  ['/meus-servicos', 'administrativo'],
+  ['/minhas-obrigacoes', 'administrativo'],
+  ['/processos', 'administrativo'],
 
-  // Corporativo (dashboard, meus, minhas)
+  // Corporativo (só o dashboard tem cor própria)
   ['/dashboard', 'corporativo'],
-  ['/meus-servicos', 'corporativo'],
-  ['/minhas-obrigacoes', 'corporativo'],
   ['/perfil', 'perfil'],
 
   // Legalização
