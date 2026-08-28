@@ -103,6 +103,96 @@ export class SocioPerfisService {
   }
 
   /**
+   * Onde mais este sócio aparece — dentro da nossa própria carteira.
+   *
+   * Não há fonte pública gratuita que vá de CPF a empresas: a base de QSA da
+   * Receita mascara o documento do sócio, e os serviços que fazem esse caminho
+   * são pagos. O que temos de graça, exato e imediato é a nossa base: se o
+   * mesmo CPF assina por três clientes nossos, isso já é a informação que
+   * importa numa reunião — e é informação que a casa obteve legitimamente, como
+   * contadora dessas empresas.
+   *
+   * O CPF é a chave quando existe. Sem ele, cai no nome normalizado, que é
+   * palpite: dois "José da Silva" viram um. Por isso o retorno diz por qual
+   * critério casou, e a tela mostra a diferença.
+   */
+  async participacoes(clienteId: string) {
+    const cliente = await prisma.cliente.findUnique({
+      where: { id: clienteId },
+      select: { empresaId: true },
+    })
+
+    const socios = await prisma.socio.findMany({
+      where: { clienteId, isActive: true },
+      select: { id: true, nomeCompleto: true, cpf: true },
+      orderBy: { nomeCompleto: 'asc' },
+    })
+    if (socios.length === 0) return []
+
+    // Uma consulta só para todos os sócios: um findMany por pessoa seria N+1
+    // numa aba que abre inteira.
+    const cpfs = socios.map(s => (s.cpf || '').replace(/\D/g, '')).filter(c => c.length === 11)
+    const nomes = socios.map(s => s.nomeCompleto)
+
+    const outros = await prisma.socio.findMany({
+      where: {
+        clienteId: { not: clienteId },
+        isActive: true,
+        // Tenancy: só a carteira desta empresa. Sem isto, um master trocando de
+        // empresa veria vínculo de cliente que não é dele.
+        ...(cliente?.empresaId ? { cliente: { empresaId: cliente.empresaId } } : {}),
+        OR: [
+          ...(cpfs.length > 0 ? [{ cpf: { in: cpfs } }] : []),
+          { nomeCompleto: { in: nomes } },
+        ],
+      },
+      select: {
+        nomeCompleto: true,
+        cpf: true,
+        tipoSocio: true,
+        participacao: true,
+        cliente: {
+          select: { id: true, razaoSocial: true, nomeFantasia: true, documento: true, status: true },
+        },
+      },
+      take: 200,
+    })
+
+    const chave = (nome: string) => nome
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim()
+
+    return socios.map(socio => {
+      const cpfLimpo = (socio.cpf || '').replace(/\D/g, '')
+      const achados = outros
+        .filter(o => {
+          const oCpf = (o.cpf || '').replace(/\D/g, '')
+          if (cpfLimpo.length === 11 && oCpf.length === 11) return oCpf === cpfLimpo
+          return chave(o.nomeCompleto) === chave(socio.nomeCompleto)
+        })
+        .filter(o => !!o.cliente)
+        .map(o => ({
+          clienteId: o.cliente!.id,
+          razaoSocial: o.cliente!.razaoSocial,
+          nomeFantasia: o.cliente!.nomeFantasia,
+          documento: o.cliente!.documento,
+          status: o.cliente!.status,
+          tipoSocio: o.tipoSocio,
+          participacao: o.participacao != null ? Number(o.participacao) : null,
+          // Casou por documento, ou só pelo nome? A diferença entre fato e
+          // palpite, e quem lê precisa saber qual dos dois está vendo.
+          porCpf: cpfLimpo.length === 11 && (o.cpf || '').replace(/\D/g, '') === cpfLimpo,
+        }))
+
+      return {
+        socioId: socio.id,
+        nomeCompleto: socio.nomeCompleto,
+        participacoes: achados,
+      }
+    })
+  }
+
+  /**
    * Procura perfis candidatos e grava como sugestão NÃO confirmada.
    *
    * Depende do SearXNG configurado (Configurações → Dossiê e Imagens). Sem ele

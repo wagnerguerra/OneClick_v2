@@ -1278,6 +1278,14 @@ export function createClienteRouter(
         return socioPerfisService.listarPorCliente(input.clienteId)
       }),
 
+    // Onde mais os sócios aparecem, dentro da própria carteira.
+    listParticipacoesSocios: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => {
+        if (!socioPerfisService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Perfis de sócios indisponível.' })
+        return socioPerfisService.participacoes(input.clienteId)
+      }),
+
     addPerfilSocio: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({
         socioId: z.string(),

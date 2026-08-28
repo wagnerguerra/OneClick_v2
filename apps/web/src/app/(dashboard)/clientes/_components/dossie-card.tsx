@@ -15,7 +15,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   FileSearch, RefreshCw, Loader2, Check, X, AlertTriangle, ChevronDown,
-  Building2, Activity, MapPin, Users, Receipt, ShieldCheck, ExternalLink, Share2,
+  Building2, Activity, MapPin, Users, Receipt, ShieldCheck, ExternalLink, Share2, Network,
 } from 'lucide-react'
 import {
   Button, Card, Badge, cn,
@@ -176,6 +176,24 @@ type PerfilSocio = {
   confirmado: boolean
 }
 
+type Participacao = {
+  clienteId: string
+  razaoSocial: string
+  nomeFantasia: string | null
+  documento: string
+  status: string
+  tipoSocio: string
+  participacao: number | null
+  /** Casou por CPF (fato) ou só pelo nome (palpite)? */
+  porCpf: boolean
+}
+
+type SocioParticipacoes = {
+  socioId: string
+  nomeCompleto: string
+  participacoes: Participacao[]
+}
+
 type SocioComPerfis = {
   id: string
   nomeCompleto: string
@@ -204,6 +222,7 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
   // Painel de progresso da coleta. Fica aberto até o usuário fechar — quem
   // acompanhou os passos costuma querer reler o que cada provedor respondeu.
   const [sociosComPerfis, setSociosComPerfis] = useState<SocioComPerfis[]>([])
+  const [participacoes, setParticipacoes] = useState<SocioParticipacoes[]>([])
   const [socioAberto, setSocioAberto] = useState<string | null>(null)
   const [urlNova, setUrlNova] = useState('')
   const [ocupadoSocio, setOcupadoSocio] = useState<string | null>(null)
@@ -233,6 +252,13 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
       }).listPerfisSocios.query({ clienteId })
       setSociosComPerfis(r)
     } catch { /* sem perfis, o resto do dossiê continua servindo */ }
+
+    try {
+      const r = await (trpc.cliente as never as {
+        listParticipacoesSocios: { query: (i: { clienteId: string }) => Promise<SocioParticipacoes[]> }
+      }).listParticipacoesSocios.query({ clienteId })
+      setParticipacoes(r)
+    } catch { /* idem */ }
   }, [clienteId])
 
   useEffect(() => { void carregar() }, [carregar])
@@ -508,6 +534,59 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
                   </p>
                 </>
               )}
+          </Bloco>
+
+          <Bloco titulo="Participações dos sócios" icone={Network} aberto={false}>
+            {/* Só a nossa carteira. Não existe fonte pública gratuita que vá de
+                CPF a empresas — a base de QSA da Receita mascara o documento do
+                sócio, e quem faz esse caminho cobra. O que temos aqui é exato e
+                é nosso. */}
+            {participacoes.every(p => p.participacoes.length === 0) ? (
+              <p className="py-2 text-sm text-muted-foreground">
+                Nenhum sócio deste cliente aparece em outro cliente da carteira.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {participacoes.filter(p => p.participacoes.length > 0).map(p => (
+                  <div key={p.socioId}>
+                    <p className="mb-1 text-[13px] font-semibold text-foreground">{p.nomeCompleto}</p>
+                    <ul className="space-y-1">
+                      {p.participacoes.map(x => (
+                        <li key={`${p.socioId}-${x.clienteId}`} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/40 py-1 text-sm">
+                          <a
+                            href={`/clientes/${x.clienteId}`}
+                            className="min-w-0 truncate font-medium text-foreground hover:underline"
+                          >
+                            {x.nomeFantasia || x.razaoSocial}
+                          </a>
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            {x.tipoSocio.replace(/_/g, ' ').toLowerCase()}
+                            {x.participacao != null && <> · {x.participacao}%</>}
+                            {x.status !== 'ATIVO' && (
+                              <span className="rounded-full bg-muted px-1.5 text-[10px] font-semibold">
+                                {x.status.toLowerCase()}
+                              </span>
+                            )}
+                            {!x.porCpf && (
+                              <span
+                                className="rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
+                                title="Casou pelo nome, não pelo CPF — pode ser homônimo"
+                              >
+                                por nome
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="mt-2 text-[11px] text-muted-foreground/80">
+              Cruzamento com a própria carteira, pelo CPF quando ele é conhecido. O que casa só
+              pelo nome vem marcado — homônimo existe.
+            </p>
           </Bloco>
 
           <Bloco titulo="Redes sociais" icone={Share2} aberto={false}>
