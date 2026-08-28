@@ -17,7 +17,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import {
   Building2, Users, UserCog, Handshake, X, Plus, Loader2, Search, Check,
-  Layers, Trash2, Pencil, MoreVertical, PackageCheck, ChevronRight,
+  Layers, Trash2, Pencil, MoreVertical, PackageCheck, ChevronRight, Palette,
 } from 'lucide-react'
 import {
   Button, Card, Input, cn,
@@ -25,6 +25,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -38,11 +39,33 @@ type Execucao = {
   titulo: string | null
   ativa: boolean
   progresso: number
+  /** Cor do cabeçalho; nula herda a do projeto. */
+  cor: string | null
   cliente: ClienteRef | null
   responsavel: { id: string; name: string; image: string | null } | null
   participantes: Pessoa[]
   _count: { rodadas: number }
 }
+
+/**
+ * Sugestões de cor para o cabeçalho da frente. São as mesmas famílias das cores
+ * de módulo — assim uma execução colorida à mão não destoa do resto do sistema.
+ * Quem quiser outra digita o hex.
+ */
+const PALETA_FRENTES: Array<{ nome: string; hex: string }> = [
+  { nome: 'Esmeralda', hex: '#10b981' },
+  { nome: 'Céu', hex: '#0ea5e9' },
+  { nome: 'Índigo', hex: '#6366f1' },
+  { nome: 'Violeta', hex: '#a78bfa' },
+  { nome: 'Fúcsia', hex: '#e879f9' },
+  { nome: 'Rosa', hex: '#fb7185' },
+  { nome: 'Âmbar', hex: '#f59e0b' },
+  { nome: 'Laranja', hex: '#fb923c' },
+  { nome: 'Lima', hex: '#a3e635' },
+  { nome: 'Petróleo', hex: '#0369a1' },
+  { nome: 'Ciano', hex: '#22d3ee' },
+  { nome: 'Ardósia', hex: '#64748b' },
+]
 
 function Avatar({ nome, image }: { nome: string; image: string | null }) {
   const iniciais = nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()
@@ -228,6 +251,10 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
   // cliente serve — duas frentes podem atender o mesmo cliente.
   const [renomeando, setRenomeando] = useState<Execucao | null>(null)
   const [tituloEditado, setTituloEditado] = useState('')
+  // Cor do cabeçalho: personalização de master, para distinguir as frentes.
+  const { isMaster } = useUserPermissions()
+  const [colorindo, setColorindo] = useState<Execucao | null>(null)
+  const [corEditada, setCorEditada] = useState('')
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -358,6 +385,8 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
           const colaboradores = e.participantes.filter(p => p.papel === 'COLABORADOR')
           const nome = e.titulo || e.cliente?.nomeFantasia || e.cliente?.razaoSocial || 'Execução sem nome'
           const pessoasNaFrente = (e.responsavel ? 1 : 0) + e.participantes.length
+          // Sem cor própria, a frente herda a do projeto.
+          const corFrente = e.cor || corProjeto
           return (
             <div
               key={e.id}
@@ -369,7 +398,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
               {/* Cabeçalho na cor do projeto — é o que separa uma frente da outra */}
               <div
                 className="flex items-center gap-2 px-3 py-2.5 text-white"
-                style={{ background: `linear-gradient(135deg, ${corProjeto}, color-mix(in srgb, ${corProjeto} 72%, transparent))` }}
+                style={{ background: `linear-gradient(135deg, ${corFrente}, color-mix(in srgb, ${corFrente} 72%, transparent))` }}
               >
                 <div className="min-w-0 flex-1">
                   {canWrite ? (
@@ -412,6 +441,11 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
                         <DropdownMenuItem onClick={() => { setRenomeando(e); setTituloEditado(e.titulo ?? '') }}>
                           <Pencil className="mr-2 h-4 w-4" /> Renomear frente
                         </DropdownMenuItem>
+                        {isMaster && (
+                          <DropdownMenuItem onClick={() => { setColorindo(e); setCorEditada(e.cor ?? corProjeto) }}>
+                            <Palette className="mr-2 h-4 w-4" /> Cor do cabeçalho
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => abrir('CLIENTE', e.id)}>
                           <Building2 className="mr-2 h-4 w-4" /> {e.cliente ? 'Trocar cliente' : 'Definir cliente'}
                         </DropdownMenuItem>
@@ -441,14 +475,14 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
               <div className="flex flex-1 flex-col items-center p-3">
                 {/* 1 — o cliente encabeça o ramo */}
                 <Degrau
-                  primeiro titulo="Cliente" icone={Building2} cor={corProjeto}
+                  primeiro titulo="Cliente" icone={Building2} cor={corFrente}
                   quantidade={e.cliente ? 1 : 0} vazio="Sem cliente definido"
                   aoAgir={canWrite ? () => abrir('CLIENTE', e.id) : undefined}
                   iconeAcao={e.cliente ? Pencil : Plus}
                   rotuloAcao={e.cliente ? 'Trocar cliente' : 'Definir cliente'}
                 >
                   {e.cliente && (
-                    <Caixa destaque cor={corProjeto} titulo={e.cliente.razaoSocial}
+                    <Caixa destaque cor={corFrente} titulo={e.cliente.razaoSocial}
                       aoRemover={canWrite ? () => void salvarExecucao(e.id, { clienteId: null }) : undefined}>
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
                         <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -463,7 +497,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
 
                 {/* 2 — responsável DESTA execução */}
                 <Degrau
-                  titulo="Responsável da execução" icone={UserCog} cor={corProjeto}
+                  titulo="Responsável da execução" icone={UserCog} cor={corFrente}
                   quantidade={e.responsavel ? 1 : 0} vazio="Sem responsável nesta frente"
                   aoAgir={canWrite ? () => abrir('RESPONSAVEL', e.id) : undefined}
                   iconeAcao={e.responsavel ? Pencil : Plus}
@@ -482,7 +516,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
 
                 {/* 3 — executantes */}
                 <Degrau
-                  titulo="Executantes" icone={Users} cor={corProjeto}
+                  titulo="Executantes" icone={Users} cor={corFrente}
                   quantidade={executantes.length} vazio="Ninguém executando ainda"
                   aoAgir={canWrite ? () => abrir('EXECUTANTE', e.id) : undefined}
                 >
@@ -505,7 +539,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
 
                 {/* 4 — colaboradores: os analistas que apontam */}
                 <Degrau
-                  titulo="Colaboradores" icone={Handshake} cor={corProjeto}
+                  titulo="Colaboradores" icone={Handshake} cor={corFrente}
                   quantidade={colaboradores.length} vazio="Nenhum analista acompanhando"
                   aoAgir={canWrite ? () => abrir('COLABORADOR', e.id) : undefined}
                 >
@@ -627,6 +661,85 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
                 const alvo = renomeando.id
                 setRenomeando(null)
                 void salvarExecucao(alvo, { titulo: tituloEditado.trim() || null })
+              }}
+            >
+              {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cor do cabeçalho — personalização de master */}
+      <Dialog open={!!colorindo} onOpenChange={(o) => !o && setColorindo(null)}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeaderIcon icon={Palette} color="violet">
+            <DialogTitle>Cor do cabeçalho</DialogTitle>
+            <DialogDescription>
+              Vale só para esta frente. Sem cor própria, ela volta a herdar a do projeto.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            <div
+              className="flex h-14 items-center px-3 text-[13px] font-semibold text-white"
+              style={{ borderRadius: 10, background: `linear-gradient(135deg, ${corEditada}, color-mix(in srgb, ${corEditada} 72%, transparent))` }}
+            >
+              {colorindo?.titulo || colorindo?.cliente?.nomeFantasia || colorindo?.cliente?.razaoSocial || 'Prévia do cabeçalho'}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {PALETA_FRENTES.map(c => (
+                <button
+                  key={c.hex}
+                  type="button" title={c.nome}
+                  onClick={() => setCorEditada(c.hex)}
+                  className={cn(
+                    'h-8 w-8 rounded-lg border-2 transition-transform hover:scale-110',
+                    corEditada.toLowerCase() === c.hex ? 'border-foreground' : 'border-transparent',
+                  )}
+                  style={{ backgroundColor: c.hex }}
+                />
+              ))}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold">Outra cor (hex)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={corEditada}
+                  onChange={ev => setCorEditada(ev.target.value)}
+                  placeholder="#10b981"
+                  className="h-9 max-w-[140px] text-sm"
+                />
+                <input
+                  type="color"
+                  value={/^#[0-9a-fA-F]{6}$/.test(corEditada) ? corEditada : '#10b981'}
+                  onChange={ev => setCorEditada(ev.target.value)}
+                  className="h-9 w-12 cursor-pointer rounded border border-border bg-background"
+                />
+              </div>
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              variant="outline" size="sm" disabled={salvando}
+              onClick={() => {
+                if (!colorindo) return
+                const alvo = colorindo.id
+                setColorindo(null)
+                void salvarExecucao(alvo, { cor: null })
+              }}
+            >
+              Usar a do projeto
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setColorindo(null)} disabled={salvando}>Cancelar</Button>
+            <Button
+              variant="success" size="sm" className="gap-1.5"
+              disabled={salvando || !/^#[0-9a-fA-F]{6}$/.test(corEditada)}
+              onClick={() => {
+                if (!colorindo) return
+                const alvo = colorindo.id
+                setColorindo(null)
+                void salvarExecucao(alvo, { cor: corEditada })
               }}
             >
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Salvar

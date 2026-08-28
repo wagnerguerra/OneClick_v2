@@ -325,9 +325,22 @@ export class ProjetoService {
     })
   }
 
-  async updateExecucao(id: string, input: UpdateProjetoExecucaoInput) {
+  async updateExecucao(
+    id: string,
+    input: UpdateProjetoExecucaoInput,
+    ctx?: { isMaster?: boolean },
+  ) {
     const existe = await prisma.projetoExecucao.count({ where: { id } })
     if (existe === 0) throw new TRPCError({ code: 'NOT_FOUND', message: 'Execução não encontrada' })
+
+    // A cor do cabeçalho é do master. A tela já esconde a opção, mas esconder
+    // botão não é regra — a regra é esta, e vale para qualquer chamada.
+    if (input.cor !== undefined && !ctx?.isMaster) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Só o usuário master altera a cor do cabeçalho da execução',
+      })
+    }
 
     const execucao = await prisma.projetoExecucao.update({
       where: { id },
@@ -337,6 +350,7 @@ export class ProjetoService {
         ...(input.responsavelId !== undefined && { responsavelId: input.responsavelId || null }),
         ...(input.ativa !== undefined && { ativa: input.ativa }),
         ...(input.progresso !== undefined && { progresso: input.progresso }),
+        ...(input.cor !== undefined && { cor: input.cor || null }),
       },
     })
 

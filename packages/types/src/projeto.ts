@@ -109,6 +109,12 @@ export const updateProjetoExecucaoSchema = z.object({
   ativa: z.boolean().optional(),
   /** Percentual concluído, informado por quem conduz a frente. */
   progresso: z.number().int().min(0).max(100).optional(),
+  /**
+   * Cor do cabeçalho do card, em hex. Nulo volta a herdar a do projeto.
+   * Só o master troca — a checagem é do backend, não da tela.
+   */
+  cor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Informe uma cor em hex, como #10b981')
+    .optional().nullable(),
   /** Time da execução. Lista completa: o que vier substitui. */
   participantes: z.array(z.object({
     userId: z.string(),

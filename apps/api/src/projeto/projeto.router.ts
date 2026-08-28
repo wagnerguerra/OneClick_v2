@@ -71,7 +71,7 @@ export function createProjetoRouter(svc: ProjetoService) {
 
     updateExecucao: writeProcedure(MODULE)
       .input(z.object({ id: z.string(), data: updateProjetoExecucaoSchema }))
-      .mutation(({ input }) => svc.updateExecucao(input.id, input.data)),
+      .mutation(({ input, ctx }) => svc.updateExecucao(input.id, input.data, ctx)),
 
     deleteExecucao: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))

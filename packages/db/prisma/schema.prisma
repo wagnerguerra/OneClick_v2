@@ -7199,6 +7199,9 @@ model ProjetoExecucao {
   /// não derivado: rodada entregue não significa etapa concluída, e só quem
   /// está na frente sabe o quanto falta.
   progresso Int      @default(0)
+  /// Cor do cabeçalho do card, em hex. Nulo herda a cor do projeto — que é o
+  /// certo enquanto a frente não pediu para se distinguir das outras.
+  cor       String?
   criadoEm  DateTime @default(now()) @map("criado_em")
   criadoPor String?  @map("criado_por")
 
