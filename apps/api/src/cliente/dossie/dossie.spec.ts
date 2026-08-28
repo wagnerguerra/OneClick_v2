@@ -179,7 +179,7 @@ describe('ProvedorBrasilApi — normalização', () => {
 describe('detectarDivergencias', () => {
   const base = { razaoSocial: 'EMPRESA X LTDA', nomeFantasia: null, cnaePrincipal: null,
     inscricaoEstadual: null, capitalSocial: null, cep: null, logradouro: null, numero: null,
-    bairro: null, cidade: null, uf: null }
+    complemento: null, bairro: null, cidade: null, uf: null, telefone: null, email: null }
 
   /** DadosCnpj completo — a comparação varre todos os campos, não só o do teste. */
   function daFonte(parcial: Partial<DadosCnpj>): DadosCnpj {

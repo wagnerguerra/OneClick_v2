@@ -158,7 +158,8 @@ export class DossieService {
         email: true,
         razaoSocial: true, nomeFantasia: true, cnaePrincipal: true,
         inscricaoEstadual: true, capitalSocial: true,
-        cep: true, logradouro: true, numero: true, bairro: true, cidade: true, uf: true,
+        cep: true, logradouro: true, numero: true, complemento: true,
+        bairro: true, cidade: true, uf: true, telefone: true,
       },
     })
     if (!cliente) return { clienteId, ok: false, motivo: 'Cliente não encontrado.' }
@@ -225,9 +226,12 @@ export class DossieService {
       cep: cliente.cep,
       logradouro: cliente.logradouro,
       numero: cliente.numero,
+      complemento: cliente.complemento,
       bairro: cliente.bairro,
       cidade: cliente.cidade,
       uf: cliente.uf,
+      telefone: cliente.telefone,
+      email: cliente.email,
     }
 
     passo?.({ chave: 'fatos', rotulo: 'Gravando os dados coletados', status: 'rodando' })
@@ -435,8 +439,47 @@ export class DossieService {
   /** Só os campos desta lista podem ser escritos por uma aprovação. */
   private static readonly CAMPOS_APLICAVEIS = new Set([
     'razaoSocial', 'nomeFantasia', 'capitalSocial',
-    'cep', 'logradouro', 'numero', 'bairro', 'cidade', 'uf',
+    'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf',
+    'telefone', 'email',
   ])
+
+  /**
+   * Aplica de uma vez tudo o que só PREENCHE campo vazio.
+   *
+   * A distinção é o ponto: preencher um campo em branco com o dado oficial não
+   * apaga trabalho de ninguém — é ganho puro, e pedir clique um a um para dez
+   * campos vazios só faz o usuário desistir. Já SOBRESCREVER um campo
+   * preenchido é outra conversa, e continua exigindo decisão campo a campo: o
+   * cadastro é mantido à mão há anos e às vezes está mais certo que a Receita
+   * (endereço novo que ainda não chegou lá).
+   */
+  async preencherVazios(clienteId: string, usuarioId?: string): Promise<{ aplicados: number }> {
+    const pendentes = await prisma.clienteDossieSugestao.findMany({
+      where: { clienteId, status: 'pendente' },
+    })
+
+    const vazios = pendentes.filter(s =>
+      !s.valorAtual?.trim() && DossieService.CAMPOS_APLICAVEIS.has(s.campo))
+    if (vazios.length === 0) return { aplicados: 0 }
+
+    const dados: Record<string, unknown> = {}
+    for (const s of vazios) {
+      dados[s.campo] = s.campo === 'capitalSocial'
+        ? (s.valorSugerido ? Number(s.valorSugerido) : null)
+        : s.valorSugerido
+    }
+
+    // Uma escrita só: dez updates seguidos deixariam o cadastro em estado
+    // intermediário se um deles falhasse no meio.
+    await prisma.cliente.update({ where: { id: clienteId }, data: dados as never })
+    await prisma.clienteDossieSugestao.updateMany({
+      where: { id: { in: vazios.map(s => s.id) } },
+      data: { status: 'aprovada', decididoPor: usuarioId ?? null, decididoEm: new Date() },
+    })
+    if (usuarioId) await this.registrarAcesso(clienteId, usuarioId, 'preencheu_vazios')
+
+    return { aplicados: vazios.length }
+  }
 
   async decidirSugestao(id: string, decisao: 'aprovada' | 'rejeitada', usuarioId?: string, observacao?: string) {
     const sug = await prisma.clienteDossieSugestao.findUnique({ where: { id } })

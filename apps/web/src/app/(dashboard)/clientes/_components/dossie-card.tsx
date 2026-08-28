@@ -15,7 +15,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   FileSearch, RefreshCw, Loader2, Check, X, AlertTriangle, ChevronDown,
-  Building2, Activity, MapPin, Users, Receipt, ShieldCheck, ExternalLink, Share2, Network, Gavel, Copy,
+  Building2, Activity, MapPin, Users, Receipt, ShieldCheck, ExternalLink, Share2, Network, Gavel, Copy, Sparkles,
 } from 'lucide-react'
 import {
   Button, Card, Badge, cn,
@@ -72,8 +72,9 @@ const ROTULOS: Record<string, string> = {
 
 const CAMPOS_CADASTRO: Record<string, string> = {
   razaoSocial: 'Razão social', nomeFantasia: 'Nome fantasia', capitalSocial: 'Capital social',
-  cep: 'CEP', logradouro: 'Logradouro', numero: 'Número', bairro: 'Bairro',
-  cidade: 'Cidade', uf: 'UF',
+  cep: 'CEP', logradouro: 'Logradouro', numero: 'Número', complemento: 'Complemento',
+  bairro: 'Bairro', cidade: 'Cidade', uf: 'UF',
+  telefone: 'Telefone', email: 'E-mail',
 }
 
 /** A fonte devolve data como 'AAAA-MM-DD'; na tela é sempre dd/mm/aaaa. */
@@ -227,6 +228,7 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
   const [participacoes, setParticipacoes] = useState<SocioParticipacoes[]>([])
   const [consultas, setConsultas] = useState<ConsultaPublica[]>([])
   const [cpfCopiado, setCpfCopiado] = useState<string | null>(null)
+  const [preenchendo, setPreenchendo] = useState(false)
   const [socioAberto, setSocioAberto] = useState<string | null>(null)
   const [urlNova, setUrlNova] = useState('')
   const [ocupadoSocio, setOcupadoSocio] = useState<string | null>(null)
@@ -331,7 +333,7 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
               !r.ok ? `Não deu certo: ${r.motivo || 'sem detalhes'}`
                 : r.doCache ? 'Já havia coleta recente; nada foi consultado de novo.'
                 : `Concluído pela fonte ${r.fonte}.`
-                  + (r.divergencias ? ` ${r.divergencias} divergência(s) para você revisar abaixo.` : ' Sem divergências.'),
+                  + (r.divergencias ? ` ${r.divergencias} campo(s) para revisar abaixo.` : ' Nada a revisar.'),
             )
             if (r.ok) await carregar()
           } catch { /* linha malformada não derruba o acompanhamento */ }
@@ -396,6 +398,21 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
+  async function preencherVazios() {
+    setPreenchendo(true)
+    try {
+      const r = await (trpc.cliente as never as {
+        preencherVaziosDossie: { mutate: (i: { clienteId: string }) => Promise<{ aplicados: number }> }
+      }).preencherVaziosDossie.mutate({ clienteId })
+      await carregar()
+      await alerts.success(
+        'Cadastro preenchido',
+        `${r.aplicados} campo(s) que estavam em branco receberam o dado oficial.`,
+      )
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setPreenchendo(false) }
+  }
+
   async function decidir(id: string, decisao: 'aprovada' | 'rejeitada') {
     setDecidindo(id)
     try {
@@ -412,6 +429,9 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
   const fiscal = dossie?.blocos.fiscal ?? []
   const cnaes = (receita.find(f => f.campo === 'cnaes')?.valorJson as Cnae[] | undefined) ?? []
   const socios = (receita.find(f => f.campo === 'socios')?.valorJson as Socio[] | undefined) ?? []
+  // A sugestão sem valor atual não é divergência: é lacuna.
+  const vazios = (dossie?.sugestoes ?? []).filter(x => !x.valorAtual?.trim())
+  const conflitos = (dossie?.sugestoes ?? []).filter(x => !!x.valorAtual?.trim())
   const perfisEmpresa = ((dossie?.blocos?.redes ?? [])
     .find(f => f.campo === 'perfis')?.valorJson as PerfilAchado[] | undefined) ?? []
 
@@ -457,14 +477,42 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
 
       {!carregando && !erro && dossie && !dossie.vazio && (
         <div className="space-y-3">
-          {dossie.sugestoes.length > 0 && (
-            <Bloco titulo={`Divergências a revisar (${dossie.sugestoes.length})`} icone={AlertTriangle}>
+          {/* Preencher um campo VAZIO e sobrescrever um campo PREENCHIDO são
+              decisões de peso diferente, e juntá-las numa fila só fazia a
+              segunda contaminar a primeira: dez campos em branco viravam dez
+              cliques de "revisar divergência". Separados, o que é ganho puro se
+              aplica de uma vez, e o que exige julgamento continua um a um. */}
+          {vazios.length > 0 && (
+            <Bloco titulo={`Campos em branco que o dossiê preenche (${vazios.length})`} icone={Sparkles}>
               <p className="mb-2 text-xs text-muted-foreground">
-                O cadastro e a fonte oficial discordam. Nem sempre a fonte está certa — o endereço
-                novo pode não ter chegado lá ainda. Aprove só o que fizer sentido.
+                Estes campos estão vazios no cadastro e a fonte oficial tem o valor. Preencher não
+                apaga nada — só completa o que falta.
+              </p>
+              <ul className="mb-3 space-y-1">
+                {vazios.map(s => (
+                  <li key={s.id} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/40 py-1 text-sm">
+                    <span className="font-medium text-foreground">{CAMPOS_CADASTRO[s.campo] ?? s.campo}</span>
+                    <span className="min-w-0 truncate text-xs text-muted-foreground">{s.valorSugerido}</span>
+                  </li>
+                ))}
+              </ul>
+              {podeAtualizar && (
+                <Button variant="success" size="sm" className="gap-1.5" onClick={() => void preencherVazios()} disabled={preenchendo}>
+                  {preenchendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Preencher os {vazios.length} campo(s)
+                </Button>
+              )}
+            </Bloco>
+          )}
+
+          {conflitos.length > 0 && (
+            <Bloco titulo={`Divergências a revisar (${conflitos.length})`} icone={AlertTriangle}>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Aqui o cadastro tem um valor e a fonte tem outro. Nem sempre a fonte está certa — o
+                endereço novo pode não ter chegado lá ainda. Aprove só o que fizer sentido.
               </p>
               <ul className="space-y-2">
-                {dossie.sugestoes.map(s => (
+                {conflitos.map(s => (
                   <li key={s.id} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0">

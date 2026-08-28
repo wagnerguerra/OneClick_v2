@@ -1279,6 +1279,15 @@ export function createClienteRouter(
         return socioPerfisService.listarPorCliente(input.clienteId)
       }),
 
+    // Aplica de uma vez o que só preenche campo vazio — ver o comentário do
+    // service para a diferença entre preencher e sobrescrever.
+    preencherVaziosDossie: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ clienteId: z.string() }))
+      .mutation(({ input, ctx }) => {
+        if (!dossieService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Dossiê indisponível.' })
+        return dossieService.preencherVazios(input.clienteId, ctx.userId ?? undefined)
+      }),
+
     // Atalhos das consultas públicas sobre pessoa física. Só a LISTA vem do
     // servidor; quem troca {cpf} e {nome} é a tela, por sócio.
     listConsultasPublicas: readProcedure(MODULE)
