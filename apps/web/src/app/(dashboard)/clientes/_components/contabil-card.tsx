@@ -272,7 +272,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div>
             <h4 className="text-sm font-semibold flex items-center gap-2">
-              <Calculator className="h-4 w-4 text-emerald-600" /> BI — Contas do Balancete
+              <Calculator className={cn('h-4 w-4', TEXT.emerald)} /> BI — Contas do Balancete
             </h4>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {categorias.length} contas | {periodos.length} periodo(s) importado(s)

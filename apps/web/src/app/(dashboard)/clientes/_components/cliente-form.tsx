@@ -898,7 +898,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                   <p className="text-xs text-muted-foreground">{progress.filled} de {progress.total} campos preenchidos</p>
                   {progress.percent < 100 && (
                     <details className="mt-3">
-                      <summary className="text-[11px] text-emerald-600 cursor-pointer hover:underline">Ver campos pendentes</summary>
+                      <summary className={cn('text-[11px] cursor-pointer hover:underline', TEXT.emerald)}>Ver campos pendentes</summary>
                       <ul className="mt-2 space-y-1">
                         {/* Sócios pendentes (#HLP0068): só pra PJ, quando ainda não cadastrou nenhum */}
                         {watchedValues.tipoDocumento === 'CNPJ' && sociosCount === 0 && (
@@ -2626,7 +2626,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
 // ============================================================
 
 const CERTIDAO_COLORS_INLINE: Record<string, string> = {
-  'Negativa': 'bg-emerald-100 text-emerald-800',
+  'Negativa': BADGE.emerald,
   'Positiva': STRONG.red,
   'Positiva com Efeitos de Negativa': STRONG.amber,
   'Pendente': STRONG.slate,
@@ -2921,7 +2921,7 @@ function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
                     <Input value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} placeholder="Opcional" className="h-8 text-sm" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void saveEdit() } if (e.key === 'Escape') cancelEdit() }} />
                   </td>
                   <td className="px-3 py-1.5 text-right whitespace-nowrap">
-                    <button type="button" onClick={() => void saveEdit()} disabled={saving} className="mr-2 text-emerald-600 hover:text-emerald-700" title="Salvar"><Check className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => void saveEdit()} disabled={saving} className={cn('mr-2 hover:text-emerald-700', TEXT.emerald)} title="Salvar"><Check className="h-4 w-4" /></button>
                     <button type="button" onClick={cancelEdit} className="text-muted-foreground hover:text-foreground" title="Cancelar"><X className="h-4 w-4" /></button>
                   </td>
                 </tr>
@@ -3856,7 +3856,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
       <div className="p-5">
         {/* Form inline para adicionar */}
         {adding && (
-          <div className="mb-4 p-4 rounded-lg border border-emerald-200 bg-emerald-50/50">
+          <div className={cn('mb-4 p-4 rounded-lg border', SURFACE.emerald)}>
             <h5 className="text-xs font-semibold text-foreground mb-3">Novo Contato</h5>
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-12 md:col-span-4 space-y-1.5">
@@ -3980,7 +3980,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
                     </td>
                     <td className="py-2.5 px-3">
                       <span className="font-medium">{c.nome}</span>
-                      {c.principal && <span className="ml-1.5 inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.5 text-[10px] font-medium">Principal</span>}
+                      {c.principal && <span className={cn('ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium', BADGE.emerald)}>Principal</span>}
                     </td>
                     <td className="py-2.5 px-3 text-muted-foreground">{c.cargo || '—'}</td>
                     <td className="py-2.5 px-3">

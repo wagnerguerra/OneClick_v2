@@ -8,7 +8,7 @@ import { MioloColapsavel } from './card-colapsavel'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useClientesPerms } from './use-clientes-perms'
-import { STRONG } from '@/lib/color-styles'
+import { STRONG, BADGE, TEXT } from '@/lib/color-styles'
 
 interface Protocolo {
   id: string; orgao: string; tipo: string; protocolo: string
@@ -16,7 +16,7 @@ interface Protocolo {
   data_retorno: string | null; resultado: string | null; user_nome: string | null
 }
 
-const STATUS_COLORS: Record<string, string> = { aberto: STRONG.amber, em_andamento: STRONG.sky, concluido: 'bg-emerald-100 text-emerald-700', erro: STRONG.red }
+const STATUS_COLORS: Record<string, string> = { aberto: STRONG.amber, em_andamento: STRONG.sky, concluido: BADGE.emerald, erro: STRONG.red }
 const ORGAOS = ['Receita Federal', 'SEFAZ', 'Prefeitura', 'SERPRO', 'INSS', 'FGTS', 'Junta Comercial', 'Cartorio', 'Outro']
 
 export function ProtocolosCard({ clienteId }: { clienteId: string }) {
@@ -65,7 +65,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
       <div className="flex items-center gap-2 border-b border-border/60 bg-muted/20 px-5 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div>
-            <h4 className="text-sm font-semibold flex items-center gap-2"><FileInput className="h-4 w-4 text-emerald-600" /> Protocolos</h4>
+            <h4 className="text-sm font-semibold flex items-center gap-2"><FileInput className={cn('h-4 w-4', TEXT.emerald)} /> Protocolos</h4>
             <p className="text-[11px] text-muted-foreground mt-0.5">{items.length} protocolo(s) registrado(s)</p>
           </div>
         </div>
@@ -119,7 +119,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
               <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" />{new Date(item.data_solicitacao).toLocaleDateString('pt-BR')}</span>
                 {item.user_nome && <span>{item.user_nome}</span>}
-                {item.resultado && <span className="text-emerald-600">Resultado: {item.resultado}</span>}
+                {item.resultado && <span className={TEXT.emerald}>Resultado: {item.resultado}</span>}
               </div>
             </div>
             <div className="flex gap-1 shrink-0">

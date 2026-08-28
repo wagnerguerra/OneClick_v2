@@ -97,7 +97,7 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
       <div className="flex items-center gap-2 border-b border-border/60 bg-muted/20 px-5 py-3">
         <div className="min-w-0 flex-1">
           <h4 className="text-sm font-semibold flex items-center gap-2">
-            <StickyNote className="h-4 w-4 text-emerald-600" /> Particularidades por Area
+            <StickyNote className={cn('h-4 w-4', TEXT.emerald)} /> Particularidades por Area
           </h4>
           <p className="text-[11px] text-muted-foreground mt-0.5">Notas e observacoes especificas de cada area contratada.</p>
         </div>

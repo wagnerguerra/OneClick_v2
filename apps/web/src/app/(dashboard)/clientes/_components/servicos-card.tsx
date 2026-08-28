@@ -22,7 +22,7 @@ import { alerts } from '@/lib/alerts'
 import { toDateInputValue } from '@/lib/date'
 import { useSession } from '@/lib/auth-client'
 import { useClientesPerms } from './use-clientes-perms'
-import { STRONG, TEXT } from '@/lib/color-styles'
+import { STRONG, TEXT, BADGE } from '@/lib/color-styles'
 
 // ============================================================
 // Types
@@ -185,7 +185,7 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <div>
               <h4 className="text-sm font-semibold flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-emerald-600" /> Servicos Contratados
+                <Briefcase className={cn('h-4 w-4', TEXT.emerald)} /> Servicos Contratados
               </h4>
               <p className="text-[11px] text-muted-foreground mt-0.5">Gerencie as areas contratadas, responsaveis e parametros.</p>
             </div>
@@ -304,7 +304,7 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
                       {row.complexidadePeso > 0 ? (
                         <span className={cn(
                           'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                          row.complexidadePeso <= 2 ? 'bg-emerald-100 text-emerald-700' :
+                          row.complexidadePeso <= 2 ? BADGE.emerald :
                           row.complexidadePeso <= 3.5 ? STRONG.amber :
                           STRONG.red,
                         )}>
@@ -493,7 +493,7 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
         <DialogHeaderIcon icon={Settings} color="violet">
           <DialogTitle>Parametros — {areaNome}</DialogTitle>
           <DialogDescription>
-            Media geral: <span className="font-semibold text-emerald-600">{calcMedia}</span> | {params.length} parametro(s)
+            Media geral: <span className={cn('font-semibold', TEXT.emerald)}>{calcMedia}</span> | {params.length} parametro(s)
           </DialogDescription>
         </DialogHeaderIcon>
 
