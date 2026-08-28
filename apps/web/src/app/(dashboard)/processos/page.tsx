@@ -18,7 +18,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
 
-const MODULE_COLOR = 'var(--mod-processos, #8b5cf6)' // Violet
+const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
 const PAGE_SIZES = [10, 20, 50]
 
 interface ProcessoListItem {

@@ -84,4 +84,4 @@ Lista canônica dos módulos do SaaS ERP/CRM, agrupados por bloco. Referenciada 
 - FAQ
 
 ## Cores por bloco (slugs de `module_colors`)
-`cadastros`, `comercial`, `corporativo`, `administrativo`, `legalizacao`, `trabalhista`, `fiscal`, `contabil`, `ti`, `qualidade`, `configuracoes`, `processos`, `faq`, `perfil`.
+`cadastros`, `comercial`, `corporativo`, `administrativo`, `legalizacao`, `trabalhista`, `fiscal`, `contabil`, `ti`, `qualidade`, `configuracoes`, `faq`, `perfil`.

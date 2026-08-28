@@ -66,7 +66,6 @@ export const DEFAULT_MODULE_COLORS = [
   { slug: 'ti',            label: 'TI',            color: '#22d3ee' },
   { slug: 'qualidade',     label: 'Qualidade',     color: '#f59e0b' },
   { slug: 'configuracoes', label: 'Configurações', color: '#f97316' },
-  { slug: 'processos',     label: 'Processos',     color: '#8b5cf6' },
   { slug: 'faq',           label: 'FAQ',           color: '#0891b2' },
   { slug: 'perfil',        label: 'Perfil',        color: '#5ea3cb' },
 ] as const
