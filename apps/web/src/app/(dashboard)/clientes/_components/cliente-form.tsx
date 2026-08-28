@@ -38,7 +38,7 @@ import { VerificarErpModal } from '@/components/contrato/verificar-erp-modal'
 import { OrcamentosTab } from './orcamentos-tab'
 import { InativarClienteModal } from './inativar-cliente-modal'
 import { ReativarClienteModal } from './reativar-cliente-modal'
-import { EVENT_BADGE_CLASS, INATIVAR_BTN_CLASS } from './cliente-status-ui'
+import { EVENT_BADGE_CLASS, INATIVAR_BTN_CLASS, ZONA_PERIGO_SURFACE_CLASS } from './cliente-status-ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { toDateInputValue } from '@/lib/date'
@@ -443,11 +443,6 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
           {/* ── Barra de página (padrão LuminAux): título + trilha; ações à direita ── */}
           <PageHeaderBar className="mb-0 sm:mb-0"
             actions={<>
-              {isEdit && canEditDetails && watchedValues.status === 'ATIVO' && (
-                <Button type="button" variant="outline" className={INATIVAR_BTN_CLASS} size="sm" onClick={() => abrirInativar()} title="Inativar cliente">
-                  <Ban className="h-4 w-4" />Inativar
-                </Button>
-              )}
               {canEditDetails && <Button size="sm" type="submit" disabled={saving} className="gap-1.5"><Save className="h-4 w-4" />{saving ? 'Salvando...' : 'Salvar'}</Button>}
               <BackButton href="/clientes" />
             </>}
@@ -735,6 +730,37 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                   consultarCartaoCnpj={consultarCartaoCnpj} cnpjCard={cnpjCard} cnpjCardLoading={cnpjCardLoading} setCnpjCard={setCnpjCard}
                   canEdit={canEditDetails}
                 />
+
+                {/* Zona de perigo — a inativação sai da barra de topo, onde ficava
+                    encostada no Salvar, e desce para o fim da aba. Quem inativa um
+                    cliente rolou a tela inteira até aqui; quem salva um telefone
+                    não passa nem perto. */}
+                {isEdit && canEditDetails && watchedValues.status === 'ATIVO' && (
+                  <div className={cn('mt-5 rounded-xl border p-5', ZONA_PERIGO_SURFACE_CLASS)}>
+                    <h5 className="mb-0 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                      Zona de perigo
+                    </h5>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Ações que tiram o cliente de operação.
+                    </p>
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold text-foreground">Inativar cliente</p>
+                        <p className="text-xs text-muted-foreground">
+                          Ele deixa as listagens e as rotinas ativas. Dá para reativar depois,
+                          pelo aviso &ldquo;Cliente inativado&rdquo; na lateral.
+                        </p>
+                      </div>
+                      <Button
+                        type="button" variant="outline" size="sm"
+                        className={cn('shrink-0 gap-1.5', INATIVAR_BTN_CLASS)}
+                        onClick={() => abrirInativar()}
+                      >
+                        <Ban className="h-4 w-4" /> Inativar cliente
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </TabsContent>
 
               {/* ======================================================== */}
