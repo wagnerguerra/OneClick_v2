@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, Check, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, X, MoreVertical } from 'lucide-react'
+import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, Check, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, X, MoreVertical, ChevronDown } from 'lucide-react'
 import {
   Button, Input, Label, Card,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
@@ -66,6 +66,8 @@ interface Acesso { id: string; portal: string; usuario: string | null; senha: st
 interface Vencimento { id: string; descricao: string; data_vencimento: string; alerta_dias: number; observacoes: string | null; concluido: boolean }
 
 export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoCardProps) {
+  // Contrai o card pelo cabecalho; abre expandido a cada visita.
+  const [cardAberto, setCardAberto] = useState(true)
   const { canManageRegistration, canManageFiscal } = useClientesPerms()
   const [activeTab, setActiveTab] = useState('pop')
   // Detalhes do certificado (modal compartilhado com o módulo Legalização). #HLP0301
@@ -418,9 +420,20 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     <>
     <Card>
       <div className="flex items-center justify-between border-b border-border px-5 py-3">
-        <div className="flex items-center gap-2">
-          <Shield className="h-4 w-4 text-emerald-600" />
-          <h5 className="text-[13px] font-semibold">Legalização</h5>
+        <div className="flex min-w-0 items-center gap-2">
+        <button
+            type="button"
+            onClick={() => setCardAberto(a => !a)}
+            aria-expanded={cardAberto}
+            title={cardAberto ? 'Recolher' : 'Expandir'}
+            className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
+          </button>
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-emerald-600" />
+            <h5 className="text-[13px] font-semibold">Legalização</h5>
+          </div>
         </div>
         {clienteId && (<div className="flex items-center gap-1.5">
           {documento && (
@@ -501,7 +514,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           </Button>
         </div>)}
       </div>
-      <div className="flex min-h-[400px]">
+
+      <div className={cn(!cardAberto && 'hidden')}>      <div className="flex min-h-[400px]">
         {/* Pills laterais */}
         <div className="w-[160px] shrink-0 border-r border-border bg-muted/40 p-3 space-y-1">
           {pills.map(pill => {
@@ -1280,6 +1294,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
             </>
           )}
         </div>
+      </div>
       </div>
     </Card>
 

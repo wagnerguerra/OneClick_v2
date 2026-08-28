@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Trash2, Loader2, MoreVertical, ListChecks, Check, Power, PowerOff, Users,
-  Pencil, Search, X, ListPlus, Filter, List, LayoutGrid,
-} from 'lucide-react'
+  Pencil, Search, X, ListPlus, Filter, List, LayoutGrid, ChevronDown } from 'lucide-react'
 import { CalendarioObrigacoesCliente } from './calendario-obrigacoes-cliente'
 import {
   Button, Input, Label, Badge, Card, CardHeader, Checkbox,
@@ -89,6 +88,8 @@ function iniciais(nome: string): string {
 // cliente-obrigacao.service.ts para como revisitar a ideia no futuro.
 
 export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
+  // Contrai o card pelo cabecalho; abre expandido a cada visita.
+  const [cardAberto, setCardAberto] = useState(true)
   const { canManageResponsible } = useClientesPerms()
   const [items, setItems] = useState<ClienteObrigacao[]>([])
   const [loading, setLoading] = useState(true)
@@ -391,6 +392,15 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
         {/* Header do card — título + ações */}
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 flex-wrap">
           <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => setCardAberto(a => !a)}
+              aria-expanded={cardAberto}
+              title={cardAberto ? 'Recolher' : 'Expandir'}
+              className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
+            </button>
             <ListChecks className="h-4 w-4 text-muted-foreground shrink-0" />
             <h5 className="text-sm font-semibold mb-0">Obrigações do cliente</h5>
             <Badge variant="outline" className="h-5 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
@@ -439,6 +449,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
           </div>
         </CardHeader>
 
+        <div className={cn(!cardAberto && 'hidden')}>
         {view === 'calendario' ? (
           <CalendarioObrigacoesCliente clienteId={clienteId} />
         ) : (
@@ -610,6 +621,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
         </div>
         </>
         )}
+        </div>
       </Card>
 
       {/* Dialog: Aplicar grupo */}

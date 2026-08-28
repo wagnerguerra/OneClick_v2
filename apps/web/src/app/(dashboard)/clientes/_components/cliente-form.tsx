@@ -17,7 +17,7 @@ import {
   Lock, RotateCcw, Ban,
 } from 'lucide-react'
 import {
-  cn, Button, Input, Label, Card, CardHeader, Checkbox, RichEditor, Badge,
+  cn, Button, Input, Label, Card, Checkbox, RichEditor, Badge,
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tabs, TabsContent, TooltipProvider,
@@ -29,6 +29,7 @@ import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { CapaClienteModal } from './capa-cliente-modal'
 import { DossieCard } from './dossie-card'
+import { CardColapsavel } from './card-colapsavel'
 import { LogoClienteModal } from './logo-cliente-modal'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
@@ -1046,12 +1047,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
   ]
 
   return (
-    <Card>
-      <CardHeader>
-        <h5 className="text-sm font-semibold mb-0 flex items-center gap-2">
-          <FileText className="h-4 w-4 text-muted-foreground" /> Detalhes do Cliente
-        </h5>
-      </CardHeader>
+    <CardColapsavel titulo="Detalhes do Cliente" icone={FileText}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
         <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
@@ -1645,7 +1641,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
         </Dialog>
         )
       })()}
-    </Card>
+    </CardColapsavel>
   )
 }
 
@@ -1724,12 +1720,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
   ]
 
   return (
-    <Card>
-      <CardHeader>
-        <h5 className="text-sm font-semibold mb-0 flex items-center gap-2">
-          <ShoppingCart className="h-4 w-4 text-muted-foreground" /> Comercial
-        </h5>
-      </CardHeader>
+    <CardColapsavel titulo="Comercial" icone={ShoppingCart}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
         <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
@@ -1908,7 +1899,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
         </div>
         </fieldset>
       </div>
-    </Card>
+    </CardColapsavel>
   )
 }
 
@@ -2454,12 +2445,7 @@ function FiscalCard({ control, clienteId, isEdit, documento, canEdit }: {
   ]
 
   return (
-    <Card>
-      <CardHeader>
-        <h5 className="text-sm font-semibold mb-0 flex items-center gap-2">
-          <Receipt className="h-4 w-4 text-muted-foreground" /> Fiscal
-        </h5>
-      </CardHeader>
+    <CardColapsavel titulo="Fiscal" icone={Receipt}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
         <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
@@ -2618,7 +2604,7 @@ function FiscalCard({ control, clienteId, isEdit, documento, canEdit }: {
         </div>
         </fieldset>
       </div>
-    </Card>
+    </CardColapsavel>
   )
 }
 

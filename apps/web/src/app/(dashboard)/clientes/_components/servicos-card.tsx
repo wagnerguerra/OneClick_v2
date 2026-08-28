@@ -56,6 +56,8 @@ interface Parametro {
 // ============================================================
 
 export function ServicosCard({ clienteId }: { clienteId: string }) {
+  // Contrai o card pelo cabecalho; abre expandido a cada visita.
+  const [cardAberto, setCardAberto] = useState(true)
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
   const isMaster = (session?.user as any)?.role === 'master' || (session?.user as any)?.isMaster
@@ -178,13 +180,25 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
       <Card>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-5 py-3">
-          <div>
-            <h4 className="text-sm font-semibold flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-emerald-600" /> Servicos Contratados
-            </h4>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Gerencie as areas contratadas, responsaveis e parametros.</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCardAberto(a => !a)}
+              aria-expanded={cardAberto}
+              title={cardAberto ? 'Recolher' : 'Expandir'}
+              className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
+            </button>
+            <div>
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <Briefcase className="h-4 w-4 text-emerald-600" /> Servicos Contratados
+              </h4>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Gerencie as areas contratadas, responsaveis e parametros.</p>
+            </div>
           </div>
-          {canManageServices && (
+
+        <div className={cn(!cardAberto && 'hidden')}>          {canManageServices && (
             <Button variant="success" size="sm" onClick={handleSave} disabled={saving || !dirty} className="gap-1.5">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
@@ -329,6 +343,7 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
             {rows.filter(r => r.contratado).length} de {rows.length} areas contratadas
             {dirty && <span className="ml-2 text-amber-600 font-medium">Alteracoes nao salvas</span>}
           </p>
+        </div>
         </div>
       </Card>
 

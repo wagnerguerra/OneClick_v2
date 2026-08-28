@@ -69,6 +69,8 @@ function getRootNodes(children: Map<string | null, Categoria[]>) {
 // ============================================================
 
 export function ContabilCard({ clienteId, documento }: { clienteId: string; documento?: string }) {
+  // Contrai o card pelo cabecalho; abre expandido a cada visita.
+  const [cardAberto, setCardAberto] = useState(true)
   const { canManageFiscal } = useClientesPerms()
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [loading, setLoading] = useState(true)
@@ -265,14 +267,25 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
     <Card>
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-5 py-3">
-        <div>
-          <h4 className="text-sm font-semibold flex items-center gap-2">
-            <Calculator className="h-4 w-4 text-emerald-600" /> BI — Contas do Balancete
-          </h4>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {categorias.length} contas | {periodos.length} periodo(s) importado(s)
-            {dirty && <span className="ml-2 text-amber-600 font-medium">Alteracoes nao salvas</span>}
-          </p>
+        <div className="flex min-w-0 items-center gap-2">
+        <button
+            type="button"
+            onClick={() => setCardAberto(a => !a)}
+            aria-expanded={cardAberto}
+            title={cardAberto ? 'Recolher' : 'Expandir'}
+            className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
+          </button>
+          <div>
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Calculator className="h-4 w-4 text-emerald-600" /> BI — Contas do Balancete
+            </h4>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {categorias.length} contas | {periodos.length} periodo(s) importado(s)
+              {dirty && <span className="ml-2 text-amber-600 font-medium">Alteracoes nao salvas</span>}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-1.5">
           <Button
@@ -297,6 +310,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
         </div>
       </div>
 
+      <div className={cn(!cardAberto && 'hidden')}>
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-5 py-2 border-b border-border/40 bg-muted/10">
         <div className="relative flex-1 max-w-xs">
@@ -363,6 +377,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
             Periodos: {periodos.map(p => p.periodo).join(', ')}
           </p>
         )}
+      </div>
       </div>
     </Card>
   )

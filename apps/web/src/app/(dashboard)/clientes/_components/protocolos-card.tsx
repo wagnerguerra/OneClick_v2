@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { FileInput, Plus, Loader2, Trash2, CheckCircle, Clock } from 'lucide-react'
+import { FileInput, Plus, Loader2, Trash2, CheckCircle, Clock, ChevronDown } from 'lucide-react'
 import { Button, Card, Input } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -18,6 +18,8 @@ const STATUS_COLORS: Record<string, string> = { aberto: 'bg-amber-100 text-amber
 const ORGAOS = ['Receita Federal', 'SEFAZ', 'Prefeitura', 'SERPRO', 'INSS', 'FGTS', 'Junta Comercial', 'Cartorio', 'Outro']
 
 export function ProtocolosCard({ clienteId }: { clienteId: string }) {
+  // Contrai o card pelo cabecalho; abre expandido a cada visita.
+  const [cardAberto, setCardAberto] = useState(true)
   const { canManageRegistration } = useClientesPerms()
   const [items, setItems] = useState<Protocolo[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,13 +61,25 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
   return (
     <Card>
       <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-5 py-3">
-        <div>
-          <h4 className="text-sm font-semibold flex items-center gap-2"><FileInput className="h-4 w-4 text-emerald-600" /> Protocolos</h4>
-          <p className="text-[11px] text-muted-foreground mt-0.5">{items.length} protocolo(s) registrado(s)</p>
+        <div className="flex min-w-0 items-center gap-2">
+        <button
+            type="button"
+            onClick={() => setCardAberto(a => !a)}
+            aria-expanded={cardAberto}
+            title={cardAberto ? 'Recolher' : 'Expandir'}
+            className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
+          </button>
+          <div>
+            <h4 className="text-sm font-semibold flex items-center gap-2"><FileInput className="h-4 w-4 text-emerald-600" /> Protocolos</h4>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{items.length} protocolo(s) registrado(s)</p>
+          </div>
         </div>
         {canManageRegistration && <Button type="button" variant="outline" size="sm" onClick={() => setAdding(!adding)} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Registrar</Button>}
       </div>
 
+      <div className={cn(!cardAberto && 'hidden')}>
       {adding && (
         <div className="px-5 py-3 border-b border-border/40 bg-emerald-50/30 dark:bg-emerald-950/10">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -112,6 +126,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
             </div>
           </div>
         ))}
+      </div>
       </div>
     </Card>
   )
