@@ -160,6 +160,7 @@ export class DossieService {
         inscricaoEstadual: true, capitalSocial: true,
         cep: true, logradouro: true, numero: true, complemento: true,
         bairro: true, cidade: true, uf: true, telefone: true,
+        dataAbertura: true, naturezaJuridica: true, porte: true, situacaoCadastral: true,
       },
     })
     if (!cliente) return { clienteId, ok: false, motivo: 'Cliente não encontrado.' }
@@ -232,6 +233,11 @@ export class DossieService {
       uf: cliente.uf,
       telefone: cliente.telefone,
       email: cliente.email,
+      // Data vira texto no formato da fonte ('AAAA-MM-DD') só para comparar.
+      dataAbertura: cliente.dataAbertura ? cliente.dataAbertura.toISOString().slice(0, 10) : null,
+      naturezaJuridica: cliente.naturezaJuridica,
+      porte: cliente.porte,
+      situacaoCadastral: cliente.situacaoCadastral,
     }
 
     passo?.({ chave: 'fatos', rotulo: 'Gravando os dados coletados', status: 'rodando' })
@@ -441,6 +447,7 @@ export class DossieService {
     'razaoSocial', 'nomeFantasia', 'capitalSocial',
     'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf',
     'telefone', 'email',
+    'dataAbertura', 'naturezaJuridica', 'porte', 'situacaoCadastral',
   ])
 
   /**
@@ -464,9 +471,7 @@ export class DossieService {
 
     const dados: Record<string, unknown> = {}
     for (const s of vazios) {
-      dados[s.campo] = s.campo === 'capitalSocial'
-        ? (s.valorSugerido ? Number(s.valorSugerido) : null)
-        : s.valorSugerido
+      dados[s.campo] = DossieService.valorParaColuna(s.campo, s.valorSugerido)
     }
 
     // Uma escrita só: dez updates seguidos deixariam o cadastro em estado
@@ -481,6 +486,21 @@ export class DossieService {
     return { aplicados: vazios.length }
   }
 
+  /**
+   * A sugestão guarda TEXTO; a coluna nem sempre é texto. Sem esta conversão,
+   * `dataAbertura` receberia a string 'AAAA-MM-DD' numa coluna de data e o
+   * Prisma recusaria a escrita inteira — junto com os outros campos do lote.
+   */
+  private static valorParaColuna(campo: string, valor: string | null): unknown {
+    if (!valor) return null
+    if (campo === 'capitalSocial') return Number(valor)
+    if (campo === 'dataAbertura') {
+      const d = new Date(`${valor}T00:00:00.000Z`)
+      return Number.isNaN(d.getTime()) ? null : d
+    }
+    return valor
+  }
+
   async decidirSugestao(id: string, decisao: 'aprovada' | 'rejeitada', usuarioId?: string, observacao?: string) {
     const sug = await prisma.clienteDossieSugestao.findUnique({ where: { id } })
     if (!sug) throw new Error('Sugestão não encontrada.')
@@ -490,9 +510,7 @@ export class DossieService {
       if (!DossieService.CAMPOS_APLICAVEIS.has(sug.campo)) {
         throw new Error(`O campo "${sug.campo}" não pode ser atualizado pelo dossiê.`)
       }
-      const valor: unknown = sug.campo === 'capitalSocial'
-        ? (sug.valorSugerido ? Number(sug.valorSugerido) : null)
-        : sug.valorSugerido
+      const valor = DossieService.valorParaColuna(sug.campo, sug.valorSugerido)
       await prisma.cliente.update({
         where: { id: sug.clienteId },
         data: { [sug.campo]: valor } as never,

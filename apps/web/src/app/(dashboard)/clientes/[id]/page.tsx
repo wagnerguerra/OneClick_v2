@@ -38,6 +38,7 @@ export default function EditClientePage() {
   const defaultValues = Object.fromEntries(
     Object.entries({
       ...cliente,
+      dataAbertura: toDateInputValue(cliente.dataAbertura as string),
       dataEntrada: toDateInputValue(cliente.dataEntrada as string),
       dataSaida: toDateInputValue(cliente.dataSaida as string),
     }).map(([k, v]) => [k, v === null ? undefined : v])

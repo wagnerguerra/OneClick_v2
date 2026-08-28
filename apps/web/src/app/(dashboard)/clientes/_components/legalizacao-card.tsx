@@ -561,6 +561,12 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
               </div>
               <div className="p-5 grid grid-cols-12 gap-3">
                 {/* Inscrição Estadual/Municipal migradas para a aba Fiscal → Registro de Inscrições. */}
+                {/* Natureza jurídica vem da Receita pelo dossiê e mora aqui,
+                    junto de NIRE e CNAE, que é onde se consulta. */}
+                <div className="col-span-12 md:col-span-4 space-y-1.5">
+                  <Label>Natureza Jurídica</Label>
+                  <Input placeholder="2062 - Sociedade Empresária Limitada" {...register('naturezaJuridica' as any)} />
+                </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <Label>CNAE Principal</Label>
                   <Input placeholder="0000-0/00" {...register('cnaePrincipal' as any)} />

@@ -24,6 +24,10 @@ export type CadastroComparavel = {
   uf: string | null
   telefone: string | null
   email: string | null
+  dataAbertura: string | null
+  naturezaJuridica: string | null
+  porte: string | null
+  situacaoCadastral: string | null
 }
 
 export type Divergencia = {
@@ -65,6 +69,10 @@ const CAMPOS: Array<{
   // primeiro — e quem quiser os outros vê a lista no bloco de contato.
   { campo: 'telefone', valor: d => d.telefones[0] ?? null },
   { campo: 'email', valor: d => d.email },
+  { campo: 'dataAbertura', valor: d => d.dataAbertura },
+  { campo: 'naturezaJuridica', valor: d => d.naturezaJuridica },
+  { campo: 'porte', valor: d => d.porte },
+  { campo: 'situacaoCadastral', valor: d => d.situacaoCadastral },
 ]
 
 export function detectarDivergencias(cadastro: CadastroComparavel, dados: DadosCnpj): Divergencia[] {

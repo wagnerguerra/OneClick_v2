@@ -227,7 +227,8 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
     defaultValues: {
       razaoSocial: '', nomeFantasia: '', documento: '', tipoDocumento: 'CNPJ',
       tipoCliente: 'A DEFINIR', situacao: 'MENSAL', status: 'ATIVO', grupo: '', origem: '',
-      dataEntrada: '', dataSaida: '', observacoes: '',
+      dataAbertura: '', dataEntrada: '', dataSaida: '', observacoes: '',
+      porte: '', situacaoCadastral: '', naturezaJuridica: '',
       tributacao: undefined, regime: undefined,
       inscricaoEstadual: '', inscricaoMunicipal: '',
       areasContratadas: '',
@@ -1760,6 +1761,13 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
                     )
                   }} />
                 </div>
+                {/* Abertura ao lado da entrada de propósito: uma é quando a
+                    empresa nasceu, a outra quando virou cliente da casa, e ver
+                    as duas juntas é o que evita confundi-las. */}
+                <div className="col-span-6 md:col-span-3 space-y-1.5">
+                  <Label>Data de Abertura</Label>
+                  <Input type="date" {...register('dataAbertura')} />
+                </div>
                 <div className="col-span-6 md:col-span-3 space-y-1.5">
                   <Label>Data Entrada</Label>
                   <Input type="date" {...register('dataEntrada')} />
@@ -2420,7 +2428,7 @@ function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
 // FiscalCard — pills laterais (padrão igual ComercialCard)
 // ============================================================
 
-function FiscalCard({ control, clienteId, isEdit, documento, canEdit }: {
+function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }: {
   register: ReturnType<typeof useForm<CreateClienteInput>>['register']
   control: ReturnType<typeof useForm<CreateClienteInput>>['control']
   clienteId?: string
@@ -2499,6 +2507,17 @@ function FiscalCard({ control, clienteId, isEdit, documento, canEdit }: {
                       </SelectContent>
                     </Select>
                   )} />
+                </div>
+                {/* Os dois vêm da Receita, pelo dossiê. Texto livre: a
+                    nomenclatura do porte muda com a lei, e a situação cadastral
+                    ganha valor novo quando a Receita inventa um. */}
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label>Porte</Label>
+                  <Input placeholder="ME, EPP, DEMAIS" {...register('porte')} />
+                </div>
+                <div className="col-span-12 md:col-span-6 space-y-1.5">
+                  <Label>Situação cadastral</Label>
+                  <Input placeholder="ATIVA, BAIXADA, SUSPENSA…" {...register('situacaoCadastral')} />
                 </div>
               </div>
 

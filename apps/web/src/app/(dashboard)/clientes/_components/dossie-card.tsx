@@ -75,6 +75,8 @@ const CAMPOS_CADASTRO: Record<string, string> = {
   cep: 'CEP', logradouro: 'Logradouro', numero: 'Número', complemento: 'Complemento',
   bairro: 'Bairro', cidade: 'Cidade', uf: 'UF',
   telefone: 'Telefone', email: 'E-mail',
+  dataAbertura: 'Data de abertura', naturezaJuridica: 'Natureza jurídica',
+  porte: 'Porte', situacaoCadastral: 'Situação cadastral',
 }
 
 /** A fonte devolve data como 'AAAA-MM-DD'; na tela é sempre dd/mm/aaaa. */

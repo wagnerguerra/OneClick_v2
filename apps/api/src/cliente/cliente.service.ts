@@ -12,7 +12,9 @@ const FIELD_LABELS: Record<string, string> = {
   tipoDocumento: 'Tipo Documento', tipoCliente: 'Tipo Cliente', logoUrl: 'Logo',
   idSistema: 'ID SCI', idOmie: 'ID Omie', omieEmpresa: 'Empresa Omie', idOneClick: 'ID OneClick',
   situacao: 'Situação', status: 'Status', grupo: 'Grupo', categoria: 'Categoria', origem: 'Origem',
-  dataEntrada: 'Data Entrada', dataSaida: 'Data Saída', observacoes: 'Observações',
+  dataAbertura: 'Data de abertura', dataEntrada: 'Data Entrada', dataSaida: 'Data Saída',
+  porte: 'Porte', situacaoCadastral: 'Situação cadastral', naturezaJuridica: 'Natureza jurídica',
+  observacoes: 'Observações',
   tributacao: 'Tributação', regime: 'Regime', inscricaoEstadual: 'IE', inscricaoMunicipal: 'IM',
   areasContratadas: 'Áreas Contratadas',
   cep: 'CEP', logradouro: 'Logradouro', numero: 'Número', complemento: 'Complemento',
@@ -530,11 +532,15 @@ export class ClienteService {
           grupo: input.grupo || null,
           categoria: input.categoria || 'NAO_INFORMADO',
           origem: input.origem || null,
+          dataAbertura: parseOptionalDate(input.dataAbertura),
           dataEntrada: parseOptionalDate(input.dataEntrada),
           dataSaida: parseOptionalDate(input.dataSaida),
           observacoes: input.observacoes || null,
           tributacao: (input.tributacao || null) as never,
           regime: (input.regime || null) as never,
+          porte: input.porte || null,
+          situacaoCadastral: input.situacaoCadastral || null,
+          naturezaJuridica: input.naturezaJuridica || null,
           inscricaoEstadual: input.inscricaoEstadual || null,
           inscricaoMunicipal: input.inscricaoMunicipal || null,
           areasContratadas: input.areasContratadas || null,
@@ -572,7 +578,7 @@ export class ClienteService {
       const data: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(input)) {
         if (value === undefined) continue
-        if (key === 'dataEntrada' || key === 'dataSaida') {
+        if (key === 'dataEntrada' || key === 'dataSaida' || key === 'dataAbertura') {
           data[key] = parseOptionalDate(value as string)
         } else if (key === 'documento') {
           // documento é coluna não-nulável: normaliza preservando letras do CNPJ
