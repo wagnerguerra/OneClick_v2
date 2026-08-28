@@ -17,7 +17,7 @@ import {
   Lock, RotateCcw, Ban,
 } from 'lucide-react'
 import {
-  cn, Button, Input, Label, Card, Checkbox, RichEditor, Badge,
+  cn, Button, Input, Label, Card, Checkbox, RichEditor, Badge, Textarea,
   Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tabs, TabsContent, TooltipProvider,
@@ -1106,9 +1106,9 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                         className="rounded-r-none border-r-0"
                       />
                     )} />
-                    <button type="button" className="shrink-0 rounded-none border border-l-0 border-r-0 border-sky-500 h-9 px-3 text-[12px] font-medium bg-sky-500 text-white cursor-pointer hover:bg-sky-600" onClick={() => buscarCnpj()}>
+                    <Button type="button" variant="info" className="shrink-0 rounded-none border-y border-sky-500 h-9 px-3 text-[12px]" onClick={() => buscarCnpj()}>
                       Completar
-                    </button>
+                    </Button>
                     <button type="button" className="shrink-0 rounded-r-[0.25rem] border border-l-0 border-input h-9 px-3 text-[12px] font-medium cursor-pointer hover:bg-accent flex items-center gap-1" onClick={() => consultarCartaoCnpj()} disabled={cnpjCardLoading}>
                       {cnpjCardLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />} {cnpjCardLoading ? 'Consultando...' : 'Consultar'}
                     </button>
@@ -2185,7 +2185,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
                             <a href={fullUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" title="Visualizar">
                               <ExternalLink className="h-3.5 w-3.5" />
                             </a>
-                            <button type="button" onClick={() => deleteFile(f.id, f.fileName)} className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-red-50 hover:text-red-600" title="Excluir">
+                            <button type="button" onClick={() => deleteFile(f.id, f.fileName)} className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400" title="Excluir">
                               <X className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -2933,10 +2933,10 @@ function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
                   {(canWrite || canDelete) && (
                     <td className="px-3 py-2 text-right whitespace-nowrap">
                       {canWrite && (
-                        <button type="button" onClick={() => startEdit(r)} className="mr-2 text-muted-foreground hover:text-sky-600" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
+                        <button type="button" onClick={() => startEdit(r)} className="mr-2 text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
                       )}
                       {canDelete && (
-                        <button type="button" onClick={() => handleRemove(r.id)} className="text-muted-foreground hover:text-rose-600" title="Remover"><Trash2 className="h-3.5 w-3.5" /></button>
+                        <button type="button" onClick={() => handleRemove(r.id)} className="text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400" title="Remover"><Trash2 className="h-3.5 w-3.5" /></button>
                       )}
                     </td>
                   )}
@@ -3166,7 +3166,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
                         type="button"
                         onClick={() => handleRemove(a.id, a.valor)}
                         title="Remover"
-                        className="shrink-0 rounded-full p-0.5 opacity-40 hover:opacity-100 hover:bg-rose-500/15 hover:text-rose-600 transition"
+                        className="shrink-0 rounded-full p-0.5 opacity-40 hover:opacity-100 hover:bg-rose-500/15 hover:text-rose-600 dark:hover:text-rose-400 transition"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -3667,8 +3667,8 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Detalhes / observações</Label>
-              <textarea
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              <Textarea
+                className="min-h-[80px]"
                 value={editingCert?.observacoes || ''}
                 onChange={(e) => setEditingCert((s) => (s ? { ...s, observacoes: e.target.value } : s))}
                 placeholder="Anotações internas sobre este certificado..."
@@ -3885,7 +3885,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <Button type="button" size="sm" className="bg-emerald-500 text-white hover:bg-emerald-600" onClick={handleAdd} disabled={!fNome.trim()}>
+              <Button type="button" variant="success" size="sm" onClick={handleAdd} disabled={!fNome.trim()}>
                 <Plus className="h-4 w-4" /> Adicionar
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => { setAdding(false); resetForm() }}>Cancelar</Button>
@@ -3924,7 +3924,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <Button type="button" size="sm" className="bg-sky-500 text-white hover:bg-sky-600" onClick={handleUpdate} disabled={!fNome.trim()}>
+              <Button type="button" variant="info" size="sm" onClick={handleUpdate} disabled={!fNome.trim()}>
                 <Save className="h-4 w-4" /> Salvar
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={cancelEdit}>Cancelar</Button>
@@ -3998,11 +3998,11 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
                     <td className="py-2.5 px-3">
                       <div className="flex items-center justify-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button type="button" title="Editar" onClick={() => startEdit(c)}
-                          className="p-1 rounded hover:bg-sky-100 text-sky-600 transition-colors">
+                          className="p-1 rounded hover:bg-sky-100 dark:hover:bg-sky-900/30 text-sky-600 dark:text-sky-400 transition-colors">
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button type="button" title="Excluir" onClick={() => handleRemove(c.id, c.nome)}
-                          className="p-1 rounded hover:bg-red-100 text-destructive transition-colors">
+                          className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-destructive transition-colors">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>

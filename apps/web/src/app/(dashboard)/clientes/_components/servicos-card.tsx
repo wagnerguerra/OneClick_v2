@@ -6,7 +6,7 @@ import {
   Plus, Trash2, Copy, ChevronDown,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card,
+  Button, Input, Label, Card, Textarea,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
@@ -658,12 +658,12 @@ function EncerramentoDialog({ open, onClose, row, onSave }: {
           </div>
           <div className="space-y-1.5">
             <Label>Observacoes</Label>
-            <textarea
+            <Textarea
               value={obs}
               onChange={e => setObs(e.target.value)}
               maxLength={1000}
               rows={4}
-              className="w-full rounded-md border bg-card px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+              className="resize-y"
               placeholder="Motivo do encerramento, detalhes..."
             />
             <p className="text-[10px] text-muted-foreground text-right">{obs.length}/1000</p>
