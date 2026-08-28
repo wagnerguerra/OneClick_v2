@@ -20,6 +20,7 @@ import { Button } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { useEmpresaAtiva } from '@/hooks/use-empresa-ativa'
 import { resolveAssetUrl } from '@/lib/api-url'
+import { stripHtml } from '@/lib/html'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
 
@@ -115,11 +116,29 @@ function ImprimirAgendaConteudo() {
     return () => { cancelado = true }
   }, [dia])
 
-  // Dia inteiro primeiro — não tem hora para ordenar e vale para o dia todo.
-  const emOrdem = useMemo(() => [...eventos].sort((a, b) => {
-    if (a.diaInteiro !== b.diaInteiro) return a.diaInteiro ? -1 : 1
-    return (a.horaInicio ?? '').localeCompare(b.horaInicio ?? '')
-  }), [eventos])
+  /**
+   * Quem lê a folha correndo procura "o que tenho de manhã", não a lista
+   * inteira. Então o dia sai em blocos: o que vale o dia todo primeiro (não tem
+   * hora para ordenar), e o resto separado por período.
+   *
+   * O corte em 12h e 18h é o do expediente, não o do relógio astronômico:
+   * reunião das 18h30 é "fim do dia" para quem trabalha, e é assim que a pessoa
+   * procura na folha.
+   */
+  const blocos = useMemo(() => {
+    const porHora = (a: Evento, b: Evento) => (a.horaInicio ?? '').localeCompare(b.horaInicio ?? '')
+    const comHora = eventos.filter(e => !e.diaInteiro)
+    const faixa = (e: Evento) => Number((e.horaInicio ?? '00:00').slice(0, 2))
+
+    return [
+      { chave: 'dia', rotulo: 'Dia inteiro', itens: eventos.filter(e => e.diaInteiro).sort(porHora) },
+      { chave: 'manha', rotulo: 'Manhã', itens: comHora.filter(e => faixa(e) < 12).sort(porHora) },
+      { chave: 'tarde', rotulo: 'Tarde', itens: comHora.filter(e => faixa(e) >= 12 && faixa(e) < 18).sort(porHora) },
+      { chave: 'noite', rotulo: 'A partir das 18h', itens: comHora.filter(e => faixa(e) >= 18).sort(porHora) },
+    ].filter(b => b.itens.length > 0)
+  }, [eventos])
+
+  const total = eventos.length
 
   const abertas = tarefas.filter(t => !t.concluida)
   const concluidas = tarefas.filter(t => t.concluida)
@@ -172,7 +191,7 @@ function ImprimirAgendaConteudo() {
           <div className="data">
             <p className="data-extenso">{dataPorExtenso(dia)}</p>
             <p className="contagem">
-              {emOrdem.length} compromisso{emOrdem.length === 1 ? '' : 's'}
+              {total} compromisso{total === 1 ? '' : 's'}
               {abertas.length > 0 && ` · ${abertas.length} tarefa${abertas.length === 1 ? '' : 's'} em aberto`}
             </p>
           </div>
@@ -180,45 +199,54 @@ function ImprimirAgendaConteudo() {
 
         <section className="secao">
           <h2>Compromissos</h2>
-          {emOrdem.length === 0 ? (
-            <p className="vazio">Nenhum compromisso neste dia.</p>
-          ) : (
-            <ul className="lista">
-              {emOrdem.map(ev => (
-                <li key={ev.id} className="evento">
-                  <div className="hora">
-                    {ev.diaInteiro
-                      ? <span className="dia-inteiro">Dia inteiro</span>
-                      : <>
-                          <Clock className="ico" />
-                          {ev.horaInicio ?? '—'}
+          {blocos.length === 0 && <p className="vazio">Nenhum compromisso neste dia.</p>}
+          {blocos.map(bloco => (
+            <div key={bloco.chave} className="periodo">
+              <h3 className="periodo-titulo">
+                {bloco.rotulo}
+                <span className="periodo-contagem">{bloco.itens.length}</span>
+              </h3>
+              <ul className="lista">
+                {bloco.itens.map(ev => (
+                  <li key={ev.id} className="evento">
+                    {/* Com o período no título do bloco, repetir "Dia inteiro"
+                        em cada linha só ocuparia a coluna sem informar nada. */}
+                    <div className="hora">
+                      {!ev.diaInteiro && (
+                        <>
+                          <span className="inicio"><Clock className="ico" />{ev.horaInicio ?? '—'}</span>
                           {ev.horaFim && <span className="ate">até {ev.horaFim}</span>}
-                        </>}
-                  </div>
-                  <div className="corpo">
-                    <p className="titulo">
-                      <span className="marca" style={{ backgroundColor: ev.tipo.cor }} />
-                      {/* Evento particular de outra pessoa nunca chega aqui — o
-                          backend já filtra. O que chega é o particular de quem
-                          imprime, e o papel avisa para não deixá-lo na mesa. */}
-                      {ev.titulo}
-                      {ev.particular && <span className="etiqueta">particular</span>}
-                    </p>
-                    <p className="meta">
-                      {ev.tipo.nome}
-                      {(ev.local || ev.sala) && <> · <MapPin className="ico" />{ev.sala || ev.local}</>}
-                      {ev.participantes.length > 0 && (
-                        <> · <Users className="ico" />{ev.participantes.map(nomeParticipante).join(', ')}</>
+                        </>
                       )}
-                    </p>
-                    {ev.contato && <p className="meta">Contato: {ev.contato}</p>}
-                    {ev.link && <p className="meta"><Link2 className="ico" />{ev.link}</p>}
-                    {ev.descricao && <p className="descricao">{ev.descricao}</p>}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+                    </div>
+                    <div className="corpo">
+                      <p className="titulo">
+                        <span className="marca" style={{ backgroundColor: ev.tipo.cor }} />
+                        {/* Evento particular de outra pessoa nunca chega aqui — o
+                            backend já filtra. O que chega é o particular de quem
+                            imprime, e o papel avisa para não deixá-lo na mesa. */}
+                        {ev.titulo}
+                        {ev.particular && <span className="etiqueta">particular</span>}
+                      </p>
+                      <p className="meta">
+                        {ev.tipo.nome}
+                        {(ev.local || ev.sala) && <> · <MapPin className="ico" />{ev.sala || ev.local}</>}
+                        {ev.participantes.length > 0 && (
+                          <> · <Users className="ico" />{ev.participantes.map(nomeParticipante).join(', ')}</>
+                        )}
+                      </p>
+                      {ev.contato && <p className="meta">Contato: {ev.contato}</p>}
+                      {ev.link && <p className="meta"><Link2 className="ico" />{ev.link}</p>}
+                      {/* A descrição vem do RichEditor, então é HTML. Impressa
+                          crua, um campo "vazio" aparecia como <p></p> literal no
+                          papel — que foi o que o Wagner viu. */}
+                      {stripHtml(ev.descricao) && <p className="descricao">{stripHtml(ev.descricao)}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </section>
 
         <section className="secao">
@@ -245,7 +273,7 @@ function ImprimirAgendaConteudo() {
                       {t.horaPrazo ? `até ${t.horaPrazo}` : 'sem hora definida'}
                       {t.criador?.name && ` · ${t.criador.name}`}
                     </p>
-                    {t.descricao && <p className="descricao">{t.descricao}</p>}
+                    {stripHtml(t.descricao) && <p className="descricao">{stripHtml(t.descricao)}</p>}
                   </div>
                 </li>
               ))}
@@ -296,23 +324,40 @@ function ImprimirAgendaConteudo() {
         }
         .dia-doc .vazio { color: #9ca3af; font-style: italic; margin: 6px 0; }
 
+        /* Faixa do dia: manhã, tarde, fim do dia. É por onde o olho entra
+           quando alguém pergunta "o que tenho de manhã". */
+        .dia-doc .periodo { margin-top: 14px; }
+        .dia-doc .periodo:first-of-type { margin-top: 0; }
+        .dia-doc .periodo-titulo {
+          margin: 0 0 2px; font-size: 11.5px; font-weight: 700; color: #374151;
+          display: flex; align-items: center; gap: 7px;
+        }
+        .dia-doc .periodo-contagem {
+          font-size: 10px; font-weight: 700; color: #6b7280;
+          background: #f3f4f6; border-radius: 999px; padding: 0 6px;
+          font-variant-numeric: tabular-nums;
+        }
+
         .dia-doc .lista { list-style: none; margin: 0; padding: 0; }
         .dia-doc .evento, .dia-doc .tarefa {
           display: flex; gap: 14px;
-          padding: 10px 0;
+          padding: 8px 0;
           border-bottom: 1px solid #f3f4f6;
         }
+        /* Hora alinhada ao TOPO do compromisso, não ao centro: o bloco da
+           direita cresce com participantes e descrição, e a hora centralizada
+           descolava do título a que pertence. */
         .dia-doc .hora {
-          width: 92px; flex-shrink: 0;
+          width: 84px; flex-shrink: 0; padding-top: 1px;
           font-weight: 600; font-variant-numeric: tabular-nums;
-          display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+          display: flex; flex-direction: column; gap: 1px;
         }
-        .dia-doc .hora .ate { font-weight: 400; color: #6b7280; font-size: 11px; width: 100%; }
-        .dia-doc .dia-inteiro { font-size: 11px; color: #6b7280; font-weight: 600; }
+        .dia-doc .hora .inicio { display: flex; align-items: center; gap: 4px; }
+        .dia-doc .hora .ate { font-weight: 400; color: #9ca3af; font-size: 10.5px; padding-left: 15px; }
 
         .dia-doc .corpo { min-width: 0; flex: 1; }
         .dia-doc .titulo {
-          margin: 0; font-weight: 600; font-size: 13px;
+          margin: 0; font-weight: 600; font-size: 13px; line-height: 1.35;
           display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
         }
         .dia-doc .titulo.riscado { text-decoration: line-through; color: #9ca3af; }
@@ -382,7 +427,12 @@ function ImprimirAgendaConteudo() {
           /* Compromisso cortado ao meio entre duas folhas é o pior defeito
              possível num papel que se lê correndo. */
           .dia-doc .evento, .dia-doc .tarefa { break-inside: avoid; page-break-inside: avoid; }
-          .dia-doc .secao h2 { break-after: avoid; page-break-after: avoid; }
+          .dia-doc .secao h2,
+          .dia-doc .periodo-titulo { break-after: avoid; page-break-after: avoid; }
+          .dia-doc .periodo-contagem {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
         }
       `}</style>
     </div>
