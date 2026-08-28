@@ -8,7 +8,7 @@ import {
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, DoorOpen,
   Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, ArrowUp, Link2, ExternalLink,
-  StickyNote, Paperclip, Send, Upload, FileBarChart, Sparkles,
+  StickyNote, Paperclip, Send, Upload, FileBarChart, Sparkles, Printer,
 } from 'lucide-react'
 import {
   Button, Input, Textarea, Label, Card,
@@ -1467,6 +1467,13 @@ export default function AgendaPage() {
             <Users className="h-4 w-4" /> Verificar disponibilidade
           </Link>
         </Button>
+        {/* Sem data na URL, a folha sai com o dia de HOJE — que é o caso de
+            quase todo mundo que aperta "imprimir o dia" pela manhã. */}
+        <Button asChild variant="outline" size="sm" className="gap-1.5">
+          <Link href="/agenda/imprimir">
+            <Printer className="h-4 w-4" /> Imprimir o dia
+          </Link>
+        </Button>
         {canVerRelatorios && (
           <Button asChild variant="outline" size="sm" className="gap-1.5">
             <Link href="/agenda/relatorios">
@@ -2231,14 +2238,21 @@ export default function AgendaPage() {
           )}
           </div>
           </DialogBody>
-          {/* Footer só quando há ação possível — pra datas passadas, oculta inteiro */}
-          {dayModalDate >= formatDate(new Date()) && (
-            <DialogFooter>
+          {/* Imprimir vale para QUALQUER dia, inclusive os que já passaram —
+              quem imprime um dia anterior está prestando contas dele. Criar
+              evento, não: aí o footer aparece só daqui pra frente. */}
+          <DialogFooter>
+            <Button asChild variant="outline" size="sm" className="gap-1.5">
+              <Link href={`/agenda/imprimir?data=${dayModalDate}`}>
+                <Printer className="h-3.5 w-3.5" />Imprimir este dia
+              </Link>
+            </Button>
+            {dayModalDate >= formatDate(new Date()) && (
               <Button size="sm" onClick={() => { setDayModalOpen(false); openNewEvent(dayModalDate) }} className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white">
                 <Plus className="h-3.5 w-3.5" />Novo evento
               </Button>
-            </DialogFooter>
-          )}
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
