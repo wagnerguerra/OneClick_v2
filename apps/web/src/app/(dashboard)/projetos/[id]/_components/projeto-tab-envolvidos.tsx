@@ -17,11 +17,12 @@
 import { useState, useCallback, useEffect } from 'react'
 import {
   Building2, Users, UserCog, Handshake, X, Plus, Loader2, Search, Check,
-  Layers, Trash2, Pencil,
+  Layers, Trash2, Pencil, MoreVertical, PackageCheck, ChevronRight,
 } from 'lucide-react'
 import {
   Button, Card, Input, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Label,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { resolveAssetUrl } from '@/lib/api-url'
@@ -61,7 +62,7 @@ function Caixa({ children, destaque, cor, aoRemover, titulo }: {
   return (
     <div
       className={cn(
-        'group/caixa relative flex min-w-[186px] max-w-[240px] items-center gap-2.5 rounded-xl border bg-card px-3 py-2.5 shadow-sm',
+        'group/caixa relative flex w-full items-center gap-2.5 rounded-xl border bg-card px-3 py-2.5 shadow-sm',
         destaque ? 'border-transparent' : 'border-border',
       )}
       style={destaque && cor ? { boxShadow: `0 0 0 2px ${cor}` } : undefined}
@@ -80,28 +81,39 @@ function Caixa({ children, destaque, cor, aoRemover, titulo }: {
   )
 }
 
-/** Um degrau do fluxograma: haste, faixa com o nome e as caixas. */
-function Degrau({ titulo, icone: Icone, cor, vazio, quantidade, aoAdicionar, children }: {
+/**
+ * Um degrau do fluxograma. A faixa com o nome não flutua acima das caixas: ela
+ * é o cabeçalho de um painel que as CONTÉM. Assim se enxerga onde um degrau
+ * termina e o outro começa — com três ou quatro caixas soltas numa coluna
+ * estreita, a leitura se perdia.
+ */
+function Degrau({ titulo, icone: Icone, cor, vazio, quantidade, aoAgir, iconeAcao: IconeAcao = Plus, rotuloAcao, primeiro, children }: {
   titulo: string; icone: typeof Users; cor: string; vazio: string; quantidade: number
-  aoAdicionar?: () => void; children: React.ReactNode
+  aoAgir?: () => void; iconeAcao?: typeof Plus; rotuloAcao?: string
+  primeiro?: boolean; children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col items-center">
-      <span className="h-4 w-px bg-border" />
-      <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-0.5">
-        <Icone className="h-3 w-3" style={{ color: cor }} />
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-foreground">{titulo}</span>
-        <span className="rounded-full bg-background px-1.5 text-[10px] font-semibold tabular-nums text-muted-foreground">{quantidade}</span>
-        {aoAdicionar && (
-          <button type="button" onClick={aoAdicionar} title={`Adicionar em ${titulo}`}
-            className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background hover:text-foreground">
-            <Plus className="h-3 w-3" />
-          </button>
-        )}
+    <div className="flex w-full flex-col items-center">
+      {/* haste: liga este degrau ao de cima */}
+      {!primeiro && <span className="h-3 w-px bg-border" />}
+      <div className="w-full overflow-hidden rounded-xl border border-border bg-muted/20">
+        <div className="flex items-center gap-1.5 border-b border-border bg-muted/50 px-2.5 py-1.5">
+          <Icone className="h-3 w-3 shrink-0" style={{ color: cor }} />
+          <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-foreground">{titulo}</span>
+          <span className="shrink-0 rounded-full bg-background px-1.5 text-[10px] font-semibold tabular-nums text-muted-foreground">{quantidade}</span>
+          {aoAgir && (
+            <button type="button" onClick={aoAgir} title={rotuloAcao ?? `Adicionar em ${titulo}`}
+              className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background hover:text-foreground">
+              <IconeAcao className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        <div className="flex flex-col gap-2 p-2.5">
+          {quantidade === 0
+            ? <p className="py-1 text-center text-xs italic text-muted-foreground">{vazio}</p>
+            : children}
+        </div>
       </div>
-      {quantidade === 0
-        ? <p className="pb-0.5 text-xs italic text-muted-foreground">{vazio}</p>
-        : <div className="flex flex-wrap justify-center gap-2.5">{children}</div>}
     </div>
   )
 }
@@ -197,8 +209,10 @@ function ModalEscolha({ open, onOpenChange, titulo, descricao, opcoes, jaDentro,
   )
 }
 
-export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelete }: {
+export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelete, onVerRodadas }: {
   projetoId: string; corProjeto: string; canWrite: boolean; canDelete: boolean
+  /** Leva para a aba Rodadas já apontando para esta frente. */
+  onVerRodadas?: (execucaoId: string) => void
 }) {
   const [execucoes, setExecucoes] = useState<Execucao[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -295,6 +309,8 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
     e.participantes.map(p => ({ userId: p.id, papel: (p.papel === 'COLABORADOR' ? 'COLABORADOR' : 'EXECUTANTE') as Papel }))
 
   const execucaoAtual = execucoes.find(e => e.id === escolha?.execucaoId) ?? null
+  // Até quatro colunas cabem lado a lado na largura útil; daí em diante, rola.
+  const muitasFrentes = execucoes.length > 4
 
   return (
     <Card className="p-5">
@@ -303,7 +319,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
           <h2 className="text-[13px] font-semibold text-foreground">Execuções e envolvidos</h2>
           <p className="text-xs text-muted-foreground">
             Cada frente tem seu cliente, seu responsável e seu time — e roda em paralelo às outras.
-            {canWrite && ' O + de cada faixa inclui; o × na caixa remove.'}
+            {canWrite && ' O + de cada faixa inclui; o × na caixa remove; o ⋮ do cabeçalho traz as opções.'}
           </p>
         </div>
         {canWrite && (
@@ -329,64 +345,107 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
       )}
 
       {/* Uma coluna por frente, lado a lado: elas rodam em paralelo, e empilhadas
-          o paralelismo sumia — cada uma parecia uma etapa da anterior. */}
-      <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
+          o paralelismo sumia — cada uma parecia uma etapa da anterior. Passando
+          de quatro, a fileira rola na horizontal em vez de espremer as colunas. */}
+      <div className={cn('flex gap-4', muitasFrentes ? 'nice-scrollbar overflow-x-auto pb-2' : 'flex-wrap')}>
         {execucoes.map(e => {
           const executantes = e.participantes.filter(p => (p.papel ?? 'EXECUTANTE') === 'EXECUTANTE')
           const colaboradores = e.participantes.filter(p => p.papel === 'COLABORADOR')
+          const nome = e.titulo || e.cliente?.nomeFantasia || e.cliente?.razaoSocial || 'Execução sem nome'
+          const pessoasNaFrente = (e.responsavel ? 1 : 0) + e.participantes.length
           return (
-            <div key={e.id} className="flex flex-col rounded-xl border border-border p-4">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <p className="truncate text-[13px] font-semibold text-foreground">
-                  {e.titulo || e.cliente?.nomeFantasia || e.cliente?.razaoSocial || 'Execução sem nome'}
-                  {e._count.rodadas > 0 && (
-                    <span className="ml-2 font-normal text-muted-foreground">
-                      {e._count.rodadas} rodada{e._count.rodadas === 1 ? '' : 's'}
-                    </span>
-                  )}
-                </p>
-                {canDelete && (
-                  <Button variant="soft-destructive" size="icon-sm" title="Excluir execução" onClick={() => void excluirExecucao(e)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
+            <div
+              key={e.id}
+              className={cn(
+                'flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm',
+                muitasFrentes ? 'w-[300px] shrink-0' : 'min-w-0 max-w-[420px] flex-1 basis-[300px]',
+              )}
+            >
+              {/* Cabeçalho na cor do projeto — é o que separa uma frente da outra */}
+              <div
+                className="flex items-center gap-2 px-3 py-2.5 text-white"
+                style={{ background: `linear-gradient(135deg, ${corProjeto}, color-mix(in srgb, ${corProjeto} 72%, transparent))` }}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-semibold leading-tight" title={nome}>{nome}</p>
+                  <p className="truncate text-[11px] leading-tight text-white/80">
+                    {e._count.rodadas} rodada{e._count.rodadas === 1 ? '' : 's'} · {pessoasNaFrente} pessoa{pessoasNaFrente === 1 ? '' : 's'}
+                  </p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button" title="Opções da execução"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    {onVerRodadas && (
+                      <DropdownMenuItem onClick={() => onVerRodadas(e.id)}>
+                        <PackageCheck className="mr-2 h-4 w-4" /> Ver rodadas desta frente
+                      </DropdownMenuItem>
+                    )}
+                    {canWrite && (
+                      <>
+                        {onVerRodadas && <DropdownMenuSeparator />}
+                        <DropdownMenuItem onClick={() => abrir('CLIENTE', e.id)}>
+                          <Building2 className="mr-2 h-4 w-4" /> {e.cliente ? 'Trocar cliente' : 'Definir cliente'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => abrir('RESPONSAVEL', e.id)}>
+                          <UserCog className="mr-2 h-4 w-4" /> {e.responsavel ? 'Trocar responsável' : 'Definir responsável'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => abrir('EXECUTANTE', e.id)}>
+                          <Users className="mr-2 h-4 w-4" /> Adicionar executantes
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => abrir('COLABORADOR', e.id)}>
+                          <Handshake className="mr-2 h-4 w-4" /> Adicionar colaboradores
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {canDelete && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => void excluirExecucao(e)}>
+                          <Trash2 className="mr-2 h-4 w-4" /> Excluir execução
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
-              <div className="flex flex-1 flex-col items-center">
+              <div className="flex flex-1 flex-col items-center p-3">
                 {/* 1 — o cliente encabeça o ramo */}
-                <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-0.5">
-                  <Building2 className="h-3 w-3" style={{ color: corProjeto }} />
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-foreground">Cliente</span>
-                  {canWrite && (
-                    <button type="button" onClick={() => abrir('CLIENTE', e.id)} title="Definir cliente"
-                      className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background hover:text-foreground">
-                      <Pencil className="h-2.5 w-2.5" />
-                    </button>
+                <Degrau
+                  primeiro titulo="Cliente" icone={Building2} cor={corProjeto}
+                  quantidade={e.cliente ? 1 : 0} vazio="Sem cliente definido"
+                  aoAgir={canWrite ? () => abrir('CLIENTE', e.id) : undefined}
+                  iconeAcao={e.cliente ? Pencil : Plus}
+                  rotuloAcao={e.cliente ? 'Trocar cliente' : 'Definir cliente'}
+                >
+                  {e.cliente && (
+                    <Caixa destaque cor={corProjeto} titulo={e.cliente.razaoSocial}
+                      aoRemover={canWrite ? () => void salvarExecucao(e.id, { clienteId: null }) : undefined}>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold text-foreground">{e.cliente.nomeFantasia || e.cliente.razaoSocial}</p>
+                        {e.cliente.nomeFantasia && <p className="truncate text-[11px] text-muted-foreground">{e.cliente.razaoSocial}</p>}
+                      </div>
+                    </Caixa>
                   )}
-                </div>
-                {e.cliente ? (
-                  <Caixa destaque cor={corProjeto} titulo={e.cliente.razaoSocial}
-                    aoRemover={canWrite ? () => void salvarExecucao(e.id, { clienteId: null }) : undefined}>
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-foreground">{e.cliente.nomeFantasia || e.cliente.razaoSocial}</p>
-                      {e.cliente.nomeFantasia && <p className="truncate text-[11px] text-muted-foreground">{e.cliente.razaoSocial}</p>}
-                    </div>
-                  </Caixa>
-                ) : (
-                  <button type="button" disabled={!canWrite} onClick={() => abrir('CLIENTE', e.id)}
-                    className="flex min-w-[186px] items-center gap-2 rounded-xl border border-dashed border-border px-3 py-3 text-xs italic text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground disabled:cursor-default">
-                    <Building2 className="h-4 w-4" /> Sem cliente definido
-                  </button>
-                )}
+                </Degrau>
 
                 {/* 2 — responsável DESTA execução */}
                 <Degrau
                   titulo="Responsável da execução" icone={UserCog} cor={corProjeto}
                   quantidade={e.responsavel ? 1 : 0} vazio="Sem responsável nesta frente"
-                  aoAdicionar={canWrite ? () => abrir('RESPONSAVEL', e.id) : undefined}
+                  aoAgir={canWrite ? () => abrir('RESPONSAVEL', e.id) : undefined}
+                  iconeAcao={e.responsavel ? Pencil : Plus}
+                  rotuloAcao={e.responsavel ? 'Trocar responsável' : 'Definir responsável'}
                 >
                   {e.responsavel && (
                     <Caixa aoRemover={canWrite ? () => void salvarExecucao(e.id, { responsavelId: null }) : undefined}>
@@ -403,7 +462,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
                 <Degrau
                   titulo="Executantes" icone={Users} cor={corProjeto}
                   quantidade={executantes.length} vazio="Ninguém executando ainda"
-                  aoAdicionar={canWrite ? () => abrir('EXECUTANTE', e.id) : undefined}
+                  aoAgir={canWrite ? () => abrir('EXECUTANTE', e.id) : undefined}
                 >
                   {executantes.map(p => (
                     <Caixa key={p.id} aoRemover={canWrite ? () => void salvarExecucao(e.id, { participantes: listaTime(e).filter(x => x.userId !== p.id) }) : undefined}>
@@ -426,7 +485,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
                 <Degrau
                   titulo="Colaboradores" icone={Handshake} cor={corProjeto}
                   quantidade={colaboradores.length} vazio="Nenhum analista acompanhando"
-                  aoAdicionar={canWrite ? () => abrir('COLABORADOR', e.id) : undefined}
+                  aoAgir={canWrite ? () => abrir('COLABORADOR', e.id) : undefined}
                 >
                   {colaboradores.map(p => (
                     <Caixa key={p.id} aoRemover={canWrite ? () => void salvarExecucao(e.id, { participantes: listaTime(e).filter(x => x.userId !== p.id) }) : undefined}>
@@ -444,6 +503,18 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
                     </Caixa>
                   ))}
                 </Degrau>
+
+                {/* Atalho para o ciclo desta frente — as rodadas são por execução */}
+                {onVerRodadas && (
+                  <button
+                    type="button" onClick={() => onVerRodadas(e.id)}
+                    className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted/40 hover:text-foreground"
+                  >
+                    <PackageCheck className="h-3.5 w-3.5" />
+                    {e._count.rodadas > 0 ? `Ver as ${e._count.rodadas} rodada${e._count.rodadas === 1 ? '' : 's'}` : 'Abrir rodadas'}
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           )

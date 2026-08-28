@@ -98,6 +98,8 @@ export default function ProjetoDetailPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<TarefaStatus | 'TODOS'>('TODOS')
   const [activeTab, setActiveTab] = useState<TabKey>('detalhes')
+  // Frente escolhida no card de Envolvidos, para a aba Rodadas abrir nela.
+  const [execucaoFoco, setExecucaoFoco] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'lista' | 'kanban'>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('projetos-view-mode') as 'lista' | 'kanban') || 'lista'
@@ -302,6 +304,7 @@ export default function ProjetoDetailPage() {
                   canWrite={canWrite}
                   canDelete={canDelete}
                   corProjeto={projetoCor}
+                  execucaoInicial={execucaoFoco}
                 />
               </TabsContent>
 
@@ -311,6 +314,7 @@ export default function ProjetoDetailPage() {
                   corProjeto={projetoCor}
                   canWrite={canWrite}
                   canDelete={canDelete}
+                  onVerRodadas={(execucaoId) => { setExecucaoFoco(execucaoId); setActiveTab('rodadas') }}
                 />
               </TabsContent>
 

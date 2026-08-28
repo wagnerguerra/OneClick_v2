@@ -58,8 +58,10 @@ const CORES_SITUACAO: Record<Apontamento['situacao'], string> = {
 
 type ExecucaoRef = { id: string; titulo: string | null; cliente: { razaoSocial: string; nomeFantasia: string | null } | null }
 
-export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto }: {
+export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, execucaoInicial }: {
   projetoId: string; canWrite: boolean; canDelete: boolean; corProjeto: string
+  /** Frente vinda do card da aba Envolvidos — abre já selecionada. */
+  execucaoInicial?: string | null
 }) {
   // As rodadas pertencem a uma EXECUÇÃO, não ao projeto: cada frente tem seu
   // próprio ciclo, e a de número 1 de uma nada tem a ver com a da outra.
@@ -102,9 +104,14 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto }
         setExecucoes(r)
         if (r.length > 0) setExecucaoId(atual => atual || r[0]!.id)
         else setCarregando(false)
+
       } catch (e) { alerts.error('Erro', (e as Error).message); setCarregando(false) }
     })()
   }, [projetoId])
+
+  // Quem chegou pelo card de uma frente já cai nela, mesmo trocando de aba
+  // e voltando: o pedido vem no prop e vence a seleção anterior.
+  useEffect(() => { if (execucaoInicial) setExecucaoId(execucaoInicial) }, [execucaoInicial])
 
   useEffect(() => { void carregar() }, [carregar])
 
