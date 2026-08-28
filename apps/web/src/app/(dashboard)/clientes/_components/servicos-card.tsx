@@ -22,6 +22,7 @@ import { alerts } from '@/lib/alerts'
 import { toDateInputValue } from '@/lib/date'
 import { useSession } from '@/lib/auth-client'
 import { useClientesPerms } from './use-clientes-perms'
+import { STRONG, TEXT } from '@/lib/color-styles'
 
 // ============================================================
 // Types
@@ -304,8 +305,8 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
                         <span className={cn(
                           'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold',
                           row.complexidadePeso <= 2 ? 'bg-emerald-100 text-emerald-700' :
-                          row.complexidadePeso <= 3.5 ? 'bg-amber-100 text-amber-700' :
-                          'bg-red-100 text-red-700',
+                          row.complexidadePeso <= 3.5 ? STRONG.amber :
+                          STRONG.red,
                         )}>
                           {row.complexidadePeso.toFixed(1)}
                         </span>
@@ -343,7 +344,7 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
         <div className="border-t border-border/60 bg-muted/20 px-5 py-2.5">
           <p className="text-[11px] text-muted-foreground">
             {rows.filter(r => r.contratado).length} de {rows.length} areas contratadas
-            {dirty && <span className="ml-2 text-amber-600 font-medium">Alteracoes nao salvas</span>}
+            {dirty && <span className={cn('ml-2 font-medium', TEXT.amber)}>Alteracoes nao salvas</span>}
           </p>
         </div>
         </MioloColapsavel>

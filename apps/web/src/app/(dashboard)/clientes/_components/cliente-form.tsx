@@ -59,7 +59,7 @@ import { ProtocolosCard } from './protocolos-card'
 import { DriveSyncCard } from './drive-sync-card'
 import { ContratoChartModal } from './contrato-charts'
 import { masks, limparCnpj } from '@/lib/masks'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, STRONG, BADGE, SURFACE } from '@/lib/color-styles'
 import {
   createClienteSchema,
   SITUACAO_LABELS, SITUACAO_COLORS,
@@ -1360,7 +1360,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
         const cellL = 'border-left: none; border-right: 1px solid #000; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 3.5pt;'
         return (
         <Dialog open={!!cnpjCard} onOpenChange={(open) => { if (!open) setCnpjCard(null) }}>
-          <DialogContent className="max-w-[700px] max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogContent className="max-w-[700px] p-0 gap-0">
             <DialogHeaderIcon icon={FileText} color="emerald">
               <DialogTitle className="text-[15px]">Cartao CNPJ (Consulta)</DialogTitle>
               <DialogDescription className="text-[11px]">
@@ -2627,9 +2627,9 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
 
 const CERTIDAO_COLORS_INLINE: Record<string, string> = {
   'Negativa': 'bg-emerald-100 text-emerald-800',
-  'Positiva': 'bg-red-100 text-red-800',
-  'Positiva com Efeitos de Negativa': 'bg-amber-100 text-amber-800',
-  'Pendente': 'bg-gray-100 text-gray-600',
+  'Positiva': STRONG.red,
+  'Positiva com Efeitos de Negativa': STRONG.amber,
+  'Pendente': STRONG.slate,
 }
 
 function SituacaoFiscalCard({ clienteId, documento }: { clienteId: string; documento: string }) {
@@ -2708,7 +2708,7 @@ function SituacaoFiscalCard({ clienteId, documento }: { clienteId: string; docum
           <p className="text-xs">Nenhuma consulta de situação fiscal realizada para este cliente.</p>
         </div>
       ) : (
-        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+        <div className="space-y-2 max-h-[300px] overflow-y-auto nice-scrollbar">
           {consultas.map(c => (
             <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/10">
               <div className="flex items-center gap-3">
@@ -3895,7 +3895,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
 
         {/* Form inline para editar */}
         {editingId && (
-          <div className="mb-4 p-4 rounded-lg border border-sky-200 bg-sky-50/50">
+          <div className={cn('mb-4 p-4 rounded-lg border', SURFACE.sky)}>
             <h5 className="text-xs font-semibold text-foreground mb-3">Editar Contato</h5>
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-12 md:col-span-4 space-y-1.5">
@@ -3985,7 +3985,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
                     <td className="py-2.5 px-3 text-muted-foreground">{c.cargo || '—'}</td>
                     <td className="py-2.5 px-3">
                       {c.area ? (
-                        <span className="inline-flex items-center rounded-full bg-sky-50 text-sky-700 px-2 py-0.5 text-[10px] font-medium border border-sky-200">
+                        <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border', BADGE.sky)}>
                           {c.area.name}
                         </span>
                       ) : (
@@ -4208,7 +4208,7 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
                       <div><span className="text-muted-foreground">Origem: </span><span className="font-medium">{detalheMsg.descricaoOrigem || detalheMsg.origemModelo || '—'}</span></div>
                       <div><span className="text-muted-foreground">Data envio: </span><span className="font-medium">{formatDateSerpro(detalheMsg.dataEnvio)}</span></div>
                       {detalheMsg.sla_dias !== null && detalheMsg.sla_dias !== undefined && (
-                        <div><span className="text-muted-foreground">SLA: </span><span className={cn('font-medium', detalheMsg.sla_dias <= 0 ? 'text-red-600' : detalheMsg.sla_dias <= 3 ? 'text-orange-600' : '')}>{detalheMsg.sla_dias} dia(s)</span></div>
+                        <div><span className="text-muted-foreground">SLA: </span><span className={cn('font-medium', detalheMsg.sla_dias <= 0 ? TEXT.red : detalheMsg.sla_dias <= 3 ? TEXT.orange : '')}>{detalheMsg.sla_dias} dia(s)</span></div>
                       )}
                       <div><span className="text-muted-foreground">Score: </span><span className="font-medium">{detalheMsg.score}/100</span></div>
                     </div>
@@ -4260,7 +4260,7 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
               <Badge variant="outline" className="text-[10px]">{mensagens.length} mensagem(ns)</Badge>
               {naoLidas > 0 && <Badge variant="destructive" className="text-[10px]">{naoLidas} não lida(s)</Badge>}
               {importantes > 0 && (
-                <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                <Badge variant="outline" className={cn('text-[10px]', BADGE.amber)}>
                   <Star className="h-3 w-3 fill-amber-400 mr-0.5" />{importantes} importante(s)
                 </Badge>
               )}
@@ -4332,7 +4332,7 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
                     <td className="px-3 py-2 text-muted-foreground">{formatDateSerpro(m.dataEnvio)}</td>
                     <td className="px-3 py-2 text-center">
                       {m.sla_dias !== null && m.sla_dias !== undefined ? (
-                        <span className={cn('font-mono text-[10px]', m.sla_dias <= 0 ? 'text-red-600 font-bold' : m.sla_dias <= 3 ? 'text-orange-600' : 'text-muted-foreground')}>
+                        <span className={cn('font-mono text-[10px]', m.sla_dias <= 0 ? `${TEXT.red} font-bold` : m.sla_dias <= 3 ? TEXT.orange : 'text-muted-foreground')}>
                           {m.sla_dias}d
                         </span>
                       ) : '—'}

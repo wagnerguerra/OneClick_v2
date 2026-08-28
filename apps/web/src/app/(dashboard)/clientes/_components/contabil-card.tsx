@@ -13,6 +13,7 @@ import { MioloColapsavel } from './card-colapsavel'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useClientesPerms } from './use-clientes-perms'
+import { STRONG, TEXT } from '@/lib/color-styles'
 
 // ============================================================
 // Types
@@ -229,7 +230,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
           {/* Tipo */}
           <span className={cn(
             'shrink-0 w-[18px] h-[18px] rounded-full flex items-center justify-center text-[8px] font-bold',
-            cat.tipo === 'real' ? 'bg-sky-100 text-sky-700' : cat.tipo === 'calculada' ? 'bg-violet-100 text-violet-700' : 'bg-amber-100 text-amber-700',
+            cat.tipo === 'real' ? STRONG.sky : cat.tipo === 'calculada' ? STRONG.violet : STRONG.amber,
           )} title={cat.tipo}>
             {cat.tipo === 'real' ? 'R' : cat.tipo === 'calculada' ? 'C' : 'F'}
           </span>
@@ -275,7 +276,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
             </h4>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {categorias.length} contas | {periodos.length} periodo(s) importado(s)
-              {dirty && <span className="ml-2 text-amber-600 font-medium">Alteracoes nao salvas</span>}
+              {dirty && <span className={cn('ml-2 font-medium', TEXT.amber)}>Alteracoes nao salvas</span>}
             </p>
           </div>
         </div>
@@ -352,7 +353,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
       </div>
 
       {/* Tree */}
-      <div className="max-h-[500px] overflow-y-auto">
+      <div className="max-h-[500px] overflow-y-auto nice-scrollbar">
         {categorias.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Calculator className="h-8 w-8 mx-auto mb-2 opacity-40" />

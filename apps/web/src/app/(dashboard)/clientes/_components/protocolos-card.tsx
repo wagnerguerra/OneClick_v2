@@ -8,6 +8,7 @@ import { MioloColapsavel } from './card-colapsavel'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useClientesPerms } from './use-clientes-perms'
+import { STRONG } from '@/lib/color-styles'
 
 interface Protocolo {
   id: string; orgao: string; tipo: string; protocolo: string
@@ -15,7 +16,7 @@ interface Protocolo {
   data_retorno: string | null; resultado: string | null; user_nome: string | null
 }
 
-const STATUS_COLORS: Record<string, string> = { aberto: 'bg-amber-100 text-amber-700', em_andamento: 'bg-sky-100 text-sky-700', concluido: 'bg-emerald-100 text-emerald-700', erro: 'bg-red-100 text-red-700' }
+const STATUS_COLORS: Record<string, string> = { aberto: STRONG.amber, em_andamento: STRONG.sky, concluido: 'bg-emerald-100 text-emerald-700', erro: STRONG.red }
 const ORGAOS = ['Receita Federal', 'SEFAZ', 'Prefeitura', 'SERPRO', 'INSS', 'FGTS', 'Junta Comercial', 'Cartorio', 'Outro']
 
 export function ProtocolosCard({ clienteId }: { clienteId: string }) {

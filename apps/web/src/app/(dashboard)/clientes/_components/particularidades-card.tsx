@@ -6,6 +6,7 @@ import { Button, Card, RichEditor, cn } from '@saas/ui'
 import { MioloColapsavel } from './card-colapsavel'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
 
@@ -147,7 +148,7 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
             <div className="px-5 py-3 border-b border-border flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 <h4 className="text-[13px] font-semibold text-foreground truncate">{active.areaNome}</h4>
-                {activeDirty && <span className="text-[10px] text-amber-600 font-medium shrink-0">alterado</span>}
+                {activeDirty && <span className={cn('text-[10px] font-medium shrink-0', TEXT.amber)}>alterado</span>}
                 {!active.canEdit && (
                   <span className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0" title="So o responsavel pela area, o gestor da area ou o master podem editar.">
                     <Lock className="h-3 w-3" /> somente leitura
