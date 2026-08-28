@@ -588,6 +588,8 @@ export default function OrcamentoDetailPage() {
   const canReabrir = isMaster || subPerms.acao_reabrir === true
   const canDuplicar = isMaster || subPerms.acao_duplicar === true
   const canChangeSolicitante = isMaster || subPerms.change_solicitante === true
+  // Quem tem isto pode vender o serviço como um todo, sem dizer qual subserviço.
+  const canItemSemSubservico = isMaster || subPerms.item_sem_subservico === true
   const canEnviarPesquisa = isMaster || subPerms.enviar_pesquisa === true
   // Catálogo de serviços é configuração administrativa do módulo — restrito a master/empresa-master
   const canManageCatalogo = isMaster || isEmpresaMaster
@@ -1447,9 +1449,12 @@ export default function OrcamentoDetailPage() {
    * Falta escolher o subserviço obrigatório.
    *
    * A regra é a mesma do servidor — repetida aqui só para o botão explicar
-   * antes de o usuário clicar, em vez de devolver erro depois.
+   * antes de o usuário clicar, em vez de devolver erro depois. Quem tem a
+   * permissão `item_sem_subservico` não é travado: pode vender o serviço como
+   * um todo. Quem decide de verdade é o backend; isto é conveniência de tela.
    */
   const faltaSubservico = (() => {
+    if (canItemSemSubservico) return false
     const cat = catalogo.find(c => c.id === itemCatalogoId)
     return !!cat?.subservicos?.length && !itemSubservicoId
   })()
@@ -1483,6 +1488,16 @@ export default function OrcamentoDetailPage() {
     setItemSubservicoId(subId)
     setItemTextoId('')
     const pai = catalogo.find(c => c.id === itemCatalogoId)
+    // "Sem subserviço": a descrição e o valor voltam a ser os do serviço todo,
+    // que é o que está sendo vendido. Sem isto, ficaria na tela o nome do
+    // filho que o usuário acabou de tirar.
+    if (!subId) {
+      if (pai) {
+        setItemDescricao(pai.nome)
+        if (pai.valorPadrao != null) setItemValor(String(pai.valorPadrao))
+      }
+      return
+    }
     const sub = pai?.subservicos?.find(x => x.id === subId)
     if (!sub) return
     setItemDescricao(`${pai!.nome} — ${sub.nome}`)
@@ -1536,6 +1551,14 @@ export default function OrcamentoDetailPage() {
     setEditSubservicoId(subId)
     setEditTextoId('')
     const pai = catalogo.find(c => c.id === editCatalogoId)
+    // Igual à inclusão: tirar o subserviço devolve a descrição do serviço todo.
+    if (!subId) {
+      if (pai) {
+        setEditDescricao(pai.nome)
+        if (pai.valorPadrao != null) setEditValor(String(pai.valorPadrao))
+      }
+      return
+    }
     const sub = pai?.subservicos?.find(x => x.id === subId)
     if (!sub) return
     setEditDescricao(`${pai!.nome} — ${sub.nome}`)
@@ -2297,12 +2320,20 @@ export default function OrcamentoDetailPage() {
                               if (!cat?.subservicos?.length) return null
                               return (
                                 <div className="space-y-1.5 min-w-[180px]">
-                                  {/* Sem "Nenhum": o serviço foi decomposto justamente
-                                      para não entrar genérico no orçamento. */}
+                                  {/* A opção de vender o serviço inteiro só aparece
+                                      para quem tem a permissão. Para os demais o
+                                      serviço foi decomposto justamente para não
+                                      entrar genérico no orçamento. */}
                                   <Label className="text-[13px] font-semibold text-foreground">Subserviço</Label>
-                                  <Select value={itemSubservicoId || undefined} onValueChange={handleSelecionarSubservico}>
+                                  <Select
+                                    value={itemSubservicoId || (canItemSemSubservico ? '__todo__' : undefined)}
+                                    onValueChange={v => handleSelecionarSubservico(v === '__todo__' ? '' : v)}
+                                  >
                                     <SelectTrigger className="h-9 w-[220px] text-sm"><SelectValue placeholder="Escolha o subserviço" /></SelectTrigger>
                                     <SelectContent>
+                                      {canItemSemSubservico && (
+                                        <SelectItem value="__todo__">Sem subserviço — o serviço todo</SelectItem>
+                                      )}
                                       {cat.subservicos.map(sub => (
                                         <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
                                       ))}
@@ -2421,11 +2452,17 @@ export default function OrcamentoDetailPage() {
                                       const cat = catalogo.find(c => c.id === editCatalogoId)
                                       if (!cat?.subservicos?.length) return null
                                       return (
-                                        <Select value={editSubservicoId || undefined} onValueChange={handleSelecionarSubservicoEdit}>
+                                        <Select
+                                          value={editSubservicoId || (canItemSemSubservico ? '__todo__' : undefined)}
+                                          onValueChange={v => handleSelecionarSubservicoEdit(v === '__todo__' ? '' : v)}
+                                        >
                                           {/* Sem asterisco: na edição o subserviço só é exigido se o
                                               serviço estiver sendo trocado. */}
                                           <SelectTrigger className="h-9 text-xs w-[150px] shrink-0"><SelectValue placeholder="Subserviço" /></SelectTrigger>
                                           <SelectContent>
+                                            {canItemSemSubservico && (
+                                              <SelectItem value="__todo__">Sem subserviço</SelectItem>
+                                            )}
                                             {cat.subservicos.map(sub => (
                                               <SelectItem key={sub.id} value={sub.id}>{sub.nome}</SelectItem>
                                             ))}

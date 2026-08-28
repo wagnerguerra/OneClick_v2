@@ -442,6 +442,13 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     },
     // Permissões gerais
     { key: 'manage_itens', label: 'Incluir/editar itens nos orçamentos', group: 'Ações' },
+    {
+      key: 'item_sem_subservico',
+      label: 'Incluir serviço sem escolher o subserviço',
+      group: 'Ações',
+      observacao: 'Um serviço decomposto em subserviços normalmente exige dizer qual. '
+        + 'Com isto, o usuário pode vendê-lo como um todo.',
+    },
     { key: 'edit_timeline_dates', label: 'Alterar datas da timeline', group: 'Ações' },
     { key: 'mover_kanban', label: 'Mover cards no kanban (alterar status arrastando)', group: 'Ações' },
     { key: 'acao_enviar', label: 'Enviar orçamentos', group: 'Ações' },

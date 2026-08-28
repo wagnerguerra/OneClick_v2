@@ -3,6 +3,7 @@ import { prisma, Prisma } from '@saas/db'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
 import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj, resolveOrcamentoScope } from '@saas/types'
 import * as XLSX from 'xlsx'
+import { hasSubPermission } from '../trpc/trpc.service'
 import { EmailService } from '../common/email.service'
 import { PesquisaService } from '../pesquisa/pesquisa.service'
 import { ServicoService } from '../servico/servico.service'
@@ -57,6 +58,9 @@ const STATUS_DATE_FIELD: Record<string, string> = {
   FINALIZADO: 'dtFinalizado',
   ENCERRADO: 'dtEncerrado',
 }
+
+/** O mínimo que a checagem de permissão precisa saber sobre quem chamou. */
+type CtxPermissao = { userId?: string | null; isMaster?: boolean; isEmpresaMaster?: boolean }
 
 @Injectable()
 export class OrcamentoService {
@@ -3386,11 +3390,20 @@ export class OrcamentoService {
    * INVEST e Renovação, cobrar "Extra Legalização" sem dizer qual não informa
    * o cliente nem a execução.
    *
-   * Vale só para quem TEM subserviços: nada muda para o resto do catálogo, e
-   * itens antigos continuam válidos porque a checagem é na escrita, não na
-   * leitura.
+   * MAS há quem precise vender o serviço como um todo, e isso é decisão de
+   * quem vende, não de quem programa. Então a exigência virou permissão:
+   * `item_sem_subservico` libera o usuário a incluir sem detalhar. Sem ela, a
+   * escolha continua obrigatória.
+   *
+   * A checagem é na ESCRITA, nunca na leitura: item antigo, gravado quando a
+   * regra era outra, continua válido — reprovar o que já está no orçamento
+   * quebraria orçamento fechado.
    */
-  private async validarSubservico(catalogoId?: string | null, subservicoId?: string | null) {
+  private async validarSubservico(
+    catalogoId?: string | null,
+    subservicoId?: string | null,
+    ctx?: CtxPermissao,
+  ) {
     if (!catalogoId) return
 
     const filhos = await prisma.servicoSubservico.findMany({
@@ -3403,19 +3416,30 @@ export class OrcamentoService {
     // ninguém fica travado por um resíduo.
     if (filhos.length === 0) return
 
-    // Escolher o subserviço é OPCIONAL. Um serviço com filhos pode ser vendido
-    // como um todo — exigir a escolha travava orçamento que antes passava, e a
-    // decisão de detalhar ou não é de quem vende.
-    if (!subservicoId) return
+    if (!subservicoId) {
+      // `ctx` ausente = chamada interna (duplicação, importação, migração), que
+      // não tem usuário para consultar. Aí a regra não se aplica: ela existe
+      // para orientar quem monta o orçamento na tela.
+      if (!ctx?.userId) return
+      const liberado = ctx.isMaster || ctx.isEmpresaMaster
+        || await hasSubPermission(ctx.userId, 'orcamentos', 'item_sem_subservico')
+      if (liberado) return
+
+      const nome = filhos[0]?.pai?.nome ?? 'Este serviço'
+      throw new Error(
+        `"${nome}" tem subserviços — escolha qual está sendo orçado. `
+        + 'Para incluí-lo sem detalhar, é preciso a permissão "Incluir serviço sem escolher o subserviço".',
+      )
+    }
 
     if (!filhos.some(f => f.filhoId === subservicoId)) {
       throw new Error('O subserviço escolhido não pertence a este serviço.')
     }
   }
 
-  async addItem(input: CreateOrcamentoItemInput) {
+  async addItem(input: CreateOrcamentoItemInput, ctx?: CtxPermissao) {
     await this.assertEditable(input.orcamentoId)
-    await this.validarSubservico(input.catalogoId, input.subservicoId)
+    await this.validarSubservico(input.catalogoId, input.subservicoId, ctx)
     // Desconto por item só vale para serviço (#HLP0302, decisão de negócio):
     // TAXA/DESPESA nunca recebem desconto, então zeramos por segurança mesmo que
     // o cliente mande algo.
@@ -3499,7 +3523,7 @@ export class OrcamentoService {
     }
   }
 
-  async updateItem(id: string, data: UpdateOrcamentoItemInput) {
+  async updateItem(id: string, data: UpdateOrcamentoItemInput, ctx?: CtxPermissao) {
     const item = await prisma.orcamentoItem.findUnique({
       where: { id },
       select: { orcamentoId: true, tipo: true, catalogoId: true, subservicoId: true },
@@ -3519,7 +3543,7 @@ export class OrcamentoService {
     // fazer sentido, e o campo está na tela para ser preenchido.
     const trocouServico = data.catalogoId !== undefined && data.catalogoId !== item.catalogoId
     if (trocouServico) {
-      await this.validarSubservico(data.catalogoId, data.subservicoId ?? null)
+      await this.validarSubservico(data.catalogoId, data.subservicoId ?? null, ctx)
     }
     // Mapeia os nomes da API (itemDesconto*) para as colunas do item (desconto*),
     // separando-os dos campos genéricos. Desconto só entra em serviço.
