@@ -2697,6 +2697,25 @@ function registerIpcHandlers() {
         deployEmit(55, 'schema', '⚠ Verificação de schema expirou (VPS lenta/sem resposta) — assumindo sem mudança e seguindo.', 'warn')
       }
       const schemaChanged = !diffFiles.timedOut && (diffFiles.stdout || '').split('\n').some(f => f === 'packages/db/prisma/schema.prisma')
+
+      // O livro-caixa dos SQLs virou ARQUIVO na VPS, e nao mais tabela.
+      //
+      // Motivo, aprendido caro em 28/08: a tabela `deploy_sql_aplicados` morava
+      // no schema `public`, que e o schema que o Prisma administra. Como ela nao
+      // existe no schema.prisma, todo `db push --accept-data-loss` a via como
+      // sobra e a DERRUBAVA — com as 128 linhas dentro. O livro-caixa zerava
+      // justamente nos deploys que mudam schema, e os 128 SQLs rodavam de novo.
+      //
+      // Isso acontece ANTES do db push de proposito: e a ultima chance de ler a
+      // tabela antes que ele a apague. Uma vez semeado, o arquivo e a fonte.
+      const LIVRO = '/opt/oneclick/.deploy-sql-aplicados'
+      await sshExec(
+        cfg,
+        `[ -f ${LIVRO} ] || docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -t -A -c "SELECT arquivo || ':' || hash FROM deploy_sql_aplicados" 2>/dev/null | sed '/^[[:space:]]*$/d' > ${LIVRO}`,
+        null,
+        30000,
+      ).catch(() => {})
+
       if (schemaChanged) {
         deployEmit(55, 'schema', '→ Schema mudou — aplicando prisma db push (imagem recém-buildada)...', 'warn')
         // Timeout no SSH (4 min): se o db push pegar LOCK (a API no ar segurando as
@@ -2725,21 +2744,17 @@ function registerIpcHandlers() {
       deployEmit(66, 'sql', '→ Verificando SQLs cirúrgicos...', 'info')
       deployCheckAbort('sql', 66)
       deployCurrentStep = 'sql'
-      // Livro-caixa do que ja foi aplicado. Sem ele, TODO deploy reexecutava os
-      // 128 arquivos: 128 conexoes ao banco de producao, varias pedindo lock
-      // exclusivo em tabela em uso, com o sistema no ar. Idempotentes ou nao,
-      // era trabalho inutil — e a janela em que dois deploys travaram (27/08),
-      // logo apos o build, com a maquina em swap.
+      // Livro-caixa do que ja foi aplicado (o arquivo semeado la em cima). Sem
+      // ele, TODO deploy reexecutava os 128 arquivos: 128 conexoes ao banco de
+      // producao, varias pedindo lock exclusivo em tabela em uso, com o sistema
+      // no ar. Idempotentes ou nao, era trabalho inutil — e a janela em que dois
+      // deploys travaram (27/08), logo apos o build, com a maquina em swap.
       //
       // A chave e (arquivo, hash do conteudo): editar um SQL ja aplicado faz
       // ele rodar de novo, que e o comportamento desejado.
-      await sshExec(
-        cfg,
-        `docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -v ON_ERROR_STOP=1 -c "CREATE TABLE IF NOT EXISTS deploy_sql_aplicados (arquivo TEXT NOT NULL, hash TEXT NOT NULL, aplicado_em TIMESTAMP NOT NULL DEFAULT now(), PRIMARY KEY (arquivo, hash))" 2>&1`,
-        null,
-        30000,
-      )
-
+      //
+      // Mora em arquivo, e nao no banco, porque e registro do DEPLOY, nao da
+      // aplicacao — e porque no banco o Prisma o apagava (ver acima).
       const listSql = await sshExec(cfg, 'ls /opt/oneclick-src/packages/db/prisma/sql/*.sql 2>/dev/null | sort', null, 30000)
       const sqlFiles = (listSql.stdout || '').trim().split('\n').filter(Boolean)
 
@@ -2751,12 +2766,7 @@ function registerIpcHandlers() {
         const m = linha.trim().match(/^([0-9a-f]{32})\s+(.+)$/)
         if (m) hashPorArquivo.set(m[2].trim(), m[1])
       }
-      const aplicadosOut = await sshExec(
-        cfg,
-        `docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -t -A -c "SELECT arquivo || ':' || hash FROM deploy_sql_aplicados" 2>/dev/null`,
-        null,
-        30000,
-      )
+      const aplicadosOut = await sshExec(cfg, `cat ${LIVRO} 2>/dev/null`, null, 30000)
       const jaAplicados = new Set((aplicadosOut.stdout || '').trim().split('\n').map(l => l.trim()).filter(Boolean))
 
       const pendentes = sqlFiles.filter(f => {
@@ -2802,12 +2812,22 @@ function registerIpcHandlers() {
           let sqlExec = await rodarSql(sqlFile)
           deployCheckAbort('sql', 68)
 
-          // Tempo limite nao e erro de SQL: nos dois casos de 27/08 o arquivo
-          // nao tinha o que fazer (tudo com IF NOT EXISTS, tudo ja existente) e
-          // a maquina e que estava em swap logo apos o build. Uma segunda
-          // tentativa custa segundos; abortar custa o deploy inteiro.
-          if (sqlExec.code !== 0 && sqlExec.timedOut) {
-            deployEmit(67, 'sql', `  · ${fname} expirou — tentando de novo em 5s`, 'warn')
+          // Nem todo fracasso aqui e erro de SQL. Dois sao transitorios e pedem
+          // outra tentativa, nao o fim do deploy:
+          //
+          //  - tempo limite: nos dois casos de 27/08 o arquivo nao tinha o que
+          //    fazer (tudo com IF NOT EXISTS) e a maquina e que estava em swap
+          //    logo apos o build.
+          //  - a conexao SSH caindo (codigo 255): em 28/08 o `ssh` levou um
+          //    "Connection timed out" no meio da fila, com a VPS sob carga. O
+          //    banco estava vivo — a sessao e que morreu.
+          const conexaoCaiu = sqlExec.code === 255
+            && /connection (timed out|refused|closed)|broken pipe|connection reset/i.test(
+              `${sqlExec.stdout || ''}${sqlExec.stderr || ''}`,
+            )
+          if (sqlExec.code !== 0 && (sqlExec.timedOut || conexaoCaiu)) {
+            const causa = sqlExec.timedOut ? 'expirou' : 'perdeu a conexao'
+            deployEmit(67, 'sql', `  · ${fname} ${causa} — tentando de novo em 5s`, 'warn')
             await new Promise(r => setTimeout(r, 5000))
             deployCheckAbort('sql', 68)
             sqlExec = await rodarSql(sqlFile)
@@ -2825,11 +2845,11 @@ function registerIpcHandlers() {
           const hashArquivo = hashPorArquivo.get(sqlFile)
           // Nome vem do `ls` do nosso proprio repo, mas escapar aspas custa
           // nada e evita que um arquivo mal nomeado quebre o INSERT.
-          const fnameSql = fname.replace(/'/g, "''")
+          const fnameSh = fname.replace(/'/g, "'\\''")
           if (hashArquivo) {
             await sshExec(
               cfg,
-              `docker exec -i n8n-postgres-1 psql -U oneclick -d oneclick -c "INSERT INTO deploy_sql_aplicados (arquivo, hash) VALUES ('${fnameSql}', '${hashArquivo}') ON CONFLICT DO NOTHING" 2>&1`,
+              `echo '${fnameSh}:${hashArquivo}' >> ${LIVRO}`,
               null,
               30000,
             ).catch(() => {})
