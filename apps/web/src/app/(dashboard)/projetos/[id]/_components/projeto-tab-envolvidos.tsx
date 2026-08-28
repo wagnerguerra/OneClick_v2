@@ -106,12 +106,19 @@ function Degrau({ titulo, icone: Icone, cor, vazio, quantidade, aoAdicionar, chi
   )
 }
 
-function ModalEscolha({ open, onOpenChange, titulo, descricao, opcoes, jaDentro, aoConfirmar, salvando, unico }: {
+/**
+ * A busca é do SERVIDOR, não da lista em memória: são mais de mil clientes
+ * mensais e a rota devolve os primeiros 50. Filtrar só o que já chegou fazia
+ * o cliente da letra G sumir — ele nunca esteve na página carregada.
+ */
+function ModalEscolha({ open, onOpenChange, titulo, descricao, opcoes, jaDentro, aoConfirmar, aoBuscar, buscando, salvando, unico }: {
   open: boolean; onOpenChange: (o: boolean) => void
   titulo: string; descricao: string
   opcoes: Array<{ id: string; rotulo: string; complemento?: string }>
   jaDentro: Set<string>
   aoConfirmar: (ids: string[]) => void
+  aoBuscar: (termo: string) => void
+  buscando: boolean
   salvando: boolean
   unico?: boolean
 }) {
@@ -119,10 +126,16 @@ function ModalEscolha({ open, onOpenChange, titulo, descricao, opcoes, jaDentro,
   const [marcados, setMarcados] = useState<string[]>([])
   useEffect(() => { if (!open) { setBusca(''); setMarcados([]) } }, [open])
 
-  const termo = busca.trim().toLowerCase()
-  const candidatos = opcoes
-    .filter(o => !jaDentro.has(o.id))
-    .filter(o => !termo || o.rotulo.toLowerCase().includes(termo) || (o.complemento ?? '').toLowerCase().includes(termo))
+  const termo = busca.trim()
+
+  // Ao abrir, carrega a primeira página; digitando, consulta com 350ms de folga.
+  useEffect(() => {
+    if (!open) return
+    const t = setTimeout(() => aoBuscar(termo), termo ? 350 : 0)
+    return () => clearTimeout(t)
+  }, [open, termo, aoBuscar])
+
+  const candidatos = opcoes.filter(o => !jaDentro.has(o.id))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -137,9 +150,16 @@ function ModalEscolha({ open, onOpenChange, titulo, descricao, opcoes, jaDentro,
             <Input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar…" className="h-9 pl-8 text-sm" />
           </div>
           <div className="nice-scrollbar max-h-[280px] space-y-0.5 overflow-y-auto rounded-md border border-border bg-muted/20 p-2">
-            {candidatos.length === 0 && (
+            {buscando && (
+              <p className="flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Buscando…
+              </p>
+            )}
+            {!buscando && candidatos.length === 0 && (
               <p className="py-3 text-center text-xs text-muted-foreground">
-                {opcoes.length === 0 ? 'Nada disponível.' : 'Todos já estão aqui.'}
+                {termo
+                  ? `Nada encontrado para “${termo}”.`
+                  : opcoes.length === 0 ? 'Nada disponível.' : 'Todos já estão aqui.'}
               </p>
             )}
             {candidatos.map(o => {
@@ -159,6 +179,11 @@ function ModalEscolha({ open, onOpenChange, titulo, descricao, opcoes, jaDentro,
               )
             })}
           </div>
+          {!termo && (
+            <p className="text-[11px] text-muted-foreground">
+              Lista parcial — digite para buscar em toda a base.
+            </p>
+          )}
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={salvando}>Cancelar</Button>
@@ -178,6 +203,7 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
   const [execucoes, setExecucoes] = useState<Execucao[]>([])
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
+  const [buscando, setBuscando] = useState(false)
   const [pessoas, setPessoas] = useState<Array<{ id: string; name: string; image: string | null }>>([])
   const [clientes, setClientes] = useState<ClienteRef[]>([])
   const [escolha, setEscolha] = useState<{ tipo: Papel | 'CLIENTE' | 'RESPONSAVEL'; execucaoId: string } | null>(null)
@@ -198,19 +224,28 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
 
   useEffect(() => { void carregar() }, [carregar])
 
-  const carregarOpcoes = useCallback(async () => {
-    if (pessoas.length > 0 || clientes.length > 0) return
+  // Cada modal busca a sua lista no servidor — ver o comentário do ModalEscolha.
+  const buscarPessoas = useCallback(async (termo: string) => {
+    setBuscando(true)
     try {
-      const [ps, cs] = await Promise.all([
-        (trpc.projetos as never as { listPessoas: { query: () => Promise<Array<{ id: string; name: string; image: string | null }>> } }).listPessoas.query(),
-        (trpc.projetos as never as { listClientesVinculaveis: { query: () => Promise<ClienteRef[]> } }).listClientesVinculaveis.query(),
-      ])
-      setPessoas(ps); setClientes(cs)
-    } catch (e) { alerts.error('Erro', (e as Error).message) }
-  }, [pessoas.length, clientes.length])
+      const ps = await (trpc.projetos as never as {
+        listPessoas: { query: (i?: { busca?: string }) => Promise<Array<{ id: string; name: string; image: string | null }>> }
+      }).listPessoas.query(termo ? { busca: termo } : undefined)
+      setPessoas(ps)
+    } catch (e) { alerts.error('Erro', (e as Error).message) } finally { setBuscando(false) }
+  }, [])
+
+  const buscarClientes = useCallback(async (termo: string) => {
+    setBuscando(true)
+    try {
+      const cs = await (trpc.projetos as never as {
+        listClientesVinculaveis: { query: (i?: { busca?: string }) => Promise<ClienteRef[]> }
+      }).listClientesVinculaveis.query(termo ? { busca: termo } : undefined)
+      setClientes(cs)
+    } catch (e) { alerts.error('Erro', (e as Error).message) } finally { setBuscando(false) }
+  }, [])
 
   function abrir(tipo: Papel | 'CLIENTE' | 'RESPONSAVEL', execucaoId: string) {
-    void carregarOpcoes()
     setEscolha({ tipo, execucaoId })
   }
 
@@ -424,6 +459,8 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
           ? 'É um só por frente, e não precisa ser o mesmo do projeto.'
           : 'Quem já está nesta execução não aparece na lista.'}
         opcoes={pessoas.map(u => ({ id: u.id, rotulo: u.name }))}
+        aoBuscar={buscarPessoas}
+        buscando={buscando}
         jaDentro={new Set(
           escolha?.tipo === 'RESPONSAVEL'
             ? (execucaoAtual?.responsavel ? [execucaoAtual.responsavel.id] : [])
@@ -461,6 +498,8 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
         titulo="Cliente desta execução"
         descricao="Só clientes mensais e ativos. Cada frente atende um cliente."
         opcoes={clientes.map(c => ({ id: c.id, rotulo: c.nomeFantasia || c.razaoSocial, complemento: c.nomeFantasia ? c.razaoSocial : undefined }))}
+        aoBuscar={buscarClientes}
+        buscando={buscando}
         jaDentro={new Set(execucaoAtual?.cliente ? [execucaoAtual.cliente.id] : [])}
         salvando={salvando}
         aoConfirmar={(ids) => {

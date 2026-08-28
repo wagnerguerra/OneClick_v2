@@ -233,15 +233,20 @@ export class ProjetoService {
       where: {
         situacao: 'MENSAL',
         status: 'ATIVO',
-        ...this.tenantWhere(ctx),
-        ...(termo
-          ? {
-              OR: [
-                { razaoSocial: { contains: termo, mode: 'insensitive' } },
-                { nomeFantasia: { contains: termo, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
+        // AND explícito, e não spread: o filtro de tenant e a busca usam os
+        // dois a chave `OR`, e a segunda apagaria a primeira — o que faria a
+        // busca enxergar cliente de outra empresa.
+        AND: [
+          this.tenantWhere(ctx),
+          ...(termo
+            ? [{
+                OR: [
+                  { razaoSocial: { contains: termo, mode: 'insensitive' as const } },
+                  { nomeFantasia: { contains: termo, mode: 'insensitive' as const } },
+                ],
+              }]
+            : []),
+        ],
       },
       select: { id: true, razaoSocial: true, nomeFantasia: true },
       orderBy: { razaoSocial: 'asc' },
