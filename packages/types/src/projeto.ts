@@ -107,6 +107,8 @@ export const updateProjetoExecucaoSchema = z.object({
   clienteId: z.string().optional().nullable(),
   responsavelId: z.string().optional().nullable(),
   ativa: z.boolean().optional(),
+  /** Percentual concluído, informado por quem conduz a frente. */
+  progresso: z.number().int().min(0).max(100).optional(),
   /** Time da execução. Lista completa: o que vier substitui. */
   participantes: z.array(z.object({
     userId: z.string(),
@@ -147,12 +149,38 @@ export const createApontamentoSchema = z.object({
   /** Quem apontou: usuário do sistema OU nome livre (analista sem login). */
   autorId: z.string().optional().nullable(),
   autorNome: z.string().optional().nullable(),
+  /** Travou a rodada, em vez de apenas pedir ajuste. */
+  impeditivo: z.boolean().optional(),
 })
 
 export const updateApontamentoSchema = z.object({
   texto: z.string().min(1).optional(),
   situacao: ProjetoApontamentoSituacaoEnum.optional(),
+  impeditivo: z.boolean().optional(),
 })
+
+// ── Conversa e arquivos de uma rodada ───────────────────────
+//
+// Ficam na RODADA, não no projeto: o assunto é aquela entrega. Quem procura
+// "por que a rodada 3 travou" não deveria ter de garimpar o mural do projeto.
+
+export const createRodadaMensagemSchema = z.object({
+  rodadaId: z.string().min(1),
+  texto: z.string().min(1, 'Escreva a mensagem'),
+  /** Nome livre de quem não tem login — mesmo motivo do apontamento. */
+  autorNome: z.string().optional().nullable(),
+})
+
+export const addRodadaArquivoSchema = z.object({
+  rodadaId: z.string().min(1),
+  nome: z.string().min(1),
+  url: z.string().min(1),
+  tamanho: z.number().int().min(0),
+  mimeType: z.string().optional().nullable(),
+})
+
+export type CreateRodadaMensagemInput = z.infer<typeof createRodadaMensagemSchema>
+export type AddRodadaArquivoInput = z.infer<typeof addRodadaArquivoSchema>
 
 export type CreateRodadaInput = z.infer<typeof createRodadaSchema>
 export type UpdateRodadaInput = z.infer<typeof updateRodadaSchema>

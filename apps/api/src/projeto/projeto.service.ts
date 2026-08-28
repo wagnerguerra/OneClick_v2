@@ -8,6 +8,8 @@ import type {
   UpdateProjetoExecucaoInput,
   CreateRodadaInput,
   UpdateRodadaInput,
+  CreateRodadaMensagemInput,
+  AddRodadaArquivoInput,
   CreateApontamentoInput,
   UpdateApontamentoInput,
   ListProjetosInput,
@@ -334,6 +336,7 @@ export class ProjetoService {
         ...(input.clienteId !== undefined && { clienteId: input.clienteId || null }),
         ...(input.responsavelId !== undefined && { responsavelId: input.responsavelId || null }),
         ...(input.ativa !== undefined && { ativa: input.ativa }),
+        ...(input.progresso !== undefined && { progresso: input.progresso }),
       },
     })
 
@@ -373,11 +376,13 @@ export class ProjetoService {
       orderBy: { numero: 'desc' },
       include: {
         apontamentos: { orderBy: { criadoEm: 'asc' } },
+        mensagens: { orderBy: { criadoEm: 'asc' } },
+        arquivos: { orderBy: { criadoEm: 'desc' } },
       },
     })
 
-    // Nome de quem apontou e de quem resolveu, em lote — a lista de rodadas
-    // abre inteira e um lookup por apontamento seria N+1 na cara.
+    // Nome de quem apontou, resolveu, falou ou enviou, em lote — a lista de
+    // rodadas abre inteira e um lookup por item seria N+1 na cara.
     const ids = new Set<string>()
     for (const r of rodadas) {
       if (r.criadoPor) ids.add(r.criadoPor)
@@ -385,24 +390,41 @@ export class ProjetoService {
         if (a.autorId) ids.add(a.autorId)
         if (a.resolvidoPor) ids.add(a.resolvidoPor)
       }
+      for (const m of r.mensagens) if (m.autorId) ids.add(m.autorId)
+      for (const f of r.arquivos) if (f.enviadoPor) ids.add(f.enviadoPor)
     }
     const pessoas = ids.size > 0
       ? await prisma.user.findMany({ where: { id: { in: [...ids] } }, select: { id: true, name: true, image: true } })
       : []
     const porId = new Map(pessoas.map(u => [u.id, u]))
 
-    return rodadas.map(r => ({
-      ...r,
-      criadoPorUsuario: r.criadoPor ? porId.get(r.criadoPor) ?? null : null,
-      abertos: r.apontamentos.filter(a => a.situacao === 'ABERTO').length,
-      apontamentos: r.apontamentos.map(a => ({
-        ...a,
-        // Autor de dentro tem usuário; o analista do cliente costuma vir só
-        // como nome digitado.
-        autor: a.autorId ? porId.get(a.autorId) ?? null : null,
-        resolvidoPorUsuario: a.resolvidoPor ? porId.get(a.resolvidoPor) ?? null : null,
-      })),
-    }))
+    return rodadas.map(r => {
+      const impedimentos = r.apontamentos.filter(a => a.impeditivo && a.situacao === 'ABERTO').length
+      return {
+        ...r,
+        criadoPorUsuario: r.criadoPor ? porId.get(r.criadoPor) ?? null : null,
+        abertos: r.apontamentos.filter(a => a.situacao === 'ABERTO').length,
+        // Estado derivado vai pronto no payload: a tela compõe, não recalcula.
+        // Uma rodada está travada enquanto houver impeditivo em aberto.
+        impedimentos,
+        travada: impedimentos > 0,
+        apontamentos: r.apontamentos.map(a => ({
+          ...a,
+          // Autor de dentro tem usuário; o analista do cliente costuma vir só
+          // como nome digitado.
+          autor: a.autorId ? porId.get(a.autorId) ?? null : null,
+          resolvidoPorUsuario: a.resolvidoPor ? porId.get(a.resolvidoPor) ?? null : null,
+        })),
+        mensagens: r.mensagens.map(m => ({
+          ...m,
+          autor: m.autorId ? porId.get(m.autorId) ?? null : null,
+        })),
+        arquivos: r.arquivos.map(f => ({
+          ...f,
+          enviadoPorUsuario: f.enviadoPor ? porId.get(f.enviadoPor) ?? null : null,
+        })),
+      }
+    })
   }
 
   /**
@@ -456,6 +478,7 @@ export class ProjetoService {
         // Sem autor escolhido, o autor é quem está registrando.
         autorId: input.autorId ?? (input.autorNome ? null : userId),
         autorNome: input.autorNome || null,
+        impeditivo: input.impeditivo ?? false,
       },
     })
   }
@@ -466,6 +489,7 @@ export class ProjetoService {
       where: { id },
       data: {
         ...(input.texto !== undefined && { texto: input.texto }),
+        ...(input.impeditivo !== undefined && { impeditivo: input.impeditivo }),
         ...(input.situacao !== undefined && {
           situacao: input.situacao,
           // Quem resolveu e quando só fazem sentido enquanto está resolvido;
@@ -479,6 +503,46 @@ export class ProjetoService {
 
   async deleteApontamento(id: string) {
     await prisma.projetoApontamento.delete({ where: { id } })
+    return { ok: true }
+  }
+
+  // ── Conversa e arquivos de uma rodada ───────────────────────
+  //
+  // Vêm junto no `listRodadas`; estas rotas existem para escrever e apagar.
+
+  async createRodadaMensagem(input: CreateRodadaMensagemInput, userId: string | null) {
+    return prisma.projetoRodadaMensagem.create({
+      data: {
+        rodadaId: input.rodadaId,
+        texto: input.texto,
+        // Nome digitado quer dizer "não fui eu que falei" — então não se
+        // carimba o usuário logado por cima.
+        autorId: input.autorNome ? null : userId,
+        autorNome: input.autorNome || null,
+      },
+    })
+  }
+
+  async deleteRodadaMensagem(id: string) {
+    await prisma.projetoRodadaMensagem.delete({ where: { id } })
+    return { ok: true }
+  }
+
+  async addRodadaArquivo(input: AddRodadaArquivoInput, userId: string | null) {
+    return prisma.projetoRodadaArquivo.create({
+      data: {
+        rodadaId: input.rodadaId,
+        nome: input.nome,
+        url: input.url,
+        tamanho: input.tamanho,
+        mimeType: input.mimeType ?? null,
+        enviadoPor: userId,
+      },
+    })
+  }
+
+  async removerRodadaArquivo(id: string) {
+    await prisma.projetoRodadaArquivo.delete({ where: { id } })
     return { ok: true }
   }
 

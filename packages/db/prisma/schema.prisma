@@ -7195,6 +7195,10 @@ model ProjetoExecucao {
 
   ordem     Int      @default(0)
   ativa     Boolean  @default(true)
+  /// Quanto da frente já está concluído, 0 a 100. É INFORMADO por quem conduz,
+  /// não derivado: rodada entregue não significa etapa concluída, e só quem
+  /// está na frente sabe o quanto falta.
+  progresso Int      @default(0)
   criadoEm  DateTime @default(now()) @map("criado_em")
   criadoPor String?  @map("criado_por")
 
@@ -7242,8 +7246,10 @@ model ProjetoRodada {
   criadoEm   DateTime  @default(now()) @map("criado_em")
   criadoPor  String?   @map("criado_por")
 
-  execucao     ProjetoExecucao      @relation(fields: [execucaoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  execucao     ProjetoExecucao         @relation(fields: [execucaoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   apontamentos ProjetoApontamento[]
+  mensagens    ProjetoRodadaMensagem[]
+  arquivos     ProjetoRodadaArquivo[]
 
   @@unique([execucaoId, numero])
   @@index([execucaoId])
@@ -7264,6 +7270,9 @@ model ProjetoApontamento {
   autorNome  String? @map("autor_nome")
   /// ABERTO | RESOLVIDO | DESCARTADO
   situacao   String  @default("ABERTO")
+  /// Impediu a rodada de seguir. Aberto e impeditivo = a frente está travada,
+  /// e é essa a diferença entre "falta ajustar" e "não dá para continuar".
+  impeditivo Boolean @default(false)
 
   resolvidoEm  DateTime? @map("resolvido_em")
   resolvidoPor String?   @map("resolvido_por")
@@ -7273,6 +7282,45 @@ model ProjetoApontamento {
 
   @@index([rodadaId, situacao])
   @@map("projeto_apontamentos")
+}
+
+/// Conversa de uma rodada. Separada das mensagens do projeto de propósito: a
+/// discussão de uma entrega específica não deve se diluir no mural geral.
+model ProjetoRodadaMensagem {
+  id       String @id @default(cuid())
+  rodadaId String @map("rodada_id")
+
+  texto     String  @db.Text
+  autorId   String? @map("autor_id")
+  /// Nome livre de quem não tem login — mesmo motivo do apontamento.
+  autorNome String? @map("autor_nome")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  rodada ProjetoRodada @relation(fields: [rodadaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([rodadaId, criadoEm])
+  @@map("projeto_rodada_mensagens")
+}
+
+/// Arquivo entregue ou recebido numa rodada — a versão do software, a planilha
+/// de conferência, o print do erro.
+model ProjetoRodadaArquivo {
+  id       String @id @default(cuid())
+  rodadaId String @map("rodada_id")
+
+  nome     String
+  url      String  @db.Text
+  mimeType String? @map("mime_type")
+  tamanho  Int
+
+  enviadoPor String?  @map("enviado_por")
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  rodada ProjetoRodada @relation(fields: [rodadaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([rodadaId])
+  @@map("projeto_rodada_arquivos")
 }
 
 model ProjetoMensagem {

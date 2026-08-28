@@ -37,6 +37,7 @@ type Execucao = {
   id: string
   titulo: string | null
   ativa: boolean
+  progresso: number
   cliente: ClienteRef | null
   responsavel: { id: string; name: string; image: string | null } | null
   participantes: Pessoa[]
@@ -223,6 +224,10 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
   const [escolha, setEscolha] = useState<{ tipo: Papel | 'CLIENTE' | 'RESPONSAVEL'; execucaoId: string } | null>(null)
   const [modalNova, setModalNova] = useState(false)
   const [novoTitulo, setNovoTitulo] = useState('')
+  // Renomear a frente: o título é o rótulo do card, e nem sempre o nome do
+  // cliente serve — duas frentes podem atender o mesmo cliente.
+  const [renomeando, setRenomeando] = useState<Execucao | null>(null)
+  const [tituloEditado, setTituloEditado] = useState('')
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -367,10 +372,24 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
                 style={{ background: `linear-gradient(135deg, ${corProjeto}, color-mix(in srgb, ${corProjeto} 72%, transparent))` }}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-semibold leading-tight" title={nome}>{nome}</p>
+                  {canWrite ? (
+                    <button
+                      type="button" title="Renomear frente"
+                      onClick={() => { setRenomeando(e); setTituloEditado(e.titulo ?? '') }}
+                      className="block w-full truncate text-left text-[13px] font-semibold leading-tight underline-offset-2 hover:underline"
+                    >
+                      {nome}
+                    </button>
+                  ) : (
+                    <p className="truncate text-[13px] font-semibold leading-tight" title={nome}>{nome}</p>
+                  )}
                   <p className="truncate text-[11px] leading-tight text-white/80">
-                    {e._count.rodadas} rodada{e._count.rodadas === 1 ? '' : 's'} · {pessoasNaFrente} pessoa{pessoasNaFrente === 1 ? '' : 's'}
+                    {e._count.rodadas} rodada{e._count.rodadas === 1 ? '' : 's'} · {pessoasNaFrente} pessoa{pessoasNaFrente === 1 ? '' : 's'} · {e.progresso}%
                   </p>
+                  {/* O quanto já está pronto, informado na aba Rodadas */}
+                  <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/25">
+                    <div className="h-full rounded-full bg-white transition-[width] duration-300" style={{ width: `${e.progresso}%` }} />
+                  </div>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -390,6 +409,9 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
                     {canWrite && (
                       <>
                         {onVerRodadas && <DropdownMenuSeparator />}
+                        <DropdownMenuItem onClick={() => { setRenomeando(e); setTituloEditado(e.titulo ?? '') }}>
+                          <Pencil className="mr-2 h-4 w-4" /> Renomear frente
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => abrir('CLIENTE', e.id)}>
                           <Building2 className="mr-2 h-4 w-4" /> {e.cliente ? 'Trocar cliente' : 'Definir cliente'}
                         </DropdownMenuItem>
@@ -576,6 +598,42 @@ export function ProjetoTabEnvolvidos({ projetoId, corProjeto, canWrite, canDelet
           void salvarExecucao(escolha.execucaoId, { clienteId: ids[0] })
         }}
       />
+
+      {/* Renomear frente */}
+      <Dialog open={!!renomeando} onOpenChange={(o) => !o && setRenomeando(null)}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeaderIcon icon={Pencil} color="sky">
+            <DialogTitle>Renomear frente</DialogTitle>
+            <DialogDescription>
+              Em branco, o card volta a mostrar o nome do cliente da execução.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-1.5">
+            <Label className="text-[13px] font-semibold">Nome da frente</Label>
+            <Input
+              value={tituloEditado}
+              onChange={ev => setTituloEditado(ev.target.value)}
+              placeholder="Ex.: Apuração fiscal — piloto"
+              className="h-9 text-sm"
+              autoFocus
+            />
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setRenomeando(null)} disabled={salvando}>Cancelar</Button>
+            <Button
+              variant="success" size="sm" className="gap-1.5" disabled={salvando}
+              onClick={() => {
+                if (!renomeando) return
+                const alvo = renomeando.id
+                setRenomeando(null)
+                void salvarExecucao(alvo, { titulo: tituloEditado.trim() || null })
+              }}
+            >
+              {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Nova execução */}
       <Dialog open={modalNova} onOpenChange={setModalNova}>

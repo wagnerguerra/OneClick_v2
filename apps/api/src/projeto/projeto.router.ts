@@ -19,6 +19,8 @@ import {
   updateRodadaSchema,
   createApontamentoSchema,
   updateApontamentoSchema,
+  createRodadaMensagemSchema,
+  addRodadaArquivoSchema,
 } from '@saas/types'
 import { ProjetoService } from './projeto.service'
 
@@ -103,6 +105,24 @@ export function createProjetoRouter(svc: ProjetoService) {
     deleteApontamento: deleteProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => svc.deleteApontamento(input.id)),
+
+    // ── Conversa e arquivos da rodada ─────────────────────────
+    // A leitura vem dentro de listRodadas; aqui só se escreve e apaga.
+    createRodadaMensagem: writeProcedure(MODULE)
+      .input(createRodadaMensagemSchema)
+      .mutation(({ input, ctx }) => svc.createRodadaMensagem(input, ctx.userId ?? null)),
+
+    deleteRodadaMensagem: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => svc.deleteRodadaMensagem(input.id)),
+
+    addRodadaArquivo: writeProcedure(MODULE)
+      .input(addRodadaArquivoSchema)
+      .mutation(({ input, ctx }) => svc.addRodadaArquivo(input, ctx.userId ?? null)),
+
+    removerRodadaArquivo: deleteProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => svc.removerRodadaArquivo(input.id)),
 
     // ── Tarefas ───────────────────────────────────────────────
     listTarefas: readProcedure(MODULE)
