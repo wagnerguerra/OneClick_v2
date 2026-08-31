@@ -25,6 +25,15 @@ export const criarFeriasPeriodoSchema = z.object({
 
 export const atualizarFeriasPeriodoSchema = z.object({
   id: z.string().min(1),
+  /**
+   * O período aquisitivo são DOIS anos (2024 a 2025), não um rótulo. Antes eles
+   * só podiam ser definidos na criação: um período lançado errado só se
+   * consertava apagando e refazendo, perdendo gozos e recibos junto. A ordem dos
+   * dois é validada no service, que conhece o valor gravado — a tela pode mandar
+   * um ano só.
+   */
+  periodoInicial: ano.optional(),
+  periodoFinal: ano.optional(),
   descricao: z.string().max(200).optional().nullable(),
   saldoAnterior: z.coerce.number().int().min(-60).max(60).optional(),
   dias: z.coerce.number().int().min(0).max(60).optional(),

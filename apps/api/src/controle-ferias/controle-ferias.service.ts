@@ -332,11 +332,23 @@ export class ControleFeriasService {
 
   async atualizar(input: AtualizarFeriasPeriodoInput, empresaId?: string | null) {
     const { id, ...c } = input
-    await this.getById(id, empresaId)
+    const atual = await this.getById(id, empresaId)
+
+    // Os anos podem chegar sozinhos (a tela manda os dois, mas nada impede uma
+    // correção de um só). Compara com o que está gravado para 2026/2025 não
+    // entrar pela porta dos fundos — o refine do schema de criação só enxerga
+    // o payload.
+    const ini = c.periodoInicial ?? atual.periodoInicial
+    const fim = c.periodoFinal ?? atual.periodoFinal
+    if (fim < ini) {
+      throw new Error('O ano final do período não pode ser menor que o inicial.')
+    }
     const d = (v: string | null | undefined) => (v === undefined ? undefined : v ? dataDeISO(v) : null)
     return prisma.feriasPeriodo.update({
       where: { id },
       data: {
+        ...(c.periodoInicial !== undefined ? { periodoInicial: c.periodoInicial } : {}),
+        ...(c.periodoFinal !== undefined ? { periodoFinal: c.periodoFinal } : {}),
         ...(c.descricao !== undefined ? { descricao: c.descricao?.trim() || null } : {}),
         ...(c.saldoAnterior !== undefined ? { saldoAnterior: c.saldoAnterior } : {}),
         ...(c.dias !== undefined ? { dias: c.dias } : {}),
