@@ -66,6 +66,7 @@ export class ServicoService {
             atribuicaoAreas: true,
             atribuicaoUsaOrcamento: true,
             atribuicaoUsaClienteArea: true,
+            atribuicaoUsaAreasContratadas: true,
           },
         },
       },
@@ -139,6 +140,19 @@ export class ServicoService {
             responsavelId: userId,
             areaId: exec.servico.areaId,
           },
+          select: { id: true },
+        })
+        if (vinculo) return true
+      }
+
+      // 9. Flag atribuicaoUsaAreasContratadas — user é responsável do cliente em
+      //    QUALQUER área contratada. Sem a área do serviço no filtro: o bloco é
+      //    justamente o que atravessa as áreas, e quem responde por uma delas
+      //    precisa abrir. Sem esta regra, os líderes seriam listados como
+      //    candidatos e levariam 403 ao clicar.
+      if (exec.servico.atribuicaoUsaAreasContratadas) {
+        const vinculo = await prisma.clienteAreaContratada.findFirst({
+          where: { clienteId: exec.clienteId, responsavelId: userId, contratado: true },
           select: { id: true },
         })
         if (vinculo) return true
@@ -2603,6 +2617,7 @@ export class ServicoService {
       atribuicaoAreas: string[];
       atribuicaoUsaOrcamento: boolean;
       atribuicaoUsaClienteArea: boolean;
+      atribuicaoUsaAreasContratadas: boolean;
     },
     ctx: { clienteId: string; orcamentoId: string | null },
   ): Promise<{ candidatos: string[]; claimFirst: boolean }> {
@@ -2612,7 +2627,7 @@ export class ServicoService {
     for (const id of servico.atribuicaoColaboradores) candidatos.add(id)
 
     // 2) Usuários ativos das áreas listadas — fonte COLETIVA (força claim-first)
-    const temFonteSetor = servico.atribuicaoAreas.length > 0
+    let temFonteSetor = servico.atribuicaoAreas.length > 0
     if (temFonteSetor) {
       const usuarios = await prisma.user.findMany({
         where: { isActive: true, areaId: { in: servico.atribuicaoAreas } },
@@ -2641,6 +2656,24 @@ export class ServicoService {
       })
       if (vinculo?.responsavelId) candidatos.add(vinculo.responsavelId)
       else if (vinculo?.substitutoId) candidatos.add(vinculo.substitutoId)
+    }
+
+    // 5) Responsáveis do cliente em TODAS as áreas contratadas — fonte COLETIVA.
+    //    É a atribuição do trabalho que atravessa as áreas: quem tem que agir
+    //    são os líderes de cada área que ESTE cliente contratou, conjunto que
+    //    muda a cada cliente e por isso não cabe na lista fixa do template.
+    if (servico.atribuicaoUsaAreasContratadas) {
+      const vinculos = await prisma.clienteAreaContratada.findMany({
+        where: { clienteId: ctx.clienteId, contratado: true },
+        select: { responsavelId: true, substitutoId: true },
+      })
+      for (const v of vinculos) {
+        if (v.responsavelId) candidatos.add(v.responsavelId)
+        else if (v.substitutoId) candidatos.add(v.substitutoId)
+      }
+      // Coletiva por definição, como o setor: ninguém é "o" dono, a execução
+      // cai no painel de todos e o primeiro a agir reivindica.
+      if (vinculos.length > 0) temFonteSetor = true
     }
 
     return {
@@ -2960,9 +2993,23 @@ export class ServicoService {
     // Em AGUARDANDO_INICIO, prazoLimite fica nulo — sera calculado quando
     // o gestor confirmar (Fase 6: iniciarSucessorManual).
     const iniciadoEm = new Date()
-    const prazoLimite = statusInicial === 'EM_ANDAMENTO' && servico.slaHoras
+    let prazoLimite = statusInicial === 'EM_ANDAMENTO' && servico.slaHoras
       ? new Date(iniciadoEm.getTime() + servico.slaHoras * 60 * 60 * 1000)
       : null
+
+    // Bloco que espera a saída do cliente: o prazo é a data que o cliente
+    // marcou, não um SLA em horas. Um acompanhamento de duas semanas com SLA de
+    // 73h nasceria vencido em três dias, e o cron horário cobraria o responsável
+    // por um atraso que é, na verdade, a espera que o bloco existe para fazer.
+    if (servico.aguardaSaidaCliente && statusInicial === 'EM_ANDAMENTO') {
+      const cli = await prisma.cliente.findUnique({
+        where: { id: input.clienteId },
+        select: { inativacaoProgramadaPara: true },
+      })
+      // Sem data agendada, o SLA continua valendo — é o caso de alguém abrir o
+      // bloco antes de a saída ter sido registrada no cadastro.
+      if (cli?.inativacaoProgramadaPara) prazoLimite = cli.inativacaoProgramadaPara
+    }
 
     // ── Resolução de responsável (modelo novo, obrigatório) ──
     // Se o caller passou explicitamente, respeita (override manual). Caso
@@ -3357,6 +3404,44 @@ export class ServicoService {
     })
     const sub = (perm?.subPermissions ?? {}) as Record<string, unknown>
     return sub.concluir_sem_checklist === true
+  }
+
+  /**
+   * Conclui os blocos que estavam esperando a data de saída deste cliente,
+   * disparando os sucessores. Chamado pelo job de inativação agendada no dia em
+   * que a saída acontece.
+   *
+   * É o que responde "o sistema espera até a data?" com sim: sem isto, o fluxo
+   * só anda quando alguém marca o último passo do acompanhamento, e o bloco
+   * seguinte poderia nascer duas semanas antes de o cliente sair — ou duas
+   * semanas depois, se ninguém lembrar.
+   *
+   * NÃO exige o checklist fechado, de propósito. A saída é fato do mundo real:
+   * ela aconteceu, tenha ou não alguém marcado "cobrar quem não informou". O
+   * mesmo princípio do job, que inativa e depois avisa quem ficou pendente —
+   * segurar o fluxo num checkbox deixaria o cadastro dizendo uma coisa e o
+   * processo, outra.
+   */
+  async avancarFluxosNaSaidaDoCliente(clienteId: string, quando: Date): Promise<number> {
+    const execucoes = await prisma.servicoExecucao.findMany({
+      where: {
+        clienteId,
+        status: { in: ['EM_ANDAMENTO', 'AGUARDANDO_INICIO'] },
+        servico: { aguardaSaidaCliente: true },
+      },
+      select: {
+        id: true, status: true, orcamentoId: true, servicoId: true, clienteId: true,
+        responsavelId: true, empresaId: true, processoId: true, predecessorExecucaoId: true,
+      },
+    })
+
+    for (const exec of execucoes) {
+      await this.finalizarExecucaoComCascata(
+        exec, undefined, quando,
+        'Concluído automaticamente: chegou a data de saída do cliente',
+      )
+    }
+    return execucoes.length
   }
 
   async concluirExecucao(id: string, userId?: string) {
@@ -4206,6 +4291,18 @@ export class ServicoService {
             atribuicaoUsaClienteArea: true,
             areaId: par.areaId,
           },
+        })
+      }
+      // 11. Flag atribuicaoUsaAreasContratadas — basta ser responsável do
+      //     cliente em ALGUMA área contratada. Sem casar a área do serviço:
+      //     o bloco é o que atravessa as áreas, e cada líder chega nele pela
+      //     sua. Espelha a regra 9 do podeVerExecucao.
+      const clientesComVinculo = Array.from(new Set(areasResponsavel.map(p => p.clienteId)))
+      if (clientesComVinculo.length > 0) {
+        orClauses.push({
+          responsavelId: null,
+          clienteId: { in: clientesComVinculo },
+          servico: { atribuicaoUsaAreasContratadas: true },
         })
       }
 

@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
 import { CronJob } from 'cron'
 import { prisma, Prisma } from '@saas/db'
 import { schedulersAtivos } from '../common/scheduler-guard'
+import { ServicoService } from '../servico/servico.service'
 
 /**
  * Executa as inativações que foram AGENDADAS para uma data.
@@ -30,6 +31,8 @@ const CONFIG = {
 export class InativacaoProgramadaScheduler implements OnModuleInit, OnModuleDestroy {
   private cronJob: CronJob | null = null
   private rodando = false
+
+  constructor(private readonly servicoService: ServicoService) {}
 
   async onModuleInit() {
     if (!schedulersAtivos()) return
@@ -61,11 +64,12 @@ export class InativacaoProgramadaScheduler implements OnModuleInit, OnModuleDest
    * ainda é inativado hoje. Comparar por igualdade deixaria o agendamento
    * perdido para sempre.
    */
-  async executar(): Promise<{ inativados: number; areasPendentes: number }> {
-    if (this.rodando) return { inativados: 0, areasPendentes: 0 }
+  async executar(): Promise<{ inativados: number; areasPendentes: number; fluxosAvancados: number }> {
+    if (this.rodando) return { inativados: 0, areasPendentes: 0, fluxosAvancados: 0 }
     this.rodando = true
     let inativados = 0
     let areasPendentes = 0
+    let fluxosAvancados = 0
 
     try {
       const fim = new Date()
@@ -118,6 +122,15 @@ export class InativacaoProgramadaScheduler implements OnModuleInit, OnModuleDest
         })
         inativados++
 
+        // O offboarding tem um bloco que existe só para esperar esta data
+        // ("Acompanhar até a data de saída"). Chegou o dia: conclui e deixa o
+        // fluxo seguir para quem encerra os serviços. Sem isto, o cadastro diz
+        // que o cliente saiu e o processo continua parado esperando alguém
+        // marcar um checkbox.
+        fluxosAvancados += await this.servicoService
+          .avancarFluxosNaSaidaDoCliente(c.id, new Date())
+          .catch(() => 0)
+
         if (pendentes.length > 0) {
           areasPendentes += pendentes.length
           await this.avisarPendencias(c, pendentes)
@@ -125,8 +138,12 @@ export class InativacaoProgramadaScheduler implements OnModuleInit, OnModuleDest
       }
 
       await this.gravarConfig(CONFIG.lastRun, new Date().toISOString())
-      await this.gravarConfig(CONFIG.lastResult, `${inativados} inativado(s), ${areasPendentes} área(s) sem encerramento`)
-      return { inativados, areasPendentes }
+      await this.gravarConfig(
+        CONFIG.lastResult,
+        `${inativados} inativado(s), ${areasPendentes} área(s) sem encerramento`
+        + `, ${fluxosAvancados} fluxo(s) avançado(s)`,
+      )
+      return { inativados, areasPendentes, fluxosAvancados }
     } finally {
       this.rodando = false
     }

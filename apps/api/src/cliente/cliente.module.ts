@@ -16,12 +16,16 @@ import { ContratoSyncController } from './contrato-sync.controller'
 import { AuthModule } from '../auth/auth.module'
 import { CnpjModule } from '../cnpj/cnpj.module'
 import { BiModule } from '../bi/bi.module'
+import { ServicoModule } from '../servico/servico.module'
 import { InativacaoProgramadaScheduler } from './inativacao-programada.scheduler'
 
 @Module({
   // BiModule via forwardRef — Cliente emite BiSyncEvents quando idSistema muda
   // (SSE pro Launcher). Bi importa Cliente também → circular resolved por forwardRef.
-  imports: [CnpjModule, forwardRef(() => BiModule), AuthModule],
+  // ServicoModule: a inativação agendada precisa avançar o fluxo de offboarding
+  // no dia da saída. forwardRef porque o grafo de serviços é um hub — hoje não
+  // há ciclo, mas basta alguém importar Cliente lá dentro para haver.
+  imports: [CnpjModule, forwardRef(() => BiModule), AuthModule, forwardRef(() => ServicoModule)],
   controllers: [ContratoSyncController],
   providers: [
     InativacaoProgramadaScheduler,ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService],
