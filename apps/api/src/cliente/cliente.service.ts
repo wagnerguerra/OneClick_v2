@@ -635,23 +635,115 @@ export class ClienteService {
   // cliente está virando ex-cliente; um prospect que nunca foi cliente não tem
   // saída. O motivo NÃO é coluna — mora só no histórico (ClienteEvent).
   // ============================================================
-  async inativar(id: string, dataSaida: string | undefined, motivo: string | undefined, userId?: string, isMaster?: boolean, empresaId?: string) {
+  /**
+   * Inativa o cliente — agora ou numa data marcada.
+   *
+   * A rescisão chega hoje, mas o cliente costuma sair só no fim do mês, e até lá
+   * continua ATIVO com obrigação a entregar. Inativar na hora tiraria do time o
+   * acesso ao que ainda precisa ser feito; confiar em alguém lembrar no dia é
+   * como se fazia antes. Daí a segunda porta: `programada` guarda a data e o
+   * job diário (`InativacaoProgramadaScheduler`) executa quando ela chega.
+   *
+   * O agendamento NÃO mexe em status: o cliente segue ativo até o dia marcado.
+   */
+  async inativar(
+    id: string,
+    dataSaida: string | undefined,
+    motivo: string | undefined,
+    userId?: string,
+    isMaster?: boolean,
+    empresaId?: string,
+    programadaPara?: string | null,
+  ) {
     return prisma.$transaction(async (tx) => {
       const cliente = await tx.cliente.findUniqueOrThrow({ where: { id } })
       if (!isMaster && empresaId && cliente.empresaId !== empresaId) {
         throw new Error('Acesso negado')
       }
-      const saida = parseOptionalDate(dataSaida)   // null quando não informada
       const motivoLimpo = (motivo ?? '').trim() || null
       const newVersion = cliente.version + 1
+
+      const agendada = parseOptionalDate(programadaPara)
+      if (agendada) {
+        // Data no passado seria inativação imediata com nome de agendamento —
+        // e ninguém entende por que o cliente sumiu "amanhã" que já passou.
+        const hoje = new Date()
+        hoje.setHours(0, 0, 0, 0)
+        if (agendada < hoje) {
+          throw new Error('A data programada não pode ser no passado. Para inativar agora, escolha "de imediato".')
+        }
+
+        const atualizado = await tx.cliente.update({
+          where: { id },
+          data: {
+            inativacaoProgramadaPara: agendada,
+            inativacaoProgramadaMotivo: motivoLimpo,
+            inativacaoProgramadaPor: userId || null,
+            inativacaoProgramadaEm: new Date(),
+            // A saída prevista já vale como informação de cadastro: é ela que
+            // orienta as áreas a marcarem o encerramento dos serviços.
+            dataSaida: agendada,
+            version: newVersion,
+          },
+        })
+        await tx.clienteEvent.create({
+          data: {
+            clienteId: id, userId: userId || null, type: 'inactivation_scheduled', version: newVersion,
+            changes: { motivo: motivoLimpo, programadaPara: agendada.toISOString().slice(0, 10) } as Prisma.InputJsonValue,
+          },
+        })
+        return atualizado
+      }
+
+      const saida = parseOptionalDate(dataSaida)   // null quando não informada
       const atualizado = await tx.cliente.update({
         where: { id },
-        data: { status: 'INATIVO' as never, dataSaida: saida, version: newVersion },
+        data: {
+          status: 'INATIVO' as never,
+          dataSaida: saida,
+          // Inativou agora: o agendamento que houvesse perdeu o sentido.
+          inativacaoProgramadaPara: null,
+          inativacaoProgramadaMotivo: null,
+          inativacaoProgramadaPor: null,
+          inativacaoProgramadaEm: null,
+          version: newVersion,
+        },
       })
       await tx.clienteEvent.create({
         data: {
           clienteId: id, userId: userId || null, type: 'inactivated', version: newVersion,
           changes: { motivo: motivoLimpo, dataSaida: saida ? saida.toISOString().slice(0, 10) : null } as Prisma.InputJsonValue,
+        },
+      })
+      return atualizado
+    })
+  }
+
+  /** Desmarca a inativação agendada — o cliente continua ativo, sem data. */
+  async cancelarInativacaoProgramada(id: string, motivo: string | undefined, userId?: string, isMaster?: boolean, empresaId?: string) {
+    return prisma.$transaction(async (tx) => {
+      const cliente = await tx.cliente.findUniqueOrThrow({ where: { id } })
+      if (!isMaster && empresaId && cliente.empresaId !== empresaId) {
+        throw new Error('Acesso negado')
+      }
+      if (!cliente.inativacaoProgramadaPara) {
+        throw new Error('Este cliente não tem inativação agendada.')
+      }
+      const newVersion = cliente.version + 1
+      const atualizado = await tx.cliente.update({
+        where: { id },
+        data: {
+          inativacaoProgramadaPara: null,
+          inativacaoProgramadaMotivo: null,
+          inativacaoProgramadaPor: null,
+          inativacaoProgramadaEm: null,
+          version: newVersion,
+        },
+      })
+      await tx.clienteEvent.create({
+        data: {
+          clienteId: id, userId: userId || null, type: 'inactivation_cancelled', version: newVersion,
+          changes: { motivo: (motivo ?? '').trim() || null } as Prisma.InputJsonValue,
         },
       })
       return atualizado

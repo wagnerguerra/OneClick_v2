@@ -418,9 +418,19 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
 
   // #HLP0209/0211 — confirma a inativação vinda do modal do detalhe (data de
   // saída opcional + motivo). Atualiza o form e o banner sem recarregar.
-  async function inativarConfirmado(dataSaida: string, motivo: string) {
+  async function inativarConfirmado(dataSaida: string, motivo: string, programadaPara: string | null) {
     if (!clienteId) return
-    await trpc.cliente.inativar.mutate({ id: clienteId, dataSaida: dataSaida || undefined, motivo })
+    await trpc.cliente.inativar.mutate({
+      id: clienteId, dataSaida: dataSaida || undefined, motivo, programadaPara,
+    })
+    if (programadaPara) {
+      // Agendado: o cliente segue ATIVO. Mexer no status aqui mentiria para
+      // quem está com a ficha aberta.
+      setValue('dataSaida', programadaPara, { shouldDirty: false })
+      const dia = new Date(`${programadaPara}T00:00:00`).toLocaleDateString('pt-BR')
+      alerts.success('Inativação agendada', `O cliente continua ativo e será inativado em ${dia}.`)
+      return
+    }
     setValue('status', 'INATIVO', { shouldDirty: false })
     setValue('dataSaida', dataSaida, { shouldDirty: false })
     setMotivoInativado(motivo)

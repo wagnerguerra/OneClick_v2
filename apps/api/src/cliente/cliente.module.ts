@@ -16,13 +16,15 @@ import { ContratoSyncController } from './contrato-sync.controller'
 import { AuthModule } from '../auth/auth.module'
 import { CnpjModule } from '../cnpj/cnpj.module'
 import { BiModule } from '../bi/bi.module'
+import { InativacaoProgramadaScheduler } from './inativacao-programada.scheduler'
 
 @Module({
   // BiModule via forwardRef — Cliente emite BiSyncEvents quando idSistema muda
   // (SSE pro Launcher). Bi importa Cliente também → circular resolved por forwardRef.
   imports: [CnpjModule, forwardRef(() => BiModule), AuthModule],
   controllers: [ContratoSyncController],
-  providers: [ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService],
+  providers: [
+    InativacaoProgramadaScheduler,ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService],
   exports: [ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService],
 })
 export class ClienteModule {}

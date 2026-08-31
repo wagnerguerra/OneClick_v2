@@ -371,17 +371,27 @@ export default function ClientesPage() {
   }
 
   // Confirma a inativação de 1..N clientes com a MESMA data de saída + motivo.
-  async function inativarConfirmado(dataSaida: string, motivo: string) {
+  async function inativarConfirmado(dataSaida: string, motivo: string, programadaPara: string | null) {
     if (!inativarAlvo) return
     let ok = 0
     for (const id of inativarAlvo.ids) {
       try {
-        await trpc.cliente.inativar.mutate({ id, dataSaida: dataSaida || undefined, motivo })
+        await trpc.cliente.inativar.mutate({ id, dataSaida: dataSaida || undefined, motivo, programadaPara })
         ok++
       } catch { /* skip */ }
     }
     const n = inativarAlvo.ids.length
-    await alerts.success('Cliente inativado', n === 1 ? `"${inativarAlvo.nome}" foi inativado.` : `${ok} de ${n} clientes inativados.`)
+    if (programadaPara) {
+      const dia = new Date(`${programadaPara}T00:00:00`).toLocaleDateString('pt-BR')
+      await alerts.success(
+        'Inativação agendada',
+        n === 1
+          ? `"${inativarAlvo.nome}" continua ativo e será inativado em ${dia}.`
+          : `${ok} de ${n} clientes seguem ativos e serão inativados em ${dia}.`,
+      )
+    } else {
+      await alerts.success('Cliente inativado', n === 1 ? `"${inativarAlvo.nome}" foi inativado.` : `${ok} de ${n} clientes inativados.`)
+    }
     fetchClientes()
   }
 
