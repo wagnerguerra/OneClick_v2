@@ -22,7 +22,6 @@ import { exportToExcel } from '@/lib/export-data'
 import { TIPO_SOCIO_LABELS } from '@saas/types'
 import { ImportModal } from './_components/import-modal'
 import { QsaImportModal } from './_components/qsa-import-modal'
-import { BackButton } from '@/components/ui/back-button'
 import type { inferRouterOutputs } from '@trpc/server'
 import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
 
@@ -113,7 +112,6 @@ export default function SociosPage() {
           <Button variant="default" size="sm" onClick={() => setQsaOpen(true)} className="gap-1"><Users className="h-4 w-4" />Importar QSA</Button>
           <Button variant="soft" size="sm" onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4" />Excel</Button>
-          <BackButton href="/dashboard" label="Voltar" />
       </>}>
         <h1 className="truncate">Sócios</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">

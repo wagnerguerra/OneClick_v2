@@ -24,14 +24,14 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
-  RichEditor, Checkbox, Switch,
+  RichEditor, Checkbox, Switch, Textarea,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
+import { BADGE, STRONG, SURFACE, TEXT } from '@/lib/color-styles'
 import { FluxoEditor, type FluxoNode, type FluxoEdge } from './_components/fluxo-editor'
 import { FluxoAssistant } from './_components/fluxo-assistant'
 import { MateriaisSection, type Material } from './_components/materiais-section'
@@ -1119,7 +1119,7 @@ export default function ServicoDetailPage() {
             </span>
             <span className="text-muted-foreground/40">|</span>
             <Badge
-              className="text-[11px] h-5 px-2 gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800 font-medium"
+              className={cn('text-[11px] h-5 px-2 gap-1.5 border font-medium', STRONG.emerald)}
               title="SLA total = soma dos passos"
             >
               <Clock className="h-3 w-3" /> SLA {formatSlaRich(totalServicoMin)}
@@ -1158,7 +1158,7 @@ export default function ServicoDetailPage() {
               </Badge>
             )}
             {categoriaServico === 'MENSAL' && (
-              <Badge className="text-[11px] h-5 px-2 bg-violet-100 text-violet-800 border border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-800 font-medium">
+              <Badge className={cn('text-[11px] h-5 px-2 border font-medium', STRONG.violet)}>
                 Mensal
               </Badge>
             )}
@@ -1232,7 +1232,7 @@ export default function ServicoDetailPage() {
             </CardHeader>
             <div className="flex min-h-[500px]">
               {/* Pills verticais à esquerda */}
-              <div className="w-[180px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+              <div className="w-[180px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
                 <div className="space-y-1">
                   {([
                     { id: 'identificacao' as const, label: 'Identificação', icon: FileText },
@@ -1271,7 +1271,7 @@ export default function ServicoDetailPage() {
               {/* Conteúdo da pill */}
               <div
                 key={visaoPill}
-                className="flex-1 min-w-0 overflow-y-auto flex flex-col"
+                className="flex-1 min-w-0 overflow-y-auto flex flex-col nice-scrollbar"
                 style={{ animation: 'fadeSlideIn 0.25s ease-out' }}
               >
                 {/* ── PILL: Identificação ───────────────────── */}
@@ -1771,13 +1771,13 @@ export default function ServicoDetailPage() {
                       <div className="col-span-12 border-t border-border -mx-5 mt-2" />
                       <div className="col-span-12 space-y-1.5">
                         <Label className="text-[13px] font-semibold">Comentário padrão</Label>
-                        <textarea
+                        <Textarea
                           value={comentarioPadrao}
                           onChange={(e) => setComentarioPadrao(e.target.value)}
                           placeholder="Texto pré-carregado no campo de comentário do anexo na entrega manual."
                           maxLength={300}
                           rows={2}
-                          className="w-full rounded-[4px] border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                          className="resize-none"
                         />
                         <p className="text-[11px] text-muted-foreground">{comentarioPadrao.length} / 300 caracteres</p>
                       </div>
@@ -1996,7 +1996,7 @@ export default function ServicoDetailPage() {
                             if (trilhos <= 1) return null
                             return (
                               <div
-                                className="flex items-center justify-center gap-1 shrink-0 h-9 px-2 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-[11px] font-medium text-emerald-700 dark:text-emerald-300"
+                                className={cn('flex items-center justify-center gap-1 shrink-0 h-9 px-2 rounded-md border text-[11px] font-medium', BADGE.emerald)}
                                 title={`${trilhos} trilhos paralelos — passos no mesmo trilho rodam simultaneamente`}
                               >
                                 <GitBranch className="h-3 w-3" />
@@ -2722,11 +2722,11 @@ export default function ServicoDetailPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Observação</Label>
-              <textarea
+              <Textarea
                 value={encObservacao}
                 onChange={e => setEncObservacao(e.target.value)}
                 rows={2}
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs resize-y"
+                className="text-xs resize-y"
               />
             </div>
           </DialogBody>

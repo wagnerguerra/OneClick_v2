@@ -35,7 +35,7 @@ import {
   GitBranch, FileText, PlayCircle, CheckCircle2, HelpCircle, Box,
   Network, Layers,
 } from 'lucide-react'
-import { Badge, Button, Input, cn, Checkbox } from '@saas/ui'
+import { Badge, Button, Input, cn, Checkbox, Textarea } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -2536,13 +2536,13 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
               <>
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-semibold text-foreground">Pergunta exibida ao gestor *</label>
-                  <textarea
+                  <Textarea
                     value={perguntaTexto}
                     onChange={e => setPerguntaTexto(e.target.value)}
                     placeholder="Ex: Serviço mensal em todas as áreas?"
                     rows={2}
                     maxLength={500}
-                    className="w-full text-sm border rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    className="resize-none focus:ring-2 focus:ring-amber-400"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -3074,13 +3074,13 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-semibold text-foreground">Pergunta a ser exibida *</label>
-              <textarea
+              <Textarea
                 value={pergTexto}
                 onChange={e => setPergTexto(e.target.value)}
                 disabled={!podeEditar || pergSalvando}
                 rows={2}
                 maxLength={500}
-                className="w-full text-xs border rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-60"
+                className="text-xs resize-none focus:ring-2 focus:ring-amber-400 disabled:opacity-60"
               />
             </div>
             <div className="space-y-1">

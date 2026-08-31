@@ -5,7 +5,10 @@ import {
   Loader2, Search, Users, ChevronDown, ChevronRight, Save, RotateCcw,
   Circle, Wrench, type LucideIcon,
 } from 'lucide-react'
-import { Button, Card, Input, Badge, Checkbox, cn } from '@saas/ui'
+import {
+  Button, Card, Input, Badge, Checkbox, cn,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+} from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { MODULE_GROUPS, MODULE_LABELS, PLATFORM_ADMIN_MODULES } from '@saas/types'
 import { BackButton } from '@/components/ui/back-button'
@@ -241,16 +244,24 @@ export default function PermissoesEmMassaPage() {
               e cargo longo ("Auxiliar Administrativo Contábil/Fiscal") é a regra
               aqui, não a exceção. */}
           <div className="mb-2 flex flex-col gap-2">
-            <select value={filtroArea} onChange={e => setFiltroArea(e.target.value)}
-              className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground">
-              <option value="">Todas as áreas</option>
-              {areas.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-            <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
-              className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground">
-              <option value="">Todos os cargos</option>
-              {cargos.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <Select value={filtroArea || '__all__'} onValueChange={v => setFiltroArea(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue placeholder="Todas as áreas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas as áreas</SelectItem>
+                {areas.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filtroCargo || '__all__'} onValueChange={v => setFiltroCargo(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue placeholder="Todos os cargos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todos os cargos</SelectItem>
+                {cargos.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="mb-2 flex gap-2 text-xs">
             <button onClick={marcarVisiveis} className="rounded-md border border-border px-2 py-1 text-muted-foreground hover:bg-muted/40">

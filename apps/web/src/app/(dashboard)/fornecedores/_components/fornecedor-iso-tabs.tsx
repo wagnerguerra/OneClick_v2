@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import {
-  Button, Card, Input, cn,
+  Button, Card, Input, Textarea, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
@@ -75,7 +75,7 @@ export function FornecedorIsoTabs({ fornecedorId, currentUserId }: { fornecedorI
     <Card className="overflow-hidden">
       <div className="flex min-h-[420px]">
         {/* Pills laterais (padrão detalhe) */}
-        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
           <div className="space-y-1">
             {ISO_TABS.map((t) => {
               const Icon = t.icon
@@ -405,7 +405,7 @@ export function MensagensTab({ fornecedorId, currentUserId }: { fornecedorId: st
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-2">
-        <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={2} placeholder="Escreva uma interação/observação..." className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+        <Textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={2} placeholder="Escreva uma interação/observação..." className="flex-1 resize-none" />
         <Button type="button" size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 mt-0.5" disabled={enviando || !texto.trim()} onClick={enviar}>
           {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar
         </Button>
@@ -435,7 +435,7 @@ export function MensagensTab({ fornecedorId, currentUserId }: { fornecedorId: st
                 </div>
                 {editId === m.id ? (
                   <div className="space-y-2">
-                    <textarea value={editTexto} onChange={(e) => setEditTexto(e.target.value)} rows={2} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                    <Textarea value={editTexto} onChange={(e) => setEditTexto(e.target.value)} rows={2} className="w-full resize-none" />
                     <div className="flex items-center gap-2 justify-end">
                       <Button type="button" size="xs" variant="outline" onClick={() => setEditId(null)}><X className="h-3.5 w-3.5" /> Cancelar</Button>
                       <Button type="button" size="xs" variant="success" onClick={() => salvarEdicao(m.id)}>Salvar</Button>

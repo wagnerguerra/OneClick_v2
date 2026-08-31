@@ -10,7 +10,7 @@ import {
   FileText, MessageSquare, Upload, Trash2, Pencil, Send, Loader2,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Checkbox, Card, Badge,
+  Button, Input, Label, Checkbox, Card, Badge, Textarea,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   TooltipProvider, cn, RichEditor,
 } from '@saas/ui'
@@ -355,7 +355,7 @@ export function SocioForm({ mode, socioId, title, description, defaultValues }: 
                     <h4 className="text-sm font-semibold text-foreground">Histórico de Mensagens</h4>
 
                     {/* Lista de mensagens */}
-                    <div className="space-y-3 max-h-[350px] overflow-y-auto">
+                    <div className="space-y-3 max-h-[350px] overflow-y-auto nice-scrollbar">
                       {mensagens.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
                           <MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-30" />
@@ -397,13 +397,13 @@ export function SocioForm({ mode, socioId, title, description, defaultValues }: 
 
                     {/* Campo de nova mensagem */}
                     <div className="flex items-center gap-2 pt-3 border-t border-border">
-                      <textarea
+                      <Textarea
                         rows={2}
                         placeholder="Escreva uma mensagem..."
                         value={novaMensagem}
                         onChange={(e) => setNovaMensagem(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEnviarMensagem() } }}
-                        className="flex-1 rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="flex-1 resize-none"
                       />
                       <Button type="button" variant="success" size="sm" onClick={handleEnviarMensagem} disabled={enviando || !novaMensagem.trim()} className="gap-1.5 self-end">
                         {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

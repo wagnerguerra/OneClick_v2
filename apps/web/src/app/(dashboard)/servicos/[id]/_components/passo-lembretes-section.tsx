@@ -13,10 +13,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import {
   cn, Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
-  Input, Label, Checkbox,
+  Input, Label, Checkbox, Textarea,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -214,7 +214,7 @@ function LembreteRow({ lembrete, readOnly, onEdit }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="text-[13px] font-semibold text-foreground truncate">{lembrete.nome}</h4>
-            <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+            <span className={cn('inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[10px] font-semibold border', BADGE.amber)}>
               {lembrete.offsetValor} {unidadeLabel}
             </span>
             {!lembrete.ativo && (
@@ -382,14 +382,14 @@ function LembreteEditor({ mode, passoId, initial, onCancel, onSaved, onDeleted }
 
         <div className="col-span-12 space-y-1.5">
           <Label className="text-[13px] font-semibold">Descrição (opcional)</Label>
-          <textarea
+          <Textarea
             ref={descricaoRef}
             value={descricao ?? ''}
             onFocus={() => { lastFocusedRef.current = 'descricao' }}
             onChange={e => setDescricao(e.target.value)}
             placeholder="Texto que aparece no evento da agenda. Suporta tags."
             rows={3}
-            className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="resize-y"
           />
         </div>
 
@@ -470,7 +470,7 @@ function LembreteEditor({ mode, passoId, initial, onCancel, onSaved, onDeleted }
               {participantes.map(uid => {
                 const u = users.find(x => x.id === uid)
                 return (
-                  <span key={uid} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900">
+                  <span key={uid} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border', BADGE.sky)}>
                     {u?.name ?? uid}
                     <button
                       type="button"
@@ -505,7 +505,7 @@ function LembreteEditor({ mode, passoId, initial, onCancel, onSaved, onDeleted }
               {participantesAreas.map(aid => {
                 const a = areas.find(x => x.id === aid)
                 return (
-                  <span key={aid} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900">
+                  <span key={aid} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border', BADGE.emerald)}>
                     {a?.name ?? aid}
                     <button
                       type="button"
@@ -539,7 +539,7 @@ function LembreteEditor({ mode, passoId, initial, onCancel, onSaved, onDeleted }
           <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
             <X className="h-3 w-3 mr-1" /> Cancelar
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
+          <Button size="sm" className="bg-amber-600 text-white hover:bg-amber-700" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
             Salvar
           </Button>

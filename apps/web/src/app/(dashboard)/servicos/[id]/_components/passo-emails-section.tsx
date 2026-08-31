@@ -20,7 +20,7 @@ import {
   Input, Label, Checkbox, cn, RichEditor,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 
 /** Type pro editor TipTap exposto via onReady (sem import direto pra evitar
  *  adicionar @tiptap/react como dep do apps/web — só precisamos do .chain). */
@@ -304,7 +304,7 @@ function TemplateRow({ template, readOnly, onEdit }: {
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="text-[13px] font-semibold text-foreground truncate">{template.nome}</h4>
             {template.exigirConfirmacao && (
-              <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+              <span className={cn('inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[9px] font-semibold border', BADGE.amber)}>
                 Exige confirmação
               </span>
             )}

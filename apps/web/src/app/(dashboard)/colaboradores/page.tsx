@@ -20,7 +20,6 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
 import { TIPO_CONTRATO_LABELS } from '@saas/types'
-import { BackButton } from '@/components/ui/back-button'
 import { ImportModal } from './_components/import-modal'
 
 interface Colaborador {
@@ -165,7 +164,6 @@ export default function ColaboradoresPage() {
           <Button variant="outline" size="sm" onClick={() => handleExport('excel')}>
             <Download className="h-4 w-4" />Excel
           </Button>
-          <BackButton href="/dashboard" label="Voltar" />
         </>}
       >
         <h1 className="truncate">Colaboradores</h1>

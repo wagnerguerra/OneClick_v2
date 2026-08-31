@@ -15,12 +15,13 @@ import {
   MoreVertical,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Badge, Card, cn,
+  Button, Input, Label, Badge, Card, cn, Textarea,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { GRUPO_TIPO, GRUPO_TIPO_LABELS, GRUPO_TIPO_HINTS, type GrupoTipo } from '@saas/types'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -290,7 +291,7 @@ export default function GruposPage() {
           <div className="px-4 py-3">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Grupos vazios</p>
             <p className="text-2xl font-semibold tabular-nums mt-0.5">
-              {gruposVazios > 0 ? <span className="text-amber-600">{gruposVazios}</span> : gruposVazios}
+              {gruposVazios > 0 ? <span className={TEXT.amber}>{gruposVazios}</span> : gruposVazios}
             </p>
             <p className="text-[10px] text-muted-foreground">sem serviços</p>
           </div>
@@ -462,12 +463,12 @@ export default function GruposPage() {
             {/* Descrição */}
             <div className="space-y-1.5 shrink-0">
               <Label className="text-[13px] font-semibold">Descrição</Label>
-              <textarea
+              <Textarea
                 value={formDescricao}
                 onChange={e => setFormDescricao(e.target.value)}
                 placeholder="Pra que serve este grupo? Quando deve ser iniciado?"
                 rows={2}
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="resize-none"
               />
             </div>
             {/* Serviços do grupo + catálogo lado a lado */}

@@ -28,7 +28,6 @@ import {
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { BackButton } from '@/components/ui/back-button'
 import { ImportModal } from './_components/import-modal'
 import type { inferRouterOutputs } from '@trpc/server'
 import type { AppRouter } from '@saas/api/src/trpc/trpc.service'
@@ -132,7 +131,6 @@ export default function AreasPage() {
           <Button variant="soft" size="sm" onClick={() => setImportOpen(true)}>
             <FileUp className="h-4 w-4" />Importar
           </Button>
-          <BackButton href="/dashboard" label="Voltar" />
         </>}
       >
         <h1 className="truncate">Áreas</h1>

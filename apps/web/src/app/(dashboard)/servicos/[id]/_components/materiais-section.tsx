@@ -17,7 +17,7 @@ import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 import {
   Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
-  Input, Label, cn,
+  Input, Label, cn, Textarea,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -532,12 +532,12 @@ function MaterialDialog({ mode, tipo, etapaId, passoId, initial, onClose, onSave
           {tipo === 'NOTA' && (
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Texto *</Label>
-              <textarea
+              <Textarea
                 value={conteudo}
                 onChange={e => setConteudo(e.target.value)}
                 rows={8}
                 placeholder="Escreva instruções, dicas ou observações. Quebras de linha são preservadas."
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="resize-y"
               />
             </div>
           )}

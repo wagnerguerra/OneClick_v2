@@ -5,7 +5,9 @@ import { X, Plus, Tag, Settings2, Loader2, Pencil, Trash2, Check } from 'lucide-
 import {
   Button, Input,
   Dialog, DialogContent, DialogFooter,
+  cn,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -111,7 +113,7 @@ export function CategoriaTagsInput({ value, onChange }: { value: string[]; onCha
               ))}
               {q && !exactExists && (
                 <button type="button" onClick={createAndAdd} disabled={creating} className="flex w-full items-center gap-2 border-t border-border/60 px-3 py-1.5 text-left text-sm hover:bg-muted">
-                  {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 text-emerald-600" />}
+                  {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className={cn('h-3.5 w-3.5', TEXT.emerald)} />}
                   Criar categoria "<strong>{query.trim()}</strong>"
                 </button>
               )}
@@ -168,7 +170,7 @@ function CategoriasManagerModal({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeaderIcon icon={Settings2} color="slate">Gerenciar categorias</DialogHeaderIcon>
-        <div className="max-h-[50vh] space-y-1 overflow-y-auto py-1">
+        <div className="max-h-[50vh] space-y-1 overflow-y-auto nice-scrollbar py-1">
           {!cats.length ? (
             <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma categoria cadastrada.</p>
           ) : cats.map((c) => (

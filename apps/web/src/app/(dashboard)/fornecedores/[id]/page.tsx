@@ -98,7 +98,7 @@ export default function EditFornecedorPage() {
   }, [params.id])
 
   if (loading) {
-    return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[#5ea3cb] border-t-transparent" /></div>
+    return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
   }
 
   if (error || !fornecedor) {

@@ -15,6 +15,8 @@ import {
 import { cn } from '@saas/ui'
 import Link from 'next/link'
 import { BackButton } from '@/components/ui/back-button'
+import { UserAvatar } from '@/components/ui/user-avatar'
+import { STRONG } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { SectionCard } from '@/components/section-card'
 import { trpc } from '@/lib/trpc'
@@ -130,7 +132,6 @@ export default function UserProfilePage() {
   }
 
   const ultimoLogin = sessions[0]?.createdAt
-  const initials = (user.name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
   // Permissões agrupadas por categoria
   const permsByModule = new Map(user.permissions?.map(p => [p.moduleSlug, p]) ?? [])
   /** Quantos módulos o usuário enxerga — o número do hero. */
@@ -180,12 +181,7 @@ export default function UserProfilePage() {
             <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
               <div className="flex items-end gap-4">
                 <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
-                  {user.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={resolveAssetUrl(user.image)} alt={user.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-2xl font-bold" style={{ color: MODULE_COLOR }}>{initials}</span>
-                  )}
+                  <UserAvatar user={{ name: user.name, image: user.image ?? null }} className="h-full w-full rounded-2xl text-2xl" bg="bg-sky-500" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -392,8 +388,8 @@ export default function UserProfilePage() {
                             <span className={cn(
                               'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
                               c.role === 'Responsável'
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                : 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+                                ? STRONG.emerald
+                                : STRONG.sky,
                             )}>
                               {c.role}
                             </span>
@@ -416,7 +412,7 @@ export default function UserProfilePage() {
                 {sessions.length === 0 ? (
                   <div className="px-5 py-6 text-center text-xs text-muted-foreground">Nenhum acesso registrado</div>
                 ) : (
-                  <div className="divide-y divide-border/40 max-h-[360px] overflow-y-auto">
+                  <div className="divide-y divide-border/40 max-h-[360px] overflow-y-auto nice-scrollbar">
                     {sessions.map(s => (
                       <div key={s.id} className="px-5 py-2.5 text-xs">
                         <div className="flex items-center justify-between gap-2">

@@ -19,7 +19,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription, DialogFooter, DialogClose,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BADGE, STRONG } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { MODULE_ICONS, GROUP_ICONS } from '@/lib/navigation'
@@ -676,7 +676,7 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
                   <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Salvando...</span>
                 )}
                 {!permSaving && permSaved && (
-                  <span className="flex items-center gap-1.5 text-[11px] text-emerald-600 animate-in fade-in duration-300"><ShieldCheck className="h-3.5 w-3.5" />Salvo</span>
+                  <span className={cn('flex items-center gap-1.5 text-[11px] animate-in fade-in duration-300', TEXT.emerald)}><ShieldCheck className="h-3.5 w-3.5" />Salvo</span>
                 )}
               </div>
               <div>
@@ -1055,7 +1055,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
       </div>
 
       {importResult && (
-        <div className={cn('rounded-lg px-4 py-3 text-xs', importResult.dryRun ? 'bg-sky-50 text-sky-700 dark:bg-sky-950/20 dark:text-sky-400' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400')}>
+        <div className={cn('rounded-lg px-4 py-3 text-xs', importResult.dryRun ? BADGE.sky : BADGE.emerald)}>
           <span className="font-semibold">{importResult.dryRun ? 'Previa:' : 'Resultado:'}</span>{' '}
           {importResult.totalLinhasOneClick} no OneClick | {importResult.vinculados} vinculo(s) {importResult.dryRun ? 'encontrado(s)' : 'importado(s)'} | {importResult.ignoradosSemCliente} sem cliente local
         </div>
@@ -1114,7 +1114,7 @@ function ClientesVinculados({ userId }: { userId: string }) {
                     <td className="px-3 py-2">
                       <span className={cn(
                         'inline-flex items-center rounded-[3px] px-2 py-0.5 text-[10px] font-medium',
-                        item.role === 'Responsável' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+                        item.role === 'Responsável' ? STRONG.emerald : STRONG.sky,
                       )}>
                         {item.role}
                       </span>

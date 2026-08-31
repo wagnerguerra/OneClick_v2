@@ -16,7 +16,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BADGE, SURFACE, STRONG } from '@/lib/color-styles'
 import { USER_ROLE_LABELS } from '@saas/types'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -80,10 +80,10 @@ const ROLE_CONFIG: Record<string, { label: string; color: string }> = {
 }
 
 const PROFILE_CONFIG: Record<string, { label: string; color: string }> = {
-  OPERADOR: { label: 'Operador', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' },
-  SUPERVISOR: { label: 'Supervisor', color: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300' },
-  GERENTE: { label: 'Gerente', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
-  ADMIN: { label: 'Admin', color: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300' },
+  OPERADOR: { label: 'Operador', color: STRONG.emerald },
+  SUPERVISOR: { label: 'Supervisor', color: STRONG.sky },
+  GERENTE: { label: 'Gerente', color: STRONG.amber },
+  ADMIN: { label: 'Admin', color: STRONG.rose },
 }
 
 export default function UsuariosPage() {
@@ -443,7 +443,7 @@ export default function UsuariosPage() {
             <Filter className="h-4 w-4 text-muted-foreground" />
             Filtros
             {filtrosAtivos > 0 && (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-100 px-1.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+              <span className={cn('inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold', BADGE.emerald)}>
                 {filtrosAtivos}
               </span>
             )}
@@ -490,8 +490,8 @@ export default function UsuariosPage() {
 
       {/* Banner de seleção em lote */}
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 px-4 py-2.5 text-sm border border-emerald-200/60 dark:border-emerald-900/40">
-          <span className="font-medium text-emerald-700 dark:text-emerald-400">
+        <div className={cn('flex flex-wrap items-center gap-3 rounded-lg px-4 py-2.5 text-sm border', SURFACE.emerald)}>
+          <span className={cn('font-medium', TEXT.emerald)}>
             {selected.size} selecionado{selected.size > 1 ? 's' : ''}
           </span>
           <Button variant="destructive" size="sm" onClick={handleBulkDelete}>

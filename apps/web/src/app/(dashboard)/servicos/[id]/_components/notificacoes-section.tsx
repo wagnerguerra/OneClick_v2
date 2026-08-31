@@ -11,7 +11,7 @@ import {
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { BADGE, TEXT } from '@/lib/color-styles'
+import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
 import {
   RECORRENCIA_FREQUENCIA, RECORRENCIA_FREQUENCIA_LABELS,
   RECORRENCIA_ANCORAGEM, RECORRENCIA_ANCORAGEM_LABELS,
@@ -358,7 +358,7 @@ export function NotificacoesSection({
       <div className="flex min-h-[500px]">
         {/* Pills verticais à esquerda — só no modo standalone (compat legado). */}
         {standalone && (
-          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {pills.map(p => {
                 const Icon = p.icon
@@ -381,7 +381,7 @@ export function NotificacoesSection({
                       <span
                         className={cn(
                           'text-[10px] px-1.5 py-0.5 rounded-full tabular-nums',
-                          active ? 'bg-white/20' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200',
+                          active ? 'bg-white/20' : STRONG.emerald,
                         )}
                       >
                         {p.badge}
@@ -397,7 +397,7 @@ export function NotificacoesSection({
         {/* Conteúdo das pills */}
         <div
           key={activePill}
-          className="flex-1 overflow-y-auto"
+          className="flex-1 overflow-y-auto nice-scrollbar"
           style={{ animation: 'fadeSlideIn 0.25s ease-out' }}
         >
           {/* ── PILL: Recorrência ───────────────────────────── */}
@@ -644,7 +644,7 @@ export function NotificacoesSection({
                               variant="outline"
                               className={cn(
                                 'text-[10.5px]',
-                                i === 0 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300' : '',
+                                i === 0 ? BADGE.emerald : '',
                               )}
                             >
                               {label}

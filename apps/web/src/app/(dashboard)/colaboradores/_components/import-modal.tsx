@@ -8,6 +8,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -175,7 +176,7 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
           {step === 'preview' && (
             <div className="space-y-3 py-2">
               <div className="flex items-center gap-3 text-sm">
-                <div className="flex items-center gap-1.5 text-emerald-600">
+                <div className={cn('flex items-center gap-1.5', TEXT.emerald)}>
                   <CheckCircle className="h-4 w-4" /><span className="font-medium">{validRows.length} válidos</span>
                 </div>
                 {invalidRows.length > 0 && (

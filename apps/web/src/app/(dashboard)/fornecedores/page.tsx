@@ -14,13 +14,14 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Card,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+  cn,
 } from '@saas/ui'
+import { BADGE } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { exportToExcel } from '@/lib/export-data'
 import { TIPO_FORNECEDOR_LABELS, RISCO_FORNECEDOR_LABELS } from '@saas/types'
-import { BackButton } from '@/components/ui/back-button'
 import { ImportModal } from './_components/import-modal'
 
 interface Fornecedor {
@@ -40,9 +41,9 @@ interface Fornecedor {
 }
 
 const RISCO_COLORS: Record<string, string> = {
-  BAIXO: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
-  MEDIO: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800',
-  ALTO: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800',
+  BAIXO: BADGE.emerald,
+  MEDIO: BADGE.amber,
+  ALTO: BADGE.rose,
 }
 
 type SortDir = 'asc' | 'desc'
@@ -160,7 +161,6 @@ export default function FornecedoresPage() {
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4" />Excel
           </Button>
-          <BackButton href="/dashboard" label="Voltar" />
       </>}>
         <h1 className="truncate">Fornecedores</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -229,7 +229,7 @@ export default function FornecedoresPage() {
                   <TableCell className="font-medium text-sm">
                     {f.razaoSocial}
                     {f.nomeFantasia && <span className="text-muted-foreground text-xs ml-1">({f.nomeFantasia})</span>}
-                    {!f.isActive && <Badge variant="outline" className="ml-2 text-[10px] border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-400">Inativo</Badge>}
+                    {!f.isActive && <Badge variant="outline" className={cn('ml-2 text-[10px]', BADGE.rose)}>Inativo</Badge>}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-xs font-mono text-muted-foreground">{formatDoc(f.documento, f.tipoDocumento)}</TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{f.cidade && f.uf ? `${f.cidade}/${f.uf}` : '—'}</TableCell>

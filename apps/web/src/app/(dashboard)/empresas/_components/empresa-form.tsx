@@ -18,6 +18,7 @@ import {
   SelectItem,
   SelectValue,
   Switch,
+  Checkbox,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -50,6 +51,7 @@ const TAB_BY_FIELD: Record<string, EmpresaTabKey> = {
   logoUrl: 'logo', logoDarkUrl: 'logo', marcaDaguaUrl: 'logo',
 }
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { masks } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -368,7 +370,7 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
           </div>
           <div className="flex min-h-[500px]">
             {/* Pills laterais — padrão dos demais módulos */}
-            <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+            <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
               <div className="space-y-1">
                 {EMPRESA_TABS.map(tab => {
                   const Icon = tab.icon
@@ -806,7 +808,7 @@ function UsuariosDaEmpresa({ empresaId, mode }: { empresaId?: string; mode: 'cre
             Quem está vinculado a esta empresa. O cadastro é feito no módulo Usuários.
           </p>
         </div>
-        <Link href="/usuarios" className="text-[13px] font-medium text-emerald-700 hover:underline dark:text-emerald-400">
+        <Link href="/usuarios" className={cn('text-[13px] font-medium hover:underline', TEXT.emerald)}>
           Abrir Usuários
         </Link>
       </div>
@@ -818,8 +820,8 @@ function UsuariosDaEmpresa({ empresaId, mode }: { empresaId?: string; mode: 'cre
             placeholder="Filtrar por nome ou e-mail..." className="h-9 pl-8 text-sm" />
         </div>
         <label className="flex cursor-pointer items-center gap-2 text-[13px]">
-          <input type="checkbox" checked={incluirInativos} className="h-4 w-4"
-            onChange={e => setIncluirInativos(e.target.checked)} />
+          <Checkbox checked={incluirInativos}
+            onCheckedChange={(v) => setIncluirInativos(!!v)} />
           Mostrar inativos
         </label>
         <span className="text-xs text-muted-foreground tabular-nums">

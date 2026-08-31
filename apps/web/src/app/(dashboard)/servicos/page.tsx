@@ -17,10 +17,10 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Tabs, TabsTrigger, TabsContent, SlidingTabsList,
-  Checkbox, RichEditor,
+  Checkbox, RichEditor, Textarea,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { ServicoWizard } from './_components/servico-wizard'
 import Link from 'next/link'
@@ -1268,12 +1268,11 @@ export default function ServicosPage() {
                       onClick={() => openEditServico(s.id)}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <input
-                          type="checkbox"
-                          className="h-3.5 w-3.5 rounded cursor-pointer mt-0.5 shrink-0"
+                        <Checkbox
+                          className="mt-0.5 shrink-0"
                           checked={selectedIds.has(s.id)}
                           onClick={e => e.stopPropagation()}
-                          onChange={() => toggleSelected(s.id)}
+                          onCheckedChange={() => toggleSelected(s.id)}
                           aria-label={`Selecionar ${s.nome}`}
                         />
                         <div className="min-w-0 flex-1">
@@ -1325,7 +1324,7 @@ export default function ServicosPage() {
                           return (
                             <Badge
                               variant="outline"
-                              className="text-[10px] bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400"
+                              className={cn('text-[10px]', BADGE.violet)}
                               title={`Cadeia de processos · ${ori} sucessor(es), ${dest} predecessor(es)`}
                             >
                               <Network className="h-2.5 w-2.5 mr-0.5" />
@@ -1367,12 +1366,16 @@ export default function ServicosPage() {
                 <TableRow>
                   {/* Seleção em massa é operação de desktop — no celular só atrapalha o espaço. */}
                   <TableHead className="hidden w-[40px] text-center sm:table-cell">
-                    <input
-                      type="checkbox"
-                      className="h-3.5 w-3.5 rounded cursor-pointer align-middle"
-                      checked={servicos.length > 0 && selectedIds.size === servicos.length}
-                      ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < servicos.length }}
-                      onChange={toggleSelectAll}
+                    <Checkbox
+                      className="align-middle"
+                      checked={
+                        servicos.length > 0 && selectedIds.size === servicos.length
+                          ? true
+                          : selectedIds.size > 0
+                            ? 'indeterminate'
+                            : false
+                      }
+                      onCheckedChange={() => toggleSelectAll()}
                       aria-label="Selecionar todos"
                     />
                   </TableHead>
@@ -1400,11 +1403,10 @@ export default function ServicosPage() {
                     onClick={() => openEditServico(s.id)}
                   >
                     <TableCell className="hidden text-center sm:table-cell" onClick={e => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        className="h-3.5 w-3.5 rounded cursor-pointer align-middle"
+                      <Checkbox
+                        className="align-middle"
                         checked={selectedIds.has(s.id)}
-                        onChange={() => toggleSelected(s.id)}
+                        onCheckedChange={() => toggleSelected(s.id)}
                         aria-label={`Selecionar ${s.nome}`}
                       />
                     </TableCell>
@@ -1471,7 +1473,7 @@ export default function ServicosPage() {
                           return (
                             <Badge
                               variant="outline"
-                              className="text-[10px] h-5 bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400"
+                              className={cn('text-[10px] h-5', BADGE.violet)}
                               title={`${ori} sucessor(es), ${dest} predecessor(es)`}
                             >
                               <Network className="h-2.5 w-2.5 mr-0.5" />
@@ -1805,13 +1807,13 @@ export default function ServicosPage() {
                 />
               </div>
               <div className="col-span-12 sm:col-span-4 flex items-center gap-2 pt-6">
-                <input
+                <Checkbox
                   id="disponivel-orc"
-                  type="checkbox"
                   checked={formDisponivelOrcamento}
                   disabled={formEhServicoInterno || formEhObrigacaoAcessoria}
-                  onChange={e => setFormDisponivelOrcamento(e.target.checked)}
-                  className="h-4 w-4 rounded border-input accent-emerald-600 disabled:opacity-40"
+                  onCheckedChange={(v) => setFormDisponivelOrcamento(v === true)}
+                  accentColor="var(--mod-cadastros, #10b981)"
+                  className="disabled:opacity-40"
                 />
                 <Label htmlFor="disponivel-orc" className={cn('text-xs font-medium cursor-pointer', (formEhServicoInterno || formEhObrigacaoAcessoria) && 'opacity-50')}>
                   Disponível em orçamentos
@@ -1933,24 +1935,24 @@ export default function ServicosPage() {
                       key={enc.id}
                       className="flex items-center gap-3 rounded-lg border bg-card p-3 hover:shadow-sm transition-shadow"
                     >
-                      <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-xs font-bold">
+                      <div className={cn('shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-xs font-bold', TEXT.emerald)}>
                         {enc.ordem + 1}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-semibold truncate">{enc.servicoDestino.nome}</span>
                           {enc.iniciaAuto && enc.obrigatorio && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400">
+                            <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.emerald)}>
                               <Play className="h-2.5 w-2.5 mr-0.5" />Auto
                             </Badge>
                           )}
                           {!enc.iniciaAuto && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400">
+                            <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.amber)}>
                               <Pause className="h-2.5 w-2.5 mr-0.5" />Manual
                             </Badge>
                           )}
                           {!enc.obrigatorio && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400">
+                            <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.sky)}>
                               Opcional
                             </Badge>
                           )}
@@ -1960,7 +1962,7 @@ export default function ServicosPage() {
                             </Badge>
                           )}
                           {enc.condicao != null && (
-                            <Badge variant="outline" className="text-[10px] h-5 bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400">
+                            <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.violet)}>
                               <AlertCircle className="h-2.5 w-2.5 mr-0.5" />Condicional
                             </Badge>
                           )}
@@ -2120,11 +2122,11 @@ export default function ServicosPage() {
             </div>
             <div className="space-y-2">
               <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={encObrigatorio}
-                  onChange={e => setEncObrigatorio(e.target.checked)}
-                  className="h-4 w-4 mt-0.5 rounded border-input accent-emerald-600"
+                  onCheckedChange={(v) => setEncObrigatorio(v === true)}
+                  accentColor="var(--mod-cadastros, #10b981)"
+                  className="mt-0.5"
                 />
                 <div>
                   <span className="text-[13px] font-medium">Obrigatório</span>
@@ -2134,11 +2136,11 @@ export default function ServicosPage() {
                 </div>
               </label>
               <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={encIniciaAuto}
-                  onChange={e => setEncIniciaAuto(e.target.checked)}
-                  className="h-4 w-4 mt-0.5 rounded border-input accent-emerald-600"
+                  onCheckedChange={(v) => setEncIniciaAuto(v === true)}
+                  accentColor="var(--mod-cadastros, #10b981)"
+                  className="mt-0.5"
                 />
                 <div>
                   <span className="text-[13px] font-medium">Iniciar automaticamente</span>
@@ -2148,11 +2150,11 @@ export default function ServicosPage() {
                 </div>
               </label>
               <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={encHerdaResponsavel}
-                  onChange={e => setEncHerdaResponsavel(e.target.checked)}
-                  className="h-4 w-4 mt-0.5 rounded border-input accent-emerald-600"
+                  onCheckedChange={(v) => setEncHerdaResponsavel(v === true)}
+                  accentColor="var(--mod-cadastros, #10b981)"
+                  className="mt-0.5"
                 />
                 <div>
                   <span className="text-[13px] font-medium">Herdar responsável do predecessor</span>
@@ -2164,12 +2166,12 @@ export default function ServicosPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Observação</Label>
-              <textarea
+              <Textarea
                 value={encObservacao}
                 onChange={e => setEncObservacao(e.target.value)}
                 rows={2}
                 placeholder="Texto orientativo para o gestor (opcional)"
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="resize-y"
               />
             </div>
             {/* Builder de condicionais (Fase 7) */}
@@ -2397,7 +2399,7 @@ export default function ServicosPage() {
                     <Button variant="destructive" size="sm" onClick={() => handleCancelarExecucao(selectedExecucao.id)} className="gap-1.5">
                       <XCircle className="h-4 w-4" />Cancelar
                     </Button>
-                    <Button size="sm" onClick={() => handleConcluirExecucao(selectedExecucao.id)} className="gap-1.5" style={{ backgroundColor: '#10b981' }}>
+                    <Button size="sm" onClick={() => handleConcluirExecucao(selectedExecucao.id)} className="gap-1.5" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)' }}>
                       <CheckCircle2 className="h-4 w-4" />Concluir
                     </Button>
                   </>
@@ -2419,7 +2421,7 @@ export default function ServicosPage() {
           </DialogHeaderIcon>
           <DialogBody>
             <Label className="text-[13px] font-semibold mb-1.5">Motivo da pausa <span className="text-rose-500">*</span></Label>
-            <textarea
+            <Textarea
               value={pausarModal.motivo}
               onChange={e => setPausarModal(p => ({ ...p, motivo: e.target.value }))}
               rows={3}
@@ -2680,14 +2682,14 @@ function PassoExtras({ passoId, editavel }: { passoId: string; editavel: boolean
           )}
           {editavel && (
             <div className="flex items-end gap-1.5">
-              <textarea
+              <Textarea
                 value={novoComentario}
                 onChange={e => setNovoComentario(e.target.value)}
                 placeholder="Escreva um comentário..."
                 rows={2}
                 className="flex-1 text-[11px]"
               />
-              <Button size="xs" onClick={enviarComentario} disabled={enviando || !novoComentario.trim()} className="gap-1 shrink-0" style={{ backgroundColor: '#10b981' }}>
+              <Button size="xs" onClick={enviarComentario} disabled={enviando || !novoComentario.trim()} className="gap-1 shrink-0" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)' }}>
                 {enviando ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
               </Button>
             </div>
@@ -2703,7 +2705,7 @@ function PassoExtras({ passoId, editavel }: { passoId: string; editavel: boolean
               {anexos.map(a => (
                 <div key={a.id} className="flex items-center gap-2 text-[11px] bg-card rounded px-2 py-1 group">
                   <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
-                  <a href={a.fileUrl} target="_blank" rel="noopener noreferrer" className="truncate flex-1 hover:underline" style={{ color: '#10b981' }}>
+                  <a href={a.fileUrl} target="_blank" rel="noopener noreferrer" className="truncate flex-1 hover:underline" style={{ color: 'var(--mod-cadastros, #10b981)' }}>
                     {a.fileName}
                   </a>
                   {a.fileSize && <span className="text-[10px] text-muted-foreground">{Math.round(a.fileSize / 1024)} KB</span>}

@@ -11,7 +11,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import {
   cn, Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
   Input, Label, Checkbox,
@@ -283,17 +283,17 @@ function VinculoRow({ vinculo, catalogo, readOnly, onEdit, dragAttrs, dragListen
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="text-[13px] font-semibold text-foreground truncate">{label}</h4>
             {def && (
-              <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[9px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/30 dark:text-sky-300 dark:border-sky-800">
+              <span className={cn('inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[9px] font-semibold border', BADGE.sky)}>
                 {def.grupo} · {def.tipo}
               </span>
             )}
             {vinculo.obrigatorio && (
-              <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[9px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800">
+              <span className={cn('inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[9px] font-semibold border', BADGE.rose)}>
                 <AlertCircle className="h-2.5 w-2.5" /> Obrigatório
               </span>
             )}
             {vinculo.exigeEdicao && (
-              <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+              <span className={cn('inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[9px] font-semibold border', BADGE.amber)}>
                 Exige revisão
               </span>
             )}
@@ -459,7 +459,7 @@ function VinculoEditor({ mode, passoId, initial, catalogo, usedKeys, onCancel, o
           <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
             <X className="h-3 w-3 mr-1" /> Cancelar
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving} className="bg-sky-600 hover:bg-sky-700">
+          <Button size="sm" className="bg-sky-600 text-white hover:bg-sky-700" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
             Salvar
           </Button>

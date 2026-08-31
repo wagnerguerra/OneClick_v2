@@ -10,10 +10,11 @@ import {
   Button, Input, Label, Checkbox, Card,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tabs, TabsList, TabsTrigger, TabsContent,
-  TooltipProvider, Avatar, AvatarFallback, Badge,
+  TooltipProvider, Badge,
   RichEditor,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import Link from 'next/link'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -48,10 +49,6 @@ interface CargoFormProps {
   defaultValues?: Partial<CreateCargoInput> & { code?: number }
   linkedUsers?: LinkedUser[]
   events?: CargoEventItem[]
-}
-
-function getInitials(name: string) {
-  return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
 }
 
 const PROFILE_LABELS: Record<string, string> = {
@@ -235,11 +232,7 @@ export function CargoForm({ mode, cargoId, title, description, defaultValues, li
                     <div className="space-y-2">
                       {linkedUsers.map(user => (
                         <div key={user.id} className="flex items-center gap-3 rounded-[2px] border border-border/30 p-2 hover:bg-muted/20 transition-colors">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                              {getInitials(user.name)}
-                            </AvatarFallback>
-                          </Avatar>
+                          <UserAvatar user={{ name: user.name, image: user.image }} className="h-8 w-8 text-xs" />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium truncate">{user.name}</p>
                             <p className="text-xs text-muted-foreground truncate">{user.email}</p>
@@ -276,7 +269,7 @@ export function CargoForm({ mode, cargoId, title, description, defaultValues, li
                   </div>
                   <span className="text-xs text-muted-foreground">{events.length} registros</span>
                 </div>
-                <div className="max-h-[400px] overflow-y-auto">
+                <div className="max-h-[400px] overflow-y-auto nice-scrollbar">
                   {events.length === 0 ? (
                     <div className="p-4"><p className="text-xs text-muted-foreground text-center">Nenhum evento registrado</p></div>
                   ) : (

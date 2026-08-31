@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createAreaSchema, type CreateAreaInput } from '@saas/types'
-import { HelpCircle, Tag, Eye, Network, Calculator, Save, ArrowLeft } from 'lucide-react'
+import { HelpCircle, Tag, Eye, Network, Calculator, Save } from 'lucide-react'
 import {
   Button,
   Input,
@@ -25,6 +25,7 @@ import {
 import { cn } from '@saas/ui'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -137,10 +138,7 @@ export function AreaForm({ mode, areaId, title, description, defaultValues }: Ar
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => router.push('/areas')}>
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
-            </Button>
+            <BackButton href="/areas" label="Voltar" />
         </>}>
           <h1 className="truncate">{title}</h1>
           <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">

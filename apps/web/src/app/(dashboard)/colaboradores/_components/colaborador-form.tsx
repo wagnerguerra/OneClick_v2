@@ -16,7 +16,7 @@ import {
   Save, HelpCircle,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Checkbox, Card,
+  Button, Input, Label, Checkbox, Card, Textarea,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
@@ -192,7 +192,7 @@ export function ColaboradorForm({
                         'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                         activeTab === tab.key
                           ? 'text-white shadow-sm'
-                          : 'text-muted-foreground hover:bg-white dark:hover:bg-muted/60 hover:text-foreground',
+                          : 'text-muted-foreground hover:bg-background dark:hover:bg-muted/60 hover:text-foreground',
                       )}
                       style={activeTab === tab.key ? { backgroundColor: MODULE_COLOR } : undefined}
                     >
@@ -489,12 +489,12 @@ export function ColaboradorForm({
 
                   <div className="col-span-12">
                     <Label htmlFor="observacoes">Observações</Label>
-                    <textarea
+                    <Textarea
                       id="observacoes"
                       rows={3}
                       placeholder="Observações adicionais sobre o colaborador..."
                       {...register('observacoes')}
-                      className="mt-1.5 w-full rounded border border-input bg-transparent px-3 py-2 text-sm focus:border-[#5ea3cb] focus:outline-none"
+                      className="mt-1.5"
                     />
                   </div>
 
