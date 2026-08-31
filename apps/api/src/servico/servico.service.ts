@@ -2879,6 +2879,58 @@ export class ServicoService {
     }
   }
 
+  /**
+   * Abre a execução do offboarding para um cliente, a partir da ficha dele.
+   *
+   * O caminho normal — Meus Serviços → novo serviço → escolher cliente —
+   * continua valendo. Este é o atalho de quem está com a ficha aberta na hora
+   * em que a rescisão chega, que é quando isso costuma acontecer.
+   *
+   * O serviço é achado pelo NOME (configurável em `OFFBOARDING_SERVICO_NOME`),
+   * e não por id fixo: id de produção no código não sobrevive a outro ambiente,
+   * e um serviço renomeado deixaria o botão quebrado sem ninguém saber por quê.
+   */
+  async iniciarOffboarding(clienteId: string, userId?: string, empresaId?: string) {
+    const nome = (process.env.OFFBOARDING_SERVICO_NOME || 'Offboarding de Cliente').trim()
+
+    const servico = await prisma.servico.findFirst({
+      where: {
+        nome,
+        ...(empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}),
+      },
+      select: { id: true, nome: true, etapas: { select: { id: true } } },
+      orderBy: { createdAt: 'asc' },
+    })
+    if (!servico) {
+      throw new Error(
+        `Não encontrei o serviço "${nome}". Cadastre-o em Serviços e Obrigações, `
+        + 'ou ajuste o nome em Configurações → Cadastros.',
+      )
+    }
+    if (servico.etapas.length === 0) {
+      throw new Error(`O serviço "${servico.nome}" ainda não tem etapas — o fluxo precisa existir antes de ser executado.`)
+    }
+
+    // Já aberto para este cliente? Devolve o que existe em vez de criar outro:
+    // duas execuções do mesmo offboarding dividiriam o histórico em dois.
+    const emAberto = await prisma.servicoExecucao.findFirst({
+      where: {
+        servicoId: servico.id,
+        clienteId,
+        status: { notIn: ['CONCLUIDO', 'CANCELADO'] },
+      },
+      select: { id: true },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (emAberto) return { execucaoId: emAberto.id, jaExistia: true }
+
+    const execucao = await this.createExecucao(
+      { servicoId: servico.id, clienteId, responsavelId: userId ?? null },
+      empresaId,
+    )
+    return { execucaoId: (execucao as { id: string }).id, jaExistia: false }
+  }
+
   async createExecucao(
     input: CreateExecucaoInput,
     empresaId?: string,

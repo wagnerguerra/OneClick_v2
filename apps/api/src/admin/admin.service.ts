@@ -125,6 +125,8 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'LOGODEV_TOKEN', label: 'Token público (Logo.dev)', group: 'Dossiê e Imagens', type: 'password', secret: true, help: 'Habilita a busca de logomarca pelo NOME da empresa, além do site. Gratuito até 10 mil requisições/mês, exigindo atribuição — crie em logo.dev. Sucessora da Clearbit' },
   { key: 'SEARXNG_URL', label: 'Endereço do SearXNG', group: 'Dossiê e Imagens', type: 'text', placeholder: 'http://searxng:8080', help: 'Metabuscador de código aberto rodando em contêiner nosso: sem chave, sem cota e sem custo. Amplia a busca de logomarca para vários buscadores. Requer subir o serviço na VPS' },
 
+  { key: 'OFFBOARDING_SERVICO_NOME', label: 'Serviço de offboarding', group: 'Cadastros', type: 'text', placeholder: 'Offboarding de Cliente', help: 'Nome do serviço que o botão "Iniciar offboarding" da ficha do cliente abre. Renomeou o serviço? Ajuste aqui' },
+
   { key: 'INATIVACAO_PROGRAMADA_ENABLED', label: 'Executar inativações agendadas', group: 'Cadastros', type: 'text', default: '0', help: '1 = liga o job diário que inativa os clientes cuja data programada chegou (offboarding) e avisa as áreas que não registraram o encerramento do serviço' },
   { key: 'INATIVACAO_PROGRAMADA_CRON', label: 'Horário da execução', group: 'Cadastros', type: 'text', placeholder: '0 5 * * *', help: 'Formato cron. Padrão: todo dia às 5h' },
 

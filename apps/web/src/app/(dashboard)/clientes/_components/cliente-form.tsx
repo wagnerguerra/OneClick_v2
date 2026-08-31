@@ -10,7 +10,7 @@ import {
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
   ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2, Check, Hash, Calendar, ClipboardCheck, Sparkles, Paperclip,
-  Globe, FileSearch,
+  Globe, FileSearch, LogOut,
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
   Image as ImageIcon, Activity, Percent, ShieldCheck,
@@ -418,6 +418,32 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
 
   // #HLP0209/0211 — confirma a inativação vinda do modal do detalhe (data de
   // saída opcional + motivo). Atualiza o form e o banner sem recarregar.
+  const [abrindoOffboarding, setAbrindoOffboarding] = useState(false)
+
+  /**
+   * Abre o offboarding deste cliente e leva para a execução.
+   *
+   * O caminho normal (Meus Serviços → novo serviço) continua valendo. Este é o
+   * atalho de quem está com a ficha aberta na hora em que a rescisão chega —
+   * que é justamente quando isso acontece.
+   */
+  async function iniciarOffboarding() {
+    if (!clienteId) return
+    setAbrindoOffboarding(true)
+    try {
+      const r = await (trpc.servico as never as {
+        iniciarOffboarding: { mutate: (i: { clienteId: string }) => Promise<{ execucaoId: string; jaExistia: boolean }> }
+      }).iniciarOffboarding.mutate({ clienteId })
+      if (r.jaExistia) {
+        await alerts.info('Offboarding já aberto', 'Este cliente já tem um offboarding em andamento — abrindo o que existe.')
+      }
+      // /meus-servicos abre o checklist com ?exec=ID — não há rota /[id].
+      router.push(`/meus-servicos?exec=${r.execucaoId}`)
+    } catch (e) {
+      alerts.error('Não foi possível abrir', (e as Error).message)
+    } finally { setAbrindoOffboarding(false) }
+  }
+
   async function inativarConfirmado(dataSaida: string, motivo: string, programadaPara: string | null) {
     if (!clienteId) return
     await trpc.cliente.inativar.mutate({
@@ -749,6 +775,29 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       Ações que tiram o cliente de operação.
                     </p>
+                    {/* O offboarding vem ANTES da inativação: é o caminho
+                        completo, com as áreas avisadas e as datas registradas.
+                        Inativar direto continua ali para quem só precisa disso —
+                        mas quem lê de cima para baixo encontra primeiro o certo. */}
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold text-foreground">Iniciar offboarding</p>
+                        <p className="text-xs text-muted-foreground">
+                          Abre o fluxo de saída: registra a rescisão, agenda a data e convoca as áreas
+                          para informarem o encerramento de cada serviço.
+                        </p>
+                      </div>
+                      <Button
+                        type="button" variant="outline" size="sm"
+                        className="shrink-0 gap-1.5"
+                        onClick={() => void iniciarOffboarding()}
+                        disabled={abrindoOffboarding}
+                      >
+                        {abrindoOffboarding ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+                        Iniciar offboarding
+                      </Button>
+                    </div>
+
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-[13px] font-semibold text-foreground">Inativar cliente</p>

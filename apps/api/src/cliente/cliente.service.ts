@@ -692,6 +692,11 @@ export class ClienteService {
             changes: { motivo: motivoLimpo, programadaPara: agendada.toISOString().slice(0, 10) } as Prisma.InputJsonValue,
           },
         })
+        // Convoca os líderes AGORA, não no dia: a data de encerramento de cada
+        // área é decisão que leva tempo (obrigação em curso, prazo legal,
+        // entrega pendente). Avisar só quando a inativação acontece transforma
+        // a convocação em cobrança do que já passou.
+        await this.convocarAreasParaEncerramento(tx, id, agendada, cliente.razaoSocial, cliente.empresaId)
         return atualizado
       }
 
@@ -717,6 +722,47 @@ export class ClienteService {
       })
       return atualizado
     })
+  }
+
+  /**
+   * Chama cada líder de área contratada para registrar a data de encerramento
+   * do serviço dele.
+   *
+   * Uma notificação por ÁREA, e não uma por líder com a lista: o líder que
+   * responde por duas áreas precisa registrar duas datas, e um aviso só faria
+   * parecer uma tarefa só. O link leva à ficha do cliente, onde o campo mora
+   * (aba Serviços) — mandar "procure em algum lugar" é o mesmo que não avisar.
+   *
+   * Quem já tem data preenchida não é convocado: o trabalho dele acabou.
+   */
+  private async convocarAreasParaEncerramento(
+    tx: Prisma.TransactionClient,
+    clienteId: string,
+    saidaEm: Date,
+    razaoSocial: string,
+    empresaId: string | null,
+  ) {
+    const areas = await tx.clienteAreaContratada.findMany({
+      where: { clienteId, contratado: true, dataEncerramento: null },
+      select: { areaId: true, responsavelId: true, area: { select: { name: true } } },
+    }).catch(() => [])
+
+    const dia = saidaEm.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    for (const a of areas) {
+      if (!a.responsavelId) continue
+      await tx.notification.create({
+        data: {
+          userId: a.responsavelId,
+          titulo: `${razaoSocial} sai em ${dia} — registre o encerramento de ${a.area?.name ?? 'sua área'}`,
+          mensagem: 'A saída do cliente foi agendada. Informe até quando a sua área presta o serviço, '
+            + 'na aba Serviços da ficha do cliente. Sem essa data, o encerramento entra como pendência no dia.',
+          tipo: 'warning',
+          link: `/clientes/${clienteId}`,
+          origem: 'clientes',
+          empresaId,
+        },
+      }).catch(() => { /* aviso não derruba o agendamento */ })
+    }
   }
 
   /** Desmarca a inativação agendada — o cliente continua ativo, sem data. */
