@@ -226,9 +226,14 @@ export class OrcamentoService {
         // um serviço do Fiscal, o orçamento conta como Fiscal; com serviços de
         // áreas diferentes, ele pertence a todas elas ao mesmo tempo.
         //
-        // Não é o campo texto `Orcamento.area` (que os fluxos atuais nem
-        // preenchem) nem o vínculo em OrcamentoArea — este último existe só para
-        // notificar os líderes sobre o detalhamento, não define pertencimento.
+        // Não é o campo texto `Orcamento.area`, que os fluxos atuais nem preenchem.
+        //
+        // O vínculo em OrcamentoArea TAMBÉM conta (#4744). Ele existia só para
+        // notificar o líder sobre o detalhamento, e isso quebrava o fluxo pelo
+        // meio: um orçamento recém-criado ainda não tem item nenhum — os itens
+        // são justamente o que cada área vai detalhar —, então ele não pertencia
+        // a área alguma e sumia da lista de quem foi convocado a preenchê-lo. A
+        // notificação dizia "detalhe a sua parte" e a tela não tinha o registro.
         //
         // O catálogo de itens é unificado: `OrcamentoItem.catalogoId` guarda um
         // Servico.id quando tipo='SERVICO' e um ServicoCatalogo.id para
@@ -247,6 +252,17 @@ export class OrcamentoService {
             }).catch(() => [] as { id: string }[])
           : []
         const servicoIds = servicosDaArea.map(s => s.id)
+
+        // Orçamentos em que a minha área foi convocada a detalhar. Consulta à
+        // parte porque OrcamentoArea não tem relação declarada no Orcamento —
+        // é tabela solta, ligada por orcamentoId.
+        const convocados = minhaAreaId
+          ? await prisma.orcamentoArea.findMany({
+              where: { areaId: minhaAreaId },
+              select: { orcamentoId: true },
+            }).catch(() => [] as { orcamentoId: string }[])
+          : []
+        const idsConvocados = convocados.map(x => x.orcamentoId)
         // Sempre soma os próprios: sem área no cadastro — ou com orçamentos que
         // ainda não têm itens —, o usuário ao menos continua enxergando o que
         // criou ou é responsável.
@@ -261,6 +277,7 @@ export class OrcamentoService {
                   { servicoId: { in: servicoIds } },
                 ]
               : []),
+            ...(idsConvocados.length > 0 ? [{ id: { in: idsConvocados } }] : []),
           ],
         }]
       }
