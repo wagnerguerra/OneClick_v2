@@ -95,8 +95,22 @@ export function createClienteRouter(
     // Inativar (#HLP0209/0211) — status vira o soft-delete: exige dataSaida e
     // aceita um motivo (texto livre) que vai pro aviso do detalhe e pro histórico.
     inativar: deleteSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
-      .input(z.object({ id: z.string(), dataSaida: z.string().optional(), motivo: z.string().trim().min(1, 'Informe o motivo da inativação.') }))
-      .mutation(({ input, ctx }) => clienteService.inativar(input.id, input.dataSaida, input.motivo, ctx.userId, ctx.isMaster, ctx.empresaId)),
+      .input(z.object({
+        id: z.string(),
+        dataSaida: z.string().optional(),
+        motivo: z.string().trim().min(1, 'Informe o motivo da inativação.'),
+        /** Preenchido = agenda para essa data em vez de inativar agora. */
+        programadaPara: z.string().optional().nullable(),
+      }))
+      .mutation(({ input, ctx }) => clienteService.inativar(
+        input.id, input.dataSaida, input.motivo, ctx.userId, ctx.isMaster, ctx.empresaId, input.programadaPara,
+      )),
+
+    cancelarInativacaoProgramada: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ id: z.string(), motivo: z.string().optional() }))
+      .mutation(({ input, ctx }) => clienteService.cancelarInativacaoProgramada(
+        input.id, input.motivo, ctx.userId, ctx.isMaster, ctx.empresaId,
+      )),
 
     // Reativar (#HLP0209) — volta status=ATIVO, limpa a dataSaida e registra o
     // motivo de reativação (texto livre) no histórico.

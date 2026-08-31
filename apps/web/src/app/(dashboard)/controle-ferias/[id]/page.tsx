@@ -7,7 +7,7 @@ import {
   ChevronRight, ExternalLink,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card, Badge, cn,
+  Button, Input, Label, Card, Badge, Checkbox, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -18,7 +18,7 @@ import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
-import { corSaldo, corSaldoTexto } from '../_lib/cores'
+import { corSaldo, corSaldoTexto, tituloSaldo } from '../_lib/cores'
 import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 
 const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
@@ -30,6 +30,8 @@ interface Evento {
 interface Arquivo { id: string; nome: string; path: string; criadoEm: string }
 interface Periodo {
   id: string; legacyId: number | null
+  /** Null nos resíduos do v1 cujo colaborador não existe mais no v2. */
+  colaboradorId: string | null
   colaboradorNomeResolvido: string | null
   periodoInicial: number; periodoFinal: number
   descricao: string | null
@@ -69,13 +71,24 @@ export default function ControleFeriasDetalhePage() {
   const [salvando, setSalvando] = useState(false)
 
   // Sidebar editável
+  const [fAnoIni, setFAnoIni] = useState('')
+  const [fAnoFim, setFAnoFim] = useState('')
   const [fDescricao, setFDescricao] = useState('')
   const [fDias, setFDias] = useState('30')
-  const [fSaldoAnt, setFSaldoAnt] = useState('0')
-  const [fPrevisao, setFPrevisao] = useState('')
   const [fPag1, setFPag1] = useState('')
   const [fPag2, setFPag2] = useState('')
   const [fPag3, setFPag3] = useState('')
+
+  // Modal novo período aquisitivo — o fluxo do v1, que lança o período seguinte
+  // a partir do atual (é aqui que se sabe qual saldo se arrasta).
+  const [novoAberto, setNovoAberto] = useState(false)
+  const [nAnoIni, setNAnoIni] = useState('')
+  const [nAnoFim, setNAnoFim] = useState('')
+  const [nDias, setNDias] = useState('30')
+  const [nSaldoAnt, setNSaldoAnt] = useState('0')
+  const [nDescricao, setNDescricao] = useState('PERÍODO AQUISITIVO')
+  const [nArquivar, setNArquivar] = useState(true)
+  const [salvandoNovo, setSalvandoNovo] = useState(false)
 
   // Modal novo gozo
   const [gozoAberto, setGozoAberto] = useState(false)
@@ -112,9 +125,9 @@ export default function ControleFeriasDetalhePage() {
     ;(trpc.controleFerias as any).getById.query({ id: params.id })
       .then((per: Periodo) => {
         setP(per)
+        setFAnoIni(String(per.periodoInicial)); setFAnoFim(String(per.periodoFinal))
         setFDescricao(per.descricao ?? '')
-        setFDias(String(per.dias)); setFSaldoAnt(String(per.saldoAnterior))
-        setFPrevisao(isoDe(per.previsao))
+        setFDias(String(per.dias))
         setFPag1(isoDe(per.pagamento1)); setFPag2(isoDe(per.pagamento2)); setFPag3(isoDe(per.pagamento3))
       })
       .catch(() => setP(null))
@@ -127,10 +140,10 @@ export default function ControleFeriasDetalhePage() {
     try {
       await (trpc.controleFerias as any).atualizar.mutate({
         id: p!.id,
+        periodoInicial: Number(fAnoIni),
+        periodoFinal: Number(fAnoFim),
         descricao: fDescricao || null,
         dias: Number(fDias) || 0,
-        saldoAnterior: Number(fSaldoAnt) || 0,
-        previsao: fPrevisao || null,
         pagamento1: fPag1 || null,
         pagamento2: fPag2 || null,
         pagamento3: fPag3 || null,
@@ -147,6 +160,56 @@ export default function ControleFeriasDetalhePage() {
       await (trpc.controleFerias as any).atualizar.mutate({ id: p!.id, historico: !p!.historico })
       carregar()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
+  /**
+   * Abre o lançamento do período seguinte já preenchido.
+   *
+   * O saldo anterior do período novo é o SALDO DESTE — os dias que sobraram e
+   * se arrastam. É por isso que o lançamento nasce aqui e não numa tela solta:
+   * é nesta ficha que se sabe quanto sobrou. Mesmo desenho do v1
+   * (`modal-periodo-new.asp`), que abre a partir do período atual e sugere
+   * `dias + saldo anterior − gozados`.
+   */
+  function abrirNovoPeriodo() {
+    if (!p) return
+    setNAnoIni(String(p.periodoFinal))
+    setNAnoFim(String(p.periodoFinal + 1))
+    setNDias('30')
+    setNSaldoAnt(String(p.saldo))
+    setNDescricao('PERÍODO AQUISITIVO')
+    setNArquivar(!p.historico)
+    setNovoAberto(true)
+  }
+
+  async function salvarNovoPeriodo() {
+    if (!p) return
+    const ini = Number(nAnoIni)
+    const fim = Number(nAnoFim)
+    if (!ini || !fim) { alerts.error('Faltam os anos', 'O período aquisitivo vai de um ano ao outro.'); return }
+    if (fim < ini) { alerts.error('Anos invertidos', 'O ano final não pode ser menor que o inicial.'); return }
+    setSalvandoNovo(true)
+    try {
+      const { id } = await (trpc.controleFerias as any).criar.mutate({
+        colaboradorId: p.colaboradorId!,
+        periodoInicial: ini,
+        periodoFinal: fim,
+        dias: Number(nDias) || 30,
+        saldoAnterior: Number(nSaldoAnt) || 0,
+        descricao: nDescricao || null,
+      })
+      // O v1 arquiva o período atual ao abrir o seguinte, e por um bom motivo:
+      // dois períodos abertos para a mesma pessoa fazem a lista e as pendências
+      // contarem duas vezes. Fica como opção porque há o caso legítimo de
+      // lançar um período antigo que faltava.
+      if (nArquivar && !p.historico) {
+        await (trpc.controleFerias as any).atualizar.mutate({ id: p.id, historico: true })
+      }
+      alerts.success('Criado', `Período ${ini}/${fim} registrado.`)
+      setNovoAberto(false)
+      router.push(`/controle-ferias/${id}`)
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setSalvandoNovo(false) }
   }
 
   async function salvarGozo() {
@@ -199,6 +262,7 @@ export default function ControleFeriasDetalhePage() {
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
   if (!p) return <div className="py-12 text-center text-muted-foreground">Período não encontrado</div>
 
+
   return (
     <div className="space-y-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
@@ -208,6 +272,11 @@ export default function ControleFeriasDetalhePage() {
               <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={() => setGozoAberto(true)}>
                 <Plus className="h-4 w-4" />Lançar gozo
               </Button>
+              {p.colaboradorId && (
+                <Button variant="outline" size="sm" onClick={abrirNovoPeriodo}>
+                  <Plus className="h-4 w-4" />Novo período
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={alternarHistorico}>
                 {p.historico ? 'Reabrir período' : 'Mover para o histórico'}
               </Button>
@@ -470,24 +539,59 @@ export default function ControleFeriasDetalhePage() {
               <h4 className="text-sm font-semibold">Dados do período</h4>
             </div>
             <div className="space-y-3">
+              {/* O período aquisitivo são dois anos (2024 a 2025), não um texto.
+                  Ficava só no cabeçalho, sem como corrigir: um período lançado
+                  com o ano errado só se ajeitava apagando e refazendo. */}
+              <div>
+                <Label className="text-[13px] font-semibold">Período aquisitivo</Label>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <Input
+                    type="number" value={fAnoIni} onChange={(e) => setFAnoIni(e.target.value)}
+                    disabled={!podeEscrever} className="h-9 text-sm" min="2000" max="2100"
+                    aria-label="Ano inicial do período aquisitivo"
+                  />
+                  <span className="text-sm text-muted-foreground">a</span>
+                  <Input
+                    type="number" value={fAnoFim} onChange={(e) => setFAnoFim(e.target.value)}
+                    disabled={!podeEscrever} className="h-9 text-sm" min="2000" max="2100"
+                    aria-label="Ano final do período aquisitivo"
+                  />
+                </div>
+              </div>
               <div>
                 <Label className="text-[13px] font-semibold">Descrição</Label>
                 <Input value={fDescricao} onChange={(e) => setFDescricao(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" maxLength={200} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
+              {/* O número que interessa aqui é o saldo DESTE período — o mesmo do
+                  cabeçalho e do card de gozos, e o que se arrasta para o período
+                  seguinte. Antes o campo em evidência era o saldo anterior, e quem
+                  batia o olho lia 27 onde o período tinha 50.
+
+                  O saldo anterior continua gravado e ainda compõe os dias do
+                  período, mas saiu da tela: é definido na criação (que já sugere o
+                  saldo do período que está terminando) e não se edita mais aqui. */}
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
                   <Label className="text-[13px] font-semibold">Dias</Label>
                   <Input type="number" value={fDias} onChange={(e) => setFDias(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" min="0" max="60" />
                 </div>
-                <div>
-                  <Label className="text-[13px] font-semibold">Saldo anterior</Label>
-                  <Input type="number" value={fSaldoAnt} onChange={(e) => setFSaldoAnt(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" />
+                {/* Separador, no mesmo desenho do "a" dos anos do período. */}
+                <span className="flex h-9 items-center text-sm text-muted-foreground" aria-hidden="true">+</span>
+                <div className="flex-1">
+                  <Label className="text-[13px] font-semibold">Saldo do período</Label>
+                  <div
+                    className={cn(
+                      'mt-1.5 flex h-9 items-center rounded-md border border-border bg-muted/40 px-3',
+                      'text-sm font-semibold tabular-nums',
+                      corSaldoTexto(p.saldo),
+                    )}
+                    title={tituloSaldo(p.saldo)}
+                  >
+                    {p.saldo} {Math.abs(p.saldo) === 1 ? 'dia' : 'dias'}
+                  </div>
                 </div>
               </div>
-              <div>
-                <Label className="text-[13px] font-semibold">Previsão de gozo</Label>
-                <Input type="date" value={fPrevisao} onChange={(e) => setFPrevisao(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" />
-              </div>
+
               {/* Até três pagamentos, como o v1 — gozo fracionado paga fracionado. */}
               <div>
                 <Label className="text-[13px] font-semibold">Pagamentos</Label>
@@ -512,6 +616,91 @@ export default function ControleFeriasDetalhePage() {
       </div>
 
       {/* ── Modal: lançar gozo ── */}
+      {/* ── Modal: novo período aquisitivo ──
+          Nasce aqui, e não numa tela solta, porque é nesta ficha que se sabe
+          quanto sobrou do período que está terminando. */}
+      <Dialog open={novoAberto} onOpenChange={setNovoAberto}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeaderIcon icon={CalendarDays} color="emerald">
+            <DialogTitle>Novo período aquisitivo</DialogTitle>
+            <DialogDescription>
+              {p.colaboradorNomeResolvido ?? 'Colaborador'} — o seguinte a {p.periodoInicial}/{p.periodoFinal}
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-3">
+            <div>
+              <Label className="text-[13px] font-semibold">Período aquisitivo</Label>
+              <div className="mt-1.5 flex items-center gap-2">
+                <Input
+                  type="number" value={nAnoIni} onChange={(e) => setNAnoIni(e.target.value)}
+                  className="h-9 text-sm" min="2000" max="2100"
+                  aria-label="Ano inicial do período aquisitivo"
+                />
+                <span className="text-sm text-muted-foreground">a</span>
+                <Input
+                  type="number" value={nAnoFim} onChange={(e) => setNAnoFim(e.target.value)}
+                  className="h-9 text-sm" min="2000" max="2100"
+                  aria-label="Ano final do período aquisitivo"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-[13px] font-semibold">Dias</Label>
+                <Input
+                  type="number" value={nDias} onChange={(e) => setNDias(e.target.value)}
+                  className="h-9 text-sm mt-1.5" min="0" max="60"
+                />
+              </div>
+              <div>
+                <Label className="text-[13px] font-semibold">Saldo anterior</Label>
+                <Input
+                  type="number" value={nSaldoAnt} onChange={(e) => setNSaldoAnt(e.target.value)}
+                  className="h-9 text-sm mt-1.5"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Vem com os <b className="text-foreground tabular-nums">{p.saldo}</b> dia(s) que sobraram
+              de {p.periodoInicial}/{p.periodoFinal} — {p.dias} do período
+              {p.saldoAnterior !== 0 && ` + ${p.saldoAnterior} de saldo anterior`}
+              {p.gozados > 0 && ` − ${p.gozados} gozado(s)`}. Dá para corrigir.
+            </p>
+
+            <div>
+              <Label className="text-[13px] font-semibold">Descrição</Label>
+              <Input
+                value={nDescricao} onChange={(e) => setNDescricao(e.target.value)}
+                className="h-9 text-sm mt-1.5" maxLength={200}
+              />
+            </div>
+
+            {!p.historico && (
+              <label className="flex cursor-pointer items-start gap-2.5 pt-1">
+                <Checkbox
+                  checked={nArquivar}
+                  onCheckedChange={(v) => setNArquivar(v === true)}
+                  className="mt-0.5"
+                />
+                <span className="text-xs text-muted-foreground">
+                  Mover {p.periodoInicial}/{p.periodoFinal} para o histórico.
+                  Dois períodos abertos para a mesma pessoa aparecem duas vezes na lista
+                  e nas pendências.
+                </span>
+              </label>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setNovoAberto(false)}>Cancelar</Button>
+            <Button variant="success" size="sm" onClick={salvarNovoPeriodo} disabled={salvandoNovo}>
+              {salvandoNovo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              Criar período
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={gozoAberto} onOpenChange={(o) => { if (!salvandoGozo) setGozoAberto(o) }}>
         <DialogContent>
           <DialogHeaderIcon icon={Plus} color="emerald">

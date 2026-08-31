@@ -19,6 +19,7 @@ import { QuickAccessMenu } from './quick-access-menu'
 import { LayoutCustomizer } from './layout-customizer'
 import { useLayoutPrefs } from '@/lib/layout-prefs'
 import { cn } from '@saas/ui'
+import { BuscaGlobal } from './busca-global'
 
 const TRUST_COOKIE = 'oc-trust-device'
 const TRUST_PENDING_KEY = 'oc-trust-device-pending'
@@ -123,8 +124,12 @@ export function Header({ onOpenMobile }: HeaderProps) {
         )}
       </div>
 
-      {/* Grupo direito no padrão do modelo: ícones h-10 w-10 rounded-lg, gap-1 */}
+      {/* Grupo direito no padrão do modelo: ícones h-10 w-10 rounded-lg, gap-1.
+          Nenhum filho leva margem própria — a distância entre eles é só o gap,
+          senão um item sozinho desalinha a fileira inteira. */}
       <div className="flex items-center gap-1">
+        {/* Busca global (⌘K do modelo) — primeira da fileira, como lá */}
+        {session?.user && <BuscaGlobal />}
         {/* Configurações de layout (customizer do modelo) — ajuste fino de
             desktop; no celular o layout é um só e o ícone só tomaria espaço. */}
         {session?.user && <span className="hidden sm:block"><LayoutCustomizer /></span>}

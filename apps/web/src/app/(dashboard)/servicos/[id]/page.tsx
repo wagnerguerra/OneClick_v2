@@ -20,7 +20,7 @@ import {
 import Link from 'next/link'
 import {
   Button, Card, CardHeader, CardContent, Badge, Label, Input, cn,
-  Tabs, TabsTrigger, TabsContent, SlidingTabsList,
+  Tabs, TabsContent,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -31,7 +31,7 @@ import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { BADGE, STRONG, SURFACE, TEXT } from '@/lib/color-styles'
+import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 import { FluxoEditor, type FluxoNode, type FluxoEdge } from './_components/fluxo-editor'
 import { FluxoAssistant } from './_components/fluxo-assistant'
 import { MateriaisSection, type Material } from './_components/materiais-section'
@@ -39,6 +39,8 @@ import { NotificacoesSection } from './_components/notificacoes-section'
 import { PassoEmailsSection } from './_components/passo-emails-section'
 import { PassoLembretesSection } from './_components/passo-lembretes-section'
 import { PassoCamposClienteSection } from './_components/passo-campos-cliente-section'
+import { FeixeDeLinhas } from '@/components/ui/feixe-de-linhas'
+import { useTheme } from '@/hooks/use-theme'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // Emerald (Cadastros / Serviços)
 
@@ -285,7 +287,17 @@ export default function ServicoDetailPage() {
   const id = params.id
 
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'visao' | 'etapas' | 'fluxo' | 'encadeamento' | 'subservicos' | 'variacoes' | 'texto' | 'notificacoes'>('visao')
+  // `recorrencia` faz parte da união: a aba sempre existiu (tem TabsContent),
+  // mas o tipo não a previa — o Radix aceitava string solta e escondia a falha.
+  type AbaServico = 'visao' | 'etapas' | 'fluxo' | 'encadeamento' | 'subservicos' | 'variacoes' | 'texto' | 'recorrencia' | 'notificacoes'
+  const [activeTab, setActiveTab] = useState<AbaServico>('visao')
+  // No escuro a linha branca se dilui no véu; sobe um pouco o alfa para ela
+  // continuar visível sem virar risco. `system` é resolvido na hora, como no
+  // cabeçalho — o hook guarda a ESCOLHA, não o resultado dela.
+  const { theme } = useTheme()
+  const temaEscuro = theme === 'dark'
+    || (theme === 'system' && typeof window !== 'undefined'
+        && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
   /**
    * Variações — o texto e o valor que o usuário escolhe ao lançar este serviço
@@ -1099,7 +1111,8 @@ export default function ServicoDetailPage() {
     <div className="space-y-0 pb-6">
       <Tabs value={activeTab} onValueChange={v => setActiveTab(v as typeof activeTab)} className="space-y-0">
         {/* Topo — PADRAO_PAGINAS §1.1 */}
-        <PageHeaderBar actions={<>
+        {/* ══ Barra de página — só título, trilha e ações (padrão /orcamentos) ══ */}
+        <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
             <BackButton href="/servicos" title="Voltar para Serviços e Obrigações" />
         </>}>
           <h1 className="truncate">{nome || '—'}</h1>
@@ -1108,119 +1121,154 @@ export default function ServicoDetailPage() {
             <span className="text-muted-foreground/50">›</span>
             <span>Cadastros</span>
             <span className="text-muted-foreground/50">›</span>
-            <span>Serviços e Obrigações</span>
+            <Link href="/servicos" className="transition-colors hover:text-foreground">Serviços e Obrigações</Link>
           </p>
-          {/* Linha única: área + segmento + badges (SLA / Previsão / Prioridade / etc) */}
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <span>
-              {areaNome || 'Sem área'}
-              {segmentoSlug && ` · ${segmentoSlug}`}
-              {categoriaServico === 'FLUXO' && ' · Item de fluxo'}
-            </span>
-            <span className="text-muted-foreground/40">|</span>
-            <Badge
-              className={cn('text-[11px] h-5 px-2 gap-1.5 border font-medium', STRONG.emerald)}
-              title="SLA total = soma dos passos"
-            >
-              <Clock className="h-3 w-3" /> SLA {formatSlaRich(totalServicoMin)}
-            </Badge>
-            {totalServicoMin > 0 && (() => {
-              const previsao = calcularPrevisaoConclusao(totalServicoMin)
-              const fmt = previsao.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
-              const hr = previsao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-              return (
-                <Badge
-                  className="text-[11px] h-5 px-2 gap-1.5 bg-sky-100 text-sky-800 border border-sky-200 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-800 font-medium"
-                  title="Considerando jornada útil 8h × 5d/sem (seg-sex, 09h-17h), iniciando agora"
-                >
-                  Previsão {fmt} · {hr}
-                </Badge>
-              )
-            })()}
-            {(() => {
-              const priMedia = { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-800 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800' }
-              const pri: Record<string, { bg: string; text: string; border: string }> = {
-                BAIXA:    { bg: 'bg-slate-100 dark:bg-slate-800/60', text: 'text-slate-700 dark:text-slate-300',  border: 'border-slate-200 dark:border-slate-700' },
-                MEDIA:    priMedia,
-                ALTA:     { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-800 dark:text-amber-300',  border: 'border-amber-300 dark:border-amber-800' },
-                URGENTE:  { bg: 'bg-rose-100 dark:bg-rose-900/30',   text: 'text-rose-800 dark:text-rose-300',    border: 'border-rose-300 dark:border-rose-800' },
-              }
-              const p = pri[prioridade] ?? priMedia
-              return (
-                <Badge className={cn('text-[11px] h-5 px-2 border font-medium', p.bg, p.text, p.border)}>
-                  Prioridade {prioridade}
-                </Badge>
-              )
-            })()}
-            {disponivelOrcamento && (
-              <Badge className="text-[11px] h-5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0 font-medium">
-                Em orçamentos
-              </Badge>
-            )}
-            {categoriaServico === 'MENSAL' && (
-              <Badge className={cn('text-[11px] h-5 px-2 border font-medium', STRONG.violet)}>
-                Mensal
-              </Badge>
-            )}
-          </div>
         </PageHeaderBar>
 
-        {/* Faixa do módulo com as abas — bleed-edge */}
-        <div
-          className="relative -mx-4 sm:-mx-6 overflow-hidden"
-          style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 12%, transparent)` }}
-        >
-          <div
-            className="absolute inset-0"
-            style={{ backgroundImage: `linear-gradient(to right, color-mix(in srgb, ${MODULE_COLOR} 0%, transparent) 0%, color-mix(in srgb, ${MODULE_COLOR} 80%, transparent) 100%)` }}
-          />
-          {/* Tabs */}
-          <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto flex justify-center">
-            <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
-              <TabsTrigger value="visao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
-                <FileText className="h-3.5 w-3.5" /> Visão geral
-              </TabsTrigger>
-              <TabsTrigger value="etapas" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
-                <ListChecks className="h-3.5 w-3.5" /> Etapas e passos
-                {etapas.length > 0 && (
-                  <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{etapas.length}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="fluxo" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
-                <GitBranch className="h-3.5 w-3.5" /> Fluxo
-              </TabsTrigger>
-              <TabsTrigger value="encadeamento" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
-                <History className="h-3.5 w-3.5" /> Sucessores
-                {encadeamentos.length > 0 && (
-                  <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{encadeamentos.length}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="subservicos" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
-                <Network className="h-3.5 w-3.5" /> Subserviços
-                {subservicos.length > 0 && (
-                  <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{subservicos.length}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="variacoes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
-                <Layers className="h-3.5 w-3.5" /> Variações
-                {variacoes.length > 0 && (
-                  <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{variacoes.length}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="texto" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
-                <Type className="h-3.5 w-3.5" /> Texto padrão
-              </TabsTrigger>
-              {categoriaServico === 'MENSAL' && (
-                <TabsTrigger value="recorrencia" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
-                  <Repeat className="h-3.5 w-3.5" /> Recorrência
-                </TabsTrigger>
-              )}
-              <TabsTrigger value="notificacoes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-emerald-700 dark:data-[state=active]:!text-emerald-300 gap-1.5">
-                <Bell className="h-3.5 w-3.5" /> Notificações
-              </TabsTrigger>
-            </SlidingTabsList>
+        {/* ══ Hero — capa em gradiente, identidade e abas na base ══
+            Mesmo desenho de /orcamentos/[id] e /clientes/[id]. As badges que
+            antes se espremiam sob a trilha (SLA, previsão, prioridade) viraram
+            chips de vidro sobre a capa: é onde o olho já procura o estado do
+            registro, e a trilha volta a ser só trilha. */}
+        <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="relative overflow-hidden">
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+            {/* Feixe de linhas do modelo. Entra ENTRE o gradiente e o véu escuro:
+                por cima do véu ele brigaria com o texto branco; por baixo do
+                gradiente, não apareceria. As linhas são brancas porque o fundo
+                aqui é colorido e escuro nos dois temas — o véu garante isso —,
+                e branco é a única cor que se lê sobre os dois. */}
+            <FeixeDeLinhas cor="255, 255, 255" intensidade={temaEscuro ? 1.35 : 1} />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
+
+            <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                <div className="flex items-end gap-4">
+                  <div className="relative shrink-0">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
+                      <ListChecks className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xl font-bold tracking-tight text-white drop-shadow">{nome || '—'}</p>
+                      {(() => {
+                        const cores: Record<string, string> = {
+                          BAIXA: 'text-white/80', MEDIA: 'text-sky-200',
+                          ALTA: 'text-amber-200', URGENTE: 'text-rose-200',
+                        }
+                        return (
+                          <span className={cn('inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase ring-1 ring-white/25 backdrop-blur', cores[prioridade] ?? 'text-white')}>
+                            {prioridade}
+                          </span>
+                        )
+                      })()}
+                      {categoriaServico === 'MENSAL' && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
+                          <Repeat className="h-3 w-3" /> Mensal
+                        </span>
+                      )}
+                      {categoriaServico === 'FLUXO' && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur">
+                          <GitBranch className="h-3 w-3" /> Item de fluxo
+                        </span>
+                      )}
+                      {disponivelOrcamento && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-emerald-200 ring-1 ring-white/25 backdrop-blur">
+                          Em orçamentos
+                        </span>
+                      )}
+                    </div>
+                    {/* Meta do registro — área e segmento, o que ele É */}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/85">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Layers className="h-3.5 w-3.5 opacity-80" />
+                        {areaNome || 'Sem área'}
+                      </span>
+                      {segmentoSlug && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <Type className="h-3.5 w-3.5 opacity-80" />
+                          {segmentoSlug}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Números do serviço, à direita — o SLA e a previsão que dele decorre */}
+                <div className="flex items-end gap-6 sm:gap-8">
+                  <div className="text-center">
+                    <p className="text-lg font-bold tracking-tight text-white drop-shadow" title="SLA total = soma dos passos">
+                      {formatSlaRich(totalServicoMin)}
+                    </p>
+                    <p className="text-xs text-white/75">SLA total</p>
+                  </div>
+                  {totalServicoMin > 0 && (() => {
+                    const previsao = calcularPrevisaoConclusao(totalServicoMin)
+                    const dia = previsao.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+                    const hora = previsao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                    return (
+                      <div className="border-l border-white/25 pl-6 text-center" title="Jornada útil 8h × 5d/sem (seg–sex, 09h–17h), começando agora">
+                        <p className="text-lg font-bold tracking-tight text-white drop-shadow">{dia}</p>
+                        <p className="text-xs text-white/75">Previsão · {hora}</p>
+                      </div>
+                    )
+                  })()}
+                  <div className="border-l border-white/25 pl-6 text-center">
+                    <p className="text-lg font-bold tracking-tight text-white drop-shadow tabular-nums">{etapas.length}</p>
+                    <p className="text-xs text-white/75">Etapa{etapas.length === 1 ? '' : 's'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tira de abas na base do hero — botões simples, fora do [role=tablist]
+              global (que impõe borda inferior, raio 0 e cores antigas). O estado
+              segue no <Tabs value={activeTab}>. */}
+          <div className="border-t border-border px-3">
+            <div className="nice-scrollbar flex gap-1.5 overflow-x-auto py-2">
+              {([
+                { value: 'visao', icon: FileText, label: 'Visão geral' },
+                { value: 'etapas', icon: ListChecks, label: 'Etapas e passos', badge: etapas.length },
+                { value: 'fluxo', icon: GitBranch, label: 'Fluxo' },
+                { value: 'encadeamento', icon: History, label: 'Sucessores', badge: encadeamentos.length },
+                { value: 'subservicos', icon: Network, label: 'Subserviços', badge: subservicos.length },
+                { value: 'variacoes', icon: Layers, label: 'Variações', badge: variacoes.length },
+                { value: 'texto', icon: Type, label: 'Texto padrão' },
+                ...(categoriaServico === 'MENSAL' ? [{ value: 'recorrencia', icon: Repeat, label: 'Recorrência' }] : []),
+                { value: 'notificacoes', icon: Bell, label: 'Notificações' },
+              ] as Array<{ value: AbaServico; icon: typeof FileText; label: string; badge?: number }>).map(t => {
+                const Icone = t.icon
+                const ativa = activeTab === t.value
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setActiveTab(t.value)}
+                    aria-current={ativa ? 'page' : undefined}
+                    className={cn(
+                      'inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors',
+                      ativa ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    <Icone className="h-4 w-4 shrink-0" />
+                    {t.label}
+                    {(t.badge ?? 0) > 0 && (
+                      <span className={cn(
+                        'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums',
+                        ativa ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground',
+                      )}>
+                        {t.badge}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
+        {/* /hero */}
 
         {/* ── TAB: Visão geral ── */}
         <TabsContent value="visao" className="mt-4">

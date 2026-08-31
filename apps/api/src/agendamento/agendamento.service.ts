@@ -202,14 +202,22 @@ export class AgendamentoService {
    * com: cron atual, ativo, próxima execução, última execução (data + status).
    */
   async listAll(empresaId: string | null) {
+    /**
+     * Liga/desliga vem de mãos diferentes: o switch da tela de configurações
+     * grava '1'/'0', o .env costuma trazer 'true', e alguém já digitou 'sim'.
+     * Os próprios schedulers aceitam os três — comparar só com 'true' fazia a
+     * lista mostrar como desligado um job que estava rodando.
+     */
+    const ligado = (v: string | undefined | null) =>
+      ['1', 'true', 'sim'].includes((v ?? '').trim().toLowerCase())
+
     const { SCHEDULER_REGISTRY } = await import('./scheduler-registry')
 
     // ── Pré-carrega fontes que serão consultadas em batch ──
-    const systemConfigKeys = SCHEDULER_REGISTRY.flatMap(s =>
-      s.cronSource.kind === 'systemConfig'
-        ? [s.cronSource.cronKey, s.cronSource.enabledKey].filter((k): k is string => !!k)
-        : [],
-    )
+    const systemConfigKeys = SCHEDULER_REGISTRY.flatMap(s => [
+      ...(s.cronSource.kind === 'systemConfig' ? [s.cronSource.cronKey, s.cronSource.enabledKey] : []),
+      ...(s.lastRunSource.kind === 'systemConfigKey' ? [s.lastRunSource.runKey, s.lastRunSource.resultKey] : []),
+    ].filter((k): k is string => !!k))
     const systemConfigRows = systemConfigKeys.length > 0
       ? await prisma.systemConfig.findMany({ where: { key: { in: systemConfigKeys } } })
       : []
@@ -254,11 +262,11 @@ export class AgendamentoService {
         ativo = item.cronSource.ativo
       } else if (item.cronSource.kind === 'env') {
         cron = (item.cronSource.cronEnv ? process.env[item.cronSource.cronEnv] : null) ?? item.cronSource.defaultCron
-        ativo = item.cronSource.enabledEnv ? process.env[item.cronSource.enabledEnv] === 'true' : true
+        ativo = item.cronSource.enabledEnv ? ligado(process.env[item.cronSource.enabledEnv]) : true
       } else if (item.cronSource.kind === 'systemConfig') {
         cron = (item.cronSource.cronKey ? systemConfigMap.get(item.cronSource.cronKey) : null) ?? item.cronSource.defaultCron
         ativo = item.cronSource.enabledKey
-          ? systemConfigMap.get(item.cronSource.enabledKey) === 'true'
+          ? ligado(systemConfigMap.get(item.cronSource.enabledKey))
           : true
       } else if (item.cronSource.kind === 'agendaDisparoConfig') {
         // Converte horario (HH:MM) + diasSemana (array de 0-6) em cron 5 campos
@@ -294,6 +302,20 @@ export class AgendamentoService {
             iniciadoEm: r.iniciado_em,
             status: r.status,
             info: `${r.sucesso}/${r.total_clientes} OK${r.erros > 0 ? `, ${r.erros} erro(s)` : ''}`,
+          }
+        }
+      } else if (item.lastRunSource.kind === 'systemConfigKey') {
+        const iso = systemConfigMap.get(item.lastRunSource.runKey)
+        const quando = iso ? new Date(iso) : null
+        if (quando && !Number.isNaN(quando.getTime())) {
+          const resultado = item.lastRunSource.resultKey ? systemConfigMap.get(item.lastRunSource.resultKey) : null
+          ultimaExecucao = {
+            iniciadoEm: quando,
+            // O job só carimba a data quando termina; se houve erro, ele vem
+            // escrito no resultado — daí o status sair do texto, e não de uma
+            // coluna que estes schedulers não têm.
+            status: resultado && /erro|falha/i.test(resultado) ? 'ERRO' : 'OK',
+            info: resultado ?? null,
           }
         }
       } else if (item.lastRunSource.kind === 'agenda_disparo_logs' && ultimoDisparoAgenda) {

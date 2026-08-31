@@ -751,6 +751,20 @@ model Cliente {
   dataAbertura DateTime?      @map("data_abertura")
   dataEntrada DateTime?       @map("data_entrada")
   dataSaida   DateTime?       @map("data_saida")
+
+  /// Inativação AGENDADA para uma data futura (offboarding).
+  ///
+  /// Nasceu do fluxo de Offboarding de Cliente: a rescisão chega hoje, mas o
+  /// cliente só sai no fim do mês — e até lá ele continua ATIVO, com obrigação
+  /// a entregar. Sem isto, ou se inativava cedo demais (e o time perdia acesso
+  /// ao que ainda precisava fazer) ou se confiava em alguém lembrar no dia.
+  ///
+  /// Nulo = sem agendamento. Preenchido = o job diário inativa quando a data
+  /// chega, e avisa as áreas que não registraram o encerramento.
+  inativacaoProgramadaPara   DateTime? @map("inativacao_programada_para")
+  inativacaoProgramadaMotivo String?   @map("inativacao_programada_motivo")
+  inativacaoProgramadaPor    String?   @map("inativacao_programada_por")
+  inativacaoProgramadaEm     DateTime? @map("inativacao_programada_em")
   observacoes String?         @db.Text
 
   // Fiscal
@@ -4490,6 +4504,30 @@ model Servico {
    * Se true, soma o responsável do cliente na área do serviço (ClienteAreaContratada).
    */
   atribuicaoUsaClienteArea Boolean  @default(false) @map("atribuicao_usa_cliente_area")
+  /**
+   * Fonte de atribuição: os responsáveis do cliente em TODAS as áreas que ele
+   * contratou — não só na área do serviço, que é o que `atribuicaoUsaClienteArea`
+   * faz. Para trabalho que atravessa as áreas (o encerramento de serviços num
+   * offboarding é o caso), o conjunto certo de pessoas é o dos líderes de cada
+   * área contratada por AQUELE cliente. Como isso muda de cliente para cliente,
+   * não cabe em `atribuicaoAreas`, que é uma lista fixa no template.
+   */
+  atribuicaoUsaAreasContratadas Boolean @default(false) @map("atribuicao_usa_areas_contratadas")
+
+  /**
+   * Este bloco espera a data de saída do cliente.
+   *
+   * Duas consequências, as duas do mesmo fato — o prazo dele não é um SLA em
+   * horas, é uma data que o cliente escolheu:
+   *
+   *  1. O `prazoLimite` da execução passa a ser `Cliente.inativacaoProgramadaPara`.
+   *     Sem isso, um bloco que legitimamente espera duas semanas nasce com prazo
+   *     para depois de amanhã e é cobrado como atrasado pelo cron horário.
+   *  2. O job de inativação agendada conclui a execução quando a data chega,
+   *     disparando os sucessores. É o que faz o fluxo esperar de verdade, em vez
+   *     de depender de alguém lembrar de fechar o checklist no dia certo.
+   */
+  aguardaSaidaCliente Boolean @default(false) @map("aguarda_saida_cliente")
 
   // ── Procedência / referências externas ──
   /**

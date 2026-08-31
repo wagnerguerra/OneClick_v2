@@ -747,6 +747,33 @@
     border-color: #363b47;
   }
 
+  /* Campo SEM caixa — a busca global (Ctrl+K) e afins.
+     Precisa existir aqui, e nao como utilitario Tailwind, por especificidade: a
+     regra base acima usa `input:not(...)` seis vezes, o que vale (0,6,1); uma
+     classe do Tailwind vale (0,1,0) e perde. O resultado era uma paleta com
+     cara de formulario, borda e anel de foco, em vez do campo solto do modelo. */
+  input.campo-nu:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background-color: transparent;
+    font-size: 0.875rem;
+    height: auto;
+  }
+  input.campo-nu:focus {
+    border: 0;
+    box-shadow: none;
+    outline: 0;
+    background-color: transparent;
+  }
+  .dark input.campo-nu,
+  .dark input.campo-nu:focus {
+    background-color: transparent;
+    border: 0;
+  }
+
   /* Foco no padrao do modelo: borda primaria + ring suave translucido. */
   input:focus, textarea:focus, select:focus,
   [role="combobox"]:focus, button[role="combobox"]:focus {

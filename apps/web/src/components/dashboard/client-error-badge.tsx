@@ -55,7 +55,9 @@ export function ClientErrorBadge() {
       href="/admin/erros-cliente"
       title={count > 0 ? `${count} erro(s) JS aberto(s) — clique para inspecionar` : 'Nenhum erro JS aberto'}
       className={cn(
-        'relative inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors',
+        // 40x40 e rounded-lg como os vizinhos: 36px no meio da fileira
+        // encolhia o alvo e desencontrava o alinhamento vertical.
+        'relative inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
         count > 0
           ? cn(TEXT.rose, 'hover:bg-rose-50 dark:hover:bg-rose-950/30')
           : 'text-muted-foreground hover:bg-muted hover:text-foreground',

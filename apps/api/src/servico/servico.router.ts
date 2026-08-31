@@ -325,6 +325,11 @@ export function createServicoRouter(servicoService: ServicoService) {
       .input(createExecucaoSchema)
       .mutation(({ input, ctx }) => servicoService.createExecucao(input, ctx.empresaId)),
 
+    // Atalho da ficha do cliente: abre (ou reencontra) o offboarding dele.
+    iniciarOffboarding: writeProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .mutation(({ input, ctx }) => servicoService.iniciarOffboarding(input.clienteId, ctx.userId ?? undefined, ctx.empresaId)),
+
     togglePasso: protectedProcedure
       .input(z.object({
         id: z.string(),

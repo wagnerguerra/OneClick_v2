@@ -3,10 +3,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { PanelLeftClose, PanelLeft, LayoutDashboard, Wrench, X } from 'lucide-react'
-import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import { cn, Separator, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@saas/ui'
-import { navigation, type NavItem } from '@/lib/navigation'
+import { navigation } from '@/lib/navigation'
 
 /**
  * Rotas sob /ferramentas que pertencem a OUTROS blocos. O item "Ferramentas" do
@@ -14,9 +13,9 @@ import { navigation, type NavItem } from '@/lib/navigation'
  * do Fiscal e do Contábil e não devem acendê-lo.
  */
 const FERRAMENTAS_DE_OUTROS_BLOCOS = ['/ferramentas/fiscal', '/ferramentas/contabil']
-import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { SidebarGroup } from './sidebar-group'
 import { SidebarItem } from './sidebar-item'
+import { useNavegacaoPermitida } from '@/hooks/use-navegacao-permitida'
 
 interface SidebarProps {
   collapsed: boolean
@@ -28,10 +27,6 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: SidebarProps) {
   // Sidebar é sempre dark, logo sempre versão light
   const logoSrc = '/logo-light.png'
-
-  // Filtrar navigation baseado nas permissões do usuário
-  const { isMaster, isEmpresaMaster, allowedSlugs, permissions, role } = useUserPermissions()
-  const ehLiderSetor = ['GESTOR', 'COORDENADOR', 'DIRETOR'].includes(role)
 
   const pathname = usePathname()
 
@@ -55,68 +50,9 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
     }
   }, [pathname])
 
-  // O item Ferramentas fica fora dos blocos, então não passa pelo filtro da
-  // navegação — a checagem é aqui.
-  const podeFerramentas = isMaster || isEmpresaMaster || allowedSlugs.includes('ferramentas-gerais')
-
-  const filteredNavigation = useMemo(() => {
-    const isAdmin = isMaster || isEmpresaMaster
-    // Sub-permissão satisfeita? Admin (master/empresaMaster) sempre vê.
-    const hasSub = (module: string, sub: string): boolean =>
-      isAdmin || permissions.find((p) => p.moduleSlug === module)?.subPermissions?.[sub] === true
-    // Alguma sub-permissão do módulo — para item de menu único cujas telas
-    // internas são abas com permissões distintas.
-    const hasAnySub = (module: string): boolean =>
-      isAdmin || Object.values(permissions.find((p) => p.moduleSlug === module)?.subPermissions ?? {}).some(Boolean)
-    // Subitem com `requirePerm` só aparece se a sub-permissão estiver concedida.
-    const subOk = (item: NavItem): boolean => {
-      if (!item.requirePerm) return true
-      const { module, sub } = item.requirePerm
-      return sub ? hasSub(module, sub) : hasAnySub(module)
-    }
-
-    // Permissões por slug — restringem apenas usuários comuns (master vê tudo).
-    const byPermission = (item: NavItem): boolean => {
-      // Módulos master-only (ex.: Empresas — admin global multi-tenant):
-      // nunca aparecem para admins de tenant, mesmo com o slug nas permissões.
-      if (item.masterOnly) return false
-      // FAQ é conteúdo de ajuda — sempre visível pra qualquer usuário,
-      // independentemente da matriz de permissões.
-      if (item.href === '/faq') return true
-      // Painel Comercial consolida CRM/Orçamentos/Contratos — visível a quem
-      // tem leitura em qualquer um deles (os dados em si são gateados no backend).
-      if (item.href === '/comercial') {
-        return ['crm', 'orcamentos', 'contratos'].some((s) => allowedSlugs.includes(s))
-      }
-      // Benefícios: líder de setor (GESTOR/COORDENADOR/DIRETOR) acessa por tipo
-      // para lançar os apontamentos do seu setor, mesmo sem permissão explícita.
-      if (item.href === '/beneficios' && ehLiderSetor) return true
-      // Ferramentas: item por bloco; visível a quem tem leitura na área
-      // (slug umbrella ferramentas-<area>). Os dados são gateados no backend.
-      if (item.href.startsWith('/ferramentas/')) {
-        const area = item.href.split('/')[2] // /ferramentas/<area>/...
-        return allowedSlugs.includes(`ferramentas-${area}`)
-      }
-      const slug = item.href.replace('/', '')
-      return allowedSlugs.includes(slug)
-    }
-
-    return navigation
-      .map((group) => {
-        // wip = rota ainda não publicada (404). Escondida de TODOS, inclusive
-        // master (também tomaria 404). Aplica também aos subItems. F-006.
-        let items: NavItem[] = group.items
-          .filter((item) => !item.wip)
-          .map((item) =>
-            item.subItems
-              ? { ...item, subItems: item.subItems.filter((s) => !s.wip && subOk(s)) }
-              : item,
-          )
-        if (!isMaster) items = items.filter(byPermission)
-        return { ...group, items }
-      })
-      .filter((group) => group.items.length > 0)
-  }, [isMaster, isEmpresaMaster, allowedSlugs, permissions, ehLiderSetor])
+  // O filtro de permissão da navegação virou hook: a busca global precisa da
+  // MESMA lista, e duas cópias da regra dariam respostas diferentes.
+  const { grupos: filteredNavigation, podeFerramentas } = useNavegacaoPermitida()
 
   // Fechar com Escape
   useEffect(() => {

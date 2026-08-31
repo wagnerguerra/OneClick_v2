@@ -427,11 +427,11 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
     // ── Itens ──────────────────────────────────────────────
     addItem: writeSubProcedure(MODULE, 'manage_itens', 'Incluir itens em orcamentos')
       .input(createOrcamentoItemSchema)
-      .mutation(({ input }) => orcamentoService.addItem(input)),
+      .mutation(({ input, ctx }) => orcamentoService.addItem(input, ctx)),
 
     updateItem: writeSubProcedure(MODULE, 'manage_itens', 'Editar itens de orcamentos')
       .input(z.object({ id: z.string(), data: updateOrcamentoItemSchema }))
-      .mutation(({ input }) => orcamentoService.updateItem(input.id, input.data)),
+      .mutation(({ input, ctx }) => orcamentoService.updateItem(input.id, input.data, ctx)),
 
     removeItem: deleteSubProcedure(MODULE, 'manage_itens', 'Excluir itens de orcamentos')
       .input(z.object({ id: z.string() }))

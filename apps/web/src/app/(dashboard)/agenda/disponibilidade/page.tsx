@@ -67,6 +67,16 @@ function formatDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/**
+ * HH:MM de agora. Comparação de string basta porque os dois lados têm o mesmo
+ * formato de dois dígitos — e o relógio aqui é o do usuário, que é justamente
+ * o fuso em que ele lê a grade.
+ */
+function horaAgora(): string {
+  const d = new Date()
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 function startOfWeek(d: Date): Date {
   // Segunda-feira da semana de `d` (ajusta domingo pra 7 = sex+2)
   const date = new Date(d.getFullYear(), d.getMonth(), d.getDate())
@@ -255,6 +265,10 @@ export default function AgendaDisponibilidadePage() {
       alerts.error('Data inválida', 'Não é possível agendar eventos em dias que já passaram.')
       return
     }
+    if (diaKey === hojeKey && hhmm < horaAgora()) {
+      alerts.error('Horário inválido', `Não é possível agendar às ${hhmm}: esse horário já passou hoje.`)
+      return
+    }
     const horaFim = (() => {
       const ini = minutesFromMidnight(hhmm)
       const fim = ini + SLOT_MINUTOS * 2  // default: 1h
@@ -287,6 +301,9 @@ export default function AgendaDisponibilidadePage() {
   }, [diasDaSemana])
 
   const hojeKey = formatDateKey(new Date())
+  // Congelado no render: a grade não precisa reagir ao minuto virando, e um
+  // relógio vivo aqui redesenharia a semana inteira a cada tique.
+  const agora = horaAgora()
 
   // ============================ Render ============================
   return (
@@ -452,17 +469,25 @@ export default function AgendaDisponibilidadePage() {
                     return (
                       <div key={di} className={cn('flex-1 relative border-r border-border last:border-r-0', isHoje && 'bg-sky-50/30 dark:bg-sky-950/10')} style={{ height: slots.length * SLOT_PX }}>
                         {/* Slots de fundo (verde = livre / clicável) */}
-                        {slots.map(slot => (
-                          <div
-                            key={slot}
-                            className={cn(
-                              'h-[28px] border-b border-border transition-colors',
-                              isPast ? 'bg-muted/20 dark:bg-muted/10' : 'bg-emerald-50/60 dark:bg-emerald-950/10 hover:bg-emerald-100 dark:hover:bg-emerald-950/30 cursor-pointer',
-                            )}
-                            onClick={() => { if (!isPast) clickSlotLivre(dia, slot) }}
-                            title={isPast ? 'Data passada' : 'Disponível — clique pra agendar'}
-                          />
-                        ))}
+                        {slots.map(slot => {
+                          // No dia de HOJE o dia inteiro não é passado, mas as
+                          // horas já vividas são. Sem isto, a manhã de hoje
+                          // ficava verde e convidando ao clique.
+                          const passou = isPast || (isHoje && slot < agora)
+                          return (
+                            <div
+                              key={slot}
+                              className={cn(
+                                'h-[28px] border-b border-border transition-colors',
+                                passou ? 'bg-muted/20 dark:bg-muted/10' : 'bg-emerald-50/60 dark:bg-emerald-950/10 hover:bg-emerald-100 dark:hover:bg-emerald-950/30 cursor-pointer',
+                              )}
+                              onClick={() => { if (!passou) clickSlotLivre(dia, slot) }}
+                              title={passou
+                                ? (isPast ? 'Data passada' : 'Horário já passou')
+                                : 'Disponível — clique pra agendar'}
+                            />
+                          )
+                        })}
                         {/* Blocos ocupados (posicionados + lanes) */}
                         {blocos.map((b, bi) => {
                           const ev = b.ev
