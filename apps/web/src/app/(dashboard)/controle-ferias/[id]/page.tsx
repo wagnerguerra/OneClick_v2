@@ -18,7 +18,7 @@ import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
-import { corSaldo, corSaldoTexto } from '../_lib/cores'
+import { corSaldo, corSaldoTexto, tituloSaldo } from '../_lib/cores'
 import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 
 const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
@@ -266,6 +266,17 @@ export default function ControleFeriasDetalhePage() {
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
   if (!p) return <div className="py-12 text-center text-muted-foreground">Período não encontrado</div>
+
+  /**
+   * De qual período veio o saldo anterior — o imediatamente anterior a este,
+   * não o mais antigo da lista. Serve só para a linha da composição dizer a
+   * origem do número; sem isso, "saldo anterior" é uma parcela sem procedência.
+   */
+  const anteriores = p.historicoColaborador.filter((h) => h.periodoInicial < p.periodoInicial)
+  const anterior = anteriores.length > 0
+    ? anteriores.reduce((a, b) => (b.periodoInicial > a.periodoInicial ? b : a))
+    : null
+  const periodoAnterior = anterior ? `${anterior.periodoInicial}/${anterior.periodoFinal}` : null
 
   return (
     <div className="space-y-5">
@@ -566,14 +577,46 @@ export default function ControleFeriasDetalhePage() {
                 <Label className="text-[13px] font-semibold">Descrição</Label>
                 <Input value={fDescricao} onChange={(e) => setFDescricao(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" maxLength={200} />
               </div>
+              {/* O número que interessa aqui é o saldo DESTE período — é o que o
+                  cabeçalho e o card de gozos mostram, e é ele que se arrasta para o
+                  período seguinte. O saldo anterior continua existindo (é metade da
+                  conta dos {p.dias + p.saldoAnterior} dias), mas como parcela da
+                  composição, não como o campo em evidência: quem batia o olho aqui
+                  lia 27 e entendia "sobraram 27". */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-[13px] font-semibold">Dias</Label>
                   <Input type="number" value={fDias} onChange={(e) => setFDias(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" min="0" max="60" />
                 </div>
                 <div>
-                  <Label className="text-[13px] font-semibold">Saldo anterior</Label>
-                  <Input type="number" value={fSaldoAnt} onChange={(e) => setFSaldoAnt(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" />
+                  <Label className="text-[13px] font-semibold">Saldo do período</Label>
+                  <div
+                    className={cn(
+                      'mt-1.5 flex h-9 items-center rounded-md border border-border bg-muted/40 px-3',
+                      'text-sm font-semibold tabular-nums',
+                      corSaldoTexto(p.saldo),
+                    )}
+                    title={tituloSaldo(p.saldo)}
+                  >
+                    {p.saldo} {Math.abs(p.saldo) === 1 ? 'dia' : 'dias'}
+                  </div>
+                </div>
+              </div>
+
+              {/* A conta escrita por extenso, com o saldo anterior corrigível no
+                  meio dela — é a única parcela que não sai de outro lugar da tela. */}
+              <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2.5">
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted-foreground">
+                  <span className="tabular-nums">{fDias || 0} do período</span>
+                  <span>+</span>
+                  <Input
+                    type="number" value={fSaldoAnt} onChange={(e) => setFSaldoAnt(e.target.value)}
+                    disabled={!podeEscrever}
+                    className="h-7 w-[62px] px-2 text-xs tabular-nums"
+                    aria-label="Saldo anterior, em dias"
+                  />
+                  <span>de saldo anterior{periodoAnterior ? ` (de ${periodoAnterior})` : ''}</span>
+                  {p.gozados > 0 && <span className="tabular-nums">− {p.gozados} gozado(s)</span>}
                 </div>
               </div>
               <div>
