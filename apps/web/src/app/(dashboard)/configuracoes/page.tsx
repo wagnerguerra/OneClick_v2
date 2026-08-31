@@ -12,7 +12,7 @@ import {
   ChevronRight, BadgeCheck,
 } from 'lucide-react'
 import Link from 'next/link'
-import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
+import { Button, Input, Label, Card, CardHeader, cn, Switch } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -23,6 +23,7 @@ import { QaSection } from './_components/qa-section'
 import { TicketsSection } from './_components/tickets-section'
 import { GoogleBackupSection } from './_components/google-backup-section'
 import { HelpdeskIaSection } from './_components/helpdesk-ia-section'
+import { CampoCron } from './_components/campo-cron'
 
 interface ConfigField {
   key: string; label: string; group: string; type: string
@@ -511,6 +512,30 @@ export default function ConfiguracoesPage() {
             </span>
           )}
         </div>
+        {field.type === 'switch' ? (
+          // Liga/desliga guardado como '1'/'0' — é o que os schedulers leem.
+          // Num campo de texto isto virava uma caixa branca com o nome da chave
+          // dentro, e ninguém sabia o que digitar ali.
+          (() => {
+            const bruto = (values[field.key] ?? field.default ?? '0').trim().toLowerCase()
+            const ligado = bruto === '1' || bruto === 'true' || bruto === 'sim'
+            return (
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <Switch
+                  checked={ligado}
+                  onCheckedChange={(v) => setValues(prev => ({ ...prev, [field.key]: v ? '1' : '0' }))}
+                />
+                <span className="text-xs text-muted-foreground">{ligado ? 'Ligado' : 'Desligado'}</span>
+              </label>
+            )
+          })()
+        ) : field.type === 'cron' ? (
+          <CampoCron
+            valor={values[field.key] === '__CLEAR__' ? '' : (values[field.key] || '')}
+            placeholder={field.placeholder}
+            onChange={(v) => setValues(prev => ({ ...prev, [field.key]: v }))}
+          />
+        ) : (
         <div className="flex" style={{ borderRadius: '0.25rem', overflow: 'hidden' }}>
           {field.type === 'textarea' ? (
             <textarea
@@ -550,6 +575,7 @@ export default function ConfiguracoesPage() {
             </>
           )}
         </div>
+        )}
       </div>
     )
   }

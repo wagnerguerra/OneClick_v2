@@ -16,7 +16,12 @@ export interface ConfigField {
   key: string
   label: string
   group: string
-  type: 'text' | 'number' | 'password' | 'textarea'
+  /**
+   * `switch` grava '1'/'0' — para o que é liga/desliga, que num campo de texto
+   * virava caixa branca com o nome da chave dentro.
+   * `cron` abre o construtor de horário e dias, com a expressão crua ao lado.
+   */
+  type: 'text' | 'number' | 'password' | 'textarea' | 'switch' | 'cron'
   required?: boolean
   placeholder?: string
   help?: string
@@ -127,14 +132,14 @@ const CONFIG_FIELDS: ConfigField[] = [
 
   { key: 'OFFBOARDING_SERVICO_NOME', label: 'Serviço de offboarding', group: 'Cadastros', type: 'text', placeholder: 'Offboarding de Cliente', help: 'Nome do serviço que o botão "Iniciar offboarding" da ficha do cliente abre. Renomeou o serviço? Ajuste aqui' },
 
-  { key: 'INATIVACAO_PROGRAMADA_ENABLED', label: 'Executar inativações agendadas', group: 'Cadastros', type: 'text', default: '0', help: '1 = liga o job diário que inativa os clientes cuja data programada chegou (offboarding) e avisa as áreas que não registraram o encerramento do serviço' },
-  { key: 'INATIVACAO_PROGRAMADA_CRON', label: 'Horário da execução', group: 'Cadastros', type: 'text', placeholder: '0 5 * * *', help: 'Formato cron. Padrão: todo dia às 5h' },
+  { key: 'INATIVACAO_PROGRAMADA_ENABLED', label: 'Executar inativações agendadas', group: 'Cadastros', type: 'switch', default: '0', help: '1 = liga o job diário que inativa os clientes cuja data programada chegou (offboarding) e avisa as áreas que não registraram o encerramento do serviço' },
+  { key: 'INATIVACAO_PROGRAMADA_CRON', label: 'Horário da execução', group: 'Cadastros', type: 'cron', placeholder: '0 5 * * *', help: 'Formato cron. Padrão: todo dia às 5h' },
 
   { key: 'CONSULTAS_SOCIO', label: 'Consultas públicas sobre sócios', group: 'Dossiê e Imagens', type: 'text', placeholder: 'TJES — processos|https://sistemas.tjes.jus.br/...', help: 'Atalhos extras no dossiê, um por linha, no formato Rótulo|URL|nota. As nacionais (CNDT, CNJ improbidade, CEIS/CNEP, Receita) já vêm prontas; aqui entram os tribunais que a casa usa. {cpf} e {nome} na URL são trocados pelo dado do sócio' },
 
   { key: 'DOSSIE_PROVEDORES', label: 'Ordem dos provedores de CNPJ', group: 'Dossiê e Imagens', type: 'text', placeholder: 'opencnpj,brasilapi,serpro', help: 'Vazio usa opencnpj,brasilapi,serpro. As duas primeiras são gratuitas; o SERPRO é pago por consulta e só entra quando as públicas falham' },
-  { key: 'DOSSIE_SITUACAO_ENABLED', label: 'Revalidar situação cadastral diariamente', group: 'Dossiê e Imagens', type: 'text', default: '0', help: '1 = liga o job diário que avisa quando um cliente ativo é baixado, suspenso ou declarado inapto na Receita' },
-  { key: 'DOSSIE_SITUACAO_CRON', label: 'Horário da revalidação', group: 'Dossiê e Imagens', type: 'text', placeholder: '0 6 * * *', help: 'Formato cron. Padrão: todo dia às 6h' },
+  { key: 'DOSSIE_SITUACAO_ENABLED', label: 'Revalidar situação cadastral diariamente', group: 'Dossiê e Imagens', type: 'switch', default: '0', help: '1 = liga o job diário que avisa quando um cliente ativo é baixado, suspenso ou declarado inapto na Receita' },
+  { key: 'DOSSIE_SITUACAO_CRON', label: 'Horário da revalidação', group: 'Dossiê e Imagens', type: 'cron', placeholder: '0 6 * * *', help: 'Formato cron. Padrão: todo dia às 6h' },
 
   // Captcha Providers
   { key: 'CAPTCHA_2CAPTCHA_API_KEY', label: 'API Key (2Captcha)', group: 'Captcha', type: 'password', secret: true, help: 'Chave da API do 2captcha.com — usado para resolver hCaptcha, reCAPTCHA e captchas de imagem' },
@@ -158,7 +163,7 @@ const CONFIG_FIELDS: ConfigField[] = [
   { key: 'GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN', label: 'Refresh Token (OAuth)', group: 'Google', subgroup: 'drive', type: 'password', secret: true, help: 'Refresh token de uma conta Google autorizada. Extrair com scripts/extract-google-refresh-token.py.', colSpan: 12 },
   { key: 'GOOGLE_DRIVE_SA_JSON_FILE', label: 'Service Account JSON (caminho)', group: 'Google', subgroup: 'drive', type: 'text', placeholder: './google/service-account.json', help: 'Alternativa ao OAuth: caminho pro JSON da Service Account. Deixe vazio se usa OAuth acima.', colSpan: 12 },
   { key: 'GOOGLE_DRIVE_SYNC_ENABLED', label: 'Sync automático ativo', group: 'Google', subgroup: 'drive', type: 'text', placeholder: 'true', help: 'true | false. Liga o cron de sincronização periódica.', colSpan: 6 },
-  { key: 'GOOGLE_DRIVE_SYNC_CRON', label: 'Cron de sync', group: 'Google', subgroup: 'drive', type: 'text', placeholder: '*/15 * * * *', help: 'Expressão cron (default: a cada 15 min). Timezone: America/Sao_Paulo.', colSpan: 6 },
+  { key: 'GOOGLE_DRIVE_SYNC_CRON', label: 'Cron de sync', group: 'Google', subgroup: 'drive', type: 'cron', placeholder: '*/15 * * * *', help: 'Expressão cron (default: a cada 15 min). Timezone: America/Sao_Paulo.', colSpan: 6 },
 
   // Stripe
   { key: 'STRIPE_SECRET_KEY', label: 'Secret Key', group: 'Stripe', type: 'password', secret: true },
