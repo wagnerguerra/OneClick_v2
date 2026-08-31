@@ -277,29 +277,41 @@ export default function ControleFeriasDetalhePage() {
           )}
           <BackButton href="/controle-ferias" label="Voltar" />
       </>}>
-        <h1 className="truncate">{p.colaboradorNomeResolvido ?? 'Colaborador'}</h1>
+        {/* Mesmo desenho de /orcamentos/[id]: o h1 é a IDENTIDADE DO REGISTRO
+            ("Orçamento #0042" lá, o período aquisitivo aqui) e o dono fecha o
+            breadcrumb. Estava trocado — o h1 trazia o colaborador, que se repete
+            em toda ficha dele, e o período, que é o que distingue uma da outra,
+            ficava num badge miúdo abaixo. */}
+        <h1 className="truncate">Férias {p.periodoInicial}/{p.periodoFinal}</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
           <span className="text-muted-foreground/50">›</span>
           <span>Trabalhista</span>
           <span className="text-muted-foreground/50">›</span>
-          <span>Controle de Férias</span>
+          <Link href="/controle-ferias" className="transition-colors hover:text-foreground">Controle de Férias</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span className="truncate">{p.colaboradorNomeResolvido ?? 'Colaborador'}</span>
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-          <div className="min-w-0">
-              <Badge variant="secondary" className="text-[11px] tabular-nums">{p.periodoInicial}/{p.periodoFinal}</Badge>
-              {p.historico && <Badge variant="outline" className="text-[11px]">Histórico</Badge>}
-              {p.pago && (
-                <Badge variant="outline" className="text-[11px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
-                  <Check className="h-3 w-3 mr-0.5" />Pago
-                </Badge>
-              )}
-            <p className="text-sm text-muted-foreground">
-              {p.dias + p.saldoAnterior} dias no período · {p.gozados} gozados · saldo {p.saldo}
-            </p>
-          </div>
-        </div>
       </PageHeaderBar>
+
+      {/* O que a capa do orçamento mostra sobre o registro — nome, situação e os
+          números do período. Aqui sem a capa em gradiente: uma ficha de férias é
+          consultada às dezenas num dia, e 200px de imagem por consulta empurrariam
+          o conteúdo para baixo da dobra. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p className="text-base font-semibold text-foreground">
+          {p.colaboradorNomeResolvido ?? 'Colaborador'}
+        </p>
+        {p.pago && (
+          <Badge variant="outline" className="text-[11px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+            <Check className="h-3 w-3 mr-0.5" />Pago
+          </Badge>
+        )}
+        {p.historico && <Badge variant="outline" className="text-[11px]">Histórico</Badge>}
+        <span className="text-sm text-muted-foreground tabular-nums">
+          {p.dias + p.saldoAnterior} dias no período · {p.gozados} gozados · saldo {p.saldo}
+        </span>
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
