@@ -38,6 +38,8 @@ import { NotificacoesSection } from './_components/notificacoes-section'
 import { PassoEmailsSection } from './_components/passo-emails-section'
 import { PassoLembretesSection } from './_components/passo-lembretes-section'
 import { PassoCamposClienteSection } from './_components/passo-campos-cliente-section'
+import { FeixeDeLinhas } from '@/components/ui/feixe-de-linhas'
+import { useTheme } from '@/hooks/use-theme'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // Emerald (Cadastros / Serviços)
 
@@ -288,6 +290,13 @@ export default function ServicoDetailPage() {
   // mas o tipo não a previa — o Radix aceitava string solta e escondia a falha.
   type AbaServico = 'visao' | 'etapas' | 'fluxo' | 'encadeamento' | 'subservicos' | 'variacoes' | 'texto' | 'recorrencia' | 'notificacoes'
   const [activeTab, setActiveTab] = useState<AbaServico>('visao')
+  // No escuro a linha branca se dilui no véu; sobe um pouco o alfa para ela
+  // continuar visível sem virar risco. `system` é resolvido na hora, como no
+  // cabeçalho — o hook guarda a ESCOLHA, não o resultado dela.
+  const { theme } = useTheme()
+  const temaEscuro = theme === 'dark'
+    || (theme === 'system' && typeof window !== 'undefined'
+        && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
   /**
    * Variações — o texto e o valor que o usuário escolhe ao lançar este serviço
@@ -1123,6 +1132,12 @@ export default function ServicoDetailPage() {
         <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
           <div className="relative overflow-hidden">
             <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+            {/* Feixe de linhas do modelo. Entra ENTRE o gradiente e o véu escuro:
+                por cima do véu ele brigaria com o texto branco; por baixo do
+                gradiente, não apareceria. As linhas são brancas porque o fundo
+                aqui é colorido e escuro nos dois temas — o véu garante isso —,
+                e branco é a única cor que se lê sobre os dois. */}
+            <FeixeDeLinhas cor="255, 255, 255" intensidade={temaEscuro ? 1.35 : 1} />
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
 
             <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
