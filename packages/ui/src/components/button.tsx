@@ -36,7 +36,7 @@ const buttonVariants = cva(
 
         // Soft (light background)
         soft:
-          'bg-primary/10 text-primary dark:text-blue-400 hover:bg-primary/20',
+          'bg-primary/15 text-primary dark:text-blue-400 hover:bg-primary/25',
         'soft-destructive':
           'bg-destructive/10 text-destructive hover:bg-destructive/20',
         'soft-success':
