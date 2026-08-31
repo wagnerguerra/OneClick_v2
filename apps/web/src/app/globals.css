@@ -322,6 +322,45 @@
 .dark .mod-configuracoes .dark\:bg-orange-950\/30, .dark .mod-configuracoes .dark\:bg-orange-900\/40 { background-color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 18%, transparent); }
 .dark .mod-configuracoes .dark\:text-orange-400, .dark .mod-configuracoes .dark\:text-orange-300 { color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 80%, white); }
 
+/* === Cobertura dark do papel STRONG ===
+   O STRONG (badge sólido do color-styles) usa shades dark próprios
+   (dark:bg-<c>-900 / dark:text-<c>-200 / dark:border-<c>-700) que as regras acima
+   (que miram os shades de BADGE/TEXT/SURFACE) não pegavam. Sem isso, no dark a
+   regra CLARA do retint (`.mod-<slug> .bg-<c>-100`, espec. 0,2,0, sem `.dark`)
+   vencia o `dark:bg-<c>-900` (0,1,0 por causa do `:where()` do Tailwind v4) e o
+   STRONG na cor do próprio módulo "sumia". Estas regras levam `.dark` na frente
+   (0,3,0) → vencem no dark. ADITIVO: não altera nenhum shade já coberto. */
+.dark .mod-cadastros .dark\:bg-emerald-900 { background-color: color-mix(in srgb, var(--mod-cadastros, #10b981) 18%, transparent); }
+.dark .mod-cadastros .dark\:text-emerald-200 { color: color-mix(in srgb, var(--mod-cadastros, #10b981) 80%, white); }
+.dark .mod-cadastros .dark\:border-emerald-700 { border-color: color-mix(in srgb, var(--mod-cadastros, #10b981) 35%, transparent); }
+.dark .mod-comercial .dark\:bg-rose-900 { background-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 18%, transparent); }
+.dark .mod-comercial .dark\:text-rose-200 { color: color-mix(in srgb, var(--mod-comercial, #fb7185) 90%, white); }
+.dark .mod-comercial .dark\:border-rose-700 { border-color: color-mix(in srgb, var(--mod-comercial, #fb7185) 35%, transparent); }
+.dark .mod-legalizacao .dark\:bg-fuchsia-900 { background-color: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 18%, transparent); }
+.dark .mod-legalizacao .dark\:text-fuchsia-200 { color: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 80%, white); }
+.dark .mod-legalizacao .dark\:border-fuchsia-700 { border-color: color-mix(in srgb, var(--mod-legalizacao, #e879f9) 35%, transparent); }
+.dark .mod-corporativo .dark\:bg-sky-900, .dark .mod-administrativo .dark\:bg-sky-900, .dark .mod-perfil .dark\:bg-sky-900 { background-color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 18%, transparent); }
+.dark .mod-corporativo .dark\:text-sky-200, .dark .mod-administrativo .dark\:text-sky-200, .dark .mod-perfil .dark\:text-sky-200 { color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 80%, white); }
+.dark .mod-corporativo .dark\:border-sky-700, .dark .mod-administrativo .dark\:border-sky-700, .dark .mod-perfil .dark\:border-sky-700 { border-color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 35%, transparent); }
+.dark .mod-ti .dark\:bg-cyan-900, .dark .mod-faq .dark\:bg-cyan-900 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 18%, transparent); }
+.dark .mod-ti .dark\:text-cyan-200, .dark .mod-faq .dark\:text-cyan-200 { color: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, white); }
+.dark .mod-ti .dark\:border-cyan-700, .dark .mod-faq .dark\:border-cyan-700 { border-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 35%, transparent); }
+.dark .mod-trabalhista .dark\:bg-lime-900 { background-color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 18%, transparent); }
+.dark .mod-trabalhista .dark\:text-lime-200 { color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 80%, white); }
+.dark .mod-trabalhista .dark\:border-lime-700 { border-color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 35%, transparent); }
+.dark .mod-fiscal .dark\:bg-indigo-900 { background-color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 18%, transparent); }
+.dark .mod-fiscal .dark\:text-indigo-200 { color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 80%, white); }
+.dark .mod-fiscal .dark\:border-indigo-700 { border-color: color-mix(in srgb, var(--mod-fiscal, #0369a1) 35%, transparent); }
+.dark .mod-contabil .dark\:bg-violet-900 { background-color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 18%, transparent); }
+.dark .mod-contabil .dark\:text-violet-200 { color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 80%, white); }
+.dark .mod-contabil .dark\:border-violet-700 { border-color: color-mix(in srgb, var(--mod-contabil, #a78bfa) 35%, transparent); }
+.dark .mod-qualidade .dark\:bg-amber-900 { background-color: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 18%, transparent); }
+.dark .mod-qualidade .dark\:text-amber-200 { color: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 80%, white); }
+.dark .mod-qualidade .dark\:border-amber-700 { border-color: color-mix(in srgb, var(--mod-qualidade, #f59e0b) 35%, transparent); }
+.dark .mod-configuracoes .dark\:bg-orange-900 { background-color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 18%, transparent); }
+.dark .mod-configuracoes .dark\:text-orange-200 { color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 80%, white); }
+.dark .mod-configuracoes .dark\:border-orange-700 { border-color: color-mix(in srgb, var(--mod-configuracoes, #f97316) 35%, transparent); }
+
 /* Richtext renderizado (fora do editor): o TipTap salva linhas em branco como
    parágrafos vazios <p></p>, que colapsam ao renderizar via dangerouslySetInnerHTML.
    Preserva a altura de 1 linha para manter o espaçamento que o usuário digitou. */
