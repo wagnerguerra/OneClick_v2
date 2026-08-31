@@ -570,12 +570,14 @@ export default function ControleFeriasDetalhePage() {
                   O saldo anterior continua gravado e ainda compõe os dias do
                   período, mas saiu da tela: é definido na criação (que já sugere o
                   saldo do período que está terminando) e não se edita mais aqui. */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
                   <Label className="text-[13px] font-semibold">Dias</Label>
                   <Input type="number" value={fDias} onChange={(e) => setFDias(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" min="0" max="60" />
                 </div>
-                <div>
+                {/* Separador, no mesmo desenho do "a" dos anos do período. */}
+                <span className="flex h-9 items-center text-sm text-muted-foreground" aria-hidden="true">+</span>
+                <div className="flex-1">
                   <Label className="text-[13px] font-semibold">Saldo do período</Label>
                   <div
                     className={cn(
