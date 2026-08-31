@@ -28,13 +28,26 @@ export type LastRunSource =
   | { kind: 'agenda_disparo_logs' }
   /** lê de uma coluna `ultimo*Em` */
   | { kind: 'column'; descricao: string }
+  /**
+   * O próprio scheduler carimba a data (e o resumo) em `system_config` ao fim
+   * de cada rodada — é o que os jobs novos fazem, por não terem tabela de log
+   * própria. `runKey` guarda um ISO; `resultKey`, uma linha de texto.
+   */
+  | { kind: 'systemConfigKey'; runKey: string; resultKey?: string }
   /** scheduler não loga */
   | { kind: 'none' }
 
 export interface SchedulerRegistryItem {
   slug: string
   nome: string
-  modulo: string             // pra agrupar visualmente
+  /**
+   * BLOCO da navegação a que o job pertence — os mesmos da sidebar (Cadastros,
+   * Comercial, Administrativo, Fiscal, TI, Configurações...). Antes era um
+   * rótulo solto ('Agenda', 'Sistema'), que criava uma taxonomia paralela: quem
+   * procurava o disparo da agenda no bloco Administrativo, onde a Agenda mora,
+   * não achava.
+   */
+  modulo: string
   descricao: string
   cronSource: CronSource
   lastRunSource: LastRunSource
@@ -45,6 +58,39 @@ export interface SchedulerRegistryItem {
 }
 
 export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
+  {
+    slug: 'inativacao-programada',
+    nome: 'Inativações agendadas',
+    modulo: 'Cadastros',
+    descricao: 'Inativa os clientes cuja data de saída chegou (offboarding) e avisa as áreas que não '
+      + 'registraram o encerramento do serviço.',
+    cronSource: {
+      kind: 'systemConfig',
+      cronKey: 'INATIVACAO_PROGRAMADA_CRON',
+      enabledKey: 'INATIVACAO_PROGRAMADA_ENABLED',
+      defaultCron: '0 5 * * *',
+    },
+    lastRunSource: { kind: 'systemConfigKey', runKey: 'INATIVACAO_PROGRAMADA_LAST_RUN', resultKey: 'INATIVACAO_PROGRAMADA_LAST_RESULT' },
+    configHref: '/configuracoes',
+    icon: 'UserMinus',
+  },
+  {
+    slug: 'dossie-situacao',
+    nome: 'Situação cadastral (dossiê)',
+    modulo: 'Cadastros',
+    descricao: 'Revalida diariamente a situação na Receita dos clientes com dossiê e avisa quando algum '
+      + 'é baixado, suspenso ou declarado inapto.',
+    cronSource: {
+      kind: 'systemConfig',
+      cronKey: 'DOSSIE_SITUACAO_CRON',
+      enabledKey: 'DOSSIE_SITUACAO_ENABLED',
+      defaultCron: '0 6 * * *',
+    },
+    lastRunSource: { kind: 'systemConfigKey', runKey: 'DOSSIE_SITUACAO_LAST_RUN', resultKey: 'DOSSIE_SITUACAO_LAST_RESULT' },
+    configHref: '/configuracoes',
+    icon: 'FileSearch',
+  },
+
   // ─── E-FISCAL ─────────────────────────────────────────────────
   {
     slug: 'nfe-dist',
@@ -79,7 +125,7 @@ export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
   {
     slug: 'cnd',
     nome: 'CNDs',
-    modulo: 'Fiscal',
+    modulo: 'Legalização',
     descricao: 'Renova certidões negativas de débito (CND, CNDT, CRF, Municipais) dos clientes ativos.',
     cronSource: { kind: 'custom', descricao: 'Configurado em /certidoes/configuracoes' },
     lastRunSource: { kind: 'column', descricao: 'Última via systemConfig cnd.scheduler.lastRun' },
@@ -89,7 +135,7 @@ export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
   {
     slug: 'certificado-digital',
     nome: 'Certificados — alertas',
-    modulo: 'Fiscal',
+    modulo: 'Legalização',
     descricao: 'Marca certificados expirados e cria notificações nos buckets 60/30/7 dias antes do vencimento.',
     cronSource: { kind: 'literal', cron: '0 6 * * *', ativo: true },
     lastRunSource: { kind: 'none' },
@@ -97,11 +143,10 @@ export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
     icon: 'FileSignature',
   },
 
-  // ─── AGENDA ───────────────────────────────────────────────────
   {
     slug: 'agenda-disparo',
     nome: 'Agenda do dia (e-mail)',
-    modulo: 'Agenda',
+    modulo: 'Administrativo',
     descricao: 'Envia diariamente o resumo da agenda do dia pros destinatários configurados.',
     cronSource: { kind: 'agendaDisparoConfig' },
     lastRunSource: { kind: 'agenda_disparo_logs' },
@@ -111,7 +156,7 @@ export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
   {
     slug: 'agenda-lembrete',
     nome: 'Lembretes de eventos',
-    modulo: 'Agenda',
+    modulo: 'Administrativo',
     descricao: 'Verifica lembretes pendentes a cada 60s e dispara notificação/e-mail conforme configurado em cada evento.',
     cronSource: { kind: 'literal', cron: '* * * * *', ativo: true },
     lastRunSource: { kind: 'none' },
@@ -119,7 +164,6 @@ export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
     icon: 'Bell',
   },
 
-  // ─── ATENDIMENTO ──────────────────────────────────────────────
   {
     slug: 'helpdesk-sla',
     nome: 'Helpdesk — SLA & auto-close',
@@ -131,7 +175,6 @@ export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
     icon: 'Headphones',
   },
 
-  // ─── COMERCIAL ────────────────────────────────────────────────
   {
     slug: 'orcamento-sla',
     nome: 'Orçamentos — alerta SLA',
@@ -145,7 +188,7 @@ export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
   {
     slug: 'servico',
     nome: 'Execuções de serviço',
-    modulo: 'Comercial',
+    modulo: 'Administrativo',
     descricao: 'Avalia execuções de serviço com prazo próximo/estourado e cria notificações.',
     cronSource: { kind: 'literal', cron: '15 * * * *', ativo: true },
     lastRunSource: { kind: 'none' },
@@ -153,11 +196,10 @@ export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
     icon: 'ClipboardCheck',
   },
 
-  // ─── NOTIFICAÇÕES ─────────────────────────────────────────────
   {
     slug: 'notificacao-recorrencia',
     nome: 'Notificações recorrentes',
-    modulo: 'Sistema',
+    modulo: 'Configurações',
     descricao: 'Gera notificações periódicas de regras configuradas (lembretes diários, semanais, etc).',
     cronSource: { kind: 'literal', cron: '0 6 * * *', ativo: true },
     lastRunSource: { kind: 'none' },
@@ -167,7 +209,7 @@ export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
   {
     slug: 'notificacao-prazo-proximo',
     nome: 'Prazos próximos',
-    modulo: 'Sistema',
+    modulo: 'Configurações',
     descricao: 'Verifica prazos próximos de obrigações e dispara notificações nos buckets configurados.',
     cronSource: { kind: 'literal', cron: '17 * * * *', ativo: true },
     lastRunSource: { kind: 'none' },
@@ -175,11 +217,10 @@ export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
     icon: 'Clock',
   },
 
-  // ─── INTEGRAÇÕES ──────────────────────────────────────────────
   {
     slug: 'drive-sync',
     nome: 'Google Drive — sync',
-    modulo: 'Sistema',
+    modulo: 'Configurações',
     descricao: 'Sincroniza arquivos dos clientes com o Google Drive vinculado (intervalo configurável via env).',
     cronSource: {
       kind: 'env',
@@ -194,7 +235,7 @@ export const SCHEDULER_REGISTRY: SchedulerRegistryItem[] = [
   {
     slug: 'google-backup',
     nome: 'Backup Google Drive',
-    modulo: 'Sistema',
+    modulo: 'Configurações',
     descricao: 'Envia backup diário do banco de dados pro Google Drive configurado (03:30 BR).',
     cronSource: {
       kind: 'systemConfig',

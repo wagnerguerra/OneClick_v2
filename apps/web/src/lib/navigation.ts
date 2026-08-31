@@ -361,7 +361,7 @@ const GROUP_SLUG: Record<string, string> = {
 /** Cor do grupo como CSS var (`var(--mod-<slug>, <fallback hex>)`) — assim abas,
  *  cabeçalhos e badges seguem o design system em vez de hex fixo. Funciona em
  *  qualquer `style` inline (color, backgroundColor, color-mix). */
-function groupColorVar(label: string): string {
+export function groupColorVar(label: string): string {
   const fallback = GROUP_HEX[label] ?? DEFAULT_HEX
   const slug = GROUP_SLUG[label]
   return slug ? `var(--mod-${slug}, ${fallback})` : fallback
