@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Integridade do cadastro — Central Contábil</title>
+<style>
+  :root { --fundo:#f6f7f9; --papel:#fff; --tinta:#111827; --fraco:#6b7280; --linha:#e5e7eb;
+          --acento:#38bdf8; --alerta:#f59e0b; --erro:#e11d48; --ok:#10b981; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fundo:#0b1220; --papel:#111827; --tinta:#e5e7eb; --fraco:#9ca3af; --linha:#1f2937; } }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px 20px 64px; background:var(--fundo); color:var(--tinta);
+         font:14px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+  .folha { max-width:1080px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--fraco); font-size:13px; margin:0; }
+  .escopo { display:inline-block; margin-top:10px; font-size:12px; font-weight:600;
+            background:rgba(56,189,248,.14); color:#0369a1; border-radius:999px; padding:3px 12px; }
+  .cartoes { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:22px 0; }
+  .cartao { background:var(--papel); border:1px solid var(--linha); border-radius:12px; padding:14px 16px; }
+  .cartao .n { font-size:24px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .cartao .r { font-size:11px; color:var(--fraco); text-transform:uppercase; letter-spacing:.05em; margin-top:2px; }
+  .cartao.alerta .n { color:var(--alerta); } .cartao.erro .n { color:var(--erro); }
+  section { background:var(--papel); border:1px solid var(--linha); border-radius:12px; padding:20px 22px; margin-bottom:18px; }
+  h2 { font-size:15px; margin:0 0 4px; }
+  h2 .conta { font-size:12px; font-weight:600; color:var(--fraco); margin-left:6px; }
+  .porque { color:var(--fraco); font-size:13px; margin:0 0 14px; }
+  .rolagem { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--fraco);
+       border-bottom:1px solid var(--linha); padding:6px 8px; white-space:nowrap; }
+  td { padding:6px 8px; border-bottom:1px solid var(--linha); vertical-align:top; }
+  tbody tr:last-child td { border-bottom:0; }
+  code { font-family:ui-monospace,Menlo,monospace; font-size:12px; }
+  .num { font-variant-numeric:tabular-nums; color:var(--fraco); }
+  .tag { display:inline-block; font-size:11px; font-weight:600; padding:1px 7px; border-radius:999px;
+         background:rgba(245,158,11,.14); color:#b45309; }
+  .erro { color:var(--erro); font-weight:600; } .ok { color:var(--ok); font-weight:600; }
+  ul { margin:8px 0 0; padding-left:18px; } li { margin:2px 0; }
+  .nota { border-left:3px solid var(--acento); padding:2px 0 2px 12px; color:var(--fraco); font-size:13px; }
+  .venn { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin:14px 0 18px; }
+  .venn .v { border:1px solid var(--linha); border-radius:10px; padding:12px; text-align:center; }
+  .venn .v .n { font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .venn .v .r { font-size:10.5px; color:var(--fraco); margin-top:2px; line-height:1.35; }
+  .venn .v.alerta .n { color:var(--alerta); }
+  footer { color:var(--fraco); font-size:11px; text-align:center; margin-top:28px; }
+</style></head><body><div class="folha">
+
+<header>
+  <h1>Integridade do cadastro — SCI &times; Acessórias &times; OneClick</h1>
+  <p class="sub">Cruzamento por CNPJ em 31 de agosto de 2026</p>
+  <span class="escopo">Escopo: tenant CENTRAL CONTABIL LTDA</span>
+</header>
+
+<div class="cartoes">
+  <div class="cartao"><div class="n">336</div><div class="r">Ativos no SCI</div></div>
+  <div class="cartao"><div class="n">209</div><div class="r">Ativas no Acessórias</div></div>
+  <div class="cartao"><div class="n">466</div><div class="r">Mensais ativos aqui</div></div>
+  <div class="cartao"><div class="n">197</div><div class="r">Nas três bases</div></div>
+  <div class="cartao alerta"><div class="n">84</div><div class="r">Ativos no SCI fora do perfil</div></div>
+  <div class="cartao erro"><div class="n">41</div><div class="r">Ausentes no cadastro</div></div>
+</div>
+
+<section>
+  <h2>Como ler estes números</h2>
+  <p class="porque">
+    A base de produção guarda três tenants. Este relatório olha <b>apenas o da CENTRAL CONTABIL LTDA</b>:
+    1386 fichas de cliente, das quais <b>466</b> são mensais ativas.
+    As outras duas empresas do banco (JR Serviços e a demonstração) ficaram de fora — o SCI e o
+    Acessórias consultados são os da Central, e misturá-los produziria diferença onde não há.
+  </p>
+  <p class="nota">
+    O SCI tem <b>336</b> empresas ativas e o Acessórias, <b>209</b>.
+    A carteira mensal é maior que as duas porque inclui quem a casa atende sem escrituração contábil
+    e sem controle de obrigação por lá. Por isso os <b>247</b> que existem
+    só aqui não são tratados como defeito. O que é defeito é o contrário: empresa com contabilidade
+    ou obrigação rodando que aqui não aparece como cliente mensal ativo.
+  </p>
+
+  <div class="venn">
+    <div class="v"><div class="n">197</div><div class="r">Nas três bases</div></div>
+    <div class="v"><div class="n">14</div><div class="r">SCI + OneClick,<br>sem Acessórias</div></div>
+    <div class="v"><div class="n">8</div><div class="r">Acessórias + OneClick,<br>sem SCI</div></div>
+    <div class="v"><div class="n">4</div><div class="r">SCI + Acessórias,<br>fora de mensal ativo</div></div>
+    <div class="v alerta"><div class="n">121</div><div class="r">Só no SCI</div></div>
+    <div class="v"><div class="n">0</div><div class="r">Só no Acessórias</div></div>
+  </div>
+</section>
+
+<section>
+  <h2>1. Ativos no SCI que não existem no cadastro<span class="conta">41 empresas</span></h2>
+  <p class="porque">
+    Nem como inativo, nem como prospect: o CNPJ não está no OneClick da Central. É a lacuna mais
+    grave, porque significa contabilidade rodando para quem não tem ficha nenhuma aqui.
+  </p>
+  <div class="rolagem"><table><thead><tr><th>CNPJ</th><th>Nome no SCI</th><th>Código SCI</th></tr></thead><tbody><tr><td>42.569.379/0001-03</td><td>3 FIT ALIMENTACAO SAUDAVEL LTDA</td><td><span class="num">188</span></td></tr><tr><td>32.117.501/0001-49</td><td>AGUA AZUL ARTIGOS DE VESTUARIO LTDA</td><td><span class="num">240</span></td></tr><tr><td>48.885.805/0001-96</td><td>AGUA AZUL CONFECCAO LTDA</td><td><span class="num">250</span></td></tr><tr><td>48.852.213/0001-78</td><td>AGUA AZUL DIGITAL LTDA EPP</td><td><span class="num">249</span></td></tr><tr><td>39.272.778/0004-38</td><td>BLUEVIX COMERCIO E SERVICO EIRELI</td><td><span class="num">175</span></td></tr><tr><td>33.023.240/0001-60</td><td>C A PARTICIPACOES E INVESTIMENTOS LTDA</td><td><span class="num">24</span></td></tr><tr><td>03.531.331/0001-46</td><td>CENTER AVIAMENTOS LTDA</td><td><span class="num">28</span></td></tr><tr><td>32.424.350/0002-52</td><td>CENTRAL DE AVIAMENTOS SAO PAULO LTDA</td><td><span class="num">220</span></td></tr><tr><td>08.486.526/0001-35</td><td>CERIMONIAL CRISTALIS LTDA</td><td><span class="num">36</span></td></tr><tr><td>01.542.005/0004-51</td><td>COMERCIAL COMAG LTDA</td><td><span class="num">246</span></td></tr><tr><td>47.767.079/0001-44</td><td>COMERCIAL E-COMAG LTDA</td><td><span class="num">241</span></td></tr><tr><td>30.064.795/0002-43</td><td>CUSTOM BOX LTDA</td><td><span class="num">329</span></td></tr><tr><td>48.953.811/0001-33</td><td>Distribuidora Motopecas Uai Ltda</td><td><span class="num">253</span></td></tr><tr><td>54.390.472/0001-27</td><td>EBR FIBRA LTDA</td><td><span class="num">401</span></td></tr><tr><td>03.725.445/0001-27</td><td>ENGENHARIA E CONSULTORIA VITORIA LTDA</td><td><span class="num">54</span></td></tr><tr><td>35.072.477/0002-48</td><td>FSA REFEICOES LTDA</td><td><span class="num">312</span></td></tr><tr><td>35.691.423/0002-60</td><td>GYP INDUSTRIA DE COSMETICOS LTDA</td><td><span class="num">282</span></td></tr><tr><td>35.691.423/0003-41</td><td>GYP INDUSTRIA DE COSMETICOS LTDA</td><td><span class="num">283</span></td></tr><tr><td>03.919.188/0003-26</td><td>HOME TECH COMERCIO E INDUSTRIA LTDA</td><td><span class="num">307</span></td></tr><tr><td>46.238.491/0001-04</td><td>HUB TRIBUTOS INTELIGENCIA FISCAL LTDA</td><td><span class="num">235</span></td></tr><tr><td>37.361.277/0001-50</td><td>INFOVARIEDADES IMPORTADORA E EXPORTADORA LTDA</td><td><span class="num">318</span></td></tr><tr><td>43.271.753/0001-44</td><td>ITALIA NO BOX RESTAURANTE ITALIANO LTDA</td><td><span class="num">224</span></td></tr><tr><td>39.311.386/0006-00</td><td>KERNEL IMPORTACAO E EXPORTACAO LTDA</td><td><span class="num">176</span></td></tr><tr><td>28.392.018/0001-03</td><td>LM TINTAS LTDA</td><td><span class="num">174</span></td></tr><tr><td>36.488.502/0001-50</td><td>ND2H SERVICOS DE TECNOLOGIA E COMERCIO LTDA</td><td><span class="num">209</span></td></tr><tr><td>46.246.517/0001-66</td><td>OCEANA INVESTIMENTOS E PARTICIPACOES LTDA</td><td><span class="num">234</span></td></tr><tr><td>02.184.341/0006-02</td><td>OURO PRETO EXPLOSIVOS LTDA EPP</td><td><span class="num">369</span></td></tr><tr><td>02.184.341/0009-47</td><td>OURO PRETO EXPLOSIVOS LTDA EPP</td><td><span class="num">370</span></td></tr><tr><td>46.290.337/0001-81</td><td>Oceana Holding Patrimonial Ltda</td><td><span class="num">233</span></td></tr><tr><td>17.657.781/0001-94</td><td>PETER FILHO, SODRE, REBOUCAS &amp; SARDENBERG ADVOCACIA</td><td><span class="num">112</span></td></tr><tr><td>42.597.144/0002-06</td><td>PLL COMERCIO LTDA</td><td><span class="num">256</span></td></tr><tr><td>10.549.370/0003-06</td><td>PRADO ALUMINIO INDUSTRIA E COMERCIO LTDA</td><td><span class="num">115</span></td></tr><tr><td>48.884.083/0001-55</td><td>RAF SERVICOS LTDA</td><td><span class="num">270</span></td></tr><tr><td>09.261.356/0001-53</td><td>RV INDUSTRIA E COMERCIO LTDA ME</td><td><span class="num">269</span></td></tr><tr><td>27.489.855/0001-84</td><td>SIDERAL INDUSTRIA E COMERCIO LTDA</td><td><span class="num">129</span></td></tr><tr><td>07.057.918/0001-16</td><td>SIDERMETAL METALURGICA LTDA</td><td><span class="num">130</span></td></tr><tr><td>03.080.722/0002-72</td><td>TENAX DO BRASIL LTDA</td><td><span class="num">424</span></td></tr><tr><td>44.490.805/0002-17</td><td>THG COMERCIO E DISTRIBUIÇÃO DE ELETRONICOS E ELETRODOMESTICOS LTDA</td><td><span class="num">261</span></td></tr><tr><td>14.402.098/0001-18</td><td>TOP DISTRIBUIDORA DE COSMETICOS LTDA</td><td><span class="num">284</span></td></tr><tr><td>17.713.959/0004-10</td><td>TRACTORBEL TRATORES E PECAS BELO HORIZONTE LTDA</td><td><span class="num">141</span></td></tr><tr><td>39.717.546/0001-01</td><td>VACCIN EXPRESS DISTRIBUIDORA DE VACINAS E MEDICAMENTOS LTDA</td><td><span class="num">147</span></td></tr></tbody></table></div>
+</section>
+
+<section>
+  <h2>2. Ativos no SCI que aqui estão fora de mensal/ativo<span class="conta">84 empresas</span></h2>
+  <p class="porque">Existem no cadastro, com outra situação:</p>
+  <ul><li><b>68</b> — MENSAL / INATIVO</li><li><b>8</b> — PARALIZADO / INATIVO</li><li><b>3</b> — AVULSO / INATIVO</li><li><b>3</b> — AVULSO / ATIVO</li><li><b>2</b> — PROSPECT / INATIVO</li></ul>
+  <p class="porque" style="margin-top:12px">
+    Os <b>MENSAL / INATIVO</b> são a maioria e o desencontro mais provável: foram inativados aqui e
+    continuam com movimento no SCI. Ou a inativação está errada, ou a baixa lá ficou pendente.
+  </p>
+  <div class="rolagem"><table><thead><tr><th>CNPJ</th><th>Nome no SCI</th><th>Como está aqui</th><th>Ficha</th></tr></thead><tbody><tr><td>43.173.778/0002-96</td><td></td><td><span class="tag">AVULSO / ATIVO</span></td><td><span class="num">#1556</span></td></tr><tr><td>22.201.381/0002-90</td><td>ARBEIT-MATERIAL ELETRICO INDUSTRIAL LTDA</td><td><span class="tag">AVULSO / INATIVO</span></td><td><span class="num">#1146</span></td></tr><tr><td>66.731.804/0001-79</td><td>COC BEBIDAS LTDA</td><td><span class="tag">AVULSO / INATIVO</span></td><td><span class="num">#2415</span></td></tr><tr><td>49.994.344/0001-52</td><td>JR ATACADO DE ACESSORIOS LTDA</td><td><span class="tag">AVULSO / INATIVO</span></td><td><span class="num">#1552</span></td></tr><tr><td>34.232.956/0002-11</td><td>LOGFLOW LTDA</td><td><span class="tag">AVULSO / ATIVO</span></td><td><span class="num">#1591</span></td></tr><tr><td>34.232.956/0003-00</td><td>LOGFLOW LTDA</td><td><span class="tag">AVULSO / ATIVO</span></td><td><span class="num">#1592</span></td></tr><tr><td>35.072.477/0001-67</td><td></td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2012</span></td></tr><tr><td>46.232.011/0001-06</td><td></td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2015</span></td></tr><tr><td>07.717.774/0001-87</td><td>ACITEL TELECOMUNICACOES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2372</span></td></tr><tr><td>29.842.995/0001-10</td><td>ARELL IMPORTACAO E COMERCIO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2333</span></td></tr><tr><td>29.842.995/0002-09</td><td>ARELL IMPORTACAO E COMERCIO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2337</span></td></tr><tr><td>31.332.375/0001-82</td><td>ATENTO GESTAO EM RISCOS E PRODUTIVIDADE LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2100</span></td></tr><tr><td>35.689.522/0001-27</td><td>B2C BRASIL INTERMEDIACOES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2367</span></td></tr><tr><td>41.697.567/0003-08</td><td>BOX 027 VAREJO DIGITAL LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1213</span></td></tr><tr><td>09.382.770/0002-00</td><td>BRASIL TRONIC COMERCIO DE ELETRO ELETRONICOS EIRELI</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2348</span></td></tr><tr><td>55.675.547/0001-89</td><td>BRILUZ.ON COMERCIO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1222</span></td></tr><tr><td>17.502.879/0001-72</td><td>CAF REFEICOES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2013</span></td></tr><tr><td>00.599.750/0001-21</td><td>CHAMA COMERCIO INSTALACOES E SERVICOS LTDA ME</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1267</span></td></tr><tr><td>03.597.050/0004-39</td><td>Centro de Ensino Cachoeirense Darwin Ltda</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1258</span></td></tr><tr><td>41.496.504/0001-21</td><td>DLM SERVICOS LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1366</span></td></tr><tr><td>57.887.103/0001-32</td><td>DRAGON ALVES ENGENHARIA LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1370</span></td></tr><tr><td>46.314.205/0001-42</td><td>EMERSON VICTOR SERVICOS PET LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2133</span></td></tr><tr><td>03.725.445/0002-08</td><td>ENGENHARIA E CONSULTORIA VITORIA EIRELI</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1403</span></td></tr><tr><td>25.041.538/0002-56</td><td>Eletrica Ti Ltda</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2033</span></td></tr><tr><td>39.226.309/0001-30</td><td>FABERLOVE LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2003</span></td></tr><tr><td>43.093.465/0002-28</td><td>FLORESTAL CONSULTORIA LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1431</span></td></tr><tr><td>33.247.450/0007-28</td><td>FULL SERVICE ECOM COMERCIO E LOGISTICA LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1452</span></td></tr><tr><td>08.912.771/0001-67</td><td>GAVEA IMPORTACAO E EXPORTACAO EIRELI</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1461</span></td></tr><tr><td>20.357.765/0001-90</td><td>GLOBALSYS IT SERVICES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1478</span></td></tr><tr><td>09.389.871/0001-13</td><td>GLOBALSYS SOLUCOES EMPRESARIAIS LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1479</span></td></tr><tr><td>55.399.279/0001-10</td><td>GNEXUM PLATFORM LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2073</span></td></tr><tr><td>28.130.334/0001-07</td><td>GRAFICA SAMORINI LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1995</span></td></tr><tr><td>35.691.423/0001-80</td><td>GYP INDUSTRIA DE COSMETICOS LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2001</span></td></tr><tr><td>41.424.561/0002-86</td><td>ILHA DAS FERRAMENTAS COMERCIO VAREJISTA LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1517</span></td></tr><tr><td>08.988.238/0001-89</td><td>INTERPRIME TELECOMUNICACOES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1526</span></td></tr><tr><td>33.310.213/0004-11</td><td>KOTAR INDUSTRIA DE METAIS EIRELI</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1991</span></td></tr><tr><td>27.363.015/0001-70</td><td>LMA COMERCIO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1997</span></td></tr><tr><td>11.095.146/0001-84</td><td>LMS - LAST MILE SERVICES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1589</span></td></tr><tr><td>34.232.956/0001-30</td><td>LOGFLOW LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2025</span></td></tr><tr><td>29.948.844/0001-40</td><td>LORENA GASPARINO EIRELI</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1594</span></td></tr><tr><td>04.935.064/0001-35</td><td>LR INDUSTRIA E COMERCIO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1597</span></td></tr><tr><td>33.902.626/0001-42</td><td>MAXPARTNER OUTSOURCING E SERVICOS EM TECNOLOGIA DA INFORMACAO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2097</span></td></tr><tr><td>39.377.403/0001-90</td><td>MILANEZ &amp; FALQUETO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2107</span></td></tr><tr><td>27.709.140/0004-32</td><td>MNC COMERCIO ELETRONICO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1652</span></td></tr><tr><td>07.793.479/0001-00</td><td>MP INFORMATICA TELECOM EIRELI - ME</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2126</span></td></tr><tr><td>27.094.242/0001-48</td><td>MTZ EMPREENDIMENTOS LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2007</span></td></tr><tr><td>27.185.211/0001-00</td><td>MUSSO &amp; DO VALE LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1664</span></td></tr><tr><td>15.386.439/0001-71</td><td>NUV REDE NEUTRA DE TELECOMUNICACOES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2036</span></td></tr><tr><td>15.386.439/0002-52</td><td>NUV REDE NEUTRA DE TELECOMUNICACOES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1683</span></td></tr><tr><td>36.082.397/0002-36</td><td>NY  RESTAURANTES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1685</span></td></tr><tr><td>36.082.397/0001-55</td><td>NY RESTAURANTES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1684</span></td></tr><tr><td>43.556.334/0001-59</td><td>ON SERVICOS DE INTERNET TELECON LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2027</span></td></tr><tr><td>17.333.994/0001-60</td><td>OPT OPERACOES TELECOM LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2069</span></td></tr><tr><td>07.550.459/0004-50</td><td>ORIONES DISTRIBUIDORA DE MATERIAL DE CONSTRUCAO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1698</span></td></tr><tr><td>05.285.270/0001-00</td><td>OSI PARTICIPACOES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1706</span></td></tr><tr><td>24.127.096/0001-11</td><td>PANIFICADORA MR. BREAD EIRELI</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1996</span></td></tr><tr><td>42.597.144/0001-17</td><td>PLL COMERCIO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1998</span></td></tr><tr><td>34.647.606/0001-35</td><td>PRADO DISTRIBUIDORA DE UTILIDADE DOMESTICA LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2075</span></td></tr><tr><td>59.000.165/0001-06</td><td>PRIMETEK LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2018</span></td></tr><tr><td>59.000.165/0002-97</td><td>PRIMETEK LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1764</span></td></tr><tr><td>59.000.165/0003-78</td><td>PRIMETEK LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1765</span></td></tr><tr><td>09.261.356/0002-34</td><td>RV INDUSTRIA E COMERCIO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2371</span></td></tr><tr><td>54.823.817/0001-99</td><td>SCR LICITACOES COMERCIO E SERVICOS LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2010</span></td></tr><tr><td>68.171.825/0001-02</td><td>SIAM PARTICIPACOES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2495</span></td></tr><tr><td>13.785.672/0001-00</td><td>SIFRA CONSULTORIA E REPRESENTACAO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1847</span></td></tr><tr><td>54.837.674/0001-74</td><td>SVIT MARKETING LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2009</span></td></tr><tr><td>44.490.805/0001-36</td><td>THG COMERCIO E DISTRIBUICAO DE ELETRONICOS E ELETRODOMESTICOS LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2019</span></td></tr><tr><td>57.012.098/0003-86</td><td>TRANSLUTE TRANSPORTES RODOVIARIOS LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2011</span></td></tr><tr><td>36.243.022/0001-20</td><td>V. L. B. SERVICOS MEDICOS LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1928</span></td></tr><tr><td>06.305.291/0001-02</td><td>VIB COMERCIAL IMPORTADORA E EXPORTADORA EIRELI</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1943</span></td></tr><tr><td>06.305.291/0002-93</td><td>VIB COMERCIAL IMPORTADORA E EXPORTADORA EIRELI</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2354</span></td></tr><tr><td>09.104.418/0001-13</td><td>VLA TELECOMUNICAÇÕES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2102</span></td></tr><tr><td>22.542.368/0001-14</td><td>VOE TELECOMUNICAÇÕES LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2063</span></td></tr><tr><td>34.263.516/0001-40</td><td>ZAD COMUNICA LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2077</span></td></tr><tr><td>41.697.567/0001-46</td><td>BOX 027 VAREJO DIGITAL LTDA</td><td><span class="tag">PARALIZADO / INATIVO</span></td><td><span class="num">#1211</span></td></tr><tr><td>41.697.567/0002-27</td><td>BOX 027 VAREJO DIGITAL LTDA</td><td><span class="tag">PARALIZADO / INATIVO</span></td><td><span class="num">#1212</span></td></tr><tr><td>58.458.127/0001-39</td><td>BRIZZ BAR LTDA</td><td><span class="tag">PARALIZADO / INATIVO</span></td><td><span class="num">#1225</span></td></tr><tr><td>49.329.645/0001-61</td><td>BRIZZ VIX LTDA</td><td><span class="tag">PARALIZADO / INATIVO</span></td><td><span class="num">#1226</span></td></tr><tr><td>32.424.350/0001-71</td><td>CENTRAL DE AVIAMENTOS SAO PAULO LTDA</td><td><span class="tag">PARALIZADO / INATIVO</span></td><td><span class="num">#1256</span></td></tr><tr><td>00.183.472/0001-27</td><td>TEBAS EQUIPAMENTOS INDUSTRIAIS E SERVICOS LTDA</td><td><span class="tag">PARALIZADO / INATIVO</span></td><td><span class="num">#1872</span></td></tr><tr><td>00.183.472/0002-08</td><td>TEBAS EQUIPAMENTOS INDUSTRIAIS E SERVICOS LTDA</td><td><span class="tag">PARALIZADO / INATIVO</span></td><td><span class="num">#1873</span></td></tr><tr><td>00.183.472/0003-99</td><td>TEBAS EQUIPAMENTOS INDUSTRIAIS E SERVICOS LTDA</td><td><span class="tag">PARALIZADO / INATIVO</span></td><td><span class="num">#1874</span></td></tr><tr><td>00.000.000/0000-00</td><td>EMPRESA TESTE</td><td><span class="tag">PROSPECT / INATIVO</span></td><td><span class="num">#2414</span></td></tr><tr><td>31.764.947/0001-00</td><td>GL TINTAS LTDA</td><td><span class="tag">PROSPECT / INATIVO</span></td><td><span class="num">#1487</span></td></tr></tbody></table></div>
+</section>
+
+<section>
+  <h2>3. Ativas no Acessórias fora de mensal/ativo<span class="conta">4 empresas</span></h2>
+  <p class="nota">
+    <b>O Acessórias é o lado mais saudável dos três.</b> Nenhuma empresa existe só lá, nenhuma está
+    ausente do cadastro, e nenhum <code>idAcessorias</code> aponta para o ID errado. Só estas quatro
+    destoam — e as quatro estão aqui como MENSAL / INATIVO. Se a inativação está certa, elas
+    deveriam sair de lá também: obrigação entregue para quem não é mais cliente é trabalho que
+    ninguém cobra.
+  </p>
+  <div class="rolagem"><table><thead><tr><th>CNPJ</th><th>Razão no Acessórias</th><th>Como está aqui</th><th>Ficha</th></tr></thead><tbody><tr><td>29.948.844/0001-40</td><td>LORENA GASPARINO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1594</span></td></tr><tr><td>34.647.606/0001-35</td><td>PRADO DISTRIBUIDORA DE UTILIDADE DOMESTICA LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#2075</span></td></tr><tr><td>43.093.465/0002-28</td><td>FLORESTAL CONSULTORIA LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1431</span></td></tr><tr><td>55.675.547/0001-89</td><td>BRILUZ.ON COMERCIO LTDA</td><td><span class="tag">MENSAL / INATIVO</span></td><td><span class="num">#1222</span></td></tr></tbody></table></div>
+</section>
+
+<section>
+  <h2>4. Contabilidade sem controle de obrigação<span class="conta">14 empresas</span></h2>
+  <p class="porque">
+    Ativas no SCI e mensais ativas aqui, sem empresa no Acessórias. Várias são <b>filiais</b> de
+    clientes que já estão lá, o que sugere cadastro feito só para a matriz.
+  </p>
+  <div class="rolagem"><table><thead><tr><th>CNPJ</th><th>Nome no SCI</th><th>Razão social aqui</th><th>Ficha</th></tr></thead><tbody><tr><td>04.550.922/0001-23</td><td>INTERATIVA NUTRICAO CLINICA LTDA</td><td>INTERATIVA NUTRICAO CLINICA LTDA</td><td><span class="num">#2359</span></td></tr><tr><td>04.935.064/0002-16</td><td>LR INDUSTRIA E COMERCIO LTDA</td><td>LR INDUSTRIA E COMERCIO LTDA</td><td><span class="num">#1596</span></td></tr><tr><td>07.944.657/0001-56</td><td>LA VITA COMERCIO VAREJISTA E ATACADISTA DE PRODUTOS ALIMENTICIOS EIRELI</td><td>LA VITA COMERCIO VAREJISTA E ATACADISTA DE PRODUTOS ALIMENTICIOS EIRELI</td><td><span class="num">#2352</span></td></tr><tr><td>10.471.800/0001-44</td><td>GUZZO PARAFUSOS LTDA</td><td>GUZZO PARAFUSOS LTDA</td><td><span class="num">#2362</span></td></tr><tr><td>14.402.098/0002-07</td><td>TOP DISTRIBUIDORA DE COSMETICOS LTDA</td><td>TOP DISTRIBUIDORA DE COSMETICOS LTDA</td><td><span class="num">#2369</span></td></tr><tr><td>14.402.098/0003-80</td><td>TOP DISTRIBUIDORA DE COSMETICOS LTDA</td><td>TOP DISTRIBUIDORA DE COSMETICOS LTDA</td><td><span class="num">#2004</span></td></tr><tr><td>20.861.706/0001-55</td><td>VITORIA DESENVOLVIMENTO EIRELI</td><td>VITORIA DESENVOLVIMENTO EIRELI - ME</td><td><span class="num">#2238</span></td></tr><tr><td>31.558.431/0001-00</td><td>SALUD COMERCIO VAREJISTA DE PRODUTOS ALIMENTICIOS E DESCARTAVEIS LTDA</td><td>SALUD COMERCIO VAREJISTA DE PRODUTOS ALIMENTICIOS E DESCARTAVEIS LTDA</td><td><span class="num">#2361</span></td></tr><tr><td>33.935.882/0003-06</td><td>Renova Industria e Comercio de Condutores Eletricos e Servicos Eireli</td><td>RENOVA INDUSTRIA E COMERCIO DE CONDUTORES ELETRICOS E SERVICOS EIRELI</td><td><span class="num">#1789</span></td></tr><tr><td>34.647.606/0002-16</td><td>Prado Distribuidora de Utilidade Domestica Eireli</td><td>PRADO DISTRIBUIDORA DE UTILIDADE DOMESTICA EIRELI</td><td><span class="num">#1754</span></td></tr><tr><td>35.736.946/0001-03</td><td>INTERVITA COMERCIO VAREJISTA E ATACADISTA LTDA</td><td>INTERVITA COMÉRCIO VAREJISTA E ATACADISTA LTDA</td><td><span class="num">#2363</span></td></tr><tr><td>39.338.934/0001-73</td><td>PAES ERLACHER ENGENHARIA LTDA</td><td>PAES ERLACHER ENGENHARIA LTDA</td><td><span class="num">#2202</span></td></tr><tr><td>43.173.778/0003-77</td><td>Kal Eletromoveis Sociedade Unipessoal Ltda</td><td>KAL ELETROMOVEIS SOCIEDADE UNIPESSOAL LTDA</td><td><span class="num">#2366</span></td></tr><tr><td>44.977.716/0001-19</td><td>MFT COMERCIO DE ALIMENTOS LTDA</td><td>MFT COMERCIO DE ALIMENTOS LTDA</td><td><span class="num">#2336</span></td></tr></tbody></table></div>
+</section>
+
+<section>
+  <h2>5. Obrigação sem contabilidade<span class="conta">8 empresas</span></h2>
+  <p class="porque">
+    Ativas no Acessórias e aqui, sem escrituração no SCI. Não é defeito por si: é o perfil de quem a
+    casa atende no fiscal ou no trabalhista. Vale como conferência.
+  </p>
+  <div class="rolagem"><table><thead><tr><th>CNPJ</th><th>Razão no Acessórias</th><th>Razão social aqui</th><th>Ficha</th></tr></thead><tbody><tr><td>00.677.870/0005-23</td><td>DRIVE A INFORMATICA LTDA</td><td>DRIVE A INFORMATICA LTDA</td><td><span class="num">#1371</span></td></tr><tr><td>03.597.050/0001-96</td><td>CENTRO DE ENSINO DARWIN LTDA</td><td>CENTRO DE ENSINO DARWIN LTDA</td><td><span class="num">#1259</span></td></tr><tr><td>10.755.792/0003-20</td><td>RHEEM DO BRASIL COMERCIO E DISTRIBUICAO DE AR CONDICIONADO E AQUECIMENTO LTDA</td><td>RHEEM DO BRASIL COMERCIO E DISTRIBUICAO DE AR CONDICIONADO E AQUECIMENTO LTDA</td><td><span class="num">#1797</span></td></tr><tr><td>16.632.622/0002-53</td><td>BELL TEC TELECOMUNICACOES LTDA</td><td>BELL TEC TELECOMUNICACOES LTDA</td><td><span class="num">#1191</span></td></tr><tr><td>45.842.622/0184-95</td><td>HARDBALL LTDA EM RECUPERACAO JUDICIAL</td><td>HARDBALL LTDA EM RECUPERACAO JUDICIAL</td><td><span class="num">#1497</span></td></tr><tr><td>45.842.622/0190-33</td><td>HARDBALL LTDA</td><td>HARDBALL LTDA</td><td><span class="num">#1495</span></td></tr><tr><td>45.842.622/0191-14</td><td>HARDBALL LTDA</td><td>HARDBALL LTDA</td><td><span class="num">#1496</span></td></tr><tr><td>52.134.798/0013-00</td><td>INTEC INTEGRACAO NACIONAL DE TRANSPORTES DE ENCOMENDAS E CARGAS LTDA</td><td>INTEC INTEGRACAO NACIONAL DE TRANSPORTES DE ENCOMENDAS E CARGAS LTDA</td><td><span class="num">#1523</span></td></tr></tbody></table></div>
+</section>
+
+<section>
+  <h2>6. Defeitos do próprio cadastro</h2>
+  <p class="porque">
+    <b>Documento inválido</b> — tamanho fora de 11 (CPF) ou 14 (CNPJ). Cliente sem documento válido
+    não cruza com nada: nem SCI, nem Acessórias, nem Receita.
+  </p>
+  <div class="rolagem"><table><thead><tr><th>Documento gravado</th><th>Tamanho</th><th>Razão social</th><th>Ficha</th></tr></thead><tbody><tr><td><code>0441684900109</code></td><td><span class="num">13</span></td><td>ID DO BRASIL LOGISTICA LTDA</td><td><span class="num">#2322</span></td></tr><tr><td><code>343456435656</code></td><td><span class="num">12</span></td><td>my client</td><td><span class="num">#2380</span></td></tr></tbody></table></div>
+  <p class="porque" style="margin-top:18px">
+    <b>idSistema apontando para outro código do SCI</b> — o campo guarda o <code>BDCODEMP</code> e é o
+    que liga o balancete ao cliente. Sobraram só estes dois, e os dois apontam para o código
+    <b>vizinho</b>: 13 onde o CNPJ diz 14, 238 onde diz 239. Diferença de uma unidade é digitação ou
+    matriz/filial trocada — nos dois casos alguém precisa abrir o SCI e confirmar qual é a empresa
+    certa antes de mexer. Ficaram intactos de propósito.
+  </p>
+  <div class="rolagem"><table><thead><tr><th>Razão social</th><th>idSistema gravado</th><th>Código real no SCI</th><th>Ficha</th></tr></thead><tbody><tr><td>BELA VISTA INDUSTRIA E COMERCIO DE PRE-MOLDADOS LTDA</td><td><code class="erro">13</code></td><td><code class="ok">14</code></td><td><span class="num">#1188</span></td></tr><tr><td>AJ PORT CONSULTORIA LTDA</td><td><code class="erro">238</code></td><td><code class="ok">239</code></td><td><span class="num">#1120</span></td></tr></tbody></table></div>
+</section>
+
+<section>
+  <h2>Os vínculos, em números</h2>
+  <p class="nota">
+    <b>Preenchido em 31/08/2026.</b> O <code>idSistema</code> estava gravado em apenas 39 dos
+    466 mensais ativos, apesar de 211
+    estarem de fato no SCI. Foram escritas 173 linhas — 163 em branco e 10 gravadas como
+    <code>0</code> — a partir deste mesmo cruzamento, cada uma conferida pelo CNPJ. Agora são
+    <b>212 de 466</b>.
+  </p>
+  <p class="porque">
+    Os <b>254</b> que seguem sem <code>idSistema</code> são os que
+    <b>não estão no SCI</b> — não há código para gravar. São o mesmo grupo dos "só no OneClick":
+    quem a casa atende sem escrituração contábil.
+  </p>
+  <p class="porque">
+    Do lado do Acessórias, <b>205 de 466</b> têm
+    <code>idAcessorias</code> gravado — os 205 possíveis, agora completos. Faltavam três, também
+    preenchidos em 31/08, e <b>nenhum</b> estava errado: aquele lado nunca precisou de conserto,
+    só de terminar.
+  </p>
+  <p class="porque">
+    E <b>261</b> mensais ativos não têm empresa nenhuma no Acessórias,
+    nem inativa. Se boa parte da carteira realmente não tem obrigação controlada por lá, o número é
+    normal; se tem, é fila de cadastro. Essa resposta está com quem opera o Acessórias.
+  </p>
+</section>
+
+<section>
+  <h2>Ressalvas de método</h2>
+  <p class="porque">
+    <b>20</b> das empresas ativas no SCI não têm CNPJ de 14 posições e
+    ficaram fora do cruzamento. Conferi uma a uma: são produtores rurais com CPF e obras com CNO/CEI
+    — cadastro legítimo, não defeito. Não há como cruzá-las por CNPJ.
+  </p>
+  <p class="porque">
+    &ldquo;Ativo no SCI&rdquo; = <code>BDDATAFIMATIVEMP</code> nulo, que é o critério do próprio SCI
+    para separar empresa viva de encerrada. &ldquo;Ativa no Acessórias&rdquo; = campo
+    <code>Status</code> igual a &ldquo;Ativa&rdquo;.
+  </p>
+</section>
+
+<footer>Gerado em 31/08/2026 · leitura do Firebird do SCI, da API do Acessórias e do Postgres de produção</footer>
+</div></body></html>

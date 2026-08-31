@@ -47,7 +47,7 @@ export function UserMenu({ name, email, role, image, isMaster }: UserMenuProps) 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="ml-1 flex items-center gap-2 rounded-lg p-1 pr-2 hover:bg-muted transition-colors outline-none">
+        <button className="flex items-center gap-2 rounded-lg p-1 pr-2 hover:bg-muted transition-colors outline-none">
           <div className="relative">
             <Avatar className="h-8 w-8">
               {image && <AvatarImage src={resolveAssetUrl(image)} alt={name} />}
