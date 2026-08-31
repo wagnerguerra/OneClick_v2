@@ -75,7 +75,6 @@ export default function ControleFeriasDetalhePage() {
   const [fAnoFim, setFAnoFim] = useState('')
   const [fDescricao, setFDescricao] = useState('')
   const [fDias, setFDias] = useState('30')
-  const [fSaldoAnt, setFSaldoAnt] = useState('0')
   const [fPag1, setFPag1] = useState('')
   const [fPag2, setFPag2] = useState('')
   const [fPag3, setFPag3] = useState('')
@@ -128,7 +127,7 @@ export default function ControleFeriasDetalhePage() {
         setP(per)
         setFAnoIni(String(per.periodoInicial)); setFAnoFim(String(per.periodoFinal))
         setFDescricao(per.descricao ?? '')
-        setFDias(String(per.dias)); setFSaldoAnt(String(per.saldoAnterior))
+        setFDias(String(per.dias))
         setFPag1(isoDe(per.pagamento1)); setFPag2(isoDe(per.pagamento2)); setFPag3(isoDe(per.pagamento3))
       })
       .catch(() => setP(null))
@@ -145,7 +144,6 @@ export default function ControleFeriasDetalhePage() {
         periodoFinal: Number(fAnoFim),
         descricao: fDescricao || null,
         dias: Number(fDias) || 0,
-        saldoAnterior: Number(fSaldoAnt) || 0,
         pagamento1: fPag1 || null,
         pagamento2: fPag2 || null,
         pagamento3: fPag3 || null,
@@ -564,12 +562,14 @@ export default function ControleFeriasDetalhePage() {
                 <Label className="text-[13px] font-semibold">Descrição</Label>
                 <Input value={fDescricao} onChange={(e) => setFDescricao(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" maxLength={200} />
               </div>
-              {/* O número que interessa aqui é o saldo DESTE período — é o que o
-                  cabeçalho e o card de gozos mostram, e é ele que se arrasta para o
-                  período seguinte. O saldo anterior continua existindo (é metade da
-                  conta dos {p.dias + p.saldoAnterior} dias), mas como parcela da
-                  composição, não como o campo em evidência: quem batia o olho aqui
-                  lia 27 e entendia "sobraram 27". */}
+              {/* O número que interessa aqui é o saldo DESTE período — o mesmo do
+                  cabeçalho e do card de gozos, e o que se arrasta para o período
+                  seguinte. Antes o campo em evidência era o saldo anterior, e quem
+                  batia o olho lia 27 onde o período tinha 50.
+
+                  O saldo anterior continua gravado e ainda compõe os dias do
+                  período, mas saiu da tela: é definido na criação (que já sugere o
+                  saldo do período que está terminando) e não se edita mais aqui. */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-[13px] font-semibold">Dias</Label>
@@ -590,16 +590,6 @@ export default function ControleFeriasDetalhePage() {
                 </div>
               </div>
 
-              {/* O saldo anterior fica, mesmo sem estar em evidência: é a única
-                  parcela do período que não é derivada, e depois da criação este é
-                  o único lugar do sistema que a corrige. */}
-              <div>
-                <Label className="text-[13px] font-semibold">Saldo anterior</Label>
-                <Input
-                  type="number" value={fSaldoAnt} onChange={(e) => setFSaldoAnt(e.target.value)}
-                  disabled={!podeEscrever} className="h-9 text-sm mt-1.5"
-                />
-              </div>
               {/* Até três pagamentos, como o v1 — gozo fracionado paga fracionado. */}
               <div>
                 <Label className="text-[13px] font-semibold">Pagamentos</Label>
