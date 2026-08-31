@@ -303,9 +303,68 @@ export default function ControleFeriasDetalhePage() {
 
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
-          {/* ── Gozos ── */}
+          {/* ── Este período: os dados em cima, os gozos embaixo ──
+              São a mesma coisa vista de dois ângulos: o que o período vale e
+              o que já foi tirado dele. Em cartões separados, a conta do saldo
+              ficava partida ao meio. */}
           <Card className="p-5">
-            <div className="flex items-center gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
+            <div className="mb-3 flex items-center gap-2">
+              <Info className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <h4 className="text-[13px] font-semibold text-foreground">Dados deste período</h4>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <Label className="text-[13px] font-semibold">Período aquisitivo</Label>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <Input
+                    type="number" value={fAnoIni} onChange={(e) => setFAnoIni(e.target.value)}
+                    disabled={!podeEscrever} className="h-9 text-sm" min="2000" max="2100"
+                    aria-label="Ano inicial do período aquisitivo"
+                  />
+                  <span className="text-sm text-muted-foreground">a</span>
+                  <Input
+                    type="number" value={fAnoFim} onChange={(e) => setFAnoFim(e.target.value)}
+                    disabled={!podeEscrever} className="h-9 text-sm" min="2000" max="2100"
+                    aria-label="Ano final do período aquisitivo"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-[13px] font-semibold">Descrição</Label>
+                <Input value={fDescricao} onChange={(e) => setFDescricao(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" maxLength={200} />
+              </div>
+              <div>
+                <Label className="text-[13px] font-semibold">Dias</Label>
+                <Input type="number" value={fDias} onChange={(e) => setFDias(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" min="0" max="60" />
+              </div>
+            </div>
+
+            {/* Até três pagamentos, como o v1 — gozo fracionado paga fracionado. */}
+            <div className="mt-3">
+              <Label className="text-[13px] font-semibold">Pagamentos</Label>
+              <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <Input type="date" value={fPag1} onChange={(e) => setFPag1(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm" />
+                <Input type="date" value={fPag2} onChange={(e) => setFPag2(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm" />
+                <Input type="date" value={fPag3} onChange={(e) => setFPag3(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm" />
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">Qualquer data preenchida marca o período como pago.</p>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              {p.legacyId != null
+                ? <p className="text-[11px] text-muted-foreground">Nº {p.legacyId} no sistema antigo</p>
+                : <span />}
+              {podeEscrever && (
+                <Button variant="success" size="sm" onClick={salvarDados} disabled={salvando}>
+                  {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar
+                </Button>
+              )}
+            </div>
+
+            {/* O cabeçalho dos gozos já traz a régua full-width (-mx-5) que separa
+                as duas metades do card; uma divisória em cima dela seria a mesma
+                linha duas vezes. */}
+            <div className="flex items-center gap-2 mt-7 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
               <CalendarDays className="h-4 w-4" style={{ color: MODULE_COLOR }} />
               <h4 className="text-[13px] font-semibold text-foreground">Gozos do período</h4>
             </div>
@@ -361,107 +420,6 @@ export default function ControleFeriasDetalhePage() {
               <span className={cn('font-bold tabular-nums text-sm', corSaldoTexto(p.saldo))}>
                 {p.saldo} {Math.abs(p.saldo) === 1 ? 'dia' : 'dias'}
               </span>
-            </div>
-          </Card>
-
-          {/* ── Recibos / avisos ── */}
-          <Card className="p-5">
-            <div className="flex items-center justify-between gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Paperclip className="h-4 w-4" style={{ color: MODULE_COLOR }} />
-                <h4 className="text-[13px] font-semibold text-foreground">Recibos e avisos</h4>
-              </div>
-              {podeEscrever && (
-                <>
-                  <Button variant="outline" size="xs" onClick={() => fileRef.current?.click()} disabled={enviandoArq}>
-                    {enviandoArq ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}Anexar
-                  </Button>
-                  <input ref={fileRef} type="file" className="hidden"
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) enviarArquivo(f); e.target.value = '' }} />
-                </>
-              )}
-            </div>
-            {p.arquivos.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">Nenhum arquivo anexado.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {p.arquivos.map((a) => (
-                  <div key={a.id} className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-2.5 py-1.5">
-                    <a href={`${getApiUrl()}${a.path}`} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-xs hover:underline truncate flex-1">
-                      <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="truncate">{a.nome}</span>
-                    </a>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{dataBR(a.criadoEm)}</span>
-                    {podeExcluir && (
-                      <Button variant="soft-destructive" size="icon-sm" onClick={() => excluirArquivo(a)} title="Excluir">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          {/* ── Dados deste período ──
-              Estava na barra lateral, que agora é do período seguinte. Continua
-              existindo porque a listagem edita descrição, dias, previsão e a 1ª
-              data de pagamento na própria linha — mas não os anos do período nem
-              o 2º e o 3º pagamento, e o v1 paga fracionado quando o gozo é
-              fracionado. Sumir com o card levaria esses campos junto. */}
-          <Card className="p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <Info className="h-4 w-4" style={{ color: MODULE_COLOR }} />
-              <h4 className="text-[13px] font-semibold text-foreground">Dados deste período</h4>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div>
-                <Label className="text-[13px] font-semibold">Período aquisitivo</Label>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <Input
-                    type="number" value={fAnoIni} onChange={(e) => setFAnoIni(e.target.value)}
-                    disabled={!podeEscrever} className="h-9 text-sm" min="2000" max="2100"
-                    aria-label="Ano inicial do período aquisitivo"
-                  />
-                  <span className="text-sm text-muted-foreground">a</span>
-                  <Input
-                    type="number" value={fAnoFim} onChange={(e) => setFAnoFim(e.target.value)}
-                    disabled={!podeEscrever} className="h-9 text-sm" min="2000" max="2100"
-                    aria-label="Ano final do período aquisitivo"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label className="text-[13px] font-semibold">Descrição</Label>
-                <Input value={fDescricao} onChange={(e) => setFDescricao(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" maxLength={200} />
-              </div>
-              <div>
-                <Label className="text-[13px] font-semibold">Dias</Label>
-                <Input type="number" value={fDias} onChange={(e) => setFDias(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm mt-1.5" min="0" max="60" />
-              </div>
-            </div>
-
-            {/* Até três pagamentos, como o v1 — gozo fracionado paga fracionado. */}
-            <div className="mt-3">
-              <Label className="text-[13px] font-semibold">Pagamentos</Label>
-              <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <Input type="date" value={fPag1} onChange={(e) => setFPag1(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm" />
-                <Input type="date" value={fPag2} onChange={(e) => setFPag2(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm" />
-                <Input type="date" value={fPag3} onChange={(e) => setFPag3(e.target.value)} disabled={!podeEscrever} className="h-9 text-sm" />
-              </div>
-              <p className="mt-1 text-[11px] text-muted-foreground">Qualquer data preenchida marca o período como pago.</p>
-            </div>
-
-            <div className="mt-3 flex items-center justify-between gap-3">
-              {p.legacyId != null
-                ? <p className="text-[11px] text-muted-foreground">Nº {p.legacyId} no sistema antigo</p>
-                : <span />}
-              {podeEscrever && (
-                <Button variant="success" size="sm" onClick={salvarDados} disabled={salvando}>
-                  {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar
-                </Button>
-              )}
             </div>
           </Card>
 
@@ -687,6 +645,46 @@ export default function ControleFeriasDetalhePage() {
                     )}
                   </>
                 )}
+              </div>
+            )}
+          </Card>
+
+          {/* ── Recibos / avisos ── */}
+          <Card className="p-5">
+            <div className="flex items-center justify-between gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Paperclip className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <h4 className="text-[13px] font-semibold text-foreground">Recibos e avisos</h4>
+              </div>
+              {podeEscrever && (
+                <>
+                  <Button variant="outline" size="xs" onClick={() => fileRef.current?.click()} disabled={enviandoArq}>
+                    {enviandoArq ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}Anexar
+                  </Button>
+                  <input ref={fileRef} type="file" className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) enviarArquivo(f); e.target.value = '' }} />
+                </>
+              )}
+            </div>
+            {p.arquivos.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Nenhum arquivo anexado.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {p.arquivos.map((a) => (
+                  <div key={a.id} className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-2.5 py-1.5">
+                    <a href={`${getApiUrl()}${a.path}`} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-xs hover:underline truncate flex-1">
+                      <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate">{a.nome}</span>
+                    </a>
+                    <span className="text-[10px] text-muted-foreground shrink-0">{dataBR(a.criadoEm)}</span>
+                    {podeExcluir && (
+                      <Button variant="soft-destructive" size="icon-sm" onClick={() => excluirArquivo(a)} title="Excluir">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </Card>
