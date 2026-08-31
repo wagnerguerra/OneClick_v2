@@ -25,6 +25,7 @@ import { usePresencePing } from '@/hooks/use-presence-ping'
 import { useModuleScope } from '@/hooks/use-module-scope'
 import { useAgendaLembreteSse } from '@/hooks/use-agenda-lembrete-sse'
 import { cn } from '@saas/ui'
+import { RegistradorDeRecentes } from '@/components/dashboard/busca-global'
 
 // Componente interno que usa os hooks (precisa estar dentro do TabsProvider)
 function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMobile, closeMobile, trialDaysRemaining }: {
@@ -63,6 +64,8 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
         )}
       >
         <Header onOpenMobile={openMobile} />
+        {/* Sem render — só anota a página atual para os Recentes da busca. */}
+        <RegistradorDeRecentes />
         {/* lg:mr-11 reserva a faixa do rail de tarefas (direita) */}
         <div className="lg:mr-11">
           {trialDaysRemaining != null && <TrialBanner daysRemaining={trialDaysRemaining} />}

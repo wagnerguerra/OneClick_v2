@@ -22,7 +22,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { Search, CornerDownLeft, Clock, FileText, Handshake, Loader2 } from 'lucide-react'
 import { cn } from '@saas/ui'
 import { useNavegacaoPermitida } from '@/hooks/use-navegacao-permitida'
@@ -61,6 +61,41 @@ export function registrarRecente(titulo: string, href: string) {
     const atual = lerRecentes().filter(r => r.href !== href)
     localStorage.setItem(CHAVE_RECENTES, JSON.stringify([{ titulo, href }, ...atual].slice(0, MAX_RECENTES)))
   } catch { /* idem */ }
+}
+
+/**
+ * Grava a página em que o usuário está, para alimentar os "Recentes".
+ *
+ * Escuta a NAVEGAÇÃO, e não só o que se abre pela paleta. É a diferença entre
+ * uma lista que nasce vazia — e continua vazia para quem nunca usou a paleta —
+ * e uma que já está útil na primeira vez que se aperta Ctrl+K.
+ *
+ * O título vem da navegação, não do `document.title`: em página de detalhe o
+ * título do documento é o registro aberto ("Orçamento: #4489"), e o que serve
+ * de atalho é a tela ("Orçamentos").
+ */
+export function RegistradorDeRecentes() {
+  const pathname = usePathname()
+  const { grupos } = useNavegacaoPermitida()
+
+  useEffect(() => {
+    if (!pathname || pathname === '/dashboard') return
+    let titulo = ''
+    let melhor = 0
+    for (const g of grupos) {
+      for (const item of [...g.items, ...g.items.flatMap(i => i.subItems ?? [])]) {
+        // O href mais LONGO que casa vence: /crm/funil é mais específico que
+        // /crm, e é ele que a pessoa quer de volta.
+        if ((pathname === item.href || pathname.startsWith(item.href + '/')) && item.href.length > melhor) {
+          melhor = item.href.length
+          titulo = item.label
+        }
+      }
+    }
+    if (titulo) registrarRecente(titulo, pathname)
+  }, [pathname, grupos])
+
+  return null
 }
 
 export function BuscaGlobal() {
@@ -151,7 +186,7 @@ export function BuscaGlobal() {
     const alvo = normalizar(termo)
     if (!alvo) {
       return recentes.map(r => ({
-        chave: `recente-${r.href}`, titulo: r.titulo, detalhe: r.href,
+        chave: `recente-${r.href}`, titulo: r.titulo,
         href: r.href, grupo: 'Recentes' as const, icone: Clock,
       }))
     }
@@ -208,18 +243,18 @@ export function BuscaGlobal() {
           onClick={() => setAberto(false)}
         >
           <div
-            className="w-full max-w-[640px] overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
+            className="w-full max-w-[672px] overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
             onClick={e => e.stopPropagation()}
             onKeyDown={aoTeclarNaLista}
           >
-            <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <div className="flex items-center gap-3 border-b border-border px-5 py-4">
               <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
               <input
                 ref={campoRef}
                 value={termo}
                 onChange={e => setTermo(e.target.value)}
                 placeholder="Digite o nome de uma tela ou de um cliente…"
-                className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                className="campo-nu min-w-0 flex-1 text-foreground placeholder:text-muted-foreground"
               />
               {buscandoClientes && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
               <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
@@ -232,7 +267,7 @@ export function BuscaGlobal() {
                 <p className="px-3 py-8 text-center text-sm text-muted-foreground">
                   {termo.trim()
                     ? `Nada encontrado para “${termo.trim()}”.`
-                    : 'Comece a digitar — ou use ↑↓ para andar pelas páginas recentes.'}
+                    : 'Digite o nome de uma tela ou de um cliente. As páginas que você abrir aparecem aqui como atalho.'}
                 </p>
               )}
 
@@ -257,8 +292,11 @@ export function BuscaGlobal() {
                         i === selecionado ? 'bg-muted' : 'hover:bg-muted/60',
                       )}
                     >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/70">
-                        <Icone className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className={cn(
+                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
+                        i === selecionado ? 'bg-primary/10 text-primary' : 'bg-muted/70 text-muted-foreground',
+                      )}>
+                        <Icone className="h-4 w-4" />
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-foreground">{a.titulo}</span>
@@ -266,6 +304,9 @@ export function BuscaGlobal() {
                           <span className="block truncate text-[11px] text-muted-foreground">{a.detalhe}</span>
                         )}
                       </span>
+                      {/* O destino à direita, como no modelo: diz para ONDE o
+                          item leva sem precisar clicar para descobrir. */}
+                      <span className="hidden shrink-0 text-[11px] text-muted-foreground sm:block">{a.href}</span>
                       {i === selecionado && <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                     </button>
                   </div>
