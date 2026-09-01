@@ -233,6 +233,14 @@ model User {
   // Contrato / RH
   tipoContrato  TipoContrato @default(CLT) @map("tipo_contrato")
   dataAdmissao  DateTime?    @map("data_admissao")
+  /**
+   * Matrícula do colaborador na folha de pagamento (o "Código" da tela do
+   * sistema de folha). Existe para a próxima conferência com a folha casar por
+   * chave e não por nome: o cadastro guarda o nome curto ("Andrea Salles") e a
+   * folha o completo ("ANDREIA PEREIRA SALLES"), e essa distância já produziu
+   * casamento errado — inclusive com um homônimo inativo do mesmo colaborador.
+   */
+  matriculaFolha String?     @map("matricula_folha")
   dataDemissao  DateTime?    @map("data_demissao")
   cargaHoraria  Int?         @default(44) @map("carga_horaria")
   idOneClick    String?      @map("id_oneclick")
@@ -1083,22 +1091,62 @@ model ClienteCnae {
   @@map("cliente_cnaes")
 }
 
+/// Protocolo de documentos entregues pelo cliente — port do `cad_cli_pro` do v1
+/// (aba "Protocolos" da ficha).
+///
+/// É um COMPROVANTE, não uma tarefa: lista o que o cliente entregou, quem
+/// registrou e se já foi recebido, e é impresso e assinado. Por isso não virou
+/// `Coleta` (o pedido logístico, com rota e triagem): são coisas vizinhas com
+/// ciclos de vida diferentes, e juntá-las enterraria a fila da coleta sob
+/// centenas de comprovantes encerrados.
+///
+/// O modelo anterior com este nome descrevia outra coisa — protocolo de
+/// processo em órgão público (`orgao`, `dataRetorno`, `resultado`). Nasceu de um
+/// esqueleto inicial, nunca foi referenciado em código nem recebeu uma linha em
+/// produção; o nome e a tabela foram reaproveitados.
+///
+/// O v1 tinha oito colunas de data para um fluxo (liberado arquivo, transferido,
+/// devolvido cliente…) que nunca foi usado — as 943 linhas estão todas em
+/// `0000-00-00`. Não vieram: na prática o protocolo é recebido ou não.
 model ClienteProtocolo {
-  id          String    @id @default(cuid())
-  clienteId   String    @map("cliente_id")
-  orgao       String?
-  tipo        String?
-  protocolo   String?
-  descricao   String?   @db.Text
-  status      String    @default("pendente")
-  resultado   String?   @db.Text
-  dataRetorno DateTime? @map("data_retorno")
-  usuarioId   String?   @map("usuario_id")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  legacyId  Int?    @map("legacy_id")
+
+  clienteId String @map("cliente_id")
+
+  /// Nº do protocolo NA FICHA DO CLIENTE (o `ref` do v1): 1, 2, 3… por cliente,
+  /// e não uma sequência global. É o número impresso no comprovante que o
+  /// cliente assina, então é dele que se fala ao telefone.
+  numero Int
+
+  /// Data do protocolo. No v1 só existia como texto em português
+  /// ("Terça-Feira, 1 de Setembro de 2026"); a migração converte.
+  data DateTime @db.Date
+
+  /// Quem registrou. `usuarioNome` guarda o resíduo do v1 quando a pessoa não
+  /// existe mais no cadastro.
+  usuarioId   String? @map("usuario_id")
+  usuarioNome String? @map("usuario_nome")
+
+  /// Lista dos documentos entregues, em HTML (RichEditor).
+  documentos String? @db.Text
+
+  recebido   Boolean   @default(false)
+  recebidoEm DateTime? @map("recebido_em")
+
+  /// Soft-delete, como o `ativo` do v1.
+  ativo Boolean @default(true)
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([clienteId])
+  @@unique([clienteId, numero])
+  @@index([empresaId, ativo])
+  @@index([clienteId, data])
+  @@index([legacyId])
   @@map("cliente_protocolos")
 }
 

@@ -25,6 +25,7 @@ import {
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
   RichEditor, Checkbox, Switch, Textarea,
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
@@ -107,87 +108,51 @@ function formatSlaMin(min: number | null | undefined): string {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Decomposição rica + previsão de conclusão em dias úteis.
-// Jornada padrão: 8h/dia (480 min), 5 dias/semana (2400 min).
+// Decomposição do SLA e previsão de conclusão.
+//
+// Aqui se contava em JORNADA ÚTIL: 8h por dia, 5 dias por semana. Um SLA de
+// 121h (1 + 48 + 48 + 24) virava "3 sem 1h", porque 121 ÷ 40 dá 3 e sobra 1 —
+// e ninguém que digitou "48h" no passo lê isso como seis dias de expediente.
+//
+// Pior que a estranheza: o motor não conta assim. `createExecucao` grava
+// `prazoLimite = iniciadoEm + slaHoras`, em horas CORRIDAS, e é esse prazo que
+// o cron horário usa para marcar atraso. A tela prometia 22/09 enquanto a
+// execução seria cobrada no dia 6. Contar em jornada útil aqui era descrever um
+// sistema que não existe.
 // ─────────────────────────────────────────────────────────────
-const MIN_POR_HORA    = 60
-const MIN_POR_DIA     = 8 * 60         // 480
-const MIN_POR_SEMANA  = 5 * MIN_POR_DIA // 2400
-const HORA_INICIO_DIA = 9              // 09:00
-const HORA_FIM_DIA    = 17             // 17:00 (8h corridas; intervalo de almoço fora da conta)
+const MIN_POR_HORA = 60
+const MIN_POR_DIA  = 24 * MIN_POR_HORA
 
-/** Decompõe minutos totais em { semanas, dias, horas, minutos } usando jornada útil. */
-function decomporSlaRich(min: number): { semanas: number; dias: number; horas: number; minutos: number } {
+/** Decompõe minutos em { dias, horas, minutos } — dias de 24h, como o prazo. */
+function decomporSlaRich(min: number): { dias: number; horas: number; minutos: number } {
   let resto = Math.max(0, Math.round(min))
-  const semanas = Math.floor(resto / MIN_POR_SEMANA);  resto -= semanas * MIN_POR_SEMANA
-  const dias    = Math.floor(resto / MIN_POR_DIA);     resto -= dias    * MIN_POR_DIA
-  const horas   = Math.floor(resto / MIN_POR_HORA);    resto -= horas   * MIN_POR_HORA
-  const minutos = resto
-  return { semanas, dias, horas, minutos }
+  const dias    = Math.floor(resto / MIN_POR_DIA);  resto -= dias  * MIN_POR_DIA
+  const horas   = Math.floor(resto / MIN_POR_HORA); resto -= horas * MIN_POR_HORA
+  return { dias, horas, minutos: resto }
 }
 
-/** Formata bonito: "1 sem 2d 3h 15m". Omite zeros do início. */
+/** Formata "5d 1h" / "2h 30m". Omite as unidades zeradas. */
 function formatSlaRich(min: number | null | undefined): string {
   if (min == null || min <= 0) return '0m'
-  const { semanas, dias, horas, minutos } = decomporSlaRich(min)
+  const { dias, horas, minutos } = decomporSlaRich(min)
   const parts: string[] = []
-  if (semanas > 0) parts.push(`${semanas} sem`)
   if (dias > 0)    parts.push(`${dias}d`)
   if (horas > 0)   parts.push(`${horas}h`)
   if (minutos > 0) parts.push(`${minutos}m`)
   return parts.join(' ') || '0m'
 }
 
-/** Calcula a data/hora de conclusão prevista a partir de `inicio`, somando `slaMin`
- *  e respeitando jornada de 8h em dias úteis (seg-sex). Pula sábado e domingo;
- *  feriados não são considerados (não temos calendário). */
+/**
+ * Data/hora prevista de conclusão: início + SLA, corrido.
+ *
+ * A versão anterior projetava por expediente (9h–17h, pulando fim de semana).
+ * Era uma previsão mais humana, mas de outro sistema: o prazo que o backend
+ * grava e cobra é corrido. Prever numa régua e cobrar noutra faz a tela mentir
+ * — e mentir para mais, prometendo folga que a execução não tem.
+ */
 function calcularPrevisaoConclusao(slaMin: number, inicio: Date = new Date()): Date {
   if (slaMin <= 0) return new Date(inicio)
-  let cursor = new Date(inicio)
-
-  // Helper: avança para o próximo início de expediente útil
-  const proximoExpediente = (d: Date): Date => {
-    const r = new Date(d)
-    const hr = r.getHours()
-    const dia = r.getDay()
-    // Sáb (6) ou Dom (0) → segue até segunda 9h
-    if (dia === 0)        { r.setDate(r.getDate() + 1); r.setHours(HORA_INICIO_DIA, 0, 0, 0); return r }
-    if (dia === 6)        { r.setDate(r.getDate() + 2); r.setHours(HORA_INICIO_DIA, 0, 0, 0); return r }
-    // Dia útil mas fora do horário
-    if (hr < HORA_INICIO_DIA)      { r.setHours(HORA_INICIO_DIA, 0, 0, 0); return r }
-    if (hr >= HORA_FIM_DIA)        {
-      r.setDate(r.getDate() + 1)
-      r.setHours(HORA_INICIO_DIA, 0, 0, 0)
-      return proximoExpediente(r)
-    }
-    return r
-  }
-
-  cursor = proximoExpediente(cursor)
-  let restanteMin = slaMin
-
-  while (restanteMin > 0) {
-    // Calcula quanto tempo sobra no expediente atual
-    const fimExpediente = new Date(cursor)
-    fimExpediente.setHours(HORA_FIM_DIA, 0, 0, 0)
-    const sobraExpedienteMs = fimExpediente.getTime() - cursor.getTime()
-    const sobraExpedienteMin = Math.floor(sobraExpedienteMs / 60000)
-
-    if (restanteMin <= sobraExpedienteMin) {
-      // Cabe no dia atual — termina aqui
-      cursor = new Date(cursor.getTime() + restanteMin * 60000)
-      restanteMin = 0
-    } else {
-      // Consome o que sobra e pula pro próximo expediente útil
-      restanteMin -= sobraExpedienteMin
-      const proxDia = new Date(cursor)
-      proxDia.setDate(proxDia.getDate() + 1)
-      proxDia.setHours(HORA_INICIO_DIA, 0, 0, 0)
-      cursor = proximoExpediente(proxDia)
-    }
-  }
-
-  return cursor
+  return new Date(inicio.getTime() + slaMin * 60000)
 }
 
 interface Etapa {
@@ -1196,22 +1161,50 @@ export default function ServicoDetailPage() {
                 </div>
 
                 {/* Números do serviço, à direita — o SLA e a previsão que dele decorre */}
+                {/* Tooltip do Radix, não o `title` nativo: a capa tem
+                    `overflow-hidden`, e o texto aqui precisa de mais de uma
+                    linha para dizer em que régua a conta é feita. */}
+                <TooltipProvider delayDuration={200}>
                 <div className="flex items-end gap-6 sm:gap-8">
-                  <div className="text-center">
-                    <p className="text-lg font-bold tracking-tight text-white drop-shadow" title="SLA total = soma dos passos">
-                      {formatSlaRich(totalServicoMin)}
-                    </p>
-                    <p className="text-xs text-white/75">SLA total</p>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help text-center">
+                        <p className="text-lg font-bold tracking-tight text-white drop-shadow">
+                          {formatSlaRich(totalServicoMin)}
+                        </p>
+                        <p className="text-xs text-white/75">SLA total</p>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[300px]">
+                      <p className="font-semibold">Soma do SLA de todos os passos.</p>
+                      <p className="mt-1">
+                        Contado em <b>horas corridas</b>: 48h são dois dias de calendário, e não
+                        seis dias de expediente. É a mesma régua que o sistema usa para o prazo
+                        da execução — {totalServicoMin > 0 && `${Math.round(totalServicoMin / 60)}h no total`}.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                   {totalServicoMin > 0 && (() => {
                     const previsao = calcularPrevisaoConclusao(totalServicoMin)
                     const dia = previsao.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
                     const hora = previsao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
                     return (
-                      <div className="border-l border-white/25 pl-6 text-center" title="Jornada útil 8h × 5d/sem (seg–sex, 09h–17h), começando agora">
-                        <p className="text-lg font-bold tracking-tight text-white drop-shadow">{dia}</p>
-                        <p className="text-xs text-white/75">Previsão · {hora}</p>
-                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="cursor-help border-l border-white/25 pl-6 text-center">
+                            <p className="text-lg font-bold tracking-tight text-white drop-shadow">{dia}</p>
+                            <p className="text-xs text-white/75">Previsão · {hora}</p>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-[300px]">
+                          <p className="font-semibold">Se a execução começasse agora.</p>
+                          <p className="mt-1">
+                            Agora mais o SLA total, corrido — 24h por dia, sem pular fim de semana
+                            nem feriado. É o mesmo prazo que a execução recebe ao ser criada e que
+                            dispara o alerta de atraso.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
                     )
                   })()}
                   <div className="border-l border-white/25 pl-6 text-center">
@@ -1219,6 +1212,7 @@ export default function ServicoDetailPage() {
                     <p className="text-xs text-white/75">Etapa{etapas.length === 1 ? '' : 's'}</p>
                   </div>
                 </div>
+                </TooltipProvider>
               </div>
             </div>
           </div>

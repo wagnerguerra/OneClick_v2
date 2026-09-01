@@ -2529,38 +2529,106 @@ export class ClienteService {
   }
 
   // ============================================================
-  // PROTOCOLOS
+  // PROTOCOLOS — comprovante de documentos entregues pelo cliente
+  //
+  // Port do `cad_cli_pro` do v1. Os métodos anteriores falavam de protocolo em
+  // ÓRGÃO PÚBLICO (órgão, nº do protocolo, resultado) — um esqueleto que nunca
+  // recebeu uma linha em produção e cuja tela mostrava campos que ninguém
+  // preenchia. A tabela foi reaproveitada para o que o negócio de fato usa.
   // ============================================================
 
-  async listProtocolos(clienteId: string) {
-    type Row = { id: string; orgao: string; tipo: string; protocolo: string; descricao: string | null; status: string; data_solicitacao: Date; data_retorno: Date | null; resultado: string | null; user_nome: string | null }
-    return prisma.$queryRawUnsafe<Row[]>(
-      `SELECT p.*, u.name AS user_nome FROM cliente_protocolos p LEFT JOIN users u ON u.id = p.usuario_id
-       WHERE p.cliente_id = $1 ORDER BY p.data_solicitacao DESC`, clienteId,
-    )
+  async listProtocolos(clienteId: string, empresaId?: string | null) {
+    const rows = await prisma.clienteProtocolo.findMany({
+      where: { clienteId, ativo: true, empresaId: empresaId ?? null },
+      orderBy: [{ data: 'desc' }, { numero: 'desc' }],
+    })
+    const ids = [...new Set(rows.map(r => r.usuarioId).filter((x): x is string => !!x))]
+    const nomes = ids.length
+      ? new Map((await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }))
+          .map(u => [u.id, u.name]))
+      : new Map<string, string>()
+    return rows.map(r => ({
+      ...r,
+      // O nome gravado é o resíduo do v1; o do cadastro atual tem precedência.
+      usuarioNomeResolvido: (r.usuarioId ? nomes.get(r.usuarioId) : null) ?? r.usuarioNome,
+    }))
   }
 
-  async addProtocolo(clienteId: string, data: { orgao: string; tipo?: string; protocolo: string; descricao?: string }, userId?: string) {
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO cliente_protocolos (id, cliente_id, orgao, tipo, protocolo, descricao, usuario_id, created_at, updated_at)
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, NOW(), NOW())`,
-      clienteId, data.orgao, data.tipo || 'consulta', data.protocolo, data.descricao || null, userId || null,
-    )
-    return { created: true }
+  /**
+   * O número é POR CLIENTE e sai do próximo livre — é ele que vai impresso no
+   * comprovante. Continua a contagem do v1: quem já tinha 72 protocolos recebe
+   * o 73, e não um 1 que confundiria a papelada antiga.
+   */
+  async addProtocolo(
+    clienteId: string,
+    data: { data: string; documentos?: string | null; recebido?: boolean },
+    userId?: string,
+    empresaId?: string | null,
+  ) {
+    const ultimo = await prisma.clienteProtocolo.findFirst({
+      where: { clienteId },
+      orderBy: { numero: 'desc' },
+      select: { numero: true },
+    })
+    return prisma.clienteProtocolo.create({
+      data: {
+        clienteId,
+        empresaId: empresaId ?? null,
+        numero: (ultimo?.numero ?? 0) + 1,
+        data: new Date(`${data.data}T00:00:00.000Z`),
+        documentos: data.documentos?.trim() || null,
+        recebido: data.recebido ?? false,
+        recebidoEm: data.recebido ? new Date() : null,
+        usuarioId: userId ?? null,
+      },
+      select: { id: true, numero: true },
+    })
   }
 
-  async updateProtocoloStatus(id: string, status: string, resultado?: string) {
-    await prisma.$executeRawUnsafe(
-      `UPDATE cliente_protocolos SET status = $1, resultado = $2, data_retorno = CASE WHEN $1 = 'concluido' THEN NOW() ELSE data_retorno END WHERE id = $3`,
-      status, resultado || null, id,
-    )
-    return { updated: true }
+  async updateProtocolo(
+    id: string,
+    data: { data?: string; documentos?: string | null; recebido?: boolean },
+    empresaId?: string | null,
+  ) {
+    const atual = await prisma.clienteProtocolo.findFirst({ where: { id, empresaId: empresaId ?? null } })
+    if (!atual) throw new Error('Protocolo não encontrado.')
+    return prisma.clienteProtocolo.update({
+      where: { id },
+      data: {
+        ...(data.data ? { data: new Date(`${data.data}T00:00:00.000Z`) } : {}),
+        ...(data.documentos !== undefined ? { documentos: data.documentos?.trim() || null } : {}),
+        // Desmarcar limpa a data de recebimento: deixá-la seria afirmar que o
+        // documento voltou num dia em que, segundo o próprio registro, não voltou.
+        ...(data.recebido !== undefined
+          ? { recebido: data.recebido, recebidoEm: data.recebido ? (atual.recebidoEm ?? new Date()) : null }
+          : {}),
+      },
+      select: { id: true },
+    })
   }
 
-  async removeProtocolo(id: string) {
-    await prisma.$executeRawUnsafe(`DELETE FROM cliente_protocolos WHERE id = $1`, id)
+  /** Um protocolo com o nome do cliente — o que a folha impressa precisa. */
+  async getProtocolo(id: string, empresaId?: string | null) {
+    const p = await prisma.clienteProtocolo.findFirst({
+      where: { id, ativo: true, empresaId: empresaId ?? null },
+      include: { cliente: { select: { razaoSocial: true, nomeFantasia: true, documento: true } } },
+    })
+    if (!p) throw new Error('Protocolo não encontrado.')
+    const u = p.usuarioId
+      ? await prisma.user.findUnique({ where: { id: p.usuarioId }, select: { name: true } })
+      : null
+    return { ...p, usuarioNomeResolvido: u?.name ?? p.usuarioNome }
+  }
+
+  /** Soft-delete, como o `ativo` do v1: comprovante impresso não se apaga. */
+  async removeProtocolo(id: string, empresaId?: string | null) {
+    const atual = await prisma.clienteProtocolo.findFirst({ where: { id, empresaId: empresaId ?? null } })
+    if (!atual) throw new Error('Protocolo não encontrado.')
+    await prisma.clienteProtocolo.update({ where: { id }, data: { ativo: false } })
     return { deleted: true }
   }
+
+
 
   // ============================================================
   // OCORRÊNCIAS (Reclamações, Elogios, Sugestões — ISO 9001)

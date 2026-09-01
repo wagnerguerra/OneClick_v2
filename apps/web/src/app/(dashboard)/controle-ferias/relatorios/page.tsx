@@ -25,6 +25,67 @@ import { corSaldoTexto, tituloSaldo } from '../_lib/cores'
 const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
 
 /**
+ * Estilo dos gráficos — receita do LuminAux (`/luminaux/charts/recharts`).
+ *
+ * O que o modelo faz, e o porquê de cada item:
+ *
+ *  - **Sem linha de eixo e sem tracinho de tick.** O que orienta a leitura é a
+ *    grade; a moldura em volta só engrossa o desenho.
+ *  - **Grade tracejada `3 3`, na cor da borda**, e só no sentido perpendicular
+ *    ao eixo de valor — linhas na direção das barras não ajudam a comparar
+ *    altura nenhuma.
+ *  - **Rótulos em 12px na cor do texto secundário.** O padrão do Recharts é
+ *    `#666`, que não é cor deste tema e não muda no escuro.
+ *  - **Tooltip com 10px de respiro, canto de 10 e sem sombra** — o modelo usa
+ *    borda no lugar da sombra.
+ *
+ * O modelo escreve tudo em hex (`#e5e8ee`, `#64748b`, `#fff`, `#0f172a`). Aqui
+ * cada um vira o token equivalente: hex chumbado atravessa o modo claro e
+ * desaparece no escuro, que é o erro que o CLAUDE.md manda evitar.
+ */
+const GRADE = { strokeDasharray: '3 3', stroke: 'var(--border)' } as const
+
+const EIXO = {
+  axisLine: false,
+  tickLine: false,
+  tick: { fontSize: 12, fill: 'var(--muted-foreground)' },
+} as const
+
+const TOOLTIP = {
+  contentStyle: {
+    padding: 10,
+    borderRadius: 10,
+    background: 'var(--card)',
+    border: '1px solid var(--border)',
+    color: 'var(--foreground)',
+    fontSize: 12,
+    boxShadow: 'none',
+  },
+  labelStyle: { color: 'var(--muted-foreground)', fontSize: 11, marginBottom: 2 },
+  itemStyle: { color: 'var(--foreground)', padding: 0 },
+  // A faixa que segue o cursor: o padrão do Recharts é um cinza opaco que
+  // escurece a barra sob o ponteiro. Aqui ela só insinua a coluna.
+  cursor: { fill: 'var(--muted-foreground)', fillOpacity: 0.08 },
+} as const
+
+/**
+ * Degradê das barras, no mesmo desenho do `rcArea` do modelo (que vai da cor
+ * cheia para a transparência ao longo do eixo de valor). Nas barras ele para
+ * em 45% em vez de zero: uma barra que some na base perde justamente a borda
+ * que marca onde ela começa.
+ */
+function DegradeBarra({ id, horizontal = false }: { id: string; horizontal?: boolean }) {
+  return (
+    <defs>
+      <linearGradient id={id} x1="0" y1="0" x2={horizontal ? '1' : '0'} y2={horizontal ? '0' : '1'}>
+        <stop offset="0%" stopColor={MODULE_COLOR} stopOpacity={horizontal ? 0.45 : 1} />
+        <stop offset="100%" stopColor={MODULE_COLOR} stopOpacity={horizontal ? 1 : 0.45} />
+      </linearGradient>
+    </defs>
+  )
+}
+
+/**
  * Relatórios do Controle de Férias.
  *
  * O v1 não tinha nenhum: a conferência era feita olhando a tela de lançamento,
@@ -313,11 +374,14 @@ export default function RelatoriosFeriasPage() {
               ) : (
                 <ResponsiveContainer width="100%" height={Math.max(180, painel.saldoPorArea.length * 30)}>
                   <BarChart data={painel.saldoPorArea} layout="vertical" margin={{ left: 8, right: 24 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="area" width={120} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v) => `${v} dias`} labelFormatter={(l) => String(l)} contentStyle={{ fontSize: 12 }} />
-                    <Bar dataKey="dias" radius={[0, 4, 4, 0]} fill={MODULE_COLOR} />
+                    <DegradeBarra id="feriasSaldoArea" horizontal />
+                    {/* Barras deitadas: a grade útil é a vertical, que cruza o
+                        comprimento delas. */}
+                    <CartesianGrid {...GRADE} horizontal={false} />
+                    <XAxis type="number" {...EIXO} />
+                    <YAxis type="category" dataKey="area" width={120} {...EIXO} />
+                    <Tooltip {...TOOLTIP} formatter={(v) => `${v} dias`} labelFormatter={(l) => String(l)} />
+                    <Bar dataKey="dias" radius={[0, 4, 4, 0]} fill="url(#feriasSaldoArea)" maxBarSize={22} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -327,11 +391,12 @@ export default function RelatoriosFeriasPage() {
               <p className="mb-3 text-[13px] font-semibold">Dias de gozo por mês <span className="font-normal text-muted-foreground">· últimos 12 meses</span></p>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={painel.gozosPorMes} margin={{ left: 0, right: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                  <Tooltip formatter={(v) => `${v} dias`} contentStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="dias" radius={[4, 4, 0, 0]} fill={MODULE_COLOR} />
+                  <DegradeBarra id="feriasGozosMes" />
+                  <CartesianGrid {...GRADE} vertical={false} />
+                  <XAxis dataKey="label" {...EIXO} />
+                  <YAxis allowDecimals={false} {...EIXO} />
+                  <Tooltip {...TOOLTIP} formatter={(v) => `${v} dias`} />
+                  <Bar dataKey="dias" radius={[4, 4, 0, 0]} fill="url(#feriasGozosMes)" maxBarSize={34} />
                 </BarChart>
               </ResponsiveContainer>
             </Card>

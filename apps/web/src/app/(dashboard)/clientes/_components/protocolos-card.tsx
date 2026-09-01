@@ -1,135 +1,320 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { FileInput, Plus, Loader2, Trash2, CheckCircle, Clock, ChevronDown } from 'lucide-react'
-import { Button, Card, Input } from '@saas/ui'
-import { cn } from '@saas/ui'
+/**
+ * Protocolos do cliente — comprovante dos documentos que ele entregou.
+ *
+ * Port da aba "Protocolos" do v1 (`cad_cli_pro`). O card anterior falava de
+ * protocolo em ÓRGÃO PÚBLICO (órgão, nº, resultado): um esqueleto que nunca
+ * recebeu uma linha em produção, com campos que ninguém preenchia.
+ *
+ * As regras vêm do `tab-prt.asp`: receber, editar e excluir só existem enquanto
+ * o protocolo está a receber; depois de recebido resta imprimir, porque aí ele
+ * é um papel assinado. Editar mexe só nos documentos — nº e data ficam como
+ * foram impressos.
+ *
+ * O nº é POR CLIENTE e sai impresso no comprovante, então a numeração continua
+ * a do v1: quem tinha 72 protocolos recebe o 73.
+ */
+
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import {
+  FileInput, Plus, Loader2, Trash2, Check, Clock, ChevronDown,
+  Printer, Pencil, Inbox, ChevronLeft, ChevronRight,
+} from 'lucide-react'
+import { Button, Card, Input, Badge, cn, RichEditor, RichContent } from '@saas/ui'
+import { BADGE } from '@/lib/color-styles'
 import { MioloColapsavel } from './card-colapsavel'
+import { ProtocoloPrintModal } from './protocolo-print-modal'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useClientesPerms } from './use-clientes-perms'
-import { STRONG, BADGE, TEXT } from '@/lib/color-styles'
 
 interface Protocolo {
-  id: string; orgao: string; tipo: string; protocolo: string
-  descricao: string | null; status: string; data_solicitacao: string
-  data_retorno: string | null; resultado: string | null; user_nome: string | null
+  id: string
+  numero: number
+  data: string
+  documentos: string | null
+  recebido: boolean
+  recebidoEm: string | null
+  usuarioNomeResolvido: string | null
+  legacyId: number | null
 }
 
-const STATUS_COLORS: Record<string, string> = { aberto: STRONG.amber, em_andamento: STRONG.sky, concluido: BADGE.emerald, erro: STRONG.red }
-const ORGAOS = ['Receita Federal', 'SEFAZ', 'Prefeitura', 'SERPRO', 'INSS', 'FGTS', 'Junta Comercial', 'Cartorio', 'Outro']
+/** Quantos por página. Cliente antigo chega a 72 protocolos — a lista inteira
+ *  empurrava o resto da ficha para muito abaixo da dobra. */
+const POR_PAGINA = 8
+
+const dataBR = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
+
+/** Hoje em `yyyy-mm-dd`, para o campo `date` já abrir preenchido. */
+const hojeISO = () => new Date().toISOString().slice(0, 10)
 
 export function ProtocolosCard({ clienteId }: { clienteId: string }) {
-  // Contrai o card pelo cabecalho; abre expandido a cada visita.
   const [cardAberto, setCardAberto] = useState(true)
-  const { canManageRegistration } = useClientesPerms()
+  const { canManageProtocolos } = useClientesPerms()
+
   const [items, setItems] = useState<Protocolo[]>([])
   const [loading, setLoading] = useState(true)
-  const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ orgao: 'Receita Federal', protocolo: '', descricao: '' })
+  const [salvando, setSalvando] = useState(false)
+  const [aberto, setAberto] = useState<string | null>(null)
+  const [pagina, setPagina] = useState(1)
+  const [imprimindo, setImprimindo] = useState<string | null>(null)
 
-  const fetch = useCallback(async () => {
+  const [novo, setNovo] = useState(false)
+  const [fData, setFData] = useState(hojeISO())
+  const [fDocs, setFDocs] = useState('')
+  /** Protocolo em edição — no v1 só os documentos mudam. */
+  const [editando, setEditando] = useState<string | null>(null)
+  const [eDocs, setEDocs] = useState('')
+
+  const carregar = useCallback(async () => {
     setLoading(true)
-    try { setItems(await (trpc.cliente as any).listProtocolos.query({ clienteId })) }
-    catch { /* silent */ } finally { setLoading(false) }
+    try { setItems(await (trpc.cliente as never as {
+      listProtocolos: { query: (i: { clienteId: string }) => Promise<Protocolo[]> }
+    }).listProtocolos.query({ clienteId })) }
+    catch { /* silencioso: o card não pode derrubar a ficha */ }
+    finally { setLoading(false) }
   }, [clienteId])
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => { carregar() }, [carregar])
 
-  async function handleAdd() {
-    if (!form.protocolo.trim()) return
+  const totalPaginas = Math.max(1, Math.ceil(items.length / POR_PAGINA))
+  // Excluir o último item de uma página deixaria a paginação num vazio.
+  useEffect(() => { if (pagina > totalPaginas) setPagina(totalPaginas) }, [pagina, totalPaginas])
+  const visiveis = useMemo(
+    () => items.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA),
+    [items, pagina],
+  )
+
+  async function incluir() {
+    if (!fData) { alerts.error('Falta a data', 'Informe a data do protocolo.'); return }
+    setSalvando(true)
     try {
-      await (trpc.cliente as any).addProtocolo.mutate({ clienteId, orgao: form.orgao, protocolo: form.protocolo, descricao: form.descricao || undefined })
-      setForm({ orgao: 'Receita Federal', protocolo: '', descricao: '' })
-      setAdding(false)
-      fetch()
+      await (trpc.cliente as never as {
+        addProtocolo: { mutate: (i: unknown) => Promise<{ numero: number }> }
+      }).addProtocolo.mutate({ clienteId, data: fData, documentos: fDocs || null })
+      setNovo(false); setFDocs(''); setFData(hojeISO()); setPagina(1)
+      carregar()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setSalvando(false) }
+  }
+
+  /**
+   * Receber é de mão única, como no v1: a partir daí o protocolo está assinado
+   * e sai do alcance de editar e excluir. Daí a confirmação.
+   */
+  async function receber(p: Protocolo) {
+    const ok = await alerts.confirm({
+      title: `Marcar o protocolo nº ${p.numero} como recebido?`,
+      text: 'Depois de recebido ele não pode mais ser editado nem excluído — só impresso.',
+      icon: 'question', confirmText: 'Receber',
+    })
+    if (!ok) return
+    try {
+      await (trpc.cliente as never as {
+        updateProtocolo: { mutate: (i: unknown) => Promise<unknown> }
+      }).updateProtocolo.mutate({ id: p.id, recebido: true })
+      carregar()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  async function handleConcluir(id: string) {
-    const resultado = prompt('Resultado do protocolo (opcional):') || ''
-    try { await (trpc.cliente as any).updateProtocoloStatus.mutate({ id, status: 'concluido', resultado }); fetch() }
-    catch (e) { alerts.error('Erro', (e as Error).message) }
+  async function salvarEdicao(p: Protocolo) {
+    setSalvando(true)
+    try {
+      await (trpc.cliente as never as {
+        updateProtocolo: { mutate: (i: unknown) => Promise<unknown> }
+      }).updateProtocolo.mutate({ id: p.id, documentos: eDocs || null })
+      setEditando(null)
+      carregar()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setSalvando(false) }
   }
 
-  async function handleRemove(id: string) {
-    if (!(await alerts.confirmDelete('este protocolo'))) return
-    try { await (trpc.cliente as any).removeProtocolo.mutate({ id }); fetch() }
-    catch (e) { alerts.error('Erro', (e as Error).message) }
+  async function excluir(p: Protocolo) {
+    const ok = await alerts.confirm({
+      title: `Excluir o protocolo nº ${p.numero}?`,
+      text: 'Ele sai da ficha, mas o registro é preservado no banco.',
+      icon: 'warning', confirmText: 'Excluir',
+    })
+    if (!ok) return
+    try {
+      await (trpc.cliente as never as {
+        removeProtocolo: { mutate: (i: { id: string }) => Promise<unknown> }
+      }).removeProtocolo.mutate({ id: p.id })
+      carregar()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  if (loading) return <Card className="p-8 flex items-center justify-center gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> Carregando...</Card>
+  const pendentes = items.filter(i => !i.recebido).length
 
   return (
-    <Card>
-      <div className="flex items-center gap-2 border-b border-border/60 bg-muted/20 px-5 py-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div>
-            <h4 className="text-sm font-semibold flex items-center gap-2"><FileInput className={cn('h-4 w-4', TEXT.emerald)} /> Protocolos</h4>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{items.length} protocolo(s) registrado(s)</p>
-          </div>
-        </div>
-        {canManageRegistration && <Button type="button" variant="outline" size="sm" onClick={() => setAdding(!adding)} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Registrar</Button>}
+    <Card className="overflow-hidden">
+      {/* O "Adicionar" fica no cabeçalho, ao lado do título. Não pode ser um
+          botão DENTRO do botão que abre o card (HTML inválido), então quem
+          alterna é o bloco do título e o Adicionar vive fora dele. */}
+      <div className="flex items-center gap-3 px-5 py-3">
         <button
           type="button"
-          onClick={() => setCardAberto(a => !a)}
-          aria-expanded={cardAberto}
-          title={cardAberto ? 'Recolher' : 'Expandir'}
-          className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          onClick={() => setCardAberto(v => !v)}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
-          <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
+          <FileInput className="h-4 w-4 shrink-0" style={{ color: 'var(--mod-cadastros, #10b981)' }} />
+          <span className="text-[13px] font-semibold text-foreground">Protocolos</span>
+          {items.length > 0 && (
+            <Badge variant="secondary" className="h-4 px-1.5 text-[10px] tabular-nums">{items.length}</Badge>
+          )}
+          {pendentes > 0 && (
+            <Badge variant="outline" className={cn('h-4 shrink-0 gap-1 px-1.5 text-[10px]', BADGE.amber)}>
+              <Clock className="h-3 w-3" />{pendentes} a receber
+            </Badge>
+          )}
+          <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', !cardAberto && '-rotate-90')} />
         </button>
+
+        {canManageProtocolos && (
+          <Button type="button"
+            variant="success" size="sm" className="shrink-0"
+            onClick={() => { setCardAberto(true); setNovo(true) }}
+          >
+            <Plus className="h-4 w-4" />Adicionar
+          </Button>
+        )}
       </div>
 
       <MioloColapsavel aberto={cardAberto}>
-      {adding && (
-        <div className="px-5 py-3 border-b border-border/40 bg-emerald-50/30 dark:bg-emerald-950/10">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <div>
-              <select value={form.orgao} onChange={e => setForm(p => ({ ...p, orgao: e.target.value }))} className="w-full h-8 rounded-md border bg-card px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring">
-                {ORGAOS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
+        <div className="border-t border-border px-5 pb-4 pt-4">
+          {novo && (
+            <div className="mb-4 space-y-3 rounded-md border border-border bg-muted/20 p-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="text-[13px] font-semibold">Data</label>
+                  <Input type="date" value={fData} onChange={e => setFData(e.target.value)} className="mt-1.5 h-9 w-[160px] text-sm" />
+                </div>
+                <p className="pb-2 text-[11px] text-muted-foreground">O nº sai do próximo livre deste cliente.</p>
+              </div>
+              <div>
+                <label className="text-[13px] font-semibold">Documentos entregues</label>
+                <div className="mt-1.5">
+                  <RichEditor value={fDocs} onChange={setFDocs} />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setNovo(false)}>Cancelar</Button>
+                <Button type="button" variant="success" size="sm" onClick={incluir} disabled={salvando}>
+                  {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar
+                </Button>
+              </div>
             </div>
-            <Input placeholder="N° do protocolo" value={form.protocolo} onChange={e => setForm(p => ({ ...p, protocolo: e.target.value }))} className="h-8 text-xs font-mono" />
-            <Input placeholder="Descricao (opcional)" value={form.descricao} onChange={e => setForm(p => ({ ...p, descricao: e.target.value }))} className="h-8 text-xs" />
-          </div>
-          <div className="flex justify-end gap-2 mt-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setAdding(false)}>Cancelar</Button>
-            <Button type="button" variant="success" size="sm" onClick={handleAdd}>Registrar</Button>
-          </div>
-        </div>
-      )}
+          )}
 
-      <div className="divide-y divide-border/30">
-        {items.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <FileInput className="h-8 w-8 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">Nenhum protocolo registrado.</p>
-          </div>
-        ) : items.map(item => (
-          <div key={item.id} className={cn('flex items-start gap-3 px-5 py-3 group', item.status === 'concluido' && 'opacity-50')}>
-            <div className={cn('shrink-0 mt-1 h-2 w-2 rounded-full', item.status === 'aberto' ? 'bg-amber-400' : item.status === 'concluido' ? 'bg-emerald-400' : 'bg-sky-400')} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-muted-foreground">{item.orgao}</span>
-                <span className="font-mono text-xs bg-muted/50 px-1.5 py-0.5 rounded">{item.protocolo}</span>
-                <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-medium', STATUS_COLORS[item.status] || 'bg-muted')}>{item.status}</span>
+          {loading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : items.length === 0 ? (
+            <p className="py-8 text-center text-xs text-muted-foreground">Nenhum protocolo registrado.</p>
+          ) : (
+            <>
+              <div className="divide-y divide-border/60">
+                {visiveis.map(p => (
+                  <div key={p.id} className="py-2.5">
+                    <div className="flex items-center gap-3">
+                      <span className="w-10 shrink-0 text-sm font-semibold tabular-nums text-muted-foreground">{p.numero}</span>
+                      {p.recebido ? (
+                        <Badge variant="outline" className={cn('h-5 shrink-0 gap-1 text-[10px]', BADGE.emerald)}>
+                          <Check className="h-3 w-3" />Recebido
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className={cn('h-5 shrink-0 gap-1 text-[10px]', BADGE.amber)}>
+                          <Clock className="h-3 w-3" />A receber
+                        </Badge>
+                      )}
+                      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                        {p.usuarioNomeResolvido ?? '—'}
+                      </span>
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{dataBR(p.data)}</span>
+                      {p.documentos && (
+                        <button
+                          type="button"
+                          onClick={() => setAberto(a => (a === p.id ? null : p.id))}
+                          className="shrink-0 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                        >
+                          {aberto === p.id ? 'ocultar' : 'documentos'}
+                        </button>
+                      )}
+                      {/* Ordem e disponibilidade como no v1. */}
+                      <div className="flex shrink-0 gap-1">
+                        {canManageProtocolos && !p.recebido && (
+                          <>
+                            <Button type="button" variant="soft-success" size="icon-sm" onClick={() => receber(p)} title="Receber">
+                              <Inbox className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button type="button"
+                              variant="soft-info" size="icon-sm" title="Editar os documentos"
+                              onClick={() => { setEditando(p.id); setEDocs(p.documentos ?? ''); setAberto(null) }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                        <Button type="button" variant="outline" size="icon-sm" onClick={() => setImprimindo(p.id)} title="Imprimir">
+                          <Printer className="h-3.5 w-3.5" />
+                        </Button>
+                        {canManageProtocolos && !p.recebido && (
+                          <Button type="button" variant="soft-destructive" size="icon-sm" onClick={() => excluir(p)} title="Excluir">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {editando === p.id ? (
+                      <div className="mt-2 space-y-2 rounded-md border border-border bg-muted/20 p-3">
+                        <label className="text-[13px] font-semibold">Documentos entregues</label>
+                        <RichEditor value={eDocs} onChange={setEDocs} />
+                        <div className="flex justify-end gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => setEditando(null)}>Cancelar</Button>
+                          <Button type="button" variant="success" size="sm" onClick={() => salvarEdicao(p)} disabled={salvando}>
+                            {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : aberto === p.id && p.documentos ? (
+                      <div className="mt-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-xs">
+                        <RichContent html={p.documentos} />
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
               </div>
-              {item.descricao && <p className="text-[11px] text-muted-foreground mt-0.5">{item.descricao}</p>}
-              <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" />{new Date(item.data_solicitacao).toLocaleDateString('pt-BR')}</span>
-                {item.user_nome && <span>{item.user_nome}</span>}
-                {item.resultado && <span className={TEXT.emerald}>Resultado: {item.resultado}</span>}
-              </div>
-            </div>
-            <div className="flex gap-1 shrink-0">
-              {item.status !== 'concluido' && <Button type="button" variant="soft" size="sm" className="h-7 text-[10px] gap-1" onClick={() => handleConcluir(item.id)}><CheckCircle className="h-3 w-3" /> Concluir</Button>}
-              <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleRemove(item.id)} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
-            </div>
-          </div>
-        ))}
-      </div>
+
+              {totalPaginas > 1 && (
+                <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2.5">
+                  <p className="text-[11px] text-muted-foreground tabular-nums">
+                    {(pagina - 1) * POR_PAGINA + 1}–{Math.min(pagina * POR_PAGINA, items.length)} de {items.length}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button type="button"
+                      variant="outline" size="icon-xs" disabled={pagina === 1}
+                      onClick={() => setPagina(p => p - 1)} title="Anterior"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="px-1 text-[11px] tabular-nums text-muted-foreground">{pagina} / {totalPaginas}</span>
+                    <Button type="button"
+                      variant="outline" size="icon-xs" disabled={pagina === totalPaginas}
+                      onClick={() => setPagina(p => p + 1)} title="Próxima"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </MioloColapsavel>
+
+      <ProtocoloPrintModal protocoloId={imprimindo} onClose={() => setImprimindo(null)} />
     </Card>
   )
 }

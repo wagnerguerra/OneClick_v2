@@ -6,7 +6,7 @@ import {
   Plus, Trash2, Pencil, Loader2, Check,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search as SearchIcon,
   ChevronUp, ChevronDown, ChevronsUpDown, UserX, BarChart3,
-  CalendarDays, CircleAlert, TriangleAlert, Clock, Wallet, X,
+  CalendarDays, CalendarPlus, CircleAlert, TriangleAlert, Clock, Wallet, X,
 } from 'lucide-react'
 import {
   Button, Input, Label, Badge, Card, cn,
@@ -112,6 +112,13 @@ interface Row {
   pagamento1: string | null
   periodoInicial: number
   periodoFinal: number
+  /** Null nos resíduos do v1 cujo colaborador não existe mais no cadastro. */
+  colaboradorId: string | null
+  /**
+   * Linha de colaborador que está no controle e ainda NÃO tem período lançado.
+   * Vem do backend com tudo zerado; a tela esvazia as colunas e troca a ação.
+   */
+  semPeriodo?: boolean
   descricao: string | null
   dias: number
   saldoAnterior: number
@@ -229,6 +236,17 @@ export default function ControleFeriasPage() {
       if (r.periodoFinal) { setMAnoIni(String(r.periodoFinal)); setMAnoFim(String(r.periodoFinal + 1)) }
     } catch { setMSaldoAnt('0') }
     finally { setMSaldoCarregando(false) }
+  }
+
+  /**
+   * Lança o período de quem apareceu na lista sem nenhum. Abre o mesmo modal de
+   * sempre, com o colaborador já escolhido — o que também traz o saldo anterior
+   * e os anos sugeridos, porque `escolherColaborador` faz essa conta.
+   */
+  async function lancarPara(colaboradorId: string | null) {
+    if (!colaboradorId) return
+    setAberta(true)
+    await escolherColaborador(colaboradorId)
   }
 
   async function salvar() {
@@ -485,8 +503,14 @@ export default function ControleFeriasPage() {
               </TableCell></TableRow>
             ) : (
               data.data.map((r) => (
-                <TableRow key={r.id} className="cursor-pointer [&_td]:whitespace-nowrap [&_td]:py-2" onClick={() => router.push(`/controle-ferias/${r.id}`)}>
-                  <TableCell className="text-xs font-semibold tabular-nums text-muted-foreground">{r.numero}</TableCell>
+                <TableRow
+                  key={r.id}
+                  className="cursor-pointer [&_td]:whitespace-nowrap [&_td]:py-2"
+                  onClick={() => (r.semPeriodo ? void lancarPara(r.colaboradorId) : router.push(`/controle-ferias/${r.id}`))}
+                >
+                  <TableCell className="text-xs font-semibold tabular-nums text-muted-foreground">
+                    {r.semPeriodo ? <span className="text-muted-foreground/50">—</span> : r.numero}
+                  </TableCell>
                   <TableCell>
                     <Avatar className="h-7 w-7">
                       {r.colaboradorImagem && <AvatarImage src={resolveAssetUrl(r.colaboradorImagem)} alt={r.colaboradorNomeResolvido ?? ''} />}
@@ -508,6 +532,15 @@ export default function ControleFeriasPage() {
                           fora do cadastro
                         </Badge>
                       )}
+                      {r.semPeriodo && (
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 gap-1 border-amber-200 bg-amber-50 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
+                          title="Está no controle de férias, mas ainda não tem período aquisitivo lançado"
+                        >
+                          <CalendarPlus className="h-3 w-3" />sem período
+                        </Badge>
+                      )}
                       {r.periodosAnteriores > 0 && (
                         <Badge variant="outline" className="shrink-0 text-[10px] text-muted-foreground" title={`Este colaborador tem mais ${r.periodosAnteriores} período(s) anterior(es) — abra o registro para consultar`}>
                           +{r.periodosAnteriores} {r.periodosAnteriores === 1 ? 'período' : 'períodos'}
@@ -516,8 +549,13 @@ export default function ControleFeriasPage() {
                     </span>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-center text-xs text-muted-foreground tabular-nums">{dataBR(r.colaboradorAdmissao)}</TableCell>
-                  <TableCell className="text-center text-sm tabular-nums">{r.periodoInicial}/{r.periodoFinal}</TableCell>
+                  <TableCell className="text-center text-sm tabular-nums">
+                    {r.semPeriodo
+                      ? <span className="text-muted-foreground/50">—</span>
+                      : <>{r.periodoInicial}/{r.periodoFinal}</>}
+                  </TableCell>
                   <TableCell className="hidden xl:table-cell text-xs text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                    {r.semPeriodo ? <span className="text-muted-foreground/50">—</span> : (
                     <InlineEditCell
                       type="text"
                       value={r.descricao}
@@ -525,8 +563,10 @@ export default function ControleFeriasPage() {
                       disabled={!podeEscrever}
                       onSave={(v) => inlineUpdate(r.id, { descricao: v || null })}
                     />
+                    )}
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-center text-sm tabular-nums" onClick={(e) => e.stopPropagation()}>
+                    {r.semPeriodo ? <span className="text-muted-foreground/50">—</span> : (
                     <InlineEditCell
                       type="number"
                       min={0}
@@ -538,17 +578,23 @@ export default function ControleFeriasPage() {
                       validate={(v) => (v.trim() === '' || Number.isNaN(Number(v)) ? 'Informe um número' : null)}
                       onSave={(v) => inlineUpdate(r.id, { dias: Number(v) })}
                     />
+                    )}
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-center text-sm tabular-nums">{r.gozados}</TableCell>
+                  <TableCell className="hidden md:table-cell text-center text-sm tabular-nums">
+                    {r.semPeriodo ? <span className="text-muted-foreground/50">—</span> : r.gozados}
+                  </TableCell>
                   <TableCell className="text-center">
-                    <span
-                      className={cn('inline-flex h-6 min-w-[28px] items-center justify-center rounded px-1.5 text-xs font-bold tabular-nums', corSaldo(r.saldo))}
-                      title={tituloSaldo(r.saldo)}
-                    >
-                      {r.saldo}
-                    </span>
+                    {r.semPeriodo ? <span className="text-muted-foreground/50">—</span> : (
+                      <span
+                        className={cn('inline-flex h-6 min-w-[28px] items-center justify-center rounded px-1.5 text-xs font-bold tabular-nums', corSaldo(r.saldo))}
+                        title={tituloSaldo(r.saldo)}
+                      >
+                        {r.saldo}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-center text-xs tabular-nums" onClick={(e) => e.stopPropagation()}>
+                    {r.semPeriodo ? <span className="text-muted-foreground/50">—</span> : (
                     <InlineEditCell
                       type="date"
                       className="justify-center"
@@ -559,9 +605,11 @@ export default function ControleFeriasPage() {
                         : <span className="text-amber-600 dark:text-amber-400">Incluir previsão</span>)}
                       onSave={(v) => inlineUpdate(r.id, { previsao: v || null })}
                     />
+                    )}
                   </TableCell>
                   <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                     {/* Como no v1: a data quando pago, senão o aviso "A pagar" */}
+                    {r.semPeriodo ? <span className="text-muted-foreground/50">—</span> : (
                     <InlineEditCell
                       type="date"
                       className="justify-center"
@@ -578,16 +626,27 @@ export default function ControleFeriasPage() {
                       ))}
                       onSave={(v) => inlineUpdate(r.id, { pagamento1: v || null })}
                     />
+                    )}
                   </TableCell>
                   <TableCell className="pr-5 text-right">
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="soft-info" size="icon-sm" onClick={() => router.push(`/controle-ferias/${r.id}`)} title="Abrir">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      {podeExcluir && (
-                        <Button variant="soft-destructive" size="icon-sm" onClick={() => handleDelete(r)} title="Excluir">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                      {r.semPeriodo ? (
+                        podeEscrever && (
+                          <Button variant="soft-success" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => void lancarPara(r.colaboradorId)}>
+                            <CalendarPlus className="h-3.5 w-3.5" />Lançar período
+                          </Button>
+                        )
+                      ) : (
+                        <>
+                          <Button variant="soft-info" size="icon-sm" onClick={() => router.push(`/controle-ferias/${r.id}`)} title="Abrir">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          {podeExcluir && (
+                            <Button variant="soft-destructive" size="icon-sm" onClick={() => handleDelete(r)} title="Excluir">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </>
                       )}
                     </div>
                   </TableCell>

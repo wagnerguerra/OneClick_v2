@@ -60,7 +60,11 @@ export class UserService {
         : {}),
     }
 
-    const orderBy = sortBy ? { [sortBy]: sortDir } : { name: 'asc' as const }
+    // `area` é relação, não coluna: ordenar por ela pede o nome da área, senão
+    // o Prisma recusa o campo e a listagem quebra ao clicar no cabeçalho.
+    const orderBy = sortBy === 'area'
+      ? { area: { name: sortDir } }
+      : sortBy ? { [sortBy]: sortDir } : { name: 'asc' as const }
 
     const [raw, total] = await Promise.all([
       prisma.user.findMany({

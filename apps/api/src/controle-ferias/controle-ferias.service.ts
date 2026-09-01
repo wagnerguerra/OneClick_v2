@@ -4,7 +4,7 @@ import type {
   CriarFeriasPeriodoInput, AtualizarFeriasPeriodoInput, CriarFeriasEventoInput,
   AtualizarFeriasEventoInput, ListarFeriasPeriodosInput,
 } from '@saas/types'
-import { diasDoEvento, saldoDoPeriodo, limiteConcessivo, farolVencimento } from './ferias-calc'
+import { diasDoEvento, saldoDoPeriodo, limiteConcessivo, farolVencimento, periodoAquisitivoSugerido } from './ferias-calc'
 
 /**
  * Controle de Férias — port do `crp_ferias` do v1. Um registro por período
@@ -79,6 +79,39 @@ export class ControleFeriasService {
 
     const usuarios = await this.usuariosPorId(data.map((d) => d.colaboradorId))
     const hoje = new Date()
+
+    /**
+     * Molde da linha de quem ainda não tem período: tudo zerado e nulo. Existe
+     * para a linha ter a MESMA forma das outras — a tela ordena, busca e exporta
+     * o conjunto inteiro, e um objeto com metade dos campos faltando quebraria
+     * cada um desses lugares.
+     */
+    const vazio = {
+      legacyId: null as number | null,
+      numero: 0,
+      colaboradorNome: null as string | null,
+      descricao: null as string | null,
+      saldoAnterior: 0,
+      dias: 0,
+      previsao: null as Date | null,
+      pagamento1: null as Date | null,
+      pagamento2: null as Date | null,
+      pagamento3: null as Date | null,
+      pago: false,
+      historico: false,
+      registradoPorId: null as string | null,
+      registradoEm: hoje,
+      criadoEm: hoje,
+      atualizadoEm: hoje,
+      eventos: undefined,
+      gozados: 0,
+      saldo: 0,
+      gozoNoMes: 0,
+      eventosTotal: 0,
+      arquivosTotal: 0,
+      periodosAnteriores: 0,
+      _count: { arquivos: 0 },
+    }
     const mesAtual = hoje.getUTCFullYear() * 100 + hoje.getUTCMonth()
     let rows = data.map((d) => {
       const { gozados, saldo } = this.saldo(d)
@@ -174,6 +207,83 @@ export class ControleFeriasService {
     rows = input.colaboradorId
       ? rows.map((r) => ({ ...r, periodosAnteriores: 0 }))
       : agrupar(rows)
+
+    /**
+     * Quem está no controle e ainda não tem período lançado entra na lista
+     * assim mesmo.
+     *
+     * Antes a tela era uma lista de PERÍODOS, então marcar "Incluir no controle
+     * de férias" no cadastro não fazia a pessoa aparecer aqui — ela só existia
+     * na aba de pendências dos relatórios. Quem marcava o campo e voltava para
+     * cá concluía, razoavelmente, que o campo não funcionava. São 14 pessoas
+     * nessa situação hoje, quatro delas com o primeiro aquisitivo já completo.
+     *
+     * A linha vem vazia de propósito (sem nº, sem dias, sem saldo): o que ela
+     * afirma é "esta pessoa deveria ter um período e não tem". O período
+     * SUGERIDO pela admissão é calculado mesmo assim, porque é dele que sai o
+     * prazo concessivo — sem isso o farol não teria com o que ser calculado.
+     */
+    const historicoApenas = input.situacao === 'HISTORICO'
+    if (!historicoApenas) {
+      const jaListados = new Set(
+        rows.map((r) => r.colaboradorId).filter((x): x is string => !!x),
+      )
+      // Quem já tem período é apurado sobre TODOS os períodos do tenant, não
+      // sobre os que passaram no filtro da tela. Com "Em aberto" selecionado,
+      // `data` não traz os arquivados — e quem só tem período no histórico
+      // apareceria como se nunca tivesse tido nenhum.
+      const comPeriodo = new Set(
+        (await prisma.feriasPeriodo.findMany({
+          where: { empresaId: empresaId ?? null, colaboradorId: { not: null } },
+          select: { colaboradorId: true },
+          distinct: ['colaboradorId'],
+        })).map((d) => d.colaboradorId).filter((x): x is string => !!x),
+      )
+      const semPeriodo = await prisma.user.findMany({
+        where: {
+          // Mesmo recorte de tenant da consulta de períodos, e não o
+          // `OR: [{empresaId}, {empresaId: null}]` do seletor: colaborador de
+          // outra empresa (ou de nenhuma) não é pendência desta.
+          empresaId: empresaId ?? null,
+          incluirFerias: true,
+          id: { notIn: [...comPeriodo] },
+          ...(input.colaboradorId ? { id: input.colaboradorId } : {}),
+          ...((input.colaboradores ?? 'ATIVOS') === 'ATIVOS' ? { isActive: true } : {}),
+        },
+        select: { id: true, name: true, isActive: true, dataAdmissao: true, image: true },
+      })
+
+      const pendentes = semPeriodo
+        .filter((u) => !jaListados.has(u.id))
+        .map((u) => {
+          const sug = u.dataAdmissao
+            ? periodoAquisitivoSugerido(u.dataAdmissao, hoje)
+            : { periodoInicial: 0, periodoFinal: 0 }
+          const { limite, aproximado } = limiteConcessivo(sug.periodoFinal, u.dataAdmissao)
+          const { farol, diasRestantes } = farolVencimento(limite, hoje)
+          return {
+            ...vazio,
+            id: `sem-periodo:${u.id}`,
+            empresaId: empresaId ?? null,
+            colaboradorId: u.id,
+            colaboradorNomeResolvido: u.name,
+            colaboradorAtivo: u.isActive,
+            colaboradorAdmissao: u.dataAdmissao,
+            colaboradorImagem: u.image,
+            /** Anos que o período GANHARIA se fosse lançado agora. */
+            periodoInicial: sug.periodoInicial,
+            periodoFinal: sug.periodoFinal,
+            limite,
+            limiteAproximado: aproximado,
+            farol,
+            diasRestantes,
+            /** A tela usa esta marca para esvaziar as colunas e trocar a ação. */
+            semPeriodo: true,
+          }
+        })
+      rows = [...rows, ...pendentes]
+    }
+
     rows = rows.filter(casaBusca)
 
     // Recorte dos indicadores do topo: cada cartão mostra as linhas que o
@@ -182,6 +292,9 @@ export class ControleFeriasService {
     if (input.indicador) {
       const vigente = (r: (typeof rows)[number]) => !r.historico
       rows = rows.filter((r) => {
+        // Sem período não há saldo, vencimento nem pagamento — e "A pagar",
+        // que é `vigente && !pago`, pegaria todos eles por tabela.
+        if ('semPeriodo' in r && r.semPeriodo) return false
         switch (input.indicador) {
           case 'SALDO': return vigente(r) && r.saldo > 0
           case 'VENCIDOS': return vigente(r) && r.saldo > 0 && r.farol === 'VENCIDO'

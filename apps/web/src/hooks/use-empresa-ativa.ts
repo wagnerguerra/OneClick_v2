@@ -10,6 +10,15 @@ interface EmpresaAtiva {
   razaoSocial: string
   nomeFantasia: string | null
   logoUrl: string | null
+  // Rodapé dos documentos impressos.
+  cep?: string | null
+  logradouro?: string | null
+  numero?: string | null
+  complemento?: string | null
+  bairro?: string | null
+  cidade?: string | null
+  uf?: string | null
+  telefone?: string | null
   logoDarkUrl: string | null
   marcaDaguaUrl: string | null
 }
@@ -69,6 +78,17 @@ export function useEmpresaAtiva() {
           logoUrl: active.logoUrl,
           logoDarkUrl: active.logoDarkUrl,
           marcaDaguaUrl: (active as any).marcaDaguaUrl ?? null,
+          // Endereço e telefone: rodapé dos documentos impressos. O objeto é
+          // remontado campo a campo, então o que não é listado aqui se perde —
+          // foi o que deixou o comprovante de protocolo sem a segunda linha.
+          cep: (active as { cep?: string | null }).cep ?? null,
+          logradouro: (active as { logradouro?: string | null }).logradouro ?? null,
+          numero: (active as { numero?: string | null }).numero ?? null,
+          complemento: (active as { complemento?: string | null }).complemento ?? null,
+          bairro: (active as { bairro?: string | null }).bairro ?? null,
+          cidade: (active as { cidade?: string | null }).cidade ?? null,
+          uf: (active as { uf?: string | null }).uf ?? null,
+          telefone: (active as { telefone?: string | null }).telefone ?? null,
         })
         try { localStorage.setItem(key, active.id) } catch { /* ignore */ }
       } else {
