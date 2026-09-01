@@ -37,6 +37,10 @@ export function createReformaTributariaRouter(service: ReformaTributariaService)
       .input(reformaListClientesSchema.optional())
       .query(({ input, ctx }) => service.listarClientes(input ?? {}, ctx.empresaId)),
 
+    balanceteStatus: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string().min(1) }))
+      .query(({ input, ctx }) => service.balanceteStatus(input.clienteId, ctx.empresaId)),
+
     carteira: readProcedure(MODULE)
       .input(reformaCarteiraSchema.optional())
       .query(({ input, ctx }) => service.carteira(input ?? {}, ctx.empresaId)),

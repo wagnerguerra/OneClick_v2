@@ -417,6 +417,58 @@ export class ReformaTributariaService {
     return { totalClientes, simples, porRegime }
   }
 
+  /**
+   * Até quando o balancete deste cliente está sincronizado.
+   *
+   * O balancete vem do SCI (Firebird, na rede local) por meio do Service
+   * Manager — a API da VPS não alcança o banco de origem. Aqui só se lê o que
+   * já chegou: `bi_cache_balancete`, uma linha por mês (`ref` = AAAAMM).
+   */
+  async balanceteStatus(clienteId: string, empresaId?: string | null) {
+    // O escopo de empresa vem do CLIENTE: o cache não guarda empresa, e sem
+    // esta checagem um id de outro tenant devolveria o balancete dele.
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: clienteId, empresaId: empresaId ?? null },
+      select: { id: true },
+    })
+    if (!cliente) throw new Error('Cliente não encontrado.')
+
+    const linhas = await prisma.biCacheBalancete.findMany({
+      where: { clienteId },
+      select: { ref: true, totalLinhas: true, atualizadoEm: true },
+      orderBy: { ref: 'asc' },
+    })
+    if (linhas.length === 0) {
+      return { meses: 0, primeiro: null, ultimo: null, totalLinhas: 0, atualizadoEm: null, lacunas: [] as number[] }
+    }
+
+    const refs = linhas.map(l => l.ref)
+    const primeiro = refs[0]!
+    const ultimo = refs[refs.length - 1]!
+
+    // Meses faltando no meio da série. Um balancete com buraco produz média
+    // silenciosamente errada — melhor a tela dizer onde está o furo.
+    const lacunas: number[] = []
+    const existentes = new Set(refs)
+    for (let ano = Math.floor(primeiro / 100), mes = primeiro % 100;
+         ano * 100 + mes <= ultimo;) {
+      const ref = ano * 100 + mes
+      if (!existentes.has(ref)) lacunas.push(ref)
+      mes += 1
+      if (mes > 12) { mes = 1; ano += 1 }
+    }
+
+    return {
+      meses: linhas.length,
+      primeiro,
+      ultimo,
+      totalLinhas: linhas.reduce((a, l) => a + l.totalLinhas, 0),
+      atualizadoEm: linhas.reduce<Date | null>(
+        (a, l) => (!a || l.atualizadoEm > a ? l.atualizadoEm : a), null),
+      lacunas,
+    }
+  }
+
   async listarClientes(input: Partial<ReformaListClientesInput>, empresaId?: string | null) {
     const limit = Math.min(Math.max(input.limit ?? 40, 1), 100)
     const busca = input.busca?.trim() || null

@@ -21,10 +21,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   Settings2, LayoutGrid, TrendingUp, LayoutDashboard, Sigma,
-  Loader2, Building2, Info, ListTree,
+  Loader2, Building2, Info, ListTree, Database,
 } from 'lucide-react'
 import {
-  Card, cn, Badge,
+  Button, Card, cn, Badge,
   Dialog, DialogContent, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -32,6 +32,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { useTabLabel } from '@/hooks/use-tab-label'
 import { SeletorCliente, type ClienteSimulador } from './_components/seletor-cliente'
+import { BalanceteModal } from './_components/balancete-modal'
 import {
   SecaoConfigurar, SecaoComparar, SecaoTransicao, SecaoVisaoGeral, SecaoCalculadora,
   type ItemComposicao,
@@ -106,6 +107,7 @@ export default function ReformaTributariaPage() {
    *  conhece. Sem balancete importado a lista é vazia e o valor não abre. */
   const [composicao, setComposicao] = useState<ItemComposicao[]>([])
   const [verComposicao, setVerComposicao] = useState(false)
+  const [verBalancete, setVerBalancete] = useState(false)
 
   const alterar = useCallback((patch: Partial<Parametros>) => setP(prev => ({ ...prev, ...patch })), [])
 
@@ -173,7 +175,14 @@ export default function ReformaTributariaPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeaderBar>
+      {/* O balancete é a matéria-prima do crédito da simulação, e é o dado que
+          mais envelhece — por isso a porta para atualizá-lo fica no título, e
+          não escondida numa aba. */}
+      <PageHeaderBar actions={cliente ? (
+        <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setVerBalancete(true)}>
+          <Database className="h-4 w-4" />Balancete
+        </Button>
+      ) : undefined}>
         <h1 className="truncate">Reforma Tributária</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
@@ -285,6 +294,14 @@ export default function ReformaTributariaPage() {
           </div>
         </div>
       )}
+
+      <BalanceteModal
+        clienteId={cliente?.id ?? null}
+        clienteNome={cliente?.razaoSocial ?? ''}
+        aberto={verBalancete}
+        onFechar={() => setVerBalancete(false)}
+        onAtualizado={() => { if (cliente) void escolher(cliente) }}
+      />
 
       {/* Composição das despesas creditáveis — as contas do balancete que somam
           o valor, com o motivo da classificação. Os valores do diagnóstico são
