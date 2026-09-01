@@ -520,7 +520,15 @@ export default function UsuariosPage() {
 
         <Table className="table-fixed">
           <TableHeader>
-            <TableRow className="whitespace-nowrap">
+            {/* Ordem: quem é (usuário, e-mail), o que é (tipo, perfil, área),
+                em que estado está (colaborador, último login) e o que dá para
+                fazer. O "Tipo" abria a tabela — um badge de classificação antes
+                do nome da pessoa.
+
+                As larguras são fixas de propósito: `table-fixed` só respeita o
+                que está declarado, e as duas colunas livres (usuário e e-mail)
+                ficam com a sobra. */}
+            <TableRow>
               <TableHead className="w-[40px] text-center">
                 <Checkbox
                   checked={!!data?.data.length && selected.size === data.data.length}
@@ -528,43 +536,55 @@ export default function UsuariosPage() {
                   aria-label="Selecionar todos"
                 />
               </TableHead>
-              <TableHead className="w-[150px] whitespace-nowrap">
-                <button onClick={() => toggleSort('role')} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  Tipo <SortIcon column="role" />
-                </button>
-              </TableHead>
-              <TableHead className="hidden sm:table-cell w-[110px] whitespace-nowrap">Perfil</TableHead>
-              <TableHead className="whitespace-nowrap">
+              <TableHead>
                 <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   Usuário <SortIcon column="name" />
                 </button>
               </TableHead>
-              <TableHead className="hidden md:table-cell whitespace-nowrap">
+              <TableHead className="hidden md:table-cell">
                 <button onClick={() => toggleSort('email')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   E-mail <SortIcon column="email" />
                 </button>
               </TableHead>
-              <TableHead className="hidden lg:table-cell whitespace-nowrap">Área</TableHead>
-              <TableHead className="hidden lg:table-cell w-[120px] text-center whitespace-nowrap">Colaborador</TableHead>
-              <TableHead className="hidden xl:table-cell w-[130px] whitespace-nowrap">
+              <TableHead className="w-[150px]">
+                <button onClick={() => toggleSort('role')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                  Tipo <SortIcon column="role" />
+                </button>
+              </TableHead>
+              <TableHead className="hidden sm:table-cell w-[120px]">
+                <button onClick={() => toggleSort('profile')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                  Perfil <SortIcon column="profile" />
+                </button>
+              </TableHead>
+              <TableHead className="hidden lg:table-cell w-[140px]">
+                <button onClick={() => toggleSort('area')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                  Área <SortIcon column="area" />
+                </button>
+              </TableHead>
+              <TableHead className="hidden lg:table-cell w-[110px] text-center">
+                <button onClick={() => toggleSort('exibirComoColaborador')} className="mx-auto flex items-center gap-1 hover:text-foreground transition-colors">
+                  Colaborador <SortIcon column="exibirComoColaborador" />
+                </button>
+              </TableHead>
+              <TableHead className="hidden xl:table-cell w-[130px]">
                 <button onClick={() => toggleSort('lastLoginAt')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   Último login <SortIcon column="lastLoginAt" />
                 </button>
               </TableHead>
-              <TableHead className="w-[60px] text-right whitespace-nowrap">Ações</TableHead>
+              <TableHead className="w-[56px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10">
+                <TableCell colSpan={9} className="text-center py-10">
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />Carregando...
                   </div>
                 </TableCell>
               </TableRow>
             ) : !data?.data.length ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">Nenhum usuário encontrado</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">Nenhum usuário encontrado</TableCell></TableRow>
             ) : (
               data.data.map((user) => {
                 return (
@@ -580,6 +600,28 @@ export default function UsuariosPage() {
                       handler (ver inline-edit-cell.tsx). Sem stopPropagation
                       na TableCell, o padding da célula passa o click pra row
                       → navega pra edição (#HLP0055). */}
+                  <TableCell>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <InlineEditCell
+                        type="text"
+                        value={user.name}
+                        disabled={user.isMaster}
+                        validate={(v) => v.trim().length < 2 ? 'Mínimo 2 caracteres' : null}
+                        onSave={(v) => inlineUpdate(user.id, { name: v.trim() })}
+                        className="font-medium text-sm"
+                      />
+                      {user.isMaster && <span className="inline-block rounded-[2px] bg-amber-500 text-white px-1.5 py-0 text-[10px] font-bold">MASTER</span>}
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell truncate text-sm text-muted-foreground">
+                    <InlineEditCell
+                      type="email"
+                      value={user.email}
+                      disabled={user.isMaster}
+                      validate={(v) => /\S+@\S+\.\S+/.test(v) ? null : 'E-mail inválido'}
+                      onSave={(v) => inlineUpdate(user.id, { email: v.trim().toLowerCase() })}
+                    />
+                  </TableCell>
                   <TableCell>
                     <InlineEditCell
                       type="select"
@@ -608,29 +650,7 @@ export default function UsuariosPage() {
                       )}
                     />
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 whitespace-nowrap">
-                      <InlineEditCell
-                        type="text"
-                        value={user.name}
-                        disabled={user.isMaster}
-                        validate={(v) => v.trim().length < 2 ? 'Mínimo 2 caracteres' : null}
-                        onSave={(v) => inlineUpdate(user.id, { name: v.trim() })}
-                        className="font-medium text-sm"
-                      />
-                      {user.isMaster && <span className="inline-block rounded-[2px] bg-amber-500 text-white px-1.5 py-0 text-[10px] font-bold">MASTER</span>}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground whitespace-nowrap">
-                    <InlineEditCell
-                      type="email"
-                      value={user.email}
-                      disabled={user.isMaster}
-                      validate={(v) => /\S+@\S+\.\S+/.test(v) ? null : 'E-mail inválido'}
-                      onSave={(v) => inlineUpdate(user.id, { email: v.trim().toLowerCase() })}
-                    />
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground whitespace-nowrap">
+                  <TableCell className="hidden lg:table-cell truncate text-sm text-muted-foreground">
                     <InlineEditCell
                       type="select"
                       value={user.area?.id ?? 'none'}
@@ -663,7 +683,7 @@ export default function UsuariosPage() {
                       )
                     })()}
                   </TableCell>
-                  <TableCell className="hidden xl:table-cell text-sm whitespace-nowrap">
+                  <TableCell className="hidden xl:table-cell truncate text-sm">
                     {user.lastLoginAt ? (
                       <span className={loginCorClass(user.lastLoginAt)} title={new Date(user.lastLoginAt).toLocaleString('pt-BR')}>
                         {formatRelativo(user.lastLoginAt)}
@@ -701,6 +721,7 @@ export default function UsuariosPage() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
+
                 </TableRow>
               )})
             )}
