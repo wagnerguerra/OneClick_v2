@@ -9,13 +9,13 @@
  * calculadora — não há uma segunda cópia da conta em lugar nenhum.
  */
 
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend, LabelList,
 } from 'recharts'
-import { Info, TrendingDown, TrendingUp, HelpCircle, ListTree } from 'lucide-react'
-import { Card, Input, Label, Badge, cn } from '@saas/ui'
+import { Info, TrendingDown, TrendingUp, HelpCircle, ListTree, Download, Share2 } from 'lucide-react'
+import { Button, Card, Input, Label, Badge, cn } from '@saas/ui'
 import {
   type Parametros, type Regime, type Atividade, type Operacao,
   ROTULO_REGIME, ROTULO_ATIVIDADE, ehServico, temIpi,
@@ -583,6 +583,38 @@ export function SecaoTransicao({ p, onChange }: {
   )
 }
 
+/**
+ * CSS da folha do resumo. Vai para dentro de um iframe na hora de imprimir,
+ * onde não existem as variáveis de tema — por isso as cores são literais.
+ */
+const CSS_FOLHA = `
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #0f172a; }
+  .rt-doc { max-width: 820px; margin: 0 auto; font-size: 10.5pt; line-height: 1.45; }
+  .rt-doc h1 { margin: 0; font-size: 16pt; }
+  .rt-doc .sub { margin: 4px 0 0; color: #475569; font-size: 9.5pt; }
+  .rt-doc .chips { margin: 10px 0 0; color: #475569; font-size: 9pt; }
+  .rt-doc .kpis { display: flex; gap: 10px; margin: 18px 0 0; }
+  .rt-doc .kpi { flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; }
+  .rt-doc .kpi p { margin: 0; }
+  .rt-doc .kpi .r { font-size: 7.5pt; text-transform: uppercase; letter-spacing: .06em; color: #64748b; }
+  .rt-doc .kpi .v { margin-top: 2px; font-size: 12pt; font-weight: 700; }
+  .rt-doc .destaque { margin: 14px 0 0; border: 1px solid #bbf7d0; background: #f0fdf4;
+                      border-radius: 8px; padding: 10px 12px; display: flex;
+                      justify-content: space-between; font-weight: 700; }
+  .rt-doc h2 { margin: 22px 0 8px; font-size: 11pt; }
+  .rt-doc table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  .rt-doc th { background: #0f172a; color: #fff; padding: 6px 8px; text-align: right;
+               font-size: 8pt; text-transform: uppercase; letter-spacing: .04em; }
+  .rt-doc th:first-child { text-align: left; }
+  .rt-doc td { padding: 5px 8px; text-align: right; border-bottom: 1px solid #e2e8f0; }
+  .rt-doc td:first-child { text-align: left; }
+  .rt-doc tr.forte td { font-weight: 700; background: #f8fafc; }
+  .rt-doc .rodape { margin-top: 26px; border-top: 1px solid #e2e8f0; padding-top: 8px;
+                    font-size: 8pt; color: #64748b; }
+  @page { size: A4; margin: 14mm 12mm; }
+`
+
 // ══════════════════════════════════════════════════════════════════
 // 4. VISÃO GERAL
 // ══════════════════════════════════════════════════════════════════
@@ -596,6 +628,59 @@ export function SecaoVisaoGeral({ p, cliente }: {
   const variacao = atual.totalEfetivo > 0 ? (diferenca / atual.totalEfetivo) * 100 : 0
   const economiaAnual = -diferenca * 12
   const alivio = diferenca < 0
+
+  const anos = useMemo(() => calcularTransicao(p), [p])
+  const folhaRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * Imprime o resumo por um iframe — o mesmo caminho do comprovante de
+   * protocolo. Não é geração de PDF no servidor: quem salva é o navegador, na
+   * opção "Salvar como PDF" da própria caixa de impressão. Para um documento de
+   * conversa isso basta, e evita subir uma rota que renderiza HTML no backend só
+   * para carimbar um arquivo.
+   */
+  function baixarPdf() {
+    const doc = folhaRef.current
+    if (!doc) return
+    const frame = document.createElement('iframe')
+    frame.setAttribute('aria-hidden', 'true')
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;'
+    document.body.appendChild(frame)
+    const w = frame.contentWindow
+    if (!w) { frame.remove(); return }
+    w.document.open()
+    w.document.write(
+      `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">`
+      + `<title>Reforma tributária — ${cliente?.razaoSocial ?? 'simulação'}</title>`
+      + `<style>${CSS_FOLHA}</style></head><body>${doc.innerHTML}</body></html>`,
+    )
+    w.document.close()
+    setTimeout(() => { w.focus(); w.print(); setTimeout(() => frame.remove(), 1500) }, 250)
+  }
+
+  /**
+   * Abre o WhatsApp com o resumo em texto. Sem número de destino: quem envia
+   * escolhe o contato na hora — mandar direto para o telefone do cadastro seria
+   * disparar mensagem em nome de alguém sem confirmação.
+   */
+  function compartilhar() {
+    const linhas = [
+      `*Simulação — Reforma Tributária*`,
+      cliente?.razaoSocial ? `Empresa: ${cliente.razaoSocial}` : null,
+      `Regime atual: ${ROTULO_REGIME[p.regime]} · ${ROTULO_ATIVIDADE[p.atividade]}`,
+      `Faturamento mensal: ${reais(p.faturamentoMensal)}`,
+      '',
+      `Imposto hoje (efetivo): ${reais(atual.totalEfetivo)}/mês — ${porcento(atual.aliquotaEfetiva)}`,
+      `Pós-reforma (IBS+CBS): ${reais(iva.totalEfetivo)}/mês — ${porcento(iva.aliquotaEfetiva)}`,
+      `Diferença: ${diferenca < 0 ? '-' : '+'}${reais(Math.abs(diferenca))}/mês (${porcento(variacao)})`,
+      `${diferenca < 0 ? 'Economia' : 'Custo adicional'} anual estimado: ${reais(Math.abs(economiaAnual))}`,
+      '',
+      'Estimativa pedagógica, com alíquota de referência de '
+        + `${porcento(p.cbs + p.ibs)} (CBS ${porcento(p.cbs)} + IBS ${porcento(p.ibs)}). `
+        + 'Não substitui consultoria tributária.',
+    ].filter(Boolean).join('\n')
+    window.open(`https://wa.me/?text=${encodeURIComponent(linhas)}`, '_blank', 'noopener')
+  }
 
   const antesDepois = [
     { nome: 'Hoje', valor: atual.totalEfetivo },
@@ -676,6 +761,22 @@ export function SecaoVisaoGeral({ p, cliente }: {
         </span>
       </div>
 
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" className="gap-2" onClick={baixarPdf}>
+          <Download className="h-4 w-4" />Baixar resultados em PDF
+        </Button>
+        <Button
+          type="button" className="gap-2 text-white"
+          style={{ background: '#25D366' }}
+          onClick={compartilhar}
+        >
+          <Share2 className="h-4 w-4" />Compartilhar no WhatsApp
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          Envie o resumo da simulação para o cliente ou para a equipe.
+        </span>
+      </div>
+
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="p-4">
           <p className="mb-3 text-[13px] font-semibold">Antes × depois <span className="font-normal text-muted-foreground">· imposto mensal</span></p>
@@ -713,6 +814,96 @@ export function SecaoVisaoGeral({ p, cliente }: {
             </BarChart>
           </ResponsiveContainer>
         </Card>
+      </div>
+
+      {/* A folha do PDF. Fica fora da tela em vez de `display:none` porque o
+          conteúdo precisa existir para ser copiado — e leva os NÚMEROS, não os
+          gráficos: SVG do Recharts depende de medida do container, e um gráfico
+          gerado fora da vista sai torto no papel. */}
+      <div ref={folhaRef} aria-hidden className="pointer-events-none fixed left-[-10000px] top-0 w-[820px]">
+        <div className="rt-doc">
+          <h1>Reforma tributária — impacto estimado</h1>
+          <p className="sub">
+            Comparação entre a carga de hoje e o novo regime (IBS + CBS), a partir dos dados da simulação.
+          </p>
+          <p className="chips">
+            {[
+              cliente?.razaoSocial,
+              ROTULO_REGIME[p.regime],
+              ROTULO_ATIVIDADE[p.atividade],
+              `Faturamento mensal ${reais(p.faturamentoMensal)}`,
+              `Emitido em ${new Date().toLocaleDateString('pt-BR')}`,
+            ].filter(Boolean).join('  ·  ')}
+          </p>
+
+          <div className="kpis">
+            <div className="kpi"><p className="r">Imposto hoje</p><p className="v">{reais(atual.totalEfetivo)}</p></div>
+            <div className="kpi"><p className="r">Pós-reforma</p><p className="v">{reais(iva.totalEfetivo)}</p></div>
+            <div className="kpi"><p className="r">Diferença mensal</p><p className="v">{diferenca < 0 ? '−' : '+'}{reais(Math.abs(diferenca))}</p></div>
+            <div className="kpi"><p className="r">Variação</p><p className="v">{porcento(variacao)}</p></div>
+          </div>
+
+          <div className="destaque">
+            <span>{alivio ? 'Economia anual estimada' : 'Custo adicional anual estimado'}</span>
+            <span>{reais(Math.abs(economiaAnual))}</span>
+          </div>
+
+          <h2>Comparativo de regimes — carga mensal</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Regime</th><th>Total nominal</th><th>Total efetivo</th>
+                <th>Alíquota nominal</th><th>Alíquota efetiva</th>
+              </tr>
+            </thead>
+            <tbody>
+              {REGIMES.map(r => {
+                const l = calcularRegime(p, r)
+                return (
+                  <tr key={r} className={r === p.regime ? 'forte' : undefined}>
+                    <td>{ROTULO_REGIME[r]}{r === p.regime ? ' (atual)' : ''}</td>
+                    <td>{reais(l.totalNominal)}</td>
+                    <td>{reais(l.totalEfetivo)}</td>
+                    <td>{porcento(l.aliquotaNominal)}</td>
+                    <td>{porcento(l.aliquotaEfetiva)}</td>
+                  </tr>
+                )
+              })}
+              <tr className="forte">
+                <td>IVA — CBS + IBS</td>
+                <td>{reais(iva.totalNominal)}</td>
+                <td>{reais(iva.totalEfetivo)}</td>
+                <td>{porcento(iva.aliquotaNominal)}</td>
+                <td>{porcento(iva.aliquotaEfetiva)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>Transição 2026–2033 — valores anuais</h2>
+          <table>
+            <thead>
+              <tr><th>Ano</th><th>Sistema antigo</th><th>IBS</th><th>CBS</th><th>Total</th><th>vs hoje</th></tr>
+            </thead>
+            <tbody>
+              {anos.map(a => (
+                <tr key={a.ano}>
+                  <td>{a.ano}</td>
+                  <td>{reais(a.sistemaAntigo)}</td>
+                  <td>{reais(a.ibs)}</td>
+                  <td>{reais(a.cbs)}</td>
+                  <td>{reais(a.total)}</td>
+                  <td>{porcento(a.vsHoje)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <p className="rodape">
+            Alíquota de referência: CBS {porcento(p.cbs)} + IBS {porcento(p.ibs)} = {porcento(p.cbs + p.ibs)}.
+            A alíquota final ainda não está definida em lei. Simulador pedagógico — os resultados são
+            estimativas e não substituem consultoria tributária.
+          </p>
+        </div>
       </div>
     </>
   )
