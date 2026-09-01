@@ -691,11 +691,13 @@ export function SecaoVisaoGeral({ p, cliente }: {
     { nome: 'IVA', valor: iva.aliquotaEfetiva, atual: false },
   ]
 
-  /** CNPJ parcialmente oculto — o resumo costuma ser mostrado em tela cheia. */
-  const cnpjMascarado = (() => {
+  /** CNPJ por extenso. Era mascarado, mas quem vê esta tela é a equipe e o
+   *  próprio cliente — esconder o documento dele não protegia ninguém e ainda
+   *  obrigava a conferir o número em outro lugar. */
+  const cnpj = (() => {
     const d = (cliente?.documento ?? '').replace(/\D/g, '')
     if (d.length !== 14) return null
-    return `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-**`
+    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`
   })()
 
   return (
@@ -704,7 +706,11 @@ export function SecaoVisaoGeral({ p, cliente }: {
         className="mb-5 overflow-hidden rounded-2xl px-7 py-8 text-white"
         style={{ background: `linear-gradient(120deg, ${COR_ATUAL} 0%, #0d3b47 60%, #0e5568 100%)` }}
       >
-        <h2 className="max-w-3xl text-2xl font-bold leading-snug tracking-tight">
+        {/* `text-white` explícito: o global de tipografia define
+            `h1,h2,h3 { color: var(--color-foreground) }`, que vence a herança do
+            container. No modo claro isso pintava o título de preto sobre a capa
+            escura, e ele sumia. */}
+        <h2 className="max-w-3xl text-2xl font-bold leading-snug tracking-tight text-white">
           O impacto da reforma em {cliente ? <>uma empresa de {ROTULO_ATIVIDADE[p.atividade].toLowerCase()}</> : 'uma empresa'}
         </h2>
         <p className="mt-2 max-w-2xl text-sm text-white/75">
@@ -714,7 +720,7 @@ export function SecaoVisaoGeral({ p, cliente }: {
         <div className="mt-5 flex flex-wrap gap-2">
           {[
             cliente?.razaoSocial,
-            cnpjMascarado ? `CNPJ ${cnpjMascarado}` : null,
+            cnpj ? `CNPJ ${cnpj}` : null,
             cliente?.cnaePrincipal ? `CNAE ${cliente.cnaePrincipal}` : null,
             cliente?.cidade && cliente?.uf ? `${cliente.cidade} · ${cliente.uf}` : null,
             ROTULO_REGIME[p.regime],
