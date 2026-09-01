@@ -29,7 +29,6 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
-import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { useTabLabel } from '@/hooks/use-tab-label'
 import { SeletorCliente, type ClienteSimulador } from './_components/seletor-cliente'
@@ -174,7 +173,7 @@ export default function ReformaTributariaPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeaderBar actions={<BackButton href="/dashboard" label="Voltar" />}>
+      <PageHeaderBar>
         <h1 className="truncate">Reforma Tributária</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
