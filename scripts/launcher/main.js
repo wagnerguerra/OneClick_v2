@@ -1532,6 +1532,13 @@ function registerIpcHandlers() {
         const existing = biSyncCookies.get(baseUrl) || ''
         const newCookies = setCookie.map(c => c.split(';')[0]).join('; ')
         biSyncCookies.set(baseUrl, existing ? `${existing}; ${newCookies}` : newCookies)
+        // Sessão em mãos: o canal sobe sozinho e fica. Antes ele só abria se
+        // alguém visitasse a tela de BI no Service Manager — e o servidor
+        // recusava a importação do balancete por não ver ninguém escutando.
+        if (!biSyncActive) {
+          console.log('[BiSync] Sessão obtida — abrindo SSE automaticamente.')
+          biSyncStreamStart(baseUrl).catch(() => {})
+        }
       }
       const text = await resp.text()
       let data = null
@@ -1555,16 +1562,50 @@ function registerIpcHandlers() {
   // de forma confiável — fazemos manualmente com node fetch.)
   // ════════════════════════════════════════════════════════
   let biSyncStreamCtrl = null
+  let biSyncActive = false          // true enquanto o stream deve ficar vivo (auto-reconecta)
+  let biSyncReconnectTimer = null
+  let biSyncBaseUrl = ''            // baseUrl atual pra reconectar
+
+  // Stop EXPLÍCITO (logout/quit): desativa e cancela a reconexão.
   function biSyncStreamStop() {
+    biSyncActive = false
+    if (biSyncReconnectTimer) { clearTimeout(biSyncReconnectTimer); biSyncReconnectTimer = null }
     if (biSyncStreamCtrl) {
       try { biSyncStreamCtrl.abort() } catch {}
       biSyncStreamCtrl = null
     }
   }
+
+  /**
+   * Agenda a religação do stream.
+   *
+   * Sem isto, o SSE morria em silêncio no primeiro soluço — deploy da API,
+   * timeout do proxy, queda de rede — e o Service Manager continuava "aberto"
+   * na tela do usuário enquanto o servidor já não o enxergava. É a importação
+   * do balancete que dependia disso: ela só é despachada se houver alguém
+   * escutando este canal.
+   */
+  function biSyncAgendarReconexao() {
+    if (!biSyncActive || biSyncReconnectTimer) return
+    biSyncReconnectTimer = setTimeout(() => {
+      biSyncReconnectTimer = null
+      if (biSyncActive && biSyncBaseUrl) {
+        console.log('[BiSync] Reconectando SSE...')
+        biSyncStreamStart(biSyncBaseUrl).catch(() => {})
+      }
+    }, 5000)
+  }
+
   async function biSyncStreamStart(baseUrl) {
-    biSyncStreamStop()
+    // Aborta o anterior SEM desativar — assim a reconexão segue valendo.
+    if (biSyncReconnectTimer) { clearTimeout(biSyncReconnectTimer); biSyncReconnectTimer = null }
+    if (biSyncStreamCtrl) { try { biSyncStreamCtrl.abort() } catch {}; biSyncStreamCtrl = null }
+    biSyncActive = true
+    biSyncBaseUrl = baseUrl
     const cookieStr = biSyncCookies.get(baseUrl) || ''
-    if (!cookieStr) return // não autenticado
+    // Sem sessão ainda: tenta de novo em vez de desistir para sempre — o login
+    // costuma acontecer segundos depois de o app abrir.
+    if (!cookieStr) { biSyncAgendarReconexao(); return }
     biSyncStreamCtrl = new AbortController()
     const url = `${baseUrl}/api/bi-sync/eventos`
     try {
@@ -1583,7 +1624,12 @@ function registerIpcHandlers() {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('bi-sync-event', { type: '__error', status: resp.status })
         }
+        biSyncAgendarReconexao()
         return
+      }
+      console.log('[BiSync] SSE conectado — o servidor já enxerga este Service Manager.')
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('bi-sync-event', { type: '__conectado' })
       }
       const reader = resp.body.getReader()
       const decoder = new TextDecoder()
@@ -1606,11 +1652,16 @@ function registerIpcHandlers() {
           } catch { /* skip malformed */ }
         }
       }
+      // Chegar aqui significa que o servidor encerrou o stream (reinício da API,
+      // timeout do proxy). Não é erro — mas o canal precisa voltar.
+      console.log('[BiSync] SSE encerrado pelo servidor; religando em 5s.')
+      biSyncAgendarReconexao()
     } catch (e) {
       if (e.name !== 'AbortError') {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('bi-sync-event', { type: '__error', message: e.message })
         }
+        biSyncAgendarReconexao()
       }
     }
   }

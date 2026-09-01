@@ -62,6 +62,9 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
   const [importando, setImportando] = useState(false)
   const [progresso, setProgresso] = useState(0)
   const [mensagem, setMensagem] = useState('')
+  /** null = ainda consultando. A importação roda no Service Manager, então
+   *  saber se ele está aberto é metade da resposta. */
+  const [smConectado, setSmConectado] = useState<boolean | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const pararPolling = useCallback(() => {
@@ -80,6 +83,15 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
   }, [clienteId])
 
   useEffect(() => { if (aberto) void carregar() }, [aberto, carregar])
+
+  useEffect(() => {
+    if (!aberto) return
+    setSmConectado(null)
+    fetch('/be/api/bi-sync/conectado', { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(r => setSmConectado(!!r?.conectado))
+      .catch(() => setSmConectado(false))
+  }, [aberto])
   useEffect(() => () => pararPolling(), [pararPolling])
 
   async function importar() {
@@ -267,9 +279,21 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
             </div>
           )}
 
+          {smConectado === false && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+              <p className="font-semibold">Service Manager não está escutando</p>
+              <p className="mt-0.5">
+                Quem lê o Firebird é o Service Manager, no PC do escritório — o servidor não alcança a
+                rede local. Ele pode estar aberto e mesmo assim fora deste canal: nesse caso, feche e
+                reabra o Service Manager para ele reconectar.
+              </p>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-3 pt-1">
             <p className="text-[11px] text-muted-foreground">
               Busca os últimos 12 meses fechados no SCI.
+              {smConectado === true && <span className="ml-1 text-emerald-600 dark:text-emerald-400">Service Manager conectado.</span>}
             </p>
             <Button type="button" onClick={importar} className="gap-2" disabled={importando || !clienteId}>
               {importando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}

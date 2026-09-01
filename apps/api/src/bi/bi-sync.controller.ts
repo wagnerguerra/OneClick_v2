@@ -78,6 +78,19 @@ export class BiSyncController {
     }
   }
 
+  /**
+   * Há Service Manager escutando o SSE?
+   *
+   * A importação do balancete é executada POR ELE — a VPS não alcança o
+   * Firebird da rede local. Sem esta consulta, a tela só descobre isso depois
+   * de o usuário clicar e esperar.
+   */
+  @Get('conectado')
+  async conectado(@Req() req: Request) {
+    await this.assertAuth(req)
+    return { conectado: this.events.hasListeners() }
+  }
+
   @Get('status/:clienteId/:refInicio/:refFim')
   async status(
     @Param('clienteId') clienteId: string,
