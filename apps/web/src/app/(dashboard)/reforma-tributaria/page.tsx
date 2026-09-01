@@ -184,10 +184,10 @@ export default function ReformaTributariaPage() {
         </p>
       </PageHeaderBar>
 
-      {/* Cliente à esquerda, resumo à direita: escolher vem antes de ler, e a
-          ordem da linha diz isso. O resumo é o contexto de todas as abas e some
-          quando não há cliente. */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      {/* Meia linha para cada: escolher vem antes de ler, e as duas metades têm
+          o mesmo peso. Sem cliente escolhido o resumo não existe, e aí o seletor
+          toma a linha inteira — é o único passo possível naquele momento. */}
+      <div className={cn('grid items-center gap-3', pronto && 'lg:grid-cols-2')}>
         <div className="flex items-center gap-2">
           <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
           <SeletorCliente selecionado={cliente} onSelecionar={escolher} />
@@ -195,7 +195,7 @@ export default function ReformaTributariaPage() {
         </div>
 
         {pronto && (
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-5 py-2.5 shadow-sm">
+          <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-border bg-card px-5 py-2 shadow-sm">
             {[
               { r: 'Regime', v: ROTULO_REGIME[p.regime].toUpperCase() },
               { r: 'Atividade', v: ROTULO_ATIVIDADE[p.atividade].toUpperCase() },
