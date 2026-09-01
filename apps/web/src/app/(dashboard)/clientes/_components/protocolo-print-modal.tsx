@@ -82,6 +82,18 @@ const CSS_PAPEL = `
   .protocolo-doc .rodape p { margin: 0; }
 `
 
+/**
+ * O que só vale no papel: o rodapé desce para o pé da folha, como o
+ * `position:absolute; bottom:0` do v1. Aqui por coluna flex + `margin-top:auto`,
+ * que empurra o rodapé sem tirá-lo do fluxo — se um dia a lista de documentos
+ * encher a página, ele desce para a folha seguinte em vez de imprimir por cima.
+ */
+const CSS_SO_PAPEL = `
+  html, body { height: 100%; }
+  .protocolo-doc { min-height: 100%; display: flex; flex-direction: column; }
+  .protocolo-doc .rodape { margin-top: auto; }
+`
+
 export function ProtocoloPrintModal({ protocoloId, onClose }: {
   /** null fecha o modal — o card guarda só o id do protocolo escolhido. */
   protocoloId: string | null
@@ -119,7 +131,7 @@ export function ProtocoloPrintModal({ protocoloId, onClose }: {
     w.document.write(
       `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">`
       + `<title>Protocolo nº ${p?.numero ?? ''}</title>`
-      + `<style>${CSS_PAPEL}@page { size: A4; margin: 14mm 12mm; }</style>`
+      + `<style>${CSS_PAPEL}${CSS_SO_PAPEL}@page { size: A4; margin: 14mm 12mm; }</style>`
       + `</head><body>${doc.outerHTML}</body></html>`,
     )
     w.document.close()
