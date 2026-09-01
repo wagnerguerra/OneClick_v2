@@ -14,7 +14,7 @@ import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend, LabelList,
 } from 'recharts'
-import { Info, TrendingDown, TrendingUp, HelpCircle } from 'lucide-react'
+import { Info, TrendingDown, TrendingUp, HelpCircle, ListTree } from 'lucide-react'
 import { Card, Input, Label, Badge, cn } from '@saas/ui'
 import {
   type Parametros, type Regime, type Atividade, type Operacao,
@@ -46,12 +46,57 @@ const COR_NEUTRA = '#cbd5e1'
 
 const REGIMES: Regime[] = ['LUCRO_REAL', 'LUCRO_PRESUMIDO', 'SIMPLES']
 
+/** Uma conta do balancete que entra na base de crédito. */
+export interface ItemComposicao {
+  conta: string
+  nomeConta: string
+  categoria: 'CREDITAVEL' | 'NAO_CREDITAVEL' | 'REVISAR'
+  /** Valor no período de 12 meses, como o diagnóstico devolve. */
+  valor: number
+  motivo: string
+}
+
 function Titulo({ eyebrow, titulo, descricao }: { eyebrow: string; titulo: string; descricao: string }) {
   return (
     <div className="mb-5">
       <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: COR_IVA }}>{eyebrow}</p>
       <h2 className="mt-0.5 text-xl font-bold tracking-tight text-foreground">{titulo}</h2>
       <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{descricao}</p>
+    </div>
+  )
+}
+
+/**
+ * Campo de dinheiro em pt-BR.
+ *
+ * O estado continua sendo NÚMERO; a máscara é só apresentação. Digitar move da
+ * direita para a esquerda, como em caixa registradora: cada tecla é um centavo
+ * a mais. Um `<input type="number">` mostrava "1500000" e obrigava a pessoa a
+ * contar as casas para saber se era um milhão e meio ou quinze milhões.
+ */
+function CampoMoeda({ label, valor, onChange, className }: {
+  label?: string; valor: number; onChange: (v: number) => void; className?: string
+}) {
+  const texto = (valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return (
+    <div>
+      {label && <Label className="text-[13px] font-semibold">{label}</Label>}
+      <div className={cn('relative', label && 'mt-1.5')}>
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: COR_IVA }}>R$</span>
+        <input
+          inputMode="numeric"
+          value={texto}
+          onChange={(e) => {
+            const digitos = e.target.value.replace(/\D/g, '')
+            onChange(digitos ? Number(digitos) / 100 : 0)
+          }}
+          className={cn(
+            'h-10 w-full rounded-md border border-border bg-card pl-10 pr-3 text-right text-sm tabular-nums text-foreground',
+            'focus:outline-none focus:ring-2 focus:ring-ring/40',
+            className,
+          )}
+        />
+      </div>
     </div>
   )
 }
@@ -78,11 +123,14 @@ function CampoPercentual({ label, valor, onChange, disabled }: {
 // ══════════════════════════════════════════════════════════════════
 // 1. CONFIGURAR
 // ══════════════════════════════════════════════════════════════════
-export function SecaoConfigurar({ p, onChange, origem }: {
+export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirComposicao }: {
   p: Parametros
   onChange: (patch: Partial<Parametros>) => void
   /** De onde veio o faturamento sugerido. */
   origem?: 'contrato' | 'erp' | 'nenhuma'
+  /** Contas do balancete que somam as despesas creditáveis. */
+  composicao?: ItemComposicao[]
+  onAbrirComposicao?: () => void
 }) {
   const totalIva = p.cbs + p.ibs
   const servico = ehServico(p.atividade)
@@ -125,16 +173,11 @@ export function SecaoConfigurar({ p, onChange, origem }: {
             </select>
           </div>
           <div>
-            <Label className="text-[13px] font-semibold">Faturamento mensal</Label>
-            <div className="relative mt-1.5">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: COR_IVA }}>R$</span>
-              <Input
-                type="number" min="0" step="1000"
-                value={p.faturamentoMensal}
-                onChange={(e) => onChange({ faturamentoMensal: Number(e.target.value) })}
-                className="h-10 pl-10 text-sm tabular-nums"
-              />
-            </div>
+            <CampoMoeda
+              label="Faturamento mensal"
+              valor={p.faturamentoMensal}
+              onChange={(v) => onChange({ faturamentoMensal: v })}
+            />
             {/* A procedência do número fica à vista: apresentar faturamento sem
                 saber de onde saiu é o jeito mais rápido de perder a conversa. */}
             <p className="mt-1 text-[11px] text-muted-foreground">
@@ -149,22 +192,33 @@ export function SecaoConfigurar({ p, onChange, origem }: {
 
         <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/30 p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Despesas mensais creditáveis
               </p>
-              <p className="mt-0.5 text-xl font-bold tabular-nums text-foreground">{reais(p.despesasCreditaveis)}</p>
+              {/* Clicável quando há composição: o valor sozinho não diz de onde
+                  veio, e quem apresenta precisa poder abrir a conta. */}
+              {composicao && composicao.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={onAbrirComposicao}
+                  className="mt-0.5 flex items-center gap-1.5 text-xl font-bold tabular-nums text-foreground underline-offset-4 hover:underline"
+                  title="Ver as contas que somam este valor"
+                >
+                  {reais(p.despesasCreditaveis)}
+                  <ListTree className="h-4 w-4 text-muted-foreground" />
+                </button>
+              ) : (
+                <p className="mt-0.5 text-xl font-bold tabular-nums text-foreground">{reais(p.despesasCreditaveis)}</p>
+              )}
               <p className="text-[11px] text-muted-foreground">
-                É sobre elas que o IVA devolve crédito — o traço que mais muda em relação ao sistema atual.
+                {composicao && composicao.length > 0
+                  ? `Soma de ${composicao.length} conta(s) do balancete — clique para ver.`
+                  : 'É sobre elas que o IVA devolve crédito — o traço que mais muda em relação ao sistema atual.'}
               </p>
             </div>
             <div className="w-[200px]">
-              <Input
-                type="number" min="0" step="1000"
-                value={p.despesasCreditaveis}
-                onChange={(e) => onChange({ despesasCreditaveis: Number(e.target.value) })}
-                className="h-9 text-sm tabular-nums"
-              />
+              <CampoMoeda valor={p.despesasCreditaveis} onChange={(v) => onChange({ despesasCreditaveis: v })} className="h-9" />
             </div>
           </div>
         </div>
@@ -735,17 +789,11 @@ export function SecaoCalculadora({ p, op, onChange }: {
         <Card className="p-5">
           <p className="mb-4 text-[13px] font-semibold">Dados da operação</p>
           <div className="space-y-4">
-            <div>
-              <Label className="text-[13px] font-semibold">Valor da operação (sem impostos)</Label>
-              <div className="relative mt-1.5">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: COR_IVA }}>R$</span>
-                <Input
-                  type="number" min="0" step="100" value={op.valor}
-                  onChange={(e) => onChange({ valor: Number(e.target.value) })}
-                  className="h-10 pl-10 text-sm tabular-nums"
-                />
-              </div>
-            </div>
+            <CampoMoeda
+              label="Valor da operação (sem impostos)"
+              valor={op.valor}
+              onChange={(v) => onChange({ valor: v })}
+            />
             <div>
               <Label className="text-[13px] font-semibold">Regime da operação</Label>
               <select

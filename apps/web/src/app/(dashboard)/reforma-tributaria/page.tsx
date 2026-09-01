@@ -21,9 +21,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   Settings2, LayoutGrid, TrendingUp, LayoutDashboard, Sigma,
-  Loader2, Building2, Info,
+  Loader2, Building2, Info, ListTree,
 } from 'lucide-react'
-import { Card, cn } from '@saas/ui'
+import {
+  Card, cn, Badge,
+  Dialog, DialogContent, DialogTitle, DialogDescription,
+} from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
@@ -31,6 +35,7 @@ import { useTabLabel } from '@/hooks/use-tab-label'
 import { SeletorCliente, type ClienteSimulador } from './_components/seletor-cliente'
 import {
   SecaoConfigurar, SecaoComparar, SecaoTransicao, SecaoVisaoGeral, SecaoCalculadora,
+  type ItemComposicao,
 } from './_components/secoes'
 import {
   type Parametros, type Regime, type Atividade, type Operacao,
@@ -98,6 +103,10 @@ export default function ReformaTributariaPage() {
   /** De onde veio o faturamento — a tela diz, para ninguém apresentar um número
    *  sem saber a procedência. */
   const [origem, setOrigem] = useState<'contrato' | 'erp' | 'nenhuma'>('nenhuma')
+  /** Contas do balancete que somam a base de crédito, quando o diagnóstico as
+   *  conhece. Sem balancete importado a lista é vazia e o valor não abre. */
+  const [composicao, setComposicao] = useState<ItemComposicao[]>([])
+  const [verComposicao, setVerComposicao] = useState(false)
 
   const alterar = useCallback((patch: Partial<Parametros>) => setP(prev => ({ ...prev, ...patch })), [])
 
@@ -109,7 +118,7 @@ export default function ReformaTributariaPage() {
    */
   const escolher = useCallback(async (c: ClienteSimulador | null) => {
     setCliente(c)
-    if (!c) { setP(PARAMETROS_INICIAIS); setOrigem('nenhuma'); return }
+    if (!c) { setP(PARAMETROS_INICIAIS); setOrigem('nenhuma'); setComposicao([]); return }
 
     // O faturamento do PARÂMETRO DE CONTRATO vem primeiro: é a consulta ao SCI
     // que a Gestão de Contratos usa para precificar, e é mensal. O snapshot do
@@ -127,14 +136,27 @@ export default function ReformaTributariaPage() {
     }))
 
     setCarregandoCliente(true)
+    setComposicao([])
     try {
       const d = await (trpc.reformaTributaria as never as {
         diagnostico: { query: (i: { clienteId: string; meses: number }) => Promise<{
-          metrics: { comprasMercadorias12m: number; servicosTomados12m: number }
+          metrics: {
+            comprasMercadorias12m: number
+            servicosTomados12m: number
+            creditos: { baseAjustada12m: number; itens: ItemComposicao[] }
+          }
         }> }
       }).diagnostico.query({ clienteId: c.id, meses: 12 })
-      const despesas = (d.metrics.comprasMercadorias12m + d.metrics.servicosTomados12m) / 12
-      if (despesas > 0) setP(prev => ({ ...prev, despesasCreditaveis: Math.round(despesas) }))
+
+      // A base do balancete tem precedência sobre compras+serviços: ela vem de
+      // contas classificadas uma a uma, e é a única que sabe dizer de onde veio.
+      const doBalancete = d.metrics.creditos?.baseAjustada12m ?? 0
+      const doFiscal = d.metrics.comprasMercadorias12m + d.metrics.servicosTomados12m
+      const anual = doBalancete > 0 ? doBalancete : doFiscal
+      if (anual > 0) setP(prev => ({ ...prev, despesasCreditaveis: Math.round(anual / 12) }))
+      if (doBalancete > 0) {
+        setComposicao((d.metrics.creditos?.itens ?? []).filter(i => i.categoria === 'CREDITAVEL'))
+      }
     } catch { /* sem ERP para este cliente — o campo fica editável em zero */ }
     finally { setCarregandoCliente(false) }
   }, [])
@@ -152,16 +174,7 @@ export default function ReformaTributariaPage() {
 
   return (
     <div className="space-y-5">
-      {/* O seletor mora no cabeçalho, junto do Voltar: é o primeiro passo da
-          tela, e escondê-lo abaixo do título fazia parecer que a página abria
-          vazia por falta de dados. */}
-      <PageHeaderBar actions={<>
-        <div className="flex items-center gap-2">
-          <SeletorCliente selecionado={cliente} onSelecionar={escolher} />
-          {carregandoCliente && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
-        </div>
-        <BackButton href="/dashboard" label="Voltar" />
-      </>}>
+      <PageHeaderBar actions={<BackButton href="/dashboard" label="Voltar" />}>
         <h1 className="truncate">Reforma Tributária</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
@@ -172,9 +185,16 @@ export default function ReformaTributariaPage() {
         </p>
       </PageHeaderBar>
 
-      {/* O resumo fica visível em todas as abas: é o contexto do que está na
-          tela, e some quando não há cliente escolhido. */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+      {/* Cliente à esquerda, resumo à direita: escolher vem antes de ler, e a
+          ordem da linha diz isso. O resumo é o contexto de todas as abas e some
+          quando não há cliente. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <SeletorCliente selecionado={cliente} onSelecionar={escolher} />
+          {carregandoCliente && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
+        </div>
+
         {pronto && (
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-5 py-2.5 shadow-sm">
             {[
@@ -250,7 +270,13 @@ export default function ReformaTributariaPage() {
 
           {/* Conteúdo */}
           <div className="min-w-0">
-            {aba === 'configurar' && <SecaoConfigurar p={p} onChange={alterar} origem={origem} />}
+            {aba === 'configurar' && (
+              <SecaoConfigurar
+                p={p} onChange={alterar} origem={origem}
+                composicao={composicao}
+                onAbrirComposicao={() => setVerComposicao(true)}
+              />
+            )}
             {aba === 'comparar' && <SecaoComparar p={p} />}
             {aba === 'transicao' && <SecaoTransicao p={p} onChange={alterar} />}
             {aba === 'visao' && <SecaoVisaoGeral p={p} cliente={cliente} />}
@@ -260,6 +286,59 @@ export default function ReformaTributariaPage() {
           </div>
         </div>
       )}
+
+      {/* Composição das despesas creditáveis — as contas do balancete que somam
+          o valor, com o motivo da classificação. Os valores do diagnóstico são
+          de 12 meses; aqui a coluna é mensal, para bater com o campo da tela. */}
+      <Dialog open={verComposicao} onOpenChange={setVerComposicao}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeaderIcon icon={ListTree} color="sky">
+            <DialogTitle>Despesas mensais creditáveis</DialogTitle>
+            <DialogDescription>
+              Contas do balancete classificadas como creditáveis. O total é a média mensal dos últimos 12 meses.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <div className="nice-scrollbar max-h-[60vh] overflow-y-auto px-5 pb-5">
+            {composicao.length === 0 ? (
+              <p className="py-8 text-center text-xs text-muted-foreground">
+                Sem balancete importado para este cliente.
+              </p>
+            ) : (
+              <table className="w-full">
+                <thead className="sticky top-0 bg-card">
+                  <tr className="border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <th className="py-2 text-left">Conta</th>
+                    <th className="py-2 text-left">Descrição</th>
+                    <th className="py-2 text-right">Mensal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {composicao.map(i => (
+                    <tr key={i.conta} title={i.motivo}>
+                      <td className="py-2 pr-3 text-xs tabular-nums text-muted-foreground">{i.conta}</td>
+                      <td className="py-2 pr-3 text-xs text-foreground">{i.nomeConta}</td>
+                      <td className="py-2 text-right text-xs font-medium tabular-nums">{reais(i.valor / 12)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-border">
+                    <td colSpan={2} className="py-2.5 text-[13px] font-semibold text-foreground">
+                      Total mensal
+                      <Badge variant="secondary" className="ml-2 h-4 px-1.5 text-[10px] tabular-nums">
+                        {composicao.length} conta(s)
+                      </Badge>
+                    </td>
+                    <td className="py-2.5 text-right text-sm font-bold tabular-nums">
+                      {reais(composicao.reduce((a, i) => a + i.valor, 0) / 12)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
