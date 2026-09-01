@@ -631,23 +631,29 @@ export function createClienteRouter(
     // === PROTOCOLOS ===
     listProtocolos: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
-      .query(({ input }) => clienteService.listProtocolos(input.clienteId)),
+      .query(({ input, ctx }) => clienteService.listProtocolos(input.clienteId, ctx.empresaId)),
 
     addProtocolo: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({
-        clienteId: z.string(), orgao: z.string().min(1),
-        tipo: z.string().default('consulta'), protocolo: z.string().min(1),
-        descricao: z.string().optional(),
+        clienteId: z.string(),
+        data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida.'),
+        documentos: z.string().optional().nullable(),
+        recebido: z.boolean().optional(),
       }))
-      .mutation(({ input, ctx }) => clienteService.addProtocolo(input.clienteId, input, ctx.userId)),
+      .mutation(({ input, ctx }) => clienteService.addProtocolo(input.clienteId, input, ctx.userId, ctx.empresaId)),
 
-    updateProtocoloStatus: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
-      .input(z.object({ id: z.string(), status: z.string(), resultado: z.string().optional() }))
-      .mutation(({ input }) => clienteService.updateProtocoloStatus(input.id, input.status, input.resultado)),
+    updateProtocolo: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
+      .input(z.object({
+        id: z.string(),
+        data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        documentos: z.string().optional().nullable(),
+        recebido: z.boolean().optional(),
+      }))
+      .mutation(({ input, ctx }) => clienteService.updateProtocolo(input.id, input, ctx.empresaId)),
 
     removeProtocolo: deleteSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))
-      .mutation(({ input }) => clienteService.removeProtocolo(input.id)),
+      .mutation(({ input, ctx }) => clienteService.removeProtocolo(input.id, ctx.empresaId)),
 
     // === OCORRÊNCIAS (Reclamações/Elogios — backend pronto, frontend no módulo Qualidade) ===
     listOcorrencias: readProcedure(MODULE)

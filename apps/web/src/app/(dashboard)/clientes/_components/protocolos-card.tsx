@@ -1,133 +1,221 @@
 'use client'
 
+/**
+ * Protocolos do cliente — comprovante dos documentos que ele entregou.
+ *
+ * Port da aba "Protocolos" do v1 (`cad_cli_pro`). O card anterior falava de
+ * protocolo em ÓRGÃO PÚBLICO (órgão, nº do protocolo, resultado): um esqueleto
+ * que nunca recebeu uma linha em produção, com campos que ninguém preenchia.
+ *
+ * O nº é POR CLIENTE e vem impresso no comprovante que o cliente assina — por
+ * isso ele é exibido em destaque e a numeração continua a do v1 (quem tinha 72
+ * protocolos recebe o 73).
+ */
+
 import { useState, useEffect, useCallback } from 'react'
-import { FileInput, Plus, Loader2, Trash2, CheckCircle, Clock, ChevronDown } from 'lucide-react'
-import { Button, Card, Input } from '@saas/ui'
-import { cn } from '@saas/ui'
+import { FileInput, Plus, Loader2, Trash2, Check, Clock, ChevronDown } from 'lucide-react'
+import { Button, Card, Input, Badge, cn } from '@saas/ui'
+import { RichEditor, RichContent } from '@saas/ui'
 import { MioloColapsavel } from './card-colapsavel'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useClientesPerms } from './use-clientes-perms'
 
 interface Protocolo {
-  id: string; orgao: string; tipo: string; protocolo: string
-  descricao: string | null; status: string; data_solicitacao: string
-  data_retorno: string | null; resultado: string | null; user_nome: string | null
+  id: string
+  numero: number
+  data: string
+  documentos: string | null
+  recebido: boolean
+  recebidoEm: string | null
+  usuarioNomeResolvido: string | null
+  legacyId: number | null
 }
 
-const STATUS_COLORS: Record<string, string> = { aberto: 'bg-amber-100 text-amber-700', em_andamento: 'bg-sky-100 text-sky-700', concluido: 'bg-emerald-100 text-emerald-700', erro: 'bg-red-100 text-red-700' }
-const ORGAOS = ['Receita Federal', 'SEFAZ', 'Prefeitura', 'SERPRO', 'INSS', 'FGTS', 'Junta Comercial', 'Cartorio', 'Outro']
+const dataBR = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
+
+/** Hoje em `yyyy-mm-dd`, para o campo `date` já abrir preenchido. */
+const hojeISO = () => new Date().toISOString().slice(0, 10)
 
 export function ProtocolosCard({ clienteId }: { clienteId: string }) {
-  // Contrai o card pelo cabecalho; abre expandido a cada visita.
   const [cardAberto, setCardAberto] = useState(true)
   const { canManageRegistration } = useClientesPerms()
+
   const [items, setItems] = useState<Protocolo[]>([])
   const [loading, setLoading] = useState(true)
-  const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ orgao: 'Receita Federal', protocolo: '', descricao: '' })
+  const [salvando, setSalvando] = useState(false)
+  const [aberto, setAberto] = useState<string | null>(null)
 
-  const fetch = useCallback(async () => {
+  const [novo, setNovo] = useState(false)
+  const [fData, setFData] = useState(hojeISO())
+  const [fDocs, setFDocs] = useState('')
+
+  const carregar = useCallback(async () => {
     setLoading(true)
-    try { setItems(await (trpc.cliente as any).listProtocolos.query({ clienteId })) }
-    catch { /* silent */ } finally { setLoading(false) }
+    try { setItems(await (trpc.cliente as never as {
+      listProtocolos: { query: (i: { clienteId: string }) => Promise<Protocolo[]> }
+    }).listProtocolos.query({ clienteId })) }
+    catch { /* silencioso: o card não pode derrubar a ficha */ }
+    finally { setLoading(false) }
   }, [clienteId])
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => { carregar() }, [carregar])
 
-  async function handleAdd() {
-    if (!form.protocolo.trim()) return
+  async function incluir() {
+    if (!fData) { alerts.error('Falta a data', 'Informe a data do protocolo.'); return }
+    setSalvando(true)
     try {
-      await (trpc.cliente as any).addProtocolo.mutate({ clienteId, orgao: form.orgao, protocolo: form.protocolo, descricao: form.descricao || undefined })
-      setForm({ orgao: 'Receita Federal', protocolo: '', descricao: '' })
-      setAdding(false)
-      fetch()
+      await (trpc.cliente as never as {
+        addProtocolo: { mutate: (i: unknown) => Promise<{ numero: number }> }
+      }).addProtocolo.mutate({ clienteId, data: fData, documentos: fDocs || null })
+      setNovo(false); setFDocs(''); setFData(hojeISO())
+      carregar()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setSalvando(false) }
+  }
+
+  async function alternarRecebido(p: Protocolo) {
+    try {
+      await (trpc.cliente as never as {
+        updateProtocolo: { mutate: (i: unknown) => Promise<unknown> }
+      }).updateProtocolo.mutate({ id: p.id, recebido: !p.recebido })
+      carregar()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  async function handleConcluir(id: string) {
-    const resultado = prompt('Resultado do protocolo (opcional):') || ''
-    try { await (trpc.cliente as any).updateProtocoloStatus.mutate({ id, status: 'concluido', resultado }); fetch() }
-    catch (e) { alerts.error('Erro', (e as Error).message) }
+  async function excluir(p: Protocolo) {
+    const ok = await alerts.confirm({
+      title: `Excluir o protocolo nº ${p.numero}?`,
+      text: 'Ele sai da ficha, mas o registro é preservado no banco.',
+      icon: 'warning', confirmText: 'Excluir',
+    })
+    if (!ok) return
+    try {
+      await (trpc.cliente as never as {
+        removeProtocolo: { mutate: (i: { id: string }) => Promise<unknown> }
+      }).removeProtocolo.mutate({ id: p.id })
+      carregar()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  async function handleRemove(id: string) {
-    if (!(await alerts.confirmDelete('este protocolo'))) return
-    try { await (trpc.cliente as any).removeProtocolo.mutate({ id }); fetch() }
-    catch (e) { alerts.error('Erro', (e as Error).message) }
-  }
-
-  if (loading) return <Card className="p-8 flex items-center justify-center gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> Carregando...</Card>
+  const pendentes = items.filter(i => !i.recebido).length
 
   return (
-    <Card>
-      <div className="flex items-center gap-2 border-b border-border/60 bg-muted/20 px-5 py-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div>
-            <h4 className="text-sm font-semibold flex items-center gap-2"><FileInput className="h-4 w-4 text-emerald-600" /> Protocolos</h4>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{items.length} protocolo(s) registrado(s)</p>
-          </div>
-        </div>
-        {canManageRegistration && <Button type="button" variant="outline" size="sm" onClick={() => setAdding(!adding)} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Registrar</Button>}
-        <button
-          type="button"
-          onClick={() => setCardAberto(a => !a)}
-          aria-expanded={cardAberto}
-          title={cardAberto ? 'Recolher' : 'Expandir'}
-          className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', !cardAberto && '-rotate-90')} />
-        </button>
-      </div>
+    <Card className="overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setCardAberto(v => !v)}
+        className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left transition-colors hover:bg-muted/30"
+      >
+        <span className="flex items-center gap-2">
+          <FileInput className="h-4 w-4" style={{ color: 'var(--mod-cadastros, #10b981)' }} />
+          <span className="text-[13px] font-semibold text-foreground">Protocolos</span>
+          {items.length > 0 && (
+            <Badge variant="secondary" className="h-4 px-1.5 text-[10px] tabular-nums">{items.length}</Badge>
+          )}
+          {pendentes > 0 && (
+            <Badge variant="outline" className="h-4 gap-1 border-amber-200 bg-amber-50 px-1.5 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
+              <Clock className="h-3 w-3" />{pendentes} a receber
+            </Badge>
+          )}
+        </span>
+        <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', !cardAberto && '-rotate-90')} />
+      </button>
 
       <MioloColapsavel aberto={cardAberto}>
-      {adding && (
-        <div className="px-5 py-3 border-b border-border/40 bg-emerald-50/30 dark:bg-emerald-950/10">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <div>
-              <select value={form.orgao} onChange={e => setForm(p => ({ ...p, orgao: e.target.value }))} className="w-full h-8 rounded-md border bg-card px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring">
-                {ORGAOS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
+        <div className="border-t border-border px-5 pb-5 pt-4">
+          {canManageRegistration && !novo && (
+            <div className="mb-3 flex justify-end">
+              <Button variant="success" size="sm" onClick={() => setNovo(true)}>
+                <Plus className="h-4 w-4" />Adicionar
+              </Button>
             </div>
-            <Input placeholder="N° do protocolo" value={form.protocolo} onChange={e => setForm(p => ({ ...p, protocolo: e.target.value }))} className="h-8 text-xs font-mono" />
-            <Input placeholder="Descricao (opcional)" value={form.descricao} onChange={e => setForm(p => ({ ...p, descricao: e.target.value }))} className="h-8 text-xs" />
-          </div>
-          <div className="flex justify-end gap-2 mt-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setAdding(false)}>Cancelar</Button>
-            <Button type="button" variant="success" size="sm" onClick={handleAdd}>Registrar</Button>
-          </div>
-        </div>
-      )}
+          )}
 
-      <div className="divide-y divide-border/30">
-        {items.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <FileInput className="h-8 w-8 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">Nenhum protocolo registrado.</p>
-          </div>
-        ) : items.map(item => (
-          <div key={item.id} className={cn('flex items-start gap-3 px-5 py-3 group', item.status === 'concluido' && 'opacity-50')}>
-            <div className={cn('shrink-0 mt-1 h-2 w-2 rounded-full', item.status === 'aberto' ? 'bg-amber-400' : item.status === 'concluido' ? 'bg-emerald-400' : 'bg-sky-400')} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-muted-foreground">{item.orgao}</span>
-                <span className="font-mono text-xs bg-muted/50 px-1.5 py-0.5 rounded">{item.protocolo}</span>
-                <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-medium', STATUS_COLORS[item.status] || 'bg-muted')}>{item.status}</span>
+          {novo && (
+            <div className="mb-4 space-y-3 rounded-md border border-border bg-muted/20 p-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="text-[13px] font-semibold">Data</label>
+                  <Input type="date" value={fData} onChange={e => setFData(e.target.value)} className="mt-1.5 h-9 w-[160px] text-sm" />
+                </div>
+                <p className="pb-2 text-[11px] text-muted-foreground">
+                  O nº sai do próximo livre deste cliente.
+                </p>
               </div>
-              {item.descricao && <p className="text-[11px] text-muted-foreground mt-0.5">{item.descricao}</p>}
-              <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" />{new Date(item.data_solicitacao).toLocaleDateString('pt-BR')}</span>
-                {item.user_nome && <span>{item.user_nome}</span>}
-                {item.resultado && <span className="text-emerald-600">Resultado: {item.resultado}</span>}
+              <div>
+                <label className="text-[13px] font-semibold">Documentos entregues</label>
+                <div className="mt-1.5">
+                  <RichEditor value={fDocs} onChange={setFDocs} />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setNovo(false)}>Cancelar</Button>
+                <Button variant="success" size="sm" onClick={incluir} disabled={salvando}>
+                  {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar
+                </Button>
               </div>
             </div>
-            <div className="flex gap-1 shrink-0">
-              {item.status !== 'concluido' && <Button type="button" variant="soft" size="sm" className="h-7 text-[10px] gap-1" onClick={() => handleConcluir(item.id)}><CheckCircle className="h-3 w-3" /> Concluir</Button>}
-              <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleRemove(item.id)} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
+          )}
+
+          {loading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : items.length === 0 ? (
+            <p className="py-8 text-center text-xs text-muted-foreground">Nenhum protocolo registrado.</p>
+          ) : (
+            <div className="divide-y divide-border/60">
+              {items.map(p => (
+                <div key={p.id} className="py-2.5">
+                  <div className="flex items-center gap-3">
+                    <span className="w-10 shrink-0 text-sm font-semibold tabular-nums text-muted-foreground">{p.numero}</span>
+                    {p.recebido ? (
+                      <Badge variant="outline" className="h-5 shrink-0 gap-1 border-emerald-200 bg-emerald-50 text-[10px] text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
+                        <Check className="h-3 w-3" />Recebido
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="h-5 shrink-0 gap-1 border-amber-200 bg-amber-50 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
+                        <Clock className="h-3 w-3" />A receber
+                      </Badge>
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                      {p.usuarioNomeResolvido ?? '—'}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{dataBR(p.data)}</span>
+                    {p.documentos && (
+                      <button
+                        type="button"
+                        onClick={() => setAberto(a => (a === p.id ? null : p.id))}
+                        className="shrink-0 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                      >
+                        {aberto === p.id ? 'ocultar' : 'documentos'}
+                      </button>
+                    )}
+                    {canManageRegistration && (
+                      <div className="flex shrink-0 gap-1">
+                        <Button
+                          variant={p.recebido ? 'outline' : 'soft-success'} size="icon-sm"
+                          onClick={() => alternarRecebido(p)}
+                          title={p.recebido ? 'Marcar como a receber' : 'Marcar como recebido'}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="soft-destructive" size="icon-sm" onClick={() => excluir(p)} title="Excluir">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {aberto === p.id && p.documentos && (
+                    <div className="mt-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-xs">
+                      <RichContent html={p.documentos} />
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          </div>
-        ))}
-      </div>
+          )}
+        </div>
       </MioloColapsavel>
     </Card>
   )
