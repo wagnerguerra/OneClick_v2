@@ -20,6 +20,9 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
 interface Status {
+  /** ID SCI do cliente (o PRCODEMP). Null = ainda não descoberto; a importação
+   *  busca no SCI pelo CNPJ e grava no cadastro. */
+  idSci: string | null
   meses: number
   primeiro: number | null
   ultimo: number | null
@@ -99,7 +102,17 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
           substituirExistentes: true,
         }),
       })
-      if (!resp.ok) throw new Error(await resp.text().catch(() => `HTTP ${resp.status}`))
+      if (!resp.ok) {
+        // O servidor devolve o motivo em `message`; usá-lo é a diferença entre
+        // "erro interno" e "falta o ID SCI no cadastro".
+        const corpo = await resp.json().catch(() => null) as { message?: string } | null
+        setImportando(false)
+        alerts.error(
+          'Não foi possível atualizar',
+          corpo?.message || `O servidor respondeu ${resp.status}.`,
+        )
+        return
+      }
 
       const r = await resp.json().catch(() => ({}))
       if (r?.started === false) {
@@ -136,12 +149,14 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
         } catch { /* rede instável: a próxima volta tenta de novo */ }
       }, 2000)
     } catch (e) {
+      // Aqui só cai quando o pedido nem chegou ao servidor — aí sim a hipótese
+      // de rede faz sentido. Erro respondido pelo servidor é tratado acima.
       pararPolling()
       setImportando(false)
       alerts.error(
         'Não foi possível pedir a importação',
-        'O balancete vem do SCI pelo Service Manager, que roda na rede do escritório. '
-        + `Fora dela o pedido não chega. Detalhe: ${(e as Error).message}`,
+        'O pedido não chegou ao servidor. O balancete vem do SCI pelo Service Manager, '
+        + `que roda na rede do escritório. Detalhe: ${(e as Error).message}`,
       )
     }
   }
@@ -241,11 +256,22 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
             <p className="text-[11px] text-muted-foreground">{mensagem}</p>
           )}
 
+          {status && !status.idSci && (
+            <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-300">
+              <p className="font-semibold">Sem ID SCI no cadastro — será descoberto agora</p>
+              <p className="mt-0.5">
+                A importação identifica a empresa no Firebird pelo ID SCI. Como o cadastro ainda não tem,
+                o sistema pergunta ao próprio SCI pelo CNPJ e guarda a resposta — da próxima vez já parte
+                do cadastro.
+              </p>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-3 pt-1">
             <p className="text-[11px] text-muted-foreground">
               Busca os últimos 12 meses fechados no SCI.
             </p>
-            <Button type="button" onClick={importar} disabled={importando || !clienteId} className="gap-2">
+            <Button type="button" onClick={importar} className="gap-2" disabled={importando || !clienteId}>
               {importando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Atualizar do SCI
             </Button>

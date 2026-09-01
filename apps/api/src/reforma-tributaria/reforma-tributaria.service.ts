@@ -429,9 +429,14 @@ export class ReformaTributariaService {
     // esta checagem um id de outro tenant devolveria o balancete dele.
     const cliente = await prisma.cliente.findFirst({
       where: { id: clienteId, empresaId: empresaId ?? null },
-      select: { id: true },
+      select: { id: true, idSistema: true },
     })
     if (!cliente) throw new Error('Cliente não encontrado.')
+
+    // A importação exige o ID SCI (o PRCODEMP do Firebird). Sem ele o pedido
+    // seria recusado lá na frente; a tela precisa saber ANTES para explicar em
+    // vez de oferecer um botão que só sabe falhar.
+    const idSci = cliente.idSistema && /^\d+$/.test(cliente.idSistema) ? cliente.idSistema : null
 
     const linhas = await prisma.biCacheBalancete.findMany({
       where: { clienteId },
@@ -439,7 +444,7 @@ export class ReformaTributariaService {
       orderBy: { ref: 'asc' },
     })
     if (linhas.length === 0) {
-      return { meses: 0, primeiro: null, ultimo: null, totalLinhas: 0, atualizadoEm: null, lacunas: [] as number[] }
+      return { idSci, meses: 0, primeiro: null, ultimo: null, totalLinhas: 0, atualizadoEm: null, lacunas: [] as number[] }
     }
 
     const refs = linhas.map(l => l.ref)
@@ -459,6 +464,7 @@ export class ReformaTributariaService {
     }
 
     return {
+      idSci,
       meses: linhas.length,
       primeiro,
       ultimo,

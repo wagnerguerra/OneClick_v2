@@ -8,7 +8,7 @@
  * REST tradicional num path totalmente diferente (`/api/bi-sync/*`) bypassa.
  */
 
-import { Body, Controller, Get, Param, Post, Req, Sse } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Req, Sse, BadRequestException } from '@nestjs/common'
 import type { Request } from 'express'
 import { Observable, map, merge, interval } from 'rxjs'
 import { prisma } from '@saas/db'
@@ -65,10 +65,17 @@ export class BiSyncController {
     @Req() req: Request,
   ) {
     await this.assertAuth(req)
-    return this.biService.balanceteRefreshPeriodo(
-      body.clienteId, body.anoInicio, body.mesInicio, body.anoFim, body.mesFim,
-      body.substituirExistentes ?? true,
-    )
+    try {
+      return await this.biService.balanceteRefreshPeriodo(
+        body.clienteId, body.anoInicio, body.mesInicio, body.anoFim, body.mesFim,
+        body.substituirExistentes ?? true,
+      )
+    } catch (e) {
+      // Sem isto, um erro de REGRA (cliente sem ID SCI, por exemplo) virava
+      // `500 Internal server error` e a tela do usuário não tinha como dizer o
+      // que fazer. São recusas previsíveis, não falha do servidor.
+      throw new BadRequestException((e as Error).message)
+    }
   }
 
   @Get('status/:clienteId/:refInicio/:refFim')
