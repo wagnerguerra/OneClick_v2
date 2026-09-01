@@ -233,6 +233,14 @@ model User {
   // Contrato / RH
   tipoContrato  TipoContrato @default(CLT) @map("tipo_contrato")
   dataAdmissao  DateTime?    @map("data_admissao")
+  /**
+   * Matrícula do colaborador na folha de pagamento (o "Código" da tela do
+   * sistema de folha). Existe para a próxima conferência com a folha casar por
+   * chave e não por nome: o cadastro guarda o nome curto ("Andrea Salles") e a
+   * folha o completo ("ANDREIA PEREIRA SALLES"), e essa distância já produziu
+   * casamento errado — inclusive com um homônimo inativo do mesmo colaborador.
+   */
+  matriculaFolha String?     @map("matricula_folha")
   dataDemissao  DateTime?    @map("data_demissao")
   cargaHoraria  Int?         @default(44) @map("carga_horaria")
   idOneClick    String?      @map("id_oneclick")
