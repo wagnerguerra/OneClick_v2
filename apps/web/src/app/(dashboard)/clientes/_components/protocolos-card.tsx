@@ -172,7 +172,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
         </button>
 
         {canManageRegistration && (
-          <Button
+          <Button type="button"
             variant="success" size="sm" className="shrink-0"
             onClick={() => { setCardAberto(true); setNovo(true) }}
           >
@@ -199,8 +199,8 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
                 </div>
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => setNovo(false)}>Cancelar</Button>
-                <Button variant="success" size="sm" onClick={incluir} disabled={salvando}>
+                <Button type="button" variant="outline" size="sm" onClick={() => setNovo(false)}>Cancelar</Button>
+                <Button type="button" variant="success" size="sm" onClick={incluir} disabled={salvando}>
                   {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar
                 </Button>
               </div>
@@ -244,10 +244,10 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
                       <div className="flex shrink-0 gap-1">
                         {canManageRegistration && !p.recebido && (
                           <>
-                            <Button variant="soft-success" size="icon-sm" onClick={() => receber(p)} title="Receber">
+                            <Button type="button" variant="soft-success" size="icon-sm" onClick={() => receber(p)} title="Receber">
                               <Inbox className="h-3.5 w-3.5" />
                             </Button>
-                            <Button
+                            <Button type="button"
                               variant="soft-info" size="icon-sm" title="Editar os documentos"
                               onClick={() => { setEditando(p.id); setEDocs(p.documentos ?? ''); setAberto(null) }}
                             >
@@ -255,11 +255,11 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
                             </Button>
                           </>
                         )}
-                        <Button variant="outline" size="icon-sm" onClick={() => setImprimindo(p.id)} title="Imprimir">
+                        <Button type="button" variant="outline" size="icon-sm" onClick={() => setImprimindo(p.id)} title="Imprimir">
                           <Printer className="h-3.5 w-3.5" />
                         </Button>
                         {canManageRegistration && !p.recebido && (
-                          <Button variant="soft-destructive" size="icon-sm" onClick={() => excluir(p)} title="Excluir">
+                          <Button type="button" variant="soft-destructive" size="icon-sm" onClick={() => excluir(p)} title="Excluir">
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         )}
@@ -271,8 +271,8 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
                         <label className="text-[13px] font-semibold">Documentos entregues</label>
                         <RichEditor value={eDocs} onChange={setEDocs} />
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" onClick={() => setEditando(null)}>Cancelar</Button>
-                          <Button variant="success" size="sm" onClick={() => salvarEdicao(p)} disabled={salvando}>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setEditando(null)}>Cancelar</Button>
+                          <Button type="button" variant="success" size="sm" onClick={() => salvarEdicao(p)} disabled={salvando}>
                             {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar
                           </Button>
                         </div>
@@ -292,14 +292,14 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
                     {(pagina - 1) * POR_PAGINA + 1}–{Math.min(pagina * POR_PAGINA, items.length)} de {items.length}
                   </p>
                   <div className="flex items-center gap-1">
-                    <Button
+                    <Button type="button"
                       variant="outline" size="icon-xs" disabled={pagina === 1}
                       onClick={() => setPagina(p => p - 1)} title="Anterior"
                     >
                       <ChevronLeft className="h-3.5 w-3.5" />
                     </Button>
                     <span className="px-1 text-[11px] tabular-nums text-muted-foreground">{pagina} / {totalPaginas}</span>
-                    <Button
+                    <Button type="button"
                       variant="outline" size="icon-xs" disabled={pagina === totalPaginas}
                       onClick={() => setPagina(p => p + 1)} title="Próxima"
                     >
