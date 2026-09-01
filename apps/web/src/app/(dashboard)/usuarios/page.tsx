@@ -529,11 +529,13 @@ export default function UsuariosPage() {
                 que está declarado, e as duas colunas livres (usuário e e-mail)
                 ficam com a sobra.
 
-                A de Ações tem 72px por medida, não por gosto: o botão ⋮ ocupa
-                32 e a célula tem 16 de padding de cada lado. Em 60 ela
-                transbordava 2px — o bastante para o `overflow-auto` da tabela
-                mostrar barra horizontal e cortar a coluna. */}
-            <TableRow>
+                Os números saem de medição, não de gosto. Com fonte de 12px,
+                0,6px de tracking e 32px de padding na célula, o cabeçalho pede:
+                COLABORADOR 136, ÚLTIMO LOGIN 129, AÇÕES 78 (aqui o que manda é
+                o botão ⋮, de 32px, mais o padding). Abaixo disso o título quebra
+                em duas linhas — ou, na última coluna, estica a área rolável e
+                devolve a barra horizontal. */}
+            <TableRow className="whitespace-nowrap">
               <TableHead className="w-[40px] text-center">
                 <Checkbox
                   checked={!!data?.data.length && selected.size === data.data.length}
@@ -566,17 +568,17 @@ export default function UsuariosPage() {
                   Área <SortIcon column="area" />
                 </button>
               </TableHead>
-              <TableHead className="hidden lg:table-cell w-[120px] text-center">
+              <TableHead className="hidden lg:table-cell w-[140px] text-center">
                 <button onClick={() => toggleSort('exibirComoColaborador')} className="mx-auto flex items-center gap-1 hover:text-foreground transition-colors">
                   Colaborador <SortIcon column="exibirComoColaborador" />
                 </button>
               </TableHead>
-              <TableHead className="hidden xl:table-cell w-[130px]">
+              <TableHead className="hidden xl:table-cell w-[140px]">
                 <button onClick={() => toggleSort('lastLoginAt')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   Último login <SortIcon column="lastLoginAt" />
                 </button>
               </TableHead>
-              <TableHead className="w-[72px] text-right">Ações</TableHead>
+              <TableHead className="w-[84px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
