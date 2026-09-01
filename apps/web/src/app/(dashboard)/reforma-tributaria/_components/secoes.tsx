@@ -78,8 +78,11 @@ function CampoPercentual({ label, valor, onChange, disabled }: {
 // ══════════════════════════════════════════════════════════════════
 // 1. CONFIGURAR
 // ══════════════════════════════════════════════════════════════════
-export function SecaoConfigurar({ p, onChange }: {
-  p: Parametros; onChange: (patch: Partial<Parametros>) => void
+export function SecaoConfigurar({ p, onChange, origem }: {
+  p: Parametros
+  onChange: (patch: Partial<Parametros>) => void
+  /** De onde veio o faturamento sugerido. */
+  origem?: 'contrato' | 'erp' | 'nenhuma'
 }) {
   const totalIva = p.cbs + p.ibs
   const servico = ehServico(p.atividade)
@@ -132,6 +135,15 @@ export function SecaoConfigurar({ p, onChange }: {
                 className="h-10 pl-10 text-sm tabular-nums"
               />
             </div>
+            {/* A procedência do número fica à vista: apresentar faturamento sem
+                saber de onde saiu é o jeito mais rápido de perder a conversa. */}
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {origem === 'contrato'
+                ? 'Do parâmetro de contrato (consulta ao SCI).'
+                : origem === 'erp'
+                  ? 'Média dos últimos 12 meses de snapshot do ERP.'
+                  : 'Sem faturamento no cadastro — informe o valor.'}
+            </p>
           </div>
         </div>
 

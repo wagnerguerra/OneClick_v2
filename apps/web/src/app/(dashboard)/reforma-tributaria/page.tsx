@@ -95,6 +95,9 @@ export default function ReformaTributariaPage() {
   const [carregandoCliente, setCarregandoCliente] = useState(false)
   const [p, setP] = useState<Parametros>(PARAMETROS_INICIAIS)
   const [op, setOp] = useState<Operacao>({ valor: 50000, despesasCreditaveis: 0, reducao: 0 })
+  /** De onde veio o faturamento — a tela diz, para ninguém apresentar um número
+   *  sem saber a procedência. */
+  const [origem, setOrigem] = useState<'contrato' | 'erp' | 'nenhuma'>('nenhuma')
 
   const alterar = useCallback((patch: Partial<Parametros>) => setP(prev => ({ ...prev, ...patch })), [])
 
@@ -106,9 +109,15 @@ export default function ReformaTributariaPage() {
    */
   const escolher = useCallback(async (c: ClienteSimulador | null) => {
     setCliente(c)
-    if (!c) { setP(PARAMETROS_INICIAIS); return }
+    if (!c) { setP(PARAMETROS_INICIAIS); setOrigem('nenhuma'); return }
 
-    const mensal = c.faturamento12m > 0 ? c.faturamento12m / 12 : 0
+    // O faturamento do PARÂMETRO DE CONTRATO vem primeiro: é a consulta ao SCI
+    // que a Gestão de Contratos usa para precificar, e é mensal. O snapshot do
+    // ERP é a reserva — série de 12 meses, que nem todo cliente tem.
+    const doContrato = c.faturamentoContrato > 0 ? c.faturamentoContrato : 0
+    const doErp = c.faturamento12m > 0 ? c.faturamento12m / 12 : 0
+    const mensal = doContrato || doErp
+    setOrigem(doContrato ? 'contrato' : doErp ? 'erp' : 'nenhuma')
     setP(prev => ({
       ...prev,
       regime: regimeDoCadastro(c.tributacao),
@@ -143,7 +152,16 @@ export default function ReformaTributariaPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeaderBar actions={<BackButton href="/dashboard" label="Voltar" />}>
+      {/* O seletor mora no cabeçalho, junto do Voltar: é o primeiro passo da
+          tela, e escondê-lo abaixo do título fazia parecer que a página abria
+          vazia por falta de dados. */}
+      <PageHeaderBar actions={<>
+        <div className="flex items-center gap-2">
+          <SeletorCliente selecionado={cliente} onSelecionar={escolher} />
+          {carregandoCliente && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
+        </div>
+        <BackButton href="/dashboard" label="Voltar" />
+      </>}>
         <h1 className="truncate">Reforma Tributária</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
@@ -154,15 +172,9 @@ export default function ReformaTributariaPage() {
         </p>
       </PageHeaderBar>
 
-      {/* Cliente + resumo. O resumo fica visível em todas as abas: é o contexto
-          do que está na tela, e some quando não há cliente escolhido. */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-3">
-          <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <SeletorCliente selecionado={cliente} onSelecionar={escolher} />
-          {carregandoCliente && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-        </div>
-
+      {/* O resumo fica visível em todas as abas: é o contexto do que está na
+          tela, e some quando não há cliente escolhido. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
         {pronto && (
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-5 py-2.5 shadow-sm">
             {[
@@ -238,7 +250,7 @@ export default function ReformaTributariaPage() {
 
           {/* Conteúdo */}
           <div className="min-w-0">
-            {aba === 'configurar' && <SecaoConfigurar p={p} onChange={alterar} />}
+            {aba === 'configurar' && <SecaoConfigurar p={p} onChange={alterar} origem={origem} />}
             {aba === 'comparar' && <SecaoComparar p={p} />}
             {aba === 'transicao' && <SecaoTransicao p={p} onChange={alterar} />}
             {aba === 'visao' && <SecaoVisaoGeral p={p} cliente={cliente} />}

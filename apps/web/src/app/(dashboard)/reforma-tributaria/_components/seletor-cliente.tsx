@@ -27,6 +27,9 @@ export interface ClienteSimulador {
   uf?: string | null
   cidade?: string | null
   faturamento12m: number
+  /** Faturamento MENSAL do parâmetro de contrato — a consulta ao SCI que a
+   *  Gestão de Contratos usa. Zero quando o cliente não tem parâmetro. */
+  faturamentoContrato: number
 }
 
 /** 12.345.678/0001-90 */
@@ -76,7 +79,7 @@ export function SeletorCliente({ selecionado, onSelecionar }: {
   }, [aberto])
 
   return (
-    <div ref={caixaRef} className="relative w-full max-w-[420px]">
+    <div ref={caixaRef} className="relative w-full sm:w-[300px]">
       {selecionado && !aberto ? (
         <button
           type="button"

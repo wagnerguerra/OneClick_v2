@@ -422,6 +422,7 @@ export class ReformaTributariaService {
     const busca = input.busca?.trim() || null
     const rows = await prisma.$queryRawUnsafe<Array<ClienteBase & {
       faturamento12m: number | string | null
+      faturamentoContrato: number | string | null
       snapshots: number | bigint
       danfes: number | bigint
       nfse: number | bigint
@@ -434,10 +435,17 @@ export class ReformaTributariaService {
                  WHERE s.cliente_id = c.id AND s.indicador = 'faturamento'
                    AND s.mes >= $4
               ), 0) AS "faturamento12m",
+              -- Faturamento do parametro de contrato: e o numero que a Gestao de
+              -- Contratos usa e que veio da consulta ao SCI. Mensal, ao contrario
+              -- do snapshot, que e serie historica.
+              COALESCE(cp.faturamento, 0) AS "faturamentoContrato",
               COALESCE((SELECT count(*) FROM cliente_erp_snapshots s WHERE s.cliente_id = c.id AND s.mes >= $4), 0) AS snapshots,
               COALESCE((SELECT count(*) FROM danfes d WHERE d.cliente_id = c.id AND d.status = 'AUTORIZADA'), 0) AS danfes,
               COALESCE((SELECT count(*) FROM nfse_importadas n WHERE n.cliente_id = c.id AND n.status = 'EMITIDA'), 0) AS nfse
          FROM clientes c
+         LEFT JOIN cliente_contrato_params cp
+                ON cp.cliente_id = c.id
+               AND ($1::text IS NULL OR cp.empresa_id = $1 OR cp.empresa_id IS NULL)
         WHERE c.status <> 'INATIVO' AND c.situacao = 'MENSAL'
           AND ($1::text IS NULL OR c.empresa_id = $1)
           AND ($2::text IS NULL OR c.razao_social ILIKE '%'||$2||'%' OR c.documento ILIKE '%'||$2||'%')
@@ -453,6 +461,7 @@ export class ReformaTributariaService {
     return rows.map(r => ({
       ...r,
       faturamento12m: asNumber(r.faturamento12m),
+      faturamentoContrato: asNumber(r.faturamentoContrato),
       snapshots: Number(r.snapshots),
       danfes: Number(r.danfes),
       nfse: Number(r.nfse),
