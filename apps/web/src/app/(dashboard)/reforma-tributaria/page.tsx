@@ -102,7 +102,7 @@ export default function ReformaTributariaPage() {
   const [op, setOp] = useState<Operacao>({ valor: 50000, despesasCreditaveis: 0, reducao: 0 })
   /** De onde veio o faturamento — a tela diz, para ninguém apresentar um número
    *  sem saber a procedência. */
-  const [origem, setOrigem] = useState<'contrato' | 'erp' | 'nenhuma'>('nenhuma')
+  const [origem, setOrigem] = useState<'balancete' | 'contrato' | 'erp' | 'nenhuma'>('nenhuma')
   /** Contas do balancete que somam a base de crédito, quando o diagnóstico as
    *  conhece. Sem balancete importado a lista é vazia e o valor não abre. */
   const [composicao, setComposicao] = useState<ItemComposicao[]>([])
@@ -142,8 +142,10 @@ export default function ReformaTributariaPage() {
       const d = await (trpc.reformaTributaria as never as {
         diagnostico: { query: (i: { clienteId: string; meses: number }) => Promise<{
           metrics: {
+            faturamentoMedioMensal: number
             comprasMercadorias12m: number
             servicosTomados12m: number
+            fontePrincipal: 'BALANCETE_ERP' | 'SNAPSHOT_SCI' | 'DOCUMENTOS_FISCAIS'
             creditos: { baseAjustada12m: number; itens: ItemComposicao[] }
           }
         }> }
@@ -158,6 +160,17 @@ export default function ReformaTributariaPage() {
       if (doBalancete > 0) {
         setComposicao((d.metrics.creditos?.itens ?? []).filter(i => i.categoria === 'CREDITAVEL'))
       }
+
+      // O balancete também sabe o faturamento — sai das contas de receita, e é a
+      // apuração contábil do que foi de fato faturado. Por isso vence o parâmetro
+      // de contrato, que é premissa de precificação. Antes a tela pegava as
+      // despesas do balancete e ignorava a receita dele, e um cliente recém
+      // sincronizado abria com faturamento zero e crédito milionário.
+      const mensalContabil = d.metrics.faturamentoMedioMensal ?? 0
+      if (mensalContabil > 0 && d.metrics.fontePrincipal === 'BALANCETE_ERP') {
+        setP(prev => ({ ...prev, faturamentoMensal: Math.round(mensalContabil) }))
+        setOrigem('balancete')
+      }
     } catch { /* sem ERP para este cliente — o campo fica editável em zero */ }
     finally { setCarregandoCliente(false) }
   }, [])
@@ -171,7 +184,9 @@ export default function ReformaTributariaPage() {
 
   const atual = useMemo(() => calcularRegime(p, p.regime), [p])
   const iva = useMemo(() => calcularIva(p), [p])
-  const pronto = !!cliente && p.faturamentoMensal > 0
+  // Basta o cliente: o resumo é o contexto da tela, e escondê-lo quando o
+  // faturamento é zero tirava justamente a informação de que ele está zerado.
+  const pronto = !!cliente
 
   return (
     <div className="space-y-5">

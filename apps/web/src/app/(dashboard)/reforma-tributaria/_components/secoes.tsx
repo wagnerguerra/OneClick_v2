@@ -127,7 +127,7 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
   p: Parametros
   onChange: (patch: Partial<Parametros>) => void
   /** De onde veio o faturamento sugerido. */
-  origem?: 'contrato' | 'erp' | 'nenhuma'
+  origem?: 'balancete' | 'contrato' | 'erp' | 'nenhuma'
   /** Contas do balancete que somam as despesas creditáveis. */
   composicao?: ItemComposicao[]
   onAbrirComposicao?: () => void
@@ -181,11 +181,13 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
             {/* A procedência do número fica à vista: apresentar faturamento sem
                 saber de onde saiu é o jeito mais rápido de perder a conversa. */}
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {origem === 'contrato'
-                ? 'Do parâmetro de contrato (consulta ao SCI).'
-                : origem === 'erp'
-                  ? 'Média dos últimos 12 meses de snapshot do ERP.'
-                  : 'Sem faturamento no cadastro — informe o valor.'}
+              {origem === 'balancete'
+                ? 'Das contas de receita do balancete importado.'
+                : origem === 'contrato'
+                  ? 'Do parâmetro de contrato (consulta ao SCI).'
+                  : origem === 'erp'
+                    ? 'Média dos últimos 12 meses de snapshot do ERP.'
+                    : 'Sem faturamento no cadastro — informe o valor.'}
             </p>
           </div>
         </div>
