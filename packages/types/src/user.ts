@@ -414,6 +414,10 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'edit_taxation', label: 'Alterar tributação dos clientes', group: 'Fiscal' },
     { key: 'manage_activities_benefits', label: 'Gerenciar atividades e benefícios fiscais', group: 'Fiscal' },
     { key: 'manage_registration', label: 'Gerenciar aba de registro / legalização', group: 'Registro / Legalização' },
+    // Protocolos saíram de dentro de `manage_registration`: o comprovante de
+    // documentos é papel que o cliente assina, e quem o emite não é
+    // necessariamente quem mexe em legalização.
+    { key: 'manage_protocolos', label: 'Emitir e gerenciar protocolos de documentos', group: 'Protocolos' },
     { key: 'manage_client_users', label: 'Gerenciar aba usuários do cliente', group: 'Usuários do Cliente' },
   ],
   orcamentos: [

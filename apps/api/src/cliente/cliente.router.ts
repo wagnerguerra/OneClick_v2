@@ -629,6 +629,8 @@ export function createClienteRouter(
       .mutation(({ input }) => clienteService.removeObrigacao(input.id)),
 
     // === PROTOCOLOS ===
+    // Ler segue o acesso ao módulo — ver o comprovante é parte de ver a ficha.
+    // O que `manage_protocolos` governa é emitir, receber, editar e excluir.
     listProtocolos: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
       .query(({ input, ctx }) => clienteService.listProtocolos(input.clienteId, ctx.empresaId)),
@@ -637,7 +639,7 @@ export function createClienteRouter(
       .input(z.object({ id: z.string() }))
       .query(({ input, ctx }) => clienteService.getProtocolo(input.id, ctx.empresaId)),
 
-    addProtocolo: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
+    addProtocolo: writeSubProcedure(MODULE, 'manage_protocolos', 'Emitir e gerenciar protocolos de documentos')
       .input(z.object({
         clienteId: z.string(),
         data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida.'),
@@ -646,7 +648,7 @@ export function createClienteRouter(
       }))
       .mutation(({ input, ctx }) => clienteService.addProtocolo(input.clienteId, input, ctx.userId, ctx.empresaId)),
 
-    updateProtocolo: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
+    updateProtocolo: writeSubProcedure(MODULE, 'manage_protocolos', 'Emitir e gerenciar protocolos de documentos')
       .input(z.object({
         id: z.string(),
         data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -655,7 +657,7 @@ export function createClienteRouter(
       }))
       .mutation(({ input, ctx }) => clienteService.updateProtocolo(input.id, input, ctx.empresaId)),
 
-    removeProtocolo: deleteSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
+    removeProtocolo: deleteSubProcedure(MODULE, 'manage_protocolos', 'Emitir e gerenciar protocolos de documentos')
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => clienteService.removeProtocolo(input.id, ctx.empresaId)),
 

@@ -51,7 +51,7 @@ const hojeISO = () => new Date().toISOString().slice(0, 10)
 
 export function ProtocolosCard({ clienteId }: { clienteId: string }) {
   const [cardAberto, setCardAberto] = useState(true)
-  const { canManageRegistration } = useClientesPerms()
+  const { canManageProtocolos } = useClientesPerms()
 
   const [items, setItems] = useState<Protocolo[]>([])
   const [loading, setLoading] = useState(true)
@@ -171,7 +171,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
           <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', !cardAberto && '-rotate-90')} />
         </button>
 
-        {canManageRegistration && (
+        {canManageProtocolos && (
           <Button type="button"
             variant="success" size="sm" className="shrink-0"
             onClick={() => { setCardAberto(true); setNovo(true) }}
@@ -242,7 +242,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
                       )}
                       {/* Ordem e disponibilidade como no v1. */}
                       <div className="flex shrink-0 gap-1">
-                        {canManageRegistration && !p.recebido && (
+                        {canManageProtocolos && !p.recebido && (
                           <>
                             <Button type="button" variant="soft-success" size="icon-sm" onClick={() => receber(p)} title="Receber">
                               <Inbox className="h-3.5 w-3.5" />
@@ -258,7 +258,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
                         <Button type="button" variant="outline" size="icon-sm" onClick={() => setImprimindo(p.id)} title="Imprimir">
                           <Printer className="h-3.5 w-3.5" />
                         </Button>
-                        {canManageRegistration && !p.recebido && (
+                        {canManageProtocolos && !p.recebido && (
                           <Button type="button" variant="soft-destructive" size="icon-sm" onClick={() => excluir(p)} title="Excluir">
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>

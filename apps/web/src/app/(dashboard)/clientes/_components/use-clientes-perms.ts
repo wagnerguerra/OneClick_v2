@@ -26,7 +26,8 @@ export function useClientesPerms() {
   const canManageCommercial = sub('manage_commercial')   // aba comercial
   const canEditTaxation = sub('edit_taxation')           // tributação
   const canManageFiscal = sub('manage_fiscal')           // fiscal: CNAEs, DTE, SCI, BI
-  const canManageRegistration = sub('manage_registration') // legalização: acessos, vencimentos, andamentos, protocolos, obrigações, inscrições, sócios
+  const canManageRegistration = sub('manage_registration') // legalização: acessos, vencimentos, andamentos, obrigações, inscrições, sócios
+  const canManageProtocolos = sub('manage_protocolos')   // emitir, receber, editar e excluir protocolos de documentos
   const canManageClientUsers = sub('manage_client_users') // aba usuários do cliente
   const canRenegotiation = sub('renegotiation')          // situação renegociação
 
@@ -41,6 +42,6 @@ export function useClientesPerms() {
     isAdmin, canWrite, canDelete, canCreate,
     canManageActivitiesBenefits, canManageFiles, canEditCertificados,
     canEditDetails, canManageServices, canManageResponsible, canManageContracts, canManageCommercial,
-    canEditTaxation, canManageFiscal, canManageRegistration, canManageClientUsers, canRenegotiation,
+    canEditTaxation, canManageFiscal, canManageRegistration, canManageProtocolos, canManageClientUsers, canRenegotiation,
   }
 }
