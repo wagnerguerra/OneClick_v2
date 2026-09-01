@@ -2607,6 +2607,19 @@ export class ClienteService {
     })
   }
 
+  /** Um protocolo com o nome do cliente — o que a folha impressa precisa. */
+  async getProtocolo(id: string, empresaId?: string | null) {
+    const p = await prisma.clienteProtocolo.findFirst({
+      where: { id, ativo: true, empresaId: empresaId ?? null },
+      include: { cliente: { select: { razaoSocial: true, nomeFantasia: true, documento: true } } },
+    })
+    if (!p) throw new Error('Protocolo não encontrado.')
+    const u = p.usuarioId
+      ? await prisma.user.findUnique({ where: { id: p.usuarioId }, select: { name: true } })
+      : null
+    return { ...p, usuarioNomeResolvido: u?.name ?? p.usuarioNome }
+  }
+
   /** Soft-delete, como o `ativo` do v1: comprovante impresso não se apaga. */
   async removeProtocolo(id: string, empresaId?: string | null) {
     const atual = await prisma.clienteProtocolo.findFirst({ where: { id, empresaId: empresaId ?? null } })

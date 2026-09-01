@@ -10,6 +10,15 @@ interface EmpresaAtiva {
   razaoSocial: string
   nomeFantasia: string | null
   logoUrl: string | null
+  // Rodapé dos documentos impressos.
+  cep?: string | null
+  logradouro?: string | null
+  numero?: string | null
+  complemento?: string | null
+  bairro?: string | null
+  cidade?: string | null
+  uf?: string | null
+  telefone?: string | null
   logoDarkUrl: string | null
   marcaDaguaUrl: string | null
 }

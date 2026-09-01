@@ -633,6 +633,10 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input, ctx }) => clienteService.listProtocolos(input.clienteId, ctx.empresaId)),
 
+    getProtocolo: readProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .query(({ input, ctx }) => clienteService.getProtocolo(input.id, ctx.empresaId)),
+
     addProtocolo: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({
         clienteId: z.string(),

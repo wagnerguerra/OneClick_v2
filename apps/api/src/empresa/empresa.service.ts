@@ -165,7 +165,15 @@ export class EmpresaService {
     if (!targetId) return null
     return prisma.empresa.findUnique({
       where: { id: targetId },
-      select: { id: true, code: true, razaoSocial: true, nomeFantasia: true, logoUrl: true, logoDarkUrl: true, marcaDaguaUrl: true },
+      // Endereço e telefone entram por causa do rodapé dos documentos impressos
+      // (protocolo do cliente, resumo da agenda). No v1 esse rodapé era texto
+      // chumbado no ASP — mudar de sala exigia editar o código.
+      select: {
+        id: true, code: true, razaoSocial: true, nomeFantasia: true,
+        logoUrl: true, logoDarkUrl: true, marcaDaguaUrl: true,
+        cep: true, logradouro: true, numero: true, complemento: true,
+        bairro: true, cidade: true, uf: true, telefone: true,
+      },
     })
   }
 

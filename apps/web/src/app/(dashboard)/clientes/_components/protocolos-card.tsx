@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { FileInput, Plus, Loader2, Trash2, Check, Clock, ChevronDown } from 'lucide-react'
+import { FileInput, Plus, Loader2, Trash2, Check, Clock, ChevronDown, Printer, Pencil, Inbox } from 'lucide-react'
 import { Button, Card, Input, Badge, cn } from '@saas/ui'
 import { RichEditor, RichContent } from '@saas/ui'
 import { MioloColapsavel } from './card-colapsavel'
@@ -50,6 +50,9 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
   const [novo, setNovo] = useState(false)
   const [fData, setFData] = useState(hojeISO())
   const [fDocs, setFDocs] = useState('')
+  /** Protocolo em edição — no v1 só os documentos mudam; nº e data não. */
+  const [editando, setEditando] = useState<string | null>(null)
+  const [eDocs, setEDocs] = useState('')
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -75,13 +78,39 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
     finally { setSalvando(false) }
   }
 
-  async function alternarRecebido(p: Protocolo) {
+  /**
+   * Receber é de mão única, como no v1: a partir daí o protocolo está assinado
+   * e some do alcance de editar e excluir. Por isso a confirmação.
+   */
+  async function receber(p: Protocolo) {
+    const ok = await alerts.confirm({
+      title: `Marcar o protocolo nº ${p.numero} como recebido?`,
+      text: 'Depois de recebido ele não pode mais ser editado nem excluído — só impresso.',
+      icon: 'question', confirmText: 'Receber',
+    })
+    if (!ok) return
     try {
       await (trpc.cliente as never as {
         updateProtocolo: { mutate: (i: unknown) => Promise<unknown> }
-      }).updateProtocolo.mutate({ id: p.id, recebido: !p.recebido })
+      }).updateProtocolo.mutate({ id: p.id, recebido: true })
       carregar()
     } catch (e) { alerts.error('Erro', (e as Error).message) }
+  }
+
+  async function salvarEdicao(p: Protocolo) {
+    setSalvando(true)
+    try {
+      await (trpc.cliente as never as {
+        updateProtocolo: { mutate: (i: unknown) => Promise<unknown> }
+      }).updateProtocolo.mutate({ id: p.id, documentos: eDocs || null })
+      setEditando(null)
+      carregar()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setSalvando(false) }
+  }
+
+  function imprimir(p: Protocolo) {
+    window.open(`/clientes/protocolos/${p.id}/imprimir`, '_blank', 'noopener')
   }
 
   async function excluir(p: Protocolo) {
@@ -191,26 +220,49 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
                         {aberto === p.id ? 'ocultar' : 'documentos'}
                       </button>
                     )}
-                    {canManageRegistration && (
-                      <div className="flex shrink-0 gap-1">
-                        <Button
-                          variant={p.recebido ? 'outline' : 'soft-success'} size="icon-sm"
-                          onClick={() => alternarRecebido(p)}
-                          title={p.recebido ? 'Marcar como a receber' : 'Marcar como recebido'}
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </Button>
+                    {/* Ordem e disponibilidade como no v1: receber, editar,
+                        imprimir e excluir enquanto está a receber; depois de
+                        recebido resta imprimir — é um documento assinado. */}
+                    <div className="flex shrink-0 gap-1">
+                      {canManageRegistration && !p.recebido && (
+                        <>
+                          <Button variant="soft-success" size="icon-sm" onClick={() => receber(p)} title="Receber">
+                            <Inbox className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="soft-info" size="icon-sm" title="Editar os documentos"
+                            onClick={() => { setEditando(p.id); setEDocs(p.documentos ?? ''); setAberto(null) }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                      <Button variant="outline" size="icon-sm" onClick={() => imprimir(p)} title="Imprimir">
+                        <Printer className="h-3.5 w-3.5" />
+                      </Button>
+                      {canManageRegistration && !p.recebido && (
                         <Button variant="soft-destructive" size="icon-sm" onClick={() => excluir(p)} title="Excluir">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                  {aberto === p.id && p.documentos && (
+                  {editando === p.id ? (
+                    <div className="mt-2 space-y-2 rounded-md border border-border bg-muted/20 p-3">
+                      <label className="text-[13px] font-semibold">Documentos entregues</label>
+                      <RichEditor value={eDocs} onChange={setEDocs} />
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setEditando(null)}>Cancelar</Button>
+                        <Button variant="success" size="sm" onClick={() => salvarEdicao(p)} disabled={salvando}>
+                          {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : aberto === p.id && p.documentos ? (
                     <div className="mt-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-xs">
                       <RichContent html={p.documentos} />
                     </div>
-                  )}
+                  ) : null}
                 </div>
               ))}
             </div>
