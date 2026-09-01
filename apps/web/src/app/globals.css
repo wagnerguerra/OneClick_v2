@@ -119,6 +119,20 @@
 .swal2-container { z-index: 9999 !important; pointer-events: auto !important; }
 .swal2-popup { pointer-events: auto !important; }
 
+/* ── Backdrop do SweetAlert2 igual ao overlay dos modais do app
+   (DialogOverlay = bg-black/60 + backdrop-blur-[2px]). O `--swal2-backdrop`
+   é setado em `html[data-swal2-theme]` (0,1,1) p/ vencer o `:root` da lib;
+   o blur é propriedade no container (a lib não tem var pra isso). */
+html[data-swal2-theme] { --swal2-backdrop: rgba(0, 0, 0, 0.6); }
+/* fundo do popup dark = o mesmo token do DialogContent (bg-card = #1a1d27),
+   pra ficar idêntico ao modal do design system e seguir o token se ele mudar */
+html[data-swal2-theme="dark"] { --swal2-background: var(--color-card); }
+/* Blur via @apply da utility do Tailwind (não `backdrop-filter: blur(2px)` cru):
+   o lightningcss REMOVE o valor literal estático no build (targets), mas a
+   utility compila pra `backdrop-filter: var(--tw-backdrop-blur,) …` (valor via
+   var, que ele não descarta). Mesmo motivo pelo qual o DialogOverlay funciona. */
+.swal2-container.swal2-backdrop-show { @apply backdrop-blur-[2px]; }
+
 /* Sidebar group/item hover — usa CSS variable --gc para cor dinâmica */
 .sidebar-group-btn:hover {
   background-color: color-mix(in srgb, var(--gc, #5ea3cb) 12%, transparent);

@@ -13,12 +13,15 @@ import { TEXT } from '@/lib/color-styles'
  * A migração dos demais módulos para este componente compartilhado é uma task
  * futura (fora do escopo do refactor do HelpDesk).
  */
-export function EmailChipsInput({ value, onChange, suggestions = [], placeholder, disabled }: {
+export function EmailChipsInput({ value, onChange, suggestions = [], placeholder, disabled, chipClassName = 'bg-muted text-foreground' }: {
   value: string
   onChange: (next: string) => void
   suggestions?: string[]
   placeholder?: string
   disabled?: boolean
+  /** Classe de cor do chip (bg + texto). Default neutro; ex. módulo Comercial:
+   *  `"bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300"`. */
+  chipClassName?: string
 }) {
   const emails = value ? value.split(/[,;]/).map(e => e.trim()).filter(Boolean) : []
   const [draft, setDraft] = useState('')
@@ -90,7 +93,7 @@ export function EmailChipsInput({ value, onChange, suggestions = [], placeholder
     <div ref={ref} className="relative">
       <div
         className={cn(
-          'flex flex-wrap gap-1.5 items-center min-h-[36px] px-2 py-1 border border-input rounded-md bg-transparent text-sm focus-within:ring-1 focus-within:ring-ring cursor-text',
+          'flex flex-wrap gap-1.5 items-center min-h-[36px] px-2 py-1 border border-input rounded-md bg-white dark:bg-[#262a33] text-sm focus-within:ring-1 focus-within:ring-ring cursor-text',
           disabled && 'opacity-60 pointer-events-none',
         )}
         onClick={() => inputRef.current?.focus()}
@@ -98,7 +101,7 @@ export function EmailChipsInput({ value, onChange, suggestions = [], placeholder
         {emails.map((email, i) => (
           <span
             key={`${email}-${i}`}
-            className="inline-flex items-center gap-1 rounded-full bg-muted text-foreground pl-2.5 pr-1 py-0.5 text-xs font-medium"
+            className={cn('inline-flex items-center gap-1 rounded-full pl-2.5 pr-1 py-0.5 text-xs font-medium', chipClassName)}
           >
             {email}
             <button

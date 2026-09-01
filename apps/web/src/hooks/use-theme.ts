@@ -14,6 +14,12 @@ function getSystemTheme(): 'light' | 'dark' {
 function applyTheme(theme: Theme) {
   const resolved = theme === 'system' ? getSystemTheme() : theme
   document.documentElement.classList.toggle('dark', resolved === 'dark')
+  // SweetAlert2 tema-a-partir-do-atributo: a lib estiliza o popup por
+  // `[data-swal2-theme=dark]` (var `--swal2-*`). Nossos Swals não passam
+  // `theme`, então o container fica sem tema próprio e HERDA daqui — pôr o
+  // atributo no <html> sincroniza TODOS os popups (alerts.ts + Swal.fire
+  // inline) com o tema do app, sem tocar call site algum.
+  document.documentElement.dataset['swal2Theme'] = resolved
 }
 
 export function useTheme() {
