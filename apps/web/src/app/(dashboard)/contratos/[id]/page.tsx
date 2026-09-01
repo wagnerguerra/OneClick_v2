@@ -30,7 +30,7 @@ import { AssinarWebPkiModal } from '../_components/assinar-webpki-modal'
 // ============================================================
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
-const MODULE_RGBA = 'rgba(251, 113, 133, .18)'
+const MODULE_RGBA = 'color-mix(in srgb, var(--mod-comercial, #fb7185) 18%, transparent)'
 
 // ============================================================
 // Tipos
@@ -432,7 +432,7 @@ export default function ContratoDetailPage() {
             <div className="flex items-start gap-4">
               <div
                 className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 overflow-hidden shadow-lg"
-                style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}
+                style={{ boxShadow: 'inset 0 0 0 3px var(--color-border)' }}
               >
                 <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
               </div>
@@ -852,7 +852,7 @@ function BlocoAssinatura({ titulo, assinatura, onAssinar, podeAssinar, notaClien
 }) {
   if (assinatura) {
     return (
-      <div className="rounded-md border-2 border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 space-y-2">
+      <div className="rounded-md border-2 border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 space-y-2">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-emerald-600" />
           <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">{titulo}</p>

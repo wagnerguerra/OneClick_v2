@@ -18,6 +18,7 @@ import { StatCard } from '@/components/stat-card'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
+import { STRONG } from '@/lib/color-styles'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -240,7 +241,7 @@ export default function ComercialPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <StatCard icon={Target} label="Oportunidades ativas" value={oportunidadesAtivas} color="#818cf8" />
               <StatCard icon={TrendingUp} label="Valor em pipeline" value={formatCompact(pipelineValor)} color="#34d399" sub={formatCurrency(pipelineValor)} />
-              <StatCard icon={Percent} label="Taxa de conversão" value={`${taxaConversao}%`} color="#fb7185" />
+              <StatCard icon={Percent} label="Taxa de conversão" value={`${taxaConversao}%`} color={MODULE_COLOR} />
             </div>
           </div>
 
@@ -262,7 +263,7 @@ export default function ComercialPage() {
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <StatCard icon={FileCheck} label="Contratos vigentes" value={vigentes} color="#34d399" />
-              <StatCard icon={Landmark} label="MRR (receita recorrente)" value={formatCompact(mrr)} color="#fb7185" sub={formatCurrency(mrr)} />
+              <StatCard icon={Landmark} label="MRR (receita recorrente)" value={formatCompact(mrr)} color={MODULE_COLOR} sub={formatCurrency(mrr)} />
               <StatCard icon={CalendarClock} label="A vencer (30 dias)" value={aVencer30} color="#fbbf24" sub={`${ct?.aVencer60 ?? 0} em até 60 dias`} />
             </div>
           </div>
@@ -335,7 +336,7 @@ export default function ComercialPage() {
                       <Tooltip content={<ChartTooltip format={(v: number, n?: string) => (n === 'Valor' ? formatCurrency(v) : v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
                       <Bar dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
                         {funilChart.map((e: any) => (
-                          <Cell key={e.etapaId} fill={e.cor || '#fb7185'} opacity={0.85} />
+                          <Cell key={e.etapaId} fill={e.cor || MODULE_COLOR} opacity={0.85} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -415,7 +416,7 @@ export default function ComercialPage() {
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     <Bar dataKey="ganhos" name="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="total" name="Total" fill="#fb7185" opacity={0.4} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="total" name="Total" fill={MODULE_COLOR} opacity={0.4} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -449,14 +450,14 @@ export default function ComercialPage() {
                       </TableCell>
                       <TableCell className="text-xs text-center">
                         <Badge
-                          variant="secondary"
+                          variant="outline"
                           className={cn(
                             'text-[10px]',
                             c.diasRestantes != null && c.diasRestantes <= 15
-                              ? 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300'
+                              ? STRONG.red
                               : c.diasRestantes != null && c.diasRestantes <= 30
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
-                                : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300',
+                                ? STRONG.amber
+                                : STRONG.blue,
                           )}
                         >
                           {c.diasRestantes != null ? `${c.diasRestantes} dias` : '—'}

@@ -33,6 +33,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserMultiPicker } from '@/components/user-multi-picker'
 import { OrcamentosLegadoSection } from '@/components/orcamento/orcamentos-legado-section'
 import { OrcamentoIaSection } from '@/components/orcamento/orcamento-ia-section'
+import { EmailChipsInput } from '@/components/ui/email-chips-input'
 import { masks } from '@/lib/masks'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -266,172 +267,6 @@ function TipoBadge({ tipo }: { tipo: string }) {
 
 // CatalogoCombobox foi extraído para ../_components/catalogo-combobox (compartilhado
 // com o filtro "Item" da lista de orçamentos — #HLP0296).
-
-// Input estilo Gmail: emails viram badges ao pressionar Enter/Tab/espaco/virgula/ponto-e-virgula.
-// Sugestoes filtraveis aparecem ao digitar, baseadas na lista fornecida.
-// O valor e persistido como string separada por '; '.
-function EmailChipsInput({ value, onChange, suggestions, placeholder }: {
-  value: string
-  onChange: (next: string) => void
-  suggestions: string[]
-  placeholder?: string
-}) {
-  const emails = value ? value.split(/[,;]/).map(e => e.trim()).filter(Boolean) : []
-  const [draft, setDraft] = useState('')
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(0)
-  const ref = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  // Sugestoes filtradas: nao repete o que ja virou chip e bate com o que esta sendo digitado
-  const filtered = (() => {
-    const q = draft.trim().toLowerCase()
-    const out = suggestions.filter(s => !emails.includes(s) && (q ? s.toLowerCase().includes(q) : true))
-    return out.slice(0, 8)
-  })()
-
-  // Reseta o highlight quando a lista muda
-  useEffect(() => { setHighlight(0) }, [draft, value])
-
-  // Fecha ao clicar fora
-  useEffect(() => {
-    if (!open) return
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  // Regex pragmática de e-mail (rfc 5322 simplificada). Casa "a@b.c" e variações
-  // razoáveis; rejeita strings sem @ ou sem TLD. Suficiente pra evitar lixo.
-  const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/
-
-  function commitDraft(raw?: string) {
-    const candidate = (raw ?? draft).trim().replace(/[,;]+$/, '')
-    if (!candidate) { setDraft(''); return }
-    if (emails.includes(candidate)) { setDraft(''); return }
-    // Bloqueia entradas inválidas — mantém no draft pra o user corrigir
-    // (não cria chip "abc" sem @ que depois fica difícil de remover).
-    if (!EMAIL_RE.test(candidate)) return
-    onChange([...emails, candidate].join('; '))
-    setDraft('')
-  }
-
-  function removeAt(i: number) {
-    const next = emails.filter((_, idx) => idx !== i)
-    onChange(next.join('; '))
-    inputRef.current?.focus()
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    // Navegacao de sugestoes
-    if (open && filtered.length > 0) {
-      if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(h + 1, filtered.length - 1)); return }
-      if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(h => Math.max(h - 1, 0)); return }
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault()
-        commitDraft(filtered[highlight])
-        setOpen(false)
-        return
-      }
-    }
-    // Confirma o draft
-    if (e.key === 'Enter' || e.key === ',' || e.key === ';' || e.key === ' ' || e.key === 'Tab') {
-      if (draft.trim()) {
-        e.preventDefault()
-        commitDraft()
-      }
-      return
-    }
-    // Backspace remove o ultimo chip quando o input esta vazio
-    if (e.key === 'Backspace' && !draft && emails.length > 0) {
-      e.preventDefault()
-      removeAt(emails.length - 1)
-    }
-  }
-
-  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
-    const txt = e.clipboardData.getData('text')
-    if (txt && /[,;\s]/.test(txt)) {
-      e.preventDefault()
-      const parts = txt.split(/[,;\s]+/).map(p => p.trim()).filter(Boolean)
-      const merged = Array.from(new Set([...emails, ...parts]))
-      onChange(merged.join('; '))
-      setDraft('')
-    }
-  }
-
-  return (
-    <div ref={ref} className="relative">
-      <div
-        className="flex flex-wrap gap-1.5 items-center min-h-[36px] px-2 py-1 border border-input rounded-md bg-transparent text-sm focus-within:ring-1 focus-within:ring-ring cursor-text"
-        onClick={() => inputRef.current?.focus()}
-      >
-        {emails.map((email, i) => (
-          <span
-            key={`${email}-${i}`}
-            className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 pl-2.5 pr-1 py-0.5 text-xs font-medium"
-          >
-            {email}
-            <button
-              type="button"
-              // preventDefault no mousedown evita que o input perca foco e
-              // dispare onBlur antes do click — sem isso, um draft em curso
-              // virava chip junto com a remoção (chip removido reaparecia).
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => { e.stopPropagation(); removeAt(i) }}
-              className="rounded-full hover:bg-rose-200 dark:hover:bg-rose-900/50 p-0.5"
-              title="Remover"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </span>
-        ))}
-        <input
-          ref={inputRef}
-          type="email"
-          value={draft}
-          onChange={e => { setDraft(e.target.value); setOpen(true) }}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          onFocus={() => setOpen(true)}
-          // No blur, só tenta commitar — se o draft for inválido,
-          // commitDraft devolve sem limpar; o user vê o texto e pode corrigir.
-          onBlur={() => { if (draft.trim()) commitDraft() }}
-          placeholder={emails.length === 0 ? placeholder : ''}
-          className={cn(
-            'flex-1 min-w-[140px] border-none bg-transparent outline-none shadow-none p-0 py-1 h-auto rounded-none focus:border-none focus:shadow-none focus:outline-none text-sm',
-            // Feedback visual: texto vermelho quando o draft não é um e-mail válido
-            draft.trim() && !EMAIL_RE.test(draft.trim()) && TEXT.rose,
-          )}
-          style={{ width: 'auto', display: 'inline-block' }}
-        />
-      </div>
-      {open && filtered.length > 0 && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-md max-h-56 overflow-y-auto">
-          {filtered.map((s, i) => (
-            <button
-              key={s}
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); commitDraft(s); setOpen(false) }}
-              onMouseEnter={() => setHighlight(i)}
-              className={cn(
-                'w-full text-left px-3 py-1.5 text-sm flex items-center gap-2',
-                i === highlight ? 'bg-accent text-accent-foreground' : 'hover:bg-muted',
-              )}
-            >
-              <span className="h-5 w-5 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 flex items-center justify-center text-[9px] font-bold shrink-0">
-                {s[0]?.toUpperCase() || '?'}
-              </span>
-              <span className="truncate">{s}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // Item de timeline vertical para o card "Datas Importantes" da sidebar.
 // Renderiza um marker (bolinha colorida) + linha conectora + label/data
@@ -2171,7 +2006,7 @@ export default function OrcamentoDetailPage() {
               )}
             </div>
             {canRetomar && (
-              <Button size="xs" variant="outline" className="gap-1 border-amber-300 text-amber-800 hover:bg-amber-100" onClick={handleRetomar}>
+              <Button size="xs" variant="outline" className="gap-1 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30" onClick={handleRetomar}>
                 <Play className="h-3 w-3" /> Retomar
               </Button>
             )}
@@ -2262,6 +2097,7 @@ export default function OrcamentoDetailPage() {
                             onChange={setFormEmails}
                             suggestions={emailSuggestions}
                             placeholder="Digite e pressione Enter, vírgula ou espaço para adicionar"
+                            chipClassName="bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300"
                           />
                         </div>
 

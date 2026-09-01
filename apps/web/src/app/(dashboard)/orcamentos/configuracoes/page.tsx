@@ -185,7 +185,7 @@ export default function OrcamentosConfiguracoesPage() {
 
       {/* Card único com pills laterais */}
       <Card className="overflow-hidden">
-        <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+        <div className="px-5 py-3 border-b border-border">
           <h5 className="text-[13px] font-semibold text-foreground">Parâmetros do módulo</h5>
         </div>
         <div className="flex flex-col sm:flex-row min-h-[450px]">
@@ -217,7 +217,7 @@ export default function OrcamentosConfiguracoesPage() {
           {/* Conteúdo */}
           <div key={activeTab} className="flex-1 min-w-0" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
             {/* Título interno full-width */}
-            <div className="px-5 py-3 border-b border-[rgba(0,0,0,0.08)]">
+            <div className="px-5 py-3 border-b border-border">
               <h4 className="text-[13px] font-semibold text-foreground">
                 {visibleTabs.find(t => t.key === activeTab)?.label}
               </h4>
@@ -302,10 +302,13 @@ export default function OrcamentosConfiguracoesPage() {
                       </div>
                       <div className="col-span-12 sm:col-span-6 space-y-1.5">
                         <label className="text-xs font-medium text-muted-foreground block">Tipo de evento na agenda</label>
-                        <select value={config.followupTipoEventoId} onChange={e => setConfig(c => ({ ...c, followupTipoEventoId: e.target.value }))} className="h-9 text-sm w-full rounded-md border border-border bg-background px-3">
-                          <option value="">Padrão (1º tipo ativo)</option>
-                          {tiposEvento.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
-                        </select>
+                        <Select value={config.followupTipoEventoId || '__default'} onValueChange={v => setConfig(c => ({ ...c, followupTipoEventoId: v === '__default' ? '' : v }))}>
+                          <SelectTrigger className="h-9 text-sm w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__default">Padrão (1º tipo ativo)</SelectItem>
+                            {tiposEvento.map(t => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </div>

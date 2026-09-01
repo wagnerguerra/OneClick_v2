@@ -12,10 +12,10 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BADGE } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
-import { resolveAssetUrl } from '@/lib/api-url'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { BackButton } from '@/components/ui/back-button'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -196,7 +196,7 @@ function TabFunil({ dias }: { dias?: number }) {
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.etapas} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatCompact(v)} />
@@ -225,7 +225,7 @@ function TabFunil({ dias }: { dias?: number }) {
                   <ArrowRight className="h-3 w-3 text-muted-foreground" />
                   <span className={cn(
                     'text-[12px] font-bold',
-                    c.taxa >= 50 ? TEXT.emerald : c.taxa >= 25 ? TEXT.amber : 'text-red-500',
+                    c.taxa >= 50 ? TEXT.emerald : c.taxa >= 25 ? TEXT.amber : TEXT.red,
                   )}>
                     {c.taxa}%
                   </span>
@@ -269,7 +269,7 @@ function TabDesempenho({ dias }: { dias?: number }) {
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
@@ -304,13 +304,7 @@ function TabDesempenho({ dias }: { dias?: number }) {
               <TableRow key={row.responsavelId || 'sem'}>
                 <TableCell className="text-xs font-medium">
                   <div className="flex items-center gap-2">
-                    {row.image ? (
-                      <img src={resolveAssetUrl(row.image)} className="h-6 w-6 rounded-full" alt="" />
-                    ) : (
-                      <div className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: MODULE_COLOR }}>
-                        {(row.nome || '?')[0].toUpperCase()}
-                      </div>
-                    )}
+                    <UserAvatar user={{ name: row.nome, image: row.image }} bg="bg-rose-500" className="h-6 w-6 text-[10px]" />
                     {row.nome}
                   </div>
                 </TableCell>
@@ -319,17 +313,13 @@ function TabDesempenho({ dias }: { dias?: number }) {
                   <span className={cn('font-medium', TEXT.emerald)}>{row.ganhos}</span>
                 </TableCell>
                 <TableCell className="text-xs text-center">
-                  <span className="text-red-500 font-medium">{row.perdidos}</span>
+                  <span className={cn('font-medium', TEXT.red)}>{row.perdidos}</span>
                 </TableCell>
                 <TableCell className="text-xs text-center">{row.total - row.ganhos - row.perdidos}</TableCell>
                 <TableCell className="text-xs text-center">
                   <Badge
-                    variant="secondary"
-                    className="text-[10px]"
-                    style={{
-                      backgroundColor: row.taxaConversao >= 50 ? '#d1fae5' : row.taxaConversao >= 25 ? '#fef3c7' : '#fee2e2',
-                      color: row.taxaConversao >= 50 ? '#065f46' : row.taxaConversao >= 25 ? '#92400e' : '#991b1b',
-                    }}
+                    variant="outline"
+                    className={cn('text-[10px]', row.taxaConversao >= 50 ? BADGE.emerald : row.taxaConversao >= 25 ? BADGE.amber : BADGE.red)}
                   >
                     {row.taxaConversao}%
                   </Badge>
@@ -408,7 +398,7 @@ function TabOrigem({ dias }: { dias?: number }) {
           <div className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.origens} layout="vertical" margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatCompact(v)} />
                 <YAxis type="category" dataKey="origem" tick={{ fontSize: 10 }} width={100} />
                 <Tooltip content={<ChartTooltip format={(v) => formatCurrency(v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
@@ -457,16 +447,12 @@ function TabOrigem({ dias }: { dias?: number }) {
                   <span className={cn('font-medium', TEXT.emerald)}>{row.ganhos}</span>
                 </TableCell>
                 <TableCell className="text-xs text-center">
-                  <span className="text-red-500 font-medium">{row.perdidos}</span>
+                  <span className={cn('font-medium', TEXT.red)}>{row.perdidos}</span>
                 </TableCell>
                 <TableCell className="text-xs text-center">
                   <Badge
-                    variant="secondary"
-                    className="text-[10px]"
-                    style={{
-                      backgroundColor: row.taxaConversao >= 50 ? '#d1fae5' : row.taxaConversao >= 25 ? '#fef3c7' : '#fee2e2',
-                      color: row.taxaConversao >= 50 ? '#065f46' : row.taxaConversao >= 25 ? '#92400e' : '#991b1b',
-                    }}
+                    variant="outline"
+                    className={cn('text-[10px]', row.taxaConversao >= 50 ? BADGE.emerald : row.taxaConversao >= 25 ? BADGE.amber : BADGE.red)}
                   >
                     {row.taxaConversao}%
                   </Badge>
@@ -510,7 +496,7 @@ function TabTempoMedio() {
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
               <Tooltip content={<ChartTooltip format={(v) => `${v} dias`} />} cursor={{ fill: CHART_CURSOR_FILL }} />

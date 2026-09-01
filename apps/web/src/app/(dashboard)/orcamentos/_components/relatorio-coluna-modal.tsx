@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Button, Input, Label, cn,
+  Button, Input, Label, cn, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -72,7 +72,7 @@ export function RelatorioColunaModal({ open, onClose, status, statusLabel, modul
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onClose() }}>
-      <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto nice-scrollbar">
+      <DialogContent className="sm:max-w-[720px] max-h-[90vh]">
         <DialogHeaderIcon icon={BarChart3} color="violet">
           <DialogTitle>Relatório — {statusLabel}</DialogTitle>
           <DialogDescription>Consulta apenas os orçamentos desta coluna. Configure os filtros e os campos; o relatório abre em uma nova aba.</DialogDescription>
@@ -136,8 +136,7 @@ export function RelatorioColunaModal({ open, onClose, status, statusLabel, modul
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 rounded-lg border border-border bg-muted/20 p-3">
               {CAMPOS.map(c => (
                 <label key={c.key} className="flex items-center gap-2 text-xs cursor-pointer select-none">
-                  <input type="checkbox" className="h-3.5 w-3.5 rounded cursor-pointer" style={{ accentColor: moduleColor }}
-                    checked={campos.has(c.key)} onChange={() => toggleCampo(c.key)} />
+                  <Checkbox accentColor={moduleColor} checked={campos.has(c.key)} onCheckedChange={() => toggleCampo(c.key)} />
                   <span className="truncate">{c.label}</span>
                 </label>
               ))}

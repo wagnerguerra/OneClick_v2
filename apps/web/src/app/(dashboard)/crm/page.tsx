@@ -21,7 +21,8 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, STRONG } from '@/lib/color-styles'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { DndContext, closestCenter, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DragOverEvent, useDroppable } from '@dnd-kit/core'
@@ -1119,7 +1120,7 @@ export default function CrmPage() {
                   return (
                     <button key={e.id} onClick={() => setForm(f => ({ ...f, etapaId: e.id }))}
                       className={cn('relative flex items-center justify-center text-[11px] font-medium py-2 transition-all flex-1 min-w-0', idx > 0 && 'pl-3', isActive || isPast ? 'text-white' : 'text-muted-foreground hover:text-foreground', !isActive && 'cursor-pointer')}
-                      style={{ backgroundColor: isActive || isPast ? MODULE_COLOR : '#e2e5ea', opacity: isActive ? 1 : isPast ? 0.7 : 1, clipPath: idx === 0 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%)' : idx < arr.length - 1 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%)' : 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%)' }}
+                      style={{ backgroundColor: isActive || isPast ? MODULE_COLOR : 'var(--color-muted)', opacity: isActive ? 1 : isPast ? 0.7 : 1, clipPath: idx === 0 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%)' : idx < arr.length - 1 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%)' : 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%)' }}
                     >
                       <span className="truncate px-1">{e.nome.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())}</span>
                     </button>
@@ -1265,13 +1266,7 @@ export default function CrmPage() {
                 </div>
                 <div className="flex items-center gap-3 pr-24">
                   {(detail as any).responsavel ? (
-                    (detail as any).responsavel.image ? (
-                      <img src={resolveAssetUrl((detail as any).responsavel.image)} alt={(detail as any).responsavel.name} title={(detail as any).responsavel.name} className="h-10 w-10 rounded-full object-cover shrink-0 border-2 border-background shadow-sm" />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 border-2 border-background shadow-sm" title={(detail as any).responsavel.name}>
-                        <span className="text-sm font-bold text-muted-foreground">{((detail as any).responsavel.name || '?').split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}</span>
-                      </div>
-                    )
+                    <UserAvatar user={(detail as any).responsavel} bg="bg-muted" fg="text-muted-foreground" className="h-10 w-10 text-sm shrink-0 border-2 border-background shadow-sm" />
                   ) : null}
                   <div className="flex-1 min-w-0">
                     <SheetTitle className="text-base">
@@ -1789,7 +1784,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
                   !isActive && 'cursor-pointer',
                 )}
                 style={{
-                  backgroundColor: isActive || isPast ? MODULE_COLOR : '#e2e5ea',
+                  backgroundColor: isActive || isPast ? MODULE_COLOR : 'var(--color-muted)',
                   opacity: isActive ? 1 : isPast ? 0.7 : 1,
                   clipPath: idx === 0
                     ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%)'
@@ -2212,13 +2207,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
       <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
         <div className="flex items-center gap-2">
           {(op as any).responsavel ? (
-            (op as any).responsavel.image ? (
-              <img src={resolveAssetUrl((op as any).responsavel.image)} alt={(op as any).responsavel.name} title={(op as any).responsavel.name} className="h-6 w-6 rounded-full object-cover shrink-0 border border-background shadow-sm" />
-            ) : (
-              <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 border border-background shadow-sm" title={(op as any).responsavel.name}>
-                <span className="text-[8px] font-bold text-muted-foreground">{((op as any).responsavel.name || '?').split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}</span>
-              </div>
-            )
+            <UserAvatar user={(op as any).responsavel} bg="bg-muted" fg="text-muted-foreground" className="h-6 w-6 text-[8px] shrink-0 border border-background shadow-sm" />
           ) : null}
           <SlaIndicator op={op} etapas={etapas} declinioDias={declinioDias} />
         </div>
@@ -2426,13 +2415,7 @@ function HistoricoTab({ eventos }: { eventos: Evento[] }) {
                 <div className="flex items-center gap-2 mt-1">
                   {ev.user && (
                     <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                      {ev.user.image ? (
-                        <img src={resolveAssetUrl(ev.user.image)} alt="" className="h-4 w-4 rounded-full object-cover" />
-                      ) : (
-                        <div className="h-4 w-4 rounded-full bg-muted flex items-center justify-center">
-                          <span className="text-[8px] font-bold text-muted-foreground">{(ev.user.name || '?')[0]?.toUpperCase()}</span>
-                        </div>
-                      )}
+                      <UserAvatar user={ev.user} bg="bg-muted" fg="text-muted-foreground" className="h-4 w-4 text-[8px]" />
                       {ev.user.name}
                     </span>
                   )}
@@ -2541,8 +2524,8 @@ function SortableEtapaRow({ etapa, onSave, onChangeName, onChangeSla, onDelete }
           className="h-8 text-sm w-14 text-center"
         />
       </div>
-      {etapa.ehGanho && <Badge className="bg-emerald-100 text-emerald-700 text-[9px] shrink-0">Ganho</Badge>}
-      {etapa.ehPerda && <Badge className="bg-red-100 text-red-700 text-[9px] shrink-0">Perdido</Badge>}
+      {etapa.ehGanho && <Badge variant="outline" className={cn('text-[9px] shrink-0', STRONG.emerald)}>Ganho</Badge>}
+      {etapa.ehPerda && <Badge variant="outline" className={cn('text-[9px] shrink-0', STRONG.red)}>Perdido</Badge>}
       <button type="button" className="text-muted-foreground hover:text-destructive shrink-0" onClick={() => onDelete(etapa.id, etapa.nome)}>
         <Trash2 className="h-3.5 w-3.5" />
       </button>

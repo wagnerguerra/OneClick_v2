@@ -7,7 +7,7 @@ import {
   ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card, Label,
+  Button, Input, Badge, Card, Label, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { cn } from '@saas/ui'
+import { STRONG } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { CLAUSULA_CATEGORIA_LABELS, type ClausulaCategoria } from '@saas/types'
@@ -320,7 +321,7 @@ export default function ClausulasPage() {
                           <code className="text-[11px] font-mono bg-muted px-1.5 py-0.5 rounded">{c.codigo}</code>
                           <span className="text-[10px] text-muted-foreground">v{c.versao}</span>
                           {c.publicada ? (
-                            <Badge className="bg-emerald-100 text-emerald-700 text-[10px] h-4 px-1.5 gap-1">
+                            <Badge variant="outline" className={cn('text-[10px] h-4 px-1.5 gap-1', STRONG.emerald)}>
                               <FileCheck2 className="h-2.5 w-2.5" /> Publicada
                             </Badge>
                           ) : (
@@ -368,7 +369,7 @@ export default function ClausulasPage() {
 
       {/* Modal Edit/Create */}
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-        <DialogContent className="sm:max-w-[820px] max-h-[88vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[820px] max-h-[88vh]">
           <DialogHeaderIcon icon={editing ? Pencil : Plus} color={editing ? 'sky' : 'emerald'}>
             <DialogTitle>
               {editing ? (
@@ -430,12 +431,10 @@ export default function ClausulasPage() {
                 <Input type="number" value={formOrdem} onChange={e => setFormOrdem(e.target.value)} className="h-9 text-sm" />
               </div>
               <div className="col-span-6 sm:col-span-2 flex items-end gap-2 pb-1">
-                <input
+                <Checkbox
                   id="publ"
-                  type="checkbox"
                   checked={formPublicada}
-                  onChange={e => setFormPublicada(e.target.checked)}
-                  className="h-4 w-4 rounded border-input accent-rose-600"
+                  onCheckedChange={v => setFormPublicada(!!v)}
                 />
                 <Label htmlFor="publ" className="text-[13px] font-semibold cursor-pointer">Publicar</Label>
               </div>
@@ -483,7 +482,7 @@ export default function ClausulasPage() {
 
       {/* Modal Histórico */}
       <Dialog open={histOpen} onOpenChange={setHistOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
           <DialogHeaderIcon icon={History} color="rose">
             <DialogTitle className="flex items-center gap-2">
               Histórico — <code className="text-sm font-mono bg-muted px-1.5 py-0.5 rounded">{histCodigo}</code>
@@ -494,10 +493,10 @@ export default function ClausulasPage() {
             {histVersoes.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">Nenhuma versão encontrada</p>
             ) : histVersoes.map(v => (
-              <div key={v.id} className={cn('rounded-md border p-3', v.publicada && 'border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/20')}>
+              <div key={v.id} className={cn('rounded-md border p-3', v.publicada && 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20')}>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-bold">v{v.versao}</span>
-                  {v.publicada && <Badge className="bg-emerald-100 text-emerald-700 text-[10px] h-4 px-1.5">Publicada</Badge>}
+                  {v.publicada && <Badge variant="outline" className={cn('text-[10px] h-4 px-1.5', STRONG.emerald)}>Publicada</Badge>}
                   <span className="text-xs text-muted-foreground ml-auto">
                     {v.publicadaEm
                       ? `Publicada em ${new Date(v.publicadaEm).toLocaleDateString('pt-BR')}`

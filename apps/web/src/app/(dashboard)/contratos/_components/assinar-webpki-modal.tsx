@@ -186,9 +186,9 @@ export function AssinarWebPkiModal({ open, onOpenChange, contratoId, contratoTok
           )}
 
           {pkiStatus === 'no_extension' && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-2">
+            <div className="rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-2">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div className="text-xs flex-1">
                   <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1">Extensão Web PKI não detectada</p>
                   <p className="text-amber-700 dark:text-amber-400">
@@ -230,7 +230,7 @@ export function AssinarWebPkiModal({ open, onOpenChange, contratoId, contratoTok
                   <p className="text-[10px] text-muted-foreground mt-1">Verifique se há certificados ICP-Brasil instalados no Windows ou tokens A3 conectados.</p>
                 </div>
               ) : (
-                <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                <div className="space-y-1.5 max-h-60 overflow-y-auto nice-scrollbar">
                   {certificados.map(c => (
                     <button
                       key={c.thumbprint}
@@ -238,7 +238,7 @@ export function AssinarWebPkiModal({ open, onOpenChange, contratoId, contratoTok
                       onClick={() => setSelectedThumb(c.thumbprint)}
                       className={`w-full text-left p-2.5 rounded-md border transition-colors ${
                         selectedThumb === c.thumbprint
-                          ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
+                          ? 'border-emerald-400 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20'
                           : 'border-border hover:bg-muted/40'
                       }`}
                     >

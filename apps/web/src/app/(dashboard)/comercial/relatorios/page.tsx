@@ -210,7 +210,7 @@ function MrrReport({ mrr }: { mrr: MrrData }) {
         <KpiCard icon={Landmark} label="MRR atual" value={formatCompact(mrr.mrrAtual)} sub={formatCurrency(mrr.mrrAtual)} cor={COR_RECORRENTE} />
         <KpiCard icon={Repeat} label="Receita anualizada" value={formatCompact(mrr.mrrAnualizado)} sub="MRR × 12" cor="#34d399" />
         <KpiCard icon={Users2} label="Contratos recorrentes" value={String(mrr.contratosRecorrentes)} sub="vigentes + assinados" cor="#818cf8" />
-        <KpiCard icon={Zap} label="Ticket médio MRR" value={formatCompact(mrr.ticketMedioMrr)} sub="por contrato/mês" cor="#fb7185" />
+        <KpiCard icon={Zap} label="Ticket médio MRR" value={formatCompact(mrr.ticketMedioMrr)} sub="por contrato/mês" cor={MODULE_COLOR} />
       </div>
 
       {/* Mix de vendas aprovadas no período */}
@@ -287,7 +287,7 @@ function VendedoresReport({ data }: { data: VendedoresData }) {
         <KpiCard icon={Send} label="Orçamentos enviados" value={String(totais.enviados)} cor="#60a5fa" />
         <KpiCard icon={CheckCircle2} label="Aprovados" value={String(totais.aprovados)} sub={`${totais.enviados > 0 ? Math.round((totais.aprovados / totais.enviados) * 100) : 0}% de aprovação`} cor={COR_RECORRENTE} />
         <KpiCard icon={DollarSign} label="Valor aprovado" value={formatCompact(totais.valorAprovado)} sub={formatCurrency(totais.valorAprovado)} cor="#34d399" />
-        <KpiCard icon={FileCheck} label="Contratos efetivados" value={String(totais.contratos)} sub={`${formatCompact(totais.mrr)} em MRR`} cor="#fb7185" />
+        <KpiCard icon={FileCheck} label="Contratos efetivados" value={String(totais.contratos)} sub={`${formatCompact(totais.mrr)} em MRR`} cor={MODULE_COLOR} />
       </div>
 
       {/* Tabela ranking */}
@@ -343,7 +343,7 @@ function DescontosReport({ data }: { data: DescontosData }) {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard icon={Wallet} label="Valor bruto" value={formatCompact(kpis.brutoTotal)} sub={`${kpis.totalAprovados} aprovado(s)`} cor="#60a5fa" />
-        <KpiCard icon={Scissors} label="Desconto concedido" value={formatCompact(kpis.descTotal)} sub={formatCurrency(kpis.descTotal)} cor="#fb7185" />
+        <KpiCard icon={Scissors} label="Desconto concedido" value={formatCompact(kpis.descTotal)} sub={formatCurrency(kpis.descTotal)} cor={MODULE_COLOR} />
         <KpiCard icon={TicketPercent} label="Desconto médio" value={`${kpis.descontoMedioPct}%`} sub="sobre o bruto" cor="#f97316" />
         <KpiCard icon={TrendingDown} label="Com desconto" value={`${kpis.pctComDesconto}%`} sub={`${kpis.comDesconto} de ${kpis.totalAprovados}`} cor="#fbbf24" />
       </div>
@@ -412,7 +412,7 @@ function DescontosReport({ data }: { data: DescontosData }) {
               <div key={v.id} className="flex items-center gap-3">
                 <span className="w-[150px] shrink-0 text-xs font-medium truncate">{v.nome}</span>
                 <div className="flex-1 h-5 bg-muted/30 rounded overflow-hidden">
-                  <div className="h-full rounded transition-all" style={{ width: `${Math.max((v.descontoMedioPct / maxVend) * 100, v.descontoMedioPct > 0 ? 4 : 0)}%`, backgroundColor: '#fb7185' }} />
+                  <div className="h-full rounded transition-all" style={{ width: `${Math.max((v.descontoMedioPct / maxVend) * 100, v.descontoMedioPct > 0 ? 4 : 0)}%`, backgroundColor: MODULE_COLOR }} />
                 </div>
                 <span className="w-12 shrink-0 text-right text-xs font-semibold tabular-nums">{v.descontoMedioPct}%</span>
                 <span className="w-20 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">{formatCompact(v.desconto)}</span>
@@ -438,7 +438,7 @@ function DescontosReport({ data }: { data: DescontosData }) {
                   <p className="text-[11px] text-muted-foreground truncate">{d.vendedor}</p>
                 </div>
                 <span className="w-24 shrink-0 text-right text-muted-foreground tabular-nums">{formatCurrency(d.bruto)}</span>
-                <span className="w-24 shrink-0 text-right tabular-nums" style={{ color: '#fb7185' }}>−{formatCurrency(d.desconto)}</span>
+                <span className="w-24 shrink-0 text-right tabular-nums" style={{ color: MODULE_COLOR }}>−{formatCurrency(d.desconto)}</span>
                 <span className="w-14 shrink-0 text-right font-semibold tabular-nums">{d.pct}%</span>
               </div>
             ))}

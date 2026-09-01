@@ -31,7 +31,7 @@ export function CrmResumoModal({ oportunidadeId, open, onClose }: { oportunidade
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onClose() }}>
-      <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto nice-scrollbar">
+      <DialogContent className="sm:max-w-[560px] max-h-[90vh]">
         <DialogHeaderIcon icon={Target} color="fuchsia">
           <DialogTitle>Resumo do CRM</DialogTitle>
           <DialogDescription>Card de CRM vinculado a este orçamento.</DialogDescription>

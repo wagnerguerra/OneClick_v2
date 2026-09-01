@@ -6,7 +6,7 @@ import {
   ChevronDown, FileText as FileTextIcon, Settings, Tag, Pencil,
 } from 'lucide-react'
 import {
-  Button, Input, Badge, Card, Label,
+  Button, Input, Badge, Card, Label, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
@@ -383,7 +383,7 @@ export default function ContratoTemplatesPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <input id="ativo" type="checkbox" checked={formAtivo} onChange={e => setFormAtivo(e.target.checked)} className="h-4 w-4 rounded border-input accent-rose-600" />
+              <Checkbox id="ativo" checked={formAtivo} onCheckedChange={v => setFormAtivo(!!v)} />
               <Label htmlFor="ativo" className="text-[13px] font-semibold cursor-pointer">Ativo</Label>
             </div>
           </DialogBody>
@@ -399,7 +399,7 @@ export default function ContratoTemplatesPage() {
 
       {/* Modal Organizador */}
       <Dialog open={orgOpen} onOpenChange={setOrgOpen}>
-        <DialogContent className="sm:max-w-[760px] max-h-[88vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[760px] max-h-[88vh]">
           <DialogHeaderIcon icon={Settings} color="slate">
             <DialogTitle>Organizar cláusulas — {orgTemplate?.nome}</DialogTitle>
             <DialogDescription>
@@ -481,7 +481,7 @@ export default function ContratoTemplatesPage() {
 
       {/* Picker de cláusulas pra adicionar */}
       <Dialog open={orgPickerOpen} onOpenChange={setOrgPickerOpen}>
-        <DialogContent className="sm:max-w-[540px] max-h-[70vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[540px] max-h-[70vh]">
           <DialogHeaderIcon icon={Plus} color="emerald">
             <DialogTitle>Adicionar cláusula ao modelo</DialogTitle>
             <DialogDescription>Apenas cláusulas publicadas aparecem aqui.</DialogDescription>
