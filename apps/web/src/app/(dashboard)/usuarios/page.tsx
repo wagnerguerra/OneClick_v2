@@ -527,7 +527,12 @@ export default function UsuariosPage() {
 
                 As larguras são fixas de propósito: `table-fixed` só respeita o
                 que está declarado, e as duas colunas livres (usuário e e-mail)
-                ficam com a sobra. */}
+                ficam com a sobra.
+
+                A de Ações tem 72px por medida, não por gosto: o botão ⋮ ocupa
+                32 e a célula tem 16 de padding de cada lado. Em 60 ela
+                transbordava 2px — o bastante para o `overflow-auto` da tabela
+                mostrar barra horizontal e cortar a coluna. */}
             <TableRow>
               <TableHead className="w-[40px] text-center">
                 <Checkbox
@@ -546,7 +551,7 @@ export default function UsuariosPage() {
                   E-mail <SortIcon column="email" />
                 </button>
               </TableHead>
-              <TableHead className="w-[150px]">
+              <TableHead className="w-[170px]">
                 <button onClick={() => toggleSort('role')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   Tipo <SortIcon column="role" />
                 </button>
@@ -561,7 +566,7 @@ export default function UsuariosPage() {
                   Área <SortIcon column="area" />
                 </button>
               </TableHead>
-              <TableHead className="hidden lg:table-cell w-[110px] text-center">
+              <TableHead className="hidden lg:table-cell w-[120px] text-center">
                 <button onClick={() => toggleSort('exibirComoColaborador')} className="mx-auto flex items-center gap-1 hover:text-foreground transition-colors">
                   Colaborador <SortIcon column="exibirComoColaborador" />
                 </button>
@@ -571,7 +576,7 @@ export default function UsuariosPage() {
                   Último login <SortIcon column="lastLoginAt" />
                 </button>
               </TableHead>
-              <TableHead className="w-[56px] text-right">Ações</TableHead>
+              <TableHead className="w-[72px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
