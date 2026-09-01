@@ -347,8 +347,21 @@ export default function ReformaTributariaPage() {
                   {composicao.map(i => (
                     <tr key={i.conta} title={i.motivo}>
                       <td className="py-2 pr-3 text-xs tabular-nums text-muted-foreground">{i.conta}</td>
-                      <td className="py-2 pr-3 text-xs text-foreground">{i.nomeConta}</td>
-                      <td className="py-2 text-right text-xs font-medium tabular-nums">{reais(i.valor / 12)}</td>
+                      <td className="py-2 pr-3 text-xs text-foreground">
+                        {i.nomeConta}
+                        {i.valor < 0 && (
+                          <span className="ml-1.5 text-[10px] text-muted-foreground">(redutora)</span>
+                        )}
+                      </td>
+                      {/* Estornos e devolucoes ABATEM a base: o valor negativo e correto,
+                          nao erro de dado — por isso o rotulo e a cor propria. */}
+                      <td
+                        className={`py-2 text-right text-xs font-medium tabular-nums ${
+                          i.valor < 0 ? 'text-emerald-600 dark:text-emerald-400' : ''
+                        }`}
+                      >
+                        {reais(i.valor / 12)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

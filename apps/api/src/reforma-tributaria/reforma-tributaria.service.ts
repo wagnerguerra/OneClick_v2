@@ -274,31 +274,86 @@ function textoNormalizado(value: string) {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
+/**
+ * Contas SINTETICAS (totalizadoras) do cliente: as que sao prefixo de outra.
+ *
+ * O balancete do SCI traz TODOS os niveis do plano na mesma tabela — o
+ * totalizador e os lancamentos que o compoem. Somando linha a linha, o mesmo
+ * dinheiro entrava varias vezes: 04.1.1 -> 04.1.1.01 -> 04.1.1.01.001 sao um
+ * custo so, contado tres vezes. Numa empresa real isso produziu uma base
+ * creditavel de R$ 24 mi contra R$ 18,7 mi de despesa total no ano — impossivel.
+ *
+ * Somente contas ANALITICAS (folhas da arvore) entram nos calculos.
+ */
+const SQL_SINTETICAS = `sinteticas AS (
+          SELECT DISTINCT a.conta
+            FROM (SELECT DISTINCT conta FROM cliente_bi_linhas WHERE cliente_id = $1) a
+            JOIN (SELECT DISTINCT conta FROM cliente_bi_linhas WHERE cliente_id = $1) b
+              ON b.conta LIKE a.conta || '.%'
+        )`
+
+/**
+ * Linhas analiticas do periodo, ja com o valor normalizado em `vl`.
+ *
+ * `vl` preserva o SINAL do movimento, e forca negativo nas contas redutoras —
+ * estornos e deducoes, que o SCI entrega ora negativas, ora positivas com o nome
+ * marcado ("(-) ICMS sobre Compras", "Estorno de Credito Art. 530 LRI"). Com
+ * ABS() elas somavam justamente o que deveriam abater.
+ */
+const SQL_LINHAS_ANALITICAS = `
+          SELECT l.cliente_id, l.conta, l.nome_conta, l.periodo,
+                 CASE WHEN l.nome_conta LIKE '(-)%'
+                        OR l.nome_conta ~* 'estorno|deduç|deduc|devolu|abatimento'
+                      THEN -ABS(l.movimento) ELSE l.movimento END AS vl
+            FROM cliente_bi_linhas l
+           WHERE l.cliente_id = $1
+             AND l.periodo BETWEEN $2 AND $3
+             AND l.conta NOT IN (SELECT conta FROM sinteticas)`
+
+/**
+ * Grupos de folha do plano de contas do SCI.
+ *
+ * Existem porque a conta SINTETICA da folha nao se denuncia pelo nome: as filhas
+ * ("Salarios", "INSS", "FGTS") caem no filtro de nome, mas a mae — "CUSTOS
+ * TRABALHISTAS", "PROVISOES TRABALHISTAS" — passava batida e reentrava como
+ * creditavel. A folha era excluida no varejo e readmitida no atacado.
+ *
+ * Conferido nos 7 clientes com balancete importado: todos usam esta numeracao.
+ */
+const FOLHA_PREFIXOS = ['4.1.4.02', '4.1.4.04', '4.1.4.05']
+
+const FOLHA_NOME = /salario|pro labore|pro-labore|ordenado|ferias|decimo|fgts|inss|folha|encargo|rescis|beneficio|trabalhista|insalubridade|periculosidade|vale transporte|vale refeicao|vale alimentacao|assistencia medica|plano de saude|aviso previo/
+
+const TRIBUTOS_NOME = /irpj|csll|imposto de renda|contribuicao social|multa|juros|taxa|parcelamento|distribuicao|lucro|doacao/
+
+const CREDITO_NOME = /mercadoria|insumo|materia prima|material aplicado|embalagem|frete|energia|combustivel|aluguel|locacao|software|licenca|servico tomado|terceir/
+
 function classificarContaCredito(row: { conta: string; nomeConta: string; categoriaDre: string | null }): {
   categoria: 'CREDITAVEL' | 'NAO_CREDITAVEL' | 'REVISAR'
   motivo: string
 } {
-  const nome = textoNormalizado(`${row.conta} ${row.nomeConta}`)
+  // O nome e testado SOZINHO. Antes o codigo ia junto na mesma regex, e o termo
+  // "13" (de 13o salario) casava com qualquer conta cujo CODIGO contivesse 13 —
+  // 16 contas eram descartadas como folha so por causa da numeracao.
+  const nome = textoNormalizado(row.nomeConta)
+  // 04.1.4.02 e 4.1.4.02 sao a mesma conta; o SCI varia o zero a esquerda.
+  const conta = row.conta.replace(/^0+/, '')
   const categoriaDre = row.categoriaDre ?? ''
 
-  if (
-    /salario|pro labore|pro-labore|ordenado|ferias|13|decimo|fgts|inss|folha|encargo|rescis|beneficio/.test(nome)
-    || /irpj|csll|imposto de renda|contribuicao social|multa|juros|taxa|parcelamento|distribuicao|lucro|doacao/.test(nome)
-  ) {
+  if (FOLHA_PREFIXOS.some(pref => conta.startsWith(pref)) || FOLHA_NOME.test(nome) || TRIBUTOS_NOME.test(nome)) {
     return { categoria: 'NAO_CREDITAVEL', motivo: 'Natureza tipicamente nao creditavel ou ligada a folha/tributos/encargos.' }
   }
 
   if (
     categoriaDre === 'CUSTO_DAS_VENDAS'
     || categoriaDre === 'DESPESAS_VARIAVEIS'
-    || row.conta.startsWith('04.1.')
-    || row.conta.startsWith('4.1.')
-    || /mercadoria|insumo|materia prima|material aplicado|embalagem|frete|energia|combustivel|aluguel|locacao|software|licenca|servico tomado|terceir/.test(nome)
+    || conta.startsWith('4.1.')
+    || CREDITO_NOME.test(nome)
   ) {
     return { categoria: 'CREDITAVEL', motivo: 'Custo/insumo/servico com potencial de credito a confirmar.' }
   }
 
-  if (categoriaDre === 'DESPESAS_OPERACIONAIS' || row.conta.startsWith('04.2.') || row.conta.startsWith('4.2.')) {
+  if (categoriaDre === 'DESPESAS_OPERACIONAIS' || conta.startsWith('4.2.')) {
     return { categoria: 'REVISAR', motivo: 'Despesa operacional exige validacao fiscal para definir creditamento.' }
   }
 
@@ -1131,20 +1186,21 @@ export class ReformaTributariaService {
       custosDespesas: number | string | null
       periodos: number | bigint
     }>>(
-      `SELECT
+      `WITH ${SQL_SINTETICAS}
+        , linhas AS (${SQL_LINHAS_ANALITICAS})
+        SELECT
           COALESCE(SUM(CASE
             WHEN COALESCE(c.categoria_dre, '') IN ('RECEITA_BRUTA')
               OR l.conta LIKE '03.1.1%' OR l.conta LIKE '3.1.1%'
-            THEN ABS(l.movimento) ELSE 0 END), 0) AS receita,
+            THEN l.vl ELSE 0 END), 0) AS receita,
           COALESCE(SUM(CASE
             WHEN COALESCE(c.categoria_dre, '') IN ('CUSTO_DAS_VENDAS', 'DESPESAS_VARIAVEIS', 'DESPESAS_OPERACIONAIS')
               OR l.conta LIKE '04.1.%' OR l.conta LIKE '4.1.%' OR l.conta LIKE '04.2.1.%' OR l.conta LIKE '04.2.2.%'
-            THEN ABS(l.movimento) ELSE 0 END), 0) AS "custosDespesas",
+            THEN l.vl ELSE 0 END), 0) AS "custosDespesas",
           COUNT(DISTINCT l.periodo) AS periodos
-         FROM cliente_bi_linhas l
+         FROM linhas l
          LEFT JOIN cliente_bi_categorias c
-           ON c.cliente_id = l.cliente_id AND c.conta = l.conta
-        WHERE l.cliente_id = $1 AND l.periodo BETWEEN $2 AND $3`,
+           ON c.cliente_id = l.cliente_id AND c.conta = l.conta`,
       clienteId,
       periodoInicio,
       periodoFim,
@@ -1155,24 +1211,24 @@ export class ReformaTributariaService {
       categoriaDre: string | null
       valor: number | string | null
     }>>(
-      `SELECT l.conta, l.nome_conta AS "nomeConta",
+      `WITH ${SQL_SINTETICAS}
+        , linhas AS (${SQL_LINHAS_ANALITICAS})
+        SELECT l.conta, l.nome_conta AS "nomeConta",
               COALESCE(c.categoria_dre, p.categoria_dre) AS "categoriaDre",
-              ABS(SUM(l.movimento)) AS valor
-         FROM cliente_bi_linhas l
+              SUM(l.vl) AS valor
+         FROM linhas l
          LEFT JOIN cliente_bi_categorias c
            ON c.cliente_id = l.cliente_id AND c.conta = l.conta
          LEFT JOIN plano_contas_categoria_padrao p
            ON p.classificacao = l.conta
-        WHERE l.cliente_id = $1
-          AND l.periodo BETWEEN $2 AND $3
-          AND (
+        WHERE (
             COALESCE(c.categoria_dre, p.categoria_dre) IN ('CUSTO_DAS_VENDAS', 'DESPESAS_VARIAVEIS', 'DESPESAS_OPERACIONAIS')
             OR l.conta LIKE '04.1.%' OR l.conta LIKE '4.1.%'
             OR l.conta LIKE '04.2.%' OR l.conta LIKE '4.2.%'
           )
         GROUP BY l.conta, l.nome_conta, COALESCE(c.categoria_dre, p.categoria_dre)
-       HAVING ABS(SUM(l.movimento)) > 0.01
-        ORDER BY ABS(SUM(l.movimento)) DESC
+       HAVING ABS(SUM(l.vl)) > 0.01
+        ORDER BY ABS(SUM(l.vl)) DESC
         LIMIT 80`,
       clienteId,
       periodoInicio,
