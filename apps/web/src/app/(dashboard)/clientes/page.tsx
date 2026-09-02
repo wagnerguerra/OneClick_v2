@@ -14,7 +14,7 @@ import {
   Ban, RotateCcw, Building2, ExternalLink, Copy,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
   ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
-  Users2, CalendarClock, ClipboardCheck, ClipboardX, BadgePercent, UserMinus,
+  CalendarClock, ClipboardCheck, BadgePercent, UserPlus2,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -91,6 +91,13 @@ const TRIBUTACAO_LABELS: Record<string, string> = {
   SIMPLES_NACIONAL: 'Simples Nacional', LUCRO_PRESUMIDO: 'Lucro Presumido',
   LUCRO_REAL: 'Lucro Real', MEI: 'MEI', IMUNE: 'Imune', ISENTA: 'Isenta',
 }
+
+/** Cor de cada regime na barra de distribuição. Sem regime fica cinza. */
+const TRIBUTACAO_CORES: Record<string, string> = {
+  SIMPLES_NACIONAL: '#059669', LUCRO_PRESUMIDO: '#0891b2', LUCRO_REAL: '#7c3aed',
+  MEI: '#ea580c', IMUNE: '#0369a1', ISENTA: '#e11d48',
+}
+const corTributacao = (regime: string) => TRIBUTACAO_CORES[regime] ?? '#94a3b8'
 
 /**
  * Estado de trabalho da listagem de clientes (#HLP0321).
@@ -246,7 +253,7 @@ export default function ClientesPage() {
   const [filterBeneficio, setFilterBeneficio] = useState(() => txt(salvos.beneficio))
   const [filterServico, setFilterServico] = useState(() => txt(salvos.servico))
   const [debouncedNumero, setDebouncedNumero] = useState(() => txt(salvos.numero))
-  const [stats, setStats] = useState<{ ativos: number; mensais: number; comServico: number; semServico: number; comBeneficio: number; exClientes: number } | null>(null)
+  const [stats, setStats] = useState<{ mensais: number; comServico: number; comBeneficio: number; entraram90d: number; porTributacao: Array<{ regime: string; total: number }> } | null>(null)
   const [filterOptions, setFilterOptions] = useState<{ grupos: (string | null)[]; cidades: (string | null)[]; estados: (string | null)[]; tipos: (string | null)[]; atividades: string[]; beneficios: string[]; areas: string[] }>({ grupos: [], cidades: [], estados: [], tipos: [], atividades: [], beneficios: [], areas: [] })
 
   useEffect(() => {
@@ -605,24 +612,25 @@ export default function ClientesPage() {
         </p>
       </PageHeaderBar>
 
-      {/* Indicadores — panorama da carteira. Cada card é um atalho de filtro:
-          o número sozinho informa, mas clicar leva para os registros que ele
-          conta, que é o que a pessoa quer fazer em seguida. */}
+      {/* Indicadores — panorama da carteira. Os quatro primeiros sao atalhos de
+          filtro: o numero informa, mas clicar leva para os registros que ele
+          conta, que e o que a pessoa quer fazer em seguida. */}
       {stats && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
           {([
-            { k: 'ativos', label: 'Clientes ativos', valor: stats.ativos, cor: '#0369a1', Icone: Users2, aplicar: () => clearFilters() },
-            { k: 'mensais', label: 'Mensais', valor: stats.mensais, cor: '#0891b2', Icone: CalendarClock, aplicar: () => { if (!onlyMensal) toggleOnlyMensal() } },
-            { k: 'comServico', label: 'Com serviço', valor: stats.comServico, cor: '#059669', Icone: ClipboardCheck, aplicar: () => { setFilterServico('__com__'); setPage(1); setFiltersOpen(true) } },
-            { k: 'semServico', label: 'Sem serviço', valor: stats.semServico, cor: '#ea580c', Icone: ClipboardX, aplicar: () => { setFilterServico('__sem__'); setPage(1); setFiltersOpen(true) } },
-            { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#7c3aed', Icone: BadgePercent, aplicar: () => { setFilterBeneficio('__com__'); setPage(1); setFiltersOpen(true) } },
-            { k: 'exClientes', label: 'Ex-clientes', valor: stats.exClientes, cor: '#e11d48', Icone: UserMinus, aplicar: () => { if (!onlyExCliente) toggleOnlyExCliente() } },
-          ] as const).map(({ k, label, valor, cor, Icone, aplicar }) => (
+            { k: 'mensais', label: 'Mensais', valor: stats.mensais, cor: '#0891b2', Icone: CalendarClock, dica: 'Filtrar somente os mensais', aplicar: () => { if (!onlyMensal) toggleOnlyMensal() } },
+            { k: 'comServico', label: 'Com serviço', valor: stats.comServico, cor: '#059669', Icone: ClipboardCheck, dica: 'Filtrar quem tem serviço contratado', aplicar: () => { setFilterServico('__com__'); setPage(1); setFiltersOpen(true) } },
+            { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#7c3aed', Icone: BadgePercent, dica: 'Filtrar quem tem benefício fiscal', aplicar: () => { setFilterBeneficio('__com__'); setPage(1); setFiltersOpen(true) } },
+            // Este ORDENA em vez de filtrar: nao existe filtro por data de
+            // entrada na tela, e os mais recentes sobem para o topo — o que
+            // resolve a intencao sem prometer um filtro que nao existe.
+            { k: 'entraram90d', label: 'Entraram em 90 dias', valor: stats.entraram90d, cor: '#0369a1', Icone: UserPlus2, dica: 'Ordenar pelos que entraram mais recentemente', aplicar: () => { setSort({ column: 'dataEntrada', dir: 'desc' }); setPage(1) } },
+          ] as const).map(({ k, label, valor, cor, Icone, dica, aplicar }) => (
             <button
               key={k}
               type="button"
               onClick={aplicar}
-              title={`Filtrar por ${label.toLowerCase()}`}
+              title={dica}
               className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm"
             >
               <span
@@ -639,6 +647,41 @@ export default function ClientesPage() {
               </span>
             </button>
           ))}
+
+          {/* Tributação — ocupa duas colunas porque é distribuição, não número
+              único: uma barra sozinha nao diz nada sem os rotulos ao lado. */}
+          <div className="col-span-2 rounded-xl border border-border bg-card p-3 sm:col-span-3 xl:col-span-2">
+            {(() => {
+              const total = stats.porTributacao.reduce((a, t) => a + t.total, 0)
+              if (!total) return <p className="text-[11px] text-muted-foreground">Sem tributação registrada.</p>
+              return (
+                <>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[11px] font-medium text-muted-foreground">Por tributação</span>
+                    <span className="text-[11px] tabular-nums text-muted-foreground">{total.toLocaleString('pt-BR')} ativos</span>
+                  </div>
+                  <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-muted">
+                    {stats.porTributacao.map(t => (
+                      <span
+                        key={t.regime}
+                        title={`${TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'}: ${t.total}`}
+                        style={{ width: `${(t.total / total) * 100}%`, backgroundColor: corTributacao(t.regime) }}
+                      />
+                    ))}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                    {stats.porTributacao.map(t => (
+                      <span key={t.regime} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: corTributacao(t.regime) }} />
+                        {TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'}
+                        <strong className="font-semibold tabular-nums text-foreground">{t.total}</strong>
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )
+            })()}
+          </div>
         </div>
       )}
 

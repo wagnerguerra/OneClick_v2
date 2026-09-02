@@ -912,20 +912,31 @@ export class ClienteService {
     const base = empresaFilter(isMaster, empresaId)
     const ativo = { ...base, status: 'ATIVO' as const }
 
-    const [ativos, mensais, comServico, comBeneficio, exClientes] = await Promise.all([
-      prisma.cliente.count({ where: ativo }),
+    // Janela dos "novos": 90 dias a partir de hoje, zerada no dia para a
+    // contagem não mudar de hora em hora.
+    const noventaDias = new Date()
+    noventaDias.setHours(0, 0, 0, 0)
+    noventaDias.setDate(noventaDias.getDate() - 90)
+
+    const [mensais, comServico, comBeneficio, entraram90d, tributacao] = await Promise.all([
       prisma.cliente.count({ where: { ...ativo, situacao: 'MENSAL' as never } }),
       prisma.cliente.count({ where: { ...ativo, servicosContratados: { some: { contratado: true } } } }),
       // Benefício vive em `beneficiosFiscais` — `beneficios` é a relação antiga
       // e vazia, a mesma armadilha que derrubou o filtro da tela.
       prisma.cliente.count({ where: { ...ativo, beneficiosFiscais: { some: {} } } }),
-      // Ex-cliente é derivado, igual ao filtro: MENSAL ∧ INATIVO ∧ com saída.
-      prisma.cliente.count({
-        where: { ...base, situacao: 'MENSAL' as never, status: 'INATIVO' as never, dataSaida: { not: null } },
-      }),
+      prisma.cliente.count({ where: { ...ativo, dataEntrada: { gte: noventaDias } } }),
+      prisma.cliente.groupBy({ by: ['tributacao'], where: ativo, _count: { _all: true } }),
     ])
 
-    return { ativos, mensais, comServico, semServico: ativos - comServico, comBeneficio, exClientes }
+    return {
+      mensais, comServico, comBeneficio, entraram90d,
+      // Regime nulo vira '__sem__' aqui: mais da metade da carteira está sem
+      // tributação preenchida, e omitir a fatia daria um gráfico que não fecha
+      // com o total de ativos.
+      porTributacao: tributacao
+        .map(t => ({ regime: t.tributacao ?? '__sem__', total: t._count._all }))
+        .sort((a, b) => b.total - a.total),
+    }
   }
 
   // ============================================================
