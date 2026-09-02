@@ -100,3 +100,10 @@ packages/db/tmp/
 
 # Imports/artefatos one-shot gerados (dados) — fora do versionamento e do deploy
 scripts/out/
+
+# Relatorios e planilhas de apoio: sao artefatos de leitura, nao entram na
+# fila de deploy. Ficam em docs/relatorios/ para consulta local.
+docs/relatorios/*.csv
+docs/relatorios/*.xlsx
+# Lock temporario do Excel (aparece enquanto o arquivo esta aberto).
+~$*

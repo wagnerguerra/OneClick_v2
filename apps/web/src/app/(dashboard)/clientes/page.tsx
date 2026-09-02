@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { useRouter } from 'next/navigation'
@@ -14,13 +14,14 @@ import {
   Ban, RotateCcw, Building2, ExternalLink, Copy,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
   ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
+  Users2, CalendarClock, ClipboardCheck, ClipboardX, BadgePercent, UserMinus,
   type LucideIcon,
 } from 'lucide-react'
 import {
   Button, Input, Badge,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Checkbox,
   cn,
@@ -93,16 +94,55 @@ const TRIBUTACAO_LABELS: Record<string, string> = {
   LUCRO_REAL: 'Lucro Real', MEI: 'MEI', IMUNE: 'Imune', ISENTA: 'Isenta',
 }
 
+/**
+ * Estado de trabalho da listagem de clientes (#HLP0321).
+ *
+ * Guardado por ABA (sessionStorage) para sobreviver ao ir-e-voltar de um
+ * cadastro. Qualquer leitura defeituosa cai no default — filtro corrompido não
+ * pode impedir a tela de abrir.
+ */
+const FILTROS_KEY = 'clientes:filtros'
+
+function lerFiltrosSalvos(): Record<string, unknown> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const cru = sessionStorage.getItem(FILTROS_KEY)
+    const obj = cru ? JSON.parse(cru) : null
+    return obj && typeof obj === 'object' ? obj as Record<string, unknown> : {}
+  } catch { return {} }
+}
+
+/** Texto vindo do storage — qualquer coisa que não seja string vira ''. */
+const txt = (v: unknown) => (typeof v === 'string' ? v : '')
+/** Número vindo do storage, com piso 1 e default explícito. */
+const num = (v: unknown, def: number) => (typeof v === 'number' && v >= 1 ? v : def)
+
 export default function ClientesPage() {
   const router = useRouter()
+  // #HLP0321 — o estado de trabalho da listagem sobrevive à ida e volta ao
+  // cliente. Antes, abrir um cadastro e voltar (pelo botão Voltar, pela trilha
+  // ou pelo botão do navegador) devolvia a lista zerada, e quem estava
+  // conferindo 30 clientes de um filtro tinha de remontá-lo a cada um.
+  //
+  // sessionStorage, e não localStorage: é estado de TRABALHO, não preferência.
+  // Morre com a aba, então amanhã a lista abre limpa. Os dois atalhos que já
+  // existiam (Somente Mensais / Ex-clientes) continuam em localStorage porque
+  // aqueles são preferência de verdade.
+  //
+  // Lido UMA vez, via inicializador preguiçoso de cada useState: assim o
+  // primeiro fetch já sai com o filtro certo, sem uma busca desperdiçada.
+  const [salvos] = useState(lerFiltrosSalvos)
+
   // Relatório de cadastros repetidos é só para administrador (mesma regra do backend).
   const { isMaster, isEmpresaMaster } = useUserPermissions()
   const { canCreate } = useClientesPerms()
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(20)
-  const [sort, setSort] = useState<SortState>({ column: 'razaoSocial', dir: 'asc' })
+  const [search, setSearch] = useState(() => txt(salvos.search))
+  // Inicia JÁ com o valor salvo: se começasse vazio, a primeira busca ignoraria
+  // o texto restaurado e a lista piscaria sem filtro antes de corrigir.
+  const [debouncedSearch, setDebouncedSearch] = useState(() => txt(salvos.search))
+  const [page, setPage] = useState(() => num(salvos.page, 1))
+  const [limit, setLimit] = useState(() => num(salvos.limit, 20))
+  const [sort, setSort] = useState<SortState>(() => (salvos.sort as SortState) ?? { column: 'razaoSocial', dir: 'asc' })
   const [data, setData] = useState<ClienteListOutput | null>(null)
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
@@ -192,21 +232,23 @@ export default function ClientesPage() {
   const [exporting, setExporting] = useState(false)
 
   // Filtros
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const [filterSituacao, setFilterSituacao] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(() => salvos.filtersOpen === true)
+  const [filterSituacao, setFilterSituacao] = useState(() => txt(salvos.situacao))
   // Status do cliente (#HLP0209): 'ATIVO' (padrão) · 'INATIVO' · 'TODOS' (ativos+inativos).
-  const [filterStatus, setFilterStatus] = useState('ATIVO')
-  const [filterTributacao, setFilterTributacao] = useState('')
-  const [filterGrupo, setFilterGrupo] = useState('')
-  const [filterCidade, setFilterCidade] = useState('')
-  const [filterUf, setFilterUf] = useState('')
+  const [filterStatus, setFilterStatus] = useState(() => txt(salvos.status) || 'ATIVO')
+  const [filterTributacao, setFilterTributacao] = useState(() => txt(salvos.tributacao))
+  const [filterGrupo, setFilterGrupo] = useState(() => txt(salvos.grupo))
+  const [filterCidade, setFilterCidade] = useState(() => txt(salvos.cidade))
+  const [filterUf, setFilterUf] = useState(() => txt(salvos.uf))
   // Novos filtros
-  const [filterNumero, setFilterNumero] = useState('')
-  const [filterTipo, setFilterTipo] = useState('')
-  const [filterAtividade, setFilterAtividade] = useState('')
-  const [filterArea, setFilterArea] = useState('')
-  const [filterBeneficio, setFilterBeneficio] = useState('')
-  const [debouncedNumero, setDebouncedNumero] = useState('')
+  const [filterNumero, setFilterNumero] = useState(() => txt(salvos.numero))
+  const [filterTipo, setFilterTipo] = useState(() => txt(salvos.tipo))
+  const [filterAtividade, setFilterAtividade] = useState(() => txt(salvos.atividade))
+  const [filterArea, setFilterArea] = useState(() => txt(salvos.area))
+  const [filterBeneficio, setFilterBeneficio] = useState(() => txt(salvos.beneficio))
+  const [filterServico, setFilterServico] = useState(() => txt(salvos.servico))
+  const [debouncedNumero, setDebouncedNumero] = useState(() => txt(salvos.numero))
+  const [stats, setStats] = useState<{ ativos: number; mensais: number; comServico: number; semServico: number; comBeneficio: number; exClientes: number } | null>(null)
   const [filterOptions, setFilterOptions] = useState<{ grupos: (string | null)[]; cidades: (string | null)[]; estados: (string | null)[]; tipos: (string | null)[]; atividades: string[]; beneficios: string[]; areas: string[] }>({ grupos: [], cidades: [], estados: [], tipos: [], atividades: [], beneficios: [], areas: [] })
 
   useEffect(() => {
@@ -263,16 +305,42 @@ export default function ClientesPage() {
   // Seleção em lote
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
+  // #HLP0321 — grava o estado de trabalho a cada mudança.
   useEffect(() => {
-    const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 400)
+    try {
+      sessionStorage.setItem(FILTROS_KEY, JSON.stringify({
+        search, page, limit, sort, filtersOpen,
+        situacao: filterSituacao, status: filterStatus, tributacao: filterTributacao,
+        grupo: filterGrupo, cidade: filterCidade, uf: filterUf, numero: filterNumero,
+        tipo: filterTipo, atividade: filterAtividade, area: filterArea,
+        beneficio: filterBeneficio, servico: filterServico,
+      }))
+    } catch { /* aba sem storage (anônima/quota): a tela segue, só não lembra */ }
+  }, [search, page, limit, sort, filtersOpen, filterSituacao, filterStatus, filterTributacao,
+      filterGrupo, filterCidade, filterUf, filterNumero, filterTipo, filterAtividade,
+      filterArea, filterBeneficio, filterServico])
+
+  // O debounce zera a página ao digitar — mas NÃO na montagem, senão a página
+  // restaurada voltaria para 1 e quem estava na 3 perderia o lugar.
+  const montado = useRef(false)
+  useEffect(() => { montado.current = true }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => { setDebouncedSearch(search); if (montado.current) setPage(1) }, 400)
     return () => clearTimeout(timer)
   }, [search])
 
   // Campo "Número" (texto) — debounce próprio pra não refazer a query a cada tecla
   useEffect(() => {
-    const timer = setTimeout(() => { setDebouncedNumero(filterNumero); setPage(1) }, 400)
+    const timer = setTimeout(() => { setDebouncedNumero(filterNumero); if (montado.current) setPage(1) }, 400)
     return () => clearTimeout(timer)
   }, [filterNumero])
+
+  // Indicadores do topo — panorama da carteira, independente do filtro. Falha
+  // aqui não pode derrubar a listagem: os cards somem e a tela segue.
+  useEffect(() => {
+    ;(trpc.cliente as any).getStats.query().then(setStats).catch(() => setStats(null))
+  }, [])
 
   // Carregar opções de filtro
   useEffect(() => {
@@ -302,8 +370,9 @@ export default function ClientesPage() {
       ...(filterAtividade ? { atividade: filterAtividade } : {}),
       ...(filterArea ? { areaContratada: filterArea } : {}),
       ...(filterBeneficio ? { comBeneficio: filterBeneficio } : {}),
+      ...(filterServico ? { comServico: filterServico } : {}),
     }
-  }, [page, limit, debouncedSearch, sort, filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, debouncedNumero, filterTipo, filterAtividade, filterArea, filterBeneficio, onlyMensal, onlyExCliente])
+  }, [page, limit, debouncedSearch, sort, filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, debouncedNumero, filterTipo, filterAtividade, filterArea, filterBeneficio, filterServico, onlyMensal, onlyExCliente])
 
   const fetchClientes = useCallback(async () => {
     setLoading(true)
@@ -329,7 +398,7 @@ export default function ClientesPage() {
 
   function clearFilters() {
     setFilterSituacao(''); setFilterStatus('ATIVO'); setFilterTributacao(''); setFilterGrupo(''); setFilterCidade(''); setFilterUf('')
-    setFilterNumero(''); setFilterTipo(''); setFilterAtividade(''); setFilterArea(''); setFilterBeneficio('')
+    setFilterNumero(''); setFilterTipo(''); setFilterAtividade(''); setFilterArea(''); setFilterBeneficio(''); setFilterServico('')
     setExCliente(false) // Ex-cliente volta para "Não"
     setOnlyMensal(false); localStorage.setItem('clientes_only_mensal', '0') // desliga "Somente Mensais"
     setSearch(''); setPage(1)
@@ -479,24 +548,26 @@ export default function ClientesPage() {
     return pages
   }
 
-  const hasActiveFilters = filterSituacao || (filterStatus !== 'ATIVO') || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || onlyMensal || onlyExCliente
+  const hasActiveFilters = filterSituacao || (filterStatus !== 'ATIVO') || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || filterServico || onlyMensal || onlyExCliente
 
   return (
     <div className="space-y-6">
       {/* Header padrão (como o /crm): barra full-bleed, título + trilha, ações à direita */}
       <PageHeaderBar
         actions={<>
-              <Button variant="outline" size="sm" onClick={openOpcoesModal} className="gap-1.5">
-                <Settings2 className="h-4 w-4" /> Opcoes
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setIntegracoesOpen(true)} className="gap-1.5">
-                <Plug className="h-4 w-4" />Integrações
-              </Button>
+              {canCreate && (
+                <Button size="sm" asChild className="gap-1.5">
+                  <Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link>
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={openOpcoesModal}><Settings2 className="h-4 w-4" />Opções</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIntegracoesOpen(true)}><Plug className="h-4 w-4" />Integrações</DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => router.push('/clientes/relatorios')}><BarChart3 className="h-4 w-4 text-emerald-600" />Relatórios</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar Excel/CSV</DropdownMenuItem>
                   <DropdownMenuItem onClick={handleLegacyImport} disabled={legacyImporting}>
@@ -522,11 +593,6 @@ export default function ClientesPage() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-          {canCreate && (
-            <Button size="sm" asChild className="gap-1.5">
-              <Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link>
-            </Button>
-          )}
         </>}
       >
         <h1 className="truncate">Clientes</h1>
@@ -539,6 +605,43 @@ export default function ClientesPage() {
         </p>
       </PageHeaderBar>
 
+      {/* Indicadores — panorama da carteira. Cada card é um atalho de filtro:
+          o número sozinho informa, mas clicar leva para os registros que ele
+          conta, que é o que a pessoa quer fazer em seguida. */}
+      {stats && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          {([
+            { k: 'ativos', label: 'Clientes ativos', valor: stats.ativos, cor: '#0369a1', Icone: Users2, aplicar: () => clearFilters() },
+            { k: 'mensais', label: 'Mensais', valor: stats.mensais, cor: '#0891b2', Icone: CalendarClock, aplicar: () => { if (!onlyMensal) toggleOnlyMensal() } },
+            { k: 'comServico', label: 'Com serviço', valor: stats.comServico, cor: '#059669', Icone: ClipboardCheck, aplicar: () => { setFilterServico('__com__'); setPage(1); setFiltersOpen(true) } },
+            { k: 'semServico', label: 'Sem serviço', valor: stats.semServico, cor: '#ea580c', Icone: ClipboardX, aplicar: () => { setFilterServico('__sem__'); setPage(1); setFiltersOpen(true) } },
+            { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#7c3aed', Icone: BadgePercent, aplicar: () => { setFilterBeneficio('__com__'); setPage(1); setFiltersOpen(true) } },
+            { k: 'exClientes', label: 'Ex-clientes', valor: stats.exClientes, cor: '#e11d48', Icone: UserMinus, aplicar: () => { if (!onlyExCliente) toggleOnlyExCliente() } },
+          ] as const).map(({ k, label, valor, cor, Icone, aplicar }) => (
+            <button
+              key={k}
+              type="button"
+              onClick={aplicar}
+              title={`Filtrar por ${label.toLowerCase()}`}
+              className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm"
+            >
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `color-mix(in srgb, ${cor} 12%, transparent)`, color: cor }}
+              >
+                <Icone className="h-[18px] w-[18px]" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-bold leading-none tabular-nums text-foreground">
+                  {valor.toLocaleString('pt-BR')}
+                </span>
+                <span className="mt-1 block truncate text-[11px] text-muted-foreground">{label}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Filtros colapsáveis */}
       <Card className={cn('overflow-hidden transition-all', filtersOpen ? '' : 'cursor-pointer')} onClick={() => !filtersOpen && setFiltersOpen(true)}>
           <div className="flex items-center justify-between px-4 py-3 bg-muted/20" onClick={(e) => { e.stopPropagation(); setFiltersOpen(!filtersOpen) }}>
@@ -546,7 +649,7 @@ export default function ClientesPage() {
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 Filtros
-                {hasActiveFilters && (() => { const count = [filterSituacao, (filterStatus !== 'ATIVO'), filterTributacao, filterGrupo, filterCidade, filterUf, filterNumero, filterTipo, filterAtividade, filterArea, filterBeneficio].filter(Boolean).length + (onlyMensal ? 1 : 0) + (onlyExCliente ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
+                {hasActiveFilters && (() => { const count = [filterSituacao, (filterStatus !== 'ATIVO'), filterTributacao, filterGrupo, filterCidade, filterUf, filterNumero, filterTipo, filterAtividade, filterArea, filterBeneficio, filterServico].filter(Boolean).length + (onlyMensal ? 1 : 0) + (onlyExCliente ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
               </div>
               <button
                 type="button"
@@ -690,6 +793,20 @@ export default function ClientesPage() {
                       <SelectItem value="__com__">Com benefício (qualquer)</SelectItem>
                       <SelectItem value="__sem__">Sem benefício</SelectItem>
                       {filterOptions.beneficios.map((b) => <SelectItem key={b} value={b!}>{b}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Serviço contratado</label>
+                  {/* "Contratado" aqui é a mesma condição do filtro de Área acima
+                      (`contratado = true` em cliente_areas_contratadas), para os
+                      dois não divergirem. */}
+                  <Select value={filterServico || '__all__'} onValueChange={(v) => { setFilterServico(v === '__all__' ? '' : v); setPage(1) }}>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todos</SelectItem>
+                      <SelectItem value="__com__">Com serviço contratado</SelectItem>
+                      <SelectItem value="__sem__">Sem serviço contratado</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

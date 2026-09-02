@@ -167,7 +167,7 @@ export class ClienteService {
   // Listagem (ativos)
   // ============================================================
   async list(input: ListClienteInput, isMaster?: boolean, empresaId?: string) {
-    const { page, limit, search, sortBy, sortDir, situacao, status, incluirInativos, exCliente, tributacao, grupo, cidade, uf, isLead, agruparMatriz, numero, tipoCliente, atividade, areaContratada, comBeneficio } = input
+    const { page, limit, search, sortBy, sortDir, situacao, status, incluirInativos, exCliente, tributacao, grupo, cidade, uf, isLead, agruparMatriz, numero, tipoCliente, atividade, areaContratada, comBeneficio, comServico } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
     // Filtro de matriz quando agruparMatriz=true: oculta filiais (CNPJ ordem
@@ -276,10 +276,20 @@ export class ClienteService {
       ...(atividade ? { atividades: { some: { valor: atividade } } } : {}),
       // Área contratada (pelo nome da área no relacionamento de serviços)
       ...(areaContratada ? { servicosContratados: { some: { contratado: true, area: { name: areaContratada } } } } : {}),
+      // Tem (ou não) alguma área contratada. Usa a MESMA condição do filtro de
+      // área acima — `contratado: true`, sem olhar `dataEncerramento` — para que
+      // "contratado" signifique uma coisa só nesta tela. Se um dia passar a
+      // valer a vigência, os dois mudam juntos.
+      ...(comServico === '__com__' ? { servicosContratados: { some: { contratado: true } } }
+        : comServico === '__sem__' ? { servicosContratados: { none: { contratado: true } } } : {}),
       // Benefício: qualquer / nenhum / valor específico
-      ...(comBeneficio === '__com__' ? { beneficios: { some: {} } }
-        : comBeneficio === '__sem__' ? { beneficios: { none: {} } }
-        : comBeneficio ? { beneficios: { some: { valor: comBeneficio } } } : {}),
+      // O benefício do cliente vive em `beneficiosFiscais` (o módulo de
+      // Benefícios Fiscais). A relação `beneficios` (cliente_beneficios) ficou
+      // para trás e está vazia — apontar para ela fazia o filtro devolver zero
+      // mesmo com 44 clientes beneficiados.
+      ...(comBeneficio === '__com__' ? { beneficiosFiscais: { some: {} } }
+        : comBeneficio === '__sem__' ? { beneficiosFiscais: { none: {} } }
+        : comBeneficio ? { beneficiosFiscais: { some: { catalogo: { nome: comBeneficio } } } } : {}),
       ...((searchIdsFilter.length + matrizFilter.length) > 0
         ? { AND: [...searchIdsFilter, ...matrizFilter] as Prisma.ClienteWhereInput[] }
         : {}),
@@ -887,6 +897,38 @@ export class ClienteService {
   // ============================================================
   // Opções de filtros (valores distintos para dropdowns)
   // ============================================================
+  /**
+   * Indicadores do topo da listagem de clientes.
+   *
+   * Contagens do PANORAMA da carteira — não do resultado filtrado. Se
+   * seguissem o filtro, virariam eco do rodapé ("31 de 31") e perderiam a
+   * função de dizer onde o usuário está dentro do todo.
+   *
+   * Uma consulta por indicador, todas em paralelo: são `count` com índice, e
+   * montar isso num único SQL com FILTER deixaria a query ilegível para ganhar
+   * milissegundos.
+   */
+  async getStats(isMaster?: boolean, empresaId?: string) {
+    const base = empresaFilter(isMaster, empresaId)
+    const ativo = { ...base, status: 'ATIVO' as const }
+
+    const [ativos, mensais, comServico, comBeneficio, exClientes] = await Promise.all([
+      prisma.cliente.count({ where: ativo }),
+      prisma.cliente.count({ where: { ...ativo, situacao: 'MENSAL' as never } }),
+      prisma.cliente.count({ where: { ...ativo, servicosContratados: { some: { contratado: true } } } }),
+      // Benefício vive em `beneficiosFiscais` — `beneficios` é a relação antiga
+      // e vazia, a mesma armadilha que derrubou o filtro da tela.
+      prisma.cliente.count({ where: { ...ativo, beneficiosFiscais: { some: {} } } }),
+      // Ex-cliente é derivado, igual ao filtro: MENSAL ∧ INATIVO ∧ com saída.
+      prisma.cliente.count({
+        where: { ...base, situacao: 'MENSAL' as never, status: 'INATIVO' as never, dataSaida: { not: null } },
+      }),
+    ])
+
+    return { ativos, mensais, comServico, semServico: ativos - comServico, comBeneficio, exClientes }
+  }
+
+  // ============================================================
   async getFilterOptions(isMaster?: boolean, empresaId?: string) {
     const base = { status: 'ATIVO' as const, ...empresaFilter(isMaster, empresaId) }
     const [grupos, cidades, estados, tipos, atividades, beneficios, areas] = await Promise.all([
@@ -895,7 +937,7 @@ export class ClienteService {
       prisma.cliente.findMany({ where: { ...base, uf: { not: null } }, select: { uf: true }, distinct: ['uf'], orderBy: { uf: 'asc' } }),
       prisma.cliente.findMany({ where: { ...base, tipoCliente: { not: null } }, select: { tipoCliente: true }, distinct: ['tipoCliente'], orderBy: { tipoCliente: 'asc' } }),
       prisma.clienteAtividade.findMany({ where: { cliente: base }, select: { valor: true }, distinct: ['valor'], orderBy: { valor: 'asc' } }),
-      prisma.clienteBeneficio.findMany({ where: { cliente: base }, select: { valor: true }, distinct: ['valor'], orderBy: { valor: 'asc' } }),
+      prisma.beneficioFiscalCatalogo.findMany({ select: { nome: true }, distinct: ['nome'], orderBy: { nome: 'asc' } }),
       prisma.area.findMany({ where: empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}, select: { name: true }, distinct: ['name'], orderBy: { name: 'asc' } }),
     ])
     return {
@@ -904,7 +946,7 @@ export class ClienteService {
       estados: estados.map(e => e.uf).filter(Boolean),
       tipos: tipos.map(t => t.tipoCliente).filter(Boolean),
       atividades: atividades.map(a => a.valor).filter(Boolean),
-      beneficios: beneficios.map(b => b.valor).filter(Boolean),
+      beneficios: beneficios.map(b => b.nome).filter(Boolean),
       areas: areas.map(a => a.name).filter(Boolean),
     }
   }
