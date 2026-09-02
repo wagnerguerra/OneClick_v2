@@ -283,9 +283,13 @@ export class ClienteService {
       ...(comServico === '__com__' ? { servicosContratados: { some: { contratado: true } } }
         : comServico === '__sem__' ? { servicosContratados: { none: { contratado: true } } } : {}),
       // Benefício: qualquer / nenhum / valor específico
-      ...(comBeneficio === '__com__' ? { beneficios: { some: {} } }
-        : comBeneficio === '__sem__' ? { beneficios: { none: {} } }
-        : comBeneficio ? { beneficios: { some: { valor: comBeneficio } } } : {}),
+      // O benefício do cliente vive em `beneficiosFiscais` (o módulo de
+      // Benefícios Fiscais). A relação `beneficios` (cliente_beneficios) ficou
+      // para trás e está vazia — apontar para ela fazia o filtro devolver zero
+      // mesmo com 44 clientes beneficiados.
+      ...(comBeneficio === '__com__' ? { beneficiosFiscais: { some: {} } }
+        : comBeneficio === '__sem__' ? { beneficiosFiscais: { none: {} } }
+        : comBeneficio ? { beneficiosFiscais: { some: { catalogo: { nome: comBeneficio } } } } : {}),
       ...((searchIdsFilter.length + matrizFilter.length) > 0
         ? { AND: [...searchIdsFilter, ...matrizFilter] as Prisma.ClienteWhereInput[] }
         : {}),
@@ -901,7 +905,7 @@ export class ClienteService {
       prisma.cliente.findMany({ where: { ...base, uf: { not: null } }, select: { uf: true }, distinct: ['uf'], orderBy: { uf: 'asc' } }),
       prisma.cliente.findMany({ where: { ...base, tipoCliente: { not: null } }, select: { tipoCliente: true }, distinct: ['tipoCliente'], orderBy: { tipoCliente: 'asc' } }),
       prisma.clienteAtividade.findMany({ where: { cliente: base }, select: { valor: true }, distinct: ['valor'], orderBy: { valor: 'asc' } }),
-      prisma.clienteBeneficio.findMany({ where: { cliente: base }, select: { valor: true }, distinct: ['valor'], orderBy: { valor: 'asc' } }),
+      prisma.beneficioFiscalCatalogo.findMany({ select: { nome: true }, distinct: ['nome'], orderBy: { nome: 'asc' } }),
       prisma.area.findMany({ where: empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}, select: { name: true }, distinct: ['name'], orderBy: { name: 'asc' } }),
     ])
     return {
@@ -910,7 +914,7 @@ export class ClienteService {
       estados: estados.map(e => e.uf).filter(Boolean),
       tipos: tipos.map(t => t.tipoCliente).filter(Boolean),
       atividades: atividades.map(a => a.valor).filter(Boolean),
-      beneficios: beneficios.map(b => b.valor).filter(Boolean),
+      beneficios: beneficios.map(b => b.nome).filter(Boolean),
       areas: areas.map(a => a.name).filter(Boolean),
     }
   }
