@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { Input, cn } from '@saas/ui'
 import { resolveAssetUrl } from '@/lib/api-url'
@@ -11,8 +10,8 @@ import { useAnchoredDropdown } from '@/components/ui/use-anchored-dropdown'
  * Combobox filtravel para selecionar usuario (solicitante / responsavel).
  * Mostra avatar (foto ou iniciais) na trigger e na lista.
  *
- * O dropdown é renderizado em PORTAL (via `useAnchoredDropdown`) para não ser
- * cortado por ancestrais com `overflow-hidden` (ex.: o card "Detalhes do Orçamento").
+ * O dropdown usa `position: fixed` inline (via `useAnchoredDropdown`) — não é cortado
+ * por ancestrais com `overflow-hidden` (ex.: card "Detalhes") e funciona dentro de modais.
  */
 export function UserCombobox({ users, value, onSelect, disabled, placeholder }: {
   users: Array<{ id: string; name: string; image?: string | null }>
@@ -72,7 +71,7 @@ export function UserCombobox({ users, value, onSelect, disabled, placeholder }: 
         )}
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
       </button>
-      {open && posRef.current && typeof document !== 'undefined' && createPortal(
+      {open && posRef.current && (
         <div
           ref={popRef}
           className="fixed z-[9999] overflow-hidden rounded-md border bg-popover shadow-md"
@@ -112,8 +111,7 @@ export function UserCombobox({ users, value, onSelect, disabled, placeholder }: 
               </button>
             ))}
           </div>
-        </div>,
-        document.body,
+        </div>
       )}
     </div>
   )

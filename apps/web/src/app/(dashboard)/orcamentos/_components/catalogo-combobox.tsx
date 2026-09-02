@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { Input, cn } from '@saas/ui'
 import { useAnchoredDropdown } from '@/components/ui/use-anchored-dropdown'
@@ -11,9 +10,9 @@ import { useAnchoredDropdown } from '@/components/ui/use-anchored-dropdown'
  * Usado no detalhe do orçamento (adicionar/editar item, filtrado por tipo) e
  * no filtro "Item" da lista de orçamentos (sem tipo = todos os itens).
  *
- * O dropdown é renderizado via portal (`useAnchoredDropdown`, position:fixed) para
- * escapar de containers com overflow — não é recortado pela <Table> nem pelo painel
- * de filtros (#HLP0088).
+ * O dropdown usa `position: fixed` inline (`useAnchoredDropdown`) — escapa de containers
+ * com overflow (não é recortado pela <Table> nem pelo painel de filtros, #HLP0088) e
+ * funciona dentro de modais.
  */
 export function CatalogoCombobox({ catalogo, tipo, selectedId, onSelect, disabled, currentLabel, placeholder }: {
   catalogo: Array<{ id: string; nome: string; tipo: string; valorPadrao: number | string | null }>
@@ -60,7 +59,7 @@ export function CatalogoCombobox({ catalogo, tipo, selectedId, onSelect, disable
         </span>
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
       </button>
-      {open && posRef.current && typeof document !== 'undefined' && createPortal(
+      {open && posRef.current && (
         <div
           ref={popRef}
           style={{ top: posRef.current.top, left: posRef.current.left, width: posRef.current.width }}
@@ -97,8 +96,7 @@ export function CatalogoCombobox({ catalogo, tipo, selectedId, onSelect, disable
               </button>
             ))}
           </div>
-        </div>,
-        document.body,
+        </div>
       )}
     </div>
   )

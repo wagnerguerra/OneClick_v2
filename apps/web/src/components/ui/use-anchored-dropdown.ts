@@ -3,11 +3,18 @@
 import { useCallback, useEffect, useRef } from 'react'
 
 /**
- * Posicionamento de um dropdown em PORTAL, ancorado a um gatilho — para o menu
- * não ser cortado por ancestrais com `overflow-hidden`/`auto`.
+ * Posicionamento de um dropdown ancorado a um gatilho, com `position: fixed`
+ * (coordenadas calculadas da trigger), para o menu NÃO ser cortado por ancestrais
+ * com `overflow-hidden`/`auto`. É `fixed` INLINE (renderizado no próprio DOM do
+ * componente, sem `createPortal`): assim escapa do overflow — `fixed` só é cortado
+ * por ancestral que crie containing block (`transform`/`filter`/`perspective`/
+ * `contain`/`will-change:transform`/`backdrop-filter`), o que não ocorre no layout
+ * do dashboard — E, por continuar no DOM do componente, funciona dentro de um
+ * Radix Dialog modal de graça (fica no escopo interativo do modal). Nada de portal
+ * no `document.body`, que exigiria furar o `pointer-events:none` do modal.
  *
  * - `anchorRef`: vai no wrapper do gatilho (a largura do menu = largura dele).
- * - `popRef`: vai no `<div>` do menu renderizado via `createPortal(..., document.body)`.
+ * - `popRef`: vai no `<div>` do menu (inline, `className="fixed z-[9999] …"`).
  * - `posRef.current`: `{top,left,width}` calculado do gatilho — use no `style` do menu.
  * - `reposition()`: recalcula a posição; **chame ANTES de abrir** (síncrono, para o
  *   primeiro paint já sair posicionado).

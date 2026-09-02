@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { Input } from '@saas/ui'
 import { Loader2, Search } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
@@ -45,7 +44,7 @@ export function OportunidadeCombobox({ onSelect }: { onSelect: (op: Oportunidade
           className="h-9 text-sm pl-8"
         />
       </div>
-      {open && posRef.current && typeof document !== 'undefined' && createPortal(
+      {open && posRef.current && (
         <div
           ref={popRef}
           className="fixed z-[9999] rounded-md border border-border bg-popover shadow-lg max-h-[260px] overflow-auto nice-scrollbar"
@@ -66,8 +65,7 @@ export function OportunidadeCombobox({ onSelect }: { onSelect: (op: Oportunidade
               <div className="text-[11px] text-muted-foreground truncate">{op.cliente ?? 'Sem cliente'}{op.etapa ? ` · ${op.etapa}` : ''}</div>
             </button>
           ))}
-        </div>,
-        document.body,
+        </div>
       )}
     </div>
   )

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { ChevronDown, Plus, Loader2 } from 'lucide-react'
 import { Input, cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
@@ -98,7 +97,7 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
         )}
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
       </button>
-      {open && posRef.current && typeof document !== 'undefined' && createPortal(
+      {open && posRef.current && (
         <div
           ref={popRef}
           className="fixed z-[9999] overflow-hidden rounded-md border bg-popover shadow-md"
@@ -147,8 +146,7 @@ export function ClienteCombobox({ clientes, value, onSelect, placeholder, disabl
               </button>
             )}
           </div>
-        </div>,
-        document.body,
+        </div>
       )}
     </div>
   )
