@@ -134,21 +134,24 @@ export function CasoPratico({ titulo, descricao }: { titulo: string; descricao: 
 }
 
 /**
- * Figura de apoio: uma reproducao da tela, desenhada em codigo.
+ * Figura de apoio: um quadro de tela com legenda.
  *
- * Nao e captura de imagem de proposito. O FAQ e comum a todas as empresas da
- * instalacao e nao tem permissao propria, entao um print real levaria o
- * faturamento de um cliente para quem nao tem acesso ao modulo. A figura
- * desenhada tambem acompanha o tema claro/escuro e nao envelhece como um PNG
- * solto no `public/`.
+ * Aceita `src` (captura real, em `public/materiais/faq/...`) ou `children` (uma
+ * reproducao desenhada em codigo, para quando a tela ainda nao existe).
  *
- * Os numeros usados nas figuras sao ficticios, sempre redondos, para que
- * ninguem os confunda com dado real de cliente.
+ * As capturas sao tiradas com os dados sensiveis JA borrados na propria pagina,
+ * antes do print — razao social, CNPJ e valores em reais. Rotulos, colunas e
+ * aliquotas ficam nitidos, que e o que ensina o usuario. O FAQ e comum a todas
+ * as empresas da instalacao e nao tem permissao propria, entao nenhuma captura
+ * pode sair daqui com o faturamento de um cliente legivel.
  */
-export function Figura({ rota, legenda, children }: {
+export function Figura({ rota, legenda, src, alt, children }: {
   rota?: string
   legenda: ReactNode
-  children: ReactNode
+  /** Captura real da tela (em `public/materiais/faq/...`). */
+  src?: string
+  alt?: string
+  children?: ReactNode
 }) {
   return (
     <figure className="my-3 space-y-1.5">
@@ -162,30 +165,12 @@ export function Figura({ rota, legenda, children }: {
           {rota && <span className="truncate font-mono text-[10px] text-muted-foreground">{rota}</span>}
         </div>
         {/* Figura larga rola dentro do proprio quadro; a pagina nunca rola de lado. */}
-        <div className="overflow-x-auto nice-scrollbar p-3.5">{children}</div>
+        {src
+          ? <img src={src} alt={alt ?? ''} className="block w-full" loading="lazy" />
+          : <div className="overflow-x-auto nice-scrollbar p-3.5">{children}</div>}
       </div>
       <figcaption className="text-[11px] leading-relaxed text-muted-foreground">{legenda}</figcaption>
     </figure>
-  )
-}
-
-/** Rotulo + valor, do jeito que os cards de resumo do sistema mostram. */
-export function FiguraCampo({ label, valor, destaque, cor }: {
-  label: string
-  valor: string
-  destaque?: boolean
-  cor?: string
-}) {
-  return (
-    <div className="min-w-0">
-      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p
-        className={`truncate tabular-nums ${destaque ? 'text-sm font-bold' : 'text-[12px] font-medium'}`}
-        style={cor ? { color: cor } : undefined}
-      >
-        {valor}
-      </p>
-    </div>
   )
 }
 

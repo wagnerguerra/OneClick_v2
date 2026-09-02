@@ -2,19 +2,16 @@
 
 import {
   Calculator, Info, Users, RefreshCw, Settings2, LayoutGrid, TrendingUp,
-  LayoutDashboard, Sigma, Database, Share2, ShieldAlert, HelpCircle,
+  Sigma, Database, Share2, ShieldAlert, HelpCircle,
 } from 'lucide-react'
 import { ArticleShell } from '../_components/article-shell'
 import {
-  Section, Step, Callout, QuickLink, DefRow, Figura, FiguraCampo, CasoPratico,
+  Section, Step, Callout, QuickLink, DefRow, Figura, CasoPratico,
 } from '../_components/article-blocks'
 
 const MODULO_COLOR = 'var(--mod-fiscal, #0369a1)'
 const FAQ_COLOR = '#0891b2'
-
-/** Celula de tabela das figuras — mantem o mesmo tamanho em todas. */
-const td = 'px-2 py-1 text-[11px] whitespace-nowrap'
-const th = 'px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap'
+const IMG = '/materiais/faq/reforma-tributaria'
 
 export default function FaqReformaTributariaPage() {
   return (
@@ -43,8 +40,9 @@ export default function FaqReformaTributariaPage() {
           <p>
             <strong>Não é um parecer fiscal.</strong> O simulador usa alíquotas de referência que
             ainda não foram fixadas em lei e não trata regimes específicos, cesta básica,
-            <em> split payment</em> nem cashback. Serve para dimensionar e provocar a conversa — a
-            decisão do cliente precisa de análise dedicada.
+            <em> split payment</em> nem cashback. A própria tela avisa isso no rodapé da navegação.
+            Serve para dimensionar e provocar a conversa — a decisão do cliente precisa de análise
+            dedicada.
           </p>
         </Callout>
       </Section>
@@ -67,144 +65,88 @@ export default function FaqReformaTributariaPage() {
       <h2 className="text-base font-bold pt-2">Como a tela é organizada</h2>
 
       <p className="text-sm leading-relaxed text-foreground/80">
-        A navegação fica na coluna da esquerda e tem cinco paradas. As duas primeiras montam a
-        simulação, as duas seguintes mostram o resultado, e a última é uma calculadora avulsa.
+        No topo ficam o seletor de cliente e um resumo do que foi carregado. A navegação fica na
+        coluna da esquerda e tem cinco paradas: <strong>Configurar</strong> monta a simulação,
+        <strong> Comparar Regimes</strong> e <strong>Transição</strong> analisam,
+        <strong> Visão Geral</strong> fecha o resultado e a <strong>Calculadora</strong> é avulsa.
       </p>
 
       <Figura
-        rota="/reforma-tributaria"
-        legenda="A coluna de navegação. Você trabalha de cima para baixo: configura, compara, olha a transição e fecha na Visão Geral — que é a página que vai para o cliente."
-      >
-        <div className="w-[220px] space-y-0.5">
-          {[
-            { i: Settings2, l: 'Configurar', ativa: true, g: null },
-            { i: LayoutGrid, l: 'Comparar Regimes', ativa: false, g: 'Análise' },
-            { i: TrendingUp, l: 'Transição 2026–2033', ativa: false, g: null },
-            { i: LayoutDashboard, l: 'Visão Geral', ativa: false, g: 'Resultado' },
-            { i: Sigma, l: 'Calculadora IBS/CBS', ativa: false, g: 'Calculadora' },
-          ].map(({ i: Icone, l, ativa, g }) => (
-            <div key={l}>
-              {g && (
-                <p className="px-2 pb-1 pt-2 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {g}
-                </p>
-              )}
-              <div
-                className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] ${
-                  ativa ? 'font-semibold text-slate-900' : 'text-foreground/70'
-                }`}
-                style={ativa ? { background: '#22d3ee' } : undefined}
-              >
-                <Icone className="h-3.5 w-3.5 shrink-0" />
-                {l}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Figura>
+        rota="/reforma-tributaria · Configurar"
+        src={`${IMG}/configurar.jpg`}
+        alt="Tela Configurar do simulador da Reforma Tributária, com o seletor de cliente no topo, a navegação lateral e os campos de regime, atividade, faturamento e despesas creditáveis."
+        legenda={(
+          <>
+            A tela inteira. No topo, o seletor de cliente e o resumo (regime, atividade,
+            faturamento e a carga de hoje → nova). No corpo, os dados da empresa e as alíquotas
+            editáveis dos dois sistemas. <strong>Nas capturas deste artigo, razão social, CNPJ e
+            valores em reais aparecem borrados de propósito</strong> — o FAQ é comum a toda a
+            instalação e não pode expor o dado de um cliente.
+          </>
+        )}
+      />
 
       {/* ═══════════════ PASSO A PASSO ═══════════════ */}
       <h2 className="text-base font-bold pt-2">Passo a passo</h2>
 
       <Step n={1} cor={MODULO_COLOR} icon={Users} titulo="Escolha o cliente" rota="seletor no topo">
         <p>
-          O seletor fica no topo da tela e ocupa metade da linha. Ele busca <strong>no servidor</strong>,
-          conforme você digita, entre os clientes <strong>ativos e mensais</strong> da empresa em
-          que você está — não é um filtro sobre uma lista curta carregada antes.
+          O seletor busca <strong>no servidor</strong>, conforme você digita, entre os clientes
+          <strong> ativos e mensais</strong> da empresa em que você está — não é um filtro sobre uma
+          lista curta carregada antes. Dá para procurar por nome ou por CNPJ.
         </p>
         <p>
-          Assim que você escolhe, a tela inteira se recarrega com os números daquele cliente, e o
-          card ao lado resume o que o sistema encontrou.
+          Assim que você escolhe, a tela inteira se recarrega e o painel ao lado resume o que o
+          sistema encontrou: <strong>regime</strong>, <strong>atividade</strong>,
+          <strong> faturamento/mês</strong> e a <strong>carga hoje → nova</strong> em alíquota
+          efetiva. Esse último par já é a resposta curta da simulação.
         </p>
-
-        <Figura
-          rota="/reforma-tributaria — topo"
-          legenda="Esquerda: o seletor com busca. Direita: o resumo do que foi carregado. O rótulo da origem é o detalhe que mais importa — ele diz se o faturamento veio do balancete ou de uma estimativa."
-        >
-          <div className="flex min-w-[520px] gap-3">
-            <div className="flex-1 rounded-md border p-2.5">
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Cliente</p>
-              <div className="mt-1 flex items-center justify-between rounded border bg-muted/30 px-2 py-1.5">
-                <span className="text-[11px] font-medium">INDÚSTRIA EXEMPLO LTDA</span>
-                <span className="text-[10px] text-muted-foreground">▾</span>
-              </div>
-              <p className="mt-1 font-mono text-[10px] text-muted-foreground">00.000.000/0001-00</p>
-            </div>
-            <div className="flex-1 rounded-md border p-2.5">
-              <div className="grid grid-cols-2 gap-2.5">
-                <FiguraCampo label="Regime" valor="Lucro Real" />
-                <FiguraCampo label="Atividade" valor="Indústria" />
-                <FiguraCampo label="Faturamento/mês" valor="R$ 1.000.000,00" destaque />
-                <FiguraCampo label="Origem" valor="Balancete" cor="#059669" />
-              </div>
-            </div>
-          </div>
-        </Figura>
-
         <Callout tipo="info">
           Só aparecem clientes <strong>ativos com serviço mensal</strong>. Se o cliente que você
           procura não aparece, o problema costuma estar no cadastro dele — e não na busca.
         </Callout>
       </Step>
 
-      <Step n={2} cor={MODULO_COLOR} icon={RefreshCw} titulo="Confira até quando o balancete está sincronizado" rota="botão ao lado do título">
+      <Step n={2} cor={MODULO_COLOR} icon={RefreshCw} titulo="Confira até quando o balancete está sincronizado" rota="botão Balancete, no topo à direita">
         <p>
-          A simulação vale o que vale o balancete por trás dela. O botão de atualização abre um
-          painel que responde três coisas: <strong>até que mês</strong> os dados chegaram,
-          <strong> quantos meses</strong> existem na janela e <strong>quais meses faltam</strong>.
+          A simulação vale o que vale o balancete por trás dela. O botão <strong>Balancete</strong>,
+          no canto superior direito, abre um painel que responde de uma vez: até que mês os dados
+          chegaram, quantos meses e quantas linhas foram importados, e se isso está em dia com o
+          último mês fechado.
         </p>
 
         <Figura
-          rota="Atualizar balancete"
-          legenda="&quot;Sincronizado até&quot; é o mês mais recente já importado. As etiquetas de lacuna mostram os meses que faltam dentro da janela de 12 meses — buracos no meio distorcem a média mensal."
-        >
-          <div className="w-[400px] space-y-2.5">
-            <div className="flex gap-2.5">
-              <div className="flex-1 rounded-md border p-2.5">
-                <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Sincronizado até</p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums">08/2026</p>
-                <p className="text-[10px] text-muted-foreground">desde 09/2025</p>
-              </div>
-              <div className="flex-1 rounded-md border p-2.5">
-                <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Meses na janela</p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums">10 / 12</p>
-                <p className="text-[10px] text-muted-foreground">1.482 linhas</p>
-              </div>
-            </div>
-            <div className="rounded-md border border-l-4 border-l-amber-400 bg-amber-50 p-2 dark:bg-amber-950/30">
-              <p className="text-[10px] font-semibold text-amber-900 dark:text-amber-200">Meses faltando</p>
-              <div className="mt-1 flex gap-1">
-                {['11/2025', '03/2026'].map(m => (
-                  <span key={m} className="rounded border px-1.5 py-0.5 text-[10px] tabular-nums">{m}</span>
-                ))}
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <span className="rounded-md px-3 py-1.5 text-[11px] font-medium text-white" style={{ background: MODULO_COLOR }}>
-                Importar do SCI
-              </span>
-            </div>
-          </div>
-        </Figura>
+          rota="Balancete do cliente"
+          src={`${IMG}/balancete.jpg`}
+          alt="Painel do balancete mostrando o mês até onde está sincronizado, a quantidade de meses e linhas importadas, o aviso de que está em dia e o botão Atualizar do SCI."
+          legenda="Quando falta mês dentro da janela de 12 meses, o painel lista as lacunas em vez do aviso verde — buracos no meio distorcem a média mensal. A linha de baixo diz se o Service Manager está conectado."
+        />
 
-        <Callout tipo="aviso">
-          A importação é executada pelo <strong>Service Manager</strong>, no computador que enxerga
-          o banco do SCI. Se ele estiver fechado, o sistema avisa que não há ninguém para atender o
-          pedido — abra o Service Manager e tente de novo.
-        </Callout>
+        <p>
+          <strong>Atualizar do SCI</strong> busca os últimos 12 meses fechados. Quem executa a
+          leitura é o <strong>Service Manager</strong>, no computador que enxerga o banco do SCI —
+          por isso o painel avisa se ele está conectado. Se estiver fechado, não há quem atenda o
+          pedido: abra o Service Manager e tente de novo.
+        </p>
       </Step>
 
       <Step n={3} cor={MODULO_COLOR} icon={Settings2} titulo="Revise os parâmetros" rota="Configurar">
         <p>
-          Quatro campos definem a simulação. Os dois primeiros vêm do cadastro, os dois últimos do
-          balancete — e todos podem ser ajustados na mão para testar cenários.
+          Quatro campos definem a simulação. Regime e atividade vêm do cadastro; faturamento e
+          despesas creditáveis vêm do balancete — e todos podem ser ajustados na mão para testar
+          cenários.
         </p>
         <ul className="ml-2 list-inside list-disc space-y-1">
-          <li><strong>Regime</strong> — Lucro Real, Lucro Presumido ou Simples Nacional</li>
+          <li><strong>Regime tributário atual</strong> — Lucro Real, Lucro Presumido ou Simples Nacional</li>
           <li><strong>Atividade</strong> — Indústria, Comércio ou Serviços</li>
-          <li><strong>Faturamento mensal</strong> — média dos últimos 12 meses, com máscara em reais</li>
+          <li><strong>Faturamento mensal</strong> — em reais, com a origem declarada logo abaixo do campo</li>
           <li><strong>Despesas mensais creditáveis</strong> — clicável, abre a composição</li>
         </ul>
+        <p>
+          Mais abaixo ficam as <strong>alíquotas</strong>, editáveis nos dois lados: IVA Dual
+          (CBS e IBS, com o total somado) e sistema antigo (PIS, COFINS, ISS ou ICMS/IPI conforme a
+          atividade).
+        </p>
 
         <Callout tipo="dica">
           Mexer nos campos <strong>não altera nada no cadastro do cliente</strong>. A simulação é
@@ -217,47 +159,15 @@ export default function FaqReformaTributariaPage() {
         <p>
           Este é o passo que dá credibilidade à conversa. O valor de despesas creditáveis não é
           chute: é a soma de contas do balancete, e clicar nele mostra <strong>conta por conta</strong> de
-          onde o número saiu.
+          onde o número saiu, com o código contábil ao lado.
         </p>
 
         <Figura
-          rota="Composição das despesas creditáveis"
-          legenda="Cada linha é uma conta do balancete do cliente. A linha marcada como (redutora) aparece negativa de propósito — estornos e devoluções abatem a base, não somam."
-        >
-          <table className="w-full min-w-[430px]">
-            <thead>
-              <tr className="border-b">
-                <th className={`${th} text-left`}>Conta</th>
-                <th className={`${th} text-left`}>Descrição</th>
-                <th className={`${th} text-right`}>Valor mensal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { conta: '04.1.1.01.001', desc: 'Custo das Mercadorias Vendidas', valor: 'R$ 390.000,00', red: false },
-                { conta: '04.1.1.02.001', desc: 'Custos com Importação', valor: 'R$ 51.000,00', red: false },
-                { conta: '04.2.1.08.003', desc: 'Energia elétrica', valor: 'R$ 31.000,00', red: false },
-                { conta: '04.1.4.01.001', desc: 'Material Aplicado', valor: 'R$ 24.000,00', red: false },
-                { conta: '04.1.1.01.042', desc: 'Estorno de Crédito', valor: '-R$ 13.000,00', red: true },
-              ].map(({ conta, desc, valor, red }) => (
-                <tr key={conta} className="border-b border-border/50">
-                  <td className={`${td} font-mono text-muted-foreground`}>{conta}</td>
-                  <td className={td}>
-                    {desc}
-                    {red && <span className="ml-1.5 text-[9px] text-muted-foreground">(redutora)</span>}
-                  </td>
-                  <td className={`${td} text-right font-medium ${red ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
-                    {valor}
-                  </td>
-                </tr>
-              ))}
-              <tr>
-                <td colSpan={2} className={`${td} font-semibold`}>Total mensal</td>
-                <td className={`${td} text-right text-[12px] font-bold`}>R$ 483.000,00</td>
-              </tr>
-            </tbody>
-          </table>
-        </Figura>
+          rota="Despesas mensais creditáveis"
+          src={`${IMG}/composicao.jpg`}
+          alt="Modal com a lista de contas do balancete classificadas como creditáveis, mostrando código, descrição e valor mensal de cada uma."
+          legenda="Cada linha é uma conta analítica do balancete. O total é a média mensal dos últimos 12 meses, e o rodapé mostra quantas contas entraram."
+        />
 
         <p>O sistema classifica cada conta em três grupos, e só o primeiro entra na base:</p>
         <ul className="ml-2 list-inside list-disc space-y-1">
@@ -266,107 +176,78 @@ export default function FaqReformaTributariaPage() {
           <li><strong>Revisar</strong> — despesa operacional que depende de análise (o caso clássico é comissão: paga a PJ gera crédito, a pessoa física não)</li>
         </ul>
 
-        <Callout tipo="dica">
-          Discorda de uma classificação? Ela pode ser <strong>reclassificada manualmente</strong>, e
-          o ajuste fica salvo para aquele cliente. A linha passa a mostrar &quot;Reclassificado
-          manualmente pelo usuário&quot; no lugar do motivo automático.
+        <Callout tipo="aviso">
+          Se uma conta estiver classificada de forma discutível, hoje <strong>não há como corrigir
+          pela tela</strong>: o controle de reclassificação existia na versão anterior da página e
+          ainda não voltou na atual. O cálculo por trás continua respeitando reclassificações já
+          gravadas — se precisar de uma, peça ao time de sistemas.
         </Callout>
       </Step>
 
       <Step n={5} cor={MODULO_COLOR} icon={LayoutGrid} titulo="Compare os regimes" rota="Comparar Regimes">
         <p>
-          Coloca lado a lado a carga mensal em cada regime do sistema antigo e no IVA Dual. A
-          coluna que interessa é a <strong>alíquota efetiva</strong> — o desembolso real depois do
-          crédito.
+          Coloca lado a lado a carga mensal em cada regime do sistema antigo e no IVA Dual, com o
+          regime atual do cliente destacado. A linha que interessa é a <strong>alíquota
+          efetiva</strong> — o desembolso real depois do crédito.
         </p>
 
         <Figura
           rota="Comparar Regimes"
-          legenda="Números fictícios. O padrão que costuma aparecer: quem tem muita despesa creditável tende a melhorar no IVA; quem quase não tem crédito — serviço com folha pesada — tende a piorar."
-        >
-          <table className="w-full min-w-[440px]">
-            <thead>
-              <tr className="border-b">
-                <th className={`${th} text-left`}>Regime</th>
-                <th className={`${th} text-right`}>Nominal</th>
-                <th className={`${th} text-right`}>Crédito</th>
-                <th className={`${th} text-right`}>Efetivo</th>
-                <th className={`${th} text-right`}>Alíq. efetiva</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { r: 'Lucro Real', n: 'R$ 272.500', c: 'R$ 44.700', e: 'R$ 227.800', a: '22,78%', destaque: false },
-                { r: 'Lucro Presumido', n: 'R$ 312.500', c: 'R$ 11.100', e: 'R$ 301.400', a: '30,14%', destaque: false },
-                { r: 'Simples Nacional', n: 'R$ 121.100', c: '—', e: 'R$ 121.100', a: '12,11%', destaque: false },
-                { r: 'IVA Dual (CBS+IBS)', n: 'R$ 280.000', c: 'R$ 135.200', e: 'R$ 144.800', a: '14,48%', destaque: true },
-              ].map(({ r, n, c, e, a, destaque }) => (
-                <tr key={r} className={`border-b border-border/50 ${destaque ? 'bg-muted/40' : ''}`}>
-                  <td className={`${td} ${destaque ? 'font-semibold' : ''}`}>{r}</td>
-                  <td className={`${td} text-right tabular-nums`}>{n}</td>
-                  <td className={`${td} text-right tabular-nums`}>{c}</td>
-                  <td className={`${td} text-right tabular-nums`}>{e}</td>
-                  <td className={`${td} text-right font-semibold tabular-nums`}>{a}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Figura>
+          src={`${IMG}/comparar-regimes.jpg`}
+          alt="Tabela comparando Lucro Real, Lucro Presumido, Simples Nacional e IVA Dual, linha a linha, até a alíquota efetiva de cada um."
+          legenda="A tabela desce de PIS/COFINS/ISS até os créditos, o total nominal e o total efetivo. As duas últimas linhas — alíquota nominal e efetiva — são a leitura rápida."
+        />
 
         <Callout tipo="info">
           As alíquotas de referência do IVA são <strong>CBS 9,3% + IBS 18,7% = 28%</strong>, o teto
           indicado pelo governo. Como a alíquota final ainda não foi fixada em lei — a estimativa
-          oficial varia de 26,5% a 28% — os dois campos são editáveis na tela.
+          oficial varia de 26,5% a 28% — os dois campos são editáveis em Configurar.
+        </Callout>
+
+        <Callout tipo="dica">
+          A tela lembra, num aviso abaixo da tabela, que a simulação não deve ser lida só pela
+          alíquota final: quem compra do seu cliente pode aproveitar o crédito, e isso muda a
+          competitividade do negócio.
         </Callout>
       </Step>
 
       <Step n={6} cor={MODULO_COLOR} icon={TrendingUp} titulo="Mostre a transição ano a ano" rota="Transição 2026–2033">
         <p>
-          A reforma não vira uma chave: ela acontece em etapas ao longo de oito anos. Esta é a
-          seção que mais tranquiliza o cliente, porque mostra que a mudança é gradual e em que ano
-          cada coisa acontece.
+          A reforma não vira uma chave: acontece em etapas até 2033. Esta é a seção que mais
+          tranquiliza o cliente, porque mostra que a mudança é gradual e em que ano cada coisa
+          acontece.
         </p>
 
         <Figura
           rota="Transição 2026–2033"
-          legenda="A tabela na tela traz os oito anos; aqui estão os marcos. O ano que costuma assustar é 2027, quando a CBS entra cheia e o PIS/COFINS sai."
-        >
-          <table className="w-full min-w-[460px]">
-            <thead>
-              <tr className="border-b">
-                <th className={`${th} text-left`}>Ano</th>
-                <th className={`${th} text-right`}>Sistema antigo</th>
-                <th className={`${th} text-right`}>CBS</th>
-                <th className={`${th} text-right`}>IBS</th>
-                <th className={`${th} text-left`}>O que muda</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { ano: '2026', antigo: 'integral', cbs: '0,9%', ibs: '0,1%', nota: 'Fase-teste, compensável' },
-                { ano: '2027', antigo: 'só ICMS/ISS', cbs: 'cheia', ibs: '—', nota: 'PIS/COFINS extintos, IPI zerado' },
-                { ano: '2029', antigo: '90%', cbs: 'cheia', ibs: '1/10', nota: 'IBS começa a substituir ICMS/ISS' },
-                { ano: '2032', antigo: '60%', cbs: 'cheia', ibs: '4/10', nota: 'Último ano de convivência' },
-                { ano: '2033', antigo: '—', cbs: 'cheia', ibs: 'cheia', nota: 'Sistema antigo extinto' },
-              ].map(({ ano, antigo, cbs, ibs, nota }) => (
-                <tr key={ano} className="border-b border-border/50">
-                  <td className={`${td} font-semibold tabular-nums`}>{ano}</td>
-                  <td className={`${td} text-right`}>{antigo}</td>
-                  <td className={`${td} text-right`}>{cbs}</td>
-                  <td className={`${td} text-right`}>{ibs}</td>
-                  <td className={`${td} text-muted-foreground`}>{nota}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Figura>
+          src={`${IMG}/transicao.jpg`}
+          alt="Tabela ano a ano de 2026 a 2033 com as colunas sistema antigo, IBS, CBS, total a pagar e variação em relação a hoje."
+          legenda="A coluna &quot;vs hoje&quot; compara o total de cada ano com a carga atual — é a única que fica visível aqui, e mostra a curva subindo conforme o IBS entra."
+        />
+
+        <p>Os marcos que a tabela desenha:</p>
+        <ul className="ml-2 list-inside list-disc space-y-1">
+          <li><strong>2026</strong> — fase-teste, com CBS a 0,9% e IBS a 0,1%, compensáveis</li>
+          <li><strong>2027 e 2028</strong> — PIS/COFINS extintos, IPI zerado, CBS cheia</li>
+          <li><strong>2029 a 2032</strong> — o IBS entra em décimos enquanto ICMS/ISS saem na mesma proporção</li>
+          <li><strong>2033</strong> — sistema antigo extinto</li>
+        </ul>
       </Step>
 
       <Step n={7} cor={MODULO_COLOR} icon={Share2} titulo="Feche na Visão Geral e mande para o cliente" rota="Visão Geral">
         <p>
-          A Visão Geral junta tudo em uma página só, com o nome e o CNPJ do cliente no topo. É a
-          parte que sai do sistema, por dois caminhos:
+          A Visão Geral junta tudo em uma página só, com o nome, o CNPJ e a cidade do cliente no
+          topo, e quatro números grandes: imposto de hoje, pós-reforma, diferença mensal e a
+          variação em porcentagem — mais o custo adicional anual estimado.
         </p>
+
+        <Figura
+          rota="Visão Geral"
+          src={`${IMG}/visao-geral.jpg`}
+          alt="Página de resultado com os cartões de imposto hoje, pós-reforma, diferença mensal e variação, os botões de PDF e WhatsApp e os gráficos de comparação."
+          legenda="É a página que vai para o cliente. Os dois gráficos comparam o imposto mensal antes e depois, e a alíquota efetiva de cada regime."
+        />
+
         <ul className="ml-2 list-inside list-disc space-y-1">
           <li>
             <strong>Baixar resultados em PDF</strong> — abre a caixa de impressão do navegador.
@@ -400,17 +281,17 @@ export default function FaqReformaTributariaPage() {
 
       <Section icon={Database} titulo="A origem do faturamento" cor={FAQ_COLOR}>
         <p className="text-sm leading-relaxed text-foreground/80">
-          O card de resumo sempre mostra a <strong>origem</strong> do faturamento, e ela muda a
-          confiança que você pode ter no resultado:
+          Logo abaixo do campo <strong>Faturamento mensal</strong>, a tela declara de onde aquele
+          número saiu — e isso muda a confiança que você pode ter no resultado:
         </p>
         <div className="mt-2 space-y-2 text-sm">
-          <DefRow termo="Balancete" texto="Média mensal dos últimos 12 meses do balancete importado do SCI. É a melhor origem — número contábil, do cliente." />
+          <DefRow termo="Balancete" texto="Média mensal das contas de receita do balancete importado do SCI. É a melhor origem — número contábil, do cliente." />
           <DefRow termo="Contrato" texto="Faturamento registrado no gestor de contratos. Usado quando não há balancete importado." />
           <DefRow termo="Premissa" texto="Estimativa por porte ou segmento. É o pior caso: serve para não deixar a tela vazia, mas não leve para o cliente sem avisar." />
         </div>
         <Callout tipo="dica">
-          Origem &quot;Premissa&quot; é o sinal de que falta importar o balancete. Volte ao passo 2
-          antes de gerar qualquer PDF.
+          Se a linha não disser &quot;balancete importado&quot;, volte ao passo 2 antes de gerar
+          qualquer PDF.
         </Callout>
       </Section>
 
@@ -424,7 +305,8 @@ export default function FaqReformaTributariaPage() {
                 <span className="mx-1 font-mono text-[11px]">04.1.1</span> e as filhas que a compõem
                 aparecem lado a lado. Somar as duas contaria o mesmo dinheiro duas vezes. O sistema
                 considera apenas as contas <strong>analíticas</strong> — as pontas da árvore, onde o
-                lançamento realmente acontece.
+                lançamento realmente acontece. É por isso que a composição mostra só códigos
+                completos, do tipo <span className="font-mono text-[11px]">04.1.1.01.001</span>.
               </>
             )}
           />
@@ -436,9 +318,9 @@ export default function FaqReformaTributariaPage() {
                 com o nome marcado —
                 <span className="mx-1 font-mono text-[11px]">(-) ICMS sobre Compras</span>,
                 <span className="ml-1 font-mono text-[11px]">Estorno de Crédito</span>. O sistema
-                normaliza os dois casos e as trata sempre como redução da base. Por isso elas
-                aparecem <strong>negativas</strong> na composição: é o comportamento correto, não
-                erro de dado.
+                normaliza os dois casos e as trata sempre como redução da base. Quando o cliente
+                tem uma dessas, ela aparece <strong>negativa</strong> na composição: é o
+                comportamento correto, não erro de dado.
               </>
             )}
           />
@@ -470,23 +352,27 @@ export default function FaqReformaTributariaPage() {
             },
             {
               q: 'O faturamento veio zerado ou muito diferente do que eu esperava.',
-              r: 'Olhe a origem no card de resumo. Se for "Premissa", falta importar o balancete. Se for "Balancete", abra o painel de sincronização e veja se há meses faltando na janela de 12 meses.',
+              r: 'Olhe a linha abaixo do campo Faturamento mensal. Se não disser que veio do balancete importado, falta importar. Se disser, abra o painel Balancete e veja se há meses faltando na janela de 12 meses.',
+            },
+            {
+              q: 'Cliquei em Atualizar do SCI e não aconteceu nada.',
+              r: 'A leitura é feita pelo Service Manager, no computador que enxerga o banco do SCI. O próprio painel diz se ele está conectado — se não estiver, abra o Service Manager e repita.',
             },
             {
               q: 'Posso mudar as alíquotas de CBS e IBS?',
-              r: 'Sim, os dois campos são editáveis. A alíquota final ainda não foi fixada em lei, então vale simular tanto o teto de 28% quanto a estimativa menor de 26,5%.',
+              r: 'Sim, os dois campos são editáveis em Configurar. A alíquota final ainda não foi fixada em lei, então vale simular tanto o teto de 28% quanto a estimativa menor de 26,5%.',
             },
             {
               q: 'Uma conta está classificada errada. Como corrijo?',
-              r: 'Reclassifique manualmente na composição das despesas creditáveis. O ajuste fica salvo para aquele cliente e passa a valer nas próximas simulações.',
+              r: 'Pela tela, hoje não dá: o controle de reclassificação ficou na versão anterior da página e ainda não voltou. O cálculo respeita reclassificações já gravadas, então peça ao time de sistemas.',
             },
             {
               q: 'Por que uma linha da composição aparece com valor negativo?',
-              r: 'É uma conta redutora — estorno, devolução ou dedução. Ela abate a base de crédito, então o negativo está correto. A linha vem marcada com "(redutora)".',
+              r: 'É uma conta redutora — estorno, devolução ou dedução. Ela abate a base de crédito, então o negativo está correto.',
             },
             {
               q: 'A simulação altera alguma coisa no cliente?',
-              r: 'Não. Tudo é descartável, exceto duas coisas que ficam salvas: a reclassificação manual de contas e o balancete importado do SCI.',
+              r: 'Não. Tudo que você mexe é descartável. A única coisa que fica gravada é o balancete importado do SCI.',
             },
           ].map(({ q, r }) => (
             <div key={q} className="rounded-md border p-3">
