@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Save, Clock, Hash, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2, Star, ArrowUp, ArrowDown, History } from 'lucide-react'
+import { Loader2, Save, Clock, SlidersHorizontal, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2, Star, ArrowUp, ArrowDown, History } from 'lucide-react'
 import { Button, Card, Input, RichEditor, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Switch, Badge, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -68,11 +68,11 @@ const DEFAULT_CONFIG: ConfigState = {
   exigirSubservico: true,
 }
 
-type TabKey = 'prazos' | 'numeracao' | 'emails' | 'textos' | 'areas' | 'modelos' | 'ia' | 'pesquisa'
+type TabKey = 'gerais' | 'prazos' | 'emails' | 'textos' | 'areas' | 'modelos' | 'ia' | 'pesquisa'
 
 const TABS: Array<{ key: TabKey; label: string; icon: typeof Clock }> = [
+  { key: 'gerais', label: 'Gerais', icon: SlidersHorizontal },
   { key: 'prazos', label: 'Prazos do workflow', icon: Clock },
-  { key: 'numeracao', label: 'Numeração', icon: Hash },
   { key: 'emails', label: 'Notificações', icon: Mail },
   { key: 'textos', label: 'Textos padrão', icon: FileText },
   { key: 'areas', label: 'Notificação de áreas', icon: Users },
@@ -86,7 +86,7 @@ export default function OrcamentosConfiguracoesPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [config, setConfig] = useState<ConfigState>(DEFAULT_CONFIG)
-  const [activeTab, setActiveTab] = useState<TabKey>('prazos')
+  const [activeTab, setActiveTab] = useState<TabKey>('gerais')
   const [tiposEvento, setTiposEvento] = useState<Array<{ id: string; nome: string }>>([])
 
   // Acesso: master/empresa-master OU sub-permissão 'acessar_configuracoes'.
@@ -316,8 +316,14 @@ export default function OrcamentosConfiguracoesPage() {
                 </div>
               )}
 
-              {activeTab === 'numeracao' && (
+              {activeTab === 'gerais' && (
                 <div className="grid grid-cols-12 gap-3">
+                  {/* A aba se chamava "Numeração" e virou "Gerais" quando passou a
+                      abrigar outras regras. A numeração ganha seção propria para
+                      quem sempre a procurou pelo nome continuar achando. */}
+                  <div className="col-span-12">
+                    <label className="text-xs font-medium text-muted-foreground block">Numeração</label>
+                  </div>
                   <div className="col-span-12 sm:col-span-4 space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">Iniciar próximos orçamentos no número</label>
                     <Input
