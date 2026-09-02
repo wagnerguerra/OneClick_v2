@@ -13,6 +13,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Switch,
 } from '@saas/ui'
+import { BADGE, type ColorName } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -54,11 +55,11 @@ interface CatalogoItem {
 interface ClienteOpt { id: string; razaoSocial: string; documento: string | null }
 interface ServicoOpt { id: string; nome: string; valorPadrao: number | null; categoria: string | null }
 
-const STATUS_CFG: Record<Status, { label: string; color: string; bg: string; icon: typeof Clock }> = {
-  NO_PRAZO: { label: 'No prazo', color: '#16a34a', bg: '#16a34a18', icon: CheckCircle2 },
-  VENCENDO: { label: 'Vencendo', color: '#d97706', bg: '#d9770618', icon: Clock },
-  VENCIDO: { label: 'Vencido', color: '#dc2626', bg: '#dc262618', icon: AlertTriangle },
-  SEM_DATA: { label: 'Sem data', color: '#6b7280', bg: '#6b728018', icon: MinusCircle },
+const STATUS_CFG: Record<Status, { label: string; color: string; bg: string; tone: ColorName; icon: typeof Clock }> = {
+  NO_PRAZO: { label: 'No prazo', color: '#10b981', bg: '#10b98118', tone: 'emerald', icon: CheckCircle2 },
+  VENCENDO: { label: 'Vencendo', color: '#f59e0b', bg: '#f59e0b18', tone: 'amber', icon: Clock },
+  VENCIDO: { label: 'Vencido', color: '#ef4444', bg: '#ef444418', tone: 'red', icon: AlertTriangle },
+  SEM_DATA: { label: 'Sem data', color: '#a855f7', bg: '#a855f718', tone: 'purple', icon: MinusCircle },
 }
 
 function toDateInput(d: string | null): string {
@@ -281,7 +282,7 @@ export default function BeneficiosFiscaisPage() {
       {/* Filtros (pílulas) + busca — padrão /gestao-certificados */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
         {([
-          { key: null as Status | null, label: 'Todos', count: dash.TOTAL, color: '#94a3b8', icon: Percent },
+          { key: null as Status | null, label: 'Todos', count: dash.TOTAL, color: '#3b82f6', icon: Percent },
           ...(['NO_PRAZO', 'VENCENDO', 'VENCIDO', 'SEM_DATA'] as Status[]).map(s => ({
             key: s as Status | null, label: STATUS_CFG[s].label, count: dash[s], color: STATUS_CFG[s].color, icon: STATUS_CFG[s].icon,
           })),
@@ -398,9 +399,7 @@ export default function BeneficiosFiscaisPage() {
                             title={v.processoId ? 'Abrir processo de liberação do benefício' : 'Abrir orçamento'}
                             className={cn(
                               'shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold border hover:opacity-80',
-                              v.processoId
-                                ? 'border-violet-300 text-violet-700 bg-violet-50 dark:bg-violet-900/30 dark:text-violet-300'
-                                : 'border-sky-300 text-sky-700 bg-sky-50 dark:bg-sky-900/30 dark:text-sky-300',
+                              v.processoId ? BADGE.violet : BADGE.sky,
                             )}
                           >
                             {v.processoId ? <GitBranch className="h-3 w-3" /> : <Receipt className="h-3 w-3" />}
@@ -417,7 +416,7 @@ export default function BeneficiosFiscaisPage() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{v.beneficioNome}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-[11px] border" style={{ color: cfg.color, borderColor: cfg.color + '55', backgroundColor: cfg.bg }}>
+                      <Badge variant="outline" className={cn('text-[11px]', BADGE[cfg.tone])}>
                         {fmtDateBR(v.dataVencimento)}
                       </Badge>
                     </TableCell>
@@ -598,7 +597,7 @@ function CatalogoModal({ open, onClose, catalogo, servicos, onChanged }: {
               <Plus className="h-3.5 w-3.5" /> Novo
             </Button>
           </div>
-          <div className="border rounded-lg divide-y max-h-[320px] overflow-y-auto">
+          <div className="border rounded-lg divide-y max-h-[320px] overflow-y-auto nice-scrollbar">
             {catalogo.length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">Catálogo vazio.</p>}
             {catalogo.map(c => (
               <div key={c.id} className={cn('flex items-center gap-3 p-3', !c.ativo && 'opacity-50')}>

@@ -15,6 +15,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import { BADGE } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertAcessoModal } from '@/components/certificado/cert-acesso-modal'
 import { SenhaPfxInput } from '@/components/certificado/senha-pfx-input'
@@ -80,19 +81,19 @@ function diasParaExpirar(expiraEm: string): number {
 
 function StatusBadge({ status, expiraEm }: { status: string; expiraEm: string }) {
   if (status === 'REVOGADO') {
-    return <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-400"><Ban className="h-3 w-3" /> Revogado</span>
+    return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', BADGE.rose)}><Ban className="h-3 w-3" /> Revogado</span>
   }
   const dias = diasParaExpirar(expiraEm)
   if (dias < 0) {
-    return <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-400"><XCircle className="h-3 w-3" /> Vencido</span>
+    return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', BADGE.rose)}><XCircle className="h-3 w-3" /> Vencido</span>
   }
   if (dias <= 30) {
-    return <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400"><Clock className="h-3 w-3" /> {dias}d</span>
+    return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', BADGE.amber)}><Clock className="h-3 w-3" /> {dias}d</span>
   }
   if (dias <= 60) {
-    return <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400"><Clock className="h-3 w-3" /> {dias}d</span>
+    return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', BADGE.amber)}><Clock className="h-3 w-3" /> {dias}d</span>
   }
-  return <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="h-3 w-3" /> Vigente</span>
+  return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', BADGE.emerald)}><CheckCircle2 className="h-3 w-3" /> Vigente</span>
 }
 
 // ============================================================
@@ -592,7 +593,7 @@ export default function GestaoCertificadosPage() {
               </div>
             </div>
           )}
-          <div className="overflow-y-auto">
+          <div className="overflow-y-auto nice-scrollbar">
             <Table>
               <TableHeader>
                 <TableRow className="whitespace-nowrap">
@@ -742,13 +743,12 @@ export default function GestaoCertificadosPage() {
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
             <label className="flex items-start gap-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="h-4 w-4 mt-0.5 rounded border-input cursor-pointer"
-                style={{ accentColor: MODULE_COLOR }}
+              <Checkbox
+                className="mt-0.5"
+                accentColor={MODULE_COLOR}
                 checked={reautObrigatoria ?? true}
                 disabled={reautObrigatoria === null || savingConfig}
-                onChange={e => salvarReautConfig(e.target.checked)}
+                onCheckedChange={v => salvarReautConfig(!!v)}
               />
               <span className="text-sm">
                 <span className="font-semibold text-foreground">Exigir senha e justificativa</span>
@@ -1344,11 +1344,11 @@ function LegacyImportModal({ open, onOpenChange, empresaId, onImported }: {
                           </td>
                           <td className="px-3 py-1">
                             <span className={cn(
-                              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                              s?.color === 'emerald' && 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-                              s?.color === 'amber' && 'bg-amber-50 text-amber-700 border border-amber-200',
-                              s?.color === 'rose' && 'bg-rose-50 text-rose-700 border border-rose-200',
-                              s?.color === 'sky' && 'bg-sky-50 text-sky-700 border border-sky-200',
+                              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                              s?.color === 'emerald' && BADGE.emerald,
+                              s?.color === 'amber' && BADGE.amber,
+                              s?.color === 'rose' && BADGE.rose,
+                              s?.color === 'sky' && BADGE.sky,
                             )}>
                               {s?.label || item.status}
                             </span>
@@ -1646,7 +1646,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
               onClick={() => fileInputRef.current?.click()}
               className={cn(
                 'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors',
-                dragOver ? 'border-fuchsia-500 bg-fuchsia-50' : 'border-zinc-300 hover:border-fuchsia-400 hover:bg-zinc-50',
+                dragOver ? 'border-fuchsia-500 bg-fuchsia-50' : 'border-border hover:border-fuchsia-400 hover:bg-muted',
               )}
             >
               <UploadCloud className="h-8 w-8 mx-auto text-zinc-400 mb-2" />
@@ -1790,11 +1790,11 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
                           <td className="px-3 py-1 tabular-nums">{venc}</td>
                           <td className="px-3 py-1">
                             <span className={cn(
-                              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                              s?.color === 'emerald' && 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-                              s?.color === 'amber' && 'bg-amber-50 text-amber-700 border border-amber-200',
-                              s?.color === 'rose' && 'bg-rose-50 text-rose-700 border border-rose-200',
-                              s?.color === 'sky' && 'bg-sky-50 text-sky-700 border border-sky-200',
+                              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                              s?.color === 'emerald' && BADGE.emerald,
+                              s?.color === 'amber' && BADGE.amber,
+                              s?.color === 'rose' && BADGE.rose,
+                              s?.color === 'sky' && BADGE.sky,
                             )}>
                               {s?.label || f.status}
                             </span>

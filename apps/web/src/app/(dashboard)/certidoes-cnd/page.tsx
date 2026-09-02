@@ -1134,7 +1134,7 @@ export default function CertidoesCndPage() {
               : 'border-border/40 text-muted-foreground hover:border-red-200 hover:text-foreground bg-card',
           )}>
           <Trash2 className="h-3.5 w-3.5" />Lixeira
-          {totais.lixeira > 0 && <span className={cn('text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none', lixeira ? 'bg-red-200/60 text-red-700' : 'bg-muted text-muted-foreground')}>{totais.lixeira}</span>}
+          {totais.lixeira > 0 && <span className={cn('text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none', lixeira ? 'bg-red-200/60 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-muted text-muted-foreground')}>{totais.lixeira}</span>}
         </button>
       </div>
 
@@ -1632,16 +1632,18 @@ export default function CertidoesCndPage() {
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium">Tipo Período</label>
-                        <select value={darfForm.tipoPA} onChange={e => setDarfForm(prev => ({ ...prev, tipoPA: e.target.value }))}
-                          className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring">
-                          <option value="ME">Mensal</option>
-                          <option value="TR">Trimestral</option>
-                          <option value="SE">Semestral</option>
-                          <option value="AN">Anual</option>
-                          <option value="DE">Decendial</option>
-                          <option value="QU">Quinzenal</option>
-                          <option value="SM">Semanal</option>
-                        </select>
+                        <Select value={darfForm.tipoPA} onValueChange={v => setDarfForm(prev => ({ ...prev, tipoPA: v }))}>
+                          <SelectTrigger className="w-full h-9 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ME">Mensal</SelectItem>
+                            <SelectItem value="TR">Trimestral</SelectItem>
+                            <SelectItem value="SE">Semestral</SelectItem>
+                            <SelectItem value="AN">Anual</SelectItem>
+                            <SelectItem value="DE">Decendial</SelectItem>
+                            <SelectItem value="QU">Quinzenal</SelectItem>
+                            <SelectItem value="SM">Semanal</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
 
