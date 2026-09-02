@@ -32,6 +32,7 @@ export const faqArticleComponents: Record<string, ComponentType> = {
   "orcamentos-notificacoes-email": dynamic(() => import("./orcamentos-notificacoes-email")),
   "pesquisa-satisfacao": dynamic(() => import("./pesquisa-satisfacao")),
   "processos": dynamic(() => import("./processos")),
+  "reforma-tributaria": dynamic(() => import("./reforma-tributaria")),
   "projetos": dynamic(() => import("./projetos")),
   "segmento-atacadista-lucro-real": dynamic(() => import("./segmento-atacadista-lucro-real")),
   "segmento-comercio-varejo-simples": dynamic(() => import("./segmento-comercio-varejo-simples")),

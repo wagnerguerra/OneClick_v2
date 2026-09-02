@@ -133,6 +133,62 @@ export function CasoPratico({ titulo, descricao }: { titulo: string; descricao: 
   )
 }
 
+/**
+ * Figura de apoio: uma reproducao da tela, desenhada em codigo.
+ *
+ * Nao e captura de imagem de proposito. O FAQ e comum a todas as empresas da
+ * instalacao e nao tem permissao propria, entao um print real levaria o
+ * faturamento de um cliente para quem nao tem acesso ao modulo. A figura
+ * desenhada tambem acompanha o tema claro/escuro e nao envelhece como um PNG
+ * solto no `public/`.
+ *
+ * Os numeros usados nas figuras sao ficticios, sempre redondos, para que
+ * ninguem os confunda com dado real de cliente.
+ */
+export function Figura({ rota, legenda, children }: {
+  rota?: string
+  legenda: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <figure className="my-3 space-y-1.5">
+      <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+        <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-1.5">
+          <div className="flex gap-1 shrink-0">
+            <span className="h-2 w-2 rounded-full bg-rose-400/70" />
+            <span className="h-2 w-2 rounded-full bg-amber-400/70" />
+            <span className="h-2 w-2 rounded-full bg-emerald-400/70" />
+          </div>
+          {rota && <span className="truncate font-mono text-[10px] text-muted-foreground">{rota}</span>}
+        </div>
+        {/* Figura larga rola dentro do proprio quadro; a pagina nunca rola de lado. */}
+        <div className="overflow-x-auto nice-scrollbar p-3.5">{children}</div>
+      </div>
+      <figcaption className="text-[11px] leading-relaxed text-muted-foreground">{legenda}</figcaption>
+    </figure>
+  )
+}
+
+/** Rotulo + valor, do jeito que os cards de resumo do sistema mostram. */
+export function FiguraCampo({ label, valor, destaque, cor }: {
+  label: string
+  valor: string
+  destaque?: boolean
+  cor?: string
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p
+        className={`truncate tabular-nums ${destaque ? 'text-sm font-bold' : 'text-[12px] font-medium'}`}
+        style={cor ? { color: cor } : undefined}
+      >
+        {valor}
+      </p>
+    </div>
+  )
+}
+
 export function QuickLink({ href, label, cor = '#8b5cf6' }: { href: string; label: string; cor?: string }) {
   return (
     <Link
