@@ -1787,14 +1787,30 @@ export class OrcamentoService {
   async getOportunidadeResumo(oportunidadeId: string) {
     const op = await prisma.oportunidade.findUnique({
       where: { id: oportunidadeId },
-      select: { id: true, numero: true, titulo: true, valor: true, clienteId: true, responsavelId: true, createdAt: true, etapa: { select: { nome: true, ehGanho: true, ehPerda: true } } },
+      // #HLP0353 — `descricao` entra no select: o resumo mostrava só o log de
+      // eventos, e quem monta o orcamento precisa do que foi ESCRITO no card.
+      select: { id: true, numero: true, titulo: true, descricao: true, valor: true, clienteId: true, responsavelId: true, createdAt: true, etapa: { select: { nome: true, ehGanho: true, ehPerda: true } } },
     }).catch(() => null)
     if (!op) return null
-    const [cliente, responsavel, eventos] = await Promise.all([
+    const [cliente, responsavel, eventos, mensagensRaw] = await Promise.all([
       op.clienteId ? prisma.cliente.findUnique({ where: { id: op.clienteId }, select: { razaoSocial: true, nomeFantasia: true } }).catch(() => null) : Promise.resolve(null),
       op.responsavelId ? prisma.user.findUnique({ where: { id: op.responsavelId }, select: { name: true } }).catch(() => null) : Promise.resolve(null),
       prisma.oportunidadeEvento.findMany({ where: { oportunidadeId }, orderBy: { createdAt: 'desc' }, take: 6, select: { id: true, tipo: true, descricao: true, createdAt: true } }).catch(() => []),
+      // #HLP0353 — as anotacoes que o time escreve no card. Ordena desc para
+      // pegar as mais recentes e reinverte abaixo: conversa se le de cima para
+      // baixo, mas o que importa sao as ultimas.
+      prisma.oportunidadeMensagem.findMany({ where: { oportunidadeId }, orderBy: { createdAt: 'desc' }, take: 8, select: { id: true, mensagem: true, userId: true, createdAt: true } }).catch(() => []),
     ])
+
+    // Nome do autor de cada anotacao, numa consulta so.
+    const autorIds = [...new Set(mensagensRaw.map(m => m.userId).filter(Boolean))] as string[]
+    const autores = autorIds.length
+      ? await prisma.user.findMany({ where: { id: { in: autorIds } }, select: { id: true, name: true } }).catch(() => [])
+      : []
+    const autorMap = new Map(autores.map(u => [u.id, u.name]))
+    const mensagens = mensagensRaw
+      .map(m => ({ id: m.id, mensagem: m.mensagem, autor: m.userId ? (autorMap.get(m.userId) ?? null) : null, createdAt: m.createdAt }))
+      .reverse()
     return {
       id: op.id, numero: op.numero, titulo: op.titulo,
       valor: op.valor != null ? Number(op.valor) : null,
@@ -1802,6 +1818,8 @@ export class OrcamentoService {
       responsavel: responsavel?.name ?? null,
       etapa: op.etapa?.nome ?? null, ehGanho: op.etapa?.ehGanho ?? false, ehPerda: op.etapa?.ehPerda ?? false,
       createdAt: op.createdAt, eventos,
+      descricao: op.descricao ?? null,
+      mensagens,
     }
   }
 
