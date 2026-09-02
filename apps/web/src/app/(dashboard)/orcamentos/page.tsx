@@ -1131,21 +1131,21 @@ export default function OrcamentosPage() {
             </div>
           </div>
 
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
                 {/* Em tela estreita ficam cliente, valor e ações. Número e status
                     descem para dentro da célula do cliente; itens, áreas, pessoas
                     e data são apoio e só aparecem quando há espaço. */}
-                <SortHead label="#" sortKey="numero" sort={sort} onSort={toggleSort} className="hidden sm:table-cell w-[70px]" />
-                <SortHead label="Status" sortKey="status" sort={sort} onSort={toggleSort} className="hidden sm:table-cell w-[100px]" />
-                <TableHead>Cliente</TableHead>
-                <TableHead className="hidden xl:table-cell w-[240px]">Itens</TableHead>
-                <TableHead className="hidden lg:table-cell w-[150px]">Áreas</TableHead>
-                <SortHead label="Valor Total" sortKey="totalGeral" sort={sort} onSort={toggleSort} className="w-[130px]" align="right" />
-                <TableHead className="hidden xl:table-cell w-[170px]">Solicitante / Responsável</TableHead>
-                <SortHead label="Criado em" sortKey="createdAt" sort={sort} onSort={toggleSort} className="hidden md:table-cell w-[110px]" />
-                <TableHead className="w-[50px] text-right">Ações</TableHead>
+                <SortHead label="#" sortKey="numero" sort={sort} onSort={toggleSort} className="hidden sm:table-cell w-[70px] whitespace-nowrap" />
+                <SortHead label="Status" sortKey="status" sort={sort} onSort={toggleSort} className="hidden sm:table-cell w-[100px] whitespace-nowrap" />
+                <TableHead className="whitespace-nowrap">Cliente</TableHead>
+                <TableHead className="hidden 2xl:table-cell w-[240px] whitespace-nowrap">Itens</TableHead>
+                <TableHead className="hidden lg:table-cell w-[150px] whitespace-nowrap">Áreas</TableHead>
+                <SortHead label="Valor Total" sortKey="totalGeral" sort={sort} onSort={toggleSort} className="w-[140px] whitespace-nowrap" align="right" />
+                <TableHead className="hidden min-[1700px]:table-cell w-[185px] whitespace-nowrap">Solicitante / Resp.</TableHead>
+                <SortHead label="Criado em" sortKey="createdAt" sort={sort} onSort={toggleSort} className="hidden md:table-cell w-[125px] whitespace-nowrap" />
+                <TableHead className="w-[80px] text-right whitespace-nowrap">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1159,17 +1159,17 @@ export default function OrcamentosPage() {
                   <TableCell className="hidden sm:table-cell font-mono text-xs font-medium">{orc.numero}</TableCell>
                   <TableCell className="hidden sm:table-cell"><StatusBadge status={orc.status} /></TableCell>
                   <TableCell className="text-sm">
-                    <span className="block max-w-[250px] truncate">{getClienteNome(orc) || '—'}</span>
+                    <span className="block truncate">{getClienteNome(orc) || '—'}</span>
                     {/* Número e status, que ganham coluna a partir de `sm` */}
                     <span className="mt-1 flex items-center gap-1.5 sm:hidden">
                       <span className="font-mono text-[11px] text-muted-foreground">#{orc.numero}</span>
                       <StatusBadge status={orc.status} />
                     </span>
                   </TableCell>
-                  <TableCell className="hidden xl:table-cell text-xs"><ItensPreview orc={orc} /></TableCell>
+                  <TableCell className="hidden 2xl:table-cell text-xs"><ItensPreview orc={orc} /></TableCell>
                   <TableCell className="hidden lg:table-cell"><AreasCell areas={orc.areas} /></TableCell>
                   <TableCell className="text-right text-sm font-medium">{formatCurrency(Number(orc.totalGeral || orc.valorTotal || 0))}</TableCell>
-                  <TableCell className="hidden xl:table-cell text-xs">
+                  <TableCell className="hidden min-[1700px]:table-cell text-xs">
                     <PessoasCell solicitante={orc.solicitante} responsavel={orc.responsavel} />
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{formatDate(orc.createdAt)}</TableCell>
