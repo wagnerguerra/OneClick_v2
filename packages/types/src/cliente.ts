@@ -185,6 +185,9 @@ export const listClienteSchema = paginationSchema.extend({
   areaContratada: z.string().optional(), // possui área contratada (nome)
   // Benefício: '__com__' (qualquer), '__sem__' (nenhum) ou um valor específico
   comBeneficio: z.string().optional(),
+  // Serviço contratado: '__com__' (tem alguma área contratada) ou '__sem__'.
+  // Mesmo par de sentinelas do benefício, para a tela filtrar do mesmo jeito.
+  comServico: z.string().optional(),
   isLead: z.boolean().optional(),
   /**
    * Quando true (default), lista apenas matrizes (CNPJ com ordem 0001).

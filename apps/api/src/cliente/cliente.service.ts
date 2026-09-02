@@ -167,7 +167,7 @@ export class ClienteService {
   // Listagem (ativos)
   // ============================================================
   async list(input: ListClienteInput, isMaster?: boolean, empresaId?: string) {
-    const { page, limit, search, sortBy, sortDir, situacao, status, incluirInativos, exCliente, tributacao, grupo, cidade, uf, isLead, agruparMatriz, numero, tipoCliente, atividade, areaContratada, comBeneficio } = input
+    const { page, limit, search, sortBy, sortDir, situacao, status, incluirInativos, exCliente, tributacao, grupo, cidade, uf, isLead, agruparMatriz, numero, tipoCliente, atividade, areaContratada, comBeneficio, comServico } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
     // Filtro de matriz quando agruparMatriz=true: oculta filiais (CNPJ ordem
@@ -276,6 +276,12 @@ export class ClienteService {
       ...(atividade ? { atividades: { some: { valor: atividade } } } : {}),
       // Área contratada (pelo nome da área no relacionamento de serviços)
       ...(areaContratada ? { servicosContratados: { some: { contratado: true, area: { name: areaContratada } } } } : {}),
+      // Tem (ou não) alguma área contratada. Usa a MESMA condição do filtro de
+      // área acima — `contratado: true`, sem olhar `dataEncerramento` — para que
+      // "contratado" signifique uma coisa só nesta tela. Se um dia passar a
+      // valer a vigência, os dois mudam juntos.
+      ...(comServico === '__com__' ? { servicosContratados: { some: { contratado: true } } }
+        : comServico === '__sem__' ? { servicosContratados: { none: { contratado: true } } } : {}),
       // Benefício: qualquer / nenhum / valor específico
       ...(comBeneficio === '__com__' ? { beneficios: { some: {} } }
         : comBeneficio === '__sem__' ? { beneficios: { none: {} } }

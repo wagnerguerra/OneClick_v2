@@ -204,6 +204,7 @@ export default function ClientesPage() {
   const [filterAtividade, setFilterAtividade] = useState('')
   const [filterArea, setFilterArea] = useState('')
   const [filterBeneficio, setFilterBeneficio] = useState('')
+  const [filterServico, setFilterServico] = useState('')
   const [debouncedNumero, setDebouncedNumero] = useState('')
   const [filterOptions, setFilterOptions] = useState<{ grupos: (string | null)[]; cidades: (string | null)[]; estados: (string | null)[]; tipos: (string | null)[]; atividades: string[]; beneficios: string[]; areas: string[] }>({ grupos: [], cidades: [], estados: [], tipos: [], atividades: [], beneficios: [], areas: [] })
 
@@ -300,8 +301,9 @@ export default function ClientesPage() {
       ...(filterAtividade ? { atividade: filterAtividade } : {}),
       ...(filterArea ? { areaContratada: filterArea } : {}),
       ...(filterBeneficio ? { comBeneficio: filterBeneficio } : {}),
+      ...(filterServico ? { comServico: filterServico } : {}),
     }
-  }, [page, limit, debouncedSearch, sort, filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, debouncedNumero, filterTipo, filterAtividade, filterArea, filterBeneficio, onlyMensal, onlyExCliente])
+  }, [page, limit, debouncedSearch, sort, filterSituacao, filterStatus, filterTributacao, filterGrupo, filterCidade, filterUf, debouncedNumero, filterTipo, filterAtividade, filterArea, filterBeneficio, filterServico, onlyMensal, onlyExCliente])
 
   const fetchClientes = useCallback(async () => {
     setLoading(true)
@@ -327,7 +329,7 @@ export default function ClientesPage() {
 
   function clearFilters() {
     setFilterSituacao(''); setFilterStatus('ATIVO'); setFilterTributacao(''); setFilterGrupo(''); setFilterCidade(''); setFilterUf('')
-    setFilterNumero(''); setFilterTipo(''); setFilterAtividade(''); setFilterArea(''); setFilterBeneficio('')
+    setFilterNumero(''); setFilterTipo(''); setFilterAtividade(''); setFilterArea(''); setFilterBeneficio(''); setFilterServico('')
     setExCliente(false) // Ex-cliente volta para "Não"
     setOnlyMensal(false); localStorage.setItem('clientes_only_mensal', '0') // desliga "Somente Mensais"
     setSearch(''); setPage(1)
@@ -479,7 +481,7 @@ export default function ClientesPage() {
     return pages
   }
 
-  const hasActiveFilters = filterSituacao || (filterStatus !== 'ATIVO') || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || onlyMensal || onlyExCliente
+  const hasActiveFilters = filterSituacao || (filterStatus !== 'ATIVO') || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || filterServico || onlyMensal || onlyExCliente
 
   return (
     <div className="space-y-6">
@@ -546,7 +548,7 @@ export default function ClientesPage() {
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 Filtros
-                {hasActiveFilters && (() => { const count = [filterSituacao, (filterStatus !== 'ATIVO'), filterTributacao, filterGrupo, filterCidade, filterUf, filterNumero, filterTipo, filterAtividade, filterArea, filterBeneficio].filter(Boolean).length + (onlyMensal ? 1 : 0) + (onlyExCliente ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
+                {hasActiveFilters && (() => { const count = [filterSituacao, (filterStatus !== 'ATIVO'), filterTributacao, filterGrupo, filterCidade, filterUf, filterNumero, filterTipo, filterAtividade, filterArea, filterBeneficio, filterServico].filter(Boolean).length + (onlyMensal ? 1 : 0) + (onlyExCliente ? 1 : 0); return count > 0 ? <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-emerald-500">{count}</Badge> : null })()}
               </div>
               <button
                 type="button"
@@ -690,6 +692,20 @@ export default function ClientesPage() {
                       <SelectItem value="__com__">Com benefício (qualquer)</SelectItem>
                       <SelectItem value="__sem__">Sem benefício</SelectItem>
                       {filterOptions.beneficios.map((b) => <SelectItem key={b} value={b!}>{b}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Serviço contratado</label>
+                  {/* "Contratado" aqui é a mesma condição do filtro de Área acima
+                      (`contratado = true` em cliente_areas_contratadas), para os
+                      dois não divergirem. */}
+                  <Select value={filterServico || '__all__'} onValueChange={(v) => { setFilterServico(v === '__all__' ? '' : v); setPage(1) }}>
+                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todos</SelectItem>
+                      <SelectItem value="__com__">Com serviço contratado</SelectItem>
+                      <SelectItem value="__sem__">Sem serviço contratado</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
