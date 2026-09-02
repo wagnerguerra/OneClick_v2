@@ -173,6 +173,14 @@ interface Orcamento {
   dtFinalizado?: string | null
   dtEncerrado?: string | null
   dtCancelado?: string | null
+  /** #HLP0344 — estado da pesquisa de satisfação disparada na finalização. */
+  pesquisa?: {
+    id: string
+    enviadaEm: string | null
+    respondidaEm: string | null
+    nota: number | null
+    respondenteNome: string | null
+  } | null
   // Paralizacao
   paralizado?: boolean
   paralizadoEm?: string | null
@@ -202,6 +210,13 @@ interface Orcamento {
 // ============================================================
 
 /** Formata o documento de faturamento (CPF 11 / CNPJ 14 dígitos). */
+/** "31/08/2026 às 11:10" — o mesmo formato que a pagina ja usa nas datas. */
+function fmtDataHora(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
+
 function fmtDocFaturamento(doc: string | null | undefined): string {
   if (!doc) return '—'
   const d = doc.toUpperCase().replace(/[^0-9A-Z]/g, '') // preserva letras (CNPJ alfanumérico)
@@ -3186,6 +3201,50 @@ export default function OrcamentoDetailPage() {
             )}
             </div>
           </Card>
+
+          {/* #HLP0344 — pesquisa de satisfação.
+              A liderança está sendo cobrada a finalizar orçamentos; a prova de
+              que finalizar produz algo (a pesquisa sai para o cliente) precisa
+              estar na MESMA tela, não só num e-mail que alguém talvez leia.
+              Só aparece depois de finalizado — antes disso não há o que dizer. */}
+          {orc.status === 'FINALIZADO' && (() => {
+            const p = orc.pesquisa
+            const respondida = !!p?.respondidaEm
+            const enviada = !!p?.enviadaEm
+            const tom = respondida || enviada
+              ? { borda: 'border-emerald-200 dark:border-emerald-900', fundo: 'from-emerald-500/10 to-emerald-500/5', chip: 'bg-emerald-500 text-white', texto: 'text-emerald-700 dark:text-emerald-400' }
+              : { borda: 'border-amber-200 dark:border-amber-900', fundo: 'from-amber-500/10 to-amber-500/5', chip: 'bg-amber-500 text-white', texto: 'text-amber-700 dark:text-amber-400' }
+            return (
+              <Card className={`overflow-hidden rounded-2xl p-0 ${tom.borda}`}>
+                <div className={`flex items-center gap-2.5 border-b border-border bg-gradient-to-br ${tom.fundo} px-5 py-4`}>
+                  <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${tom.chip}`}>
+                    <Star className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Pesquisa de satisfação</p>
+                    <p className={`truncate text-base font-bold ${tom.texto}`}>
+                      {respondida ? 'Respondida pelo cliente' : enviada ? 'Enviada ao cliente' : 'Ainda não enviada'}
+                    </p>
+                  </div>
+                </div>
+                <div className="px-5 py-4 text-sm text-muted-foreground">
+                  {respondida ? (
+                    <>
+                      Respondida em <strong className="text-foreground">{fmtDataHora(p!.respondidaEm!)}</strong>
+                      {p!.respondenteNome ? <> por <strong className="text-foreground">{p!.respondenteNome}</strong></> : null}
+                      {p!.nota != null ? <> · nota <strong className="text-foreground">{p!.nota}/10</strong></> : null}.
+                    </>
+                  ) : enviada ? (
+                    <>Enviada ao e-mail do cliente em <strong className="text-foreground">{fmtDataHora(p!.enviadaEm!)}</strong>. Aguardando resposta.</>
+                  ) : p ? (
+                    <>A pesquisa foi criada, mas o e-mail não saiu — normalmente porque o cliente está sem e-mail no cadastro. Corrija o cadastro e reenvie pelo módulo de Pesquisas.</>
+                  ) : (
+                    <>Este orçamento foi finalizado antes do envio automático passar a existir, então não houve pesquisa. Dá para criar uma pelo módulo de Pesquisas.</>
+                  )}
+                </div>
+              </Card>
+            )
+          })()}
 
           {/* Datas Importantes — timeline vertical com marcadores coloridos por status.
               Cada item ocupa uma "celula" da timeline com dot + linha conectora. */}

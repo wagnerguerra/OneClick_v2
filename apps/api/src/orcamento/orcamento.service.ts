@@ -73,10 +73,30 @@ export class OrcamentoService {
     private readonly processoService: ProcessoService,
     private readonly notificationService: NotificationService,
     private readonly events: OrcamentoEventsService,
-  ) {
-    // Injetado para manter o wiring de DI (forwardRef quebra ciclo com Pesquisa);
-    // sem leitura direta hoje. Ref no-op evita erro de "declarado e não usado".
-    void this.pesquisaService
+  ) {}
+
+  /**
+   * Cria e envia a pesquisa de satisfação de um orçamento finalizado.
+   *
+   * Separado do fluxo de status para que uma falha aqui (cliente sem e-mail,
+   * SMTP fora) fique contida: a finalização já aconteceu e não deve ser
+   * revertida por causa de uma pesquisa.
+   *
+   * Cliente sem e-mail cadastrado nao e erro — a pesquisa fica criada, sem
+   * `enviadaEm`, e a tela do orcamento mostra que esta pendente de envio.
+   */
+  private async dispararPesquisaSatisfacao(orcamentoId: string, numero: number) {
+    const pesquisa = await this.pesquisaService.criarParaOrcamento(orcamentoId)
+    if (pesquisa.enviadaEm) return // ja enviada num ciclo anterior
+
+    try {
+      await this.pesquisaService.enviarPorEmail(pesquisa.id)
+      console.log(`[Orcamento] Pesquisa de satisfação do orçamento #${numero} enviada ao cliente.`)
+    } catch (e) {
+      // Fica criada e visivel na tela como "aguardando envio", para o time
+      // disparar manualmente depois de corrigir o cadastro.
+      console.warn(`[Orcamento] Pesquisa do orçamento #${numero} criada, mas não enviada: ${(e as Error).message}`)
+    }
   }
 
   /** Helper interno — emite evento SSE pra todos os clientes conectados. */
@@ -466,11 +486,21 @@ export class OrcamentoService {
 
     const podeVincularCrm = await this.podeVincularCrm(ctx?.userId, ctx?.isMaster)
 
+    // #HLP0344 — estado da pesquisa de satisfação, para a tela dizer se ela foi
+    // mesmo enviada ao cliente. Antes o time só tinha a promessa do e-mail de
+    // finalização, sem como conferir.
+    const pesquisa = await prisma.pesquisaSatisfacao.findFirst({
+      where: { orcamentoId: id },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, enviadaEm: true, respondidaEm: true, nota: true, respondenteNome: true },
+    }).catch(() => null)
+
     return {
       ...orc, arquivos, mensagens, eventos, cliente, empresa, solicitante, responsavel,
       areas,
       oportunidade: oportunidade ? { id: oportunidade.id, numero: oportunidade.numero, titulo: oportunidade.titulo, etapa: oportunidade.etapa?.nome ?? null } : null,
       podeVincularCrm,
+      pesquisa,
       decisaoCnpjFaturamento: fat[0]?.decisaoCnpjFaturamento ?? null,
       decisaoEmailFinanceiro: fat[0]?.decisaoEmailFinanceiro ?? null,
     }
@@ -1941,6 +1971,22 @@ export class OrcamentoService {
     if (novoStatus === 'FINALIZADO') {
       await this.renovarBeneficioFiscalDoOrcamento(id, orc.numero, userId)
         .catch(e => console.warn('[Orcamento] Falha ao renovar benefício fiscal:', (e as Error).message))
+
+      // #HLP0344 — dispara a pesquisa de satisfação.
+      //
+      // O e-mail de finalização já dizia ao comercial que "a pesquisa será
+      // enviada automaticamente" — e ninguém chamava `criarParaOrcamento`. Em
+      // produção eram 15 orçamentos finalizados e ZERO pesquisas. A promessa
+      // existia, o gatilho não.
+      //
+      // `isFirstTransition` evita reenvio quando o orçamento é reaberto e
+      // finalizado de novo; `criarParaOrcamento` ainda é idempotente por conta
+      // própria. Best-effort: falha de e-mail NÃO desfaz a finalização — o
+      // trabalho foi concluído de qualquer jeito.
+      if (isFirstTransition) {
+        await this.dispararPesquisaSatisfacao(id, orc.numero)
+          .catch(e => console.warn('[Orcamento] Falha ao disparar pesquisa de satisfação:', (e as Error).message))
+      }
     }
 
     // Ao ENCERRAR (cancelar) um orçamento, cancela em cascata os serviços/processos
