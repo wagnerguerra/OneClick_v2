@@ -910,7 +910,10 @@ export class ClienteService {
    */
   async getStats(isMaster?: boolean, empresaId?: string) {
     const base = empresaFilter(isMaster, empresaId)
-    const ativo = { ...base, status: 'ATIVO' as const }
+    // Todos os indicadores olham a CARTEIRA RECORRENTE: mensal e ativo. Sem
+    // esse recorte os números diluíam — "com serviço" dava 264 de 546 porque
+    // contava avulsos e potenciais, que não têm serviço mesmo.
+    const mensalAtivo = { ...base, status: 'ATIVO' as const, situacao: 'MENSAL' as never }
 
     // Janela dos "novos": 90 dias a partir de hoje, zerada no dia para a
     // contagem não mudar de hora em hora.
@@ -919,23 +922,26 @@ export class ClienteService {
     noventaDias.setDate(noventaDias.getDate() - 90)
 
     const [mensais, comServico, comBeneficio, entraram90d, sairam90d, tributacao] = await Promise.all([
-      prisma.cliente.count({ where: { ...ativo, situacao: 'MENSAL' as never } }),
-      prisma.cliente.count({ where: { ...ativo, servicosContratados: { some: { contratado: true } } } }),
+      prisma.cliente.count({ where: mensalAtivo }),
+      prisma.cliente.count({ where: { ...mensalAtivo, servicosContratados: { some: { contratado: true } } } }),
       // Benefício vive em `beneficiosFiscais` — `beneficios` é a relação antiga
       // e vazia, a mesma armadilha que derrubou o filtro da tela.
-      prisma.cliente.count({ where: { ...ativo, beneficiosFiscais: { some: {} } } }),
-      prisma.cliente.count({ where: { ...ativo, dataEntrada: { gte: noventaDias } } }),
-      // Saídas usam `base`, não `ativo`: quem saiu está INATIVO, e filtrar por
-      // ativo daria zero sempre. O que marca a saída é a data, não o status.
-      prisma.cliente.count({ where: { ...base, dataSaida: { gte: noventaDias } } }),
-      prisma.cliente.groupBy({ by: ['tributacao'], where: ativo, _count: { _all: true } }),
+      prisma.cliente.count({ where: { ...mensalAtivo, beneficiosFiscais: { some: {} } } }),
+      prisma.cliente.count({ where: { ...mensalAtivo, dataEntrada: { gte: noventaDias } } }),
+      // Saídas mantêm MENSAL mas NÃO exigem ativo: quem saiu está inativo, e
+      // cobrar `status: ATIVO` aqui zeraria o indicador. O que marca a saída é
+      // a data, não o status.
+      prisma.cliente.count({
+        where: { ...base, situacao: 'MENSAL' as never, dataSaida: { gte: noventaDias } },
+      }),
+      prisma.cliente.groupBy({ by: ['tributacao'], where: mensalAtivo, _count: { _all: true } }),
     ])
 
     return {
       mensais, comServico, comBeneficio, entraram90d, sairam90d,
-      // Regime nulo vira '__sem__' aqui: mais da metade da carteira está sem
-      // tributação preenchida, e omitir a fatia daria um gráfico que não fecha
-      // com o total de ativos.
+      // Regime nulo vira '__sem__' aqui: omitir a fatia daria um gráfico que
+      // não fecha com o total de mensais ativos, e some justamente com o dado
+      // acionável (quem está sem tributação preenchida).
       porTributacao: tributacao
         .map(t => ({ regime: t.tributacao ?? '__sem__', total: t._count._all }))
         .sort((a, b) => b.total - a.total),

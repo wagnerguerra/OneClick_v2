@@ -612,9 +612,10 @@ export default function ClientesPage() {
         </p>
       </PageHeaderBar>
 
-      {/* Indicadores — panorama da carteira. Os quatro primeiros sao atalhos de
-          filtro: o numero informa, mas clicar leva para os registros que ele
-          conta, que e o que a pessoa quer fazer em seguida. */}
+      {/* Indicadores da CARTEIRA RECORRENTE (mensais e ativos) — não da base
+          inteira. Os cards são atalhos de filtro: o número informa, mas clicar
+          leva para os registros que ele conta, que é o que a pessoa quer fazer
+          em seguida. */}
       {stats && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
           {([
@@ -694,7 +695,7 @@ export default function ClientesPage() {
                 <>
                   <div className="flex items-baseline justify-between">
                     <span className="text-[11px] font-medium text-muted-foreground">Por tributação</span>
-                    <span className="text-[11px] tabular-nums text-muted-foreground">{total.toLocaleString('pt-BR')} ativos</span>
+                    <span className="text-[11px] tabular-nums text-muted-foreground">{total.toLocaleString('pt-BR')} mensais</span>
                   </div>
                   <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-muted">
                     {stats.porTributacao.map(t => (
