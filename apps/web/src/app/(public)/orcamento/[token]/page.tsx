@@ -88,6 +88,15 @@ export default function PublicOrcamentoPage() {
   const [emailFinanceiro, setEmailFinanceiro] = useState('')
   const [observacao, setObservacao] = useState('')
   const [enviando, setEnviando] = useState(false)
+
+  // #HLP0375 — espelha a regra do servidor: aprovando, documento (11 ou 14) e
+  // e-mail valido sao obrigatorios. Aqui e so para o botao nao deixar tentar
+  // e explicar o que falta; a exigencia de verdade esta no backend, porque o
+  // link e publico e a chamada pode nem passar por esta tela.
+  const docFaturamento = cnpjFaturamento.toUpperCase().replace(/[^0-9A-Z]/g, '')
+  const docFaturamentoOk = docFaturamento.length === 11 || docFaturamento.length === 14
+  const emailFinanceiroOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailFinanceiro.trim())
+  const faturamentoOk = decisaoModal !== 'APROVADO' || (docFaturamentoOk && emailFinanceiroOk)
   const [confirmacao, setConfirmacao] = useState<{ tipo: string; mensagem: string } | null>(null)
 
   useEffect(() => {
@@ -420,7 +429,7 @@ export default function PublicOrcamentoPage() {
               {decisaoModal === 'APROVADO' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium block mb-1">CPF / CNPJ para faturamento</label>
+                    <label className="text-xs font-medium block mb-1">CPF / CNPJ para faturamento <span className="text-rose-500">*</span></label>
                     <input
                       type="text"
                       value={cnpjFaturamento}
@@ -430,7 +439,7 @@ export default function PublicOrcamentoPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium block mb-1">E-mail do financeiro para faturamento</label>
+                    <label className="text-xs font-medium block mb-1">E-mail do financeiro para faturamento <span className="text-rose-500">*</span></label>
                     <input
                       type="email"
                       value={emailFinanceiro}
@@ -439,6 +448,15 @@ export default function PublicOrcamentoPage() {
                       placeholder="financeiro@empresa.com.br"
                     />
                   </div>
+                  {!faturamentoOk && (
+                    <p className="sm:col-span-2 text-[11px] text-amber-600 dark:text-amber-400">
+                      {!docFaturamento
+                        ? 'Informe o CPF ou CNPJ que deve constar na nota, e o e-mail para onde enviamos a cobrança.'
+                        : !docFaturamentoOk
+                          ? 'O documento precisa ter 11 dígitos (CPF) ou 14 (CNPJ).'
+                          : 'Informe um e-mail válido para o envio da cobrança.'}
+                    </p>
+                  )}
                 </div>
               )}
               <div>
@@ -462,7 +480,7 @@ export default function PublicOrcamentoPage() {
               </button>
               <button
                 onClick={handleDecisao}
-                disabled={enviando || !nome.trim()}
+                disabled={enviando || !nome.trim() || !faturamentoOk}
                 className={`px-4 py-2 text-sm text-white rounded-md font-semibold disabled:opacity-50 ${decisaoModal === 'APROVADO' ? 'bg-emerald-500 hover:bg-emerald-600' : decisaoModal === 'REVISAO_SOLICITADA' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-rose-500 hover:bg-rose-600'}`}
               >
                 {enviando ? <Loader2 className="h-4 w-4 animate-spin inline" /> : 'Confirmar'}

@@ -3344,6 +3344,27 @@ export class OrcamentoService {
 
     const isAprovado = decisao.tipo === 'APROVADO'
     const isRevisao = decisao.tipo === 'REVISAO_SOLICITADA'
+
+    // #HLP0375 — aprovar sem dizer PARA QUEM faturar e para onde mandar a
+    // cobranca gera retrabalho: alguem precisa correr atras do cliente depois
+    // do aceite. Na aprovacao os dois campos passam a ser obrigatorios.
+    //
+    // A regra vive AQUI, e nao so no modal: o link e publico e a chamada pode
+    // vir de fora da tela. Recusa e pedido de revisao seguem sem exigir nada —
+    // quem recusa nao tem por que informar dado de faturamento.
+    let cnpjFaturamento: string | null = null
+    let emailFinanceiro: string | null = null
+    if (isAprovado) {
+      cnpjFaturamento = decisao.cnpjFaturamento ? limparCnpj(decisao.cnpjFaturamento) : ''
+      // 11 = CPF, 14 = CNPJ. `limparCnpj` preserva letras (CNPJ alfanumerico).
+      if (cnpjFaturamento.length !== 11 && cnpjFaturamento.length !== 14) {
+        throw new Error('Informe o CPF (11 dígitos) ou o CNPJ (14) para faturamento.')
+      }
+      emailFinanceiro = decisao.emailFinanceiro?.trim() ?? ''
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailFinanceiro)) {
+        throw new Error('Informe um e-mail válido do financeiro para o envio da cobrança.')
+      }
+    }
     // Aprovado → APROVADO; Recusado → ENCERRADO; Revisão NÃO encerra (o time
     // revisa e reenvia) — mantém o status atual.
     const novoStatus = isAprovado ? 'APROVADO' : isRevisao ? orc.status : 'ENCERRADO'
@@ -3356,19 +3377,14 @@ export class OrcamentoService {
         decisaoNome: decisao.nome,
         decisaoCpf: decisao.cpf || null,
         decisaoObs: decisao.observacao || null,
+        decisaoCnpjFaturamento: cnpjFaturamento,
+        decisaoEmailFinanceiro: emailFinanceiro,
         status: novoStatus as any,
         // Marca a data só nos estados terminais (a revisão não tem marco de data).
         ...(isAprovado ? { dtAprovado: new Date() } : {}),
         ...(decisao.tipo === 'RECUSADO' ? { dtEncerrado: new Date() } : {}),
       },
     })
-    // Dados de faturamento (colunas novas — via raw enquanto o client não regenera).
-    await prisma.$executeRawUnsafe(
-      `UPDATE orcamentos SET decisao_cnpj_faturamento = $1, decisao_email_financeiro = $2 WHERE token = $3`,
-      decisao.cnpjFaturamento ? limparCnpj(decisao.cnpjFaturamento) : null, // preserva letras (CNPJ alfanumérico)
-      decisao.emailFinanceiro?.trim() || null,
-      token,
-    ).catch((e) => console.warn('[Orcamento] Falha ao gravar dados de faturamento:', (e as Error).message))
     // Registra o status_change na timeline (decisão do cliente pelo link).
     await this.addEvento(
       orc.id, null, 'status_change', orc.status, novoStatus,
