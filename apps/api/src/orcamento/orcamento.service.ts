@@ -60,7 +60,7 @@ const STATUS_DATE_FIELD: Record<string, string> = {
 }
 
 /** O mínimo que a checagem de permissão precisa saber sobre quem chamou. */
-type CtxPermissao = { userId?: string | null; isMaster?: boolean; isEmpresaMaster?: boolean }
+type CtxPermissao = { userId?: string | null; isMaster?: boolean; isEmpresaMaster?: boolean; empresaId?: string | null }
 
 @Injectable()
 export class OrcamentoService {
@@ -3438,6 +3438,14 @@ export class OrcamentoService {
       // não tem usuário para consultar. Aí a regra não se aplica: ela existe
       // para orientar quem monta o orçamento na tela.
       if (!ctx?.userId) return
+
+      // #HLP0374 — a exigência pode ser desligada nas configurações de
+      // orçamentos. A leitura fica AQUI, e não no topo do método, para não
+      // custar uma consulta em todo item incluído: só quem chegaria a ser
+      // barrado paga por ela.
+      const cfg = await this.getConfig(ctx.empresaId ?? undefined).catch(() => null)
+      if (cfg && !cfg.exigirSubservico) return
+
       const liberado = ctx.isMaster || ctx.isEmpresaMaster
         || await hasSubPermission(ctx.userId, 'orcamentos', 'item_sem_subservico')
       if (liberado) return
@@ -4967,6 +4975,11 @@ export class OrcamentoService {
       // geral fica bloqueado e só o por-item vale. Desmarcada = os dois somam.
       // Default '1' (travado por padrão, conforme decisão do Wagner).
       apenasDescontoItem: (config.apenas_desconto_item ?? '1') === '1',
+      // #HLP0374 — "Exigir subserviço ao incluir item". Marcada (padrão) = quem
+      // não tem a permissão de exceção precisa escolher o subserviço. Desmarcada
+      // = a exigência não vale para ninguém. Default '1' preserva o que existe
+      // hoje, para nenhuma empresa mudar de comportamento no deploy.
+      exigirSubservico: (config.exigir_subservico ?? '1') === '1',
     }
   }
 
