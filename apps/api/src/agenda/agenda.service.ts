@@ -6,6 +6,8 @@ import { EmailService } from '../common/email.service'
 import { NotificationService } from '../notification/notification.service'
 import { AgendaConfigService } from './agenda-config.service'
 import { dataBrKey, horaBrKey } from './data-br.util'
+import { aplicarAjusteVencimento, proximoDiaUtil } from '../notificacao/feriados-br'
+import { carregarDiasNaoUteis, anosEntre } from '../common/dias-nao-uteis'
 
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -74,6 +76,7 @@ interface CreateEventoInput {
   participantesAvulsos?: string[]
   recorrencia?: 'NENHUMA' | 'DIARIA' | 'SEMANAL' | 'MENSAL' | 'ANUAL'
   recorrenciaVezes?: number | null
+  ajusteDiaUtil?: 'MANTER' | 'ANTECIPAR' | 'POSTERGAR'
   notificar?: boolean
 }
 
@@ -1011,13 +1014,71 @@ export class AgendaService {
     return { ok: true }
   }
 
+  /**
+   * Datas de uma serie recorrente, ja tratando fim de semana e feriado.
+   *
+   * Duas semanticas diferentes, porque uma so nao serve para os dois casos:
+   *
+   * - DIARIA com dia util: PULA o dia nao util e segue contando. "20 sessoes de
+   *   fisioterapia" sao 20 atendimentos, nao 20 dias corridos dos quais 6 caem
+   *   no fim de semana. Ajustar aqui seria pior que nao fazer nada: sabado,
+   *   domingo e segunda viravam tres eventos empilhados na mesma segunda.
+   *
+   * - SEMANAL/MENSAL/ANUAL com dia util: ANTECIPA ou POSTERGA a data teorica.
+   *   A data tem significado proprio ("todo dia 01"), entao ela e preservada e
+   *   so desloca quando cai em dia nao util — que e o caso do "primeiro dia
+   *   util do mes".
+   *
+   * Os feriados sao carregados UMA vez para a janela inteira da serie;
+   * consultar por ocorrencia seria N consultas para o mesmo resultado.
+   */
+  private async gerarDatasDaSerie(
+    baseDate: Date,
+    rec: 'NENHUMA' | 'DIARIA' | 'SEMANAL' | 'MENSAL' | 'ANUAL',
+    vezes: number,
+    ajuste: 'MANTER' | 'ANTECIPAR' | 'POSTERGAR',
+  ): Promise<Date[]> {
+    const dataTeorica = (i: number): Date => {
+      switch (rec) {
+        case 'DIARIA': return addDays(baseDate, i)
+        case 'SEMANAL': return addDays(baseDate, i * 7)
+        case 'MENSAL': return addMonths(baseDate, i)
+        case 'ANUAL': return addYears(baseDate, i)
+        default: return baseDate
+      }
+    }
+
+    const n = Math.max(1, vezes)
+    if (ajuste === 'MANTER' || rec === 'NENHUMA') {
+      return Array.from({ length: n }, (_, i) => dataTeorica(i))
+    }
+
+    // Janela de feriados: ate a ultima data teorica. No DIARIA sobra folga
+    // porque os pulos empurram a serie para frente (feriadao longo).
+    const fim = rec === 'DIARIA' ? addDays(baseDate, n * 2 + 30) : dataTeorica(n)
+    const extras = await carregarDiasNaoUteis(anosEntre(baseDate, fim))
+
+    if (rec === 'DIARIA') {
+      const datas: Date[] = []
+      let cursor = new Date(baseDate)
+      for (let i = 0; i < n; i++) {
+        cursor = proximoDiaUtil(cursor, extras)
+        datas.push(new Date(cursor))
+        cursor = addDays(cursor, 1)
+      }
+      return datas
+    }
+
+    return Array.from({ length: n }, (_, i) => aplicarAjusteVencimento(dataTeorica(i), ajuste, extras))
+  }
+
   async create(input: CreateEventoInput, userId: string, ctxEmpresaId: string | null = null) {
     const {
       titulo, descricao, data, dataFim, horaInicio, horaFim, diaInteiro,
       local, contato, link, presenca, particular, editavel,
       sala, salaId, garagem, vagas, equipamentos, arrumarSala, isTarefa,
       tipoId, oportunidadeId, oportunidadeIds, participanteIds, participantesAvulsos,
-      recorrencia, recorrenciaVezes, notificar,
+      recorrencia, recorrenciaVezes, ajusteDiaUtil, notificar,
     } = input
 
     // Cards do CRM: aceita lista (novo) ou o campo único legado. 1º = principal.
@@ -1057,25 +1118,10 @@ export class AgendaService {
 
     const createdEvents: Awaited<ReturnType<typeof prisma.agendaEvento.create>>[] = []
 
-    for (let i = 0; i < (isRecurrent ? vezes : 1); i++) {
-      let eventDate: Date
+    const ajuste = ajusteDiaUtil || 'MANTER'
+    const datas = await this.gerarDatasDaSerie(baseDate, rec, isRecurrent ? vezes : 1, ajuste)
 
-      switch (rec) {
-        case 'DIARIA':
-          eventDate = addDays(baseDate, i)
-          break
-        case 'SEMANAL':
-          eventDate = addDays(baseDate, i * 7)
-          break
-        case 'MENSAL':
-          eventDate = addMonths(baseDate, i)
-          break
-        case 'ANUAL':
-          eventDate = addYears(baseDate, i)
-          break
-        default:
-          eventDate = baseDate
-      }
+    for (const eventDate of datas) {
 
       const evento = await prisma.agendaEvento.create({
         data: {
@@ -1106,6 +1152,7 @@ export class AgendaService {
           oportunidadeId: principalOpp,
           recorrencia: rec as never,
           recorrenciaVezes: isRecurrent ? vezes : null,
+          ajusteDiaUtil: ajuste,
           lote,
         },
       })

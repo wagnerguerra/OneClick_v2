@@ -130,6 +130,17 @@ export const FAQ_ARTIGOS: FaqArtigo[] = [
 
   // ─── Fiscal ──────────────────────────────────────────────────
   {
+    slug: 'reforma-tributaria',
+    titulo: 'Reforma Tributária: simulador de IBS/CBS por cliente',
+    descricao: 'Simular a carga do IVA Dual com os números reais do cliente, comparar regimes, ver a transição 2026–2033 e enviar o resumo em PDF ou WhatsApp.',
+    modulo: 'Reforma Tributária',
+    moduloColor: '#0369a1',
+    icon: Calculator,
+    categoria: 'Fiscal',
+    disponivel: true,
+    tags: ['reforma tributária', 'iva dual', 'cbs', 'ibs', 'simulador', 'balancete', 'crédito', 'transição', 'ec 132'],
+  },
+  {
     slug: 'caixapostal-ecac',
     titulo: 'Caixa Postal e-CAC: agendamento, leitura e alertas',
     descricao: 'Configurar consulta automática, ler mensagens, marcar importantes e receber alertas P0/P1.',

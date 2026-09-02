@@ -133,6 +133,47 @@ export function CasoPratico({ titulo, descricao }: { titulo: string; descricao: 
   )
 }
 
+/**
+ * Figura de apoio: um quadro de tela com legenda.
+ *
+ * Aceita `src` (captura real, em `public/materiais/faq/...`) ou `children` (uma
+ * reproducao desenhada em codigo, para quando a tela ainda nao existe).
+ *
+ * As capturas sao tiradas com os dados sensiveis JA borrados na propria pagina,
+ * antes do print — razao social, CNPJ e valores em reais. Rotulos, colunas e
+ * aliquotas ficam nitidos, que e o que ensina o usuario. O FAQ e comum a todas
+ * as empresas da instalacao e nao tem permissao propria, entao nenhuma captura
+ * pode sair daqui com o faturamento de um cliente legivel.
+ */
+export function Figura({ rota, legenda, src, alt, children }: {
+  rota?: string
+  legenda: ReactNode
+  /** Captura real da tela (em `public/materiais/faq/...`). */
+  src?: string
+  alt?: string
+  children?: ReactNode
+}) {
+  return (
+    <figure className="my-3 space-y-1.5">
+      <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+        <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-1.5">
+          <div className="flex gap-1 shrink-0">
+            <span className="h-2 w-2 rounded-full bg-rose-400/70" />
+            <span className="h-2 w-2 rounded-full bg-amber-400/70" />
+            <span className="h-2 w-2 rounded-full bg-emerald-400/70" />
+          </div>
+          {rota && <span className="truncate font-mono text-[10px] text-muted-foreground">{rota}</span>}
+        </div>
+        {/* Figura larga rola dentro do proprio quadro; a pagina nunca rola de lado. */}
+        {src
+          ? <img src={src} alt={alt ?? ''} className="block w-full" loading="lazy" />
+          : <div className="overflow-x-auto nice-scrollbar p-3.5">{children}</div>}
+      </div>
+      <figcaption className="text-[11px] leading-relaxed text-muted-foreground">{legenda}</figcaption>
+    </figure>
+  )
+}
+
 export function QuickLink({ href, label, cor = '#8b5cf6' }: { href: string; label: string; cor?: string }) {
   return (
     <Link

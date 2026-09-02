@@ -9,13 +9,13 @@
  * calculadora — não há uma segunda cópia da conta em lugar nenhum.
  */
 
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend, LabelList,
 } from 'recharts'
-import { Info, TrendingDown, TrendingUp, HelpCircle } from 'lucide-react'
-import { Card, Input, Label, Badge, cn } from '@saas/ui'
+import { Info, TrendingDown, TrendingUp, HelpCircle, ListTree, Download, Share2 } from 'lucide-react'
+import { Button, Card, Input, Label, Badge, cn } from '@saas/ui'
 import {
   type Parametros, type Regime, type Atividade, type Operacao,
   ROTULO_REGIME, ROTULO_ATIVIDADE, ehServico, temIpi,
@@ -46,12 +46,57 @@ const COR_NEUTRA = '#cbd5e1'
 
 const REGIMES: Regime[] = ['LUCRO_REAL', 'LUCRO_PRESUMIDO', 'SIMPLES']
 
+/** Uma conta do balancete que entra na base de crédito. */
+export interface ItemComposicao {
+  conta: string
+  nomeConta: string
+  categoria: 'CREDITAVEL' | 'NAO_CREDITAVEL' | 'REVISAR'
+  /** Valor no período de 12 meses, como o diagnóstico devolve. */
+  valor: number
+  motivo: string
+}
+
 function Titulo({ eyebrow, titulo, descricao }: { eyebrow: string; titulo: string; descricao: string }) {
   return (
     <div className="mb-5">
       <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: COR_IVA }}>{eyebrow}</p>
       <h2 className="mt-0.5 text-xl font-bold tracking-tight text-foreground">{titulo}</h2>
       <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{descricao}</p>
+    </div>
+  )
+}
+
+/**
+ * Campo de dinheiro em pt-BR.
+ *
+ * O estado continua sendo NÚMERO; a máscara é só apresentação. Digitar move da
+ * direita para a esquerda, como em caixa registradora: cada tecla é um centavo
+ * a mais. Um `<input type="number">` mostrava "1500000" e obrigava a pessoa a
+ * contar as casas para saber se era um milhão e meio ou quinze milhões.
+ */
+function CampoMoeda({ label, valor, onChange, className }: {
+  label?: string; valor: number; onChange: (v: number) => void; className?: string
+}) {
+  const texto = (valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return (
+    <div>
+      {label && <Label className="text-[13px] font-semibold">{label}</Label>}
+      <div className={cn('relative', label && 'mt-1.5')}>
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: COR_IVA }}>R$</span>
+        <input
+          inputMode="numeric"
+          value={texto}
+          onChange={(e) => {
+            const digitos = e.target.value.replace(/\D/g, '')
+            onChange(digitos ? Number(digitos) / 100 : 0)
+          }}
+          className={cn(
+            'h-10 w-full rounded-md border border-border bg-card pl-10 pr-3 text-right text-sm tabular-nums text-foreground',
+            'focus:outline-none focus:ring-2 focus:ring-ring/40',
+            className,
+          )}
+        />
+      </div>
     </div>
   )
 }
@@ -78,11 +123,14 @@ function CampoPercentual({ label, valor, onChange, disabled }: {
 // ══════════════════════════════════════════════════════════════════
 // 1. CONFIGURAR
 // ══════════════════════════════════════════════════════════════════
-export function SecaoConfigurar({ p, onChange, origem }: {
+export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirComposicao }: {
   p: Parametros
   onChange: (patch: Partial<Parametros>) => void
   /** De onde veio o faturamento sugerido. */
-  origem?: 'contrato' | 'erp' | 'nenhuma'
+  origem?: 'balancete' | 'contrato' | 'erp' | 'nenhuma'
+  /** Contas do balancete que somam as despesas creditáveis. */
+  composicao?: ItemComposicao[]
+  onAbrirComposicao?: () => void
 }) {
   const totalIva = p.cbs + p.ibs
   const servico = ehServico(p.atividade)
@@ -125,46 +173,54 @@ export function SecaoConfigurar({ p, onChange, origem }: {
             </select>
           </div>
           <div>
-            <Label className="text-[13px] font-semibold">Faturamento mensal</Label>
-            <div className="relative mt-1.5">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: COR_IVA }}>R$</span>
-              <Input
-                type="number" min="0" step="1000"
-                value={p.faturamentoMensal}
-                onChange={(e) => onChange({ faturamentoMensal: Number(e.target.value) })}
-                className="h-10 pl-10 text-sm tabular-nums"
-              />
-            </div>
+            <CampoMoeda
+              label="Faturamento mensal"
+              valor={p.faturamentoMensal}
+              onChange={(v) => onChange({ faturamentoMensal: v })}
+            />
             {/* A procedência do número fica à vista: apresentar faturamento sem
                 saber de onde saiu é o jeito mais rápido de perder a conversa. */}
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {origem === 'contrato'
-                ? 'Do parâmetro de contrato (consulta ao SCI).'
-                : origem === 'erp'
-                  ? 'Média dos últimos 12 meses de snapshot do ERP.'
-                  : 'Sem faturamento no cadastro — informe o valor.'}
+              {origem === 'balancete'
+                ? 'Das contas de receita do balancete importado.'
+                : origem === 'contrato'
+                  ? 'Do parâmetro de contrato (consulta ao SCI).'
+                  : origem === 'erp'
+                    ? 'Média dos últimos 12 meses de snapshot do ERP.'
+                    : 'Sem faturamento no cadastro — informe o valor.'}
             </p>
           </div>
         </div>
 
         <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/30 p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Despesas mensais creditáveis
               </p>
-              <p className="mt-0.5 text-xl font-bold tabular-nums text-foreground">{reais(p.despesasCreditaveis)}</p>
+              {/* Clicável quando há composição: o valor sozinho não diz de onde
+                  veio, e quem apresenta precisa poder abrir a conta. */}
+              {composicao && composicao.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={onAbrirComposicao}
+                  className="mt-0.5 flex items-center gap-1.5 text-xl font-bold tabular-nums text-foreground underline-offset-4 hover:underline"
+                  title="Ver as contas que somam este valor"
+                >
+                  {reais(p.despesasCreditaveis)}
+                  <ListTree className="h-4 w-4 text-muted-foreground" />
+                </button>
+              ) : (
+                <p className="mt-0.5 text-xl font-bold tabular-nums text-foreground">{reais(p.despesasCreditaveis)}</p>
+              )}
               <p className="text-[11px] text-muted-foreground">
-                É sobre elas que o IVA devolve crédito — o traço que mais muda em relação ao sistema atual.
+                {composicao && composicao.length > 0
+                  ? `Soma de ${composicao.length} conta(s) do balancete — clique para ver.`
+                  : 'É sobre elas que o IVA devolve crédito — o traço que mais muda em relação ao sistema atual.'}
               </p>
             </div>
             <div className="w-[200px]">
-              <Input
-                type="number" min="0" step="1000"
-                value={p.despesasCreditaveis}
-                onChange={(e) => onChange({ despesasCreditaveis: Number(e.target.value) })}
-                className="h-9 text-sm tabular-nums"
-              />
+              <CampoMoeda valor={p.despesasCreditaveis} onChange={(v) => onChange({ despesasCreditaveis: v })} className="h-9" />
             </div>
           </div>
         </div>
@@ -529,6 +585,38 @@ export function SecaoTransicao({ p, onChange }: {
   )
 }
 
+/**
+ * CSS da folha do resumo. Vai para dentro de um iframe na hora de imprimir,
+ * onde não existem as variáveis de tema — por isso as cores são literais.
+ */
+const CSS_FOLHA = `
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #0f172a; }
+  .rt-doc { max-width: 820px; margin: 0 auto; font-size: 10.5pt; line-height: 1.45; }
+  .rt-doc h1 { margin: 0; font-size: 16pt; }
+  .rt-doc .sub { margin: 4px 0 0; color: #475569; font-size: 9.5pt; }
+  .rt-doc .chips { margin: 10px 0 0; color: #475569; font-size: 9pt; }
+  .rt-doc .kpis { display: flex; gap: 10px; margin: 18px 0 0; }
+  .rt-doc .kpi { flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; }
+  .rt-doc .kpi p { margin: 0; }
+  .rt-doc .kpi .r { font-size: 7.5pt; text-transform: uppercase; letter-spacing: .06em; color: #64748b; }
+  .rt-doc .kpi .v { margin-top: 2px; font-size: 12pt; font-weight: 700; }
+  .rt-doc .destaque { margin: 14px 0 0; border: 1px solid #bbf7d0; background: #f0fdf4;
+                      border-radius: 8px; padding: 10px 12px; display: flex;
+                      justify-content: space-between; font-weight: 700; }
+  .rt-doc h2 { margin: 22px 0 8px; font-size: 11pt; }
+  .rt-doc table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  .rt-doc th { background: #0f172a; color: #fff; padding: 6px 8px; text-align: right;
+               font-size: 8pt; text-transform: uppercase; letter-spacing: .04em; }
+  .rt-doc th:first-child { text-align: left; }
+  .rt-doc td { padding: 5px 8px; text-align: right; border-bottom: 1px solid #e2e8f0; }
+  .rt-doc td:first-child { text-align: left; }
+  .rt-doc tr.forte td { font-weight: 700; background: #f8fafc; }
+  .rt-doc .rodape { margin-top: 26px; border-top: 1px solid #e2e8f0; padding-top: 8px;
+                    font-size: 8pt; color: #64748b; }
+  @page { size: A4; margin: 14mm 12mm; }
+`
+
 // ══════════════════════════════════════════════════════════════════
 // 4. VISÃO GERAL
 // ══════════════════════════════════════════════════════════════════
@@ -543,6 +631,59 @@ export function SecaoVisaoGeral({ p, cliente }: {
   const economiaAnual = -diferenca * 12
   const alivio = diferenca < 0
 
+  const anos = useMemo(() => calcularTransicao(p), [p])
+  const folhaRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * Imprime o resumo por um iframe — o mesmo caminho do comprovante de
+   * protocolo. Não é geração de PDF no servidor: quem salva é o navegador, na
+   * opção "Salvar como PDF" da própria caixa de impressão. Para um documento de
+   * conversa isso basta, e evita subir uma rota que renderiza HTML no backend só
+   * para carimbar um arquivo.
+   */
+  function baixarPdf() {
+    const doc = folhaRef.current
+    if (!doc) return
+    const frame = document.createElement('iframe')
+    frame.setAttribute('aria-hidden', 'true')
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;'
+    document.body.appendChild(frame)
+    const w = frame.contentWindow
+    if (!w) { frame.remove(); return }
+    w.document.open()
+    w.document.write(
+      `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">`
+      + `<title>Reforma tributária — ${cliente?.razaoSocial ?? 'simulação'}</title>`
+      + `<style>${CSS_FOLHA}</style></head><body>${doc.innerHTML}</body></html>`,
+    )
+    w.document.close()
+    setTimeout(() => { w.focus(); w.print(); setTimeout(() => frame.remove(), 1500) }, 250)
+  }
+
+  /**
+   * Abre o WhatsApp com o resumo em texto. Sem número de destino: quem envia
+   * escolhe o contato na hora — mandar direto para o telefone do cadastro seria
+   * disparar mensagem em nome de alguém sem confirmação.
+   */
+  function compartilhar() {
+    const linhas = [
+      `*Simulação — Reforma Tributária*`,
+      cliente?.razaoSocial ? `Empresa: ${cliente.razaoSocial}` : null,
+      `Regime atual: ${ROTULO_REGIME[p.regime]} · ${ROTULO_ATIVIDADE[p.atividade]}`,
+      `Faturamento mensal: ${reais(p.faturamentoMensal)}`,
+      '',
+      `Imposto hoje (efetivo): ${reais(atual.totalEfetivo)}/mês — ${porcento(atual.aliquotaEfetiva)}`,
+      `Pós-reforma (IBS+CBS): ${reais(iva.totalEfetivo)}/mês — ${porcento(iva.aliquotaEfetiva)}`,
+      `Diferença: ${diferenca < 0 ? '-' : '+'}${reais(Math.abs(diferenca))}/mês (${porcento(variacao)})`,
+      `${diferenca < 0 ? 'Economia' : 'Custo adicional'} anual estimado: ${reais(Math.abs(economiaAnual))}`,
+      '',
+      'Estimativa pedagógica, com alíquota de referência de '
+        + `${porcento(p.cbs + p.ibs)} (CBS ${porcento(p.cbs)} + IBS ${porcento(p.ibs)}). `
+        + 'Não substitui consultoria tributária.',
+    ].filter(Boolean).join('\n')
+    window.open(`https://wa.me/?text=${encodeURIComponent(linhas)}`, '_blank', 'noopener')
+  }
+
   const antesDepois = [
     { nome: 'Hoje', valor: atual.totalEfetivo },
     { nome: 'Pós-reforma', valor: iva.totalEfetivo },
@@ -552,11 +693,13 @@ export function SecaoVisaoGeral({ p, cliente }: {
     { nome: 'IVA', valor: iva.aliquotaEfetiva, atual: false },
   ]
 
-  /** CNPJ parcialmente oculto — o resumo costuma ser mostrado em tela cheia. */
-  const cnpjMascarado = (() => {
+  /** CNPJ por extenso. Era mascarado, mas quem vê esta tela é a equipe e o
+   *  próprio cliente — esconder o documento dele não protegia ninguém e ainda
+   *  obrigava a conferir o número em outro lugar. */
+  const cnpj = (() => {
     const d = (cliente?.documento ?? '').replace(/\D/g, '')
     if (d.length !== 14) return null
-    return `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-**`
+    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`
   })()
 
   return (
@@ -565,7 +708,11 @@ export function SecaoVisaoGeral({ p, cliente }: {
         className="mb-5 overflow-hidden rounded-2xl px-7 py-8 text-white"
         style={{ background: `linear-gradient(120deg, ${COR_ATUAL} 0%, #0d3b47 60%, #0e5568 100%)` }}
       >
-        <h2 className="max-w-3xl text-2xl font-bold leading-snug tracking-tight">
+        {/* `text-white` explícito: o global de tipografia define
+            `h1,h2,h3 { color: var(--color-foreground) }`, que vence a herança do
+            container. No modo claro isso pintava o título de preto sobre a capa
+            escura, e ele sumia. */}
+        <h2 className="max-w-3xl text-2xl font-bold leading-snug tracking-tight text-white">
           O impacto da reforma em {cliente ? <>uma empresa de {ROTULO_ATIVIDADE[p.atividade].toLowerCase()}</> : 'uma empresa'}
         </h2>
         <p className="mt-2 max-w-2xl text-sm text-white/75">
@@ -575,7 +722,7 @@ export function SecaoVisaoGeral({ p, cliente }: {
         <div className="mt-5 flex flex-wrap gap-2">
           {[
             cliente?.razaoSocial,
-            cnpjMascarado ? `CNPJ ${cnpjMascarado}` : null,
+            cnpj ? `CNPJ ${cnpj}` : null,
             cliente?.cnaePrincipal ? `CNAE ${cliente.cnaePrincipal}` : null,
             cliente?.cidade && cliente?.uf ? `${cliente.cidade} · ${cliente.uf}` : null,
             ROTULO_REGIME[p.regime],
@@ -622,6 +769,22 @@ export function SecaoVisaoGeral({ p, cliente }: {
         </span>
       </div>
 
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" className="gap-2" onClick={baixarPdf}>
+          <Download className="h-4 w-4" />Baixar resultados em PDF
+        </Button>
+        <Button
+          type="button" className="gap-2 text-white"
+          style={{ background: '#25D366' }}
+          onClick={compartilhar}
+        >
+          <Share2 className="h-4 w-4" />Compartilhar no WhatsApp
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          Envie o resumo da simulação para o cliente ou para a equipe.
+        </span>
+      </div>
+
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="p-4">
           <p className="mb-3 text-[13px] font-semibold">Antes × depois <span className="font-normal text-muted-foreground">· imposto mensal</span></p>
@@ -659,6 +822,96 @@ export function SecaoVisaoGeral({ p, cliente }: {
             </BarChart>
           </ResponsiveContainer>
         </Card>
+      </div>
+
+      {/* A folha do PDF. Fica fora da tela em vez de `display:none` porque o
+          conteúdo precisa existir para ser copiado — e leva os NÚMEROS, não os
+          gráficos: SVG do Recharts depende de medida do container, e um gráfico
+          gerado fora da vista sai torto no papel. */}
+      <div ref={folhaRef} aria-hidden className="pointer-events-none fixed left-[-10000px] top-0 w-[820px]">
+        <div className="rt-doc">
+          <h1>Reforma tributária — impacto estimado</h1>
+          <p className="sub">
+            Comparação entre a carga de hoje e o novo regime (IBS + CBS), a partir dos dados da simulação.
+          </p>
+          <p className="chips">
+            {[
+              cliente?.razaoSocial,
+              ROTULO_REGIME[p.regime],
+              ROTULO_ATIVIDADE[p.atividade],
+              `Faturamento mensal ${reais(p.faturamentoMensal)}`,
+              `Emitido em ${new Date().toLocaleDateString('pt-BR')}`,
+            ].filter(Boolean).join('  ·  ')}
+          </p>
+
+          <div className="kpis">
+            <div className="kpi"><p className="r">Imposto hoje</p><p className="v">{reais(atual.totalEfetivo)}</p></div>
+            <div className="kpi"><p className="r">Pós-reforma</p><p className="v">{reais(iva.totalEfetivo)}</p></div>
+            <div className="kpi"><p className="r">Diferença mensal</p><p className="v">{diferenca < 0 ? '−' : '+'}{reais(Math.abs(diferenca))}</p></div>
+            <div className="kpi"><p className="r">Variação</p><p className="v">{porcento(variacao)}</p></div>
+          </div>
+
+          <div className="destaque">
+            <span>{alivio ? 'Economia anual estimada' : 'Custo adicional anual estimado'}</span>
+            <span>{reais(Math.abs(economiaAnual))}</span>
+          </div>
+
+          <h2>Comparativo de regimes — carga mensal</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Regime</th><th>Total nominal</th><th>Total efetivo</th>
+                <th>Alíquota nominal</th><th>Alíquota efetiva</th>
+              </tr>
+            </thead>
+            <tbody>
+              {REGIMES.map(r => {
+                const l = calcularRegime(p, r)
+                return (
+                  <tr key={r} className={r === p.regime ? 'forte' : undefined}>
+                    <td>{ROTULO_REGIME[r]}{r === p.regime ? ' (atual)' : ''}</td>
+                    <td>{reais(l.totalNominal)}</td>
+                    <td>{reais(l.totalEfetivo)}</td>
+                    <td>{porcento(l.aliquotaNominal)}</td>
+                    <td>{porcento(l.aliquotaEfetiva)}</td>
+                  </tr>
+                )
+              })}
+              <tr className="forte">
+                <td>IVA — CBS + IBS</td>
+                <td>{reais(iva.totalNominal)}</td>
+                <td>{reais(iva.totalEfetivo)}</td>
+                <td>{porcento(iva.aliquotaNominal)}</td>
+                <td>{porcento(iva.aliquotaEfetiva)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>Transição 2026–2033 — valores anuais</h2>
+          <table>
+            <thead>
+              <tr><th>Ano</th><th>Sistema antigo</th><th>IBS</th><th>CBS</th><th>Total</th><th>vs hoje</th></tr>
+            </thead>
+            <tbody>
+              {anos.map(a => (
+                <tr key={a.ano}>
+                  <td>{a.ano}</td>
+                  <td>{reais(a.sistemaAntigo)}</td>
+                  <td>{reais(a.ibs)}</td>
+                  <td>{reais(a.cbs)}</td>
+                  <td>{reais(a.total)}</td>
+                  <td>{porcento(a.vsHoje)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <p className="rodape">
+            Alíquota de referência: CBS {porcento(p.cbs)} + IBS {porcento(p.ibs)} = {porcento(p.cbs + p.ibs)}.
+            A alíquota final ainda não está definida em lei. Simulador pedagógico — os resultados são
+            estimativas e não substituem consultoria tributária.
+          </p>
+        </div>
       </div>
     </>
   )
@@ -735,17 +988,11 @@ export function SecaoCalculadora({ p, op, onChange }: {
         <Card className="p-5">
           <p className="mb-4 text-[13px] font-semibold">Dados da operação</p>
           <div className="space-y-4">
-            <div>
-              <Label className="text-[13px] font-semibold">Valor da operação (sem impostos)</Label>
-              <div className="relative mt-1.5">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: COR_IVA }}>R$</span>
-                <Input
-                  type="number" min="0" step="100" value={op.valor}
-                  onChange={(e) => onChange({ valor: Number(e.target.value) })}
-                  className="h-10 pl-10 text-sm tabular-nums"
-                />
-              </div>
-            </div>
+            <CampoMoeda
+              label="Valor da operação (sem impostos)"
+              valor={op.valor}
+              onChange={(v) => onChange({ valor: v })}
+            />
             <div>
               <Label className="text-[13px] font-semibold">Regime da operação</Label>
               <select

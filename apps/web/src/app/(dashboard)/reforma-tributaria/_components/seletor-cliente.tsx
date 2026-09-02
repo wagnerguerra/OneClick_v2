@@ -79,7 +79,7 @@ export function SeletorCliente({ selecionado, onSelecionar }: {
   }, [aberto])
 
   return (
-    <div ref={caixaRef} className="relative w-full sm:w-[300px]">
+    <div ref={caixaRef} className="relative w-full">
       {selecionado && !aberto ? (
         <button
           type="button"

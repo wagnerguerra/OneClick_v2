@@ -60,7 +60,7 @@ const STATUS_DATE_FIELD: Record<string, string> = {
 }
 
 /** O mínimo que a checagem de permissão precisa saber sobre quem chamou. */
-type CtxPermissao = { userId?: string | null; isMaster?: boolean; isEmpresaMaster?: boolean }
+type CtxPermissao = { userId?: string | null; isMaster?: boolean; isEmpresaMaster?: boolean; empresaId?: string | null }
 
 @Injectable()
 export class OrcamentoService {
@@ -73,10 +73,30 @@ export class OrcamentoService {
     private readonly processoService: ProcessoService,
     private readonly notificationService: NotificationService,
     private readonly events: OrcamentoEventsService,
-  ) {
-    // Injetado para manter o wiring de DI (forwardRef quebra ciclo com Pesquisa);
-    // sem leitura direta hoje. Ref no-op evita erro de "declarado e não usado".
-    void this.pesquisaService
+  ) {}
+
+  /**
+   * Cria e envia a pesquisa de satisfação de um orçamento finalizado.
+   *
+   * Separado do fluxo de status para que uma falha aqui (cliente sem e-mail,
+   * SMTP fora) fique contida: a finalização já aconteceu e não deve ser
+   * revertida por causa de uma pesquisa.
+   *
+   * Cliente sem e-mail cadastrado nao e erro — a pesquisa fica criada, sem
+   * `enviadaEm`, e a tela do orcamento mostra que esta pendente de envio.
+   */
+  private async dispararPesquisaSatisfacao(orcamentoId: string, numero: number) {
+    const pesquisa = await this.pesquisaService.criarParaOrcamento(orcamentoId)
+    if (pesquisa.enviadaEm) return // ja enviada num ciclo anterior
+
+    try {
+      await this.pesquisaService.enviarPorEmail(pesquisa.id)
+      console.log(`[Orcamento] Pesquisa de satisfação do orçamento #${numero} enviada ao cliente.`)
+    } catch (e) {
+      // Fica criada e visivel na tela como "aguardando envio", para o time
+      // disparar manualmente depois de corrigir o cadastro.
+      console.warn(`[Orcamento] Pesquisa do orçamento #${numero} criada, mas não enviada: ${(e as Error).message}`)
+    }
   }
 
   /** Helper interno — emite evento SSE pra todos os clientes conectados. */
@@ -466,11 +486,21 @@ export class OrcamentoService {
 
     const podeVincularCrm = await this.podeVincularCrm(ctx?.userId, ctx?.isMaster)
 
+    // #HLP0344 — estado da pesquisa de satisfação, para a tela dizer se ela foi
+    // mesmo enviada ao cliente. Antes o time só tinha a promessa do e-mail de
+    // finalização, sem como conferir.
+    const pesquisa = await prisma.pesquisaSatisfacao.findFirst({
+      where: { orcamentoId: id },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, enviadaEm: true, respondidaEm: true, nota: true, respondenteNome: true },
+    }).catch(() => null)
+
     return {
       ...orc, arquivos, mensagens, eventos, cliente, empresa, solicitante, responsavel,
       areas,
       oportunidade: oportunidade ? { id: oportunidade.id, numero: oportunidade.numero, titulo: oportunidade.titulo, etapa: oportunidade.etapa?.nome ?? null } : null,
       podeVincularCrm,
+      pesquisa,
       decisaoCnpjFaturamento: fat[0]?.decisaoCnpjFaturamento ?? null,
       decisaoEmailFinanceiro: fat[0]?.decisaoEmailFinanceiro ?? null,
     }
@@ -1787,14 +1817,30 @@ export class OrcamentoService {
   async getOportunidadeResumo(oportunidadeId: string) {
     const op = await prisma.oportunidade.findUnique({
       where: { id: oportunidadeId },
-      select: { id: true, numero: true, titulo: true, valor: true, clienteId: true, responsavelId: true, createdAt: true, etapa: { select: { nome: true, ehGanho: true, ehPerda: true } } },
+      // #HLP0353 — `descricao` entra no select: o resumo mostrava só o log de
+      // eventos, e quem monta o orcamento precisa do que foi ESCRITO no card.
+      select: { id: true, numero: true, titulo: true, descricao: true, valor: true, clienteId: true, responsavelId: true, createdAt: true, etapa: { select: { nome: true, ehGanho: true, ehPerda: true } } },
     }).catch(() => null)
     if (!op) return null
-    const [cliente, responsavel, eventos] = await Promise.all([
+    const [cliente, responsavel, eventos, mensagensRaw] = await Promise.all([
       op.clienteId ? prisma.cliente.findUnique({ where: { id: op.clienteId }, select: { razaoSocial: true, nomeFantasia: true } }).catch(() => null) : Promise.resolve(null),
       op.responsavelId ? prisma.user.findUnique({ where: { id: op.responsavelId }, select: { name: true } }).catch(() => null) : Promise.resolve(null),
       prisma.oportunidadeEvento.findMany({ where: { oportunidadeId }, orderBy: { createdAt: 'desc' }, take: 6, select: { id: true, tipo: true, descricao: true, createdAt: true } }).catch(() => []),
+      // #HLP0353 — as anotacoes que o time escreve no card. Ordena desc para
+      // pegar as mais recentes e reinverte abaixo: conversa se le de cima para
+      // baixo, mas o que importa sao as ultimas.
+      prisma.oportunidadeMensagem.findMany({ where: { oportunidadeId }, orderBy: { createdAt: 'desc' }, take: 8, select: { id: true, mensagem: true, userId: true, createdAt: true } }).catch(() => []),
     ])
+
+    // Nome do autor de cada anotacao, numa consulta so.
+    const autorIds = [...new Set(mensagensRaw.map(m => m.userId).filter(Boolean))] as string[]
+    const autores = autorIds.length
+      ? await prisma.user.findMany({ where: { id: { in: autorIds } }, select: { id: true, name: true } }).catch(() => [])
+      : []
+    const autorMap = new Map(autores.map(u => [u.id, u.name]))
+    const mensagens = mensagensRaw
+      .map(m => ({ id: m.id, mensagem: m.mensagem, autor: m.userId ? (autorMap.get(m.userId) ?? null) : null, createdAt: m.createdAt }))
+      .reverse()
     return {
       id: op.id, numero: op.numero, titulo: op.titulo,
       valor: op.valor != null ? Number(op.valor) : null,
@@ -1802,6 +1848,8 @@ export class OrcamentoService {
       responsavel: responsavel?.name ?? null,
       etapa: op.etapa?.nome ?? null, ehGanho: op.etapa?.ehGanho ?? false, ehPerda: op.etapa?.ehPerda ?? false,
       createdAt: op.createdAt, eventos,
+      descricao: op.descricao ?? null,
+      mensagens,
     }
   }
 
@@ -1923,6 +1971,22 @@ export class OrcamentoService {
     if (novoStatus === 'FINALIZADO') {
       await this.renovarBeneficioFiscalDoOrcamento(id, orc.numero, userId)
         .catch(e => console.warn('[Orcamento] Falha ao renovar benefício fiscal:', (e as Error).message))
+
+      // #HLP0344 — dispara a pesquisa de satisfação.
+      //
+      // O e-mail de finalização já dizia ao comercial que "a pesquisa será
+      // enviada automaticamente" — e ninguém chamava `criarParaOrcamento`. Em
+      // produção eram 15 orçamentos finalizados e ZERO pesquisas. A promessa
+      // existia, o gatilho não.
+      //
+      // `isFirstTransition` evita reenvio quando o orçamento é reaberto e
+      // finalizado de novo; `criarParaOrcamento` ainda é idempotente por conta
+      // própria. Best-effort: falha de e-mail NÃO desfaz a finalização — o
+      // trabalho foi concluído de qualquer jeito.
+      if (isFirstTransition) {
+        await this.dispararPesquisaSatisfacao(id, orc.numero)
+          .catch(e => console.warn('[Orcamento] Falha ao disparar pesquisa de satisfação:', (e as Error).message))
+      }
     }
 
     // Ao ENCERRAR (cancelar) um orçamento, cancela em cascata os serviços/processos
@@ -3344,6 +3408,27 @@ export class OrcamentoService {
 
     const isAprovado = decisao.tipo === 'APROVADO'
     const isRevisao = decisao.tipo === 'REVISAO_SOLICITADA'
+
+    // #HLP0375 — aprovar sem dizer PARA QUEM faturar e para onde mandar a
+    // cobranca gera retrabalho: alguem precisa correr atras do cliente depois
+    // do aceite. Na aprovacao os dois campos passam a ser obrigatorios.
+    //
+    // A regra vive AQUI, e nao so no modal: o link e publico e a chamada pode
+    // vir de fora da tela. Recusa e pedido de revisao seguem sem exigir nada —
+    // quem recusa nao tem por que informar dado de faturamento.
+    let cnpjFaturamento: string | null = null
+    let emailFinanceiro: string | null = null
+    if (isAprovado) {
+      cnpjFaturamento = decisao.cnpjFaturamento ? limparCnpj(decisao.cnpjFaturamento) : ''
+      // 11 = CPF, 14 = CNPJ. `limparCnpj` preserva letras (CNPJ alfanumerico).
+      if (cnpjFaturamento.length !== 11 && cnpjFaturamento.length !== 14) {
+        throw new Error('Informe o CPF (11 dígitos) ou o CNPJ (14) para faturamento.')
+      }
+      emailFinanceiro = decisao.emailFinanceiro?.trim() ?? ''
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailFinanceiro)) {
+        throw new Error('Informe um e-mail válido do financeiro para o envio da cobrança.')
+      }
+    }
     // Aprovado → APROVADO; Recusado → ENCERRADO; Revisão NÃO encerra (o time
     // revisa e reenvia) — mantém o status atual.
     const novoStatus = isAprovado ? 'APROVADO' : isRevisao ? orc.status : 'ENCERRADO'
@@ -3356,19 +3441,14 @@ export class OrcamentoService {
         decisaoNome: decisao.nome,
         decisaoCpf: decisao.cpf || null,
         decisaoObs: decisao.observacao || null,
+        decisaoCnpjFaturamento: cnpjFaturamento,
+        decisaoEmailFinanceiro: emailFinanceiro,
         status: novoStatus as any,
         // Marca a data só nos estados terminais (a revisão não tem marco de data).
         ...(isAprovado ? { dtAprovado: new Date() } : {}),
         ...(decisao.tipo === 'RECUSADO' ? { dtEncerrado: new Date() } : {}),
       },
     })
-    // Dados de faturamento (colunas novas — via raw enquanto o client não regenera).
-    await prisma.$executeRawUnsafe(
-      `UPDATE orcamentos SET decisao_cnpj_faturamento = $1, decisao_email_financeiro = $2 WHERE token = $3`,
-      decisao.cnpjFaturamento ? limparCnpj(decisao.cnpjFaturamento) : null, // preserva letras (CNPJ alfanumérico)
-      decisao.emailFinanceiro?.trim() || null,
-      token,
-    ).catch((e) => console.warn('[Orcamento] Falha ao gravar dados de faturamento:', (e as Error).message))
     // Registra o status_change na timeline (decisão do cliente pelo link).
     await this.addEvento(
       orc.id, null, 'status_change', orc.status, novoStatus,
@@ -3438,6 +3518,14 @@ export class OrcamentoService {
       // não tem usuário para consultar. Aí a regra não se aplica: ela existe
       // para orientar quem monta o orçamento na tela.
       if (!ctx?.userId) return
+
+      // #HLP0374 — a exigência pode ser desligada nas configurações de
+      // orçamentos. A leitura fica AQUI, e não no topo do método, para não
+      // custar uma consulta em todo item incluído: só quem chegaria a ser
+      // barrado paga por ela.
+      const cfg = await this.getConfig(ctx.empresaId ?? undefined).catch(() => null)
+      if (cfg && !cfg.exigirSubservico) return
+
       const liberado = ctx.isMaster || ctx.isEmpresaMaster
         || await hasSubPermission(ctx.userId, 'orcamentos', 'item_sem_subservico')
       if (liberado) return
@@ -4967,6 +5055,11 @@ export class OrcamentoService {
       // geral fica bloqueado e só o por-item vale. Desmarcada = os dois somam.
       // Default '1' (travado por padrão, conforme decisão do Wagner).
       apenasDescontoItem: (config.apenas_desconto_item ?? '1') === '1',
+      // #HLP0374 — "Exigir subserviço ao incluir item". Marcada (padrão) = quem
+      // não tem a permissão de exceção precisa escolher o subserviço. Desmarcada
+      // = a exigência não vale para ninguém. Default '1' preserva o que existe
+      // hoje, para nenhuma empresa mudar de comportamento no deploy.
+      exigirSubservico: (config.exigir_subservico ?? '1') === '1',
     }
   }
 

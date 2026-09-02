@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, forwardRef, Inject } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { BiCalculosService } from './bi-calculos.service'
 import { BiBalanceteService } from './bi-balancete.service'
+import { SciService } from '../cliente/sci.service'
 
 // BI_CATEGORIAS — mapa de padrões de contas por tipo de KPI
 export const BI_CATEGORIAS: Record<string, { label: string; patterns: string[] }> = {
@@ -21,6 +22,9 @@ export class BiService {
   constructor(
     private readonly calculos: BiCalculosService,
     private readonly balancete: BiBalanceteService,
+    // Para descobrir o ID SCI de quem ainda não tem. `forwardRef` porque
+    // ClienteModule e BiModule se importam mutuamente.
+    @Inject(forwardRef(() => SciService)) private readonly sci: SciService,
   ) {}
 
   // ══════════════════════════════════════════════════════════════
@@ -709,7 +713,8 @@ export class BiService {
     })
     if (!cliente) throw new Error('Cliente não encontrado.')
 
-    const prcodemp = this.resolverPrcodemp(cliente.documento, cliente.idSistema)
+    const idSistema = await this.garantirIdSci(cliente)
+    const prcodemp = this.resolverPrcodemp(cliente.documento, idSistema)
 
     return this.balancete.importarBalanceteSci({
       clienteId, prcodemp, anoInicio, mesInicio, anoFim, mesFim, substituirExistentes,
@@ -722,6 +727,47 @@ export class BiService {
 
   balanceteRefreshStatusByRange(clienteId: string, refInicio: number, refFim: number) {
     return this.balancete.getRefreshStatusByRange(clienteId, refInicio, refFim)
+  }
+
+  /**
+   * Garante o ID SCI do cliente, buscando-o pelo CNPJ quando o cadastro ainda
+   * não tem — e GRAVANDO o que encontrar.
+   *
+   * Antes, cliente sem ID SCI simplesmente não sincronizava: o erro mandava
+   * preencher o campo à mão, sendo que o próprio SCI sabe responder pelo CNPJ.
+   * São 119 dos 466 mensais ativos nessa situação. Agora o sistema pergunta uma
+   * vez, guarda a resposta e segue — a próxima sincronização já parte do
+   * cadastro.
+   *
+   * Falha de CONEXÃO com o SCI não vira "cliente sem ID": a mensagem separa as
+   * duas coisas, porque uma se resolve preenchendo cadastro e a outra não.
+   */
+  private async garantirIdSci(cliente: { id: string; idSistema: string | null; documento: string }): Promise<string | null> {
+    if (cliente.idSistema && Number(cliente.idSistema) > 0) return cliente.idSistema
+
+    const cnpj = (cliente.documento || '').replace(/\D/g, '')
+    if (cnpj.length !== 14) {
+      throw new Error('Cliente sem CNPJ válido: não há como localizar o ID SCI automaticamente.')
+    }
+
+    let achado: { idCliente: number } | null = null
+    try {
+      achado = await this.sci.buscarIdSistemaPorCnpj(cnpj)
+    } catch (e) {
+      throw new Error(
+        `Não foi possível consultar o SCI para descobrir o ID desta empresa: ${(e as Error).message}`,
+      )
+    }
+    if (!achado?.idCliente) {
+      throw new Error(
+        `O CNPJ ${cnpj} não foi encontrado no SCI. Confira o documento no cadastro ou informe o ID SCI manualmente.`,
+      )
+    }
+
+    const id = String(achado.idCliente)
+    await prisma.cliente.update({ where: { id: cliente.id }, data: { idSistema: id } })
+    console.log(`[BI] ID SCI ${id} descoberto pelo CNPJ ${cnpj} e gravado no cadastro.`)
+    return id
   }
 
   /** Resolve PRCODEMP: exige id_sistema (ID SCI) preenchido no cadastro do cliente */

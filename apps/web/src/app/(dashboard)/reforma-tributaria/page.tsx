@@ -21,16 +21,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   Settings2, LayoutGrid, TrendingUp, LayoutDashboard, Sigma,
-  Loader2, Building2, Info,
+  Loader2, Building2, Info, ListTree, Database,
 } from 'lucide-react'
-import { Card, cn } from '@saas/ui'
+import {
+  Button, Card, cn, Badge,
+  Dialog, DialogContent, DialogTitle, DialogDescription,
+} from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
-import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { useTabLabel } from '@/hooks/use-tab-label'
 import { SeletorCliente, type ClienteSimulador } from './_components/seletor-cliente'
+import { BalanceteModal } from './_components/balancete-modal'
 import {
   SecaoConfigurar, SecaoComparar, SecaoTransicao, SecaoVisaoGeral, SecaoCalculadora,
+  type ItemComposicao,
 } from './_components/secoes'
 import {
   type Parametros, type Regime, type Atividade, type Operacao,
@@ -97,7 +102,12 @@ export default function ReformaTributariaPage() {
   const [op, setOp] = useState<Operacao>({ valor: 50000, despesasCreditaveis: 0, reducao: 0 })
   /** De onde veio o faturamento — a tela diz, para ninguém apresentar um número
    *  sem saber a procedência. */
-  const [origem, setOrigem] = useState<'contrato' | 'erp' | 'nenhuma'>('nenhuma')
+  const [origem, setOrigem] = useState<'balancete' | 'contrato' | 'erp' | 'nenhuma'>('nenhuma')
+  /** Contas do balancete que somam a base de crédito, quando o diagnóstico as
+   *  conhece. Sem balancete importado a lista é vazia e o valor não abre. */
+  const [composicao, setComposicao] = useState<ItemComposicao[]>([])
+  const [verComposicao, setVerComposicao] = useState(false)
+  const [verBalancete, setVerBalancete] = useState(false)
 
   const alterar = useCallback((patch: Partial<Parametros>) => setP(prev => ({ ...prev, ...patch })), [])
 
@@ -109,7 +119,7 @@ export default function ReformaTributariaPage() {
    */
   const escolher = useCallback(async (c: ClienteSimulador | null) => {
     setCliente(c)
-    if (!c) { setP(PARAMETROS_INICIAIS); setOrigem('nenhuma'); return }
+    if (!c) { setP(PARAMETROS_INICIAIS); setOrigem('nenhuma'); setComposicao([]); return }
 
     // O faturamento do PARÂMETRO DE CONTRATO vem primeiro: é a consulta ao SCI
     // que a Gestão de Contratos usa para precificar, e é mensal. O snapshot do
@@ -127,14 +137,40 @@ export default function ReformaTributariaPage() {
     }))
 
     setCarregandoCliente(true)
+    setComposicao([])
     try {
       const d = await (trpc.reformaTributaria as never as {
         diagnostico: { query: (i: { clienteId: string; meses: number }) => Promise<{
-          metrics: { comprasMercadorias12m: number; servicosTomados12m: number }
+          metrics: {
+            faturamentoMedioMensal: number
+            comprasMercadorias12m: number
+            servicosTomados12m: number
+            fontePrincipal: 'BALANCETE_ERP' | 'SNAPSHOT_SCI' | 'DOCUMENTOS_FISCAIS'
+            creditos: { baseAjustada12m: number; itens: ItemComposicao[] }
+          }
         }> }
       }).diagnostico.query({ clienteId: c.id, meses: 12 })
-      const despesas = (d.metrics.comprasMercadorias12m + d.metrics.servicosTomados12m) / 12
-      if (despesas > 0) setP(prev => ({ ...prev, despesasCreditaveis: Math.round(despesas) }))
+
+      // A base do balancete tem precedência sobre compras+serviços: ela vem de
+      // contas classificadas uma a uma, e é a única que sabe dizer de onde veio.
+      const doBalancete = d.metrics.creditos?.baseAjustada12m ?? 0
+      const doFiscal = d.metrics.comprasMercadorias12m + d.metrics.servicosTomados12m
+      const anual = doBalancete > 0 ? doBalancete : doFiscal
+      if (anual > 0) setP(prev => ({ ...prev, despesasCreditaveis: Math.round(anual / 12) }))
+      if (doBalancete > 0) {
+        setComposicao((d.metrics.creditos?.itens ?? []).filter(i => i.categoria === 'CREDITAVEL'))
+      }
+
+      // O balancete também sabe o faturamento — sai das contas de receita, e é a
+      // apuração contábil do que foi de fato faturado. Por isso vence o parâmetro
+      // de contrato, que é premissa de precificação. Antes a tela pegava as
+      // despesas do balancete e ignorava a receita dele, e um cliente recém
+      // sincronizado abria com faturamento zero e crédito milionário.
+      const mensalContabil = d.metrics.faturamentoMedioMensal ?? 0
+      if (mensalContabil > 0 && d.metrics.fontePrincipal === 'BALANCETE_ERP') {
+        setP(prev => ({ ...prev, faturamentoMensal: Math.round(mensalContabil) }))
+        setOrigem('balancete')
+      }
     } catch { /* sem ERP para este cliente — o campo fica editável em zero */ }
     finally { setCarregandoCliente(false) }
   }, [])
@@ -148,20 +184,20 @@ export default function ReformaTributariaPage() {
 
   const atual = useMemo(() => calcularRegime(p, p.regime), [p])
   const iva = useMemo(() => calcularIva(p), [p])
-  const pronto = !!cliente && p.faturamentoMensal > 0
+  // Basta o cliente: o resumo é o contexto da tela, e escondê-lo quando o
+  // faturamento é zero tirava justamente a informação de que ele está zerado.
+  const pronto = !!cliente
 
   return (
     <div className="space-y-5">
-      {/* O seletor mora no cabeçalho, junto do Voltar: é o primeiro passo da
-          tela, e escondê-lo abaixo do título fazia parecer que a página abria
-          vazia por falta de dados. */}
-      <PageHeaderBar actions={<>
-        <div className="flex items-center gap-2">
-          <SeletorCliente selecionado={cliente} onSelecionar={escolher} />
-          {carregandoCliente && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
-        </div>
-        <BackButton href="/dashboard" label="Voltar" />
-      </>}>
+      {/* O balancete é a matéria-prima do crédito da simulação, e é o dado que
+          mais envelhece — por isso a porta para atualizá-lo fica no título, e
+          não escondida numa aba. */}
+      <PageHeaderBar actions={cliente ? (
+        <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setVerBalancete(true)}>
+          <Database className="h-4 w-4" />Balancete
+        </Button>
+      ) : undefined}>
         <h1 className="truncate">Reforma Tributária</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
@@ -172,11 +208,18 @@ export default function ReformaTributariaPage() {
         </p>
       </PageHeaderBar>
 
-      {/* O resumo fica visível em todas as abas: é o contexto do que está na
-          tela, e some quando não há cliente escolhido. */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+      {/* Meia linha para cada: escolher vem antes de ler, e as duas metades têm
+          o mesmo peso. Sem cliente escolhido o resumo não existe, e aí o seletor
+          toma a linha inteira — é o único passo possível naquele momento. */}
+      <div className={cn('grid items-center gap-3', pronto && 'lg:grid-cols-2')}>
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <SeletorCliente selecionado={cliente} onSelecionar={escolher} />
+          {carregandoCliente && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
+        </div>
+
         {pronto && (
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-5 py-2.5 shadow-sm">
+          <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-border bg-card px-5 py-2 shadow-sm">
             {[
               { r: 'Regime', v: ROTULO_REGIME[p.regime].toUpperCase() },
               { r: 'Atividade', v: ROTULO_ATIVIDADE[p.atividade].toUpperCase() },
@@ -250,7 +293,13 @@ export default function ReformaTributariaPage() {
 
           {/* Conteúdo */}
           <div className="min-w-0">
-            {aba === 'configurar' && <SecaoConfigurar p={p} onChange={alterar} origem={origem} />}
+            {aba === 'configurar' && (
+              <SecaoConfigurar
+                p={p} onChange={alterar} origem={origem}
+                composicao={composicao}
+                onAbrirComposicao={() => setVerComposicao(true)}
+              />
+            )}
             {aba === 'comparar' && <SecaoComparar p={p} />}
             {aba === 'transicao' && <SecaoTransicao p={p} onChange={alterar} />}
             {aba === 'visao' && <SecaoVisaoGeral p={p} cliente={cliente} />}
@@ -260,6 +309,80 @@ export default function ReformaTributariaPage() {
           </div>
         </div>
       )}
+
+      <BalanceteModal
+        clienteId={cliente?.id ?? null}
+        clienteNome={cliente?.razaoSocial ?? ''}
+        aberto={verBalancete}
+        onFechar={() => setVerBalancete(false)}
+        onAtualizado={() => { if (cliente) void escolher(cliente) }}
+      />
+
+      {/* Composição das despesas creditáveis — as contas do balancete que somam
+          o valor, com o motivo da classificação. Os valores do diagnóstico são
+          de 12 meses; aqui a coluna é mensal, para bater com o campo da tela. */}
+      <Dialog open={verComposicao} onOpenChange={setVerComposicao}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeaderIcon icon={ListTree} color="sky">
+            <DialogTitle>Despesas mensais creditáveis</DialogTitle>
+            <DialogDescription>
+              Contas do balancete classificadas como creditáveis. O total é a média mensal dos últimos 12 meses.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <div className="nice-scrollbar max-h-[60vh] overflow-y-auto px-5 pb-5">
+            {composicao.length === 0 ? (
+              <p className="py-8 text-center text-xs text-muted-foreground">
+                Sem balancete importado para este cliente.
+              </p>
+            ) : (
+              <table className="w-full">
+                <thead className="sticky top-0 bg-card">
+                  <tr className="border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <th className="py-2 text-left">Conta</th>
+                    <th className="py-2 text-left">Descrição</th>
+                    <th className="py-2 text-right">Mensal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {composicao.map(i => (
+                    <tr key={i.conta} title={i.motivo}>
+                      <td className="py-2 pr-3 text-xs tabular-nums text-muted-foreground">{i.conta}</td>
+                      <td className="py-2 pr-3 text-xs text-foreground">
+                        {i.nomeConta}
+                        {i.valor < 0 && (
+                          <span className="ml-1.5 text-[10px] text-muted-foreground">(redutora)</span>
+                        )}
+                      </td>
+                      {/* Estornos e devolucoes ABATEM a base: o valor negativo e correto,
+                          nao erro de dado — por isso o rotulo e a cor propria. */}
+                      <td
+                        className={`py-2 text-right text-xs font-medium tabular-nums ${
+                          i.valor < 0 ? 'text-emerald-600 dark:text-emerald-400' : ''
+                        }`}
+                      >
+                        {reais(i.valor / 12)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-border">
+                    <td colSpan={2} className="py-2.5 text-[13px] font-semibold text-foreground">
+                      Total mensal
+                      <Badge variant="secondary" className="ml-2 h-4 px-1.5 text-[10px] tabular-nums">
+                        {composicao.length} conta(s)
+                      </Badge>
+                    </td>
+                    <td className="py-2.5 text-right text-sm font-bold tabular-nums">
+                      {reais(composicao.reduce((a, i) => a + i.valor, 0) / 12)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

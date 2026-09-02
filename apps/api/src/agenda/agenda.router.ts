@@ -128,6 +128,9 @@ export function createAgendaRouter(
         participantesAvulsos: z.array(z.string()).optional(),
         recorrencia: z.enum(['NENHUMA', 'DIARIA', 'SEMANAL', 'MENSAL', 'ANUAL']).optional(),
         recorrenciaVezes: z.number().nullable().optional(),
+        // Fim de semana e feriado na serie recorrente. MANTER preserva o
+        // comportamento antigo, e por isso e o default.
+        ajusteDiaUtil: z.enum(['MANTER', 'ANTECIPAR', 'POSTERGAR']).optional(),
         // Opt-in: só notifica participantes por e-mail quando marcado (default false).
         notificar: z.boolean().optional(),
       }))

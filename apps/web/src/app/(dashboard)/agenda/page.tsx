@@ -356,6 +356,7 @@ export default function AgendaPage() {
     tipoId: '',
     recorrencia: 'NENHUMA',
     recorrenciaVezes: 1,
+    ajusteDiaUtil: 'MANTER' as 'MANTER' | 'ANTECIPAR' | 'POSTERGAR',
     participanteIds: [] as string[],
     participantesAvulsos: [] as string[],
     // Opt-in de notificação por e-mail (padrão DESMARCADO) e vínculo opcional com card do CRM
@@ -929,7 +930,7 @@ export default function AgendaPage() {
       particular: false, editavel: true, sala: '', salaId: '', garagem: false, vagas: undefined,
       equipamentos: '', arrumarSala: false, isTarefa: false,
       // Tipo em branco — o usuário escolhe (nada pré-selecionado).
-      tipoId: '', recorrencia: 'NENHUMA', recorrenciaVezes: 2,
+      tipoId: '', recorrencia: 'NENHUMA', recorrenciaVezes: 2, ajusteDiaUtil: 'MANTER' as const,
       participanteIds,
       participantesAvulsos: [],
       notificar: false,
@@ -997,6 +998,7 @@ export default function AgendaPage() {
       tipoId: ev.tipoId,
       recorrencia: ev.recorrencia,
       recorrenciaVezes: 2,
+      ajusteDiaUtil: 'MANTER' as const,
       participanteIds: ev.participantes.filter(p => p.usuarioId).map(p => p.usuarioId!),
       participantesAvulsos: ev.participantes.filter(p => p.nomeAvulso).map(p => p.nomeAvulso!),
       notificar: false,
@@ -1148,6 +1150,7 @@ export default function AgendaPage() {
           oportunidadeIds: oportunidadesVinc.map(o => o.id),
           recorrencia: form.recorrencia as 'NENHUMA' | 'DIARIA' | 'SEMANAL' | 'MENSAL' | 'ANUAL',
           recorrenciaVezes: form.recorrencia !== 'NENHUMA' ? form.recorrenciaVezes : undefined,
+          ajusteDiaUtil: form.recorrencia !== 'NENHUMA' ? form.ajusteDiaUtil : undefined,
           participanteIds: form.participanteIds,
           participantesAvulsos: form.participantesAvulsos,
           notificar: form.notificar,
@@ -2750,11 +2753,20 @@ export default function AgendaPage() {
               const recSummary = form.recorrencia !== 'NENHUMA' && form.recorrenciaVezes > 1 ? (() => {
                 const d = form.data ? parseDate(form.data) : new Date()
                 const diaSemana = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][d.getDay()]
+                // Sufixo do ajuste: o resumo mentiria se dissesse "todo dia 1"
+                // quando a serie desloca o dia 1 que cai no fim de semana.
+                const uteis = form.ajusteDiaUtil !== 'MANTER'
+                const sufixo = !uteis ? ''
+                  : form.recorrencia === 'DIARIA' ? ' (somente dias úteis)'
+                  : form.ajusteDiaUtil === 'POSTERGAR' ? ' — adiando quando não for dia útil'
+                  : ' — antecipando quando não for dia útil'
                 switch (form.recorrencia) {
-                  case 'DIARIA': return `Repete diariamente, ${form.recorrenciaVezes} vezes`
-                  case 'SEMANAL': return `Repete toda ${diaSemana}, ${form.recorrenciaVezes} vezes`
-                  case 'MENSAL': return `Repete todo dia ${d.getDate()}, ${form.recorrenciaVezes} meses`
-                  case 'ANUAL': return `Repete anualmente em ${d.getDate()}/${d.getMonth() + 1}, ${form.recorrenciaVezes} vezes`
+                  case 'DIARIA': return uteis
+                    ? `Repete por ${form.recorrenciaVezes} dias úteis`
+                    : `Repete diariamente, ${form.recorrenciaVezes} vezes`
+                  case 'SEMANAL': return `Repete toda ${diaSemana}, ${form.recorrenciaVezes} vezes${sufixo}`
+                  case 'MENSAL': return `Repete todo dia ${d.getDate()}, ${form.recorrenciaVezes} meses${sufixo}`
+                  case 'ANUAL': return `Repete anualmente em ${d.getDate()}/${d.getMonth() + 1}, ${form.recorrenciaVezes} vezes${sufixo}`
                   default: return ''
                 }
               })() : ''
@@ -3020,6 +3032,43 @@ export default function AgendaPage() {
                               {form.recorrencia === 'MENSAL'  && (form.recorrenciaVezes === 1 ? 'mês'    : 'meses')}
                               {form.recorrencia === 'ANUAL'   && (form.recorrenciaVezes === 1 ? 'ano'    : 'anos')}
                             </span>
+                          </div>
+                          {/* Fim de semana e feriado.
+                              Em DIARIA o sistema PULA o dia nao util (20 sessoes
+                              = 20 atendimentos); nas demais ele DESLOCA a data,
+                              que e o caso do "primeiro dia util do mes". Por isso
+                              os rotulos mudam conforme a frequencia. */}
+                          <div className="space-y-1.5 pt-1">
+                            <Label className="text-[11px]">Fins de semana e feriados</Label>
+                            <Select
+                              value={form.ajusteDiaUtil}
+                              onValueChange={v => setForm(f => ({ ...f, ajusteDiaUtil: v as typeof f.ajusteDiaUtil }))}
+                            >
+                              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {form.recorrencia === 'DIARIA' ? (
+                                  <>
+                                    <SelectItem value="MANTER">Contar todos os dias</SelectItem>
+                                    <SelectItem value="POSTERGAR">Contar somente dias úteis</SelectItem>
+                                  </>
+                                ) : (
+                                  <>
+                                    <SelectItem value="MANTER">Manter a data, mesmo caindo em dia não útil</SelectItem>
+                                    <SelectItem value="POSTERGAR">Adiar para o próximo dia útil</SelectItem>
+                                    <SelectItem value="ANTECIPAR">Antecipar para o dia útil anterior</SelectItem>
+                                  </>
+                                )}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-[10px] text-muted-foreground">
+                              {form.ajusteDiaUtil === 'MANTER'
+                                ? 'A data é usada como está — pode cair em sábado, domingo ou feriado.'
+                                : form.recorrencia === 'DIARIA'
+                                  ? 'Sábados, domingos e feriados não entram na conta das repetições.'
+                                  : form.ajusteDiaUtil === 'POSTERGAR'
+                                    ? 'Caindo em dia não útil, o evento vai para o próximo dia útil.'
+                                    : 'Caindo em dia não útil, o evento volta para o dia útil anterior.'}
+                            </p>
                           </div>
                           {recSummary && (
                             <p className="text-[10px] text-muted-foreground flex items-center gap-1">

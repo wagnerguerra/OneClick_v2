@@ -37,6 +37,11 @@ interface Orcamento {
   totalGeral: number | string
   formaPagamento: string | null
   createdAt: string
+  // Decisão do cliente pelo link público — alimenta o carimbo de aceite.
+  decisaoTipo: string | null
+  decisaoEm: string | null
+  decisaoNome: string | null
+  decisaoCpf: string | null
   itens: Item[]
   cliente: { razaoSocial: string; nomeFantasia: string | null; documento: string | null; tipoDocumento: string | null; email: string | null; telefone: string | null } | null
   empresa: { razaoSocial: string; nomeFantasia: string | null; logoUrl: string | null; cnpj: string | null; telefone: string | null; email: string | null; site: string | null } | null
@@ -60,6 +65,13 @@ function formatDocumento(doc: string | null | undefined, tipo?: string | null): 
 
 function formatDate(d: string): string {
   return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+/** "31/08/2026 às 11:10" — o aceite precisa da hora, não só do dia. */
+function formatDateTime(d: string): string {
+  const dt = new Date(d)
+  return `${dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+    + ` às ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
 function calcVencimentoDate(createdAt: string, dias: number): string {
@@ -364,6 +376,30 @@ export default function ImprimirOrcamentoPage() {
           color: #9ca3af;
           font-size: 13px;
         }
+        /* Aceite eletrônico (#HLP0361) */
+        .quote-doc .aceite {
+          margin-top: 32px;
+          padding: 14px 16px;
+          border: 1px solid #a7f3d0;
+          border-left: 3px solid #10b981;
+          border-radius: 6px;
+          background: #f0fdf4;
+        }
+        .quote-doc .aceite-titulo {
+          margin: 0 0 3px;
+          font-size: 11.5px;
+          font-weight: 700;
+          color: #065f46;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .quote-doc .aceite-texto {
+          margin: 0;
+          font-size: 11.5px;
+          line-height: 1.5;
+          color: #047857;
+        }
+
         /* Footer */
         .quote-doc .footer {
           margin-top: 40px;
@@ -675,6 +711,21 @@ export default function ImprimirOrcamentoPage() {
             <div className="descricao-content" dangerouslySetInnerHTML={{ __html: descricaoHtml }} />
           )}
         </div>
+
+        {/* #HLP0361 — carimbo de aceite eletrônico.
+            Fica FORA do `.footer` de propósito: aquele é `position: fixed` na
+            impressão e repete em toda página. Um aceite repetido a cada folha
+            deixaria de parecer assinatura. */}
+        {orc.decisaoTipo === 'APROVADO' && orc.decisaoEm && (
+          <div className="aceite">
+            <p className="aceite-titulo">Proposta aprovada eletronicamente</p>
+            <p className="aceite-texto">
+              Aprovada por <strong>{orc.decisaoNome || 'representante do cliente'}</strong>
+              {orc.decisaoCpf ? ` (CPF ${orc.decisaoCpf})` : ''}
+              {' '}em {formatDateTime(orc.decisaoEm)}, por meio do link eletrônico enviado ao cliente.
+            </p>
+          </div>
+        )}
 
         {/* FOOTER */}
         <div className="footer">

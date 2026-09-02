@@ -4,6 +4,7 @@ import { CronJob } from 'cron'
 import { prisma } from '@saas/db'
 import { ServicoService } from '../servico/servico.service'
 import { aplicarAjusteVencimento } from './feriados-br'
+import { carregarDiasNaoUteis } from '../common/dias-nao-uteis'
 
 /**
  * Scheduler diário (6h) que dispara execuções recorrentes.
@@ -140,36 +141,7 @@ export class RecorrenciaScheduler implements OnModuleInit, OnModuleDestroy {
    * pra que feriados cadastrados pelo usuário sejam respeitados no ajuste.
    */
   async carregarDiasNaoUteis(anos: number[]): Promise<Set<string>> {
-    if (anos.length === 0) return new Set()
-    const set = new Set<string>()
-    const anoMin = Math.min(...anos)
-    const anoMax = Math.max(...anos)
-    const inicio = new Date(anoMin, 0, 1)
-    const fimExclusivo = new Date(anoMax + 1, 0, 1)
-    const feriados = await prisma.feriado.findMany({
-      where: {
-        OR: [
-          { recorrente: true },
-          { recorrente: false, data: { gte: inicio, lt: fimExclusivo } },
-        ],
-      },
-      select: { data: true, recorrente: true },
-    })
-    for (const f of feriados) {
-      const d = new Date(f.data)
-      const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-      const dd = String(d.getUTCDate()).padStart(2, '0')
-      if (f.recorrente) {
-        // Vale em todos os anos do intervalo
-        for (const ano of anos) {
-          set.add(`${ano}-${mm}-${dd}`)
-        }
-      } else {
-        const yyyy = d.getUTCFullYear()
-        set.add(`${yyyy}-${mm}-${dd}`)
-      }
-    }
-    return set
+    return carregarDiasNaoUteis(anos)
   }
 
   /**

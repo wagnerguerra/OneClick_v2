@@ -1532,6 +1532,13 @@ function registerIpcHandlers() {
         const existing = biSyncCookies.get(baseUrl) || ''
         const newCookies = setCookie.map(c => c.split(';')[0]).join('; ')
         biSyncCookies.set(baseUrl, existing ? `${existing}; ${newCookies}` : newCookies)
+        // Sessão em mãos: o canal sobe sozinho e fica. Antes ele só abria se
+        // alguém visitasse a tela de BI no Service Manager — e o servidor
+        // recusava a importação do balancete por não ver ninguém escutando.
+        if (!biSyncActive) {
+          console.log('[BiSync] Sessão obtida — abrindo SSE automaticamente.')
+          biSyncStreamStart(baseUrl).catch(() => {})
+        }
       }
       const text = await resp.text()
       let data = null
@@ -1555,16 +1562,50 @@ function registerIpcHandlers() {
   // de forma confiável — fazemos manualmente com node fetch.)
   // ════════════════════════════════════════════════════════
   let biSyncStreamCtrl = null
+  let biSyncActive = false          // true enquanto o stream deve ficar vivo (auto-reconecta)
+  let biSyncReconnectTimer = null
+  let biSyncBaseUrl = ''            // baseUrl atual pra reconectar
+
+  // Stop EXPLÍCITO (logout/quit): desativa e cancela a reconexão.
   function biSyncStreamStop() {
+    biSyncActive = false
+    if (biSyncReconnectTimer) { clearTimeout(biSyncReconnectTimer); biSyncReconnectTimer = null }
     if (biSyncStreamCtrl) {
       try { biSyncStreamCtrl.abort() } catch {}
       biSyncStreamCtrl = null
     }
   }
+
+  /**
+   * Agenda a religação do stream.
+   *
+   * Sem isto, o SSE morria em silêncio no primeiro soluço — deploy da API,
+   * timeout do proxy, queda de rede — e o Service Manager continuava "aberto"
+   * na tela do usuário enquanto o servidor já não o enxergava. É a importação
+   * do balancete que dependia disso: ela só é despachada se houver alguém
+   * escutando este canal.
+   */
+  function biSyncAgendarReconexao() {
+    if (!biSyncActive || biSyncReconnectTimer) return
+    biSyncReconnectTimer = setTimeout(() => {
+      biSyncReconnectTimer = null
+      if (biSyncActive && biSyncBaseUrl) {
+        console.log('[BiSync] Reconectando SSE...')
+        biSyncStreamStart(biSyncBaseUrl).catch(() => {})
+      }
+    }, 5000)
+  }
+
   async function biSyncStreamStart(baseUrl) {
-    biSyncStreamStop()
+    // Aborta o anterior SEM desativar — assim a reconexão segue valendo.
+    if (biSyncReconnectTimer) { clearTimeout(biSyncReconnectTimer); biSyncReconnectTimer = null }
+    if (biSyncStreamCtrl) { try { biSyncStreamCtrl.abort() } catch {}; biSyncStreamCtrl = null }
+    biSyncActive = true
+    biSyncBaseUrl = baseUrl
     const cookieStr = biSyncCookies.get(baseUrl) || ''
-    if (!cookieStr) return // não autenticado
+    // Sem sessão ainda: tenta de novo em vez de desistir para sempre — o login
+    // costuma acontecer segundos depois de o app abrir.
+    if (!cookieStr) { biSyncAgendarReconexao(); return }
     biSyncStreamCtrl = new AbortController()
     const url = `${baseUrl}/api/bi-sync/eventos`
     try {
@@ -1583,7 +1624,12 @@ function registerIpcHandlers() {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('bi-sync-event', { type: '__error', status: resp.status })
         }
+        biSyncAgendarReconexao()
         return
+      }
+      console.log('[BiSync] SSE conectado — o servidor já enxerga este Service Manager.')
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('bi-sync-event', { type: '__conectado' })
       }
       const reader = resp.body.getReader()
       const decoder = new TextDecoder()
@@ -1603,17 +1649,161 @@ function registerIpcHandlers() {
             if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send('bi-sync-event', json)
             }
+            // O pedido de importação é executado AQUI, no processo principal.
+            // Encaminhá-lo só para o renderer fazia o servidor despachar e
+            // ninguém responder: o job ficava "rodando" para sempre, porque a
+            // tela que saberia agir podia nem estar aberta.
+            if (json && json.type === 'balancete-import-request') {
+              biSyncExecutarImport(baseUrl, json).catch((e) => {
+                console.error('[BiSync] Falha ao executar import:', e.message)
+              })
+            }
           } catch { /* skip malformed */ }
         }
       }
+      // Chegar aqui significa que o servidor encerrou o stream (reinício da API,
+      // timeout do proxy). Não é erro — mas o canal precisa voltar.
+      console.log('[BiSync] SSE encerrado pelo servidor; religando em 5s.')
+      biSyncAgendarReconexao()
     } catch (e) {
       if (e.name !== 'AbortError') {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('bi-sync-event', { type: '__error', message: e.message })
         }
+        biSyncAgendarReconexao()
       }
     }
   }
+  /** Primeiro e último dia do mês, no formato que o sci_balancete.py espera. */
+  function biSyncPeriodoDoRef(ref) {
+    const ano = Math.floor(ref / 100)
+    const mes = ref % 100
+    const ultimo = new Date(ano, mes, 0).getDate()
+    const mm = String(mes).padStart(2, '0')
+    return { dataIni: `${ano}-${mm}-01`, dataFim: `${ano}-${mm}-${String(ultimo).padStart(2, '0')}` }
+  }
+
+  /** POST autenticado na API, reaproveitando o cookie da sessão do SM. */
+  async function biSyncPost(baseUrl, caminho, body) {
+    const resp = await fetch(`${baseUrl}${caminho}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': baseUrl,
+        'Cookie': biSyncCookies.get(baseUrl) || '',
+        'User-Agent': 'OneClick-Launcher/1.0',
+      },
+      body: JSON.stringify(body),
+    })
+    const texto = await resp.text()
+    let dados = null
+    try { dados = JSON.parse(texto) } catch { dados = texto }
+    if (!resp.ok) {
+      const msg = dados && typeof dados === 'object' ? (dados.message || JSON.stringify(dados)) : String(dados)
+      throw new Error(String(msg).slice(0, 200))
+    }
+    return dados
+  }
+
+  /**
+   * Executa um pedido de importação de balancete vindo do servidor.
+   *
+   * O servidor não alcança o Firebird da rede local, então ele só ORQUESTRA: manda
+   * o pedido por SSE e espera o Service Manager ler mês a mês, subir cada um e
+   * avisar no fim. Essa ponta faltava — o evento chegava e morria aqui.
+   *
+   * Um mês que falha não derruba o lote: o erro é anotado e o laço segue. No fim,
+   * `import-done` fecha o job com o balanço, e é ele que destrava a tela do
+   * usuário mesmo quando tudo deu errado.
+   */
+  async function biSyncExecutarImport(baseUrl, evento) {
+    const clienteId = evento.clienteId
+    const p = evento.payload || {}
+    const refs = Array.isArray(p.refs) ? p.refs : []
+    const prcodemp = p.prcodemp
+    if (!clienteId || !prcodemp || refs.length === 0) {
+      console.warn('[BiSync] Pedido de import ignorado: payload incompleto.')
+      return
+    }
+
+    console.log(`[BiSync] Import pedido: cliente=${clienteId} prcodemp=${prcodemp} meses=${refs.length}`)
+
+    // Sem a pasta do projeto não há script para rodar. Falhar aqui em silêncio
+    // deixaria o job preso em "rodando" — que é justamente o sintoma que este
+    // executor existe para acabar. Fecha o job com o motivo.
+    if (!projectRoot) {
+      const erro = 'Service Manager sem a pasta do projeto configurada — não encontrei o sci_balancete.py.'
+      console.error(`[BiSync] ${erro}`)
+      try {
+        await biSyncPost(baseUrl, '/api/bi-sync/import-done', {
+          clienteId,
+          refInicio: p.refInicio ?? refs[0],
+          refFim: p.refFim ?? refs[refs.length - 1],
+          ok: 0, skipped: 0, failed: refs.length, erro,
+        })
+      } catch { /* o servidor que decida; aqui já não há o que fazer */ }
+      return
+    }
+
+    const sciScript = path.join(projectRoot, 'apps', 'api', 'src', 'cliente', 'sci_balancete.py')
+    let ok = 0, skipped = 0, failed = 0
+    const errorsByMes = {}
+
+    for (const ref of refs) {
+      const { dataIni, dataFim } = biSyncPeriodoDoRef(ref)
+      try {
+        const r = spawnSync(
+          'python',
+          [sciScript, String(prcodemp), dataIni, dataFim, '1', String(ref)],
+          {
+            cwd: path.dirname(sciScript),
+            encoding: 'buffer',
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...sciEnvOverride() },
+            timeout: 120000,
+            windowsHide: true,
+          },
+        )
+        if (r.error) throw new Error(r.error.message)
+        const stdout = (r.stdout || Buffer.from('')).toString('utf8').trim()
+        const stderr = (r.stderr || Buffer.from('')).toString('utf8').trim()
+        if (!stdout) throw new Error(stderr || 'Sem resposta do sci_balancete.py')
+
+        const parsed = JSON.parse(stdout)
+        if (parsed.sucesso === false) throw new Error(parsed.erro || 'SCI retornou sucesso=false')
+        const linhas = parsed.dados || []
+        if (linhas.length === 0) {
+          console.log(`[BiSync] ref=${ref}: 0 linhas — pulado.`)
+          skipped++
+          continue
+        }
+
+        const up = await biSyncPost(baseUrl, '/api/bi-sync/upload-balancete', {
+          clienteId, ref, linhas, substituirExistentes: p.substituirExistentes !== false,
+        })
+        console.log(`[BiSync] ref=${ref}: ${up?.inserted ?? linhas.length} linha(s) enviada(s).`)
+        ok++
+      } catch (e) {
+        console.error(`[BiSync] ref=${ref} falhou: ${e.message}`)
+        errorsByMes[ref] = String(e.message).slice(0, 200)
+        failed++
+      }
+    }
+
+    try {
+      await biSyncPost(baseUrl, '/api/bi-sync/import-done', {
+        clienteId,
+        refInicio: p.refInicio ?? refs[0],
+        refFim: p.refFim ?? refs[refs.length - 1],
+        ok, skipped, failed, errorsByMes,
+      })
+      console.log(`[BiSync] Import concluído: ${ok} OK, ${skipped} pulado(s), ${failed} falha(s).`)
+    } catch (e) {
+      // Sem o import-done o job fica preso em "rodando" na tela do usuário —
+      // por isso o erro é registrado alto, não engolido.
+      console.error(`[BiSync] Não foi possível fechar o job: ${e.message}`)
+    }
+  }
+
   ipcMain.handle('bi-sync-stream-start', (_e, baseUrl) => {
     biSyncStreamStart(baseUrl).catch(() => {})
     return { ok: true }

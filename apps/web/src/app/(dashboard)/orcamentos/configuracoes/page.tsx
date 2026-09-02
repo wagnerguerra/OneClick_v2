@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Save, Clock, Hash, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2, Star, ArrowUp, ArrowDown, History } from 'lucide-react'
+import { Loader2, Save, Clock, SlidersHorizontal, Mail, FileText, Users, Bell, Sparkles, Plus, Pencil, Trash2, Star, ArrowUp, ArrowDown, History } from 'lucide-react'
 import { Button, Card, Input, RichEditor, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Switch, Checkbox, Badge, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
@@ -41,6 +41,7 @@ interface ConfigState {
   emailLembretes: string
   // #HLP0302 — "Usar apenas desconto por item". true (padrão) = desconto geral bloqueado.
   apenasDescontoItem: boolean
+  exigirSubservico: boolean
 }
 
 const DEFAULT_CONFIG: ConfigState = {
@@ -65,13 +66,14 @@ const DEFAULT_CONFIG: ConfigState = {
   followupTipoEventoId: '',
   emailLembretes: '',
   apenasDescontoItem: true,
+  exigirSubservico: true,
 }
 
-type TabKey = 'prazos' | 'numeracao' | 'emails' | 'textos' | 'areas' | 'modelos' | 'ia' | 'pesquisa'
+type TabKey = 'gerais' | 'prazos' | 'emails' | 'textos' | 'areas' | 'modelos' | 'ia' | 'pesquisa'
 
 const TABS: Array<{ key: TabKey; label: string; icon: typeof Clock }> = [
+  { key: 'gerais', label: 'Gerais', icon: SlidersHorizontal },
   { key: 'prazos', label: 'Prazos do workflow', icon: Clock },
-  { key: 'numeracao', label: 'Numeração', icon: Hash },
   { key: 'emails', label: 'Notificações', icon: Mail },
   { key: 'textos', label: 'Textos padrão', icon: FileText },
   { key: 'areas', label: 'Notificação de áreas', icon: Users },
@@ -85,7 +87,7 @@ export default function OrcamentosConfiguracoesPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [config, setConfig] = useState<ConfigState>(DEFAULT_CONFIG)
-  const [activeTab, setActiveTab] = useState<TabKey>('prazos')
+  const [activeTab, setActiveTab] = useState<TabKey>('gerais')
   const [tiposEvento, setTiposEvento] = useState<Array<{ id: string; nome: string }>>([])
 
   // Acesso: master/empresa-master OU sub-permissão 'acessar_configuracoes'.
@@ -142,6 +144,7 @@ export default function OrcamentosConfiguracoesPage() {
         followup_tipo_evento_id: config.followupTipoEventoId,
         email_lembretes: config.emailLembretes,
         apenas_desconto_item: config.apenasDescontoItem ? '1' : '0',
+        exigir_subservico: config.exigirSubservico ? '1' : '0',
       })
       alerts.success('Salvo', 'Configurações atualizadas')
     } catch {
@@ -315,8 +318,14 @@ export default function OrcamentosConfiguracoesPage() {
                 </div>
               )}
 
-              {activeTab === 'numeracao' && (
+              {activeTab === 'gerais' && (
                 <div className="grid grid-cols-12 gap-3">
+                  {/* A aba se chamava "Numeração" e virou "Gerais" quando passou a
+                      abrigar outras regras. A numeração ganha seção propria para
+                      quem sempre a procurou pelo nome continuar achando. */}
+                  <div className="col-span-12">
+                    <label className="text-xs font-medium text-muted-foreground block">Numeração</label>
+                  </div>
                   <div className="col-span-12 sm:col-span-4 space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">Iniciar próximos orçamentos no número</label>
                     <Input
@@ -339,6 +348,17 @@ export default function OrcamentosConfiguracoesPage() {
                       <Checkbox checked={config.apenasDescontoItem} onCheckedChange={v => setConfig(c => ({ ...c, apenasDescontoItem: v === true }))} accentColor="var(--mod-comercial, #fb7185)" className="mt-0.5" />
                       <span className="text-[11px] text-muted-foreground">
                         <strong className="text-foreground font-medium">Usar apenas desconto por item.</strong> Marcado, o desconto é aplicado item a item (só serviços) e o desconto geral do orçamento fica desativado. Desmarcado, o desconto por item e o desconto geral <strong className="text-foreground font-medium">somam</strong>.
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* #HLP0374 — exigência de subserviço */}
+                  <div className="col-span-12 border-t border-border pt-4 mt-1 space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground block">Itens do orçamento</label>
+                    <label className="flex items-start gap-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={config.exigirSubservico} onChange={e => setConfig(c => ({ ...c, exigirSubservico: e.target.checked }))} className="mt-0.5 h-4 w-4 accent-[var(--mod-comercial,#fb7185)]" />
+                      <span className="text-[11px] text-muted-foreground">
+                        <strong className="text-foreground font-medium">Exigir subserviço ao incluir um item.</strong> Marcado, um serviço que foi dividido em subserviços só entra no orçamento com o subserviço escolhido — quem precisa vendê-lo fechado depende da permissão <em>&quot;Incluir serviço sem escolher o subserviço&quot;</em>. Desmarcado, a exigência não vale para ninguém e o serviço pode ser orçado como um todo.
                       </span>
                     </label>
                   </div>
