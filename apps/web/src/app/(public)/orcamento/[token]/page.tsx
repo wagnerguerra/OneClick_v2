@@ -64,6 +64,13 @@ function formatDate(d: string): string {
   return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+/** "31/08/2026 às 11:10" — o aceite precisa da hora, não só do dia. */
+function formatDateTime(d: string): string {
+  const dt = new Date(d)
+  return `${dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+    + ` às ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+}
+
 function maskCpf(value: string): string {
   return value.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d{0,3})(\d{0,3})(\d{0,2})/, (_, a, b, c, d) =>
     [a, b && '.' + b, c && '.' + c, d && '-' + d].filter(Boolean).join('')
@@ -368,6 +375,20 @@ export default function PublicOrcamentoPage() {
 
       {/* Ações do cliente (base) */}
       {acoesCliente}
+
+      {/* #HLP0361 — carimbo de aceite na via IMPRESSA pelo cliente.
+          O aviso de decisão acima é `print:hidden` (é interface, tem botões), o
+          que deixava a folha impressa sem nenhum registro do aceite. Este bloco
+          é o inverso: só existe no papel. */}
+      {(orc.decisaoTipo === 'APROVADO' || confirmacao?.tipo === 'APROVADO') && (
+        <div className="hidden print:block mt-8 rounded-md border border-emerald-200 border-l-[3px] border-l-emerald-500 bg-emerald-50 px-4 py-3">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">Proposta aprovada eletronicamente</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-700">
+            Aprovada por <strong>{orc.decisaoNome || nome || 'representante do cliente'}</strong>
+            {orc.decisaoEm ? ` em ${formatDateTime(orc.decisaoEm)}` : ''}, por meio do link eletrônico enviado ao cliente.
+          </p>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="text-center mt-8 mb-4 text-xs text-muted-foreground">
