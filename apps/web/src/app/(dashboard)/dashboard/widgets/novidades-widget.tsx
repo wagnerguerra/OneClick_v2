@@ -9,6 +9,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import { getModuleLabelForHref, getGroupLabelForHref, getGroupHexForHref } from '@/lib/navigation'
 import { EmptyState } from './empty-state'
 
 interface Novidade {
@@ -151,9 +152,30 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
                     ? <p className="whitespace-pre-line text-sm leading-relaxed text-foreground">{detalhe.descricao}</p>
                     : <p className="text-sm italic text-muted-foreground">Sem detalhamento — só o título foi publicado.</p>}
                 </DialogBody>
-                <DialogFooter>
+                <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                  {/* Rodapé diz QUAL módulo a novidade toca, não só oferece o
+                      caminho. "Melhoria" sem dizer onde obriga a pessoa a abrir
+                      o sistema para descobrir se aquilo é da rotina dela. */}
+                  {detalhe.moduloSlug && (() => {
+                    const rota = `/${detalhe.moduloSlug}`
+                    const modulo = getModuleLabelForHref(rota)
+                    const bloco = getGroupLabelForHref(rota)
+                    if (!modulo) return null
+                    return (
+                      <span className="mr-auto flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: getGroupHexForHref(rota) }}
+                        />
+                        <span className="truncate">
+                          Afeta o módulo <strong className="font-medium text-foreground">{modulo}</strong>
+                          {bloco && <> · {bloco}</>}
+                        </span>
+                      </span>
+                    )
+                  })()}
                   {detalhe.moduloSlug && (
-                    <Button asChild variant="outline" size="sm" className="mr-auto gap-1.5">
+                    <Button asChild variant="outline" size="sm" className="gap-1.5">
                       <Link href={`/${detalhe.moduloSlug}`} onClick={() => setDetalhe(null)}>
                         Ir para o módulo<ArrowRight className="h-3.5 w-3.5" />
                       </Link>

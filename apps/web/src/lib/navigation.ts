@@ -372,6 +372,37 @@ export function groupColorVar(label: string): string {
  * Mesma resolução do getGroupHexForHref: match exato, depois prefixo.
  * Usado como legenda dos itens do Acesso rápido.
  */
+/**
+ * Nome do MODULO da rota (o item do menu), nao o do bloco.
+ *
+ * `getGroupLabelForHref` devolve "Corporativo"; este devolve "Agenda
+ * Corporativa". Sai do mesmo `navigation` que monta a sidebar de proposito —
+ * um dicionario paralelo de slug para nome divergiria no primeiro modulo
+ * renomeado.
+ *
+ * Match exato primeiro; depois pelo primeiro segmento, para que /clientes/123
+ * ainda encontre "Clientes". Devolve null quando a rota nao esta no menu.
+ */
+export function getModuleLabelForHref(href: string): string | null {
+  const pathClean = href.split('?')[0]!.split('#')[0]!
+  const buscar = (alvo: string): string | null => {
+    for (const group of navigation) {
+      for (const item of group.items) {
+        if (item.href === alvo) return item.label
+        const sub = item.subItems?.find(sx => sx.href === alvo)
+        if (sub) return sub.label
+      }
+    }
+    return null
+  }
+  const exato = buscar(pathClean)
+  if (exato) return exato
+
+  const segments = pathClean.split('/').filter(Boolean)
+  if (segments.length === 0) return null
+  return buscar(`/${segments[0]}`)
+}
+
 export function getGroupLabelForHref(href: string): string | null {
   const pathClean = href.split('?')[0]!.split('#')[0]!
   for (const group of navigation) {
