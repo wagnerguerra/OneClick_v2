@@ -14,6 +14,7 @@ import {
   Ban, RotateCcw, Building2, ExternalLink, Copy,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
   ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
+  Users2, CalendarClock, ClipboardCheck, ClipboardX, BadgePercent, UserMinus,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -245,6 +246,7 @@ export default function ClientesPage() {
   const [filterBeneficio, setFilterBeneficio] = useState(() => txt(salvos.beneficio))
   const [filterServico, setFilterServico] = useState(() => txt(salvos.servico))
   const [debouncedNumero, setDebouncedNumero] = useState(() => txt(salvos.numero))
+  const [stats, setStats] = useState<{ ativos: number; mensais: number; comServico: number; semServico: number; comBeneficio: number; exClientes: number } | null>(null)
   const [filterOptions, setFilterOptions] = useState<{ grupos: (string | null)[]; cidades: (string | null)[]; estados: (string | null)[]; tipos: (string | null)[]; atividades: string[]; beneficios: string[]; areas: string[] }>({ grupos: [], cidades: [], estados: [], tipos: [], atividades: [], beneficios: [], areas: [] })
 
   useEffect(() => {
@@ -331,6 +333,12 @@ export default function ClientesPage() {
     const timer = setTimeout(() => { setDebouncedNumero(filterNumero); if (montado.current) setPage(1) }, 400)
     return () => clearTimeout(timer)
   }, [filterNumero])
+
+  // Indicadores do topo — panorama da carteira, independente do filtro. Falha
+  // aqui não pode derrubar a listagem: os cards somem e a tela segue.
+  useEffect(() => {
+    ;(trpc.cliente as any).getStats.query().then(setStats).catch(() => setStats(null))
+  }, [])
 
   // Carregar opções de filtro
   useEffect(() => {
@@ -599,6 +607,43 @@ export default function ClientesPage() {
           <span>Clientes</span>
         </p>
       </PageHeaderBar>
+
+      {/* Indicadores — panorama da carteira. Cada card é um atalho de filtro:
+          o número sozinho informa, mas clicar leva para os registros que ele
+          conta, que é o que a pessoa quer fazer em seguida. */}
+      {stats && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          {([
+            { k: 'ativos', label: 'Clientes ativos', valor: stats.ativos, cor: '#0369a1', Icone: Users2, aplicar: () => clearFilters() },
+            { k: 'mensais', label: 'Mensais', valor: stats.mensais, cor: '#0891b2', Icone: CalendarClock, aplicar: () => { if (!onlyMensal) toggleOnlyMensal() } },
+            { k: 'comServico', label: 'Com serviço', valor: stats.comServico, cor: '#059669', Icone: ClipboardCheck, aplicar: () => { setFilterServico('__com__'); setPage(1); setFiltersOpen(true) } },
+            { k: 'semServico', label: 'Sem serviço', valor: stats.semServico, cor: '#ea580c', Icone: ClipboardX, aplicar: () => { setFilterServico('__sem__'); setPage(1); setFiltersOpen(true) } },
+            { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#7c3aed', Icone: BadgePercent, aplicar: () => { setFilterBeneficio('__com__'); setPage(1); setFiltersOpen(true) } },
+            { k: 'exClientes', label: 'Ex-clientes', valor: stats.exClientes, cor: '#e11d48', Icone: UserMinus, aplicar: () => { if (!onlyExCliente) toggleOnlyExCliente() } },
+          ] as const).map(({ k, label, valor, cor, Icone, aplicar }) => (
+            <button
+              key={k}
+              type="button"
+              onClick={aplicar}
+              title={`Filtrar por ${label.toLowerCase()}`}
+              className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm"
+            >
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `color-mix(in srgb, ${cor} 12%, transparent)`, color: cor }}
+              >
+                <Icone className="h-[18px] w-[18px]" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-bold leading-none tabular-nums text-foreground">
+                  {valor.toLocaleString('pt-BR')}
+                </span>
+                <span className="mt-1 block truncate text-[11px] text-muted-foreground">{label}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Filtros colapsáveis */}
       <Card className={cn('overflow-hidden transition-all', filtersOpen ? '' : 'cursor-pointer')} onClick={() => !filtersOpen && setFiltersOpen(true)}>

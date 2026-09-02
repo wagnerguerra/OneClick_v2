@@ -897,6 +897,38 @@ export class ClienteService {
   // ============================================================
   // Opções de filtros (valores distintos para dropdowns)
   // ============================================================
+  /**
+   * Indicadores do topo da listagem de clientes.
+   *
+   * Contagens do PANORAMA da carteira — não do resultado filtrado. Se
+   * seguissem o filtro, virariam eco do rodapé ("31 de 31") e perderiam a
+   * função de dizer onde o usuário está dentro do todo.
+   *
+   * Uma consulta por indicador, todas em paralelo: são `count` com índice, e
+   * montar isso num único SQL com FILTER deixaria a query ilegível para ganhar
+   * milissegundos.
+   */
+  async getStats(isMaster?: boolean, empresaId?: string) {
+    const base = empresaFilter(isMaster, empresaId)
+    const ativo = { ...base, status: 'ATIVO' as const }
+
+    const [ativos, mensais, comServico, comBeneficio, exClientes] = await Promise.all([
+      prisma.cliente.count({ where: ativo }),
+      prisma.cliente.count({ where: { ...ativo, situacao: 'MENSAL' as never } }),
+      prisma.cliente.count({ where: { ...ativo, servicosContratados: { some: { contratado: true } } } }),
+      // Benefício vive em `beneficiosFiscais` — `beneficios` é a relação antiga
+      // e vazia, a mesma armadilha que derrubou o filtro da tela.
+      prisma.cliente.count({ where: { ...ativo, beneficiosFiscais: { some: {} } } }),
+      // Ex-cliente é derivado, igual ao filtro: MENSAL ∧ INATIVO ∧ com saída.
+      prisma.cliente.count({
+        where: { ...base, situacao: 'MENSAL' as never, status: 'INATIVO' as never, dataSaida: { not: null } },
+      }),
+    ])
+
+    return { ativos, mensais, comServico, semServico: ativos - comServico, comBeneficio, exClientes }
+  }
+
+  // ============================================================
   async getFilterOptions(isMaster?: boolean, empresaId?: string) {
     const base = { status: 'ATIVO' as const, ...empresaFilter(isMaster, empresaId) }
     const [grupos, cidades, estados, tipos, atividades, beneficios, areas] = await Promise.all([

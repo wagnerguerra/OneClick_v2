@@ -230,6 +230,10 @@ export function createClienteRouter(
     getFilterOptions: readProcedure(MODULE)
       .query(({ ctx }) => clienteService.getFilterOptions(ctx.isMaster, ctx.empresaId)),
 
+    // Indicadores do topo da listagem (panorama da carteira, não do filtro).
+    getStats: readProcedure(MODULE)
+      .query(({ ctx }) => clienteService.getStats(ctx.isMaster, ctx.empresaId)),
+
     // Importação em lote
     importBulk: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ items: z.array(createClienteSchema) }))
