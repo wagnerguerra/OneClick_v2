@@ -14,7 +14,7 @@ import {
   Ban, RotateCcw, Building2, ExternalLink, Copy,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
   ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
-  CalendarClock, ClipboardCheck, BadgePercent, UserPlus2,
+  CalendarClock, ClipboardCheck, BadgePercent, ArrowLeftRight,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -253,7 +253,7 @@ export default function ClientesPage() {
   const [filterBeneficio, setFilterBeneficio] = useState(() => txt(salvos.beneficio))
   const [filterServico, setFilterServico] = useState(() => txt(salvos.servico))
   const [debouncedNumero, setDebouncedNumero] = useState(() => txt(salvos.numero))
-  const [stats, setStats] = useState<{ mensais: number; comServico: number; comBeneficio: number; entraram90d: number; porTributacao: Array<{ regime: string; total: number }> } | null>(null)
+  const [stats, setStats] = useState<{ mensais: number; comServico: number; comBeneficio: number; entraram90d: number; sairam90d: number; porTributacao: Array<{ regime: string; total: number }> } | null>(null)
   const [filterOptions, setFilterOptions] = useState<{ grupos: (string | null)[]; cidades: (string | null)[]; estados: (string | null)[]; tipos: (string | null)[]; atividades: string[]; beneficios: string[]; areas: string[] }>({ grupos: [], cidades: [], estados: [], tipos: [], atividades: [], beneficios: [], areas: [] })
 
   useEffect(() => {
@@ -621,10 +621,6 @@ export default function ClientesPage() {
             { k: 'mensais', label: 'Mensais', valor: stats.mensais, cor: '#0891b2', Icone: CalendarClock, dica: 'Filtrar somente os mensais', aplicar: () => { if (!onlyMensal) toggleOnlyMensal() } },
             { k: 'comServico', label: 'Com serviço', valor: stats.comServico, cor: '#059669', Icone: ClipboardCheck, dica: 'Filtrar quem tem serviço contratado', aplicar: () => { setFilterServico('__com__'); setPage(1); setFiltersOpen(true) } },
             { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#7c3aed', Icone: BadgePercent, dica: 'Filtrar quem tem benefício fiscal', aplicar: () => { setFilterBeneficio('__com__'); setPage(1); setFiltersOpen(true) } },
-            // Este ORDENA em vez de filtrar: nao existe filtro por data de
-            // entrada na tela, e os mais recentes sobem para o topo — o que
-            // resolve a intencao sem prometer um filtro que nao existe.
-            { k: 'entraram90d', label: 'Entraram em 90 dias', valor: stats.entraram90d, cor: '#0369a1', Icone: UserPlus2, dica: 'Ordenar pelos que entraram mais recentemente', aplicar: () => { setSort({ column: 'dataEntrada', dir: 'desc' }); setPage(1) } },
           ] as const).map(({ k, label, valor, cor, Icone, dica, aplicar }) => (
             <button
               key={k}
@@ -647,6 +643,46 @@ export default function ClientesPage() {
               </span>
             </button>
           ))}
+
+          {/* Movimentação em 90 dias — entradas contra saídas, lado a lado.
+              Dois números num card só porque o que interessa é a COMPARAÇÃO:
+              17 entradas isoladas não dizem se a carteira cresceu.
+              Clicar ordena pela data de entrada (não existe filtro por período
+              na tela; prometer filtro seria mentir no clique). */}
+          <button
+            type="button"
+            onClick={() => { setSort({ column: 'dataEntrada', dir: 'desc' }); setPage(1) }}
+            title="Ordenar pelos que entraram mais recentemente"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm"
+          >
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+              style={{ backgroundColor: 'color-mix(in srgb, #0369a1 12%, transparent)', color: '#0369a1' }}
+            >
+              <ArrowLeftRight className="h-[18px] w-[18px]" />
+            </span>
+            <span className="min-w-0">
+              <span className="flex items-baseline gap-2 leading-none">
+                <span className="flex items-baseline gap-0.5 text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                  <ArrowUp className="h-3.5 w-3.5 self-center" />{stats.entraram90d}
+                </span>
+                <span className="text-muted-foreground/40">/</span>
+                <span className="flex items-baseline gap-0.5 text-lg font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                  <ArrowDown className="h-3.5 w-3.5 self-center" />{stats.sairam90d}
+                </span>
+              </span>
+              <span className="mt-1 block truncate text-[11px] text-muted-foreground">
+                Entradas / saídas · 90 dias
+                {(() => {
+                  const saldo = stats.entraram90d - stats.sairam90d
+                  if (saldo === 0) return null
+                  return <span className={saldo > 0 ? 'ml-1 font-medium text-emerald-600 dark:text-emerald-400' : 'ml-1 font-medium text-rose-600 dark:text-rose-400'}>
+                    ({saldo > 0 ? '+' : ''}{saldo})
+                  </span>
+                })()}
+              </span>
+            </span>
+          </button>
 
           {/* Tributação — ocupa duas colunas porque é distribuição, não número
               único: uma barra sozinha nao diz nada sem os rotulos ao lado. */}

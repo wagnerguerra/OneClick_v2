@@ -918,18 +918,21 @@ export class ClienteService {
     noventaDias.setHours(0, 0, 0, 0)
     noventaDias.setDate(noventaDias.getDate() - 90)
 
-    const [mensais, comServico, comBeneficio, entraram90d, tributacao] = await Promise.all([
+    const [mensais, comServico, comBeneficio, entraram90d, sairam90d, tributacao] = await Promise.all([
       prisma.cliente.count({ where: { ...ativo, situacao: 'MENSAL' as never } }),
       prisma.cliente.count({ where: { ...ativo, servicosContratados: { some: { contratado: true } } } }),
       // Benefício vive em `beneficiosFiscais` — `beneficios` é a relação antiga
       // e vazia, a mesma armadilha que derrubou o filtro da tela.
       prisma.cliente.count({ where: { ...ativo, beneficiosFiscais: { some: {} } } }),
       prisma.cliente.count({ where: { ...ativo, dataEntrada: { gte: noventaDias } } }),
+      // Saídas usam `base`, não `ativo`: quem saiu está INATIVO, e filtrar por
+      // ativo daria zero sempre. O que marca a saída é a data, não o status.
+      prisma.cliente.count({ where: { ...base, dataSaida: { gte: noventaDias } } }),
       prisma.cliente.groupBy({ by: ['tributacao'], where: ativo, _count: { _all: true } }),
     ])
 
     return {
-      mensais, comServico, comBeneficio, entraram90d,
+      mensais, comServico, comBeneficio, entraram90d, sairam90d,
       // Regime nulo vira '__sem__' aqui: mais da metade da carteira está sem
       // tributação preenchida, e omitir a fatia daria um gráfico que não fecha
       // com o total de ativos.
