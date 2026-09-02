@@ -893,7 +893,7 @@ function MappingPanel() {
                           <SelectValue placeholder={vinculados.length > 0 ? '+ Adicionar' : 'Selecionar serviço'} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__create__" className="text-emerald-700 font-medium">+ Criar novo Serviço Mensal…</SelectItem>
+                          <SelectItem value="__create__" className="text-emerald-700 dark:text-emerald-400 font-medium">+ Criar novo Serviço Mensal…</SelectItem>
                           {servicosDisponiveis.length > 0 && (
                             <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold border-t mt-1 pt-2">
                               Serviços existentes
@@ -917,7 +917,7 @@ function MappingPanel() {
                     <button
                       type="button"
                       onClick={() => toggleIgnored(nome, false)}
-                      className="text-[10px] px-2 py-1 rounded-full border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                      className="text-[10px] px-2 py-1 rounded-full border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30"
                       title="Desmarcar 'ignorada' (volta a permitir mapeamento)"
                     >
                       ⊘ Ignorada
@@ -926,7 +926,7 @@ function MappingPanel() {
                     <button
                       type="button"
                       onClick={() => toggleIgnored(nome, true)}
-                      className="text-[10px] px-2 py-1 rounded-full border border-muted-foreground/30 text-muted-foreground hover:border-amber-300 hover:text-amber-700"
+                      className="text-[10px] px-2 py-1 rounded-full border border-muted-foreground/30 text-muted-foreground hover:border-amber-300 dark:hover:border-amber-800 hover:text-amber-700 dark:hover:text-amber-300"
                       title="Marcar como 'explicitamente ignorada'"
                     >
                       sem vínculo
@@ -1031,7 +1031,7 @@ function MappingPanel() {
                         </TableCell>
                         <TableCell className="text-xs">
                           {s.alreadyMapped ? (
-                            <span className="text-emerald-700 italic">já vinculado</span>
+                            <span className="text-emerald-700 dark:text-emerald-400 italic">já vinculado</span>
                           ) : s.suggestedServicoNome ? (
                             <div>
                               <div className="font-medium">{s.suggestedServicoNome}</div>
@@ -1064,7 +1064,7 @@ function MappingPanel() {
               {sugSelected.size} selecionada(s) · {suggestions.filter(s => s.suggestedServicoId && !s.alreadyMapped).length} sugestões aplicáveis
             </div>
             <Button variant="outline" onClick={() => setSugOpen(false)} disabled={sugApplying}>Cancelar</Button>
-            <Button onClick={aplicarSugestoes} disabled={sugApplying || sugSelected.size === 0} className="gap-1.5" style={{ backgroundColor: '#0ea5e9' }}>
+            <Button onClick={aplicarSugestoes} disabled={sugApplying || sugSelected.size === 0} className="gap-1.5" style={{ backgroundColor: 'var(--mod-administrativo, #0ea5e9)' }}>
               {sugApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Aplicar selecionados
             </Button>
@@ -1119,7 +1119,7 @@ function MappingPanel() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createSaving}>Cancelar</Button>
-            <Button onClick={salvarCriacao} disabled={createSaving} className="gap-1.5" style={{ backgroundColor: '#0ea5e9' }}>
+            <Button onClick={salvarCriacao} disabled={createSaving} className="gap-1.5" style={{ backgroundColor: 'var(--mod-administrativo, #0ea5e9)' }}>
               {createSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               Criar e vincular
             </Button>
@@ -1611,7 +1611,7 @@ function LinhaClienteSync({ linha, de, ate }: {
         )}
         <span className="min-w-0 flex-1 truncate">{linha.cliente}</span>
         <span className="tabular-nums text-muted-foreground">{linha.entregas} entrega(s)</span>
-        {linha.novas > 0 && <Badge variant="outline" className="text-[10px] text-emerald-700">+{linha.novas}</Badge>}
+        {linha.novas > 0 && <Badge variant="outline" className="text-[10px] text-emerald-700 dark:text-emerald-400">+{linha.novas}</Badge>}
         {linha.atualizadas > 0 && <Badge variant="outline" className="text-[10px] text-sky-700">~{linha.atualizadas}</Badge>}
       </button>
 
@@ -1641,7 +1641,7 @@ function LinhaClienteSync({ linha, de, ate }: {
                   {e.lida === false && (
                     <Badge className="bg-amber-100 text-[9px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">não abriu</Badge>
                   )}
-                  {e.multa && <Badge variant="outline" className="text-[9px] text-rose-700">multa</Badge>}
+                  {e.multa && <Badge variant="outline" className="text-[9px] text-rose-700 dark:text-rose-400">multa</Badge>}
                   {e.dpto && <span className="text-muted-foreground">{e.dpto}</span>}
                 </div>
               ))}
@@ -1833,7 +1833,7 @@ function ExplorerPanel() {
             </Button>
           </div>
           {!result.ok && (
-            <div className="px-5 py-3 bg-rose-50/60 border-t border-rose-200/70 text-[12px] text-rose-900">
+            <div className="px-5 py-3 bg-rose-50/60 dark:bg-rose-950/20 border-t border-rose-200/70 dark:border-rose-900/40 text-[12px] text-rose-900 dark:text-rose-200">
               <strong>Erro:</strong> {result.error}
             </div>
           )}

@@ -91,17 +91,17 @@ const MEDIDAS = [
   // "Em aberto e no prazo" é a única das seis que não pede ação: fica em
   // cinza, para o olho ir direto ao que precisa de atenção.
   { campo: 'pendenteNoPrazo',   label: 'Em aberto e no prazo',  ajuda: 'Ainda não entregues, com o prazo legal à frente.',
-    cor: 'text-slate-600 dark:text-slate-300',    bg: 'bg-slate-100 dark:bg-slate-800/60',   hex: '#475569' },
+    cor: 'text-slate-600 dark:text-slate-300',    bg: 'bg-slate-100 dark:bg-slate-900/30',   hex: '#475569' },
   { campo: 'pendenteAtrasado',  label: 'Em aberto e em atraso', ajuda: 'Ainda não entregues, com o prazo legal já passado.',
-    cor: TEXT.amber,    bg: 'bg-amber-100 dark:bg-amber-950/40',   hex: '#d97706' },
+    cor: TEXT.amber,    bg: 'bg-amber-100 dark:bg-amber-900/30',   hex: '#d97706' },
   { campo: 'pendenteComMulta',  label: 'Em aberto e passível de multa', ajuda: 'Das que estão em atraso, as que geram multa. É a exposição de hoje.',
-    cor: TEXT.rose,      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#e11d48' },
+    cor: TEXT.rose,      bg: 'bg-rose-100 dark:bg-rose-900/30',     hex: '#e11d48' },
   { campo: 'entregueNoPrazo',   label: 'Entregues no prazo',   ajuda: 'Entregues dentro do prazo legal — inclui quem passou do prazo técnico, que o Acessórias considera em dia.',
-    cor: TEXT.emerald, bg: 'bg-emerald-100 dark:bg-emerald-950/40', hex: '#059669' },
+    cor: TEXT.emerald, bg: 'bg-emerald-100 dark:bg-emerald-900/30', hex: '#059669' },
   { campo: 'entregueComAtraso', label: 'Entregues com atraso', ajuda: 'Entregues depois do prazo legal, junto ao órgão.',
-    cor: TEXT.violet,  bg: 'bg-violet-100 dark:bg-violet-950/40', hex: '#7c3aed' },
+    cor: TEXT.violet,  bg: 'bg-violet-100 dark:bg-violet-900/30', hex: '#7c3aed' },
   { campo: 'entregueComMulta',  label: 'Entregues com multa',  ajuda: 'Das entregues com atraso, as que geram multa.',
-    cor: 'text-rose-700 dark:text-rose-300',      bg: 'bg-rose-100 dark:bg-rose-950/40',     hex: '#be123c' },
+    cor: 'text-rose-700 dark:text-rose-300',      bg: 'bg-rose-100 dark:bg-rose-900/30',     hex: '#be123c' },
 ] as const
 
 const TITULO_ESCOPO: Record<Retorno['escopo'], { titulo: string; nota: string }> = {

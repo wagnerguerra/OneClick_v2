@@ -17,7 +17,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { useTheme } from '@/hooks/use-theme'
-import { TEXT, BADGE, SURFACE, FILL } from '@/lib/color-styles'
+import { TEXT, BADGE, SURFACE, FILL, BORDER, DOT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -263,7 +263,7 @@ export default function ProcessoDetalhePage() {
               <Button
                 variant="outline" size="sm"
                 onClick={() => setCancelOpen(true)}
-                className="gap-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-800"
+                className={cn('gap-1.5 text-xs hover:bg-rose-50 dark:hover:bg-rose-950/30', TEXT.rose, BORDER.rose)}
               >
                 <Ban className="h-3.5 w-3.5" />Cancelar
               </Button>
@@ -379,7 +379,7 @@ export default function ProcessoDetalhePage() {
                 {proc.canceladoMotivo && (
                   <div className="sm:col-span-2">
                     <Label className="text-[11px] text-muted-foreground uppercase tracking-wide">Motivo do cancelamento</Label>
-                    <p className="text-sm mt-1 italic text-rose-700 dark:text-rose-400">{proc.canceladoMotivo}</p>
+                    <p className={cn('text-sm mt-1 italic', TEXT.rose)}>{proc.canceladoMotivo}</p>
                   </div>
                 )}
               </div>
@@ -545,7 +545,7 @@ export default function ProcessoDetalhePage() {
                                 </Badge>
                               )}
                               {podePular && (
-                                <Badge variant="outline" className="text-[10px] h-5 bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400">
+                                <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.sky)}>
                                   Opcional
                                 </Badge>
                               )}
@@ -741,12 +741,12 @@ function ExecucaoCard({ exec }: { exec: Execucao }) {
                 {EXEC_STATUS_LABELS[exec.status] || exec.status}
               </Badge>
               {exec.predecessorExecucaoId && (
-                <Badge variant="outline" className="text-[10px] h-5 bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400">
+                <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.sky)}>
                   Sucessor
                 </Badge>
               )}
               {!exec.predecessorExecucaoId && (
-                <Badge variant="outline" className="text-[10px] h-5 bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400">
+                <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.violet)}>
                   Raiz
                 </Badge>
               )}
@@ -776,7 +776,7 @@ function ExecucaoCard({ exec }: { exec: Execucao }) {
           </div>
           <Link
             href={`/meus-servicos?exec=${exec.id}`}
-            className="shrink-0 inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:underline"
+            className={cn('shrink-0 inline-flex items-center gap-1 text-xs hover:text-violet-700 dark:hover:text-violet-300 hover:underline', TEXT.violet)}
           >
             Abrir checklist →
           </Link>
@@ -1209,7 +1209,7 @@ function FluxoResponsavelPopover({ exec, triggerRect, onClose, onChanged }: {
       {/* Badge de filtro por área — quando o serviço tem categoria que bate com Area.name */}
       {areaFiltro && (
         <div className="px-2 py-1.5 border-b bg-sky-50 dark:bg-sky-950/30 flex items-center gap-1.5">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-500 shrink-0" />
+          <span className={cn('inline-block h-1.5 w-1.5 rounded-full shrink-0', DOT.sky)} />
           <span className="text-[10px] text-sky-700 dark:text-sky-300">
             Filtrado pela área <strong>{areaFiltro.name}</strong>
           </span>
@@ -1269,7 +1269,7 @@ function FluxoResponsavelPopover({ exec, triggerRect, onClose, onChanged }: {
                   <span className="block truncate text-[10px] text-muted-foreground">{c.areaName}</span>
                 )}
               </span>
-              {ehAtual && <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />}
+              {ehAtual && <CheckCircle2 className={cn('h-3 w-3 shrink-0', TEXT.emerald)} />}
             </button>
           )
         })}

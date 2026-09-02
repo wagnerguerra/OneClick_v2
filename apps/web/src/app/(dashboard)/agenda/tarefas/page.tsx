@@ -14,7 +14,6 @@ import { BackButton } from '@/components/ui/back-button'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl } from '@/lib/api-url'
 import { TEXT } from '@/lib/color-styles'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { TarefaModal } from '../_components/tarefa-modal'
@@ -241,7 +240,7 @@ export default function TarefasPage() {
                     title={minhaCiencia ? 'Remover minha ciência' : 'Dar ciência (concluir minha parte)'}
                   >
                     {minhaCiencia
-                      ? <CheckSquare className="h-5 w-5 text-emerald-600" />
+                      ? <CheckSquare className={cn('h-5 w-5', TEXT.emerald)} />
                       : <Square className="h-5 w-5 text-muted-foreground hover:text-sky-500" />}
                   </button>
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setTarefaEditando(t); setModalOpen(true) }}>
@@ -284,10 +283,9 @@ export default function TarefasPage() {
                         <span className="inline-flex items-center gap-1.5 text-muted-foreground" title="Membros e ciência">
                           <span className="flex -space-x-1.5">
                             {membros.slice(0, 5).map(m => (
-                              <span key={m.usuarioId} title={`${m.name} · ${m.ciente ? 'ciente' : 'pendente'}`}
-                                className={cn('h-4 w-4 rounded-full ring-1 bg-muted flex items-center justify-center text-[8px] font-bold uppercase overflow-hidden', m.ciente ? 'ring-emerald-500' : 'ring-border opacity-50')}>
-                                {m.image ? <img src={resolveAssetUrl(m.image)} alt="" className="h-full w-full object-cover" /> : (m.name?.[0] ?? '?')}
-                              </span>
+                              <UserAvatar key={m.usuarioId} user={{ name: m.name, image: m.image }} bg="bg-muted" fg="text-muted-foreground"
+                                title={`${m.name} · ${m.ciente ? 'ciente' : 'pendente'}`}
+                                className={cn('h-4 w-4 text-[8px] ring-1', m.ciente ? 'ring-emerald-500' : 'ring-border opacity-50')} />
                             ))}
                           </span>
                           <span className={cn(cientes === membros.length ? cn(TEXT.emerald, 'font-medium') : '')}>{cientes}/{membros.length} cientes</span>

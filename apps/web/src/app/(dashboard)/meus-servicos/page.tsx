@@ -272,7 +272,7 @@ function ResponsavelEditor({
                 )}
               </span>
               {ehAtual && (
-                <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                <CheckCircle2 className={cn('h-3 w-3 shrink-0', TEXT.emerald)} />
               )}
             </button>
           )
@@ -990,7 +990,7 @@ export default function MeusServicosPage() {
                                 )}
                                 {exec.status === 'CONCLUIDO' && exec.concluidoEm && (
                                   <span className="inline-flex flex-wrap items-center gap-1 sm:shrink-0">
-                                    <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                                    <CheckCircle2 className={cn('h-3 w-3 shrink-0', TEXT.emerald)} />
                                     Concluído: <span className="font-medium text-foreground/80">{formatDateTime(exec.concluidoEm)}</span>
                                   </span>
                                 )}
@@ -1089,7 +1089,7 @@ export default function MeusServicosPage() {
                   })
                 }
                 return (
-                  <div key={exec.id} className="border-l-4 border-l-orange-400 bg-orange-50/30 dark:bg-orange-900/10 px-4 py-3 space-y-3">
+                  <div key={exec.id} className="border-l-4 border-l-orange-400 dark:border-l-orange-700 bg-orange-50/30 dark:bg-orange-900/10 px-4 py-3 space-y-3">
                     <div className="flex items-start gap-3">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40">
                         <HelpCircle className={cn('h-4 w-4', TEXT.orange)} />
@@ -1282,7 +1282,7 @@ export default function MeusServicosPage() {
                           <>
                             <span className="text-muted-foreground/40">•</span>
                             <span title="Data de conclusão">
-                              <CheckCircle2 className="inline h-3 w-3 mr-0.5 -mt-0.5 text-emerald-600" />
+                              <CheckCircle2 className={cn('inline h-3 w-3 mr-0.5 -mt-0.5', TEXT.emerald)} />
                               Concluído em: <span className="font-medium text-foreground/80">{formatDateTime(exec.concluidoEm)}</span>
                             </span>
                           </>

@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { Card, Button } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { SURFACE, TEXT } from '@/lib/color-styles'
+import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 
 interface ItemMin {
   id: string
@@ -115,7 +115,7 @@ export function CalendarioMinhasObrigacoes({ items, loading, onSelecionar }: Cal
                           {cel.dia}
                         </span>
                         {eventos.length > 0 && (
-                          <span className="text-[9px] font-medium px-1 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400 tabular-nums">
+                          <span className={cn('text-[9px] font-medium px-1 py-0.5 rounded tabular-nums', BADGE.sky)}>
                             {eventos.length}
                           </span>
                         )}

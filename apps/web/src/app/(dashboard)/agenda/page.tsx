@@ -2020,7 +2020,7 @@ export default function AgendaPage() {
                                     title={t.concluida ? 'Desmarcar' : 'Concluir tarefa'}
                                   >
                                     {t.concluida
-                                      ? <CheckSquare className="h-3 w-3 text-emerald-600" />
+                                      ? <CheckSquare className={cn('h-3 w-3', TEXT.emerald)} />
                                       : <Square className="h-3 w-3 text-muted-foreground group-hover/tk:text-sky-500" />}
                                   </button>
                                   <span className={cn('truncate', t.concluida && 'line-through text-muted-foreground')}>
@@ -2217,7 +2217,7 @@ export default function AgendaPage() {
                     title={t.concluida ? 'Desmarcar' : 'Concluir tarefa'}
                   >
                     {t.concluida
-                      ? <CheckSquare className="h-4 w-4 text-emerald-600" />
+                      ? <CheckSquare className={cn('h-4 w-4', TEXT.emerald)} />
                       : <Square className="h-4 w-4 text-muted-foreground group-hover/tk:text-sky-500" />}
                   </button>
                   <div className="min-w-0">
@@ -2905,7 +2905,7 @@ export default function AgendaPage() {
                         </div>
                         {salasCadastradas.length === 0 && canManageConfig && (
                           <p className="text-[10px] text-muted-foreground">
-                            Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className="text-sky-600 hover:underline">Cadastrar agora</Link>
+                            Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className={cn('hover:underline', TEXT.sky)}>Cadastrar agora</Link>
                           </p>
                         )}
                       </div>
@@ -3765,7 +3765,7 @@ export default function AgendaPage() {
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] font-semibold text-muted-foreground">Salas disponíveis para este tipo</p>
                       {tipoForm.salasPermitidas.length > 0 && (
-                        <button type="button" className="text-[10px] text-sky-600 hover:underline" onClick={() => setTipoForm(f => ({ ...f, salasPermitidas: [] }))}>
+                        <button type="button" className={cn('text-[10px] hover:underline', TEXT.sky)} onClick={() => setTipoForm(f => ({ ...f, salasPermitidas: [] }))}>
                           Liberar todas
                         </button>
                       )}
@@ -3777,7 +3777,7 @@ export default function AgendaPage() {
                     </p>
                     {salasCadastradas.filter(s => s.ativo).length === 0 ? (
                       <p className="text-[10px] text-muted-foreground italic">
-                        Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className="text-sky-600 hover:underline">Cadastrar</Link>
+                        Nenhuma sala cadastrada. <Link href="/agenda/configuracoes" className={cn('hover:underline', TEXT.sky)}>Cadastrar</Link>
                       </p>
                     ) : (
                       <div className="grid grid-cols-2 gap-1.5 pt-0.5">

@@ -13,6 +13,7 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   RichContent,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { UserAvatar } from '@/components/ui/user-avatar'
@@ -619,7 +620,7 @@ export default function AgendaDisponibilidadePage() {
                 {viewEvento.link && (
                   <div className="flex items-center gap-2 text-sm">
                     <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <a href={viewEvento.link} target="_blank" rel="noopener noreferrer" className="text-sky-600 hover:underline truncate">
+                    <a href={viewEvento.link} target="_blank" rel="noopener noreferrer" className={cn('hover:underline truncate', TEXT.sky)}>
                       {viewEvento.link}
                     </a>
                   </div>

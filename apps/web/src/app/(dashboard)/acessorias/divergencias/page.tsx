@@ -15,6 +15,7 @@ import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
+import { TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -163,7 +164,7 @@ export default function DivergenciasPage() {
 
       <Card className="border-sky-200 bg-sky-50/60 p-4 text-sm dark:border-sky-900 dark:bg-sky-950/20">
         <div className="flex gap-3">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
+          <ShieldCheck className={cn('mt-0.5 h-4 w-4 shrink-0', TEXT.sky)} />
           <div className="space-y-1">
             <p className="font-medium text-foreground">Comparar não altera nada — só o botão Aplicar grava.</p>
             <p className="text-muted-foreground">
@@ -302,7 +303,7 @@ export default function DivergenciasPage() {
           {rel.somenteNoOneClick.length > 0 && (
             <Card className="p-4">
               <div className="mb-3 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertTriangle className={cn('h-4 w-4', TEXT.amber)} />
                 <h4 className="text-[13px] font-semibold">
                   Vinculados aqui, ausentes lá — {rel.somenteNoOneClick.length} cliente(s)
                 </h4>

@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react'
 import { History, Loader2, CircleDot } from 'lucide-react'
 import {
-  Button,
+  Button, cn,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { STRONG } from '@/lib/color-styles'
+import { DOT, STRONG } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 
 interface Evento {
@@ -101,7 +101,7 @@ export function LogDialog({ open, onOpenChange, execucao }: LogDialogProps) {
             <ol className="relative ml-4 border-l border-border/60 space-y-4 pt-1">
               {eventos.map((e) => (
                 <li key={e.id} className="ml-4">
-                  <span className="absolute -left-[7px] mt-1.5 h-3 w-3 rounded-full border-2 border-background bg-sky-500" />
+                  <span className={cn('absolute -left-[7px] mt-1.5 h-3 w-3 rounded-full border-2 border-background', DOT.sky)} />
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${TIPO_CORES[e.tipo] ?? STRONG.slate}`}>
                       {TIPO_LABELS[e.tipo] ?? e.tipo}

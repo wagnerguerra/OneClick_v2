@@ -1129,7 +1129,7 @@ export default function AgendaConfiguracoesPage() {
             {activeTab === 'modelo' && tpl && (
               <div className="space-y-5">
                 {/* Aviso paralelo + toggle ativo */}
-                <label className={cn('flex items-start gap-3 rounded-md border p-3 cursor-pointer', tpl.ativo ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/20')}>
+                <label className={cn('flex items-start gap-3 rounded-md border p-3 cursor-pointer', tpl.ativo ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20' : 'border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20')}>
                   <Checkbox checked={tpl.ativo} onCheckedChange={v => setTplField('ativo', !!v)} className="mt-0.5" />
                   <div className="text-xs">
                     <p className="font-semibold">Usar este modelo no disparo automático</p>

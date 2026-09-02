@@ -315,7 +315,7 @@ export default function MinhasObrigacoesPage() {
                             <span
                               className={cn(
                                 'text-xs tabular-nums',
-                                isAtrasada ? 'text-red-600 dark:text-red-400 font-medium' : isProxima ? 'text-amber-700 dark:text-amber-400 font-medium' : 'text-muted-foreground',
+                                isAtrasada ? cn(TEXT.red, 'font-medium') : isProxima ? 'text-amber-700 dark:text-amber-400 font-medium' : 'text-muted-foreground',
                               )}
                             >
                               {formatDataBR(o.prazoEfetivo)}

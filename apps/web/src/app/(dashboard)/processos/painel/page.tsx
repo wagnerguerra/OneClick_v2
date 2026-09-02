@@ -508,7 +508,7 @@ function TimelineView({ execucoes, apenasAtrasados, onCardClick }: { execucoes: 
   return (
     <Card>
       <CardContent className="p-0 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto nice-scrollbar">
           {/* Header de dias */}
           <div className="flex border-b sticky top-0 bg-card z-10">
             <div className="shrink-0 px-3 py-2 border-r bg-muted/30 text-[10px] font-bold uppercase tracking-wide text-muted-foreground" style={{ width: labelWidth }}>
