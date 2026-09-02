@@ -3515,6 +3515,10 @@ model AgendaEvento {
   // Recorrência
   recorrencia      AgendaRecorrencia @default(NENHUMA)
   recorrenciaVezes Int?              @map("recorrencia_vezes")
+  /// Como a serie trata fim de semana e feriado: MANTER | ANTECIPAR | POSTERGAR.
+  /// Em DIARIA, qualquer valor != MANTER significa "contar so dias uteis" (pula),
+  /// porque ajustar empilharia sabado, domingo e segunda no mesmo dia.
+  ajusteDiaUtil    String            @default("MANTER") @map("ajuste_dia_util")
   lote             String?
 
   // Google Calendar
