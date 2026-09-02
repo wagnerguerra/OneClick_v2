@@ -21,7 +21,7 @@ import {
   Button, Input, Badge,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Checkbox,
   cn,
@@ -555,17 +555,19 @@ export default function ClientesPage() {
       {/* Header padrão (como o /crm): barra full-bleed, título + trilha, ações à direita */}
       <PageHeaderBar
         actions={<>
-              <Button variant="outline" size="sm" onClick={openOpcoesModal} className="gap-1.5">
-                <Settings2 className="h-4 w-4" /> Opcoes
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setIntegracoesOpen(true)} className="gap-1.5">
-                <Plug className="h-4 w-4" />Integrações
-              </Button>
+              {canCreate && (
+                <Button size="sm" asChild className="gap-1.5">
+                  <Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link>
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={openOpcoesModal}><Settings2 className="h-4 w-4" />Opções</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIntegracoesOpen(true)}><Plug className="h-4 w-4" />Integrações</DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => router.push('/clientes/relatorios')}><BarChart3 className="h-4 w-4 text-emerald-600" />Relatórios</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar Excel/CSV</DropdownMenuItem>
                   <DropdownMenuItem onClick={handleLegacyImport} disabled={legacyImporting}>
@@ -591,11 +593,6 @@ export default function ClientesPage() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-          {canCreate && (
-            <Button size="sm" asChild className="gap-1.5">
-              <Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link>
-            </Button>
-          )}
         </>}
       >
         <h1 className="truncate">Clientes</h1>
