@@ -88,12 +88,12 @@ function MovimentacaoWidget({
           </div>
         </Link>
 
-        <ul className="nice-scrollbar mt-3 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+        <ul className="nice-scrollbar -mx-1.5 mt-3 min-h-0 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden px-1.5">
           {dados.itens.map(c => (
             <li key={c.id}>
               <Link
                 href={`/clientes/${c.id}`}
-                className="flex items-center gap-2 rounded-md px-1.5 py-1 -mx-1.5 transition-colors hover:bg-muted"
+                className="flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-muted"
               >
                 <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${entrada ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                 <span className="min-w-0 flex-1">
