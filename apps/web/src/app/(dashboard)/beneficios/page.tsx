@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, ArrowLeft, Trash2, CreditCard, Printer, BellRing, CheckCheck } from 'lucide-react'
+import { Loader2, Save, Plus, Settings2, FileSpreadsheet, Mail, Lock, Unlock, Trash2, CreditCard, Printer, BellRing, CheckCheck, ChevronRight } from 'lucide-react'
 import { Button, Card, Input, Label, Switch, cn, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
 import { STRONG, BADGE } from '@/lib/color-styles'
 import Link from 'next/link'
@@ -11,6 +11,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { BackButton } from '@/components/ui/back-button'
 
 const COR = 'var(--mod-trabalhista, #a3e635)'
 // Tom escurecido p/ botões sólidos com texto branco (robusto p/ qualquer cor do bloco em prod).
@@ -61,32 +62,36 @@ export default function BeneficiosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
-          <Select value={empresaId} onValueChange={v => { setEmpresaId(v); setSelId(null) }}>
-            <SelectTrigger className="h-9 w-auto gap-1 rounded-md border px-3 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {empresas.map(e => <SelectItem key={e.id} value={e.id}>{e.nomeFantasia || e.razaoSocial}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {podeGerir && (
-            <Button variant={view === 'config' ? 'success' : 'outline'} size="sm" className="gap-1.5" onClick={() => { setView(view === 'config' ? 'competencias' : 'config'); setSelId(null) }}>
-              <Settings2 className="h-4 w-4" /> Configurações
-            </Button>
-          )}
-        </>}
-      >
-        <h1 className="truncate">Benefícios</h1>
-        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
-          <span className="text-muted-foreground/50">›</span>
-          <span>Trabalhista</span>
-          <span className="text-muted-foreground/50">›</span>
-          <span>Benefícios</span>
-        </p>
-      </PageHeaderBar>
+      {/* Topo — PADRAO_PAGINAS §1.1. No detalhe de uma competência o próprio
+          CompetenciaDetail renderiza o header (título + ações), então aqui só
+          mostramos o header da home (Empresa + Configurações). */}
+      {!selId && (
+        <PageHeaderBar actions={<>
+            <Select value={empresaId} onValueChange={v => { setEmpresaId(v); setSelId(null) }}>
+              <SelectTrigger className="h-9 w-auto gap-1 rounded-md border px-3 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {empresas.map(e => <SelectItem key={e.id} value={e.id}>{e.nomeFantasia || e.razaoSocial}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {podeGerir && (
+              <Button variant={view === 'config' ? 'success' : 'outline'} size="sm" className="gap-1.5" onClick={() => { setView(view === 'config' ? 'competencias' : 'config'); setSelId(null) }}>
+                <Settings2 className="h-4 w-4" /> Configurações
+              </Button>
+            )}
+          </>}
+        >
+          <h1 className="truncate">Benefícios</h1>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Trabalhista</span>
+            <span className="text-muted-foreground/50">›</span>
+            <span>Benefícios</span>
+          </p>
+        </PageHeaderBar>
+      )}
 
       {!empresaId ? <p className="text-sm text-muted-foreground">Nenhuma empresa disponível.</p>
         : view === 'config' && podeGerir ? <ConfigView empresaId={empresaId} />
@@ -155,16 +160,19 @@ function CompetenciasList({ competencias, loading, empresaId, podeGerir, onOpen,
 
       {loading ? <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         : competencias.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Nenhuma competência ainda.</p>
-        : <div className="border rounded-lg divide-y">
+        : <div className="border rounded-lg divide-y bg-card overflow-hidden">
             {competencias.map(c => {
               const s = STATUS[c.status] || { label: c.status, cls: 'bg-muted text-muted-foreground' }
               return (
-                <button key={c.id} onClick={() => onOpen(c.id)} className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left">
+                <button key={c.id} onClick={() => onOpen(c.id)} className="group w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left cursor-pointer">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold">{MESES[c.mes - 1]}/{c.ano}</span>
+                    <span className="text-sm font-semibold transition-colors group-hover:text-[color-mix(in_srgb,var(--mod-trabalhista,#a3e635)_55%,var(--color-foreground))]">{MESES[c.mes - 1]}/{c.ano}</span>
                     <span className="text-[11px] text-muted-foreground">{c.diasUteis} dias úteis · VA {brl(Number(c.diariaVA))}/dia · VT {brl(Number(c.diariaVT))}/dia</span>
                   </div>
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.cls}`}>{s.label}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.cls}`}>{s.label}</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/50 transition-all group-hover:translate-x-0.5 group-hover:text-foreground" />
+                  </div>
                 </button>
               )
             })}
@@ -410,19 +418,29 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> {MESES[comp.mes - 1]}/{comp.ano} · {comp.diasUteis} dias úteis</button>
-        {podeGerir && (
-          <div className="flex items-center gap-2">
-            {!fechada && <Button variant="outline" size="sm" className="gap-1.5" onClick={notificar} disabled={acao}><Mail className="h-4 w-4" /> Notificar líderes</Button>}
-            {!fechada && <Button variant="outline" size="sm" className="gap-1.5" onClick={cobrar} disabled={acao}><BellRing className="h-4 w-4" /> Cobrar pendentes</Button>}
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={exportar}><FileSpreadsheet className="h-4 w-4" /> Exportar XLSX</Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={imprimir} disabled={acao}><Printer className="h-4 w-4" /> Imprimir / PDF</Button>
-            {fechada ? <Button variant="outline" size="sm" className="gap-1.5" onClick={reabrir} disabled={acao}><Unlock className="h-4 w-4" /> Reabrir</Button>
-              : <Button size="sm" className="gap-1.5 text-white hover:opacity-90" style={{ background: COR_FILL }} onClick={fechar} disabled={acao}>{acao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Fechar</Button>}
-          </div>
-        )}
-      </div>
+      <PageHeaderBar actions={<>
+          {podeGerir && (
+            <>
+              {!fechada && <Button variant="outline" size="sm" className="gap-1.5" onClick={notificar} disabled={acao}><Mail className="h-4 w-4" /> Notificar líderes</Button>}
+              {!fechada && <Button variant="outline" size="sm" className="gap-1.5" onClick={cobrar} disabled={acao}><BellRing className="h-4 w-4" /> Cobrar pendentes</Button>}
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={exportar}><FileSpreadsheet className="h-4 w-4" /> Exportar XLSX</Button>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={imprimir} disabled={acao}><Printer className="h-4 w-4" /> Imprimir / PDF</Button>
+              {fechada ? <Button variant="outline" size="sm" className="gap-1.5" onClick={reabrir} disabled={acao}><Unlock className="h-4 w-4" /> Reabrir</Button>
+                : <Button size="sm" className="gap-1.5 text-white hover:opacity-90" style={{ background: COR_FILL }} onClick={fechar} disabled={acao}>{acao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Fechar</Button>}
+            </>
+          )}
+          <BackButton onClick={onBack} label="Voltar" />
+        </>}
+      >
+        <h1 className="truncate">{MESES[comp.mes - 1]}/{comp.ano} <span className="ml-1 text-sm font-normal text-muted-foreground">· {comp.diasUteis} dias úteis</span></h1>
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Trabalhista</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span>Benefícios</span>
+        </p>
+      </PageHeaderBar>
 
       <div className="flex gap-4 border-b">
         {([['apontamentos', 'Apontamentos'], ...(podeGerir ? [['saldo', 'Saldo VT'], ['fechamento', 'Fechamento']] : [])] as [string, string][]).map(([k, l]) => (
