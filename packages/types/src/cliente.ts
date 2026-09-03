@@ -129,6 +129,16 @@ export const createClienteSchema = z.object({
   inscricaoEstadual: z.coerce.string().optional().or(z.literal('')),
   inscricaoMunicipal: z.coerce.string().optional().or(z.literal('')),
 
+  // Características fiscais — `nullish` em todos: null é "não informado", que
+  // não é a mesma coisa que "não". Um false aqui afirma algo que ninguém apurou.
+  apuracaoLucroReal: z.enum(['TRIMESTRAL', 'ANUAL', 'ESTIMATIVA']).nullish(),
+  fatorR: z.boolean().nullish(),
+  apuraIssPorFora: z.boolean().nullish(),
+  apuraIcmsPorFora: z.boolean().nullish(),
+  possuiProLabore: z.boolean().nullish(),
+  possuiFuncionarios: z.boolean().nullish(),
+  semMovimento: z.boolean().nullish(),
+
   // Áreas contratadas (semicolon-separated string)
   areasContratadas: z.coerce.string().optional().or(z.literal('')),
 
@@ -174,7 +184,9 @@ export const listClienteSchema = paginationSchema.extend({
   // #HLP0210 (Fase 3) — "Somente Ex-clientes": estado derivado = MENSAL ∧ INATIVO ∧ dataSaida
   // preenchida. Quando true, ignora situacao/status/incluirInativos e aplica essa regra.
   exCliente: z.coerce.boolean().optional(),
-  tributacao: z.enum(['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI', 'IMUNE', 'ISENTA']).optional(),
+  // '__sem__' filtra quem está SEM tributação preenchida — mesma sentinela
+  // de comBeneficio/comServico, para a tela falar uma língua só.
+  tributacao: z.enum(['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI', 'IMUNE', 'ISENTA', '__sem__']).optional(),
   grupo: z.string().optional(),
   cidade: z.string().optional(),
   uf: z.string().optional(),

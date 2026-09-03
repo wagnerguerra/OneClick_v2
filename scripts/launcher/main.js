@@ -320,7 +320,11 @@ const services = {
   postgres: {
     name: 'PostgreSQL',
     port: PG_PORT,
+    // `managed: false` continua: eles nao sao processos que o launcher gera, e
+    // "iniciar todos" nao deve tentar dar spawn neles. O que muda e que agora
+    // ha um caminho de controle proprio — o compose —, declarado aqui.
     managed: false,
+    dockerService: 'postgres',
     logs: [],
     color: '#336791',
     icon: 'database',
@@ -329,6 +333,7 @@ const services = {
     name: 'Redis',
     port: REDIS_PORT,
     managed: false,
+    dockerService: 'redis',
     logs: [],
     color: '#dc382d',
     icon: 'zap',
@@ -588,6 +593,13 @@ function addLog(serviceId, text, type = 'stdout') {
 // ══════════════════════════════════════════════════════════════
 async function startService(id) {
   const svc = services[id];
+  if (svc && svc.dockerService) {
+    addLog(id, `Iniciando ${svc.name} (docker compose)...`, 'system');
+    const r = dockerComposeService('start', svc.dockerService);
+    if (!r.ok) addLog(id, `✗ ${r.error}`, 'error');
+    setTimeout(broadcastStatus, 1500);
+    return r;
+  }
   if (!svc || svc.managed === false) return { ok: false, error: 'Serviço não gerenciável' };
   if (svc.process) return { ok: false, error: 'Já está rodando' };
   if (!svc.cwd || !fs.existsSync(svc.cwd)) return { ok: false, error: `Diretório do serviço não configurado: ${svc.cwd || '-'}` };
@@ -644,6 +656,13 @@ async function startService(id) {
 
 function stopService(id) {
   const svc = services[id];
+  if (svc && svc.dockerService) {
+    addLog(id, `Parando ${svc.name} (docker compose)...`, 'system');
+    const r = dockerComposeService('stop', svc.dockerService);
+    if (!r.ok) addLog(id, `✗ ${r.error}`, 'error');
+    setTimeout(broadcastStatus, 1500);
+    return r;
+  }
   if (!svc || svc.managed === false) return { ok: false, error: 'Serviço não gerenciável' };
 
   addLog(id, `Parando ${svc.name}...`, 'system');
@@ -665,6 +684,14 @@ function stopService(id) {
 }
 
 async function restartService(id) {
+  const svcDocker = services[id];
+  if (svcDocker && svcDocker.dockerService) {
+    addLog(id, `Reiniciando ${svcDocker.name} (docker compose)...`, 'system');
+    const r = dockerComposeService('restart', svcDocker.dockerService);
+    if (!r.ok) addLog(id, `✗ ${r.error}`, 'error');
+    setTimeout(broadcastStatus, 1500);
+    return r;
+  }
   stopService(id);
   await new Promise((r) => setTimeout(r, 2000));
   return startService(id);
@@ -764,6 +791,36 @@ async function startDockerContainers() {
   }
 }
 
+/**
+ * Um comando do compose para UM servico (start | stop | restart).
+ *
+ * Antes o Docker era tudo ou nada: `up -d` e `stop` mexiam nos dois containers
+ * juntos. Reiniciar so o Redis obrigava a derrubar o Postgres no caminho.
+ *
+ * Tenta `docker compose` (v2) e cai para `docker-compose` (v1), como o resto
+ * do arquivo ja fazia — a maquina pode ter qualquer um dos dois.
+ */
+function dockerComposeService(acao, servico) {
+  if (!projectRoot || !isProjectRoot(projectRoot)) {
+    return { ok: false, error: 'Raiz do projeto nao configurada' };
+  }
+  const opcoes = { cwd: projectRoot, timeout: 30000, stdio: 'ignore', windowsHide: true };
+  // `start` so religa um container que existe; se nunca subiu, nao ha o que
+  // religar — dai o `up -d` como segunda tentativa.
+  const tentativas = acao === 'start'
+    ? [`docker compose start ${servico}`, `docker compose up -d ${servico}`,
+       `docker-compose start ${servico}`, `docker-compose up -d ${servico}`]
+    : [`docker compose ${acao} ${servico}`, `docker-compose ${acao} ${servico}`];
+  let ultimoErro = null;
+  for (const cmd of tentativas) {
+    try {
+      execSync(cmd, opcoes);
+      return { ok: true };
+    } catch (e) { ultimoErro = e; }
+  }
+  return { ok: false, error: ultimoErro ? ultimoErro.message : 'Falha no docker compose' };
+}
+
 function stopDockerContainers() {
   if (!projectRoot || !isProjectRoot(projectRoot)) return;
   try {
@@ -795,6 +852,9 @@ async function getFullStatus() {
       healthy: health ? health.ok : running,
       health,
       managed: svc.managed !== false,
+      // O renderer usa isto para saber que o cartao tem botoes, mesmo com
+      // `managed: false` — quem executa a acao e o compose, nao o spawn.
+      dockerService: svc.dockerService || null,
       hasProcess: !!svc.process,
       cwd: svc.cwd || null,
       color: svc.color,
@@ -2202,6 +2262,65 @@ function registerIpcHandlers() {
     return null
   }
 
+  /**
+   * Le uma linha do `git status --porcelain` em { status, path }.
+   *
+   * O git ENVOLVE O CAMINHO EM ASPAS quando ele tem espaco, aspas ou byte fora
+   * do ASCII — e ai escapa cada byte nao-ASCII em octal (\303\247 = c cedilha).
+   * Fatiar a linha crua deixava as aspas coladas no caminho, e o
+   * `git add -- '"docs/Arquivo X.xlsx"'` saia procurando um arquivo cujo nome
+   * comeca com aspas. Qualquer nome com espaco ou acento derrubava o deploy no
+   * primeiro arquivo — e, de tabela, escapava dos filtros por prefixo, porque
+   * `"docs/...` nao comeca com `docs/`.
+   */
+  function lerLinhaPorcelain(linha) {
+    const status = linha.slice(0, 2).trim()
+    let bruto = linha.slice(3)
+    // Renomeado/copiado vem como `antigo -> novo`. O antigo ja esta no indice
+    // como remocao; o que precisa entrar no commit e o novo.
+    if (status.startsWith('R') || status.startsWith('C')) {
+      const seta = bruto.lastIndexOf(' -> ')
+      if (seta >= 0) bruto = bruto.slice(seta + 4)
+    }
+    if (!(bruto.length > 1 && bruto.startsWith('"') && bruto.endsWith('"'))) {
+      return { status, path: bruto }
+    }
+    const corpo = bruto.slice(1, -1)
+    const ESCAPES = { n: 10, t: 9, r: 13, b: 8, f: 12, v: 11, a: 7 }
+    const bytes = []
+    for (let i = 0; i < corpo.length; i++) {
+      if (corpo[i] !== '\\') { bytes.push(...Buffer.from(corpo[i], 'utf8')); continue }
+      const prox = corpo[++i]
+      if (prox >= '0' && prox <= '7') { bytes.push(parseInt(corpo.substr(i, 3), 8)); i += 2 }
+      else if (prox in ESCAPES) bytes.push(ESCAPES[prox])
+      else bytes.push(...Buffer.from(prox, 'utf8'))
+    }
+    return { status, path: Buffer.from(bytes).toString('utf8') }
+  }
+
+  /**
+   * O arquivo entra na fila de commit do deploy?
+   *
+   * A fila e so do que vai a producao. Ficam de fora os restos de trabalho
+   * (.bak, .env.bak.*, /tmp/) e, no core, a pasta docs/: relatorio, planilha e
+   * anotacao de apoio nao sao codigo publicado, e cada um virava um commit no
+   * GitHub sem ninguem pedir. Seguem versionaveis a mao quando fizer sentido —
+   * o que sai e o automatico.
+   *
+   * Uma funcao so para os dois usos (a lista que o painel mostra e o que o
+   * deploy de fato commita). Como eram duas copias, ja tinham divergido: o
+   * painel escondia o mobile-dist e o commit nao.
+   */
+  function entraNaFilaDeDeploy(d, projectId) {
+    const p = String(d.path || '').replace(/\\/g, '/')
+    if (projectId === 'core' && (p === 'docs' || p.startsWith('docs/'))) return false
+    if (d.status === '??') {
+      if (p.endsWith('.bak') || p.includes('.env.bak.') || p.includes('/tmp/')) return false
+      if (projectId === 'app' && p.startsWith('scripts/mobile-dist/')) return false
+    }
+    return true
+  }
+
   function gitStatusForDeployProject(def, cfg) {
     const cwd = def.cwd
     if (!cwd || !fs.existsSync(cwd)) {
@@ -2216,17 +2335,8 @@ function registerIpcHandlers() {
     const localSha = gitOutput(['rev-parse', 'HEAD'], cwd)
     const localShort = gitOutput(['rev-parse', '--short', 'HEAD'], cwd)
     const localStatus = gitOutput(['status', '--porcelain'], cwd)
-    const dirtyFiles = localStatus.split('\n').filter(Boolean).map(l => ({
-      status: l.slice(0, 2).trim(),
-      path: l.slice(3),
-    }))
-    const dirtyRelevant = dirtyFiles.filter(d => {
-      if (d.status === '??') {
-        if (d.path.endsWith('.bak') || d.path.includes('.env.bak.') || d.path.includes('/tmp/')) return false
-        if (def.id === 'app' && d.path.replace(/\\/g, '/').startsWith('scripts/mobile-dist/')) return false
-      }
-      return true
-    })
+    const dirtyFiles = localStatus.split('\n').filter(Boolean).map(lerLinhaPorcelain)
+    const dirtyRelevant = dirtyFiles.filter(d => entraNaFilaDeDeploy(d, def.id))
 
     const remoteUrl = gitOutput(['remote', 'get-url', 'origin'], cwd)
     const hasRemote = gitExitCode(['remote', 'get-url', 'origin'], cwd) === 0 && !!remoteUrl
@@ -2705,16 +2815,8 @@ function registerIpcHandlers() {
       deployCheckAbort('commit', 1)
       deployCurrentStep = 'commit'
       const statusOut = gitOutput(['status', '--porcelain'])
-      const dirtyAll = statusOut.split('\n').filter(Boolean).map(l => ({
-        status: l.slice(0, 2).trim(),
-        path: l.slice(3),
-      }))
-      const dirtyRelevant = dirtyAll.filter(d => {
-        if (d.status === '??') {
-          if (d.path.endsWith('.bak') || d.path.includes('.env.bak.') || d.path.includes('/tmp/')) return false
-        }
-        return true
-      })
+      const dirtyAll = statusOut.split('\n').filter(Boolean).map(lerLinhaPorcelain)
+      const dirtyRelevant = dirtyAll.filter(d => entraNaFilaDeDeploy(d, 'core'))
       if (dirtyRelevant.length > 0) {
         if (!commitMessage) {
           deployRunning = false
@@ -3095,10 +3197,8 @@ function registerIpcHandlers() {
         const appDef = deployProjectDefs(cfg).find(p => p.id === 'app')
         const appCwd = appDef.cwd
         const appBranch = appDef.branch || gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'], appCwd)
-        const appDirty = gitOutput(['status', '--porcelain'], appCwd).split('\n').filter(Boolean).map(l => ({
-          status: l.slice(0, 2).trim(),
-          path: l.slice(3),
-        })).filter(d => !(d.status === '??' && (d.path.endsWith('.bak') || d.path.includes('/tmp/') || d.path.replace(/\\/g, '/').startsWith('scripts/mobile-dist/'))))
+        const appDirty = gitOutput(['status', '--porcelain'], appCwd).split('\n').filter(Boolean)
+          .map(lerLinhaPorcelain).filter(d => entraNaFilaDeDeploy(d, 'app'))
         if (appDirty.length > 0) {
           if (!commitMessage) {
             deployRunning = false

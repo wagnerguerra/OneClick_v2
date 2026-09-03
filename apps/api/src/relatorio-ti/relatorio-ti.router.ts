@@ -105,7 +105,14 @@ export function createRelatorioTiRouter(service: RelatorioTiService) {
     // as novidades justamente de quem elas informam.
     novidadesPublicas: protectedProcedure
       .input(z.object({ limite: z.coerce.number().int().min(1).max(50).optional() }).optional())
-      .query(({ input, ctx }) => service.novidadesPublicas(ctx.empresaId, input?.limite ?? 30)),
+      .query(({ input, ctx }) => service.novidadesPublicas(ctx.empresaId, input?.limite ?? 30, ctx.userId)),
+
+    // Curtir/descurtir uma novidade. `protectedProcedure` como a leitura: o
+    // painel e de todos, e nao faz sentido pedir sub-permissao para dizer
+    // "gostei" do que o proprio sistema te mostrou.
+    curtirNovidade: protectedProcedure
+      .input(z.object({ novidadeId: z.string().min(1) }))
+      .mutation(({ input, ctx }) => service.alternarCurtida(input.novidadeId, ctx.userId)),
 
     /** Tudo, inclusive despublicadas — só para quem cura. */
     novidades: readProcedure(MODULE)

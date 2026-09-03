@@ -1436,6 +1436,772 @@
       .deploy-status-grid { grid-template-columns: 1fr; }
       .sidebar { width: 224px; }
     }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       Tela "Publicando implementações" — linguagem visual do LuminAux
+       (o mesmo modelo do app web): fundo claro, cartões brancos de canto
+       12px, borda de 1px quase imperceptível, sombra rasa e azul #0067ff
+       como único destaque.
+
+       Tudo aqui está preso a #page-deploy de propósito. O restante do
+       Service Manager segue com a pele antiga; misturar as duas em todas
+       as telas de uma vez seria uma reforma bem maior que a pedida.
+
+       A fonte continua a do sistema. O LuminAux usa Plus Jakarta Sans, que
+       viria de CDN — e este app precisa abrir sem rede, com o servidor
+       local no ar ou fora dele. Uma fonte que às vezes carrega é pior que
+       uma que nunca carrega: o layout dança entre uma execução e outra.
+       ═══════════════════════════════════════════════════════════════════ */
+
+    /* Os tokens --lx-* vivem no escopo do tema (ver a camada global no fim
+       desta folha). Aqui fica so o que e desta tela. */
+    #page-deploy { color: var(--lx-fg); }
+
+    #page-deploy .page-title { color: var(--lx-fg); }
+    #page-deploy .page-subtitle { color: var(--lx-muted); }
+
+    /* ── Cartão ─────────────────────────────────────────────────────── */
+    #page-deploy .lx-card {
+      background: var(--lx-surface);
+      border: 1px solid var(--lx-border);
+      border-radius: var(--lx-radius);
+      box-shadow: var(--lx-shadow);
+      padding: 20px;
+      margin-bottom: 12px;
+    }
+    #page-deploy .lx-card-flush { padding: 0; overflow: hidden; }
+    #page-deploy .lx-card-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--lx-border);
+    }
+    #page-deploy .lx-card-title { font-size: 13px; font-weight: 600; color: var(--lx-fg); }
+    #page-deploy .lx-loading {
+      text-align: center; padding: 28px; font-size: 12px; color: var(--lx-muted);
+    }
+    #page-deploy .lx-empty { font-size: 12px; color: var(--lx-muted); padding: 4px; }
+
+    /* ── Botões ─────────────────────────────────────────────────────── */
+    #page-deploy .lx-actions { display: flex; align-items: center; gap: 6px; }
+    #page-deploy .lx-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 34px; padding: 0 14px; border-radius: 8px;
+      font-size: 12.5px; font-weight: 500; font-family: inherit;
+      border: 1px solid transparent; cursor: pointer;
+      transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+      white-space: nowrap;
+    }
+    #page-deploy .lx-btn-ghost {
+      background: transparent; color: var(--lx-muted);
+    }
+    #page-deploy .lx-btn-ghost:hover { background: var(--lx-surface-muted); color: var(--lx-fg); }
+    #page-deploy .lx-btn-outline {
+      background: var(--lx-surface); color: var(--lx-fg); border-color: var(--lx-border);
+      box-shadow: var(--lx-shadow);
+    }
+    #page-deploy .lx-btn-outline:hover { background: var(--lx-surface-muted); }
+    #page-deploy .lx-btn-primary {
+      background: var(--lx-primary); color: #fff; box-shadow: var(--lx-shadow);
+      font-weight: 600; height: 38px; padding: 0 18px;
+    }
+    #page-deploy .lx-btn-primary:hover:not(:disabled) { background: var(--lx-primary-hover); }
+    #page-deploy .lx-btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+    #page-deploy .lx-btn-danger {
+      background: transparent; color: var(--lx-danger);
+      border-color: color-mix(in srgb, var(--lx-danger) 35%, transparent);
+      height: 38px; font-weight: 600;
+    }
+    #page-deploy .lx-btn-danger:hover { background: color-mix(in srgb, var(--lx-danger) 10%, transparent); }
+
+    /* ── O caminho Local → GitHub → VPS ─────────────────────────────── */
+    #page-deploy .lx-flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      /* `stretch` no lugar de `center`: as tres paradas passam a ter a altura
+         da mais alta. Antes, o selo de PR fazia a do GitHub crescer sozinha e
+         a fileira ficava desalinhada. */
+      align-items: stretch;
+      gap: 4px;
+    }
+    #page-deploy .lx-stop {
+      display: flex; align-items: center; gap: 12px; min-width: 0;
+      padding: 12px 14px; border-radius: 10px;
+      background: var(--lx-surface-muted);
+      /* Borda transparente ja no repouso: quando o estado a pinta, nada se
+         desloca por causa do 1px que apareceu. */
+      border: 1px solid transparent;
+      transition: border-color .2s ease, background-color .2s ease;
+    }
+    /* O ramo a esquerda e o commit a direita, na mesma linha: a largura do
+       quadro passa a ser usada, em vez de sobrar vazia. */
+    #page-deploy .lx-stop-linha {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    }
+
+    /* ── Estado de sincronia ──────────────────────────────────────────
+       Verde na parada que esta no commit de referencia (o local, de onde o
+       codigo parte); vermelho na que ficou para tras. Com as tres no mesmo
+       commit, a fileira inteira fica verde — a leitura de "tudo certo" sem
+       precisar comparar sha na mao.
+
+       Suave de proposito: e um estado de fundo, nao um alerta. Quem grita
+       aqui competiria com o botao Publicar. */
+    #page-deploy .lx-stop[data-sync="ok"] {
+      border-color: color-mix(in srgb, var(--lx-success) 42%, transparent);
+      background: color-mix(in srgb, var(--lx-success) 7%, var(--lx-surface-muted));
+    }
+    #page-deploy .lx-stop[data-sync="atrasado"] {
+      border-color: color-mix(in srgb, var(--lx-danger) 42%, transparent);
+      background: color-mix(in srgb, var(--lx-danger) 7%, var(--lx-surface-muted));
+    }
+    #page-deploy .lx-stop-icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+    }
+    #page-deploy .lx-tint-primary { background: color-mix(in srgb, var(--lx-primary) 12%, transparent); color: var(--lx-primary); }
+    #page-deploy .lx-tint-success { background: color-mix(in srgb, var(--lx-success) 14%, transparent); color: var(--lx-success); }
+    #page-deploy .lx-tint-slate   { background: color-mix(in srgb, var(--lx-muted) 16%, transparent); color: var(--lx-muted); }
+    #page-deploy .lx-stop-body { flex: 1; min-width: 0; }
+    #page-deploy .lx-stop-label {
+      font-size: 10px; font-weight: 600; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--lx-muted);
+    }
+    #page-deploy .lx-stop-main {
+      font-size: 14px; font-weight: 600; color: var(--lx-fg);
+      margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    /* Selo de PR na parada do GitHub. Um painel inteiro para anunciar que
+       nao ha nada e desproporcional: ocupava a mesma altura de quando ha PR
+       para dizer "nenhum". Vira uma linha no lugar onde a informacao mora. */
+    #page-deploy .lx-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 5px; padding: 2px 9px; border-radius: 999px;
+      font-size: 10.5px; font-weight: 600; white-space: nowrap;
+      background: var(--lx-surface); color: var(--lx-muted);
+      border: 1px solid var(--lx-border);
+    }
+    #page-deploy .lx-chip::before {
+      content: ''; width: 5px; height: 5px; border-radius: 50%;
+      background: currentColor; flex-shrink: 0;
+    }
+    #page-deploy .lx-chip[data-state="erro"] {
+      color: var(--lx-danger);
+      border-color: color-mix(in srgb, var(--lx-danger) 30%, transparent);
+      background: color-mix(in srgb, var(--lx-danger) 8%, transparent);
+    }
+
+    #page-deploy .lx-stop-sha {
+      font-family: 'Cascadia Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px; color: var(--lx-muted); margin-top: 1px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    /* O trilho entre as paradas: fino, tracejado, com a seta no fim. É o
+       que transforma três cartões soltos numa sequência com direção. */
+    #page-deploy .lx-rail {
+      display: flex; align-items: center; align-self: center;
+      gap: 2px; padding: 0 6px; color: var(--lx-border);
+    }
+    #page-deploy .lx-rail span {
+      display: block; width: 26px; height: 0;
+      border-top: 2px dashed color-mix(in srgb, var(--lx-muted) 40%, transparent);
+    }
+    #page-deploy .lx-rail::after {
+      content: ''; width: 0; height: 0;
+      border-left: 5px solid color-mix(in srgb, var(--lx-muted) 55%, transparent);
+      border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+    }
+
+    /* ── Avisos ─────────────────────────────────────────────────────── */
+    #page-deploy .lx-note {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 12px; padding: 9px 12px; border-radius: 8px;
+      font-size: 12px; line-height: 1.45;
+    }
+    #page-deploy .lx-note::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; flex-shrink: 0;
+    }
+    #page-deploy .lx-note-ok {
+      color: var(--lx-success);
+      background: color-mix(in srgb, var(--lx-success) 9%, transparent);
+      border: 1px solid color-mix(in srgb, var(--lx-success) 24%, transparent);
+    }
+    #page-deploy .lx-note-warn {
+      color: var(--lx-warning);
+      background: color-mix(in srgb, var(--lx-warning) 9%, transparent);
+      border: 1px solid color-mix(in srgb, var(--lx-warning) 24%, transparent);
+    }
+
+    /* ── Seções "o que vai subir" ───────────────────────────────────── */
+    #page-deploy .lx-section { margin-top: 18px; }
+    #page-deploy .lx-section + .lx-section { margin-top: 14px; }
+    #page-deploy .lx-section-head {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    #page-deploy .lx-section-title { font-size: 13px; font-weight: 600; color: var(--lx-fg); }
+    #page-deploy .lx-section-hint { font-size: 11px; color: var(--lx-muted); margin-left: auto; }
+    #page-deploy .lx-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    #page-deploy .lx-dot-warn { background: var(--lx-warning); }
+    #page-deploy .lx-dot-primary { background: var(--lx-primary); }
+    #page-deploy .lx-count {
+      min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--lx-surface-muted); color: var(--lx-muted);
+      font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+    }
+    #page-deploy .lx-list {
+      background: var(--lx-surface-muted);
+      border: 1px solid var(--lx-border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      max-height: 150px; overflow-y: auto;
+      font-family: 'Cascadia Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px; line-height: 1.65; color: var(--lx-muted);
+    }
+    #page-deploy .lx-list-sm { max-height: 130px; font-size: 10.5px; margin-bottom: 14px; }
+
+    /* A pele antiga chumbava `min-height: 210px` nessas duas listas, com
+       !important no padding e no teto. Com dois commits na fila sobrava meia
+       tela de vazio — o que a captura do preview deixou obvio. Aqui elas
+       voltam a ter a altura do proprio conteudo, rolando quando passa do teto. */
+    #page-deploy #deployDirtyList,
+    #page-deploy #deployPendingPushList,
+    #page-deploy #deployPendingDeployList {
+      font-size: 11.5px !important; line-height: 1.7 !important;
+      padding: 8px 12px !important;
+    }
+    #page-deploy #deployPendingPushList,
+    #page-deploy #deployPendingDeployList {
+      min-height: 0; max-height: 190px !important;
+    }
+    #page-deploy #deployPendingPushBox,
+    #page-deploy #deployPendingDeployBox { margin-bottom: 0 !important; }
+
+    /* O aviso "N arquivo(s) sem commit" dizia exatamente o que a secao logo
+       abaixo ja diz, com a mesma contagem e ainda a lista. O JS acende e apaga
+       os dois sempre juntos, entao esconder o aviso pelo CSS nao perde
+       informacao — evita a repeticao. */
+    #page-deploy #deployLocalDirty { display: none !important; }
+
+    /* ── Barra de ação ──────────────────────────────────────────────── */
+    #page-deploy .lx-action-row { display: flex; align-items: center; gap: 10px; }
+    #page-deploy .lx-action-hint { font-size: 11.5px; color: var(--lx-muted); }
+
+    /* ── Log ────────────────────────────────────────────────────────── */
+    #page-deploy .lx-log {
+      max-height: 340px; overflow-y: auto; padding: 10px 16px;
+      font-family: 'Cascadia Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px; line-height: 1.55; color: var(--lx-muted);
+      user-select: text; -webkit-user-select: text; cursor: text;
+    }
+
+    /* ── Modal ──────────────────────────────────────────────────────── */
+    #page-deploy .lx-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(2px);
+      align-items: center; justify-content: center;
+    }
+    #page-deploy .lx-dialog {
+      width: 540px; max-width: 92vw;
+      background: var(--lx-surface);
+      border: 1px solid var(--lx-border);
+      border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22);
+      overflow: hidden;
+    }
+    #page-deploy .lx-dialog-head {
+      display: flex; align-items: center; gap: 12px;
+      padding: 16px 18px; border-bottom: 1px solid var(--lx-border);
+    }
+    #page-deploy .lx-dialog-title { font-size: 14px; font-weight: 700; color: var(--lx-fg); }
+    #page-deploy .lx-dialog-sub { font-size: 11.5px; color: var(--lx-muted); margin-top: 2px; }
+    #page-deploy .lx-dialog-body { padding: 16px 18px 6px; }
+    #page-deploy .lx-dialog-foot {
+      display: flex; justify-content: flex-end; gap: 8px;
+      padding: 14px 18px; border-top: 1px solid var(--lx-border);
+      background: var(--lx-surface-muted);
+    }
+    #page-deploy .lx-label {
+      display: block; font-size: 10px; font-weight: 600; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--lx-muted); margin-bottom: 5px;
+    }
+    #page-deploy .lx-input {
+      width: 100%; height: 38px; padding: 0 12px;
+      border: 1px solid var(--lx-border); border-radius: 8px;
+      background: var(--lx-surface-muted); color: var(--lx-fg);
+      font-size: 13px; font-family: inherit;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    #page-deploy .lx-input:focus {
+      outline: none; border-color: var(--lx-primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--lx-primary) 18%, transparent);
+    }
+    #page-deploy .lx-help { font-size: 10.5px; color: var(--lx-muted); margin-top: 6px; }
+    #page-deploy .lx-help code {
+      font-family: 'Cascadia Code', ui-monospace, monospace;
+      background: var(--lx-surface-muted); padding: 1px 4px; border-radius: 4px;
+    }
+
+    /* ── Projetos e PRs: a pele nova sobre a estrutura que o JS monta ── */
+    #page-deploy .deploy-project-grid { gap: 10px; margin-bottom: 12px; }
+    #page-deploy .deploy-project-card {
+      background: var(--lx-surface); border: 1px solid var(--lx-border);
+      border-radius: var(--lx-radius); box-shadow: var(--lx-shadow); padding: 14px;
+    }
+    #page-deploy .deploy-project-card.is-selected {
+      border-color: var(--lx-primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--lx-primary) 14%, transparent);
+    }
+    #page-deploy .deploy-project-title { font-size: 13px; font-weight: 600; color: var(--lx-fg); }
+    #page-deploy .deploy-project-detail { font-size: 11.5px; color: var(--lx-muted); }
+    #page-deploy .deploy-project-badge {
+      background: var(--lx-surface-muted); color: var(--lx-muted);
+      border: none; border-radius: 999px; padding: 2px 8px;
+      font-size: 11px; font-weight: 600;
+    }
+    #page-deploy .deploy-pr-panel {
+      background: var(--lx-surface); border: 1px solid var(--lx-border);
+      border-radius: var(--lx-radius); box-shadow: var(--lx-shadow);
+      padding: 16px 18px; margin-bottom: 12px;
+    }
+    #page-deploy .deploy-pr-titlebar { font-size: 13px; font-weight: 600; color: var(--lx-fg); }
+    #page-deploy .settings-hint { font-size: 11.5px; color: var(--lx-muted); }
+    #page-deploy .deploy-pr-card {
+      background: var(--lx-surface-muted); border: 1px solid var(--lx-border);
+      border-radius: 10px;
+    }
+    #page-deploy .deploy-pr-title { color: var(--lx-fg); }
+    #page-deploy .deploy-pr-meta { color: var(--lx-muted); }
+    #page-deploy .deploy-target-row { border-radius: 8px; }
+    #page-deploy .deploy-target-row.is-selected {
+      background: color-mix(in srgb, var(--lx-primary) 8%, transparent);
+    }
+    #page-deploy .deploy-target-sha {
+      font-family: 'Cascadia Code', ui-monospace, monospace; color: var(--lx-primary);
+    }
+    #page-deploy .deploy-target-msg { color: var(--lx-fg); }
+
+    /* ── Progresso e passos ─────────────────────────────────────────── */
+    /* O cartao tinha um `border-radius: 4px !important` da pele antiga; so
+       um seletor mais especifico (e igualmente important) devolve o canto de
+       12px do modelo. */
+    #page-deploy #deployStatusCard { border-radius: var(--lx-radius) !important; }
+
+    #page-deploy .deploy-progress-panel {
+      margin-top: 16px; padding: 16px 0 0; border: none;
+      border-top: 1px solid var(--lx-border);
+      background: transparent; border-radius: 0;
+    }
+    #page-deploy .deploy-progress-step {
+      color: var(--lx-fg); font-size: 12.5px; font-weight: 600;
+      text-transform: none; letter-spacing: 0;
+    }
+    #page-deploy .deploy-progress-step::before {
+      width: 7px; height: 7px; background: var(--lx-primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--lx-primary) 18%, transparent);
+    }
+    #page-deploy .deploy-progress-pct {
+      color: var(--lx-muted); font-size: 12px; font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      border: none; background: transparent; padding: 0;
+    }
+    #page-deploy .deploy-progress-track {
+      height: 6px; border: none; border-radius: 999px;
+      background: var(--lx-surface-muted); overflow: hidden;
+    }
+    #page-deploy .deploy-progress-track::after { display: none; }
+    #page-deploy .deploy-progress-bar {
+      background: var(--lx-primary); border-radius: 999px; box-shadow: none;
+      transition: width .35s cubic-bezier(.4, 0, .2, 1);
+    }
+    #page-deploy .deploy-steps { gap: 8px; margin-top: 14px; margin-bottom: 4px; }
+    #page-deploy .deploy-step {
+      background: var(--lx-surface-muted);
+      border: 1px solid var(--lx-border);
+      border-radius: 10px;
+    }
+    #page-deploy .deploy-step::before { border-radius: 10px 0 0 10px; }
+    #page-deploy .deploy-step .step-label {
+      color: var(--lx-fg); font-size: 12px; font-weight: 600;
+      text-transform: none; letter-spacing: 0;
+    }
+    /* O detalhe do passo era posicionado FORA do cartao (top: 100%), entao
+       "concluido" flutuava solto embaixo, sem vinculo visivel com o passo a
+       que pertence. Trazido para dentro: o cartao cresce um pouco e a legenda
+       fica onde a pessoa olha. */
+    #page-deploy .deploy-step .step-detail {
+      position: static; margin-top: 3px; padding: 0; max-height: none;
+      color: var(--lx-muted); font-size: 11px;
+    }
+    #page-deploy .deploy-step[data-state="running"] {
+      border-color: color-mix(in srgb, var(--lx-primary) 40%, transparent);
+      background: color-mix(in srgb, var(--lx-primary) 7%, transparent);
+    }
+    #page-deploy .deploy-step[data-state="running"]::before { background: var(--lx-primary); }
+    #page-deploy .deploy-step[data-state="running"] .step-icon-bg { color: var(--lx-primary); }
+    #page-deploy .deploy-step[data-state="running"] .step-label { color: var(--lx-primary); }
+    #page-deploy .deploy-step[data-state="ok"] {
+      border-color: color-mix(in srgb, var(--lx-success) 34%, transparent);
+      background: color-mix(in srgb, var(--lx-success) 7%, transparent);
+    }
+    #page-deploy .deploy-step[data-state="ok"]::before { background: var(--lx-success); }
+    #page-deploy .deploy-step[data-state="ok"] .step-icon-bg { color: var(--lx-success); }
+    #page-deploy .deploy-step[data-state="ok"] .step-label { color: var(--lx-success); }
+    #page-deploy .deploy-step[data-state="err"] {
+      border-color: color-mix(in srgb, var(--lx-danger) 38%, transparent);
+      background: color-mix(in srgb, var(--lx-danger) 7%, transparent);
+    }
+    #page-deploy .deploy-step[data-state="err"]::before { background: var(--lx-danger); }
+    #page-deploy .deploy-step[data-state="err"] .step-icon-bg,
+    #page-deploy .deploy-step[data-state="err"] .step-label,
+    #page-deploy .deploy-step[data-state="err"] .step-detail { color: var(--lx-danger); }
+    #page-deploy .deploy-log-toggle {
+      color: var(--lx-muted); border: 1px solid var(--lx-border);
+      background: var(--lx-surface); border-radius: 8px; font-family: inherit;
+    }
+    #page-deploy .deploy-log-toggle:hover { background: var(--lx-surface-muted); color: var(--lx-fg); }
+
+    /* Telas estreitas: o caminho vira empilhado e as setas apontam pra baixo. */
+    @media (max-width: 900px) {
+      #page-deploy .lx-flow { grid-template-columns: 1fr; }
+      #page-deploy .lx-rail { justify-content: center; padding: 2px 0; transform: rotate(90deg); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       LuminAux — o modelo do app web aplicado ao Service Manager inteiro
+       ═══════════════════════════════════════════════════════════════════
+
+       A tela de deploy foi a primeira; esta camada leva a mesma linguagem
+       para o menu e as demais abas.
+
+       O caminho é trocar a BASE que todas compartilham, não reescrever tela
+       por tela: o app já usa `var(--bg-card)`, `var(--border)`,
+       `var(--text-primary)` em 184 lugares, então redefinir esses tokens
+       recolore tudo de uma vez — sem encostar em markup nem em JS, que é
+       onde moram os ids e os handlers.
+
+       Vem depois de todo o resto do <style> de propósito: é a ordem da
+       cascata que faz estas regras vencerem, sem precisar de !important.
+       ═══════════════════════════════════════════════════════════════════ */
+
+    /* ── Paleta ──────────────────────────────────────────────────────
+       Os nomes das variáveis continuam os mesmos; só os valores mudam.
+       `--green` valia #0ea5e9 (um azul chamado verde) — agora é o verde
+       de verdade do modelo, então "serviço rodando" volta a ser verde. */
+    [data-theme="light"] {
+      --bg-primary: #f6f7f9;
+      --bg-secondary: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f8fafc;
+      --bg-surface: #f1f5f9;
+      --border: #e5e8ee;
+      --border-light: #dbe0e8;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --scrollbar-thumb: #cbd5e1;
+      --scrollbar-thumb-hover: #94a3b8;
+      --log-hover: rgba(0, 103, 255, 0.05);
+      --toggle-bg: #e2e8f0;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #131c27;
+      --bg-secondary: #18222f;
+      --bg-card: #1f2c3b;
+      --bg-card-hover: #253446;
+      --bg-surface: rgba(226, 232, 240, 0.055);
+      --border: rgba(226, 232, 240, 0.12);
+      --border-light: rgba(226, 232, 240, 0.2);
+      --text-primary: #f1f5f9;
+      --text-secondary: #cbd5e1;
+      --text-muted: #94a3b8;
+      --scrollbar-thumb: rgba(226, 232, 240, 0.18);
+      --scrollbar-thumb-hover: rgba(226, 232, 240, 0.3);
+      --log-hover: rgba(226, 232, 240, 0.06);
+      --toggle-bg: rgba(226, 232, 240, 0.14);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Os tokens --lx-* nasceram presos a #page-deploy. Sobem para o escopo
+       do tema: uma paleta só, que a tela de deploy passa a herdar em vez de
+       manter uma cópia sua — duas fontes da verdade divergem na primeira
+       vez que alguém ajusta uma delas. */
+    [data-theme="light"] {
+      --lx-surface: #ffffff;
+      --lx-surface-muted: #f1f5f9;
+      --lx-border: #e5e8ee;
+      --lx-fg: #0f172a;
+      --lx-muted: #64748b;
+      --lx-success: #16a34a;
+      --lx-warning: #d97706;
+      --lx-danger: #dc2626;
+      --lx-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    }
+    [data-theme="dark"] {
+      --lx-surface: #1f2c3b;
+      --lx-surface-muted: rgba(226, 232, 240, 0.06);
+      --lx-border: rgba(226, 232, 240, 0.14);
+      --lx-fg: #f1f5f9;
+      --lx-muted: #9fb0c3;
+      --lx-success: #4ade80;
+      --lx-warning: #fbbf24;
+      --lx-danger: #f87171;
+      --lx-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    :root {
+      --lx-primary: #0067ff;
+      --lx-primary-hover: #0058db;
+      --lx-radius: 12px;
+      --lx-radius-sm: 8px;
+
+      --sky: #0067ff;  --sky-dim: rgba(0, 103, 255, 0.10);  --sky-deep: #0058db;
+      --blue: #0067ff; --blue-dim: rgba(0, 103, 255, 0.10);
+      --green: #16a34a; --green-dim: rgba(22, 163, 74, 0.12);
+      --red: #dc2626;   --red-dim: rgba(220, 38, 38, 0.10);
+      --yellow: #d97706; --yellow-dim: rgba(217, 119, 6, 0.12);
+      --cyan: #0ea5e9;
+      --purple: #7c3aed;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+    [data-theme="dark"] {
+      --lx-primary: #3b8bff;
+      --lx-primary-hover: #5c9dff;
+      --sky: #3b8bff;  --sky-dim: rgba(59, 139, 255, 0.16);  --sky-deep: #5c9dff;
+      --blue: #3b8bff; --blue-dim: rgba(59, 139, 255, 0.16);
+      --green: #4ade80; --green-dim: rgba(74, 222, 128, 0.15);
+      --red: #f87171;   --red-dim: rgba(248, 113, 113, 0.15);
+      --yellow: #fbbf24; --yellow-dim: rgba(251, 191, 36, 0.15);
+      /* O roxo do "Claude Code" no rodape do menu ficava em 2,6:1 sobre o
+         fundo escuro — ilegivel. Aqui ele clareia, como todo acento faz no
+         tema escuro. */
+      --purple: #a78bfa;
+    }
+
+    /* O fundo tinha um véu azul degradê no topo. O modelo é chapado: a cor
+       vem dos cartões, não do papel. */
+    body {
+      background: var(--bg-primary);
+      letter-spacing: 0;
+    }
+
+    /* ── Barra de título e menu ─────────────────────────────────────── */
+    .titlebar {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+    .titlebar-brand { letter-spacing: 0.02em; font-weight: 600; }
+    .titlebar-brand .dot { box-shadow: 0 0 0 3px var(--green-dim); }
+    .titlebar-brand .dot.offline { box-shadow: 0 0 0 3px var(--red-dim); }
+
+    .sidebar {
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+    }
+    .sidebar-header { border-bottom: 1px solid var(--border); }
+    /* O logo era um degradê de três azuis. No modelo o tile é chapado, na
+       cor primária — a marca aparece pela cor, não pelo efeito. */
+    .sidebar-logo-icon {
+      background: var(--lx-primary);
+      border-radius: 10px;
+      box-shadow: none;
+    }
+    .sidebar-logo { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+    .sidebar-logo span { color: var(--lx-primary); }
+    .sidebar-sub { letter-spacing: 0.12em; font-size: 8.5px; }
+
+    /* A linha de navegação do modelo: canto de 8px, peso 500, e o item
+       ativo pintado com a primária a 12% em vez de um bloco chapado. */
+    .nav-item {
+      border-radius: var(--lx-radius-sm);
+      padding: 9px 12px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .nav-item:hover { background: var(--bg-surface); color: var(--text-primary); }
+    .nav-item.active {
+      background: color-mix(in srgb, var(--lx-primary) 11%, transparent);
+      color: var(--lx-primary);
+      font-weight: 600;
+    }
+    .nav-section-label {
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em;
+      color: var(--text-muted); text-transform: uppercase;
+    }
+    .nav-badge {
+      font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+      background: var(--bg-surface); color: var(--text-muted);
+    }
+    .nav-badge.ok { background: color-mix(in srgb, var(--lx-primary) 12%, transparent); color: var(--lx-primary); }
+    .nav-badge.off { background: var(--red-dim); color: var(--red); }
+    .sidebar-footer { border-top: 1px solid var(--border); }
+    .sidebar-collapse-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    .sidebar-collapse-btn:hover { color: var(--lx-primary); border-color: var(--lx-primary); }
+    .sidebar.collapsed .nav-item:hover::after {
+      background: var(--text-primary);
+      color: var(--bg-card);
+      border: none;
+      border-radius: var(--lx-radius-sm);
+      font-size: 11.5px;
+    }
+
+    /* ── Cabeçalho de página ────────────────────────────────────────── */
+    .page-title { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+    .page-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    /* ── Cartões ────────────────────────────────────────────────────── */
+    /* A pele antiga chumbava `border-radius: 5px !important` no .card; só um
+       seletor tão específico quanto (e igualmente important) devolve o canto
+       de 12px do modelo. */
+    .card,
+    .service-card, .docker-card, .stat-card,
+    .logs-panel, .users-panel, .settings-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--lx-radius) !important;
+      box-shadow: var(--shadow);
+    }
+    .service-card:hover, .docker-card:hover { background: var(--bg-card-hover); border-color: var(--border-light); }
+    .service-card { padding: 18px; border-left: 1px solid var(--border) !important; }
+    /* A faixa colorida no topo do cartão saiu: o ponto de status ao lado do
+       nome já diz se o serviço está de pé, e dizer duas vezes só disputa
+       atenção com o conteúdo. */
+    .service-card::before { display: none; }
+    .card-icon-wrap {
+      border-radius: 10px; background: var(--bg-surface);
+      border: 1px solid var(--border); width: 40px; height: 40px;
+    }
+    .card-name { font-size: 14px; font-weight: 600; letter-spacing: -0.005em; }
+    .status-indicator { font-size: 10.5px; letter-spacing: 0.04em; }
+
+    .stat-card { padding: 18px 20px; }
+    .stat-icon { border-radius: 10px; width: 42px; height: 42px; }
+    .stat-label { font-size: 10.5px; letter-spacing: 0.06em; font-weight: 600; }
+    .stat-value { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+    .docker-card { padding: 18px; }
+    .docker-name { font-size: 13.5px; font-weight: 600; }
+
+    /* ── Botões ─────────────────────────────────────────────────────── */
+    .btn {
+      height: 34px; padding: 0 14px; gap: 6px;
+      border-radius: var(--lx-radius-sm);
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-primary); font-size: 12.5px; font-weight: 500;
+      box-shadow: var(--shadow);
+    }
+    .btn:hover { background: var(--bg-surface); border-color: var(--border-light); color: var(--text-primary); }
+    .btn:active:not(:disabled) { transform: none; }
+    .btn-sm { height: 28px; padding: 0 10px; font-size: 11.5px; }
+    .btn-lg { height: 38px; padding: 0 18px; font-size: 13px; font-weight: 600; }
+    /* Acao principal de uma tela — "Salvar" e afins. Verde ficou reservado
+       para o que e semanticamente verde (iniciar um servico); o azul do tema
+       marca a acao principal, como no modelo. */
+    .btn-primary {
+      background: var(--lx-primary); border-color: transparent; color: #fff; font-weight: 600;
+    }
+    .btn-primary:hover { background: var(--lx-primary-hover); border-color: transparent; color: #fff; }
+    .btn-solid-green {
+      background: var(--green); border-color: transparent; color: #fff; font-weight: 600;
+    }
+    .btn-solid-green:hover { background: color-mix(in srgb, var(--green) 88%, #000); }
+    .btn-solid-red {
+      background: var(--red); border-color: transparent; color: #fff; font-weight: 600;
+    }
+    .btn-solid-red:hover { background: color-mix(in srgb, var(--red) 88%, #000); }
+    .btn-sky, .btn-blue { color: var(--lx-primary); border-color: color-mix(in srgb, var(--lx-primary) 32%, transparent); }
+    .btn-sky:hover, .btn-blue:hover { background: var(--sky-dim); border-color: var(--lx-primary); }
+    .btn-green { color: var(--green); border-color: color-mix(in srgb, var(--green) 32%, transparent); }
+    .btn-red { color: var(--red); border-color: color-mix(in srgb, var(--red) 32%, transparent); }
+    .btn-yellow { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 32%, transparent); }
+
+    /* ── Abas ───────────────────────────────────────────────────────── */
+    .logs-header, .users-header { background: var(--bg-card); border-bottom: 1px solid var(--border); }
+    .logs-header h3, .users-header h3 { font-size: 13px; font-weight: 600; }
+    .logs-tabs { background: var(--bg-card); padding: 0 12px; }
+    .log-tab { font-size: 12px; font-weight: 500; padding: 11px 14px; }
+    .log-tab.active { color: var(--lx-primary); border-bottom-color: var(--lx-primary); font-weight: 600; }
+    .log-tab .count {
+      background: var(--bg-surface); color: var(--text-muted);
+      border-radius: 999px; font-size: 10px; font-weight: 600; padding: 1px 7px;
+    }
+    .log-content { padding: 10px 14px; }
+
+    /* As pílulas de configuração eram caixas com sublinhado interno E borda
+       colorida E fundo — três marcas para dizer a mesma coisa. Fica a
+       pintura na cor primária, como no modelo. */
+    .settings-tab {
+      min-height: 34px; padding: 0 14px; border-radius: var(--lx-radius-sm);
+      border: 1px solid var(--border); background: var(--bg-card);
+      font-size: 12px; font-weight: 500; color: var(--text-secondary);
+      box-shadow: var(--shadow);
+    }
+    .settings-tab:hover { background: var(--bg-surface); border-color: var(--border-light); color: var(--text-primary); }
+    .settings-tab.active {
+      color: #fff; background: var(--lx-primary);
+      border-color: transparent; box-shadow: var(--shadow); font-weight: 600;
+    }
+    .settings-tabs { gap: 6px; }
+
+    /* ── Formulário ─────────────────────────────────────────────────── */
+    .settings-section-title { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+    .settings-label { font-size: 12px; font-weight: 600; }
+    .settings-input {
+      height: 36px; padding: 0 12px; border-radius: var(--lx-radius-sm);
+      background: var(--bg-surface); border: 1px solid var(--border);
+      font-size: 12.5px; font-family: inherit;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .settings-input:focus {
+      border-color: var(--lx-primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--lx-primary) 16%, transparent);
+    }
+    .settings-hint { font-size: 11px; color: var(--text-muted); margin-top: 5px; }
+    .port-item { border-radius: var(--lx-radius-sm); background: var(--bg-surface); }
+    .group-label { letter-spacing: 0.08em; font-size: 10px; }
+
+    /* O interruptor acende na primária, como todo controle ligado no modelo. */
+    .toggle-switch input:checked + .slider { background: var(--lx-primary); }
+
+    /* ── Tabela ─────────────────────────────────────────────────────── */
+    .users-table th {
+      font-size: 10px; letter-spacing: 0.06em; font-weight: 600;
+      color: var(--text-muted); background: var(--bg-surface);
+    }
+    .users-table td { font-size: 12px; color: var(--text-secondary); }
+    .users-table tr:hover td { background: var(--bg-surface); }
+    .user-avatar { border-radius: 8px; background: var(--sky-dim); color: var(--lx-primary); }
+
+    /* ── Avisos flutuantes ──────────────────────────────────────────── */
+    .toast {
+      border-radius: var(--lx-radius); border: 1px solid var(--border);
+      background: var(--bg-card); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    }
+    .toast-title { font-size: 12.5px; font-weight: 600; }
+    .toast-body { font-size: 11.5px; color: var(--text-muted); }
+    .update-banner {
+      border-radius: var(--lx-radius); border: 1px solid color-mix(in srgb, var(--lx-primary) 30%, transparent);
+      background: color-mix(in srgb, var(--lx-primary) 8%, var(--bg-card));
+    }
+    .update-progress-bar { background: var(--lx-primary); }
+    .sci-badge { border-radius: var(--lx-radius-sm); font-size: 11.5px; }
+
+    /* ── Barra de rolagem ───────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb); border-radius: 999px;
+      border: 2px solid transparent; background-clip: content-box;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); background-clip: content-box; }
+    ::-webkit-scrollbar-track { background: transparent; }
   </style>
 </head>
 <body>
@@ -1480,12 +2246,6 @@
           <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/></svg></span> <span class="nav-label">Serviços</span>
           <span class="nav-badge off" id="navServicesBadge">0/0</span>
         </button>
-        <button class="nav-item" data-page="docker" data-label="Docker">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span> <span class="nav-label">Docker</span>
-        </button>
-        <button class="nav-item" data-page="logs" data-label="Logs">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span> <span class="nav-label">Logs</span>
-        </button>
         <button class="nav-item" data-page="users" data-label="Usuários">
           <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> <span class="nav-label">Usuários</span>
         </button>
@@ -1494,9 +2254,9 @@
           <span class="nav-label">NFe Watcher</span>
           <span class="nav-badge off" id="navNfeBadge">off</span>
         </button>
-        <button class="nav-item" data-page="bi-sync" data-label="VPS Sync">
+        <button class="nav-item" data-page="bi-sync" data-label="Sincronizações">
           <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="23 4 23 10 17 10"/></svg></span>
-          <span class="nav-label">VPS Sync</span>
+          <span class="nav-label">Sincronizações</span>
           <span class="nav-badge off" id="navBiSyncBadge">offline</span>
         </button>
         <button class="nav-item" data-page="deploy" data-label="Deploy">
@@ -1610,60 +2370,11 @@
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- ═══ Page: Services ═══ -->
-      <div class="page" id="page-services">
-        <div class="page-header">
-          <div>
-            <div class="page-title">Gerenciar Serviços</div>
-            <div class="page-subtitle">Controle individual de cada serviço do sistema</div>
-          </div>
-        </div>
-        <div class="actions-bar">
-          <button class="btn btn-green btn-lg btn-flex" onclick="startAll()">&#9654; Iniciar Todos</button>
-          <button class="btn btn-red btn-lg btn-flex" onclick="stopAll()">&#9632; Parar Todos</button>
-          <button class="btn btn-yellow btn-lg btn-flex" onclick="restartAll()">&#8635; Reiniciar Todos</button>
-        </div>
-        <div class="services-grid" id="serviceCards"></div>
-      </div>
-
-      <!-- ═══ Page: Docker ═══ -->
-      <div class="page" id="page-docker">
-        <div class="page-header">
-          <div>
-            <div class="page-title">Docker Containers</div>
-            <div class="page-subtitle">Gerenciamento de PostgreSQL e Redis via Docker</div>
-          </div>
-        </div>
-        <div class="actions-bar">
-          <button class="btn btn-green btn-lg btn-flex" onclick="startDocker()">&#9654; Iniciar Containers</button>
-          <button class="btn btn-red btn-lg btn-flex" onclick="stopDocker()">&#9632; Parar Containers</button>
-        </div>
-        <div class="docker-grid" id="dockerGrid">
-          <div class="docker-card">
-            <div class="docker-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#336791" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v6c0 1.66-4 3-9 3s-9-1.34-9-3V5"/><path d="M21 11v6c0 1.66-4 3-9 3s-9-1.34-9-3v-6"/></svg></div>
-            <div class="docker-name">PostgreSQL 16</div>
-            <div class="docker-port">Porta 5432</div>
-            <div id="dockerPgStatus"><span class="status-dot"></span></div>
-          </div>
-          <div class="docker-card">
-            <div class="docker-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#dc382d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
-            <div class="docker-name">Redis 7</div>
-            <div class="docker-port">Porta 6379</div>
-            <div id="dockerRedisStatus"><span class="status-dot"></span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ═══ Page: Logs ═══ -->
-      <div class="page" id="page-logs">
-        <div class="page-header">
-          <div>
-            <div class="page-title">Logs dos Serviços</div>
-            <div class="page-subtitle">Saída em tempo real da API e do Web</div>
-          </div>
-        </div>
+        <!-- Log dos serviços — mora aqui, embaixo do estado deles. Era uma aba
+             separada: quem acabava de iniciar a API tinha de trocar de tela
+             para ver se ela subiu. -->
+        <div style="margin-top:16px;">
         <div class="logs-panel">
           <div class="logs-header">
             <div class="logs-tabs" id="logTabs">
@@ -1685,6 +2396,23 @@
           </div>
           <div class="log-content" id="logContent"></div>
         </div>
+        </div>
+      </div>
+
+      <!-- ═══ Page: Services ═══ -->
+      <div class="page" id="page-services">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Gerenciar Serviços</div>
+            <div class="page-subtitle">Controle individual de cada serviço do sistema</div>
+          </div>
+        </div>
+        <div class="actions-bar">
+          <button class="btn btn-green btn-lg btn-flex" onclick="startAll()">&#9654; Iniciar Todos</button>
+          <button class="btn btn-red btn-lg btn-flex" onclick="stopAll()">&#9632; Parar Todos</button>
+          <button class="btn btn-yellow btn-lg btn-flex" onclick="restartAll()">&#8635; Reiniciar Todos</button>
+        </div>
+        <div class="services-grid" id="serviceCards"></div>
       </div>
 
       <!-- ═══ Page: Users (online em tempo real via SSE da VPS) ═══ -->
@@ -1706,7 +2434,7 @@
         <!-- URL da VPS -->
         <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--text-secondary);">
           <strong>URL da VPS:</strong> <span id="onlineUsersUrl" style="font-family:monospace;color:var(--text-primary);">—</span>
-          <span style="margin-left:12px;color:var(--text-muted);">(definida em VPS Sync)</span>
+          <span style="margin-left:12px;color:var(--text-muted);">(definida em Sincronizações)</span>
         </div>
 
         <!-- Lista -->
@@ -1783,17 +2511,14 @@
       <div class="page" id="page-deploy">
         <div class="page-header">
           <div>
-            <div class="page-title">Publicando Implementações</div>
+            <div class="page-title">Publicando implementações</div>
             <div class="page-subtitle">Sincroniza local → GitHub → VPS de produção (api + web)</div>
           </div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <button onclick="deployShowDebugLog()" title="Ver log de debug do main process"
-                    style="background:var(--bg-surface);color:var(--text-muted);border:1px solid var(--border);padding:6px 10px;border-radius:6px;font-size:11px;cursor:pointer;">🐞 Debug</button>
-            <button onclick="deployResetRunningFlag()" title="Resetar flag deployRunning travada"
-                    style="background:var(--bg-surface);color:var(--text-muted);border:1px solid var(--border);padding:6px 10px;border-radius:6px;font-size:11px;cursor:pointer;">⟲ Reset</button>
-            <button onclick="deployRefreshStatus()" id="deployRefreshBtn"
-                    style="background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;">
-              <svg id="deployRefreshIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <div class="lx-actions">
+            <button class="lx-btn lx-btn-ghost" onclick="deployShowDebugLog()" title="Ver log de debug do main process">Debug</button>
+            <button class="lx-btn lx-btn-ghost" onclick="deployResetRunningFlag()" title="Resetar a flag deployRunning travada">Reset</button>
+            <button class="lx-btn lx-btn-outline" onclick="deployRefreshStatus()" id="deployRefreshBtn">
+              <svg id="deployRefreshIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
                 <polyline points="23 4 23 10 17 10"/>
               </svg>
@@ -1802,92 +2527,140 @@
           </div>
         </div>
 
+        <!-- ── O caminho que o código percorre ────────────────────────────
+             Local → GitHub → VPS deixou de ser frase do subtítulo e virou a
+             própria figura: três paradas com o commit de cada uma. O trecho
+             que ainda não andou fica destacado, então dá para ver ONDE o
+             código parou sem comparar sha na mão. -->
+        <div class="lx-card" id="deployStatusCard">
+          <div id="deployStatusLoading" class="lx-loading">Carregando status…</div>
+
+          <div id="deployStatusContent" style="display:none;">
+            <div class="lx-flow">
+              <div class="lx-stop" id="deployStopLocal">
+                <span class="lx-stop-icon lx-tint-slate">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M2 20h20"/></svg>
+                </span>
+                <div class="lx-stop-body">
+                  <div class="lx-stop-label">Local</div>
+                  <div class="lx-stop-linha">
+                    <span class="lx-stop-main" id="deployLocalBranch">—</span>
+                    <span class="lx-stop-sha" id="deployLocalSha">—</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="lx-rail"><span></span></div>
+
+              <div class="lx-stop" id="deployStopGithub">
+                <span class="lx-stop-icon lx-tint-primary">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+                </span>
+                <div class="lx-stop-body">
+                  <div class="lx-stop-label">GitHub</div>
+                  <div class="lx-stop-linha">
+                    <span class="lx-stop-main" id="deployRemoteBranch">main</span>
+                    <span class="lx-stop-sha" id="deployRemoteSha">—</span>
+                  </div>
+                  <!-- Só aparece quando NÃO há PR aberto (ou quando a consulta
+                       falha). Havendo PR, quem fala é o painel abaixo. -->
+                  <span id="deployPrChip" class="lx-chip" style="display:none;"></span>
+                </div>
+              </div>
+
+              <div class="lx-rail"><span></span></div>
+
+              <div class="lx-stop" id="deployStopVps">
+                <span class="lx-stop-icon lx-tint-success">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><path d="M6 7h.01M6 17h.01"/></svg>
+                </span>
+                <div class="lx-stop-body">
+                  <div class="lx-stop-label">VPS · produção</div>
+                  <div class="lx-stop-linha">
+                    <span class="lx-stop-main" id="deployVpsStatus">—</span>
+                    <span class="lx-stop-sha" id="deployVpsSha">—</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="deployLocalDirty" class="lx-note lx-note-warn" style="display:none;">
+              <span id="deployLocalDirtyCount">0</span> arquivo(s) sem commit no repositório local
+            </div>
+
+            <div id="deploySynced" class="lx-note lx-note-ok" style="display:none;">
+              Tudo sincronizado — local, GitHub e VPS no mesmo commit.
+            </div>
+
+            <!-- ── O que vai subir ──────────────────────────────────────
+                 Três listas do mesmo assunto (o que ainda não chegou na
+                 produção), antes espalhadas em três caixas coloridas. Aqui
+                 viram seções de um bloco só, cada uma com sua contagem: a
+                 pergunta "o que muda se eu publicar agora?" se responde
+                 num lugar. -->
+            <div id="deployDirtyBox" class="lx-section" style="display:none;">
+              <div class="lx-section-head">
+                <span class="lx-dot lx-dot-warn"></span>
+                <span class="lx-section-title">Arquivos sem commit</span>
+                <span class="lx-count" id="deployDirtyCount">0</span>
+                <span class="lx-section-hint">entram no commit ao publicar</span>
+              </div>
+              <div id="deployDirtyList" class="lx-list"></div>
+            </div>
+
+            <div id="deployPendingPushBox" class="lx-section" style="display:none;">
+              <div class="lx-section-head">
+                <span class="lx-dot lx-dot-warn"></span>
+                <span class="lx-section-title">Commits ainda não enviados ao GitHub</span>
+                <span class="lx-count" id="deployPendingPushCount">0</span>
+              </div>
+              <div id="deployPendingPushList" class="lx-list"></div>
+            </div>
+
+            <div id="deployPendingDeployBox" class="lx-section" style="display:none;">
+              <div class="lx-section-head">
+                <span class="lx-dot lx-dot-primary"></span>
+                <span class="lx-section-title">Commits prontos para a produção</span>
+                <span class="lx-count" id="deployPendingDeployCount">0</span>
+              </div>
+              <div id="deployPendingDeployList" class="lx-list"></div>
+              <div id="deploySchemaWarn" class="lx-note lx-note-warn" style="display:none;">
+                schema.prisma modificado — o db push é aplicado automaticamente (--accept-data-loss)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Projetos (core / app) — cartões montados pelo deployRenderProjects -->
         <div id="deployProjectsBox" class="deploy-project-grid"></div>
 
-        <div class="deploy-pr-panel" id="deployPrPanel">
+        <!-- Nasce escondido: quem o revela e o deployPrsVisibilidade, depois
+             de saber se ha PR aberto. -->
+        <div class="deploy-pr-panel" id="deployPrPanel" style="display:none;">
           <div class="deploy-pr-head">
             <div>
-              <div class="deploy-pr-titlebar">Pull Requests do GitHub <span id="deployPrCount" class="deploy-project-badge">-</span></div>
-              <div class="settings-hint" id="deployPrHint">Selecione PRs para publicar código ainda não mergeado.</div>
+              <div class="deploy-pr-titlebar">Pull requests do GitHub <span id="deployPrCount" class="deploy-project-badge">-</span></div>
+              <div class="settings-hint" id="deployPrHint">Selecione PRs para publicar código ainda não mesclado.</div>
             </div>
-            <button class="btn btn-sm" onclick="deployLoadPrs()">Recarregar</button>
+            <button class="lx-btn lx-btn-outline" onclick="deployLoadPrs()">Recarregar</button>
           </div>
-          <div id="deployPrList" class="deploy-pr-list">
-            <div style="color:var(--text-muted);font-size:12px;padding:4px;">Os PRs são carregados ao abrir a aba e ao clicar em Atualizar.</div>
-          </div>
+          <div id="deployPrList" class="deploy-pr-list"></div>
         </div>
 
-        <!-- Status cards -->
-        <div class="card" id="deployStatusCard" style="padding:12px;margin-bottom:8px;">
-          <div id="deployStatusLoading" style="text-align:center;padding:30px;color:var(--text-muted);font-size:12px;">
-            Carregando status...
-          </div>
-          <div id="deployStatusContent" style="display:none;">
-            <div class="deploy-status-grid">
-              <div class="deploy-status-item">
-                <div class="deploy-status-row">
-                  <div class="deploy-status-label">Local</div>
-                  <div class="deploy-status-main" id="deployLocalBranch">—</div>
-                  <div class="deploy-status-sha" id="deployLocalSha">—</div>
-                </div>
-                <div id="deployLocalDirty" class="deploy-status-note" style="display:none;">⚠ <span id="deployLocalDirtyCount">0</span> arquivo(s) não commitado(s)</div>
-              </div>
-              <div class="deploy-status-item">
-                <div class="deploy-status-row">
-                  <div class="deploy-status-label">GitHub</div>
-                  <div class="deploy-status-main" id="deployRemoteBranch">main</div>
-                  <div class="deploy-status-sha" id="deployRemoteSha">—</div>
-                </div>
-              </div>
-              <div class="deploy-status-item">
-                <div class="deploy-status-row">
-                  <div class="deploy-status-label">VPS</div>
-                  <div class="deploy-status-main" id="deployVpsStatus">—</div>
-                  <div class="deploy-status-sha" id="deployVpsSha">—</div>
-                </div>
-              </div>
-            </div>
-
-            <div id="deploySynced" style="display:none;padding:8px 10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:6px;color:#16a34a;font-size:12px;">
-              ✅ Tudo sincronizado — local, GitHub e VPS no mesmo commit.
-            </div>
-
-            <!-- Aviso de arquivos não commitados — será commitado junto no Publicar -->
-            <div id="deployDirtyBox" style="display:none;margin-bottom:10px;padding:12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:6px;">
-              <div style="font-size:13px;font-weight:700;color:#f59e0b;margin-bottom:8px;">📝 Arquivos modificados sem commit (<span id="deployDirtyCount">0</span>):</div>
-              <div id="deployDirtyList" style="background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;padding:8px;max-height:140px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6;color:var(--text-muted);"></div>
-            </div>
-
-            <div id="deployPendingPushBox" style="display:none;margin-bottom:8px;">
-              <div style="font-size:12px;font-weight:700;color:#f59e0b;margin-bottom:6px;">⚠ Commits locais não pushados (<span id="deployPendingPushCount">0</span>):</div>
-              <div id="deployPendingPushList" style="background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;padding:8px;max-height:92px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6;color:var(--text-muted);"></div>
-            </div>
-
-            <div id="deployPendingDeployBox" style="display:none;">
-              <div style="font-size:12px;font-weight:700;color:var(--accent,#3b82f6);margin-bottom:6px;">📦 Commits prontos pra deploy (<span id="deployPendingDeployCount">0</span>):</div>
-              <div id="deployPendingDeployList" style="background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;padding:8px;max-height:140px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6;color:var(--text-muted);"></div>
-              <div id="deploySchemaWarn" style="display:none;margin-top:8px;padding:7px 9px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:4px;color:#f59e0b;font-size:12px;">
-                ⚠ schema.prisma modificado — db push será aplicado automaticamente (--accept-data-loss)
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Ação -->
-        <div class="card" style="padding:12px;margin-bottom:10px;">
-          <div style="display:flex;gap:10px;align-items:center;">
-            <button onclick="deployPublicar()" id="deployPublicarBtn" disabled
-                    style="background:var(--accent,#3b82f6);color:white;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;opacity:0.4;">
+        <!-- ── Ação ──────────────────────────────────────────────────────
+             O botão que dispara tudo mora sozinho num cartão, com o aviso
+             do estado ao lado. O progresso nasce aqui dentro: quem clicou
+             continua olhando para o mesmo lugar. -->
+        <div class="lx-card lx-card-action">
+          <div class="lx-action-row">
+            <button onclick="deployPublicar()" id="deployPublicarBtn" class="lx-btn lx-btn-primary" disabled>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
               Publicar
             </button>
-            <button onclick="deployAbort()" id="deployAbortBtn"
-                    style="display:none;background:rgba(220,38,38,0.12);color:#dc2626;border:1px solid rgba(220,38,38,0.35);padding:10px 14px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;">
-              Abortar
-            </button>
-            <span id="deployActionHint" style="font-size:11px;color:var(--text-muted);">Carregando...</span>
+            <button onclick="deployAbort()" id="deployAbortBtn" class="lx-btn lx-btn-danger" style="display:none;">Abortar</button>
+            <span id="deployActionHint" class="lx-action-hint">Carregando…</span>
           </div>
 
-          <!-- Barra de progresso -->
           <div id="deployProgressBox" class="deploy-progress-panel">
             <div class="deploy-progress-head">
               <span id="deployProgressStep" class="deploy-progress-step">—</span>
@@ -1897,8 +2670,7 @@
               <div id="deployProgressBar" class="deploy-progress-bar"></div>
             </div>
 
-            <!-- Cards de step: ícone marca-d'água à esquerda + label + status -->
-            <div class="deploy-steps">
+<div class="deploy-steps">
               <div id="step-push" class="deploy-step" data-state="pending">
                 <div class="step-icon-bg">
                   <svg class="icon-pending" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>
@@ -1961,7 +2733,6 @@
               </div>
             </div>
 
-            <!-- Toggle "Ver log" -->
             <div class="deploy-log-toggle-row">
               <button id="deployLogToggle" class="deploy-log-toggle" type="button" onclick="deployToggleLog()">
                 Ver log detalhado
@@ -1971,38 +2742,40 @@
         </div>
 
         <!-- Log -->
-        <div class="card" id="deployLogCard" style="padding:0;margin-top:0;display:none;overflow:hidden;">
-          <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-weight:600;font-size:12px;">Log do deploy</span>
-            <div style="display:flex;gap:6px;">
-              <button onclick="deployCopyLog()" id="deployCopyLogBtn"
-                      style="background:var(--bg-surface);color:var(--text-muted);border:1px solid var(--border);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;">
-                📋 Copiar log
-              </button>
-              <button onclick="document.getElementById('deployLog').innerHTML=''"
-                      style="background:transparent;color:var(--text-muted);border:1px solid var(--border);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;">
-                Limpar
-              </button>
+        <div class="lx-card lx-card-flush" id="deployLogCard" style="display:none;">
+          <div class="lx-card-head">
+            <span class="lx-card-title">Log do deploy</span>
+            <div class="lx-actions">
+              <button class="lx-btn lx-btn-ghost" onclick="deployCopyLog()" id="deployCopyLogBtn">Copiar</button>
+              <button class="lx-btn lx-btn-ghost" onclick="document.getElementById('deployLog').innerHTML=''">Limpar</button>
             </div>
           </div>
-          <div id="deployLog" style="max-height:340px;overflow-y:auto;padding:8px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;font-size:11px;line-height:1.5;color:var(--text-muted);user-select:text;-webkit-user-select:text;cursor:text;"></div>
+          <div id="deployLog" class="lx-log"></div>
         </div>
 
-        <!-- Modal: pedir mensagem de commit antes de publicar -->
-        <div id="deployCommitModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
-          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px;width:520px;max-width:90vw;box-shadow:0 20px 40px rgba(0,0,0,0.4);">
-            <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--text-primary);">📝 Commit antes de publicar</div>
-            <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">
-              Os <span id="deployCommitModalCount">0</span> arquivos modificados serão commitados, pushados e deployados na VPS.
+        <!-- Modal: mensagem de commit antes de publicar -->
+        <div id="deployCommitModal" class="lx-overlay" style="display:none;">
+          <div class="lx-dialog">
+            <div class="lx-dialog-head">
+              <span class="lx-stop-icon lx-tint-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M1.05 12H7M17.01 12h5.95"/></svg>
+              </span>
+              <div>
+                <div class="lx-dialog-title">Commit antes de publicar</div>
+                <div class="lx-dialog-sub">
+                  Os <span id="deployCommitModalCount">0</span> arquivos modificados serão commitados, enviados ao GitHub e publicados na VPS.
+                </div>
+              </div>
             </div>
-            <div id="deployCommitModalFiles" style="background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;padding:6px;max-height:140px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:10px;color:var(--text-muted);margin-bottom:12px;"></div>
-            <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Mensagem do commit</label>
-            <input id="deployCommitMsg" type="text" placeholder="ex: feat(login): callbackURL absoluto pro Google OAuth"
-                   style="width:100%;padding:8px 10px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);border-radius:6px;font-size:12px;margin-bottom:4px;" />
-            <div style="font-size:10px;color:var(--text-muted);margin-bottom:14px;">Convenção: <code>feat:</code> / <code>fix:</code> / <code>chore:</code> / <code>docs:</code></div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-              <button onclick="deployCommitCancel()" style="background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border);padding:8px 14px;border-radius:6px;font-size:12px;cursor:pointer;">Cancelar</button>
-              <button onclick="deployCommitConfirm()" style="background:var(--accent,#3b82f6);color:white;border:none;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Commitar e Publicar</button>
+            <div class="lx-dialog-body">
+              <div id="deployCommitModalFiles" class="lx-list lx-list-sm"></div>
+              <label class="lx-label" for="deployCommitMsg">Mensagem do commit</label>
+              <input id="deployCommitMsg" type="text" class="lx-input" placeholder="ex: feat(login): callbackURL absoluto pro Google OAuth" />
+              <div class="lx-help">Convenção: <code>feat:</code> · <code>fix:</code> · <code>chore:</code> · <code>docs:</code></div>
+            </div>
+            <div class="lx-dialog-foot">
+              <button onclick="deployCommitCancel()" class="lx-btn lx-btn-outline">Cancelar</button>
+              <button onclick="deployCommitConfirm()" class="lx-btn lx-btn-primary">Commitar e publicar</button>
             </div>
           </div>
         </div>
@@ -2012,7 +2785,7 @@
       <div class="page" id="page-bi-sync">
         <div class="page-header">
           <div>
-            <div class="page-title">BI Sync (SCI → VPS)</div>
+            <div class="page-title">Sincronizações</div>
             <div class="page-subtitle">Importa balancete do SCI Firebird local e envia pra produção</div>
           </div>
         </div>
@@ -2246,7 +3019,7 @@
           </div>
 
           <div class="settings-section" style="border:none;background:none;padding-top:0;">
-            <button class="btn btn-green" type="button" onclick="saveAllSettings()">Salvar conexões</button>
+            <button class="btn btn-primary" type="button" onclick="saveAllSettings()">Salvar conexões</button>
           </div>
         </div>
 
@@ -2386,7 +3159,7 @@
           <div class="settings-section-title">
             <span style="color:var(--sky);font-size:18px;">&#128228;</span> Envio automático (rotina "Todas" / mensal)
           </div>
-          <div class="settings-hint" style="margin-bottom:12px;">Usados só pela opção "Rodar agora (todas)" e pela rotina mensal. O envio manual por empresa usa a sua sessão (login na aba VPS Sync).</div>
+          <div class="settings-hint" style="margin-bottom:12px;">Usados só pela opção "Rodar agora (todas)" e pela rotina mensal. O envio manual por empresa usa a sua sessão (login na aba Sincronizações).</div>
 
           <div class="settings-row">
             <label class="settings-label">URL de upload</label>
@@ -2423,7 +3196,7 @@
         </div>
 
         <div style="margin-top:8px;display:flex;gap:10px;align-items:center;">
-          <button class="btn btn-green" onclick="folhaCfgSave()">&#128190; Salvar configuração da folha</button>
+          <button class="btn btn-primary" onclick="folhaCfgSave()">&#128190; Salvar configuração da folha</button>
           <span id="folhaCfgStatus" style="font-size:12px;"></span>
         </div>
 
@@ -2447,7 +3220,7 @@
         </div>
 
         <div style="margin-top:16px;">
-          <button class="btn btn-solid-green btn-lg" onclick="saveAllSettings()">&#10003; Salvar Configurações</button>
+          <button class="btn btn-primary btn-lg" onclick="saveAllSettings()">&#10003; Salvar Configurações</button>
         </div>
       </div>
 
@@ -2591,7 +3364,11 @@
 
     // Renderiza o conjunto de botões pra um service-card, respeitando pending state.
     function renderCardActions(id, svc) {
-      if (!svc.managed) {
+      // Postgres e Redis nao sao processos que o launcher gera, mas tem um
+      // caminho de controle proprio (docker compose). Antes o cartao deles
+      // dizia so "Monitoramento apenas" e obrigava a ir na aba Docker para
+      // subir ou derrubar — e la era tudo ou nada, os dois juntos.
+      if (!svc.managed && !svc.dockerService) {
         return `<span style="font-size:11px;color:var(--text-muted);">Monitoramento apenas</span>`;
       }
       const pending = pendingActions[id];
@@ -2687,10 +3464,7 @@
       dockerEl.textContent = (pgUp && redisUp) ? 'Online' : 'Offline';
       dockerEl.style.color = (pgUp && redisUp) ? 'var(--green)' : 'var(--red)';
 
-      const pgDot = document.querySelector('#dockerPgStatus .status-dot');
-      const redisDot = document.querySelector('#dockerRedisStatus .status-dot');
-      if (pgDot) pgDot.className = pgUp ? 'status-dot running' : 'status-dot';
-      if (redisDot) redisDot.className = redisUp ? 'status-dot running' : 'status-dot';
+
     }
 
     function renderLogs() {
@@ -4042,14 +4816,16 @@
       const count = document.getElementById('deployPrCount')
       const hint = document.getElementById('deployPrHint')
       if (!list) return
-      list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px;">Consultando GitHub...</div>'
+      list.innerHTML = ''
+      deployPrsVisibilidade(0, 'carregando')
       if (count) count.textContent = '...'
       try {
         const r = await window.api.deployListPrs()
         if (!r.ok) {
-          list.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:4px;">${escapeHtml(r.error || 'Falha ao consultar PRs')}</div>`
+          list.innerHTML = `<div style="color:var(--lx-danger);font-size:12px;padding:4px;">${escapeHtml(r.error || 'Falha ao consultar PRs')}</div>`
           if (count) count.textContent = 'erro'
           if (hint) hint.textContent = 'Configure GITHUB_REPO/GITHUB_TOKEN no .deploy.local se necessário.'
+          deployPrsVisibilidade(0, 'erro')
           return
         }
         deployState.prs = r.prs || []
@@ -4070,19 +4846,79 @@
         if (deployState.status) deployRenderProjects(deployState.status)
         deployUpdateSelectionHint()
       } catch (e) {
-        list.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:4px;">${escapeHtml(e.message)}</div>`
+        list.innerHTML = `<div style="color:var(--lx-danger);font-size:12px;padding:4px;">${escapeHtml(e.message)}</div>`
         if (count) count.textContent = 'erro'
+        deployPrsVisibilidade(0, 'erro')
       }
+    }
+
+    /**
+     * Pinta as tres paradas conforme o commit em que cada uma esta.
+     *
+     * O local e a referencia: e de la que o codigo parte. Quem esta no mesmo
+     * commit fica verde; quem ficou para tras, vermelho. Com as tres iguais, a
+     * fileira inteira fica verde — "tudo publicado" se le de relance, sem
+     * comparar sha na mao.
+     *
+     * A comparacao e POR PREFIXO porque os shas chegam com comprimentos
+     * diferentes: o git local devolve 8 caracteres e a VPS 7. Comparar as
+     * strings inteiras marcaria como atrasado um commit que e o mesmo.
+     *
+     * Sem informacao (VPS inacessivel, remoto ainda nao consultado) a parada
+     * fica neutra. Vermelho ali afirmaria "atrasado", que e diferente de "nao
+     * sei" — e o texto do proprio quadro ja diz que esta inacessivel.
+     */
+    function deployPintarFluxo(r) {
+      const limpo = (v) => String(v == null ? '' : v).trim().toLowerCase()
+      const mesmoCommit = (a, b) => {
+        a = limpo(a); b = limpo(b)
+        if (!a || !b || a === '—' || b === '—') return null
+        const n = Math.min(a.length, b.length)
+        return a.slice(0, n) === b.slice(0, n)
+      }
+      const local = r.localShort
+      const paradas = [
+        ['deployStopLocal', limpo(local) ? true : null],
+        ['deployStopGithub', mesmoCommit(local, r.remoteShort)],
+        ['deployStopVps', r.vpsReachable ? mesmoCommit(local, r.vpsShort) : null],
+      ]
+      for (const [id, igual] of paradas) {
+        const el = document.getElementById(id)
+        if (!el) continue
+        if (igual === null) el.removeAttribute('data-sync')
+        else el.dataset.sync = igual ? 'ok' : 'atrasado'
+      }
+    }
+
+    /**
+     * Painel de PRs OU selo na parada do GitHub — nunca os dois.
+     *
+     * Havendo PR aberto, ele merece o painel: e uma escolha a fazer antes de
+     * publicar. Nao havendo, um painel do mesmo tamanho so para dizer "nenhum"
+     * ocupa a tela com ausencia. O selo diz o mesmo em uma linha, no lugar
+     * onde a informacao mora — a parada do GitHub.
+     *
+     * `estado` cobre os casos em que ainda nao ha resposta: 'carregando' e
+     * 'erro'. Erro mantem o painel aberto, porque a mensagem nao cabe no selo.
+     */
+    function deployPrsVisibilidade(qtd, estado) {
+      const painel = document.getElementById('deployPrPanel')
+      const selo = document.getElementById('deployPrChip')
+      const mostrarPainel = estado === 'erro' || (estado === 'ok' && qtd > 0)
+      if (painel) painel.style.display = mostrarPainel ? '' : 'none'
+      if (!selo) return
+      const textos = { carregando: 'consultando o GitHub…', erro: 'não foi possível consultar os PRs' }
+      selo.textContent = textos[estado] || 'nenhum PR aberto'
+      selo.dataset.state = estado === 'erro' ? 'erro' : 'vazio'
+      selo.style.display = mostrarPainel ? 'none' : 'inline-flex'
     }
 
     function deployRenderPrs() {
       const list = document.getElementById('deployPrList')
       if (!list) return
       const prs = deployState.prs || []
-      if (!prs.length) {
-        list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px;">Nenhum PR aberto encontrado.</div>'
-        return
-      }
+      deployPrsVisibilidade(prs.length, 'ok')
+      if (!prs.length) { list.innerHTML = ''; return }
       list.innerHTML = ''
       for (const pr of prs) {
         const projectId = deployPrProjectId(pr)
@@ -4450,6 +5286,7 @@
           document.getElementById('deployVpsStatus').textContent = '🔴 inacessível'
           document.getElementById('deployVpsSha').textContent = '—'
         }
+        deployPintarFluxo(r)
 
         // Commits pendentes
         const visibleProjects = deployVisibleProjects(r)

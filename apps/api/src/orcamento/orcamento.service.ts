@@ -2776,7 +2776,6 @@ export class OrcamentoService {
     criadoEm: Date
     validadeDias: number
     formaPagamento?: string | null
-    responsavelNome?: string | null
   }): string {
     const docFmt = this.formatCnpjCpf(data.clienteDoc || '')
     const dataFmt = data.criadoEm.toLocaleDateString('pt-BR')
@@ -2810,11 +2809,6 @@ export class OrcamentoService {
             <tr>
               <td style="padding:6px 0;color:#6b7280;">Pagamento:</td>
               <td style="padding:6px 0;color:#374151;">${data.formaPagamento}</td>
-            </tr>` : ''}
-            ${data.responsavelNome ? `
-            <tr>
-              <td style="padding:6px 0;color:#6b7280;">Responsável:</td>
-              <td style="padding:6px 0;color:#374151;">${data.responsavelNome}</td>
             </tr>` : ''}
           </table>
         </td>
@@ -2975,7 +2969,6 @@ export class OrcamentoService {
       criadoEm: orc.createdAt,
       validadeDias: orc.validadeDias,
       formaPagamento: orc.formaPagamento,
-      responsavelNome: responsavel?.name,
     })
     const itensTable = this.buildItensTable(itens.map(i => ({
       tipo: i.tipo, descricao: i.descricao, quantidade: Number(i.quantidade),
@@ -3175,7 +3168,7 @@ export class OrcamentoService {
         heroSubtitle: `${numero} · ${clienteNome}`,
         bodyHtml: `
           <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:16px 20px;margin:0 0 18px;">
-            <p style="margin:0;color:#065f46;font-weight:600;font-size:14px;">▶ A execução pode começar. ${responsavel?.name ? `Responsável designado: <strong>${responsavel.name}</strong>.` : 'Designe um responsável quando puder.'}</p>
+            <p style="margin:0;color:#065f46;font-weight:600;font-size:14px;">▶ A execução pode começar.</p>
           </div>
           <p>O orçamento <strong>${numero}</strong> foi liberado por <strong>${usuarioNome}</strong>.</p>
           ${summaryTable}
@@ -3251,10 +3244,6 @@ export class OrcamentoService {
       ? await prisma.empresa.findUnique({ where: { id: orc.empresaId }, select: { razaoSocial: true, nomeFantasia: true, logoUrl: true } }).catch(() => null)
       : null
 
-    const responsavel = orc.responsavelId
-      ? await prisma.user.findUnique({ where: { id: orc.responsavelId }, select: { name: true } }).catch(() => null)
-      : null
-
     const config = await this.getConfig(orc.empresaId || undefined)
 
     // Definir destinatarios: lista customizada OU fallback (cliente + emailsContatos + comercial).
@@ -3294,7 +3283,6 @@ export class OrcamentoService {
       criadoEm: orc.createdAt,
       validadeDias: orc.validadeDias,
       formaPagamento: orc.formaPagamento,
-      responsavelNome: responsavel?.name,
     })
     const itensTable = this.buildItensTable(orc.itens.map(i => ({
       tipo: i.tipo, descricao: i.descricao, quantidade: Number(i.quantidade),

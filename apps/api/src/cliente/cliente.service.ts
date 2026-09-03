@@ -16,6 +16,10 @@ const FIELD_LABELS: Record<string, string> = {
   porte: 'Porte', situacaoCadastral: 'Situação cadastral', naturezaJuridica: 'Natureza jurídica',
   observacoes: 'Observações',
   tributacao: 'Tributação', regime: 'Regime', inscricaoEstadual: 'IE', inscricaoMunicipal: 'IM',
+  apuracaoLucroReal: 'Apuração do Lucro Real', fatorR: 'Fator R',
+  apuraIssPorFora: 'Apura ISS por fora', apuraIcmsPorFora: 'Apura ICMS por fora',
+  possuiProLabore: 'Possui pró-labore', possuiFuncionarios: 'Possui funcionários',
+  semMovimento: 'Sem movimento',
   areasContratadas: 'Áreas Contratadas',
   cep: 'CEP', logradouro: 'Logradouro', numero: 'Número', complemento: 'Complemento',
   bairro: 'Bairro', cidade: 'Cidade', uf: 'UF',
@@ -170,48 +174,6 @@ export class ClienteService {
     const { page, limit, search, sortBy, sortDir, situacao, status, incluirInativos, exCliente, tributacao, grupo, cidade, uf, isLead, agruparMatriz, numero, tipoCliente, atividade, areaContratada, comBeneficio, comServico } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
-    // Filtro de matriz quando agruparMatriz=true: oculta filiais (CNPJ ordem
-    // != 0001) SEMPRE — inclusive em buscas textuais. Filiais ficam acessíveis
-    // apenas pelo modal de filiais da matriz.
-    //
-    // Prisma não tem operador `substring` em filtros, e endsWith('0001') não
-    // serve porque o CNPJ ainda tem 2 dígitos de DV depois da ordem (posições
-    // 13-14). Pegamos os IDs candidatos via SQL raw e usamos `id: { in: [] }`.
-    let matrizFilter: Prisma.ClienteWhereInput[] = []
-    if (agruparMatriz) {
-      // Matriz (regra HÍBRIDA p/ CNPJ alfanumérico, Fase 3): flag explícito
-      // `eh_matriz=true` OU, quando o flag é NULL (numérico/legado), a ordem
-      // '0001'. Para os dados atuais (eh_matriz sempre NULL) é IDÊNTICO ao antigo
-      // `substring(9,4)='0001'` — nenhuma mudança de comportamento.
-      // #HLP0209 — este SQL é ESTRUTURAL (define matriz/filial); NÃO filtra por
-      // deleted_at/status. Quem oculta inativo é o `where` principal (por status).
-      // Antes filtrava deleted_at IS NULL e escondia da lista os clientes que
-      // estavam na Lixeira (hoje status=INATIVO) mesmo em Inativos/Todos.
-      const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-        `SELECT c.id FROM clientes c
-         WHERE (
-             c.tipo_documento <> 'CNPJ'
-             OR c.documento IS NULL
-             OR c.documento = ''
-             OR length(c.documento) <> 14
-             OR c.eh_matriz = true
-             OR (c.eh_matriz IS NULL AND substring(c.documento, 9, 4) = '0001')
-             -- Filial ÓRFÃ: é filial mas sem matriz cadastrada na mesma
-             -- base/escopo. Senão ficaria invisível (não tem onde aninhar).
-             OR substring(c.documento, 1, 8) NOT IN (
-               SELECT substring(documento, 1, 8) FROM clientes
-               WHERE tipo_documento = 'CNPJ'
-                 AND length(documento) = 14
-                 AND (eh_matriz = true OR (eh_matriz IS NULL AND substring(documento, 9, 4) = '0001'))
-                 ${empresaId ? 'AND empresa_id = $1' : ''}
-             )
-           )
-           ${empresaId ? 'AND c.empresa_id = $1' : ''}`,
-        ...(empresaId ? [empresaId] : []),
-      )
-      matrizFilter = [{ id: { in: rows.map(r => r.id) } }]
-    }
-
     // Busca textual (#HLP0077): além de case-insensitive, ignora acentos —
     // "são paulo" tem que casar com "Sao Paulo" e vice-versa. Prisma não
     // expõe `unaccent`, então buscamos os IDs candidatos via raw SQL e
@@ -265,7 +227,8 @@ export class ClienteService {
             // mostra TODOS (ativos+inativos); sem nada, oculta INATIVO (padrão).
             ...(status ? { status } : incluirInativos ? {} : { status: { not: 'INATIVO' } }),
           }),
-      ...(tributacao ? { tributacao } : {}),
+      ...(tributacao === '__sem__' ? { tributacao: null }
+        : tributacao ? { tributacao } : {}),
       ...(grupo ? { grupo } : {}),
       ...(cidade ? { cidade } : {}),
       ...(uf ? { uf } : {}),
@@ -290,16 +253,54 @@ export class ClienteService {
       ...(comBeneficio === '__com__' ? { beneficiosFiscais: { some: {} } }
         : comBeneficio === '__sem__' ? { beneficiosFiscais: { none: {} } }
         : comBeneficio ? { beneficiosFiscais: { some: { catalogo: { nome: comBeneficio } } } } : {}),
-      ...((searchIdsFilter.length + matrizFilter.length) > 0
-        ? { AND: [...searchIdsFilter, ...matrizFilter] as Prisma.ClienteWhereInput[] }
+      ...(searchIdsFilter.length > 0
+        ? { AND: [...searchIdsFilter] as Prisma.ClienteWhereInput[] }
         : {}),
+    }
+
+    // ------------------------------------------------------------------
+    // Agrupamento matriz/filial
+    //
+    // A filial nao vira linha propria porque fica pendurada na matriz, no selo
+    // "N filiais". Isso so faz sentido se a matriz ESTIVER no resultado: era a
+    // base inteira que decidia antes, entao uma filial que passava no filtro
+    // sumia mesmo quando a matriz dela nao passava — e nao havia linha nenhuma
+    // onde encontra-la. Era o buraco entre o indicador ("8 sem tributacao") e a
+    // lista (5): as outras 3 eram filiais cujas matrizes tinham tributacao.
+    //
+    // Calculamos as OCULTAS, nao as visiveis: sao poucas (dezenas), enquanto as
+    // visiveis sao a lista quase toda — um `notIn` curto no lugar de um `in`
+    // com milhares de ids.
+    // ------------------------------------------------------------------
+    let whereLista = where
+    if (agruparMatriz) {
+      const universo = await prisma.cliente.findMany({
+        where,
+        select: { id: true, documento: true, ehMatriz: true, tipoDocumento: true },
+      })
+      const raizesComMatriz = new Set<string>()
+      for (const c of universo) {
+        if (ehMatrizCnpj(c.documento, c.ehMatriz, c.tipoDocumento)) {
+          raizesComMatriz.add(limparCnpj(c.documento).slice(0, 8))
+        }
+      }
+      // Some so quem e filial DE VERDADE (CNPJ de 14) e tem a matriz na mao.
+      // CPF, documento curto ou vazio nunca se escondem: nao ha grupo a formar.
+      const ocultas = universo
+        .filter(c => {
+          const doc = limparCnpj(c.documento)
+          if (doc.length !== 14 || ehMatrizCnpj(c.documento, c.ehMatriz, c.tipoDocumento)) return false
+          return raizesComMatriz.has(doc.slice(0, 8))
+        })
+        .map(c => c.id)
+      if (ocultas.length > 0) whereLista = { AND: [where, { id: { notIn: ocultas } }] }
     }
 
     const orderBy = sortBy ? { [sortBy]: sortDir } : { code: 'asc' as const }
 
     const [data, total] = await Promise.all([
       prisma.cliente.findMany({
-        where, orderBy, skip, take,
+        where: whereLista, orderBy, skip, take,
         include: {
           servicosContratados: {
             where: { contratado: true },
@@ -307,7 +308,7 @@ export class ClienteService {
           },
         },
       }),
-      prisma.cliente.count({ where }),
+      prisma.cliente.count({ where: whereLista }),
     ])
 
     // Pra cada matriz na página, conta as filiais (mesma raiz CNPJ, não-matriz).
@@ -553,6 +554,15 @@ export class ClienteService {
           naturezaJuridica: input.naturezaJuridica || null,
           inscricaoEstadual: input.inscricaoEstadual || null,
           inscricaoMunicipal: input.inscricaoMunicipal || null,
+          // `?? null` e não `|| null`: em booleano, `false || null` viraria null
+          // e apagaria justamente a resposta "não".
+          apuracaoLucroReal: input.apuracaoLucroReal ?? null,
+          fatorR: input.fatorR ?? null,
+          apuraIssPorFora: input.apuraIssPorFora ?? null,
+          apuraIcmsPorFora: input.apuraIcmsPorFora ?? null,
+          possuiProLabore: input.possuiProLabore ?? null,
+          possuiFuncionarios: input.possuiFuncionarios ?? null,
+          semMovimento: input.semMovimento ?? null,
           areasContratadas: input.areasContratadas || null,
           cep: input.cep || null,
           logradouro: input.logradouro || null,
@@ -898,6 +908,60 @@ export class ClienteService {
   // Opções de filtros (valores distintos para dropdowns)
   // ============================================================
   /**
+   * Clientes que ENTRARAM ou SAÍRAM nos últimos N dias, com a lista.
+   *
+   * Alimenta os dois widgets do painel. Devolve `total` e uma amostra ordenada
+   * do mais recente para o mais antigo — o widget é pequeno, então o total vem
+   * separado da lista em vez de a lista fingir ser o total.
+   *
+   * Mesmo recorte dos indicadores da listagem, incluindo a exceção: SAÍDA
+   * mantém MENSAL mas não exige ATIVO, porque quem saiu está inativo por
+   * definição e cobrar o status zeraria o resultado.
+   */
+  async movimentacaoRecente(
+    tipo: 'entrada' | 'saida',
+    isMaster?: boolean,
+    empresaId?: string,
+    dias = 90,
+    limite = 8,
+  ) {
+    const base = empresaFilter(isMaster, empresaId)
+    const desde = new Date()
+    desde.setHours(0, 0, 0, 0)
+    desde.setDate(desde.getDate() - dias)
+
+    const where = tipo === 'entrada'
+      ? { ...base, status: 'ATIVO' as const, situacao: 'MENSAL' as never, dataEntrada: { gte: desde } }
+      : { ...base, situacao: 'MENSAL' as never, dataSaida: { gte: desde } }
+
+    const campoData = tipo === 'entrada' ? 'dataEntrada' : 'dataSaida'
+
+    const [total, itens] = await Promise.all([
+      prisma.cliente.count({ where }),
+      prisma.cliente.findMany({
+        where,
+        orderBy: { [campoData]: 'desc' },
+        take: limite,
+        select: { id: true, code: true, razaoSocial: true, dataEntrada: true, dataSaida: true, cidade: true, uf: true },
+      }),
+    ])
+
+    return {
+      total,
+      dias,
+      itens: itens.map(c => ({
+        id: c.id,
+        code: c.code,
+        razaoSocial: c.razaoSocial,
+        data: tipo === 'entrada' ? c.dataEntrada : c.dataSaida,
+        cidade: c.cidade,
+        uf: c.uf,
+      })),
+    }
+  }
+
+  // ============================================================
+  /**
    * Indicadores do topo da listagem de clientes.
    *
    * Contagens do PANORAMA da carteira — não do resultado filtrado. Se
@@ -910,22 +974,42 @@ export class ClienteService {
    */
   async getStats(isMaster?: boolean, empresaId?: string) {
     const base = empresaFilter(isMaster, empresaId)
-    const ativo = { ...base, status: 'ATIVO' as const }
+    // Todos os indicadores olham a CARTEIRA RECORRENTE: mensal e ativo. Sem
+    // esse recorte os números diluíam — "com serviço" dava 264 de 546 porque
+    // contava avulsos e potenciais, que não têm serviço mesmo.
+    const mensalAtivo = { ...base, status: 'ATIVO' as const, situacao: 'MENSAL' as never }
 
-    const [ativos, mensais, comServico, comBeneficio, exClientes] = await Promise.all([
-      prisma.cliente.count({ where: ativo }),
-      prisma.cliente.count({ where: { ...ativo, situacao: 'MENSAL' as never } }),
-      prisma.cliente.count({ where: { ...ativo, servicosContratados: { some: { contratado: true } } } }),
+    // Janela dos "novos": 90 dias a partir de hoje, zerada no dia para a
+    // contagem não mudar de hora em hora.
+    const noventaDias = new Date()
+    noventaDias.setHours(0, 0, 0, 0)
+    noventaDias.setDate(noventaDias.getDate() - 90)
+
+    const [mensais, comServico, comBeneficio, entraram90d, sairam90d, tributacao] = await Promise.all([
+      prisma.cliente.count({ where: mensalAtivo }),
+      prisma.cliente.count({ where: { ...mensalAtivo, servicosContratados: { some: { contratado: true } } } }),
       // Benefício vive em `beneficiosFiscais` — `beneficios` é a relação antiga
       // e vazia, a mesma armadilha que derrubou o filtro da tela.
-      prisma.cliente.count({ where: { ...ativo, beneficiosFiscais: { some: {} } } }),
-      // Ex-cliente é derivado, igual ao filtro: MENSAL ∧ INATIVO ∧ com saída.
+      prisma.cliente.count({ where: { ...mensalAtivo, beneficiosFiscais: { some: {} } } }),
+      prisma.cliente.count({ where: { ...mensalAtivo, dataEntrada: { gte: noventaDias } } }),
+      // Saídas mantêm MENSAL mas NÃO exigem ativo: quem saiu está inativo, e
+      // cobrar `status: ATIVO` aqui zeraria o indicador. O que marca a saída é
+      // a data, não o status.
       prisma.cliente.count({
-        where: { ...base, situacao: 'MENSAL' as never, status: 'INATIVO' as never, dataSaida: { not: null } },
+        where: { ...base, situacao: 'MENSAL' as never, dataSaida: { gte: noventaDias } },
       }),
+      prisma.cliente.groupBy({ by: ['tributacao'], where: mensalAtivo, _count: { _all: true } }),
     ])
 
-    return { ativos, mensais, comServico, semServico: ativos - comServico, comBeneficio, exClientes }
+    return {
+      mensais, comServico, comBeneficio, entraram90d, sairam90d,
+      // Regime nulo vira '__sem__' aqui: omitir a fatia daria um gráfico que
+      // não fecha com o total de mensais ativos, e some justamente com o dado
+      // acionável (quem está sem tributação preenchida).
+      porTributacao: tributacao
+        .map(t => ({ regime: t.tributacao ?? '__sem__', total: t._count._all }))
+        .sort((a, b) => b.total - a.total),
+    }
   }
 
   // ============================================================

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { useRouter } from 'next/navigation'
@@ -14,7 +14,7 @@ import {
   Ban, RotateCcw, Building2, ExternalLink, Copy,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
   ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
-  Users2, CalendarClock, ClipboardCheck, ClipboardX, BadgePercent, UserMinus,
+  CalendarClock, ClipboardCheck, BadgePercent, ArrowLeftRight,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -94,6 +94,14 @@ const TRIBUTACAO_LABELS: Record<string, string> = {
   LUCRO_REAL: 'Lucro Real', MEI: 'MEI', IMUNE: 'Imune', ISENTA: 'Isenta',
 }
 
+/** Cor de cada regime na barra de distribuição. Sem regime fica cinza. */
+const TRIBUTACAO_CORES: Record<string, string> = {
+  SIMPLES_NACIONAL: '#16a34a', LUCRO_PRESUMIDO: '#2563eb', LUCRO_REAL: '#9333ea',
+  MEI: '#f97316', IMUNE: '#0ea5e9', ISENTA: '#e11d48',
+}
+/** Sem regime fica cinza — é ausência de dado, não uma categoria a competir. */
+const corTributacao = (regime: string) => TRIBUTACAO_CORES[regime] ?? '#94a3b8'
+
 /**
  * Estado de trabalho da listagem de clientes (#HLP0321).
  *
@@ -135,7 +143,9 @@ export default function ClientesPage() {
 
   // Relatório de cadastros repetidos é só para administrador (mesma regra do backend).
   const { isMaster, isEmpresaMaster } = useUserPermissions()
-  const { canCreate } = useClientesPerms()
+  // Edição inline: cada campo tem a SUA permissão, igual ao backend. Gatear
+  // tudo num flag só criaria campos que parecem editáveis e falham no save.
+  const { canCreate, canEditDetails, canManageCommercial, canEditTaxation } = useClientesPerms()
   const [search, setSearch] = useState(() => txt(salvos.search))
   // Inicia JÁ com o valor salvo: se começasse vazio, a primeira busca ignoraria
   // o texto restaurado e a lista piscaria sem filtro antes de corrigir.
@@ -248,7 +258,7 @@ export default function ClientesPage() {
   const [filterBeneficio, setFilterBeneficio] = useState(() => txt(salvos.beneficio))
   const [filterServico, setFilterServico] = useState(() => txt(salvos.servico))
   const [debouncedNumero, setDebouncedNumero] = useState(() => txt(salvos.numero))
-  const [stats, setStats] = useState<{ ativos: number; mensais: number; comServico: number; semServico: number; comBeneficio: number; exClientes: number } | null>(null)
+  const [stats, setStats] = useState<{ mensais: number; comServico: number; comBeneficio: number; entraram90d: number; sairam90d: number; porTributacao: Array<{ regime: string; total: number }> } | null>(null)
   const [filterOptions, setFilterOptions] = useState<{ grupos: (string | null)[]; cidades: (string | null)[]; estados: (string | null)[]; tipos: (string | null)[]; atividades: string[]; beneficios: string[]; areas: string[] }>({ grupos: [], cidades: [], estados: [], tipos: [], atividades: [], beneficios: [], areas: [] })
 
   useEffect(() => {
@@ -361,7 +371,7 @@ export default function ClientesPage() {
             // 'TODOS' = ativos+inativos (backend não filtra por status); senão filtra pelo valor.
             ...(filterStatus === 'TODOS' ? { incluirInativos: true } : { status: filterStatus as 'ATIVO' }),
           }),
-      ...(filterTributacao ? { tributacao: filterTributacao as 'SIMPLES_NACIONAL' } : {}),
+      ...(filterTributacao ? { tributacao: filterTributacao as 'SIMPLES_NACIONAL' | '__sem__' } : {}),
       ...(filterGrupo ? { grupo: filterGrupo } : {}),
       ...(filterCidade ? { cidade: filterCidade } : {}),
       ...(filterUf ? { uf: filterUf } : {}),
@@ -394,6 +404,13 @@ export default function ClientesPage() {
   function SortIcon({ column }: { column: string }) {
     if (sort.column !== column) return <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
     return sort.dir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+  }
+
+  /** Alterna o filtro de tributação pelo card. Clicar no ativo desliga. */
+  function aplicarTributacao(regime: string) {
+    setFilterTributacao(prev => (prev === regime ? '' : regime))
+    setPage(1)
+    setFiltersOpen(true)
   }
 
   function clearFilters() {
@@ -548,10 +565,24 @@ export default function ClientesPage() {
     return pages
   }
 
+  /** Grupos já em uso, no formato que o select da célula espera. */
+  const gruposOpcoes = useMemo(
+    () => Object.fromEntries((filterOptions.grupos.filter(Boolean) as string[]).map(g => [g, g])),
+    [filterOptions.grupos],
+  )
+
+  /** Aplica na linha o valor que a célula acabou de salvar (ou desfazer). */
+  function atualizarLinha(id: string, campo: string, valor: unknown) {
+    setData(prev => prev ? {
+      ...prev,
+      data: prev.data.map(c => c.id === id ? { ...c, [campo]: valor } : c),
+    } : prev)
+  }
+
   const hasActiveFilters = filterSituacao || (filterStatus !== 'ATIVO') || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || filterServico || onlyMensal || onlyExCliente
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-5">
       {/* Header padrão (como o /crm): barra full-bleed, título + trilha, ações à direita */}
       <PageHeaderBar
         actions={<>
@@ -605,25 +636,28 @@ export default function ClientesPage() {
         </p>
       </PageHeaderBar>
 
-      {/* Indicadores — panorama da carteira. Cada card é um atalho de filtro:
-          o número sozinho informa, mas clicar leva para os registros que ele
-          conta, que é o que a pessoa quer fazer em seguida. */}
+      {/* Indicadores da CARTEIRA RECORRENTE (mensais e ativos) — não da base
+          inteira. Os cards são atalhos de filtro: o número informa, mas clicar
+          leva para os registros que ele conta, que é o que a pessoa quer fazer
+          em seguida. */}
       {stats && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
           {([
-            { k: 'ativos', label: 'Clientes ativos', valor: stats.ativos, cor: '#0369a1', Icone: Users2, aplicar: () => clearFilters() },
-            { k: 'mensais', label: 'Mensais', valor: stats.mensais, cor: '#0891b2', Icone: CalendarClock, aplicar: () => { if (!onlyMensal) toggleOnlyMensal() } },
-            { k: 'comServico', label: 'Com serviço', valor: stats.comServico, cor: '#059669', Icone: ClipboardCheck, aplicar: () => { setFilterServico('__com__'); setPage(1); setFiltersOpen(true) } },
-            { k: 'semServico', label: 'Sem serviço', valor: stats.semServico, cor: '#ea580c', Icone: ClipboardX, aplicar: () => { setFilterServico('__sem__'); setPage(1); setFiltersOpen(true) } },
-            { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#7c3aed', Icone: BadgePercent, aplicar: () => { setFilterBeneficio('__com__'); setPage(1); setFiltersOpen(true) } },
-            { k: 'exClientes', label: 'Ex-clientes', valor: stats.exClientes, cor: '#e11d48', Icone: UserMinus, aplicar: () => { if (!onlyExCliente) toggleOnlyExCliente() } },
-          ] as const).map(({ k, label, valor, cor, Icone, aplicar }) => (
+            { k: 'mensais', label: 'Mensais', valor: stats.mensais, cor: '#0891b2', Icone: CalendarClock, dica: 'Filtrar somente os mensais', ligado: onlyMensal, aplicar: () => toggleOnlyMensal() },
+            { k: 'comServico', label: 'Com serviço', valor: stats.comServico, cor: '#16a34a', Icone: ClipboardCheck, dica: 'Filtrar quem tem serviço contratado', ligado: filterServico === '__com__', aplicar: () => { setFilterServico(p => (p === '__com__' ? '' : '__com__')); setPage(1); setFiltersOpen(true) } },
+            { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#9333ea', Icone: BadgePercent, dica: 'Filtrar quem tem benefício fiscal', ligado: filterBeneficio === '__com__', aplicar: () => { setFilterBeneficio(p => (p === '__com__' ? '' : '__com__')); setPage(1); setFiltersOpen(true) } },
+          ] as const).map(({ k, label, valor, cor, Icone, dica, aplicar, ligado }) => (
             <button
               key={k}
               type="button"
               onClick={aplicar}
-              title={`Filtrar por ${label.toLowerCase()}`}
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm"
+              title={dica}
+              aria-pressed={ligado}
+              className={cn(
+                'flex items-center gap-3 rounded-xl border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm',
+                ligado ? 'border-transparent ring-2' : 'border-border',
+              )}
+              style={ligado ? { boxShadow: `0 0 0 2px ${cor}` } : undefined}
             >
               <span
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
@@ -639,13 +673,109 @@ export default function ClientesPage() {
               </span>
             </button>
           ))}
+
+          {/* Movimentação em 90 dias — entradas contra saídas, lado a lado.
+              Dois números num card só porque o que interessa é a COMPARAÇÃO:
+              17 entradas isoladas não dizem se a carteira cresceu.
+              Clicar ordena pela data de entrada (não existe filtro por período
+              na tela; prometer filtro seria mentir no clique). */}
+          <button
+            type="button"
+            onClick={() => { setSort({ column: 'dataEntrada', dir: 'desc' }); setPage(1) }}
+            title="Ordenar pelos que entraram mais recentemente"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm"
+          >
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+              style={{ backgroundColor: 'color-mix(in srgb, #0369a1 12%, transparent)', color: '#0369a1' }}
+            >
+              <ArrowLeftRight className="h-[18px] w-[18px]" />
+            </span>
+            <span className="min-w-0">
+              <span className="flex items-baseline gap-2 leading-none">
+                <span className="flex items-baseline gap-0.5 text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                  <ArrowUp className="h-3.5 w-3.5 self-center" />{stats.entraram90d}
+                </span>
+                <span className="text-muted-foreground/40">/</span>
+                <span className="flex items-baseline gap-0.5 text-lg font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                  <ArrowDown className="h-3.5 w-3.5 self-center" />{stats.sairam90d}
+                </span>
+              </span>
+              <span className="mt-1 block truncate text-[11px] text-muted-foreground">
+                Entradas / saídas · 90 dias
+                {(() => {
+                  const saldo = stats.entraram90d - stats.sairam90d
+                  if (saldo === 0) return null
+                  return <span className={saldo > 0 ? 'ml-1 font-medium text-emerald-600 dark:text-emerald-400' : 'ml-1 font-medium text-rose-600 dark:text-rose-400'}>
+                    ({saldo > 0 ? '+' : ''}{saldo})
+                  </span>
+                })()}
+              </span>
+            </span>
+          </button>
+
+          {/* Tributação — ocupa duas colunas porque é distribuição, não número
+              único: uma barra sozinha nao diz nada sem os rotulos ao lado. */}
+          <div className="col-span-2 rounded-xl border border-border bg-card p-3 sm:col-span-3 xl:col-span-2">
+            {(() => {
+              const total = stats.porTributacao.reduce((a, t) => a + t.total, 0)
+              if (!total) return <p className="text-[11px] text-muted-foreground">Sem tributação registrada.</p>
+              return (
+                <>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[11px] font-medium text-muted-foreground">Por tributação</span>
+                    <span className="text-[11px] tabular-nums text-muted-foreground">{total.toLocaleString('pt-BR')} mensais</span>
+                  </div>
+                  <div className="mt-2 flex h-2.5 overflow-hidden rounded-full bg-muted">
+                    {stats.porTributacao.map(t => {
+                      const ativoAqui = filterTributacao === t.regime
+                      return (
+                        <button
+                          key={t.regime}
+                          type="button"
+                          onClick={() => aplicarTributacao(t.regime)}
+                          title={`${TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'}: ${t.total} — clique para filtrar`}
+                          style={{ width: `${(t.total / total) * 100}%`, backgroundColor: corTributacao(t.regime) }}
+                          className={cn(
+                            'h-full transition-opacity hover:opacity-100',
+                            filterTributacao && !ativoAqui ? 'opacity-30' : 'opacity-100',
+                          )}
+                        />
+                      )
+                    })}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                    {stats.porTributacao.map(t => {
+                      const ativoAqui = filterTributacao === t.regime
+                      return (
+                        <button
+                          key={t.regime}
+                          type="button"
+                          onClick={() => aplicarTributacao(t.regime)}
+                          title={`Filtrar por ${TRIBUTACAO_LABELS[t.regime] ?? 'sem tributação'}`}
+                          className={cn(
+                            'flex items-center gap-1.5 rounded px-1 -mx-1 text-[11px] transition-colors hover:bg-muted',
+                            ativoAqui ? 'font-medium text-foreground' : 'text-muted-foreground',
+                          )}
+                        >
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: corTributacao(t.regime) }} />
+                          {TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'}
+                          <strong className="font-semibold tabular-nums text-foreground">{t.total}</strong>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )
+            })()}
+          </div>
         </div>
       )}
 
       {/* Filtros colapsáveis */}
       <Card className={cn('overflow-hidden transition-all', filtersOpen ? '' : 'cursor-pointer')} onClick={() => !filtersOpen && setFiltersOpen(true)}>
-          <div className="flex items-center justify-between px-4 py-3 bg-muted/20" onClick={(e) => { e.stopPropagation(); setFiltersOpen(!filtersOpen) }}>
-            <div className="flex items-center gap-3 text-sm font-medium cursor-pointer">
+          <div className="flex flex-col gap-3 px-4 py-3 bg-muted/20 sm:flex-row sm:items-center sm:justify-between" onClick={(e) => { e.stopPropagation(); setFiltersOpen(!filtersOpen) }}>
+            <div className="flex flex-wrap items-center gap-2 text-sm font-medium cursor-pointer sm:gap-3">
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 Filtros
@@ -677,7 +807,7 @@ export default function ClientesPage() {
                 Somente Ex-clientes
               </button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 self-end sm:self-auto">
               {hasActiveFilters && (
                 <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); clearFilters() }}>
                   <X className="h-3 w-3" />Limpar
@@ -696,7 +826,7 @@ export default function ClientesPage() {
           >
             <div className="min-h-0 overflow-hidden">
             <div className="px-4 py-3 border-t border-border/40">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 {/* Linha 1: Número · Grupo · Atividade · Município · Estado · Tributação */}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Número</label>
@@ -749,6 +879,7 @@ export default function ClientesPage() {
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
                       {Object.entries(TRIBUTACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                      <SelectItem value="__sem__">Não informado</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -842,7 +973,7 @@ export default function ClientesPage() {
 
       {/* Seleção em lote */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 px-4 py-2.5 text-sm">
+        <div className="flex flex-col gap-2 rounded-lg bg-emerald-50 px-4 py-2.5 text-sm dark:bg-emerald-950/20 sm:flex-row sm:items-center sm:gap-3">
           <span className="font-medium text-emerald-700 dark:text-emerald-400">{selected.size} selecionado{selected.size > 1 ? 's' : ''}</span>
           {/* Âmbar soft com borda (tom do KPI "Backlog em aberto"): destaca sobre o fundo
               esmeralda da barra, onde o soft-warning (tint 10%) sumia. O per-row segue
@@ -865,40 +996,40 @@ export default function ClientesPage() {
             </Select>
             <span className="hidden sm:inline">registros</span>
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
+          <div className="w-full sm:w-auto sm:max-w-xs">
             <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
           </div>
         </div>
 
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
               <TableHead className="w-[40px]">
                 <Checkbox checked={!!(data?.data && data.data.length > 0 && selected.size === data.data.length)} onCheckedChange={toggleSelectAll} />
               </TableHead>
-              <TableHead className="w-[60px]">
+              <TableHead className="hidden w-[60px] sm:table-cell">
                 <button onClick={() => toggleSort('code')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   Nº <SortIcon column="code" />
                 </button>
               </TableHead>
-              <TableHead className="w-[110px]">
+              <TableHead className="hidden w-[110px] sm:table-cell">
                 <button onClick={() => toggleSort('situacao')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   Situação <SortIcon column="situacao" />
                 </button>
               </TableHead>
-              <TableHead className="w-[44px] text-center" title="Certificado digital">
+              <TableHead className="hidden w-[44px] text-center sm:table-cell" title="Certificado digital">
                 <ShieldCheck className="h-3.5 w-3.5 mx-auto text-muted-foreground" />
               </TableHead>
-              <TableHead>
+              <TableHead className="w-auto sm:w-[280px] xl:w-[300px] 2xl:w-[360px]">
                 <button onClick={() => toggleSort('razaoSocial')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   Cliente <SortIcon column="razaoSocial" />
                 </button>
               </TableHead>
-              <TableHead className="hidden xl:table-cell w-[170px]">CNPJ/CPF</TableHead>
-              <TableHead className="hidden lg:table-cell">Tributação</TableHead>
-              <TableHead className="hidden lg:table-cell">Grupo</TableHead>
-              <TableHead className="hidden md:table-cell">Município</TableHead>
-              <TableHead className="hidden md:table-cell w-[50px]">UF</TableHead>
+              <TableHead className="hidden w-[180px] whitespace-nowrap xl:table-cell">CNPJ/CPF</TableHead>
+              <TableHead className="hidden w-[180px] xl:table-cell">Tributação</TableHead>
+              <TableHead className="hidden w-[220px] 2xl:table-cell">Grupo</TableHead>
+              <TableHead className="hidden w-[180px] 2xl:table-cell">Município</TableHead>
+              <TableHead className="hidden w-[70px] whitespace-nowrap 2xl:table-cell">UF</TableHead>
               <TableHead className="w-[80px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -919,30 +1050,32 @@ export default function ClientesPage() {
               </TableRow>
             ) : (
               data.data.map((cliente) => (
-                <TableRow key={cliente.id} className="cursor-pointer" onClick={() => router.push(`/clientes/${cliente.id}`)}>
+                <TableRow key={cliente.id} className="cursor-pointer hover:bg-muted/40 sm:whitespace-nowrap" onClick={() => router.push(`/clientes/${cliente.id}`)}>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox checked={selected.has(cliente.id)} onCheckedChange={() => toggleSelect(cliente.id)} />
                   </TableCell>
-                  <TableCell className="font-mono text-muted-foreground text-xs">{cliente.code}</TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="hidden font-mono text-xs text-muted-foreground sm:table-cell">{cliente.code}</TableCell>
+                  <TableCell className="hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                     <InlineSituacaoSelect
                       clienteId={cliente.id}
                       value={cliente.situacao}
-                      onUpdated={(newVal) => {
-                        setData((prev) => prev ? {
-                          ...prev,
-                          data: prev.data.map((c) => c.id === cliente.id ? { ...c, situacao: newVal } : c),
-                        } : prev)
-                      }}
+                      podeEditar={canEditDetails && canManageCommercial}
+                      onUpdated={(newVal) => atualizarLinha(cliente.id, 'situacao', newVal)}
                     />
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="hidden text-center sm:table-cell">
                     <CertIcon status={cliente.certStatus} expiraEm={cliente.certExpiraEm} />
                   </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm">{cliente.razaoSocial}</p>
+                  <TableCell className="min-w-0 overflow-hidden">
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <span onClick={e => e.stopPropagation()} className="min-w-0 flex-1 overflow-hidden">
+                          <CelulaTexto
+                            clienteId={cliente.id} campo="razaoSocial" valor={cliente.razaoSocial}
+                            podeEditar={canEditDetails} className="block overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium"
+                            onUpdated={v => atualizarLinha(cliente.id, 'razaoSocial', v)}
+                          />
+                        </span>
                         {cliente.status === 'INATIVO' && (
                           isExCliente(cliente)
                             ? <Badge className={cn('text-[10px] px-1.5 py-0 border-transparent', EX_CLIENTE_BADGE_CLASS)}>Ex-cliente</Badge>
@@ -960,32 +1093,95 @@ export default function ClientesPage() {
                           </button>
                         )}
                       </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 sm:hidden" onClick={e => e.stopPropagation()}>
+                        <span className="font-mono text-[11px] text-muted-foreground">#{cliente.code}</span>
+                        <SituacaoPill value={cliente.situacao} />
+                        <CertIcon status={cliente.certStatus} expiraEm={cliente.certExpiraEm} />
+                      </div>
+                      <div className="mt-1 space-y-0.5 text-[11px] leading-tight text-muted-foreground sm:hidden">
+                        <div className="font-mono">{formatDocumento(cliente.documento, cliente.tipoDocumento)}</div>
+                        {(cliente.cidade || cliente.uf) && (
+                          <div className="truncate">{[cliente.cidade, cliente.uf].filter(Boolean).join(' / ')}</div>
+                        )}
+                      </div>
                       {renderAreas(cliente.areasContratadas)}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden xl:table-cell font-mono text-xs text-muted-foreground">
+                  <TableCell className="hidden w-[180px] whitespace-nowrap font-mono text-xs text-muted-foreground xl:table-cell">
                     {formatDocumento(cliente.documento, cliente.tipoDocumento)}
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                    {cliente.tributacao ? (TRIBUTACAO_LABELS[cliente.tributacao] || cliente.tributacao) : '—'}
+                  <TableCell className="hidden w-[180px] text-sm text-muted-foreground xl:table-cell" onClick={e => e.stopPropagation()}>
+                    {/* Tributação exige `edit_taxation` além de `edit_details` — é o
+                        mesmo par que a aba do cadastro cobra. */}
+                    <CelulaSelect
+                      clienteId={cliente.id} campo="tributacao" valor={cliente.tributacao}
+                      opcoes={TRIBUTACAO_LABELS}
+                      podeEditar={canEditDetails && canEditTaxation}
+                      onUpdated={v => atualizarLinha(cliente.id, 'tributacao', v)}
+                    />
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{cliente.grupo || '—'}</TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{cliente.cidade || '—'}</TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{cliente.uf || '—'}</TableCell>
+                  <TableCell className="hidden w-[220px] text-sm text-muted-foreground 2xl:table-cell" onClick={e => e.stopPropagation()}>
+                    {/* Grupo é campo COMERCIAL: o backend recusa sem `manage_commercial`.
+                        As opções são os grupos JÁ EM USO (mesma lista do filtro):
+                        não existe cadastro de grupos, é texto livre no cliente. */}
+                    <CelulaSelect
+                      clienteId={cliente.id} campo="grupo" valor={cliente.grupo}
+                      opcoes={gruposOpcoes} rotuloVazio="— Sem grupo"
+                      podeEditar={canEditDetails && canManageCommercial}
+                      onUpdated={v => atualizarLinha(cliente.id, 'grupo', v)}
+                    />
+                  </TableCell>
+                  <TableCell className="hidden w-[180px] text-sm text-muted-foreground 2xl:table-cell" onClick={e => e.stopPropagation()}>
+                    <CelulaTexto
+                      clienteId={cliente.id} campo="cidade" valor={cliente.cidade}
+                      podeEditar={canEditDetails}
+                      onUpdated={v => atualizarLinha(cliente.id, 'cidade', v)}
+                    />
+                  </TableCell>
+                  <TableCell className="hidden w-[70px] whitespace-nowrap text-sm text-muted-foreground 2xl:table-cell" onClick={e => e.stopPropagation()}>
+                    <CelulaTexto
+                      clienteId={cliente.id} campo="uf" valor={cliente.uf}
+                      podeEditar={canEditDetails} maxLength={2} upper
+                      onUpdated={v => atualizarLinha(cliente.id, 'uf', v)}
+                    />
+                  </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="soft-info" size="icon-sm" title="Editar" onClick={() => router.push(`/clientes/${cliente.id}`)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      {cliente.status === 'INATIVO' ? (
-                        <Button variant="soft-success" size="icon-sm" title="Reativar" onClick={() => setReativarAlvo({ id: cliente.id, nome: cliente.razaoSocial })}>
-                          <RotateCcw className="h-3.5 w-3.5" />
+                    <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                      <div className="sm:hidden">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onClick={() => router.push(`/clientes/${cliente.id}`)}>
+                              <Pencil className="h-4 w-4" />Editar
+                            </DropdownMenuItem>
+                            {cliente.status === 'INATIVO' ? (
+                              <DropdownMenuItem onClick={() => setReativarAlvo({ id: cliente.id, nome: cliente.razaoSocial })}>
+                                <RotateCcw className="h-4 w-4" />Reativar
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => openInativar([cliente.id], cliente.razaoSocial)}>
+                                <Ban className="h-4 w-4" />Inativar
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <div className="hidden justify-end gap-1 sm:flex">
+                        <Button variant="soft-info" size="icon-sm" title="Editar" onClick={() => router.push(`/clientes/${cliente.id}`)}>
+                          <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                      ) : (
-                        <Button variant="soft-warning" size="icon-sm" title="Inativar" onClick={() => openInativar([cliente.id], cliente.razaoSocial)}>
-                          <Ban className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
+                        {cliente.status === 'INATIVO' ? (
+                          <Button variant="soft-success" size="icon-sm" title="Reativar" onClick={() => setReativarAlvo({ id: cliente.id, nome: cliente.razaoSocial })}>
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : (
+                          <Button variant="soft-warning" size="icon-sm" title="Inativar" onClick={() => openInativar([cliente.id], cliente.razaoSocial)}>
+                            <Ban className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -1185,7 +1381,163 @@ export default function ClientesPage() {
 }
 
 // Componente inline para editar Situação direto na tabela
-function InlineSituacaoSelect({ clienteId, value, onUpdated }: { clienteId: string; value: string; onUpdated: (v: string) => void }) {
+/**
+ * Célula de texto editável direto na tabela (#edição inline).
+ *
+ * Clique abre o input, Enter ou sair do campo salva, Esc cancela. A linha toda
+ * navega para o detalhe, então todo clique aqui precisa de `stopPropagation`.
+ *
+ * Sem permissão, renderiza texto puro — não um input desabilitado: um campo que
+ * parece editável e recusa é pior que um campo que não convida ao clique.
+ *
+ * O valor da tela muda ANTES da resposta (otimista), mas volta atrás se o save
+ * falhar, com o erro na cara do usuário. O inline de Situação que já existia
+ * engolia a falha em silêncio: a tela mostrava o valor novo e o banco ficava com
+ * o velho.
+ */
+function CelulaTexto({ clienteId, campo, valor, podeEditar, onUpdated, maxLength, upper, className }: {
+  clienteId: string
+  campo: 'razaoSocial' | 'grupo' | 'cidade' | 'uf'
+  valor: string | null
+  podeEditar: boolean
+  onUpdated: (v: string | null) => void
+  maxLength?: number
+  upper?: boolean
+  className?: string
+}) {
+  const [editando, setEditando] = useState(false)
+  const [rascunho, setRascunho] = useState(valor ?? '')
+  const [salvando, setSalvando] = useState(false)
+
+  if (!podeEditar) {
+    return <span className={className}>{valor || '—'}</span>
+  }
+
+  async function salvar() {
+    const novo = upper ? rascunho.trim().toUpperCase() : rascunho.trim()
+    setEditando(false)
+    if (novo === (valor ?? '')) return
+
+    const anterior = valor
+    onUpdated(novo || null)          // otimista
+    setSalvando(true)
+    try {
+      await trpc.cliente.update.mutate({ id: clienteId, data: { [campo]: novo || null } as never })
+    } catch (e) {
+      onUpdated(anterior)            // desfaz
+      setRascunho(anterior ?? '')
+      alerts.error('Não foi possível salvar', (e as Error).message)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  if (editando) {
+    return (
+      <input
+        autoFocus
+        value={rascunho}
+        maxLength={maxLength}
+        onChange={e => setRascunho(e.target.value)}
+        onClick={e => e.stopPropagation()}
+        onBlur={salvar}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); salvar() }
+          if (e.key === 'Escape') { setRascunho(valor ?? ''); setEditando(false) }
+        }}
+        className="w-full rounded border border-primary bg-background px-1.5 py-0.5 text-sm outline-none"
+      />
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={e => { e.stopPropagation(); setRascunho(valor ?? ''); setEditando(true) }}
+      title="Clique para editar"
+      className={cn(
+        'w-full whitespace-nowrap rounded px-1 -mx-1 text-left transition-colors hover:bg-muted',
+        salvando && 'opacity-50',
+        className,
+      )}
+    >
+      {valor || <span className="text-muted-foreground">—</span>}
+    </button>
+  )
+}
+
+/** Mesma ideia da célula de texto, para campos com lista fechada. */
+function CelulaSelect({ clienteId, campo, valor, opcoes, podeEditar, onUpdated, className, rotuloVazio = '— Não informado' }: {
+  clienteId: string
+  campo: 'tributacao' | 'grupo'
+  valor: string | null
+  opcoes: Record<string, string>
+  podeEditar: boolean
+  onUpdated: (v: string | null) => void
+  className?: string
+  /** Texto da opção que limpa o campo — "Não informado" não serve para grupo. */
+  rotuloVazio?: string
+}) {
+  const [salvando, setSalvando] = useState(false)
+  const rotulo = valor ? (opcoes[valor] ?? valor) : null
+
+  if (!podeEditar) {
+    return <span className={className}>{rotulo || '—'}</span>
+  }
+
+  async function escolher(novo: string | null) {
+    if (novo === valor) return
+    const anterior = valor
+    onUpdated(novo)
+    setSalvando(true)
+    try {
+      await trpc.cliente.update.mutate({ id: clienteId, data: { [campo]: novo } as never })
+    } catch (e) {
+      onUpdated(anterior)
+      alerts.error('Não foi possível salvar', (e as Error).message)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          onClick={e => e.stopPropagation()}
+          title="Clique para editar"
+          className={cn('w-full truncate rounded px-1 -mx-1 text-left transition-colors hover:bg-muted', salvando && 'opacity-50', className)}
+        >
+          {rotulo || <span className="text-muted-foreground">—</span>}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-72 min-w-[170px] overflow-y-auto nice-scrollbar" onClick={e => e.stopPropagation()}>
+        <DropdownMenuItem onClick={() => escolher(null)}><span className="text-muted-foreground">{rotuloVazio}</span></DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {Object.entries(opcoes).map(([v, l]) => (
+          <DropdownMenuItem key={v} onClick={() => escolher(v)}>{l}</DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function SituacaoPill({ value }: { value: string }) {
+  const sc = SITUACAO_COLORS[value as keyof typeof SITUACAO_COLORS]
+  const isSolid = value === 'MENSAL'
+  const estilo = isSolid
+    ? { backgroundColor: sc?.bg || '#e5e5e5', color: sc?.color || '#666' }
+    : { backgroundColor: 'transparent', color: sc?.bg || '#666', border: `1.5px solid ${sc?.bg || '#ccc'}` }
+
+  return (
+    <span className="inline-flex max-w-full items-center rounded-[3px] px-2 py-[2px] text-[10px] font-semibold leading-none" style={estilo}>
+      {SITUACAO_LABELS[value as keyof typeof SITUACAO_LABELS] || value}
+    </span>
+  )
+}
+
+function InlineSituacaoSelect({ clienteId, value, podeEditar, onUpdated }: { clienteId: string; value: string; podeEditar: boolean; onUpdated: (v: string) => void }) {
   const [saving, setSaving] = useState(false)
 
   async function handleChange(newValue: string) {
@@ -1194,12 +1546,29 @@ function InlineSituacaoSelect({ clienteId, value, onUpdated }: { clienteId: stri
     try {
       await trpc.cliente.update.mutate({ id: clienteId, data: { situacao: newValue as 'MENSAL' } })
       onUpdated(newValue)
-    } catch { /* silent */ }
+    } catch (e) {
+      // Antes isto era `catch { /* silent */ }`: quem não tinha a permissão
+      // comercial via a situação mudar na tela e nada salvava no banco.
+      alerts.error('Não foi possível salvar', (e as Error).message)
+    }
     finally { setSaving(false) }
   }
 
   const sc = SITUACAO_COLORS[value as keyof typeof SITUACAO_COLORS]
   const isSolid = value === 'MENSAL'
+  const estilo = isSolid
+    ? { backgroundColor: sc?.bg || '#e5e5e5', color: sc?.color || '#666' }
+    : { backgroundColor: 'transparent', color: sc?.bg || '#666', border: `1.5px solid ${sc?.bg || '#ccc'}` }
+
+  // Sem permissao comercial, vira etiqueta: nao convida ao clique que o
+  // servidor vai recusar.
+  if (!podeEditar) {
+    return (
+      <span className="block w-full rounded-[3px] px-2.5 py-[3px] text-[10px] font-semibold text-center" style={estilo}>
+        {SITUACAO_LABELS[value as keyof typeof SITUACAO_LABELS] || value}
+      </span>
+    )
+  }
 
   return (
     <DropdownMenu>
