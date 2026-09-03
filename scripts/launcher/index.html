@@ -1743,6 +1743,39 @@
     }
 
     /* ── Projetos e PRs: a pele nova sobre a estrutura que o JS monta ── */
+    /* ── Onde publicar, no rodapé ───────────────────────────────────
+       Alinhado à direita, separado do progresso por uma linha: é escolha,
+       não resultado. Fica no canto porque quase nunca muda — mas continua
+       à vista, que é o que uma opção escondida num menu perderia. */
+    #page-deploy .lx-projetos {
+      display: flex; justify-content: flex-end; gap: 8px;
+      margin-top: 14px; padding-top: 14px;
+      border-top: 1px solid var(--lx-border);
+    }
+    #page-deploy .lx-projeto {
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 32px; padding: 0 12px; border-radius: 999px;
+      border: 1px solid var(--lx-border); background: var(--lx-surface);
+      color: var(--lx-muted); font-size: 12px; font-weight: 500; font-family: inherit;
+      cursor: pointer; position: relative;
+      transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+    }
+    #page-deploy .lx-projeto:hover:not(.is-disabled) { background: var(--lx-surface-muted); color: var(--lx-fg); }
+    #page-deploy .lx-projeto.is-selected {
+      background: color-mix(in srgb, var(--lx-primary) 12%, transparent);
+      border-color: color-mix(in srgb, var(--lx-primary) 38%, transparent);
+      color: var(--lx-primary); font-weight: 600;
+    }
+    #page-deploy .lx-projeto.is-disabled { opacity: .45; cursor: not-allowed; }
+    /* O ponto com o numero: um projeto com trabalho parado nao pode parecer
+       igual a um sincronizado. */
+    #page-deploy .lx-projeto-pendencia {
+      min-width: 17px; height: 17px; padding: 0 5px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--lx-warning); color: #fff;
+      font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+
     #page-deploy .deploy-project-grid { gap: 10px; margin-bottom: 12px; }
     #page-deploy .deploy-project-card {
       background: var(--lx-surface); border: 1px solid var(--lx-border);
@@ -2585,9 +2618,6 @@
               <span id="deployLocalDirtyCount">0</span> arquivo(s) sem commit no repositório local
             </div>
 
-            <div id="deploySynced" class="lx-note lx-note-ok" style="display:none;">
-              Tudo sincronizado — local, GitHub e VPS no mesmo commit.
-            </div>
 
             <!-- ── O que vai subir ──────────────────────────────────────
                  Três listas do mesmo assunto (o que ainda não chegou na
@@ -2627,9 +2657,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Projetos (core / app) — cartões montados pelo deployRenderProjects -->
-        <div id="deployProjectsBox" class="deploy-project-grid"></div>
 
         <!-- Nasce escondido: quem o revela e o deployPrsVisibilidade, depois
              de saber se ha PR aberto. -->
@@ -2736,6 +2763,13 @@
               </button>
             </div>
           </div>
+
+          <!-- Escolha do que publicar. Eram dois cartões do tamanho de uma
+               seção para uma decisão que quase nunca muda (o Core vai sempre;
+               o App entra de vez em quando). Viraram dois ícones no rodapé:
+               ocupam o canto, mostram o estado pela cor e continuam a um
+               clique. -->
+          <div class="lx-projetos" id="deployProjectsBox"></div>
         </div>
 
         <!-- Log -->
@@ -5018,6 +5052,24 @@
       if (e.key === 'Escape') deployClosePrDrawer()
     })
 
+    /** Icone de cada projeto — o do Core e um servidor; o do App, um celular. */
+    const DEPLOY_PROJETO_ICONES = {
+      core: '<rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/>',
+      app: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+    }
+
+    /**
+     * Onde publicar — dois icones no rodape, nao dois cartoes.
+     *
+     * A escolha quase nunca muda: o Core vai sempre, o App entra de vez em
+     * quando. Dois cartoes do tamanho de uma secao para isso empurravam para
+     * baixo o que importa (o que vai subir e o botao). Como icone, o estado
+     * continua visivel — pintado quando selecionado, apagado quando nao — e o
+     * clique continua a um toque.
+     *
+     * O contador de pendencias vira um ponto no canto do icone: sem ele, um
+     * projeto com trabalho parado ficaria indistinguivel de um sincronizado.
+     */
     function deployRenderProjects(status) {
       const box = document.getElementById('deployProjectsBox')
       if (!box) return
@@ -5029,29 +5081,30 @@
         const enabled = p.id === 'core' || !!p.deployable
         const selected = enabled && validSelected.has(p.id)
         const total = deployProjectActionCount(p)
-        const card = document.createElement('label')
-        card.className = 'deploy-project-card' + (selected ? ' is-selected' : '') + (!enabled ? ' is-disabled' : '')
-        const statusText = p.error || (p.synced ? 'Sincronizado' : `${total} pendente(s)`)
-        card.title = p.cwd || ''
-        card.innerHTML = `
-          <input type="checkbox" value="${p.id}" ${selected ? 'checked' : ''} ${enabled ? '' : 'disabled'}>
-          <div style="min-width:0;">
-            <div class="deploy-project-title">${p.label || p.id}</div>
-            <div class="deploy-project-detail">${p.cwd || '-'} · ${statusText}</div>
-          </div>
-          <span class="deploy-project-badge">${enabled ? (selected ? 'selecionado' : 'opcional') : 'configurar'}</span>
+        const statusText = p.error || (p.synced ? 'sincronizado' : `${total} pendente(s)`)
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'lx-projeto' + (selected ? ' is-selected' : '') + (!enabled ? ' is-disabled' : '')
+        btn.disabled = !enabled
+        btn.title = `${p.label || p.id} — ${statusText}${p.cwd ? ` (${p.cwd})` : ''}`
+        btn.setAttribute('aria-pressed', String(selected))
+        btn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">${DEPLOY_PROJETO_ICONES[p.id] || DEPLOY_PROJETO_ICONES.core}</svg>
+          <span>${escapeHtml(p.label || p.id)}</span>
+          ${total > 0 ? `<span class="lx-projeto-pendencia">${total}</span>` : ''}
         `
-        const input = card.querySelector('input')
-        input.addEventListener('change', () => {
+        btn.addEventListener('click', () => {
+          if (!enabled) return
           const set = new Set(deployState.selectedProjects || [])
-          if (input.checked) set.add(p.id)
-          else set.delete(p.id)
+          if (set.has(p.id)) set.delete(p.id)
+          else set.add(p.id)
           deployState.selectedProjects = [...set]
           deployRenderProjects(deployState.status)
           deployRenderAllCommitLists(deployState.status)
           deployUpdateSelectionHint()
         })
-        box.appendChild(card)
+        box.appendChild(btn)
       }
       deployState.selectedProjects = projects.filter(p => validSelected.has(p.id) && (p.id === 'core' || p.deployable)).map(p => p.id)
       if (!deployState.selectedProjects.length && projects.some(p => p.id === 'core')) deployState.selectedProjects = ['core']
@@ -5330,10 +5383,10 @@
 
         // Sync
         if (r.synced) {
-          document.getElementById('deploySynced').style.display = ''
+          /* o estado "tudo sincronizado" e dito pelas bordas verdes das paradas */
           deploySetBadge('synced', 'ok')
         } else {
-          document.getElementById('deploySynced').style.display = 'none'
+          /* idem: sem aviso a esconder */
           const totalPend = visibleProjects.reduce((sum, p) => sum + deployProjectActionCount(p), 0)
           deploySetBadge(`${totalPend} pendente(s)`, 'err')
         }
