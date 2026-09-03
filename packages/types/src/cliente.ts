@@ -206,7 +206,20 @@ export const listClienteSchema = paginationSchema.extend({
    * Filiais ficam ocultas e são exibidas via modal ao clicar na badge
    * de filiais da matriz. Use false pra mostrar todas as inscrições.
    */
-  agruparMatriz: z.coerce.boolean().optional().default(true),
+  /**
+   * Aninhar filial sob a matriz na listagem.
+   *
+   * Passou a nascer DESLIGADO. Ligado, a lista contava GRUPOS enquanto os
+   * indicadores contavam CLIENTES, e os dois números nunca fechavam: "Lucro
+   * Real 54" abria uma tabela de 41 linhas, "Mensais 251" mostrava 216. As 13
+   * que faltavam existiam — estavam dobradas dentro da linha da matriz, atrás
+   * do selo "N filiais".
+   *
+   * Um cadastro de clientes lista clientes: cada filial tem CNPJ próprio,
+   * serviços próprios e regime próprio, então merece a própria linha. O selo
+   * continua ali, agora só como atalho para o grupo, sem esconder ninguém.
+   */
+  agruparMatriz: z.coerce.boolean().optional().default(false),
 })
 
 export type CreateClienteInput = z.infer<typeof createClienteSchema>
