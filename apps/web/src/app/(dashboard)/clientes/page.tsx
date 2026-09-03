@@ -94,9 +94,10 @@ const TRIBUTACAO_LABELS: Record<string, string> = {
 
 /** Cor de cada regime na barra de distribuição. Sem regime fica cinza. */
 const TRIBUTACAO_CORES: Record<string, string> = {
-  SIMPLES_NACIONAL: '#059669', LUCRO_PRESUMIDO: '#0891b2', LUCRO_REAL: '#7c3aed',
-  MEI: '#ea580c', IMUNE: '#0369a1', ISENTA: '#e11d48',
+  SIMPLES_NACIONAL: '#16a34a', LUCRO_PRESUMIDO: '#2563eb', LUCRO_REAL: '#9333ea',
+  MEI: '#f97316', IMUNE: '#0ea5e9', ISENTA: '#e11d48',
 }
+/** Sem regime fica cinza — é ausência de dado, não uma categoria a competir. */
 const corTributacao = (regime: string) => TRIBUTACAO_CORES[regime] ?? '#94a3b8'
 
 /**
@@ -366,7 +367,7 @@ export default function ClientesPage() {
             // 'TODOS' = ativos+inativos (backend não filtra por status); senão filtra pelo valor.
             ...(filterStatus === 'TODOS' ? { incluirInativos: true } : { status: filterStatus as 'ATIVO' }),
           }),
-      ...(filterTributacao ? { tributacao: filterTributacao as 'SIMPLES_NACIONAL' } : {}),
+      ...(filterTributacao ? { tributacao: filterTributacao as 'SIMPLES_NACIONAL' | '__sem__' } : {}),
       ...(filterGrupo ? { grupo: filterGrupo } : {}),
       ...(filterCidade ? { cidade: filterCidade } : {}),
       ...(filterUf ? { uf: filterUf } : {}),
@@ -399,6 +400,13 @@ export default function ClientesPage() {
   function SortIcon({ column }: { column: string }) {
     if (sort.column !== column) return <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
     return sort.dir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+  }
+
+  /** Alterna o filtro de tributação pelo card. Clicar no ativo desliga. */
+  function aplicarTributacao(regime: string) {
+    setFilterTributacao(prev => (prev === regime ? '' : regime))
+    setPage(1)
+    setFiltersOpen(true)
   }
 
   function clearFilters() {
@@ -619,16 +627,21 @@ export default function ClientesPage() {
       {stats && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
           {([
-            { k: 'mensais', label: 'Mensais', valor: stats.mensais, cor: '#0891b2', Icone: CalendarClock, dica: 'Filtrar somente os mensais', aplicar: () => { if (!onlyMensal) toggleOnlyMensal() } },
-            { k: 'comServico', label: 'Com serviço', valor: stats.comServico, cor: '#059669', Icone: ClipboardCheck, dica: 'Filtrar quem tem serviço contratado', aplicar: () => { setFilterServico('__com__'); setPage(1); setFiltersOpen(true) } },
-            { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#7c3aed', Icone: BadgePercent, dica: 'Filtrar quem tem benefício fiscal', aplicar: () => { setFilterBeneficio('__com__'); setPage(1); setFiltersOpen(true) } },
-          ] as const).map(({ k, label, valor, cor, Icone, dica, aplicar }) => (
+            { k: 'mensais', label: 'Mensais', valor: stats.mensais, cor: '#0891b2', Icone: CalendarClock, dica: 'Filtrar somente os mensais', ligado: onlyMensal, aplicar: () => toggleOnlyMensal() },
+            { k: 'comServico', label: 'Com serviço', valor: stats.comServico, cor: '#16a34a', Icone: ClipboardCheck, dica: 'Filtrar quem tem serviço contratado', ligado: filterServico === '__com__', aplicar: () => { setFilterServico(p => (p === '__com__' ? '' : '__com__')); setPage(1); setFiltersOpen(true) } },
+            { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#9333ea', Icone: BadgePercent, dica: 'Filtrar quem tem benefício fiscal', ligado: filterBeneficio === '__com__', aplicar: () => { setFilterBeneficio(p => (p === '__com__' ? '' : '__com__')); setPage(1); setFiltersOpen(true) } },
+          ] as const).map(({ k, label, valor, cor, Icone, dica, aplicar, ligado }) => (
             <button
               key={k}
               type="button"
               onClick={aplicar}
               title={dica}
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm"
+              aria-pressed={ligado}
+              className={cn(
+                'flex items-center gap-3 rounded-xl border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm',
+                ligado ? 'border-transparent ring-2' : 'border-border',
+              )}
+              style={ligado ? { boxShadow: `0 0 0 2px ${cor}` } : undefined}
             >
               <span
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
@@ -697,23 +710,44 @@ export default function ClientesPage() {
                     <span className="text-[11px] font-medium text-muted-foreground">Por tributação</span>
                     <span className="text-[11px] tabular-nums text-muted-foreground">{total.toLocaleString('pt-BR')} mensais</span>
                   </div>
-                  <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-muted">
-                    {stats.porTributacao.map(t => (
-                      <span
-                        key={t.regime}
-                        title={`${TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'}: ${t.total}`}
-                        style={{ width: `${(t.total / total) * 100}%`, backgroundColor: corTributacao(t.regime) }}
-                      />
-                    ))}
+                  <div className="mt-2 flex h-2.5 overflow-hidden rounded-full bg-muted">
+                    {stats.porTributacao.map(t => {
+                      const ativoAqui = filterTributacao === t.regime
+                      return (
+                        <button
+                          key={t.regime}
+                          type="button"
+                          onClick={() => aplicarTributacao(t.regime)}
+                          title={`${TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'}: ${t.total} — clique para filtrar`}
+                          style={{ width: `${(t.total / total) * 100}%`, backgroundColor: corTributacao(t.regime) }}
+                          className={cn(
+                            'h-full transition-opacity hover:opacity-100',
+                            filterTributacao && !ativoAqui ? 'opacity-30' : 'opacity-100',
+                          )}
+                        />
+                      )
+                    })}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                    {stats.porTributacao.map(t => (
-                      <span key={t.regime} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: corTributacao(t.regime) }} />
-                        {TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'}
-                        <strong className="font-semibold tabular-nums text-foreground">{t.total}</strong>
-                      </span>
-                    ))}
+                    {stats.porTributacao.map(t => {
+                      const ativoAqui = filterTributacao === t.regime
+                      return (
+                        <button
+                          key={t.regime}
+                          type="button"
+                          onClick={() => aplicarTributacao(t.regime)}
+                          title={`Filtrar por ${TRIBUTACAO_LABELS[t.regime] ?? 'sem tributação'}`}
+                          className={cn(
+                            'flex items-center gap-1.5 rounded px-1 -mx-1 text-[11px] transition-colors hover:bg-muted',
+                            ativoAqui ? 'font-medium text-foreground' : 'text-muted-foreground',
+                          )}
+                        >
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: corTributacao(t.regime) }} />
+                          {TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'}
+                          <strong className="font-semibold tabular-nums text-foreground">{t.total}</strong>
+                        </button>
+                      )
+                    })}
                   </div>
                 </>
               )
@@ -829,6 +863,7 @@ export default function ClientesPage() {
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
                       {Object.entries(TRIBUTACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                      <SelectItem value="__sem__">Não informado</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

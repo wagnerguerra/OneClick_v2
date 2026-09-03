@@ -265,7 +265,8 @@ export class ClienteService {
             // mostra TODOS (ativos+inativos); sem nada, oculta INATIVO (padrão).
             ...(status ? { status } : incluirInativos ? {} : { status: { not: 'INATIVO' } }),
           }),
-      ...(tributacao ? { tributacao } : {}),
+      ...(tributacao === '__sem__' ? { tributacao: null }
+        : tributacao ? { tributacao } : {}),
       ...(grupo ? { grupo } : {}),
       ...(cidade ? { cidade } : {}),
       ...(uf ? { uf } : {}),
