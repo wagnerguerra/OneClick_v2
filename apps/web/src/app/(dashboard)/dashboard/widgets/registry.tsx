@@ -1,7 +1,7 @@
 'use client'
 
 import { ComponentType } from 'react'
-import { Mail, Shield, FileLock, ListChecks, Landmark, Calendar, CalendarClock, Phone, FileText, Megaphone, PenLine } from 'lucide-react'
+import { Mail, Shield, FileLock, ListChecks, Landmark, Calendar, CalendarClock, Phone, FileText, Megaphone, PenLine, UserPlus2, UserMinus2 } from 'lucide-react'
 import { CaixaPostalWidget } from './caixa-postal-widget'
 import { CndFederaisWidget } from './cnd-federais-widget'
 import { CertificadosWidget } from './certificados-widget'
@@ -13,8 +13,9 @@ import { OrcamentosWidget } from './orcamentos-widget'
 import { NovidadesWidget } from './novidades-widget'
 import { HojeWidget } from './hoje-widget'
 import { AssinarDocumentoWidget } from './assinar-documento-widget'
+import { ClientesEntraramWidget, ClientesSairamWidget } from './movimentacao-clientes-widget'
 
-export type WidgetColor = 'sky' | 'indigo' | 'fuchsia' | 'violet' | 'emerald' | 'amber'
+export type WidgetColor = 'sky' | 'indigo' | 'fuchsia' | 'violet' | 'emerald' | 'amber' | 'rose'
 
 export interface WidgetDef {
   id: string
@@ -129,6 +130,29 @@ export const WIDGET_REGISTRY: Record<string, WidgetDef> = {
     // é protectedProcedure e devolve só o que foi publicado.
     groupHref: '/relatorios-ti', // cor visual do bloco TI
   },
+  // Entradas e saídas são o mesmo dado visto dos dois lados: viram dois widgets
+  // porque quem acompanha a carteira quer os dois lado a lado para comparar — num
+  // widget só, um dos dois números sempre ficaria escondido atrás de uma aba.
+  'clientes-entraram': {
+    id: 'clientes-entraram',
+    label: 'Clientes que entraram (90 dias)',
+    icon: UserPlus2,
+    color: 'emerald',
+    Component: ClientesEntraramWidget,
+    defaultLayout: { w: 4, h: 8, minW: 1, minH: 1 },
+    requiresModule: 'clientes',
+    groupHref: '/clientes',
+  },
+  'clientes-sairam': {
+    id: 'clientes-sairam',
+    label: 'Clientes que saíram (90 dias)',
+    icon: UserMinus2,
+    color: 'rose',
+    Component: ClientesSairamWidget,
+    defaultLayout: { w: 4, h: 8, minW: 1, minH: 1 },
+    requiresModule: 'clientes',
+    groupHref: '/clientes',
+  },
   'assinar-documento': {
     id: 'assinar-documento',
     label: 'Assinar Documento',
@@ -167,6 +191,7 @@ export const COLOR_CLASSES: Record<WidgetColor, {
   violet:  { borderLeft: 'border-l-violet-500',  bgIcon: 'bg-violet-50 dark:bg-violet-900/30',   text: 'text-violet-600 dark:text-violet-400' },
   emerald: { borderLeft: 'border-l-emerald-500', bgIcon: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400' },
   amber:   { borderLeft: 'border-l-amber-500',   bgIcon: 'bg-amber-50 dark:bg-amber-900/30',     text: 'text-amber-600 dark:text-amber-400' },
+  rose:    { borderLeft: 'border-l-rose-500',    bgIcon: 'bg-rose-50 dark:bg-rose-900/30',       text: 'text-rose-600 dark:text-rose-400' },
 }
 
 /** Layout padrão exibido quando ainda não foi customizado. */
@@ -178,4 +203,6 @@ export const DEFAULT_LAYOUT: Array<{ i: string; x: number; y: number; w: number;
   { i: 'cnd-municipal',         x: 0, y: 8,  w: 12, h: 8 },
   { i: 'calendario',            x: 0, y: 16, w: 12, h: 10 },
   { i: 'novidades',             x: 0, y: 26, w: 4,  h: 8 },
+  { i: 'clientes-entraram',     x: 4, y: 26, w: 4,  h: 8 },
+  { i: 'clientes-sairam',       x: 8, y: 26, w: 4,  h: 8 },
 ]

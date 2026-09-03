@@ -234,6 +234,17 @@ export function createClienteRouter(
     getStats: readProcedure(MODULE)
       .query(({ ctx }) => clienteService.getStats(ctx.isMaster, ctx.empresaId)),
 
+    // Entradas/saídas recentes — alimenta os dois widgets do painel.
+    movimentacaoRecente: readProcedure(MODULE)
+      .input(z.object({
+        tipo: z.enum(['entrada', 'saida']),
+        dias: z.number().min(1).max(365).optional(),
+        limite: z.number().min(1).max(50).optional(),
+      }))
+      .query(({ input, ctx }) => clienteService.movimentacaoRecente(
+        input.tipo, ctx.isMaster, ctx.empresaId, input.dias ?? 90, input.limite ?? 8,
+      )),
+
     // Importação em lote
     importBulk: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ items: z.array(createClienteSchema) }))

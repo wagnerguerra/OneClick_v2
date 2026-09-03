@@ -899,6 +899,60 @@ export class ClienteService {
   // Opções de filtros (valores distintos para dropdowns)
   // ============================================================
   /**
+   * Clientes que ENTRARAM ou SAÍRAM nos últimos N dias, com a lista.
+   *
+   * Alimenta os dois widgets do painel. Devolve `total` e uma amostra ordenada
+   * do mais recente para o mais antigo — o widget é pequeno, então o total vem
+   * separado da lista em vez de a lista fingir ser o total.
+   *
+   * Mesmo recorte dos indicadores da listagem, incluindo a exceção: SAÍDA
+   * mantém MENSAL mas não exige ATIVO, porque quem saiu está inativo por
+   * definição e cobrar o status zeraria o resultado.
+   */
+  async movimentacaoRecente(
+    tipo: 'entrada' | 'saida',
+    isMaster?: boolean,
+    empresaId?: string,
+    dias = 90,
+    limite = 8,
+  ) {
+    const base = empresaFilter(isMaster, empresaId)
+    const desde = new Date()
+    desde.setHours(0, 0, 0, 0)
+    desde.setDate(desde.getDate() - dias)
+
+    const where = tipo === 'entrada'
+      ? { ...base, status: 'ATIVO' as const, situacao: 'MENSAL' as never, dataEntrada: { gte: desde } }
+      : { ...base, situacao: 'MENSAL' as never, dataSaida: { gte: desde } }
+
+    const campoData = tipo === 'entrada' ? 'dataEntrada' : 'dataSaida'
+
+    const [total, itens] = await Promise.all([
+      prisma.cliente.count({ where }),
+      prisma.cliente.findMany({
+        where,
+        orderBy: { [campoData]: 'desc' },
+        take: limite,
+        select: { id: true, code: true, razaoSocial: true, dataEntrada: true, dataSaida: true, cidade: true, uf: true },
+      }),
+    ])
+
+    return {
+      total,
+      dias,
+      itens: itens.map(c => ({
+        id: c.id,
+        code: c.code,
+        razaoSocial: c.razaoSocial,
+        data: tipo === 'entrada' ? c.dataEntrada : c.dataSaida,
+        cidade: c.cidade,
+        uf: c.uf,
+      })),
+    }
+  }
+
+  // ============================================================
+  /**
    * Indicadores do topo da listagem de clientes.
    *
    * Contagens do PANORAMA da carteira — não do resultado filtrado. Se
