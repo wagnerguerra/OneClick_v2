@@ -1,3 +1,5 @@
+import { TEXT } from '@/lib/color-styles'
+
 /**
  * Leitura de cor dos dias disponíveis, igual em toda parte do módulo
  * (listagem, detalhe e relatórios):
@@ -15,9 +17,9 @@ export function corSaldo(saldo: number): string {
 
 /** Mesma leitura, só no texto (sem fundo). */
 export function corSaldoTexto(saldo: number): string {
-  if (saldo > 0) return 'text-emerald-600 dark:text-emerald-400'
-  if (saldo === 0) return 'text-amber-600 dark:text-amber-400'
-  return 'text-rose-600 dark:text-rose-400'
+  if (saldo > 0) return TEXT.emerald
+  if (saldo === 0) return TEXT.amber
+  return TEXT.rose
 }
 
 /** Texto curto do que a cor quer dizer — vai no title da célula. */

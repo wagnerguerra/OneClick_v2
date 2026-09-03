@@ -21,6 +21,8 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
 import { PendenciasModal, type PendenciaAdmissao, type PendenciaPeriodo, type ForaDoControle } from './_components/pendencias-modal'
 import { corSaldoTexto, tituloSaldo } from '../_lib/cores'
+import { BADGE } from '@/lib/color-styles'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
 const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
 
@@ -36,8 +38,8 @@ const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
  *    altura nenhuma.
  *  - **Rótulos em 12px na cor do texto secundário.** O padrão do Recharts é
  *    `#666`, que não é cor deste tema e não muda no escuro.
- *  - **Tooltip com 10px de respiro, canto de 10 e sem sombra** — o modelo usa
- *    borda no lugar da sombra.
+ *  - **Tooltip:** `<ChartTooltip>` (componente central, dark-aware) via
+ *    `content={<ChartTooltip .../>}` + `cursor={{ fill: CHART_CURSOR_FILL }}`.
  *
  * O modelo escreve tudo em hex (`#e5e8ee`, `#64748b`, `#fff`, `#0f172a`). Aqui
  * cada um vira o token equivalente: hex chumbado atravessa o modo claro e
@@ -49,23 +51,6 @@ const EIXO = {
   axisLine: false,
   tickLine: false,
   tick: { fontSize: 12, fill: 'var(--muted-foreground)' },
-} as const
-
-const TOOLTIP = {
-  contentStyle: {
-    padding: 10,
-    borderRadius: 10,
-    background: 'var(--card)',
-    border: '1px solid var(--border)',
-    color: 'var(--foreground)',
-    fontSize: 12,
-    boxShadow: 'none',
-  },
-  labelStyle: { color: 'var(--muted-foreground)', fontSize: 11, marginBottom: 2 },
-  itemStyle: { color: 'var(--foreground)', padding: 0 },
-  // A faixa que segue o cursor: o padrão do Recharts é um cinza opaco que
-  // escurece a barra sob o ponteiro. Aqui ela só insinua a coluna.
-  cursor: { fill: 'var(--muted-foreground)', fillOpacity: 0.08 },
 } as const
 
 /**
@@ -99,17 +84,17 @@ function DegradeBarra({ id, horizontal = false }: { id: string; horizontal?: boo
  */
 
 const FAROL_UI: Record<string, { label: string; cor: string; classe: string }> = {
-  VENCIDO: { label: 'Vencido', cor: '#e11d48', classe: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800' },
-  CRITICO: { label: 'Vence em 30 dias', cor: '#f59e0b', classe: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800' },
+  VENCIDO: { label: 'Vencido', cor: '#e11d48', classe: BADGE.rose },
+  CRITICO: { label: 'Vence em 30 dias', cor: '#f59e0b', classe: BADGE.amber },
   ATENCAO: { label: 'Vence em 90 dias', cor: '#eab308', classe: 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-400 dark:border-yellow-800' },
-  OK: { label: 'Em dia', cor: '#10b981', classe: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800' },
+  OK: { label: 'Em dia', cor: '#10b981', classe: BADGE.emerald },
 }
 
 const PAGTO_UI: Record<string, { label: string; classe: string }> = {
-  ATRASADO: { label: 'Atrasado', classe: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800' },
-  PAGO_EM_ATRASO: { label: 'Pago fora do prazo', classe: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800' },
-  A_PAGAR: { label: 'A pagar', classe: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800' },
-  PAGO: { label: 'Pago', classe: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800' },
+  ATRASADO: { label: 'Atrasado', classe: BADGE.rose },
+  PAGO_EM_ATRASO: { label: 'Pago fora do prazo', classe: BADGE.amber },
+  A_PAGAR: { label: 'A pagar', classe: BADGE.sky },
+  PAGO: { label: 'Pago', classe: BADGE.emerald },
 }
 
 const dataBR = (iso: string | null | undefined) =>
@@ -380,7 +365,7 @@ export default function RelatoriosFeriasPage() {
                     <CartesianGrid {...GRADE} horizontal={false} />
                     <XAxis type="number" {...EIXO} />
                     <YAxis type="category" dataKey="area" width={120} {...EIXO} />
-                    <Tooltip {...TOOLTIP} formatter={(v) => `${v} dias`} labelFormatter={(l) => String(l)} />
+                    <Tooltip content={<ChartTooltip format={(v) => `${v} dias`} />} cursor={{ fill: CHART_CURSOR_FILL }} />
                     <Bar dataKey="dias" radius={[0, 4, 4, 0]} fill="url(#feriasSaldoArea)" maxBarSize={22} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -395,7 +380,7 @@ export default function RelatoriosFeriasPage() {
                   <CartesianGrid {...GRADE} vertical={false} />
                   <XAxis dataKey="label" {...EIXO} />
                   <YAxis allowDecimals={false} {...EIXO} />
-                  <Tooltip {...TOOLTIP} formatter={(v) => `${v} dias`} />
+                  <Tooltip content={<ChartTooltip format={(v) => `${v} dias`} />} cursor={{ fill: CHART_CURSOR_FILL }} />
                   <Bar dataKey="dias" radius={[4, 4, 0, 0]} fill="url(#feriasGozosMes)" maxBarSize={34} />
                 </BarChart>
               </ResponsiveContainer>

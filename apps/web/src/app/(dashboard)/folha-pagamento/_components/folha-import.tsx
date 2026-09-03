@@ -1,10 +1,21 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { Upload, Loader2, FileText, Check, AlertTriangle, Trash2, Clock } from 'lucide-react'
 import { Button, Input, Card, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { STRONG } from '@/lib/color-styles'
+
+// Cor do módulo Trabalhista (editável no design-system). Fill vívido leva texto
+// escuro (o lime é claro); superfícies/badge sutis via color-mix em `style` inline
+// (CSS puro, sem depender do retint .mod- nem de classe arbitrária do JIT). Texto
+// sobre a superfície tintada usa `text-foreground` (legível nos 2 temas).
+const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
+// Tom escurecido p/ preenchimento sólido com texto branco (robusto p/ qualquer cor do bloco).
+const MODULE_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
+const MOD_SURFACE: CSSProperties = { backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 10%, transparent)`, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)` }
+const MOD_BADGE_STYLE: CSSProperties = { backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 18%, transparent)` }
 
 interface Importacao {
   id: string; competencia: string; dataImportacao: string; arquivoOrigem: string | null
@@ -93,13 +104,13 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
   }
 
   const statusBadge = (status: string) => {
-    const map: Record<string, { label: string; cls: string }> = {
-      importado: { label: 'Importado', cls: 'bg-violet-100 text-violet-700' },
-      contabilizado: { label: 'Contabilizado', cls: 'bg-emerald-100 text-emerald-700' },
-      exportado: { label: 'Exportado', cls: 'bg-violet-100 text-violet-700' },
+    const map: Record<string, { label: string; cls: string; style?: CSSProperties }> = {
+      importado: { label: 'Importado', cls: 'text-foreground', style: MOD_BADGE_STYLE },
+      contabilizado: { label: 'Contabilizado', cls: STRONG.emerald },
+      exportado: { label: 'Exportado', cls: 'text-foreground', style: MOD_BADGE_STYLE },
     }
-    const s = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600' }
-    return <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold', s.cls)}>{s.label}</span>
+    const s = map[status] ?? { label: status, cls: 'bg-muted text-muted-foreground' }
+    return <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold', s.cls)} style={s.style}>{s.label}</span>
   }
 
   return (
@@ -124,7 +135,7 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
                 <FileText className="h-3.5 w-3.5" />
                 {arquivo ? arquivo.name : 'Selecionar arquivo...'}
               </Button>
-              <Button size="sm" onClick={handleImportar} disabled={importing || !arquivo || !competencia} className="gap-1.5 h-9 text-xs" style={{ backgroundColor: '#8b5cf6', color: '#fff' }}>
+              <Button size="sm" onClick={handleImportar} disabled={importing || !arquivo || !competencia} style={{ backgroundColor: MODULE_FILL }} className="gap-1.5 h-9 text-xs text-white hover:opacity-90">
                 {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                 Importar
               </Button>
@@ -135,14 +146,14 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
 
       {/* Resultado da última importação */}
       {ultimoResultado && (
-        <Card className="p-5 border border-emerald-200 bg-emerald-50/30">
-          <h4 className="text-sm font-semibold mb-3 flex items-center gap-2 text-emerald-700"><Check className="h-4 w-4" />Importação Concluída</h4>
+        <Card className="p-5 border border-emerald-200 bg-emerald-50/30 dark:border-emerald-800 dark:bg-emerald-950/20">
+          <h4 className="text-sm font-semibold mb-3 flex items-center gap-2 text-emerald-700 dark:text-emerald-300"><Check className="h-4 w-4" />Importação Concluída</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-            <div className="rounded border bg-white px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Seções</p><p className="text-lg font-bold">{ultimoResultado.secoes}</p></div>
-            <div className="rounded border bg-white px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Eventos</p><p className="text-lg font-bold">{ultimoResultado.totalLinhas}</p></div>
-            <div className="rounded border bg-white px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Status</p><p className="text-sm font-semibold text-emerald-600">Importado</p></div>
+            <div className="rounded border bg-card px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Seções</p><p className="text-lg font-bold">{ultimoResultado.secoes}</p></div>
+            <div className="rounded border bg-card px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Eventos</p><p className="text-lg font-bold">{ultimoResultado.totalLinhas}</p></div>
+            <div className="rounded border bg-card px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Status</p><p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Importado</p></div>
           </div>
-          <div className="overflow-x-auto rounded border bg-white">
+          <div className="overflow-x-auto nice-scrollbar rounded border bg-card">
             <table className="w-full text-xs">
               <thead><tr className="border-b bg-muted/30">
                 <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase text-muted-foreground">CNPJ</th>
@@ -163,7 +174,7 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
             </table>
           </div>
           <div className="mt-4 flex items-center gap-3">
-            <Button size="sm" onClick={() => handleContabilizar(ultimoResultado.importacaoId)} disabled={contabilizando} className="gap-1.5 text-xs" style={{ backgroundColor: '#8b5cf6', color: '#fff' }}>
+            <Button size="sm" onClick={() => handleContabilizar(ultimoResultado.importacaoId)} disabled={contabilizando} style={{ backgroundColor: MODULE_FILL }} className="gap-1.5 text-xs text-white hover:opacity-90">
               {contabilizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
               Contabilizar
             </Button>
@@ -177,21 +188,21 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
         const novos = contabResultado.alertas.filter(a => a.includes('adicionado à tabela'))
         const erros = contabResultado.alertas.filter(a => !a.includes('adicionado à tabela'))
         return (
-          <Card className="p-5 border border-violet-200 bg-violet-50/30">
-            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2 text-violet-700"><Check className="h-4 w-4" />Contabilização Concluída — {contabResultado.lancamentos} lançamentos</h4>
+          <Card className="p-5 border" style={MOD_SURFACE}>
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2 text-foreground"><Check className="h-4 w-4" />Contabilização Concluída — {contabResultado.lancamentos} lançamentos</h4>
             {novos.length > 0 && (
-              <div className="rounded border border-violet-200 bg-violet-50 p-3 mb-2">
-                <p className="text-xs font-semibold text-violet-700 mb-1 flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" />{novos.length} evento(s) novo(s) adicionado(s) à tabela de-para</p>
-                <p className="text-[10px] text-violet-600 mb-1">Configure as contas contábeis na aba Configuração para que esses eventos gerem lançamentos.</p>
-                <ul className="text-[11px] text-violet-800 space-y-0.5 max-h-[150px] overflow-y-auto">
+              <div className="rounded border p-3 mb-2" style={MOD_SURFACE}>
+                <p className="text-xs font-semibold mb-1 flex items-center gap-1 text-foreground"><AlertTriangle className="h-3.5 w-3.5" />{novos.length} evento(s) novo(s) adicionado(s) à tabela de-para</p>
+                <p className="text-[10px] text-muted-foreground mb-1">Configure as contas contábeis na aba Configuração para que esses eventos gerem lançamentos.</p>
+                <ul className="text-[11px] text-foreground space-y-0.5 max-h-[150px] overflow-y-auto nice-scrollbar">
                   {novos.map((a, i) => <li key={i}>• {a}</li>)}
                 </ul>
               </div>
             )}
             {erros.length > 0 && (
-              <div className="rounded border border-amber-200 bg-amber-50 p-3">
-                <p className="text-xs font-semibold text-amber-700 mb-1 flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" />{erros.length} erro(s)</p>
-                <ul className="text-[11px] text-amber-800 space-y-0.5 max-h-[150px] overflow-y-auto">
+              <div className="rounded border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+                <p className="text-xs font-semibold text-amber-700 mb-1 flex items-center gap-1 dark:text-amber-300"><AlertTriangle className="h-3.5 w-3.5" />{erros.length} erro(s)</p>
+                <ul className="text-[11px] text-amber-800 space-y-0.5 max-h-[150px] overflow-y-auto nice-scrollbar dark:text-amber-300">
                   {erros.map((a, i) => <li key={i}>• {a}</li>)}
                 </ul>
               </div>
@@ -211,7 +222,7 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
           ) : importacoes.length === 0 ? (
             <p className="text-center text-xs text-muted-foreground py-8">Nenhuma importação realizada ainda.</p>
           ) : (
-            <div className="overflow-x-auto rounded border">
+            <div className="overflow-x-auto nice-scrollbar rounded border">
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="border-b bg-muted/30">
@@ -238,7 +249,7 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
                           <Button size="sm" variant="outline" onClick={() => handleContabilizar(imp.id)} disabled={contabilizando} className="h-6 px-2 text-[10px] gap-1">
                             <Check className="h-3 w-3" />{imp.status === 'importado' ? 'Contabilizar' : 'Recontabilizar'}
                           </Button>
-                          <button onClick={() => handleExcluir(imp.id)} className="rounded p-1 text-red-400 hover:text-red-600 hover:bg-red-50" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => handleExcluir(imp.id)} className="rounded p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></button>
                         </div>
                       </td>
                     </tr>

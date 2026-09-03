@@ -15,7 +15,9 @@ import { FolhaImportTab } from './_components/folha-import'
 import { FolhaLancamentosTab } from './_components/folha-lancamentos'
 import { FolhaExportTab } from './_components/folha-export'
 
-const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
+// Preenchimento sólido com texto BRANCO: escurece o tom do módulo com preto, para
+// o branco ficar legível seja qual for a cor do bloco em prod (clara ou escura).
+const MODULE_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
 
 interface ClienteOption { id: string; razaoSocial: string; documento: string }
 
@@ -84,7 +86,7 @@ export default function FolhaPagamentoPage() {
             <div className="w-full sm:w-[420px] space-y-1.5">
               <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Cliente</Label>
               <div className="relative" ref={comboRef}>
-                <button type="button" onClick={() => setComboOpen(v => !v)} className={cn('flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs', 'hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2', !clienteId && 'text-muted-foreground')}>
+                <button type="button" onClick={() => setComboOpen(v => !v)} className={cn('flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs', 'hover:bg-accent/50 focus:outline-none focus:ring-2', !clienteId && 'text-muted-foreground')}>
                   <span className="truncate">{clienteSelecionado ? clienteSelecionado.razaoSocial : 'Selecione um cliente'}</span>
                   <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 </button>
@@ -92,14 +94,14 @@ export default function FolhaPagamentoPage() {
                   <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border bg-popover shadow-lg">
                     <Command className="rounded-lg" shouldFilter={true}>
                       <Command.Input placeholder="Buscar por nome ou CNPJ..." className="w-full border-b border-border bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground" />
-                      <Command.List className="max-h-[250px] overflow-y-auto p-1">
+                      <Command.List className="max-h-[250px] overflow-y-auto p-1 nice-scrollbar">
                         <Command.Empty className="px-3 py-4 text-center text-xs text-muted-foreground">Nenhum cliente encontrado</Command.Empty>
                         {clientes.map(c => (
-                          <Command.Item key={c.id} value={`${c.razaoSocial} ${c.documento}`} onSelect={() => { setClienteId(c.id); setComboOpen(false) }} className="group flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs hover:bg-violet-500 hover:text-white aria-selected:bg-violet-500 aria-selected:text-white">
+                          <Command.Item key={c.id} value={`${c.razaoSocial} ${c.documento}`} onSelect={() => { setClienteId(c.id); setComboOpen(false) }} className="group flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground aria-selected:bg-accent aria-selected:text-accent-foreground">
                             <Check className={cn('h-3.5 w-3.5 shrink-0', c.id === clienteId ? 'opacity-100' : 'opacity-0')} />
                             <div className="min-w-0 flex-1">
                               <p className="truncate font-medium">{c.razaoSocial}</p>
-                              <p className="font-mono text-[10px] text-muted-foreground group-hover:text-white/80 group-aria-selected:text-white/80">{formatCnpj(c.documento)}</p>
+                              <p className="font-mono text-[10px] text-muted-foreground group-hover:text-accent-foreground/70 group-aria-selected:text-accent-foreground/70">{formatCnpj(c.documento)}</p>
                             </div>
                           </Command.Item>
                         ))}
@@ -137,7 +139,7 @@ export default function FolhaPagamentoPage() {
                 {TABS.map(tab => {
                   const Icon = tab.icon
                   return (
-                    <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={cn('w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2', activeTab === tab.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-white hover:text-foreground')} style={activeTab === tab.key ? { backgroundColor: MODULE_COLOR } : undefined}>
+                    <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={cn('w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2', activeTab === tab.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-accent hover:text-foreground')} style={activeTab === tab.key ? { backgroundColor: MODULE_FILL } : undefined}>
                       <Icon className="h-3.5 w-3.5 shrink-0" />
                       {tab.label}
                     </button>
@@ -148,7 +150,7 @@ export default function FolhaPagamentoPage() {
 
             {/* Conteúdo da aba */}
             <div key={activeTab} className="flex-1 min-w-0" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
-              <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-4 py-3 border-b border-border">
                 <h4 className="text-[13px] font-semibold text-foreground">{TABS.find(t => t.key === activeTab)?.label}</h4>
               </div>
               <div className="p-3">

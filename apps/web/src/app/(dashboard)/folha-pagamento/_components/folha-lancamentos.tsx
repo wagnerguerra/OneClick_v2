@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { Loader2, Trash2 } from 'lucide-react'
-import { Button, Input, cn } from '@saas/ui'
+import { Button, Input, cn, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { STRONG } from '@/lib/color-styles'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -71,11 +72,14 @@ export function FolhaLancamentosTab({ clienteId }: { clienteId: string }) {
           {importacoes.length === 0 ? (
             <p className="text-xs text-muted-foreground h-8 flex items-center">Nenhuma importação disponível</p>
           ) : (
-            <select value={selectedId} onChange={e => setSelectedId(e.target.value)} className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-              {importacoes.map(imp => (
-                <option key={imp.id} value={imp.id}>{imp.competencia} — {imp.status} ({imp.totalLancamentos} lanç.)</option>
-              ))}
-            </select>
+            <Select value={selectedId} onValueChange={setSelectedId}>
+              <SelectTrigger className="h-8 w-full rounded-md border px-3 py-1 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {importacoes.map(imp => (
+                  <SelectItem key={imp.id} value={imp.id} className="text-xs">{imp.competencia} — {imp.status} ({imp.totalLancamentos} lanç.)</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
         <div className="flex-1 max-w-xs">
@@ -84,11 +88,14 @@ export function FolhaLancamentosTab({ clienteId }: { clienteId: string }) {
         </div>
         <div>
           <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Tipo</label>
-          <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value as any)} className="h-8 rounded border px-2 text-xs">
-            <option value="TODOS">Todos</option>
-            <option value="DEBITO">Débitos</option>
-            <option value="CREDITO">Créditos</option>
-          </select>
+          <Select value={tipoFiltro} onValueChange={v => setTipoFiltro(v as 'TODOS' | 'DEBITO' | 'CREDITO')}>
+            <SelectTrigger className="h-8 w-auto min-w-[110px] rounded border px-2 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="TODOS" className="text-xs">Todos</SelectItem>
+              <SelectItem value="DEBITO" className="text-xs">Débitos</SelectItem>
+              <SelectItem value="CREDITO" className="text-xs">Créditos</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="mt-5 flex items-center gap-2">
           <span className="text-[11px] text-muted-foreground">{filtered.length} lançamento(s)</span>
@@ -103,13 +110,13 @@ export function FolhaLancamentosTab({ clienteId }: { clienteId: string }) {
       {/* Totais */}
       {filtered.length > 0 && (
         <div className="flex gap-3">
-          <div className="rounded border px-4 py-2 text-center flex-1 bg-emerald-50/30 border-emerald-200/50">
+          <div className="rounded border px-4 py-2 text-center flex-1 bg-emerald-50/30 border-emerald-200/50 dark:bg-emerald-950/20 dark:border-emerald-800/50">
             <p className="text-[10px] text-muted-foreground uppercase">Total Débitos</p>
-            <p className="text-sm font-bold tabular-nums text-emerald-700">{fmt(totalDebito)}</p>
+            <p className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{fmt(totalDebito)}</p>
           </div>
-          <div className="rounded border px-4 py-2 text-center flex-1 bg-red-50/30 border-red-200/50">
+          <div className="rounded border px-4 py-2 text-center flex-1 bg-red-50/30 border-red-200/50 dark:bg-red-950/20 dark:border-red-800/50">
             <p className="text-[10px] text-muted-foreground uppercase">Total Créditos</p>
-            <p className="text-sm font-bold tabular-nums text-red-700">{fmt(totalCredito)}</p>
+            <p className="text-sm font-bold tabular-nums text-red-700 dark:text-red-300">{fmt(totalCredito)}</p>
           </div>
         </div>
       )}
@@ -122,7 +129,7 @@ export function FolhaLancamentosTab({ clienteId }: { clienteId: string }) {
           {selectedId ? 'Nenhum lançamento encontrado' : 'Selecione uma importação'}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded border" style={{ maxHeight: '55vh' }}>
+        <div className="overflow-x-auto nice-scrollbar rounded border" style={{ maxHeight: '55vh' }}>
           <table className="w-full text-xs border-collapse">
             <thead className="sticky top-0 z-10 bg-muted/50">
               <tr className="border-b">
@@ -139,7 +146,7 @@ export function FolhaLancamentosTab({ clienteId }: { clienteId: string }) {
               {filtered.map(l => (
                 <tr key={l.id} className="border-b hover:bg-muted/10">
                   <td className="px-3 py-1.5 text-center">
-                    <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold', l.tipo === 'DEBITO' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700')}>{l.tipo === 'DEBITO' ? 'DÉB' : 'CRÉ'}</span>
+                    <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold', l.tipo === 'DEBITO' ? STRONG.emerald : STRONG.red)}>{l.tipo === 'DEBITO' ? 'DÉB' : 'CRÉ'}</span>
                   </td>
                   <td className="px-3 py-1.5 font-mono font-semibold">{l.codigoEvento}</td>
                   <td className="px-3 py-1.5 truncate max-w-[200px]">{l.descricaoEvento}</td>

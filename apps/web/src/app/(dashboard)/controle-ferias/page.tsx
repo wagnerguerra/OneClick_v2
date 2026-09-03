@@ -13,18 +13,18 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Avatar, AvatarImage, AvatarFallback,
 } from '@saas/ui'
 import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { UserCombobox } from '../orcamentos/_components/user-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
-import { resolveAssetUrl } from '@/lib/api-url'
 import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 import { corSaldo, tituloSaldo } from './_lib/cores'
+import { BADGE, TEXT } from '@/lib/color-styles'
 
 const PAGE_SIZES = [10, 20, 50]
 
@@ -92,10 +92,6 @@ const INDICADOR_LABEL: Record<IndicadorKey, string> = {
   GOZO_MES: 'em gozo neste mês',
   A_PAGAR: 'a pagar',
 }
-
-/** Iniciais para a bolinha quando o colaborador não tem foto. */
-const iniciais = (nome: string | null | undefined) =>
-  (nome || '?').split(' ').filter(Boolean).map((n) => n[0]).slice(0, 2).join('').toUpperCase()
 
 interface Row {
   id: string
@@ -512,12 +508,12 @@ export default function ControleFeriasPage() {
                     {r.semPeriodo ? <span className="text-muted-foreground/50">—</span> : r.numero}
                   </TableCell>
                   <TableCell>
-                    <Avatar className="h-7 w-7">
-                      {r.colaboradorImagem && <AvatarImage src={resolveAssetUrl(r.colaboradorImagem)} alt={r.colaboradorNomeResolvido ?? ''} />}
-                      <AvatarFallback className="bg-muted text-[10px] font-semibold text-muted-foreground">
-                        {iniciais(r.colaboradorNomeResolvido)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <UserAvatar
+                      user={{ name: r.colaboradorNomeResolvido ?? '', image: r.colaboradorImagem }}
+                      className="h-7 w-7 text-[10px]"
+                      bg="bg-muted"
+                      fg="text-muted-foreground"
+                    />
                   </TableCell>
                   <TableCell className="text-sm">
                     <span className="flex items-center gap-1.5 min-w-0">
@@ -535,7 +531,7 @@ export default function ControleFeriasPage() {
                       {r.semPeriodo && (
                         <Badge
                           variant="outline"
-                          className="shrink-0 gap-1 border-amber-200 bg-amber-50 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
+                          className={cn('shrink-0 gap-1 text-[10px]', BADGE.amber)}
                           title="Está no controle de férias, mas ainda não tem período aquisitivo lançado"
                         >
                           <CalendarPlus className="h-3 w-3" />sem período
@@ -602,7 +598,7 @@ export default function ControleFeriasPage() {
                       disabled={!podeEscrever}
                       display={() => (r.previsao
                         ? <span className="text-muted-foreground">{dataBR(r.previsao)}</span>
-                        : <span className="text-amber-600 dark:text-amber-400">Incluir previsão</span>)}
+                        : <span className={TEXT.amber}>Incluir previsão</span>)}
                       onSave={(v) => inlineUpdate(r.id, { previsao: v || null })}
                     />
                     )}
@@ -616,11 +612,11 @@ export default function ControleFeriasPage() {
                       value={isoDe(r.pagamento1)}
                       disabled={!podeEscrever}
                       display={() => (r.pagamento1 ? (
-                        <Badge variant="outline" className="justify-center text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+                        <Badge variant="outline" className={cn('justify-center text-[10px]', BADGE.emerald)}>
                           <Check className="h-3 w-3 mr-0.5" />{dataBR(r.pagamento1)}
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="justify-center text-[10px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+                        <Badge variant="outline" className={cn('justify-center text-[10px]', BADGE.amber)}>
                           A pagar
                         </Badge>
                       ))}

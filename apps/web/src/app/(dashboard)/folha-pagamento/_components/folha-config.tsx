@@ -2,9 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, Loader2, Save, Building2, MapPin, Upload } from 'lucide-react'
-import { Button, Input, Card, cn } from '@saas/ui'
+import { Button, Input, Card, cn, Checkbox, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { STRONG } from '@/lib/color-styles'
+
+// Cor do módulo Trabalhista (editável no design-system). MODULE_COLOR = tom vívido
+// (ícones/acentos). MODULE_FILL = tom escurecido para preenchimento sólido com
+// texto BRANCO (legível seja qual for a cor do bloco em prod). Superfície sutil via color-mix.
+const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
+const MODULE_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
+const MOD_SURFACE = { backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 10%, transparent)`, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)` }
 
 interface Filial { id: string; cnpj: string; codigoFilial: string; endereco: string; contaLiquido: number; contaLiquidoAlt: number | null; ativo: boolean; setores: Array<{ id: string; nome: string; tipoContabil: string }> }
 interface EventoConta { id: string; codigoEvento: number; descricao: string; tipo: 'PROVENTO' | 'DESCONTO'; contaCustoDebito: number | null; contaCustoCredito: number | null; contaDespesaDebito: number | null; contaDespesaCredito: number | null; geraLancamento: boolean }
@@ -66,10 +74,10 @@ export function FolhaConfigTab({ clienteId }: { clienteId: string }) {
 
       {/* Sub-tabs */}
       <div className="flex gap-2 border-b pb-2">
-        <button onClick={() => setTab('filiais')} className={cn('px-3 py-1.5 text-xs font-medium rounded-md transition', tab === 'filiais' ? 'bg-violet-100 text-violet-700' : 'text-muted-foreground hover:bg-muted')}>
+        <button onClick={() => setTab('filiais')} style={tab === 'filiais' ? { backgroundColor: MODULE_FILL } : undefined} className={cn('px-3 py-1.5 text-xs font-medium rounded-md transition', tab === 'filiais' ? 'text-white' : 'text-muted-foreground hover:bg-muted')}>
           <Building2 className="h-3.5 w-3.5 inline mr-1.5" />Filiais e Setores
         </button>
-        <button onClick={() => setTab('eventos')} className={cn('px-3 py-1.5 text-xs font-medium rounded-md transition', tab === 'eventos' ? 'bg-violet-100 text-violet-700' : 'text-muted-foreground hover:bg-muted')}>
+        <button onClick={() => setTab('eventos')} style={tab === 'eventos' ? { backgroundColor: MODULE_FILL } : undefined} className={cn('px-3 py-1.5 text-xs font-medium rounded-md transition', tab === 'eventos' ? 'text-white' : 'text-muted-foreground hover:bg-muted')}>
           <MapPin className="h-3.5 w-3.5 inline mr-1.5" />Tabela De-Para (Eventos)
         </button>
       </div>
@@ -122,7 +130,7 @@ function FiliaisSection({ clienteId, filiais, onReload }: { clienteId: string; f
       </div>
 
       {adding && (
-        <Card className="p-4 space-y-3 border-violet-200 bg-violet-50/30">
+        <Card className="p-4 space-y-3" style={MOD_SURFACE}>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             <div className="space-y-1"><label className="text-[10px] font-semibold uppercase text-muted-foreground">CNPJ</label><Input value={form.cnpj} onChange={e => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0000-00" className="h-8 text-xs" /></div>
             <div className="space-y-1"><label className="text-[10px] font-semibold uppercase text-muted-foreground">Código</label><Input value={form.codigoFilial} onChange={e => setForm({ ...form, codigoFilial: e.target.value })} placeholder="MTZ" className="h-8 text-xs" /></div>
@@ -130,7 +138,7 @@ function FiliaisSection({ clienteId, filiais, onReload }: { clienteId: string; f
             <div className="space-y-1"><label className="text-[10px] font-semibold uppercase text-muted-foreground">Conta Líquido</label><Input type="number" value={form.contaLiquido} onChange={e => setForm({ ...form, contaLiquido: Number(e.target.value) })} className="h-8 text-xs" /></div>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAddFilial} className="gap-1 text-xs" style={{ backgroundColor: '#8b5cf6' }}><Save className="h-3.5 w-3.5 text-white" /><span className="text-white">Salvar</span></Button>
+            <Button size="sm" onClick={handleAddFilial} style={{ backgroundColor: MODULE_FILL }} className="gap-1 text-xs text-white hover:opacity-90"><Save className="h-3.5 w-3.5" /><span>Salvar</span></Button>
             <Button size="sm" variant="outline" onClick={() => setAdding(false)} className="text-xs">Cancelar</Button>
           </div>
         </Card>
@@ -151,22 +159,25 @@ function FiliaisSection({ clienteId, filiais, onReload }: { clienteId: string; f
             <p className="text-[10px] font-semibold uppercase text-muted-foreground">Setores</p>
             {f.setores.map(s => (
               <div key={s.id} className="flex items-center justify-between rounded border px-3 py-1.5 text-xs">
-                <span>{s.nome} <span className={cn('ml-2 rounded px-1.5 py-0.5 text-[9px] font-bold', s.tipoContabil === 'CUSTO' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>{s.tipoContabil}</span></span>
+                <span>{s.nome} <span className={cn('ml-2 rounded px-1.5 py-0.5 text-[9px] font-bold', s.tipoContabil === 'CUSTO' ? STRONG.emerald : STRONG.amber)}>{s.tipoContabil}</span></span>
                 <button onClick={() => handleDeleteSetor(s.id)} className="text-red-400 hover:text-red-600"><Trash2 className="h-3 w-3" /></button>
               </div>
             ))}
             {novoSetor?.filialId === f.id ? (
               <div className="flex gap-2 mt-1">
                 <Input value={novoSetor.nome} onChange={e => setNovoSetor({ ...novoSetor, nome: e.target.value })} placeholder="Nome do setor" className="h-7 text-xs flex-1" />
-                <select value={novoSetor.tipo} onChange={e => setNovoSetor({ ...novoSetor, tipo: e.target.value === 'CUSTO' ? 'CUSTO' : 'DESPESA' })} className="h-7 rounded border px-2 text-xs">
-                  <option value="DESPESA">DESPESA</option>
-                  <option value="CUSTO">CUSTO</option>
-                </select>
+                <Select value={novoSetor.tipo} onValueChange={v => setNovoSetor({ ...novoSetor, tipo: v === 'CUSTO' ? 'CUSTO' : 'DESPESA' })}>
+                  <SelectTrigger className="h-7 w-auto min-w-[110px] rounded border px-2 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DESPESA" className="text-xs">DESPESA</SelectItem>
+                    <SelectItem value="CUSTO" className="text-xs">CUSTO</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button size="sm" onClick={handleAddSetor} className="h-7 text-[10px] px-2">OK</Button>
                 <Button size="sm" variant="ghost" onClick={() => setNovoSetor(null)} className="h-7 text-[10px] px-2">X</Button>
               </div>
             ) : (
-              <button onClick={() => setNovoSetor({ filialId: f.id, nome: '', tipo: 'DESPESA' })} className="text-[10px] text-violet-600 hover:underline mt-1">+ Adicionar setor</button>
+              <button onClick={() => setNovoSetor({ filialId: f.id, nome: '', tipo: 'DESPESA' })} className="text-[10px] font-medium text-foreground hover:underline mt-1">+ Adicionar setor</button>
             )}
           </div>
         </Card>
@@ -211,15 +222,18 @@ function EventosSection({ clienteId, eventos, onReload }: { clienteId: string; e
     <div className="space-y-3">
       <div className="flex items-center gap-3">
         <Input placeholder="Buscar código ou descrição..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs max-w-xs" />
-        <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value as any)} className="h-8 rounded border px-2 text-xs">
-          <option value="TODOS">Todos</option>
-          <option value="PROVENTO">Proventos</option>
-          <option value="DESCONTO">Descontos</option>
-        </select>
+        <Select value={tipoFiltro} onValueChange={v => setTipoFiltro(v as 'TODOS' | 'PROVENTO' | 'DESCONTO')}>
+          <SelectTrigger className="h-8 w-auto min-w-[120px] rounded border px-2 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="TODOS" className="text-xs">Todos</SelectItem>
+            <SelectItem value="PROVENTO" className="text-xs">Proventos</SelectItem>
+            <SelectItem value="DESCONTO" className="text-xs">Descontos</SelectItem>
+          </SelectContent>
+        </Select>
         <span className="text-[11px] text-muted-foreground">{filtered.length} evento(s)</span>
       </div>
 
-      <div className="overflow-x-auto rounded border" style={{ maxHeight: '50vh' }}>
+      <div className="overflow-x-auto nice-scrollbar rounded border" style={{ maxHeight: '50vh' }}>
         <table className="w-full text-xs border-collapse">
           <thead className="sticky top-0 z-10 bg-muted/50">
             <tr className="border-b">
@@ -240,14 +254,14 @@ function EventosSection({ clienteId, eventos, onReload }: { clienteId: string; e
                 <td className="px-3 py-1.5 font-mono font-semibold">{e.codigoEvento}</td>
                 <td className="px-3 py-1.5">{e.descricao}</td>
                 <td className="px-3 py-1.5 text-center">
-                  <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold', e.tipo === 'PROVENTO' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700')}>{e.tipo === 'PROVENTO' ? 'PROV' : 'DESC'}</span>
+                  <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold', e.tipo === 'PROVENTO' ? STRONG.emerald : STRONG.red)}>{e.tipo === 'PROVENTO' ? 'PROV' : 'DESC'}</span>
                 </td>
                 <td className="px-2 py-1.5 text-center font-mono text-muted-foreground">{e.contaCustoDebito ?? '—'}</td>
                 <td className="px-2 py-1.5 text-center font-mono text-muted-foreground">{e.contaCustoCredito ?? '—'}</td>
                 <td className="px-2 py-1.5 text-center font-mono text-muted-foreground">{e.contaDespesaDebito ?? '—'}</td>
                 <td className="px-2 py-1.5 text-center font-mono text-muted-foreground">{e.contaDespesaCredito ?? '—'}</td>
                 <td className="px-2 py-1.5 text-center">
-                  <input type="checkbox" checked={e.geraLancamento} onChange={() => handleToggleGera(e.id, e.geraLancamento)} className="h-3.5 w-3.5 accent-sky-500" />
+                  <Checkbox checked={e.geraLancamento} onCheckedChange={() => handleToggleGera(e.id, e.geraLancamento)} accentColor={MODULE_COLOR} className="h-3.5 w-3.5" />
                 </td>
                 <td className="px-2 py-1.5">
                   <button onClick={() => handleDelete(e.id)} className="text-red-400 hover:text-red-600"><Trash2 className="h-3 w-3" /></button>

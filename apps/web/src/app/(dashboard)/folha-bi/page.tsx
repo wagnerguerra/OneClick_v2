@@ -1,8 +1,8 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Children, Fragment, isValidElement, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Database, Loader2, RefreshCw, Table2, LayoutGrid, Landmark, PiggyBank, Receipt, Settings2, X, Plus, Trash2, ChevronUp, ChevronDown, Pencil, Coins, FileSpreadsheet } from 'lucide-react'
-import { Button, Card, cn, Checkbox } from '@saas/ui'
+import { Button, Card, cn, Checkbox, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import Link from 'next/link'
@@ -10,7 +10,9 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-trabalhista, #8b5cf6)'
+const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
+// Tom escurecido p/ preenchimento sólido com texto branco (robusto p/ qualquer cor do bloco em prod).
+const MODULE_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
 const MESES = ['', 'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 function fmtComp(ref: number): string {
@@ -302,7 +304,7 @@ export default function FolhaBiPage() {
 
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Relatório</span>
-              <div className="flex gap-1 rounded-lg bg-muted/40 p-1">
+              <div className="flex gap-1 rounded-lg bg-muted/40 dark:bg-accent/50 p-1">
                 <Pill active={view === 'resumo'} onClick={() => setView('resumo')} icon={LayoutGrid} label="Resumo" />
                 <Pill active={view === 'matriz'} onClick={() => setView('matriz')} icon={Table2} label="Verbas" />
                 <Pill active={view === 'inss'} onClick={() => setView('inss')} icon={Landmark} label="INSS" />
@@ -630,42 +632,46 @@ function Matriz({ m, empresa, refNum, onConfig, nonce }: { m: any; empresa: numb
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex w-fit gap-1 rounded-lg bg-muted/40 p-1 text-xs">
+        <div className="flex w-fit gap-1 rounded-lg bg-muted/40 dark:bg-accent/50 p-1 text-xs">
           <SubPill active={isProv} onClick={() => setTipo('proventos')} label="Proventos" />
           <SubPill active={!isProv} onClick={() => setTipo('descontos')} label="Descontos" />
         </div>
         {classif?.esquemas?.length > 0 && (
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             Esquema
-            <select value={selEsq ?? ''} onChange={(e) => setSelEsq(Number(e.target.value))}
-              className="h-8 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-border">
-              {classif.esquemas.map((e: any) => <option key={e.id} value={e.id}>{e.nome}{e.ativo ? '' : ' (inativo)'}</option>)}
-            </select>
+            <Select value={selEsq != null ? String(selEsq) : ''} onValueChange={(v) => setSelEsq(Number(v))}>
+              <SelectTrigger className="h-8 w-auto gap-1 rounded-lg border px-2 text-xs text-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {classif.esquemas.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.nome}{e.ativo ? '' : ' (inativo)'}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </label>
         )}
         <div className="flex gap-2 text-xs">
-          <button onClick={expandAll} className="rounded-md border border-border px-2 py-1 text-muted-foreground hover:bg-muted/40">Expandir grupos</button>
-          <button onClick={collapseAll} className="rounded-md border border-border px-2 py-1 text-muted-foreground hover:bg-muted/40">Recolher</button>
+          <Button variant="outline" size="xs" onClick={expandAll}>Expandir grupos</Button>
+          <Button variant="outline" size="xs" onClick={collapseAll}>Recolher</Button>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button onClick={baixarExcel} disabled={baixando || !refNum} className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground hover:bg-muted/40 disabled:opacity-50">
-            <FileSpreadsheet className="h-3.5 w-3.5" /> {baixando ? 'Gerando…' : 'Exportar Excel'}
-          </button>
+          <Button variant="outline" size="xs" onClick={baixarExcel} disabled={baixando || !refNum}>
+            <FileSpreadsheet /> {baixando ? 'Gerando…' : 'Exportar Excel'}
+          </Button>
           {onConfig && (
-            <button onClick={onConfig} className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground hover:bg-muted/40">
-              <Settings2 className="h-3.5 w-3.5" /> Configurar agrupamento
-            </button>
+            <Button variant="outline" size="xs" onClick={onConfig}>
+              <Settings2 /> Configurar agrupamento
+            </Button>
           )}
         </div>
       </div>
       {carregandoG && <p className="text-[11px] text-muted-foreground">carregando agrupamento…</p>}
 
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0 dark:bg-accent">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-xs">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-[11px]">
-                <th className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
+              <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
+                <th className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
                 {cols.map((c) => (
                   <th key={c.key}
                     onClick={clickable(c) ? () => onHead(c) : undefined}
@@ -683,8 +689,8 @@ function Matriz({ m, empresa, refNum, onConfig, nonce }: { m: any; empresa: numb
                 const aberto = expC.has(ce.label)
                 return (
                   <Fragment key={ce.label}>
-                    <tr className="cursor-pointer border-b border-border/60 hover:bg-muted/30" onClick={() => tog(setExpC, ce.label)}>
-                      <td className="sticky left-0 z-10 bg-background px-2.5 py-1.5 font-medium text-foreground">
+                    <tr className="group cursor-pointer border-b border-border hover:bg-muted/30" onClick={() => tog(setExpC, ce.label)}>
+                      <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 px-2.5 py-1.5 font-medium text-foreground">
                         <span className="mr-1 opacity-60">{aberto ? '▾' : '▸'}</span>
                         {ce.label} <span className="opacity-50">({ce.colaboradores.length})</span>
                       </td>
@@ -692,8 +698,8 @@ function Matriz({ m, empresa, refNum, onConfig, nonce }: { m: any; empresa: numb
                       <td className="border-l border-border px-2.5 py-1.5 text-right font-semibold tabular-nums text-foreground">{cell(sumTot(ce.colaboradores))}</td>
                     </tr>
                     {aberto && ce.colaboradores.map((co: any, i: number) => (
-                      <tr key={i} className="border-b border-border/40 hover:bg-muted/20">
-                        <td className="sticky left-0 z-10 bg-background py-1 pl-7 pr-2.5 text-muted-foreground">{co.nome}</td>
+                      <tr key={i} className="group border-b border-border hover:bg-muted/30">
+                        <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 py-1 pl-7 pr-2.5 text-muted-foreground">{co.nome}</td>
                         {cols.map((c) => <td key={c.key} className={cn('px-2.5 py-1 text-right tabular-nums', isBold(c.kind) ? 'font-medium text-foreground' : 'text-muted-foreground')}>{cell(val1(co, c))}</td>)}
                         <td className="border-l border-border px-2.5 py-1 text-right tabular-nums text-foreground">{cell(co.total)}</td>
                       </tr>
@@ -703,8 +709,8 @@ function Matriz({ m, empresa, refNum, onConfig, nonce }: { m: any; empresa: numb
               })}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-                <td className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-foreground">TOTAL</td>
+              <tr className="border-t-2 border-border bg-muted/40 dark:bg-card font-semibold">
+                <td className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-foreground">TOTAL</td>
                 {cols.map((c) => <td key={c.key} className="px-2.5 py-1.5 text-right tabular-nums text-foreground">{cell(sumVal(allColabs, c))}</td>)}
                 <td className="border-l border-border px-2.5 py-1.5 text-right tabular-nums text-foreground">{cell(totalGeral)}</td>
               </tr>
@@ -714,8 +720,8 @@ function Matriz({ m, empresa, refNum, onConfig, nonce }: { m: any; empresa: numb
       </Card>
 
       {/* Reconciliacao (folha normal + complementar + RPA = total da folha) */}
-      <div className="ml-auto max-w-md rounded-lg border border-border p-3 text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
-        <div className="mb-1.5 font-semibold text-foreground">Reconciliacao de {lbl} com a folha</div>
+      <div className="ml-auto max-w-md rounded-lg border border-border bg-card p-3 text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
+        <div className="mb-1.5 font-semibold text-foreground">Reconciliação de {lbl} com a folha</div>
         {temCompl ? (
           <>
             <ReconRow label={`Folha normal (mes)`} value={brl(totalGeral - compl)} />
@@ -741,10 +747,16 @@ const pct = (n: unknown) =>
 
 function GuiaCard({ label, value, accent, big, sub }: { label: string; value?: number; accent: string; big?: boolean; sub?: string }) {
   return (
-    <div className={cn('rounded-xl border border-border p-3', big ? 'min-w-[300px] flex-[1_1_300px]' : 'min-w-[180px] flex-[1_1_180px]')}
+    <div className={cn('rounded-xl border border-border bg-card p-3', big ? 'min-w-[300px] flex-[1_1_300px]' : 'min-w-[180px] flex-[1_1_180px]')}
       style={{ borderLeft: `4px solid ${accent}` }}>
       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={cn('mt-1 font-bold tabular-nums', big ? 'text-2xl' : 'text-lg')} style={{ color: accent }}>{brl(value)}</div>
+      {/* Valor tingido pelo accent, mas puxado para o foreground p/ legibilidade:
+          o lime do módulo puro fica claro demais sobre o card branco no light. Como
+          --color-foreground é escuro no light e claro no dark, um único color-mix
+          serve aos dois temas (escurece no claro, clareia no escuro). A borda
+          esquerda segue com o accent puro (vívido). */}
+      <div className={cn('mt-1 font-bold tabular-nums', big ? 'text-2xl' : 'text-lg')}
+        style={{ color: `color-mix(in srgb, ${accent} 55%, var(--color-foreground))` }}>{brl(value)}</div>
       {sub && <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>}
     </div>
   )
@@ -829,7 +841,7 @@ function Inss({ inss }: { inss: any }) {
                   </tr></thead>
                   <tbody>
                     {dedColabs.map((d, i) => (
-                      <tr key={i} className="border-b border-border/40">
+                      <tr key={i} className="border-b border-border">
                         <td className="px-2 py-1 text-muted-foreground">{d.nome}</td>
                         <td className="px-2 py-1 text-right tabular-nums">{cell(d.dedFam)}</td>
                         <td className="px-2 py-1 text-right tabular-nums">{cell(d.dedMat)}</td>
@@ -866,19 +878,19 @@ function Inss({ inss }: { inss: any }) {
         <h3 className="mb-1.5 text-sm font-semibold text-foreground">
           Composicao patronal <span className="font-normal text-muted-foreground">= {brl(g.patronalTot)}</span>
         </h3>
-        <Card className="overflow-hidden p-0">
+        <Card className="overflow-hidden p-0 dark:bg-accent">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-xs">
               <thead>
-                <tr className="border-b border-border bg-muted/40 text-[11px]">
-                  <th rowSpan={2} className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
+                <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
+                  <th rowSpan={2} className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
                   <th rowSpan={2} className="border-r border-border px-2.5 py-1.5 text-right font-semibold text-foreground">INSS empreg.</th>
                   <th colSpan={4} className="px-2.5 py-1 text-center font-semibold text-foreground">Fixas contratuais</th>
                   <th colSpan={4} className="border-l border-border px-2.5 py-1 text-center font-semibold text-foreground">Variaveis</th>
                   <th colSpan={3} className="border-l border-border px-2.5 py-1 text-center font-semibold text-foreground">Totais (DARF)</th>
                   <th rowSpan={2} className="border-l border-border px-2.5 py-1.5 text-right font-semibold text-foreground">Total patronal</th>
                 </tr>
-                <tr className="border-b border-border bg-muted/40 text-[10px] text-muted-foreground">
+                <tr className="border-b border-border bg-muted/40 dark:bg-card text-[10px] text-muted-foreground">
                   <th className={th}>Base</th><th className={th}>Patronal</th><th className={th}>GILRAT</th><th className={th}>Terceiros</th>
                   <th className={cn(th, 'border-l border-border')}>Base</th><th className={th}>Patronal</th><th className={th}>GILRAT</th><th className={th}>Terceiros</th>
                   <th className={cn(th, 'border-l border-border')}>Patronal</th><th className={th}>GILRAT</th><th className={th}>Terceiros</th>
@@ -887,16 +899,16 @@ function Inss({ inss }: { inss: any }) {
               <tbody>
                 {m.centros.map((ce: any) => (
                   <Fragment key={ce.label}>
-                    <tr className="cursor-pointer border-b border-border/60 hover:bg-muted/30" onClick={() => toggle(ce.label)}>
-                      <td className="sticky left-0 z-10 bg-background px-2.5 py-1.5 font-medium text-foreground">
+                    <tr className="group cursor-pointer border-b border-border hover:bg-muted/30" onClick={() => toggle(ce.label)}>
+                      <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 px-2.5 py-1.5 font-medium text-foreground">
                         <span className="mr-1 opacity-60">{exp.has(ce.label) ? '▾' : '▸'}</span>
                         {ce.label} <span className="opacity-50">({ce.colaboradores.length})</span>
                       </td>
                       <InssCells c={ce.total} />
                     </tr>
                     {exp.has(ce.label) && ce.colaboradores.map((co: any, i: number) => (
-                      <tr key={i} className="border-b border-border/40 hover:bg-muted/20">
-                        <td className="sticky left-0 z-10 bg-background py-1 pl-7 pr-2.5 text-muted-foreground">{co.nome}</td>
+                      <tr key={i} className="group border-b border-border hover:bg-muted/30">
+                        <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 py-1 pl-7 pr-2.5 text-muted-foreground">{co.nome}</td>
                         <InssCells c={co} />
                       </tr>
                     ))}
@@ -904,8 +916,8 @@ function Inss({ inss }: { inss: any }) {
                 ))}
               </tbody>
               <tfoot>
-                <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-                  <td className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-foreground">TOTAL</td>
+                <tr className="border-t-2 border-border bg-muted/40 dark:bg-card font-semibold">
+                  <td className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-foreground">TOTAL</td>
                   <InssCells c={m.total} />
                 </tr>
               </tfoot>
@@ -919,23 +931,23 @@ function Inss({ inss }: { inss: any }) {
         {terc.length > 0 && (
           <div className="min-w-[280px] flex-1">
             <h3 className="mb-1.5 text-sm font-semibold text-foreground">Terceiros por fundo <span className="font-normal text-muted-foreground">= {brl(g.terc)}</span></h3>
-            <Card className="overflow-hidden p-0">
+            <Card className="overflow-hidden p-0 dark:bg-accent">
               <table className="w-full border-collapse text-xs">
-                <thead><tr className="border-b border-border bg-muted/40 text-[11px]">
+                <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
                   <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Fundo / Entidade</th>
                   <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Aliquota</th>
                   <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Valor</th>
                 </tr></thead>
                 <tbody>
                   {terc.map((t, i) => (
-                    <tr key={i} className="border-b border-border/40">
+                    <tr key={i} className="border-b border-border">
                       <td className="px-2.5 py-1 text-foreground">{t.fundo}</td>
                       <td className="px-2.5 py-1 text-right tabular-nums text-muted-foreground">{pct(t.pct)}</td>
                       <td className="px-2.5 py-1 text-right font-medium tabular-nums text-foreground">{cell(t.valor)}</td>
                     </tr>
                   ))}
                 </tbody>
-                <tfoot><tr className="border-t-2 border-border bg-muted/40 font-semibold">
+                <tfoot><tr className="border-t-2 border-border bg-muted/40 dark:bg-card font-semibold">
                   <td className="px-2.5 py-1.5 text-foreground">Total Terceiros</td>
                   <td className="px-2.5 py-1.5 text-right tabular-nums text-foreground">{pct(al.terc)}</td>
                   <td className="px-2.5 py-1.5 text-right tabular-nums text-foreground">{cell(g.terc)}</td>
@@ -948,10 +960,10 @@ function Inss({ inss }: { inss: any }) {
         {aut.linhas.length > 0 && (
           <div className="min-w-[420px] flex-[2]">
             <h3 className="mb-1.5 text-sm font-semibold text-foreground">Autonomos (RPA) <span className="font-normal text-muted-foreground">= {brl(g.aut)}</span></h3>
-            <Card className="overflow-hidden p-0">
+            <Card className="overflow-hidden p-0 dark:bg-accent">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-xs">
-                  <thead><tr className="border-b border-border bg-muted/40 text-[11px]">
+                  <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
                     <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Autonomo</th>
                     <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Base</th>
                     <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Retido (11%)</th>
@@ -961,7 +973,7 @@ function Inss({ inss }: { inss: any }) {
                   </tr></thead>
                   <tbody>
                     {aut.linhas.map((a: any, i: number) => (
-                      <tr key={i} className="border-b border-border/40">
+                      <tr key={i} className="border-b border-border">
                         <td className="px-2.5 py-1 text-foreground">{a.nome}</td>
                         <td className="px-2.5 py-1 text-right tabular-nums text-muted-foreground">{cell(a.base)}</td>
                         <td className="px-2.5 py-1 text-right tabular-nums text-muted-foreground">{cell(a.retido)}</td>
@@ -971,7 +983,7 @@ function Inss({ inss }: { inss: any }) {
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot><tr className="border-t-2 border-border bg-muted/40 font-semibold text-foreground">
+                  <tfoot><tr className="border-t-2 border-border bg-muted/40 dark:bg-card font-semibold text-foreground">
                     <td className="px-2.5 py-1.5">Total</td>
                     <td className="px-2.5 py-1.5 text-right tabular-nums">{cell(aut.total.base)}</td>
                     <td className="px-2.5 py-1.5 text-right tabular-nums">{cell(aut.total.retido)}</td>
@@ -1046,9 +1058,9 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
 
       {/* ===== Faixas por aliquota ===== */}
       {faixas.length > 0 && (
-        <Card className="overflow-hidden p-0 md:max-w-lg">
+        <Card className="overflow-hidden p-0 dark:bg-accent md:max-w-lg">
           <table className="w-full border-collapse text-xs">
-            <thead><tr className="border-b border-border bg-muted/40 text-[11px]">
+            <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
               <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Aliquota</th>
               <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Colaboradores</th>
               <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Base FGTS</th>
@@ -1056,7 +1068,7 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
             </tr></thead>
             <tbody>
               {faixas.map((f) => (
-                <tr key={f.al} className="border-b border-border/40">
+                <tr key={f.al} className="border-b border-border">
                   <td className="px-2.5 py-1 text-foreground">{f.al}%{f.al === 2 ? ' · Jovem Aprendiz' : f.al === 8 ? ' · geral' : ''}</td>
                   <td className="px-2.5 py-1 text-right tabular-nums text-muted-foreground">{f.n}</td>
                   <td className="px-2.5 py-1 text-right tabular-nums text-muted-foreground">{cell(f.base)}</td>
@@ -1079,18 +1091,18 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
             {' '}· o 13º só tem guia própria na folha integral de dezembro.
           </p>
         )}
-        <Card className="overflow-hidden p-0">
+        <Card className="overflow-hidden p-0 dark:bg-accent">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-xs">
               <thead>
-                <tr className="border-b border-border bg-muted/40 text-[11px]">
-                  <th rowSpan={2} className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
+                <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
+                  <th rowSpan={2} className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
                   <th colSpan={3} className="px-2.5 py-1 text-center font-semibold text-foreground">Fixas contratuais</th>
                   <th colSpan={3} className="border-l border-border px-2.5 py-1 text-center font-semibold text-foreground">Variaveis</th>
                   {show13 && <th rowSpan={2} className="border-l border-border px-2.5 py-1.5 text-right font-semibold text-foreground">13º</th>}
                   <th rowSpan={2} className="border-l border-border px-2.5 py-1.5 text-right font-semibold text-foreground">Guia mensal</th>
                 </tr>
-                <tr className="border-b border-border bg-muted/40 text-[10px] text-muted-foreground">
+                <tr className="border-b border-border bg-muted/40 dark:bg-card text-[10px] text-muted-foreground">
                   <th className={th}>Base</th><th className={th}>%</th><th className={th}>FGTS</th>
                   <th className={cn(th, 'border-l border-border')}>Base</th><th className={th}>%</th><th className={th}>FGTS</th>
                 </tr>
@@ -1098,16 +1110,16 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
               <tbody>
                 {m.centros.map((ce: any) => (
                   <Fragment key={ce.label}>
-                    <tr className="cursor-pointer border-b border-border/60 hover:bg-muted/30" onClick={() => toggle(setExp, ce.label)}>
-                      <td className="sticky left-0 z-10 bg-background px-2.5 py-1.5 font-medium text-foreground">
+                    <tr className="group cursor-pointer border-b border-border hover:bg-muted/30" onClick={() => toggle(setExp, ce.label)}>
+                      <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 px-2.5 py-1.5 font-medium text-foreground">
                         <span className="mr-1 opacity-60">{exp.has(ce.label) ? '▾' : '▸'}</span>
                         {ce.label} <span className="opacity-50">({ce.colaboradores.length})</span>
                       </td>
                       <MCells c={ce.total} />
                     </tr>
                     {exp.has(ce.label) && ce.colaboradores.map((co: any, i: number) => (
-                      <tr key={i} className="border-b border-border/40 hover:bg-muted/20">
-                        <td className="sticky left-0 z-10 bg-background py-1 pl-7 pr-2.5 text-muted-foreground">{co.nome}</td>
+                      <tr key={i} className="group border-b border-border hover:bg-muted/30">
+                        <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 py-1 pl-7 pr-2.5 text-muted-foreground">{co.nome}</td>
                         <MCells c={co} />
                       </tr>
                     ))}
@@ -1115,8 +1127,8 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
                 ))}
               </tbody>
               <tfoot>
-                <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-                  <td className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-foreground">TOTAL</td>
+                <tr className="border-t-2 border-border bg-muted/40 dark:bg-card font-semibold">
+                  <td className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-foreground">TOTAL</td>
                   <MCells c={m.total} />
                 </tr>
               </tfoot>
@@ -1135,11 +1147,11 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
             GRRF: FGTS do mês da rescisao, 13º e indenizatório saem da mensal e entram aqui, junto do compensatório (multa 40% s/ justa causa · 20% acordo).
             Antecipado (até o dia 9): soma também o FGTS do mês anterior.
           </p>
-          <Card className="overflow-hidden p-0">
+          <Card className="overflow-hidden p-0 dark:bg-accent">
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-xs">
-                <thead><tr className="border-b border-border bg-muted/40 text-[11px]">
-                  <th className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
+                <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
+                  <th className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
                   <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Data</th>
                   <th className={th}>Mês anterior</th><th className={th}>Mês da rescisao</th><th className={th}>13º</th>
                   <th className={th}>Indenizatório</th><th className={th}>Adto 13º</th><th className={th}>Compensatório</th>
@@ -1148,8 +1160,8 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
                 <tbody>
                   {resc.centros.map((ce: any) => (
                     <Fragment key={ce.label}>
-                      <tr className="cursor-pointer border-b border-border/60 hover:bg-muted/30" onClick={() => toggle(setExpR, ce.label)}>
-                        <td className="sticky left-0 z-10 bg-background px-2.5 py-1.5 font-medium text-foreground">
+                      <tr className="group cursor-pointer border-b border-border hover:bg-muted/30" onClick={() => toggle(setExpR, ce.label)}>
+                        <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 px-2.5 py-1.5 font-medium text-foreground">
                           <span className="mr-1 opacity-60">{expR.has(ce.label) ? '▾' : '▸'}</span>
                           {ce.label} <span className="opacity-50">({ce.linhas.length})</span>
                         </td>
@@ -1157,8 +1169,8 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
                         <RCells c={ce.total} />
                       </tr>
                       {expR.has(ce.label) && ce.linhas.map((r: any, i: number) => (
-                        <tr key={i} className="border-b border-border/40 hover:bg-muted/20">
-                          <td className="sticky left-0 z-10 bg-background py-1 pl-7 pr-2.5 text-muted-foreground">
+                        <tr key={i} className="group border-b border-border hover:bg-muted/30">
+                          <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 py-1 pl-7 pr-2.5 text-muted-foreground">
                             {r.nome}
                             {r.antecipado && <span className="ml-1.5 rounded px-1 py-0.5 text-[9px] font-medium text-white" style={{ backgroundColor: '#e0808a' }}>antecipado</span>}
                           </td>
@@ -1170,8 +1182,8 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-                    <td className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-foreground">TOTAL</td>
+                  <tr className="border-t-2 border-border bg-muted/40 dark:bg-card font-semibold">
+                    <td className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-foreground">TOTAL</td>
                     <td className="px-2.5 py-1.5" />
                     <RCells c={resc.total} />
                   </tr>
@@ -1202,19 +1214,19 @@ function Irrf({ irrf }: { irrf: any }) {
   const colabRows = (co: any, i: number) => (
     <Fragment key={i}>
       <tr className="border-t border-border/40">
-        <td rowSpan={2} className="sticky left-0 z-10 bg-background py-1 pl-7 pr-2.5 align-top text-muted-foreground">{co.nome}</td>
+        <td rowSpan={2} className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 py-1 pl-7 pr-2.5 align-top text-muted-foreground">{co.nome}</td>
         <td className="px-2 py-0.5 text-right text-[10px] uppercase text-muted-foreground">Base</td>
         {cols.map((c) => <td key={c.key} className="px-2.5 py-0.5 text-right text-[11px] tabular-nums text-muted-foreground">{cell(co.cels?.[c.key]?.base)}</td>)}
         <td className="border-l border-border" />
       </tr>
-      <tr className="border-b border-border/40">
+      <tr className="border-b border-border">
         <td className="px-2 py-0.5 text-right text-[10px] uppercase text-muted-foreground">Valor</td>
         {cols.map((c) => <td key={c.key} className="px-2.5 py-0.5 text-right font-medium tabular-nums text-foreground">{cell(co.cels?.[c.key]?.valor)}</td>)}
         <td className="border-l border-border px-2.5 py-0.5 text-right font-semibold tabular-nums text-foreground">{cell(co.total)}</td>
       </tr>
       {co.resc13?.valor > 0.005 && (
-        <tr className="border-b border-border/40 bg-muted/10">
-          <td className="sticky left-0 z-10 bg-background py-0.5 pl-10 pr-2.5 text-[10px] text-muted-foreground">↳ desdobra Rescisao</td>
+        <tr className="border-b border-border bg-muted/10">
+          <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 py-0.5 pl-10 pr-2.5 text-[10px] text-muted-foreground">↳ desdobra Rescisao</td>
           <td />
           <td colSpan={nCols} className="px-2.5 py-0.5 text-right text-[11px] text-muted-foreground">Rescisao {brl(co.resc?.valor)} · 13º Rescisao {brl(co.resc13?.valor)}</td>
           <td className="border-l border-border" />
@@ -1239,13 +1251,13 @@ function Irrf({ irrf }: { irrf: any }) {
       </div>
 
       {/* ===== Tabela 0561 (pivot Base/Valor por tipo) ===== */}
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0 dark:bg-accent">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-xs">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-[11px]">
-                <th className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-left font-semibold text-foreground">Colaborador</th>
-                <th className="bg-muted/40 px-2 py-1.5" />
+              <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
+                <th className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-left font-semibold text-foreground">Colaborador</th>
+                <th className="bg-muted/40 dark:bg-card px-2 py-1.5" />
                 {cols.map((c) => <th key={c.key} className="whitespace-nowrap px-2.5 py-1.5 text-right font-semibold text-foreground">{c.label}</th>)}
                 <th className="border-l border-border px-2.5 py-1.5 text-right font-semibold text-foreground">TOTAL IRRF</th>
               </tr>
@@ -1256,8 +1268,8 @@ function Irrf({ irrf }: { irrf: any }) {
                     const aberto = exp.has(ce.label)
                     return (
                       <Fragment key={ce.label}>
-                        <tr className="cursor-pointer border-b border-border/60 hover:bg-muted/30" onClick={() => toggle(ce.label)}>
-                          <td className="sticky left-0 z-10 bg-background px-2.5 py-1.5 font-medium text-foreground">
+                        <tr className="group cursor-pointer border-b border-border hover:bg-muted/30" onClick={() => toggle(ce.label)}>
+                          <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 px-2.5 py-1.5 font-medium text-foreground">
                             <span className="mr-1 opacity-60">{aberto ? '▾' : '▸'}</span>{ce.label} <span className="opacity-50">({ce.vis.length})</span>
                           </td>
                           <td />
@@ -1271,8 +1283,8 @@ function Irrf({ irrf }: { irrf: any }) {
                 : flat.map((co: any, i: number) => colabRows(co, i))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-                <td className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-foreground">TOTAL</td>
+              <tr className="border-t-2 border-border bg-muted/40 dark:bg-card font-semibold">
+                <td className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-foreground">TOTAL</td>
                 <td />
                 {cols.map((c) => <td key={c.key} className="px-2.5 py-1.5 text-right tabular-nums text-foreground">{cell(totColuna?.[c.key])}</td>)}
                 <td className="border-l border-border px-2.5 py-1.5 text-right tabular-nums text-foreground">{cell(irrf.guia0561)}</td>
@@ -1287,23 +1299,23 @@ function Irrf({ irrf }: { irrf: any }) {
         <div>
           <h3 className="mb-1 text-sm font-semibold text-foreground">IRRF Autonomos — DARF 0588 <span className="font-normal text-muted-foreground">= {brl(aut.total)}</span></h3>
           <p className="mb-1.5 text-xs text-muted-foreground">Recibo de pagamento a autonomo (terceiros) — codigo 0588, distinto do 0561 dos empregados. Apuracao pela data de pagamento.</p>
-          <Card className="overflow-hidden p-0 md:max-w-lg">
+          <Card className="overflow-hidden p-0 dark:bg-accent md:max-w-lg">
             <table className="w-full border-collapse text-xs">
-              <thead><tr className="border-b border-border bg-muted/40 text-[11px]">
+              <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
                 <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Autonomo</th>
                 <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">Base</th>
                 <th className="px-2.5 py-1.5 text-right font-semibold text-foreground">IRRF</th>
               </tr></thead>
               <tbody>
                 {aut.linhas.map((a: any, i: number) => (
-                  <tr key={i} className="border-b border-border/40">
+                  <tr key={i} className="border-b border-border">
                     <td className="px-2.5 py-1 text-foreground">{a.nome}</td>
                     <td className="px-2.5 py-1 text-right tabular-nums text-muted-foreground">{cell(a.base)}</td>
                     <td className="px-2.5 py-1 text-right font-medium tabular-nums text-foreground">{cell(a.valor)}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot><tr className="border-t-2 border-border bg-muted/40 font-semibold">
+              <tfoot><tr className="border-t-2 border-border bg-muted/40 dark:bg-card font-semibold">
                 <td className="px-2.5 py-1.5 text-foreground">Total (DARF 0588)</td>
                 <td />
                 <td className="px-2.5 py-1.5 text-right tabular-nums text-foreground">{cell(aut.total)}</td>
@@ -1393,19 +1405,19 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
           </div>
           <div className="flex items-center gap-2">
             {msg && <span className="text-xs text-muted-foreground">{msg}</span>}
-            <button onClick={aplicar} disabled={busy} className="rounded-lg px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" style={{ backgroundColor: MODULE_COLOR }}>Aplicar (resolver)</button>
-            <button onClick={onClose} className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-muted/40"><X className="h-4 w-4" /></button>
+            <button onClick={aplicar} disabled={busy} className="rounded-lg px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" style={{ backgroundColor: MODULE_FILL }}>Aplicar (resolver)</button>
+            <Button variant="outline" size="icon-xs" onClick={onClose}><X /></Button>
           </div>
         </div>
 
         <div className="grid flex-1 grid-cols-[210px_1fr_270px] overflow-hidden text-xs">
           {/* Esquemas */}
-          <div className="flex flex-col overflow-y-auto border-r border-border p-3">
+          <div className="nice-scrollbar flex flex-col overflow-y-auto border-r border-border p-3">
             <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Esquemas</div>
             {(snap?.esquemas ?? []).map((e: any) => (
               <button key={e.id} onClick={() => { setSelEsq(e.id); setSelGrupo(null) }}
                 className={cn('mb-1 rounded-md px-2 py-1.5 text-left', e.id === selEsq ? 'text-white' : 'text-foreground hover:bg-muted/40')}
-                style={e.id === selEsq ? { backgroundColor: MODULE_COLOR } : undefined}>
+                style={e.id === selEsq ? { backgroundColor: MODULE_FILL } : undefined}>
                 <div className="truncate">{e.nome}</div>
                 <div className={cn('text-[10px]', e.id === selEsq ? 'text-white/70' : 'text-muted-foreground')}>{e.escopo}{e.ativo ? '' : ' · inativo'}</div>
               </button>
@@ -1413,19 +1425,26 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
             <div className="mt-2 space-y-1 border-t border-border pt-2">
               <input value={novoEsq} onChange={(e) => setNovoEsq(e.target.value)} placeholder="Novo esquema…" className="w-full rounded border border-border bg-background px-1.5 py-1" />
               <div className="flex gap-1">
-                <select value={novoEsqEscopo} onChange={(e) => setNovoEsqEscopo(e.target.value as any)} className="flex-1 rounded border border-border bg-background px-1 py-1">
-                  <option value="todos">Todas</option><option value="proventos">Proventos</option><option value="descontos">Descontos</option>
-                </select>
+                <Select value={novoEsqEscopo} onValueChange={(v) => setNovoEsqEscopo(v as any)}>
+                  <SelectTrigger className="flex-1 rounded border px-1 py-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas</SelectItem>
+                    <SelectItem value="proventos">Proventos</SelectItem>
+                    <SelectItem value="descontos">Descontos</SelectItem>
+                  </SelectContent>
+                </Select>
                 <button disabled={busy} onClick={() => novoEsq.trim() && run(async () => { const r = await trpc.folhaBi.esquemaCreate.mutate({ nome: novoEsq.trim(), escopo: novoEsqEscopo }); setNovoEsq(''); setSelEsq(r.id) })} className="rounded bg-muted/60 px-2 py-1 text-foreground">criar</button>
               </div>
               {selEsq != null && (confirmDel === `e:${selEsq}`
                 ? <button onClick={() => run(async () => { await trpc.folhaBi.esquemaDelete.mutate({ id: selEsq }); setConfirmDel(null); setSelEsq(null) })} className="w-full rounded bg-red-500/80 px-2 py-1 text-white">confirmar exclusão</button>
-                : <button onClick={() => setConfirmDel(`e:${selEsq}`)} className="w-full rounded border border-border px-2 py-1 text-muted-foreground hover:bg-muted/40">excluir esquema</button>)}
+                : <Button variant="outline" size="xs" className="w-full" onClick={() => setConfirmDel(`e:${selEsq}`)}>excluir esquema</Button>)}
             </div>
           </div>
 
           {/* Grupos / subgrupos */}
-          <div className="flex flex-col overflow-y-auto p-3">
+          <div className="nice-scrollbar flex flex-col overflow-y-auto p-3">
             <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Grupos → subgrupos</div>
             {tops.map((tp: any) => (
               <div key={tp.id} className="mb-0.5">
@@ -1448,7 +1467,7 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
           </div>
 
           {/* Regras */}
-          <div className="flex flex-col overflow-y-auto border-l border-border p-3">
+          <div className="nice-scrollbar flex flex-col overflow-y-auto border-l border-border p-3">
             <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Regras {grupoSel ? `· ${grupoSel.nome}` : ''}</div>
             {!grupoSel && <p className="text-muted-foreground">Selecione um grupo para ver/editar as regras (prefixo de classe SCI → grupo).</p>}
             {grupoSel && (
@@ -1465,7 +1484,7 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
                     <input value={busca} onChange={(e) => setBusca(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') buscarClasses() }} placeholder="buscar classe (cód/desc)…" className="flex-1 rounded border border-border bg-background px-1.5 py-1" />
                     <button onClick={buscarClasses} className="rounded bg-muted/60 px-2 text-foreground">buscar</button>
                   </div>
-                  <div className="mt-1 max-h-48 overflow-y-auto">
+                  <div className="nice-scrollbar mt-1 max-h-48 overflow-y-auto">
                     {classes.map((c: any) => (
                       <button key={c.cod} onClick={() => run(async () => { await trpc.folhaBi.regraAdd.mutate({ grupoId: grupoSel.id, prefixo: c.cod }); setBusca(''); setClasses([]) })} className="block w-full truncate rounded px-1.5 py-1 text-left text-foreground hover:bg-muted/40"><b>{c.cod}</b> · {c.descricao}</button>
                     ))}
@@ -1515,14 +1534,14 @@ function Provisoes({ provisoes, empresa, refNum }: { provisoes: any; empresa: nu
 
   return (
     <div className="space-y-4">
-      <div className="flex w-fit flex-wrap gap-1 rounded-lg bg-muted/40 p-1 text-xs">
+      <div className="flex w-fit flex-wrap gap-1 rounded-lg bg-muted/40 dark:bg-accent/50 p-1 text-xs">
         <SubPill active={vista === 'resumo'} onClick={() => setVista('resumo')} label="Resumo (mês × acum.)" />
         <SubPill active={vista === 'ferias'} onClick={() => setVista('ferias')} label="Rel. Ferias detalhado" />
         <SubPill active={vista === 'decimo'} onClick={() => setVista('decimo')} label="Rel. 13o detalhado" />
       </div>
 
       {vista !== 'resumo' ? <RelatorioProvisao empresa={empresa} refNum={refNum} tipo={vista} /> : (<>
-      <div className="flex w-fit gap-1 rounded-lg bg-muted/40 p-1 text-xs">
+      <div className="flex w-fit gap-1 rounded-lg bg-muted/40 dark:bg-accent/50 p-1 text-xs">
         {tipos.map((t) => <SubPill key={t.key} active={tipo === t.key} onClick={() => { setTipo(t.key); setExp(new Set()) }} label={t.label} />)}
       </div>
 
@@ -1531,16 +1550,16 @@ function Provisoes({ provisoes, empresa, refNum }: { provisoes: any; empresa: nu
         <GuiaCard accent="#8a7bd8" label={`Provisão de ${tlabel} · acumulado`} value={d.total?.acum?.total} sub="saldo provisionado" />
       </div>
 
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0 dark:bg-accent">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-xs">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-[11px]">
-                <th rowSpan={2} className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
+              <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
+                <th rowSpan={2} className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
                 <th colSpan={5} className="px-2.5 py-1 text-center font-semibold text-foreground">Provisão e encargos do mês</th>
                 <th colSpan={5} className="border-l-2 border-border px-2.5 py-1 text-center font-semibold text-foreground">Acumulado (saldo)</th>
               </tr>
-              <tr className="border-b border-border bg-muted/40 text-[10px] text-muted-foreground">
+              <tr className="border-b border-border bg-muted/40 dark:bg-card text-[10px] text-muted-foreground">
                 <th className={th}>Fixo</th><th className={th}>Variavel</th><th className={th}>FGTS</th><th className={th}>INSS+terc</th><th className={th}>Total</th>
                 <th className={cn(th, 'border-l-2 border-border')}>Fixo</th><th className={th}>Variavel</th><th className={th}>FGTS</th><th className={th}>INSS+terc</th><th className={th}>Total</th>
               </tr>
@@ -1548,15 +1567,15 @@ function Provisoes({ provisoes, empresa, refNum }: { provisoes: any; empresa: nu
             <tbody>
               {d.centros.map((ce: any) => (
                 <Fragment key={ce.label}>
-                  <tr className="cursor-pointer border-b border-border/60 hover:bg-muted/30" onClick={() => toggle(ce.label)}>
-                    <td className="sticky left-0 z-10 bg-background px-2.5 py-1.5 font-medium text-foreground">
+                  <tr className="group cursor-pointer border-b border-border hover:bg-muted/30" onClick={() => toggle(ce.label)}>
+                    <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 px-2.5 py-1.5 font-medium text-foreground">
                       <span className="mr-1 opacity-60">{exp.has(ce.label) ? '▾' : '▸'}</span>{ce.label} <span className="opacity-50">({ce.colaboradores.length})</span>
                     </td>
                     <Cells c={ce} />
                   </tr>
                   {exp.has(ce.label) && ce.colaboradores.map((co: any, i: number) => (
-                    <tr key={i} className="border-b border-border/40 hover:bg-muted/20">
-                      <td className="sticky left-0 z-10 bg-background py-1 pl-7 pr-2.5 text-muted-foreground">{co.nome}</td>
+                    <tr key={i} className="group border-b border-border hover:bg-muted/30">
+                      <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 py-1 pl-7 pr-2.5 text-muted-foreground">{co.nome}</td>
                       <Cells c={co} />
                     </tr>
                   ))}
@@ -1564,8 +1583,8 @@ function Provisoes({ provisoes, empresa, refNum }: { provisoes: any; empresa: nu
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-                <td className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-foreground">TOTAL</td>
+              <tr className="border-t-2 border-border bg-muted/40 dark:bg-card font-semibold">
+                <td className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-foreground">TOTAL</td>
                 <Cells c={d.total} />
               </tr>
             </tfoot>
@@ -1703,15 +1722,15 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
   const movRows = (subset: any[], pad: number) => {
     const m = movimento(subset)
     return cfg.mov.map((row: any) => (
-      <tr key={row.id} className={cn('border-b border-border/30', row.bold && 'bg-muted/20')}>
-        <td className={cn('sticky left-0 z-10 bg-background py-0.5 pr-2.5 text-[11px]', row.bold ? 'font-semibold text-foreground' : 'text-muted-foreground')} style={{ paddingLeft: pad }}>{row.h}</td>
+      <tr key={row.id} className={cn('border-b border-border/60', row.bold && 'bg-muted/20')}>
+        <td className={cn('sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 py-0.5 pr-2.5 text-[11px]', row.bold ? 'font-semibold text-foreground' : 'text-muted-foreground')} style={{ paddingLeft: pad }}>{row.h}</td>
         {conta.map(([k]) => <td key={k} className={cn(tdN, '!py-0.5 text-[11px]', row.bold ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{cell(m[row.id]?.[k])}</td>)}
       </tr>
     ))
   }
   // detalhe (matriz por periodo p/ ferias · matriz unica p/ 13o) embutido via colSpan
   const detalhe = (c: any) => (
-    <tr className="border-b border-border/30 bg-muted/5"><td colSpan={conta.length + 1} className="px-2.5 py-2 pl-8">
+    <tr className="border-b border-border/60 bg-muted/5"><td colSpan={conta.length + 1} className="px-2.5 py-2 pl-8">
       {c.periodos.map(([pk, per]: [string, Map<number, any>]) => {
         const r0 = per.get(0)
         return (
@@ -1734,7 +1753,7 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
                     const has = cols.some(([k]) => Math.abs(n(r[k])) > 0.005)
                     if (!bold && !has && l !== 1) return null
                     return (
-                      <tr key={l} className={cn('border-b border-border/20', bold && 'font-semibold text-foreground')}>
+                      <tr key={l} className={cn('border-b border-border/50', bold && 'font-semibold text-foreground')}>
                         <td className={cn('px-2 py-0.5', bold ? 'text-foreground' : 'text-muted-foreground')}>{label}</td>
                         {cfg.periodo && <><td className="px-2 py-0.5 text-right tabular-nums text-muted-foreground">{l === 0 ? n(r0?.pr) : ''}</td><td className="px-2 py-0.5 text-right tabular-nums text-muted-foreground">{l === 0 ? n(r0?.sd) : ''}</td></>}
                         {cols.map(([k]) => <td key={k} className="px-2 py-0.5 text-right tabular-nums">{cell(n(r[k]))}</td>)}
@@ -1752,8 +1771,8 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
   const sumRow = (key: string, label: string, sub: any[], pad: number) => {
     const fim = movimento(sub).fim
     return (
-      <tr className="cursor-pointer border-b border-border/60 hover:bg-muted/30" onClick={() => toggle(key)}>
-        <td className="sticky left-0 z-10 bg-background py-1.5 pr-2.5 font-medium text-foreground" style={{ paddingLeft: pad }}>
+      <tr className="group cursor-pointer border-b border-border hover:bg-muted/30" onClick={() => toggle(key)}>
+        <td className="sticky left-0 z-10 bg-card dark:bg-accent group-hover:bg-muted/30 py-1.5 pr-2.5 font-medium text-foreground" style={{ paddingLeft: pad }}>
           <span className="mr-1 opacity-60">{exp.has(key) ? '▾' : '▸'}</span>{label}
         </td>
         {conta.map(([k]) => <td key={k} className={cn(tdN, 'font-semibold text-foreground')}>{cell(fim[k])}</td>)}
@@ -1764,9 +1783,11 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 text-xs">
-        <button onClick={() => { setPorCentro((v) => !v); setExp(new Set()) }} className={cn('rounded-md border border-border px-2 py-1', porCentro ? 'text-white' : 'text-muted-foreground hover:bg-muted/40')} style={porCentro ? { backgroundColor: MODULE_COLOR } : undefined}>Agrupar por centro de custo</button>
-        <button onClick={() => setExp(new Set([...colabs.map((c) => `c${c.cod}`), ...centros.map((c) => `ce:${c.label}`)]))} className="rounded-md border border-border px-2 py-1 text-muted-foreground hover:bg-muted/40">Expandir tudo</button>
-        <button onClick={() => setExp(new Set())} className="rounded-md border border-border px-2 py-1 text-muted-foreground hover:bg-muted/40">Recolher</button>
+        <Button variant="outline" size="xs" onClick={() => { setPorCentro((v) => !v); setExp(new Set()) }}
+          style={porCentro ? { backgroundColor: MODULE_FILL } : undefined}
+          className={porCentro ? 'border-transparent text-white hover:text-white' : undefined}>Agrupar por centro de custo</Button>
+        <Button variant="outline" size="xs" onClick={() => setExp(new Set([...colabs.map((c) => `c${c.cod}`), ...centros.map((c) => `ce:${c.label}`)]))}>Expandir tudo</Button>
+        <Button variant="outline" size="xs" onClick={() => setExp(new Set())}>Recolher</Button>
         <span className="text-[11px] text-muted-foreground">clique num {porCentro ? 'centro/colaborador' : 'colaborador'} p/ abrir o movimento da conta (saldo final → demais valores)</span>
       </div>
 
@@ -1777,12 +1798,12 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
       )}
 
       {/* Detalhe por colaborador / centro */}
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0 dark:bg-accent">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-xs">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-[11px]">
-                <th className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-left font-semibold text-foreground">{porCentro ? 'Centro / Colaborador' : 'Colaborador'}</th>
+              <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
+                <th className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-left font-semibold text-foreground">{porCentro ? 'Centro / Colaborador' : 'Colaborador'}</th>
                 {conta.map(([k, h]) => <th key={k} className={th}>{h}</th>)}
               </tr>
             </thead>
@@ -1811,8 +1832,8 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-                <td className="sticky left-0 z-10 bg-muted/60 px-2.5 py-1.5 text-foreground">TOTAL (saldo final)</td>
+              <tr className="border-t-2 border-border bg-muted/40 dark:bg-card font-semibold">
+                <td className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-foreground">TOTAL (saldo final)</td>
                 {conta.map(([k]) => <td key={k} className={cn(tdN, 'py-1.5 text-foreground')}>{cell(movGeral.fim[k])}</td>)}
               </tr>
             </tfoot>
@@ -1823,15 +1844,15 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
       {/* Totais da empresa: movimento da conta */}
       <div>
         <h3 className="mb-1 text-sm font-semibold text-foreground">Totais da empresa · movimento da conta</h3>
-        <Card className="overflow-hidden p-0 lg:max-w-2xl">
+        <Card className="overflow-hidden p-0 dark:bg-accent lg:max-w-2xl">
           <table className="w-full border-collapse text-xs">
-            <thead><tr className="border-b border-border bg-muted/40 text-[11px]">
+            <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
               <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Movimento da conta</th>
               {conta.map(([k, h]) => <th key={k} className={th}>{h}</th>)}
             </tr></thead>
             <tbody>
               {cfg.mov.map((row: any) => (
-                <tr key={row.id} className={cn('border-b border-border/30', row.bold && 'bg-muted/20')}>
+                <tr key={row.id} className={cn('border-b border-border/60', row.bold && 'bg-muted/20')}>
                   <td className={cn('px-2.5 py-1', row.bold ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{row.h}</td>
                   {conta.map(([k]) => <td key={k} className={cn(tdN, row.bold ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{cell(movGeral[row.id]?.[k])}</td>)}
                 </tr>
@@ -1844,15 +1865,15 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
       {/* Extrato (linguagem simples) */}
       <div>
         <h3 className="mb-1 text-sm font-semibold text-foreground">Como a provisao se movimentou no mes</h3>
-        <Card className="overflow-hidden p-0 lg:max-w-xl">
+        <Card className="overflow-hidden p-0 dark:bg-accent lg:max-w-xl">
           <table className="w-full border-collapse text-xs">
-            <thead><tr className="border-b border-border bg-muted/40 text-[11px]">
+            <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
               <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Movimentacao da provisao</th>
               <th className={th}>{cfg.ext.principalLabel}</th><th className={th}>Encargos</th><th className={th}>Total</th>
             </tr></thead>
             <tbody>
               {[['ini', 'Saldo no inicio do mes', true], ['prov', '(+) Provisao do mes (1/12 avos)', false], ['acertos', '(+/−) Acertos do mes', false], ['pago', '(−) Pago / baixado no mes', false], ['fim', '(=) Saldo no fim do mes', true]].map(([id, h, bold]: any) => (
-                <tr key={id} className={cn('border-b border-border/30', bold && 'bg-muted/20')}>
+                <tr key={id} className={cn('border-b border-border/60', bold && 'bg-muted/20')}>
                   <td className={cn('px-2.5 py-1', bold ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{h}</td>
                   <td className={cn(tdN, 'text-muted-foreground')}>{cell(ext[id as keyof typeof ext].prin)}</td>
                   <td className={cn(tdN, 'text-muted-foreground')}>{cell(ext[id as keyof typeof ext].enc)}</td>
@@ -2095,13 +2116,23 @@ function Resumo({ empresa, refNum }: { empresa: number; refNum: number }) {
 function Selecao({ label, value, onChange, className, children }: {
   label: string; value: string; onChange: (v: string) => void; className?: string; children: ReactNode
 }) {
+  // As opcoes chegam como <option value>label</option>; convertemos para SelectItem
+  // aqui dentro para que todos os usos herdem o Select tematizado sem tocar cada chamada.
+  const items: ReactNode[] = []
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) return
+    const p = child.props as { value?: string | number; children?: ReactNode }
+    items.push(<SelectItem key={String(p.value)} value={String(p.value)}>{p.children}</SelectItem>)
+  })
   return (
-    <label className="flex min-w-[92px] flex-col gap-1">
+    <label className="mb-0 flex min-w-[92px] flex-col gap-1">
       <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)}
-        className={cn('h-9 rounded-lg border border-border bg-background px-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-border', className)}>
-        {children}
-      </select>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className={cn('h-9 rounded-lg border px-2.5 text-sm text-foreground', className)}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>{items}</SelectContent>
+      </Select>
     </label>
   )
 }
@@ -2110,7 +2141,7 @@ function Pill({ active, onClick, icon: Icon, label }: { active: boolean; onClick
   return (
     <button onClick={onClick}
       className={cn('flex items-center gap-1.5 rounded-md px-3 py-1 text-sm', active ? 'text-white' : 'text-muted-foreground hover:text-foreground')}
-      style={active ? { backgroundColor: MODULE_COLOR } : undefined}>
+      style={active ? { backgroundColor: MODULE_FILL } : undefined}>
       <Icon className="h-3.5 w-3.5" /> {label}
     </button>
   )
@@ -2120,7 +2151,7 @@ function SubPill({ active, onClick, label }: { active: boolean; onClick: () => v
   return (
     <button onClick={onClick}
       className={cn('rounded-md px-3 py-1 font-medium', active ? 'text-white' : 'text-muted-foreground hover:text-foreground')}
-      style={active ? { backgroundColor: MODULE_COLOR } : undefined}>
+      style={active ? { backgroundColor: MODULE_FILL } : undefined}>
       {label}
     </button>
   )
@@ -2128,7 +2159,7 @@ function SubPill({ active, onClick, label }: { active: boolean; onClick: () => v
 
 function Stat({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className="rounded-lg border border-border p-3" style={strong ? { backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 10%, transparent)` } : undefined}>
+    <div className="rounded-lg border border-border bg-muted/50 dark:bg-accent p-3" style={strong ? { backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 10%, transparent)` } : undefined}>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={cn('mt-1 tabular-nums text-foreground', strong ? 'text-lg font-semibold' : 'text-base font-medium')}>{value}</p>
     </div>

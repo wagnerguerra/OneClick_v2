@@ -2,9 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { Download, Loader2, FileText, Building2 } from 'lucide-react'
-import { Button, Card } from '@saas/ui'
+import { Button, Card, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+
+// Cor do módulo Trabalhista (editável no design-system) — superfície sutil via color-mix.
+const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
+const MOD_SURFACE = { backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 10%, transparent)`, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)` }
 
 interface Importacao { id: string; competencia: string; status: string; totalLancamentos: number }
 interface Filial { id: string; codigoFilial: string; cnpj: string }
@@ -85,23 +89,29 @@ export function FolhaExportTab({ clienteId }: { clienteId: string }) {
           {importacoes.length === 0 ? (
             <p className="text-xs text-muted-foreground">Nenhuma importação contabilizada.</p>
           ) : (
-            <select value={selectedId} onChange={e => setSelectedId(e.target.value)} className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-              {importacoes.map(imp => (
-                <option key={imp.id} value={imp.id}>{imp.competencia} — {imp.totalLancamentos} lçtos ({imp.status})</option>
-              ))}
-            </select>
+            <Select value={selectedId} onValueChange={setSelectedId}>
+              <SelectTrigger className="h-8 w-full rounded-md border px-3 py-1 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {importacoes.map(imp => (
+                  <SelectItem key={imp.id} value={imp.id} className="text-xs">{imp.competencia} — {imp.totalLancamentos} lçtos ({imp.status})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
 
         {filiais.length > 0 && (
           <div className="flex-1 max-w-xs">
             <label className="text-[11px] font-semibold uppercase text-muted-foreground mb-1 block">Filial</label>
-            <select value={selectedFilial} onChange={e => setSelectedFilial(e.target.value)} className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-              <option value="TODAS">Todas as filiais (consolidado)</option>
-              {filiais.map(f => (
-                <option key={f.id} value={f.id}>{f.codigoFilial} — {f.cnpj}</option>
-              ))}
-            </select>
+            <Select value={selectedFilial} onValueChange={setSelectedFilial}>
+              <SelectTrigger className="h-8 w-full rounded-md border px-3 py-1 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TODAS" className="text-xs">Todas as filiais (consolidado)</SelectItem>
+                {filiais.map(f => (
+                  <SelectItem key={f.id} value={f.id} className="text-xs">{f.codigoFilial} — {f.cnpj}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
@@ -114,7 +124,7 @@ export function FolhaExportTab({ clienteId }: { clienteId: string }) {
               <FileText className="h-10 w-10 mx-auto mb-3 text-emerald-500 opacity-60" />
               <h4 className="text-sm font-semibold mb-1">Arquivo de Débito</h4>
               <p className="text-[11px] text-muted-foreground mb-4">{filialLabel}</p>
-              <Button onClick={() => handleExportar('DEBITO')} disabled={!!exporting} className="gap-1.5 text-xs" style={{ backgroundColor: '#10b981', color: '#fff' }}>
+              <Button onClick={() => handleExportar('DEBITO')} disabled={!!exporting} className="gap-1.5 text-xs bg-emerald-500 text-white">
                 {exporting === 'DEBITO' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                 Exportar Débito
               </Button>
@@ -124,7 +134,7 @@ export function FolhaExportTab({ clienteId }: { clienteId: string }) {
               <FileText className="h-10 w-10 mx-auto mb-3 text-red-500 opacity-60" />
               <h4 className="text-sm font-semibold mb-1">Arquivo de Crédito</h4>
               <p className="text-[11px] text-muted-foreground mb-4">{filialLabel}</p>
-              <Button onClick={() => handleExportar('CREDITO')} disabled={!!exporting} className="gap-1.5 text-xs" style={{ backgroundColor: '#ef4444', color: '#fff' }}>
+              <Button onClick={() => handleExportar('CREDITO')} disabled={!!exporting} className="gap-1.5 text-xs bg-red-500 text-white">
                 {exporting === 'CREDITO' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                 Exportar Crédito
               </Button>
@@ -133,9 +143,9 @@ export function FolhaExportTab({ clienteId }: { clienteId: string }) {
 
           {/* Exportar todas as filiais separadas */}
           {filiais.length > 1 && (
-            <Card className="p-5 border border-violet-200/50 bg-violet-50/20">
+            <Card className="p-5 border" style={MOD_SURFACE}>
               <div className="flex items-center gap-3 mb-3">
-                <Building2 className="h-4 w-4 text-violet-500" />
+                <Building2 className="h-4 w-4" style={{ color: MODULE_COLOR }} />
                 <h4 className="text-sm font-semibold">Exportar por filial</h4>
               </div>
               <p className="text-[11px] text-muted-foreground mb-3">
