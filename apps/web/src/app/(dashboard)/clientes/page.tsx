@@ -582,7 +582,7 @@ export default function ClientesPage() {
   const hasActiveFilters = filterSituacao || (filterStatus !== 'ATIVO') || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || filterServico || onlyMensal || onlyExCliente
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-5">
       {/* Header padrão (como o /crm): barra full-bleed, título + trilha, ações à direita */}
       <PageHeaderBar
         actions={<>
@@ -774,8 +774,8 @@ export default function ClientesPage() {
 
       {/* Filtros colapsáveis */}
       <Card className={cn('overflow-hidden transition-all', filtersOpen ? '' : 'cursor-pointer')} onClick={() => !filtersOpen && setFiltersOpen(true)}>
-          <div className="flex items-center justify-between px-4 py-3 bg-muted/20" onClick={(e) => { e.stopPropagation(); setFiltersOpen(!filtersOpen) }}>
-            <div className="flex items-center gap-3 text-sm font-medium cursor-pointer">
+          <div className="flex flex-col gap-3 px-4 py-3 bg-muted/20 sm:flex-row sm:items-center sm:justify-between" onClick={(e) => { e.stopPropagation(); setFiltersOpen(!filtersOpen) }}>
+            <div className="flex flex-wrap items-center gap-2 text-sm font-medium cursor-pointer sm:gap-3">
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 Filtros
@@ -807,7 +807,7 @@ export default function ClientesPage() {
                 Somente Ex-clientes
               </button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 self-end sm:self-auto">
               {hasActiveFilters && (
                 <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); clearFilters() }}>
                   <X className="h-3 w-3" />Limpar
@@ -826,7 +826,7 @@ export default function ClientesPage() {
           >
             <div className="min-h-0 overflow-hidden">
             <div className="px-4 py-3 border-t border-border/40">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 {/* Linha 1: Número · Grupo · Atividade · Município · Estado · Tributação */}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Número</label>
@@ -973,7 +973,7 @@ export default function ClientesPage() {
 
       {/* Seleção em lote */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 px-4 py-2.5 text-sm">
+        <div className="flex flex-col gap-2 rounded-lg bg-emerald-50 px-4 py-2.5 text-sm dark:bg-emerald-950/20 sm:flex-row sm:items-center sm:gap-3">
           <span className="font-medium text-emerald-700 dark:text-emerald-400">{selected.size} selecionado{selected.size > 1 ? 's' : ''}</span>
           {/* Âmbar soft com borda (tom do KPI "Backlog em aberto"): destaca sobre o fundo
               esmeralda da barra, onde o soft-warning (tint 10%) sumia. O per-row segue
@@ -996,28 +996,28 @@ export default function ClientesPage() {
             </Select>
             <span className="hidden sm:inline">registros</span>
           </div>
-          <div className="max-w-xs w-full sm:w-auto">
+          <div className="w-full sm:w-auto sm:max-w-xs">
             <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
           </div>
         </div>
 
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
               <TableHead className="w-[40px]">
                 <Checkbox checked={!!(data?.data && data.data.length > 0 && selected.size === data.data.length)} onCheckedChange={toggleSelectAll} />
               </TableHead>
-              <TableHead className="w-[60px]">
+              <TableHead className="hidden w-[60px] sm:table-cell">
                 <button onClick={() => toggleSort('code')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   Nº <SortIcon column="code" />
                 </button>
               </TableHead>
-              <TableHead className="w-[110px]">
+              <TableHead className="hidden w-[110px] sm:table-cell">
                 <button onClick={() => toggleSort('situacao')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   Situação <SortIcon column="situacao" />
                 </button>
               </TableHead>
-              <TableHead className="w-[44px] text-center" title="Certificado digital">
+              <TableHead className="hidden w-[44px] text-center sm:table-cell" title="Certificado digital">
                 <ShieldCheck className="h-3.5 w-3.5 mx-auto text-muted-foreground" />
               </TableHead>
               <TableHead>
@@ -1050,12 +1050,12 @@ export default function ClientesPage() {
               </TableRow>
             ) : (
               data.data.map((cliente) => (
-                <TableRow key={cliente.id} className="cursor-pointer" onClick={() => router.push(`/clientes/${cliente.id}`)}>
+                <TableRow key={cliente.id} className="cursor-pointer hover:bg-muted/40 sm:whitespace-nowrap" onClick={() => router.push(`/clientes/${cliente.id}`)}>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox checked={selected.has(cliente.id)} onCheckedChange={() => toggleSelect(cliente.id)} />
                   </TableCell>
-                  <TableCell className="font-mono text-muted-foreground text-xs">{cliente.code}</TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="hidden font-mono text-xs text-muted-foreground sm:table-cell">{cliente.code}</TableCell>
+                  <TableCell className="hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                     <InlineSituacaoSelect
                       clienteId={cliente.id}
                       value={cliente.situacao}
@@ -1063,16 +1063,16 @@ export default function ClientesPage() {
                       onUpdated={(newVal) => atualizarLinha(cliente.id, 'situacao', newVal)}
                     />
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="hidden text-center sm:table-cell">
                     <CertIcon status={cliente.certStatus} expiraEm={cliente.certExpiraEm} />
                   </TableCell>
                   <TableCell>
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span onClick={e => e.stopPropagation()} className="min-w-0 flex-1">
                           <CelulaTexto
                             clienteId={cliente.id} campo="razaoSocial" valor={cliente.razaoSocial}
-                            podeEditar={canEditDetails} className="font-medium text-sm"
+                            podeEditar={canEditDetails} className="whitespace-normal break-words text-sm font-medium sm:whitespace-nowrap"
                             onUpdated={v => atualizarLinha(cliente.id, 'razaoSocial', v)}
                           />
                         </span>
@@ -1091,6 +1091,17 @@ export default function ClientesPage() {
                             <Building2 className="h-2.5 w-2.5" />
                             {cliente.filiaisCount} {cliente.filiaisCount === 1 ? 'filial' : 'filiais'}
                           </button>
+                        )}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 sm:hidden" onClick={e => e.stopPropagation()}>
+                        <span className="font-mono text-[11px] text-muted-foreground">#{cliente.code}</span>
+                        <SituacaoPill value={cliente.situacao} />
+                        <CertIcon status={cliente.certStatus} expiraEm={cliente.certExpiraEm} />
+                      </div>
+                      <div className="mt-1 space-y-0.5 text-[11px] leading-tight text-muted-foreground sm:hidden">
+                        <div className="font-mono">{formatDocumento(cliente.documento, cliente.tipoDocumento)}</div>
+                        {(cliente.cidade || cliente.uf) && (
+                          <div className="truncate">{[cliente.cidade, cliente.uf].filter(Boolean).join(' / ')}</div>
                         )}
                       </div>
                       {renderAreas(cliente.areasContratadas)}
@@ -1135,19 +1146,42 @@ export default function ClientesPage() {
                     />
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="soft-info" size="icon-sm" title="Editar" onClick={() => router.push(`/clientes/${cliente.id}`)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      {cliente.status === 'INATIVO' ? (
-                        <Button variant="soft-success" size="icon-sm" title="Reativar" onClick={() => setReativarAlvo({ id: cliente.id, nome: cliente.razaoSocial })}>
-                          <RotateCcw className="h-3.5 w-3.5" />
+                    <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                      <div className="sm:hidden">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onClick={() => router.push(`/clientes/${cliente.id}`)}>
+                              <Pencil className="h-4 w-4" />Editar
+                            </DropdownMenuItem>
+                            {cliente.status === 'INATIVO' ? (
+                              <DropdownMenuItem onClick={() => setReativarAlvo({ id: cliente.id, nome: cliente.razaoSocial })}>
+                                <RotateCcw className="h-4 w-4" />Reativar
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => openInativar([cliente.id], cliente.razaoSocial)}>
+                                <Ban className="h-4 w-4" />Inativar
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <div className="hidden justify-end gap-1 sm:flex">
+                        <Button variant="soft-info" size="icon-sm" title="Editar" onClick={() => router.push(`/clientes/${cliente.id}`)}>
+                          <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                      ) : (
-                        <Button variant="soft-warning" size="icon-sm" title="Inativar" onClick={() => openInativar([cliente.id], cliente.razaoSocial)}>
-                          <Ban className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
+                        {cliente.status === 'INATIVO' ? (
+                          <Button variant="soft-success" size="icon-sm" title="Reativar" onClick={() => setReativarAlvo({ id: cliente.id, nome: cliente.razaoSocial })}>
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : (
+                          <Button variant="soft-warning" size="icon-sm" title="Inativar" onClick={() => openInativar([cliente.id], cliente.razaoSocial)}>
+                            <Ban className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -1486,6 +1520,20 @@ function CelulaSelect({ clienteId, campo, valor, opcoes, podeEditar, onUpdated, 
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+function SituacaoPill({ value }: { value: string }) {
+  const sc = SITUACAO_COLORS[value as keyof typeof SITUACAO_COLORS]
+  const isSolid = value === 'MENSAL'
+  const estilo = isSolid
+    ? { backgroundColor: sc?.bg || '#e5e5e5', color: sc?.color || '#666' }
+    : { backgroundColor: 'transparent', color: sc?.bg || '#666', border: `1.5px solid ${sc?.bg || '#ccc'}` }
+
+  return (
+    <span className="inline-flex max-w-full items-center rounded-[3px] px-2 py-[2px] text-[10px] font-semibold leading-none" style={estilo}>
+      {SITUACAO_LABELS[value as keyof typeof SITUACAO_LABELS] || value}
+    </span>
   )
 }
 
