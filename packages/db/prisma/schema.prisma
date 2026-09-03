@@ -787,6 +787,26 @@ model Cliente {
   inscricaoEstadual  String?         @map("inscricao_estadual")
   inscricaoMunicipal String?         @map("inscricao_municipal")
 
+  // --- Características fiscais ---------------------------------------------
+  // Como este cliente apura e o que ele movimenta. Todos NULLABLE de propósito:
+  // null é "não informado", que é diferente de "não". A distinção importa —
+  // marcar `false` num cliente sobre o qual ninguém levantou a informação é
+  // gravar uma afirmação falsa no cadastro.
+
+  /// TRIMESTRAL | ANUAL | ESTIMATIVA. Só existe no Lucro Real; a tela esconde o
+  /// campo nos demais regimes para ninguém preencher o que não se aplica.
+  apuracaoLucroReal  String?         @map("apuracao_lucro_real")
+  /// Simples Nacional: sujeita ao Fator R (decide entre o Anexo III e o V).
+  fatorR             Boolean?        @map("fator_r")
+  /// Destaca o imposto fora da nota — muda a conferência e a apuração.
+  apuraIssPorFora    Boolean?        @map("apura_iss_por_fora")
+  apuraIcmsPorFora   Boolean?        @map("apura_icms_por_fora")
+  possuiProLabore    Boolean?        @map("possui_pro_labore")
+  possuiFuncionarios Boolean?        @map("possui_funcionarios")
+  /// Empresa sem movimento no período — o ContratoTemplate já sabia perguntar
+  /// isso (`comMovimento`), mas o cliente não tinha onde responder.
+  semMovimento       Boolean?        @map("sem_movimento")
+
   /// Natureza jurídica da Receita ("2062 - Sociedade Empresária Limitada").
   /// Mora na Legalização, junto de NIRE e CNAE, que é onde se consulta.
   naturezaJuridica String? @map("natureza_juridica")

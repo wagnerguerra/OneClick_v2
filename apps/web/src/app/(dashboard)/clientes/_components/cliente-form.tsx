@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Handshake, Save, ArrowLeft, Search as SearchIcon, Camera,
@@ -2484,6 +2484,104 @@ function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
 
 // ============================================================
 // ============================================================
+// ============================================================
+// TriEstado — Sim / Não / Não informado
+//
+// Uma chave liga-desliga só sabe dizer sim ou não, e boa parte da carteira
+// simplesmente não tem essa informação levantada. Desligada, a chave AFIRMA
+// "não possui" — uma frase que ninguém disse. O terceiro estado guarda a
+// diferença entre "não tem" e "não sabemos", que é o que separa um cadastro
+// confiável de um cheio de falsos negativos.
+// ============================================================
+
+function TriEstado({ label, value, onChange, hint }: {
+  label: string
+  value: boolean | null | undefined
+  onChange: (v: boolean | null) => void
+  hint?: string
+}) {
+  const opcoes: Array<{ v: boolean | null; txt: string }> = [
+    { v: true, txt: 'Sim' },
+    { v: false, txt: 'Não' },
+    { v: null, txt: '—' },
+  ]
+  const atual = value ?? null
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <div className="min-w-0">
+        <Label className="text-[13px] font-normal">{label}</Label>
+        {hint && <p className="text-[11px] leading-tight text-muted-foreground">{hint}</p>}
+      </div>
+      <div className="flex shrink-0 rounded-md border border-border bg-muted/40 p-0.5">
+        {opcoes.map(o => {
+          const ativo = atual === o.v
+          return (
+            <button
+              key={String(o.v)}
+              type="button"
+              onClick={() => onChange(o.v)}
+              aria-pressed={ativo}
+              title={o.v === null ? 'Não informado' : o.txt}
+              className={cn(
+                'min-w-[38px] rounded px-2 py-1 text-[11px] font-medium transition-colors',
+                ativo
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {o.txt}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Características fiscais — como o cliente apura e o que ele movimenta.
+ *
+ * Duas colunas porque as perguntas são de naturezas diferentes: à esquerda,
+ * como o imposto é calculado; à direita, o que a empresa de fato movimenta.
+ * Juntas numa lista só, seria preciso varrer seis linhas para achar a que
+ * interessa.
+ *
+ * "Sujeita ao Fator R" só aparece no Simples Nacional — é ele que decide entre
+ * o Anexo III e o V. Fora dali, o campo não tem significado, e esconder é mais
+ * honesto que deixar alguém responder o que não se aplica.
+ */
+function CaracteristicasFiscais({ control, tributacao }: {
+  control: ReturnType<typeof useForm<CreateClienteInput>>['control']
+  tributacao?: string | null
+}) {
+  const ehSimples = tributacao === 'SIMPLES_NACIONAL'
+  const tri = (name: 'fatorR' | 'apuraIssPorFora' | 'apuraIcmsPorFora' | 'possuiProLabore' | 'possuiFuncionarios' | 'semMovimento', label: string, hint?: string) => (
+    <Controller control={control} name={name} render={({ field }) => (
+      <TriEstado label={label} hint={hint} value={field.value} onChange={field.onChange} />
+    )} />
+  )
+  return (
+    <div className="grid grid-cols-12 gap-x-8 gap-y-1">
+      <div className="col-span-12 md:col-span-6">
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Apuração</p>
+        <div className="divide-y divide-border/60">
+          {tri('apuraIssPorFora', 'Apura ISS por fora')}
+          {tri('apuraIcmsPorFora', 'Apura ICMS por fora')}
+          {ehSimples && tri('fatorR', 'Sujeita ao Fator R', 'Define o anexo: III ou V')}
+        </div>
+      </div>
+      <div className="col-span-12 md:col-span-6">
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Operação</p>
+        <div className="divide-y divide-border/60">
+          {tri('possuiProLabore', 'Possui pró-labore')}
+          {tri('possuiFuncionarios', 'Possui funcionários')}
+          {tri('semMovimento', 'Sem movimento')}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // FiscalCard — pills laterais (padrão igual ComercialCard)
 // ============================================================
 
@@ -2496,6 +2594,9 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
   canEdit: boolean
 }) {
   const [activeTab, setActiveTab] = useState('dados')
+  // Observa a tributação para revelar os campos que só existem em certos
+  // regimes (apuração no Lucro Real, Fator R no Simples).
+  const tributacaoAtual = useWatch({ control, name: 'tributacao' })
 
   const tabs = [
     { key: 'dados', label: 'Dados Fiscais', icon: Receipt },
@@ -2555,6 +2656,25 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
                     </Select>
                   )} />
                 </div>
+                {/* A apuração é consequência da tributação — e só existe no
+                    Lucro Real. Fica colada nela justamente para sumir quando o
+                    regime muda: ninguém marca "Trimestral" num Simples. */}
+                {tributacaoAtual === 'LUCRO_REAL' && (
+                  <div className="col-span-12 md:col-span-6 space-y-1.5">
+                    <Label>Apuração do Lucro Real</Label>
+                    <Controller control={control} name="apuracaoLucroReal" render={({ field }) => (
+                      <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Não informado</SelectItem>
+                          <SelectItem value="TRIMESTRAL">Trimestral</SelectItem>
+                          <SelectItem value="ANUAL">Anual</SelectItem>
+                          <SelectItem value="ESTIMATIVA">Estimativa mensal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )} />
+                  </div>
+                )}
                 <div className="col-span-12 md:col-span-6 space-y-1.5">
                   <Label>Regime</Label>
                   <Controller control={control} name="regime" render={({ field }) => (
@@ -2578,6 +2698,13 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
                   <Label>Situação cadastral</Label>
                   <Input placeholder="ATIVA, BAIXADA, SUSPENSA…" {...register('situacaoCadastral')} />
                 </div>
+              </div>
+
+              <div className="px-5 py-3 border-b border-border">
+                <h4 className="text-[13px] font-semibold text-foreground">Características fiscais</h4>
+              </div>
+              <div className="p-5">
+                <CaracteristicasFiscais control={control} tributacao={tributacaoAtual} />
               </div>
 
               {/* Registro de Inscrições — mesmo padrão visual de "Dados Fiscais"
