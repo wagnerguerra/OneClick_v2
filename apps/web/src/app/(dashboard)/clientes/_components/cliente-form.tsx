@@ -2500,10 +2500,10 @@ function TriEstado({ label, value, onChange, hint }: {
   onChange: (v: boolean | null) => void
   hint?: string
 }) {
-  const opcoes: Array<{ v: boolean | null; txt: string }> = [
-    { v: true, txt: 'Sim' },
-    { v: false, txt: 'Não' },
-    { v: null, txt: '—' },
+  const opcoes: Array<{ v: boolean | null; txt: string; titulo: string }> = [
+    { v: true, txt: 'Sim', titulo: 'Sim' },
+    { v: false, txt: 'Não', titulo: 'Não' },
+    { v: null, txt: '—', titulo: 'Não informado' },
   ]
   const atual = value ?? null
   return (
@@ -2512,8 +2512,12 @@ function TriEstado({ label, value, onChange, hint }: {
         <Label className="text-[13px] font-normal">{label}</Label>
         {hint && <p className="text-[11px] leading-tight text-muted-foreground">{hint}</p>}
       </div>
-      <div className="flex shrink-0 rounded-md border border-border bg-muted/40 p-0.5">
-        {opcoes.map(o => {
+      {/* Grupo de botões do design system: moldura única, segmentos separados
+          por borda e o escolhido em cor sólida. A versão anterior marcava o
+          ativo só com um fundo levemente mais claro — de longe, as três opções
+          pareciam igualmente apagadas e não dava para ler a resposta. */}
+      <div className="inline-flex shrink-0 overflow-hidden rounded-lg border border-border shadow-sm">
+        {opcoes.map((o, i) => {
           const ativo = atual === o.v
           return (
             <button
@@ -2521,12 +2525,18 @@ function TriEstado({ label, value, onChange, hint }: {
               type="button"
               onClick={() => onChange(o.v)}
               aria-pressed={ativo}
-              title={o.v === null ? 'Não informado' : o.txt}
+              title={o.titulo}
               className={cn(
-                'min-w-[38px] rounded px-2 py-1 text-[11px] font-medium transition-colors',
+                'h-9 px-3.5 text-[13px] font-medium transition-colors',
+                i > 0 && 'border-l border-border',
+                // O "—" selecionado fica em tom neutro, não na cor de destaque:
+                // ele é a ausência de resposta, e pintá-lo como as outras daria
+                // à falta de informação o mesmo peso visual de um dado apurado.
                 ativo
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? o.v === null
+                    ? 'bg-muted text-muted-foreground'
+                    : 'bg-primary text-primary-foreground'
+                  : 'bg-background text-foreground hover:bg-muted',
               )}
             >
               {o.txt}

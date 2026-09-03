@@ -14,16 +14,25 @@
 -- registros aposentados — e num punhado de casos o mesmo CNPJ carrega nomes de
 -- empresas diferentes, o que faria a informacao pousar no cliente errado.
 --
--- Toda a carga e ADITIVA, via COALESCE: preenche o que esta vazio e nunca
--- reescreve uma resposta que ja existe. NULL continua significando "ninguem
--- informou" — nao viramos 1.600 clientes em "nao" de uma vez.
+-- A tributacao SOBRESCREVE o cadastro: a planilha e a fonte, decisao do Wagner
+-- em 03/09. As caracteristicas novas, essas, entram por COALESCE — preenchem o
+-- vazio e nunca reescrevem uma resposta ja dada, porque nascem todas NULL e o
+-- unico jeito de haver algo ali e alguem ter respondido. NULL continua
+-- significando "ninguem informou": nao viramos 1.600 clientes em "nao".
 --
 -- Os valores de atividade usam a grafia do catalogo ATIVIDADE de Opcoes de
 -- Cadastro (Comercio / Industria / Servico, sem acento). Divergir na acentuacao
 -- criaria duas entradas para a mesma coisa no filtro de /clientes.
 
 -- ---------------------------------------------------------------------------
--- 1) Tributacao: so onde o cadastro esta VAZIO, e so onde as abas concordam.
+-- 1) Tributacao. A planilha e a fonte: onde ela e o cadastro discordam, quem
+--    cede e o cadastro. Sao 198 clientes, dos quais 51 estavam sem regime
+--    nenhum e 2 tinham um regime diferente do que a contabilidade pratica
+--    (Adistec e Bela Vista) — o resto ja batia e a linha nao muda de valor.
+--
+--    Entram so os CNPJs em que as tres abas dizem a mesma coisa. Nos 14 em que
+--    elas discordam ENTRE SI a planilha nao tem uma resposta para dar, entao
+--    nao ha o que impor ao cadastro.
 -- ---------------------------------------------------------------------------
 UPDATE clientes c SET tributacao = v.trib::"TaxRegime"
   FROM (VALUES
@@ -228,7 +237,7 @@ UPDATE clientes c SET tributacao = v.trib::"TaxRegime"
   ) AS v(cnpj, trib)
  WHERE regexp_replace(c.documento, '[^0-9A-Za-z]', '', 'g') = v.cnpj
    AND c.deleted_at IS NULL AND c.is_active
-   AND c.tributacao IS NULL;
+   AND c.tributacao IS DISTINCT FROM v.trib::"TaxRegime";
 
 -- ---------------------------------------------------------------------------
 -- 2) Caracteristicas fiscais. A apuracao do Lucro Real so entra em quem de fato
