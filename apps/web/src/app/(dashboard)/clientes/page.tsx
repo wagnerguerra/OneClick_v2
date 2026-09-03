@@ -141,7 +141,9 @@ export default function ClientesPage() {
 
   // Relatório de cadastros repetidos é só para administrador (mesma regra do backend).
   const { isMaster, isEmpresaMaster } = useUserPermissions()
-  const { canCreate } = useClientesPerms()
+  // Edição inline: cada campo tem a SUA permissão, igual ao backend. Gatear
+  // tudo num flag só criaria campos que parecem editáveis e falham no save.
+  const { canCreate, canEditDetails, canManageCommercial, canEditTaxation } = useClientesPerms()
   const [search, setSearch] = useState(() => txt(salvos.search))
   // Inicia JÁ com o valor salvo: se começasse vazio, a primeira busca ignoraria
   // o texto restaurado e a lista piscaria sem filtro antes de corrigir.
@@ -561,6 +563,14 @@ export default function ClientesPage() {
     start = Math.max(1, end - 4)
     for (let i = start; i <= end; i++) pages.push(i)
     return pages
+  }
+
+  /** Aplica na linha o valor que a célula acabou de salvar (ou desfazer). */
+  function atualizarLinha(id: string, campo: string, valor: unknown) {
+    setData(prev => prev ? {
+      ...prev,
+      data: prev.data.map(c => c.id === id ? { ...c, [campo]: valor } : c),
+    } : prev)
   }
 
   const hasActiveFilters = filterSituacao || (filterStatus !== 'ATIVO') || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || filterServico || onlyMensal || onlyExCliente
@@ -1043,12 +1053,8 @@ export default function ClientesPage() {
                     <InlineSituacaoSelect
                       clienteId={cliente.id}
                       value={cliente.situacao}
-                      onUpdated={(newVal) => {
-                        setData((prev) => prev ? {
-                          ...prev,
-                          data: prev.data.map((c) => c.id === cliente.id ? { ...c, situacao: newVal } : c),
-                        } : prev)
-                      }}
+                      podeEditar={canEditDetails && canManageCommercial}
+                      onUpdated={(newVal) => atualizarLinha(cliente.id, 'situacao', newVal)}
                     />
                   </TableCell>
                   <TableCell className="text-center">
@@ -1057,7 +1063,13 @@ export default function ClientesPage() {
                   <TableCell>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm">{cliente.razaoSocial}</p>
+                        <span onClick={e => e.stopPropagation()} className="min-w-0 flex-1">
+                          <CelulaTexto
+                            clienteId={cliente.id} campo="razaoSocial" valor={cliente.razaoSocial}
+                            podeEditar={canEditDetails} className="font-medium text-sm"
+                            onUpdated={v => atualizarLinha(cliente.id, 'razaoSocial', v)}
+                          />
+                        </span>
                         {cliente.status === 'INATIVO' && (
                           isExCliente(cliente)
                             ? <Badge className={cn('text-[10px] px-1.5 py-0 border-transparent', EX_CLIENTE_BADGE_CLASS)}>Ex-cliente</Badge>
@@ -1081,12 +1093,38 @@ export default function ClientesPage() {
                   <TableCell className="hidden xl:table-cell font-mono text-xs text-muted-foreground">
                     {formatDocumento(cliente.documento, cliente.tipoDocumento)}
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                    {cliente.tributacao ? (TRIBUTACAO_LABELS[cliente.tributacao] || cliente.tributacao) : '—'}
+                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground" onClick={e => e.stopPropagation()}>
+                    {/* Tributação exige `edit_taxation` além de `edit_details` — é o
+                        mesmo par que a aba do cadastro cobra. */}
+                    <CelulaSelect
+                      clienteId={cliente.id} campo="tributacao" valor={cliente.tributacao}
+                      opcoes={TRIBUTACAO_LABELS}
+                      podeEditar={canEditDetails && canEditTaxation}
+                      onUpdated={v => atualizarLinha(cliente.id, 'tributacao', v)}
+                    />
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{cliente.grupo || '—'}</TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{cliente.cidade || '—'}</TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{cliente.uf || '—'}</TableCell>
+                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground" onClick={e => e.stopPropagation()}>
+                    {/* Grupo é campo COMERCIAL: o backend recusa sem `manage_commercial`. */}
+                    <CelulaTexto
+                      clienteId={cliente.id} campo="grupo" valor={cliente.grupo}
+                      podeEditar={canEditDetails && canManageCommercial}
+                      onUpdated={v => atualizarLinha(cliente.id, 'grupo', v)}
+                    />
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground" onClick={e => e.stopPropagation()}>
+                    <CelulaTexto
+                      clienteId={cliente.id} campo="cidade" valor={cliente.cidade}
+                      podeEditar={canEditDetails}
+                      onUpdated={v => atualizarLinha(cliente.id, 'cidade', v)}
+                    />
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground" onClick={e => e.stopPropagation()}>
+                    <CelulaTexto
+                      clienteId={cliente.id} campo="uf" valor={cliente.uf}
+                      podeEditar={canEditDetails} maxLength={2} upper
+                      onUpdated={v => atualizarLinha(cliente.id, 'uf', v)}
+                    />
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                       <Button variant="soft-info" size="icon-sm" title="Editar" onClick={() => router.push(`/clientes/${cliente.id}`)}>
@@ -1300,7 +1338,147 @@ export default function ClientesPage() {
 }
 
 // Componente inline para editar Situação direto na tabela
-function InlineSituacaoSelect({ clienteId, value, onUpdated }: { clienteId: string; value: string; onUpdated: (v: string) => void }) {
+/**
+ * Célula de texto editável direto na tabela (#edição inline).
+ *
+ * Clique abre o input, Enter ou sair do campo salva, Esc cancela. A linha toda
+ * navega para o detalhe, então todo clique aqui precisa de `stopPropagation`.
+ *
+ * Sem permissão, renderiza texto puro — não um input desabilitado: um campo que
+ * parece editável e recusa é pior que um campo que não convida ao clique.
+ *
+ * O valor da tela muda ANTES da resposta (otimista), mas volta atrás se o save
+ * falhar, com o erro na cara do usuário. O inline de Situação que já existia
+ * engolia a falha em silêncio: a tela mostrava o valor novo e o banco ficava com
+ * o velho.
+ */
+function CelulaTexto({ clienteId, campo, valor, podeEditar, onUpdated, maxLength, upper, className }: {
+  clienteId: string
+  campo: 'razaoSocial' | 'grupo' | 'cidade' | 'uf'
+  valor: string | null
+  podeEditar: boolean
+  onUpdated: (v: string | null) => void
+  maxLength?: number
+  upper?: boolean
+  className?: string
+}) {
+  const [editando, setEditando] = useState(false)
+  const [rascunho, setRascunho] = useState(valor ?? '')
+  const [salvando, setSalvando] = useState(false)
+
+  if (!podeEditar) {
+    return <span className={className}>{valor || '—'}</span>
+  }
+
+  async function salvar() {
+    const novo = upper ? rascunho.trim().toUpperCase() : rascunho.trim()
+    setEditando(false)
+    if (novo === (valor ?? '')) return
+
+    const anterior = valor
+    onUpdated(novo || null)          // otimista
+    setSalvando(true)
+    try {
+      await trpc.cliente.update.mutate({ id: clienteId, data: { [campo]: novo || null } as never })
+    } catch (e) {
+      onUpdated(anterior)            // desfaz
+      setRascunho(anterior ?? '')
+      alerts.error('Não foi possível salvar', (e as Error).message)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  if (editando) {
+    return (
+      <input
+        autoFocus
+        value={rascunho}
+        maxLength={maxLength}
+        onChange={e => setRascunho(e.target.value)}
+        onClick={e => e.stopPropagation()}
+        onBlur={salvar}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); salvar() }
+          if (e.key === 'Escape') { setRascunho(valor ?? ''); setEditando(false) }
+        }}
+        className="w-full rounded border border-primary bg-background px-1.5 py-0.5 text-sm outline-none"
+      />
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={e => { e.stopPropagation(); setRascunho(valor ?? ''); setEditando(true) }}
+      title="Clique para editar"
+      className={cn(
+        'w-full rounded px-1 -mx-1 text-left transition-colors hover:bg-muted',
+        salvando && 'opacity-50',
+        className,
+      )}
+    >
+      {valor || <span className="text-muted-foreground">—</span>}
+    </button>
+  )
+}
+
+/** Mesma ideia da célula de texto, para campos com lista fechada. */
+function CelulaSelect({ clienteId, campo, valor, opcoes, podeEditar, onUpdated, className }: {
+  clienteId: string
+  campo: 'tributacao'
+  valor: string | null
+  opcoes: Record<string, string>
+  podeEditar: boolean
+  onUpdated: (v: string | null) => void
+  className?: string
+}) {
+  const [salvando, setSalvando] = useState(false)
+  const rotulo = valor ? (opcoes[valor] ?? valor) : null
+
+  if (!podeEditar) {
+    return <span className={className}>{rotulo || '—'}</span>
+  }
+
+  async function escolher(novo: string | null) {
+    if (novo === valor) return
+    const anterior = valor
+    onUpdated(novo)
+    setSalvando(true)
+    try {
+      await trpc.cliente.update.mutate({ id: clienteId, data: { [campo]: novo } as never })
+    } catch (e) {
+      onUpdated(anterior)
+      alerts.error('Não foi possível salvar', (e as Error).message)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          onClick={e => e.stopPropagation()}
+          title="Clique para editar"
+          className={cn('w-full rounded px-1 -mx-1 text-left transition-colors hover:bg-muted', salvando && 'opacity-50', className)}
+        >
+          {rotulo || <span className="text-muted-foreground">—</span>}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[170px]" onClick={e => e.stopPropagation()}>
+        <DropdownMenuItem onClick={() => escolher(null)}><span className="text-muted-foreground">— Não informado</span></DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {Object.entries(opcoes).map(([v, l]) => (
+          <DropdownMenuItem key={v} onClick={() => escolher(v)}>{l}</DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function InlineSituacaoSelect({ clienteId, value, podeEditar, onUpdated }: { clienteId: string; value: string; podeEditar: boolean; onUpdated: (v: string) => void }) {
   const [saving, setSaving] = useState(false)
 
   async function handleChange(newValue: string) {
@@ -1309,12 +1487,29 @@ function InlineSituacaoSelect({ clienteId, value, onUpdated }: { clienteId: stri
     try {
       await trpc.cliente.update.mutate({ id: clienteId, data: { situacao: newValue as 'MENSAL' } })
       onUpdated(newValue)
-    } catch { /* silent */ }
+    } catch (e) {
+      // Antes isto era `catch { /* silent */ }`: quem não tinha a permissão
+      // comercial via a situação mudar na tela e nada salvava no banco.
+      alerts.error('Não foi possível salvar', (e as Error).message)
+    }
     finally { setSaving(false) }
   }
 
   const sc = SITUACAO_COLORS[value as keyof typeof SITUACAO_COLORS]
   const isSolid = value === 'MENSAL'
+  const estilo = isSolid
+    ? { backgroundColor: sc?.bg || '#e5e5e5', color: sc?.color || '#666' }
+    : { backgroundColor: 'transparent', color: sc?.bg || '#666', border: `1.5px solid ${sc?.bg || '#ccc'}` }
+
+  // Sem permissao comercial, vira etiqueta: nao convida ao clique que o
+  // servidor vai recusar.
+  if (!podeEditar) {
+    return (
+      <span className="block w-full rounded-[3px] px-2.5 py-[3px] text-[10px] font-semibold text-center" style={estilo}>
+        {SITUACAO_LABELS[value as keyof typeof SITUACAO_LABELS] || value}
+      </span>
+    )
+  }
 
   return (
     <DropdownMenu>
