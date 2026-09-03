@@ -3655,8 +3655,9 @@
       else showToast('Diagnóstico', result.error || 'Falha ao copiar diagnóstico');
     }
 
-    let onlineUsersEs = null;
     let onlineUsersTick = null;
+
+    let onlineUsersBound = false;
 
     function onlineUsersGetUrl() {
       // Mesma URL do BI Sync — o user já configura uma vez lá
@@ -3733,39 +3734,42 @@
       document.getElementById('onlineUsersConnectBtn').style.display = 'none';
       document.getElementById('onlineUsersDisconnectBtn').style.display = '';
 
-      const sseUrl = `${baseUrl}/api/admin/online-users/events`;
-      try {
-        onlineUsersEs = new EventSource(sseUrl);
-        onlineUsersEs.onopen = () => onlineUsersSetBadge('online');
-        onlineUsersEs.onmessage = (msg) => {
-          try {
-            const payload = JSON.parse(msg.data);
-            if (payload.users) renderOnlineUsers(payload.users);
-          } catch { /* ignora payload inválido */ }
-        };
-        onlineUsersEs.onerror = () => {
-          onlineUsersSetBadge('reconnecting');
-          // EventSource já tenta reconectar sozinho
-        };
-      } catch (e) {
-        document.getElementById('usersBody').innerHTML = `<div class="users-empty">Erro: ${escapeHtml(e.message)}</div>`;
-        onlineUsersSetBadge('error');
-      }
+      // Quem abre o stream é o processo principal: é lá que está o cookie da
+      // sessão da VPS. Um EventSource daqui saía sem cookie nenhum, o servidor
+      // tratava como visita anônima e devolvia lista vazia — a tela ficava em
+      // zero para sempre, sem dizer por quê.
+      window.api.onlineUsersStart(baseUrl);
+    }
 
-      // Tick local pra atualizar os "há X min" sem precisar de nova request
-      if (onlineUsersTick) clearInterval(onlineUsersTick);
-      onlineUsersTick = setInterval(() => {
-        const rows = document.querySelectorAll('#usersBody tr td:last-child');
-        // Os timestamps são re-renderizados a cada evento SSE (5s); esse tick
-        // só ajuda a manter o badge visual coerente entre eventos.
-      }, 30_000);
+    /**
+     * Liga a escuta uma única vez, no boot.
+     *
+     * `__semSessao` é diferente de "ninguém online": significa que o Service
+     * Manager ainda não logou na VPS. Dizer isso na tela evita a leitura errada
+     * de que o escritório inteiro está fora.
+     */
+    function onlineUsersBind() {
+      if (!window.api || !window.api.onOnlineUsersEvent || onlineUsersBound) return;
+      onlineUsersBound = true;
+      window.api.onOnlineUsersEvent((ev) => {
+        if (!ev) return;
+        if (ev.type === '__conectado') { onlineUsersSetBadge('online'); return; }
+        if (ev.type === '__semSessao') {
+          onlineUsersSetBadge('connecting');
+          document.getElementById('usersBody').innerHTML =
+            '<div class="users-empty">Aguardando o login na VPS (aba Sincronizações) para ler a presença.</div>';
+          return;
+        }
+        if (ev.type === '__error') {
+          onlineUsersSetBadge('reconnecting');
+          return;
+        }
+        if (ev.users) { onlineUsersSetBadge('online'); renderOnlineUsers(ev.users); }
+      });
     }
 
     function onlineUsersDisconnect() {
-      if (onlineUsersEs) {
-        try { onlineUsersEs.close(); } catch {}
-        onlineUsersEs = null;
-      }
+      if (window.api && window.api.onlineUsersStop) window.api.onlineUsersStop();
       if (onlineUsersTick) {
         clearInterval(onlineUsersTick);
         onlineUsersTick = null;
@@ -4252,9 +4256,14 @@
       }
       renderLogs();
 
-      // Usuários online: agora via SSE (página separada) — user clica "Conectar"
-      // quando quiser ver. Auto-conecta se a aba "Usuários" estiver aberta E
-      // já há URL configurada (BI Sync foi logado).
+      // Usuários online: liga sozinho. Antes dependia de alguém clicar
+      // "Conectar" — e como nada chamava isso, o painel ficava em "–" desde o
+      // boot. O stream vive no processo principal e sobrevive à troca de aba;
+      // se a sessão da VPS ainda não existir, ele espera e religa quando ela
+      // chegar, em vez de desistir.
+      onlineUsersBind();
+      onlineUsersConnect();
+
       checkSci();
       setInterval(checkSci, 30000);
 

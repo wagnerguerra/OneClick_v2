@@ -47,6 +47,16 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('bi-sync-event', handler)
   },
 
+  // Usuarios online — o stream mora no processo principal, que tem o cookie da
+  // sessao da VPS. O renderer so escuta.
+  onlineUsersStart: (baseUrl) => ipcRenderer.invoke('online-users-start', baseUrl),
+  onlineUsersStop: () => ipcRenderer.invoke('online-users-stop'),
+  onOnlineUsersEvent: (callback) => {
+    const handler = (_event, data) => callback(data)
+    ipcRenderer.on('online-users-event', handler)
+    return () => ipcRenderer.removeListener('online-users-event', handler)
+  },
+
   // Folha Sync — eventos do ETL da folha (a fila do modulo /folha-bi). Faz stream do
   // progresso e (modo empresa) sobe os envelopes usando o cookie da sessao (main process).
   onFolhaSyncEvent: (callback) => {
