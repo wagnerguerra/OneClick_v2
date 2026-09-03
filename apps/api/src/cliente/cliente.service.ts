@@ -174,48 +174,6 @@ export class ClienteService {
     const { page, limit, search, sortBy, sortDir, situacao, status, incluirInativos, exCliente, tributacao, grupo, cidade, uf, isLead, agruparMatriz, numero, tipoCliente, atividade, areaContratada, comBeneficio, comServico } = input
     const { skip, take } = getPrismaSkipTake(page, limit)
 
-    // Filtro de matriz quando agruparMatriz=true: oculta filiais (CNPJ ordem
-    // != 0001) SEMPRE — inclusive em buscas textuais. Filiais ficam acessíveis
-    // apenas pelo modal de filiais da matriz.
-    //
-    // Prisma não tem operador `substring` em filtros, e endsWith('0001') não
-    // serve porque o CNPJ ainda tem 2 dígitos de DV depois da ordem (posições
-    // 13-14). Pegamos os IDs candidatos via SQL raw e usamos `id: { in: [] }`.
-    let matrizFilter: Prisma.ClienteWhereInput[] = []
-    if (agruparMatriz) {
-      // Matriz (regra HÍBRIDA p/ CNPJ alfanumérico, Fase 3): flag explícito
-      // `eh_matriz=true` OU, quando o flag é NULL (numérico/legado), a ordem
-      // '0001'. Para os dados atuais (eh_matriz sempre NULL) é IDÊNTICO ao antigo
-      // `substring(9,4)='0001'` — nenhuma mudança de comportamento.
-      // #HLP0209 — este SQL é ESTRUTURAL (define matriz/filial); NÃO filtra por
-      // deleted_at/status. Quem oculta inativo é o `where` principal (por status).
-      // Antes filtrava deleted_at IS NULL e escondia da lista os clientes que
-      // estavam na Lixeira (hoje status=INATIVO) mesmo em Inativos/Todos.
-      const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-        `SELECT c.id FROM clientes c
-         WHERE (
-             c.tipo_documento <> 'CNPJ'
-             OR c.documento IS NULL
-             OR c.documento = ''
-             OR length(c.documento) <> 14
-             OR c.eh_matriz = true
-             OR (c.eh_matriz IS NULL AND substring(c.documento, 9, 4) = '0001')
-             -- Filial ÓRFÃ: é filial mas sem matriz cadastrada na mesma
-             -- base/escopo. Senão ficaria invisível (não tem onde aninhar).
-             OR substring(c.documento, 1, 8) NOT IN (
-               SELECT substring(documento, 1, 8) FROM clientes
-               WHERE tipo_documento = 'CNPJ'
-                 AND length(documento) = 14
-                 AND (eh_matriz = true OR (eh_matriz IS NULL AND substring(documento, 9, 4) = '0001'))
-                 ${empresaId ? 'AND empresa_id = $1' : ''}
-             )
-           )
-           ${empresaId ? 'AND c.empresa_id = $1' : ''}`,
-        ...(empresaId ? [empresaId] : []),
-      )
-      matrizFilter = [{ id: { in: rows.map(r => r.id) } }]
-    }
-
     // Busca textual (#HLP0077): além de case-insensitive, ignora acentos —
     // "são paulo" tem que casar com "Sao Paulo" e vice-versa. Prisma não
     // expõe `unaccent`, então buscamos os IDs candidatos via raw SQL e
@@ -295,16 +253,54 @@ export class ClienteService {
       ...(comBeneficio === '__com__' ? { beneficiosFiscais: { some: {} } }
         : comBeneficio === '__sem__' ? { beneficiosFiscais: { none: {} } }
         : comBeneficio ? { beneficiosFiscais: { some: { catalogo: { nome: comBeneficio } } } } : {}),
-      ...((searchIdsFilter.length + matrizFilter.length) > 0
-        ? { AND: [...searchIdsFilter, ...matrizFilter] as Prisma.ClienteWhereInput[] }
+      ...(searchIdsFilter.length > 0
+        ? { AND: [...searchIdsFilter] as Prisma.ClienteWhereInput[] }
         : {}),
+    }
+
+    // ------------------------------------------------------------------
+    // Agrupamento matriz/filial
+    //
+    // A filial nao vira linha propria porque fica pendurada na matriz, no selo
+    // "N filiais". Isso so faz sentido se a matriz ESTIVER no resultado: era a
+    // base inteira que decidia antes, entao uma filial que passava no filtro
+    // sumia mesmo quando a matriz dela nao passava — e nao havia linha nenhuma
+    // onde encontra-la. Era o buraco entre o indicador ("8 sem tributacao") e a
+    // lista (5): as outras 3 eram filiais cujas matrizes tinham tributacao.
+    //
+    // Calculamos as OCULTAS, nao as visiveis: sao poucas (dezenas), enquanto as
+    // visiveis sao a lista quase toda — um `notIn` curto no lugar de um `in`
+    // com milhares de ids.
+    // ------------------------------------------------------------------
+    let whereLista = where
+    if (agruparMatriz) {
+      const universo = await prisma.cliente.findMany({
+        where,
+        select: { id: true, documento: true, ehMatriz: true, tipoDocumento: true },
+      })
+      const raizesComMatriz = new Set<string>()
+      for (const c of universo) {
+        if (ehMatrizCnpj(c.documento, c.ehMatriz, c.tipoDocumento)) {
+          raizesComMatriz.add(limparCnpj(c.documento).slice(0, 8))
+        }
+      }
+      // Some so quem e filial DE VERDADE (CNPJ de 14) e tem a matriz na mao.
+      // CPF, documento curto ou vazio nunca se escondem: nao ha grupo a formar.
+      const ocultas = universo
+        .filter(c => {
+          const doc = limparCnpj(c.documento)
+          if (doc.length !== 14 || ehMatrizCnpj(c.documento, c.ehMatriz, c.tipoDocumento)) return false
+          return raizesComMatriz.has(doc.slice(0, 8))
+        })
+        .map(c => c.id)
+      if (ocultas.length > 0) whereLista = { AND: [where, { id: { notIn: ocultas } }] }
     }
 
     const orderBy = sortBy ? { [sortBy]: sortDir } : { code: 'asc' as const }
 
     const [data, total] = await Promise.all([
       prisma.cliente.findMany({
-        where, orderBy, skip, take,
+        where: whereLista, orderBy, skip, take,
         include: {
           servicosContratados: {
             where: { contratado: true },
@@ -312,7 +308,7 @@ export class ClienteService {
           },
         },
       }),
-      prisma.cliente.count({ where }),
+      prisma.cliente.count({ where: whereLista }),
     ])
 
     // Pra cada matriz na página, conta as filiais (mesma raiz CNPJ, não-matriz).
