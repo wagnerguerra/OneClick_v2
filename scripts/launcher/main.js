@@ -2202,6 +2202,29 @@ function registerIpcHandlers() {
     return null
   }
 
+  /**
+   * O arquivo entra na fila de commit do deploy?
+   *
+   * A fila e so do que vai a producao. Ficam de fora os restos de trabalho
+   * (.bak, .env.bak.*, /tmp/) e, no core, a pasta docs/: relatorio, planilha e
+   * anotacao de apoio nao sao codigo publicado, e cada um virava um commit no
+   * GitHub sem ninguem pedir. Seguem versionaveis a mao quando fizer sentido —
+   * o que sai e o automatico.
+   *
+   * Uma funcao so para os dois usos (a lista que o painel mostra e o que o
+   * deploy de fato commita). Como eram duas copias, ja tinham divergido: o
+   * painel escondia o mobile-dist e o commit nao.
+   */
+  function entraNaFilaDeDeploy(d, projectId) {
+    const p = String(d.path || '').replace(/\\/g, '/')
+    if (projectId === 'core' && (p === 'docs' || p.startsWith('docs/'))) return false
+    if (d.status === '??') {
+      if (p.endsWith('.bak') || p.includes('.env.bak.') || p.includes('/tmp/')) return false
+      if (projectId === 'app' && p.startsWith('scripts/mobile-dist/')) return false
+    }
+    return true
+  }
+
   function gitStatusForDeployProject(def, cfg) {
     const cwd = def.cwd
     if (!cwd || !fs.existsSync(cwd)) {
@@ -2220,13 +2243,7 @@ function registerIpcHandlers() {
       status: l.slice(0, 2).trim(),
       path: l.slice(3),
     }))
-    const dirtyRelevant = dirtyFiles.filter(d => {
-      if (d.status === '??') {
-        if (d.path.endsWith('.bak') || d.path.includes('.env.bak.') || d.path.includes('/tmp/')) return false
-        if (def.id === 'app' && d.path.replace(/\\/g, '/').startsWith('scripts/mobile-dist/')) return false
-      }
-      return true
-    })
+    const dirtyRelevant = dirtyFiles.filter(d => entraNaFilaDeDeploy(d, def.id))
 
     const remoteUrl = gitOutput(['remote', 'get-url', 'origin'], cwd)
     const hasRemote = gitExitCode(['remote', 'get-url', 'origin'], cwd) === 0 && !!remoteUrl
@@ -2709,12 +2726,7 @@ function registerIpcHandlers() {
         status: l.slice(0, 2).trim(),
         path: l.slice(3),
       }))
-      const dirtyRelevant = dirtyAll.filter(d => {
-        if (d.status === '??') {
-          if (d.path.endsWith('.bak') || d.path.includes('.env.bak.') || d.path.includes('/tmp/')) return false
-        }
-        return true
-      })
+      const dirtyRelevant = dirtyAll.filter(d => entraNaFilaDeDeploy(d, 'core'))
       if (dirtyRelevant.length > 0) {
         if (!commitMessage) {
           deployRunning = false
@@ -3098,7 +3110,7 @@ function registerIpcHandlers() {
         const appDirty = gitOutput(['status', '--porcelain'], appCwd).split('\n').filter(Boolean).map(l => ({
           status: l.slice(0, 2).trim(),
           path: l.slice(3),
-        })).filter(d => !(d.status === '??' && (d.path.endsWith('.bak') || d.path.includes('/tmp/') || d.path.replace(/\\/g, '/').startsWith('scripts/mobile-dist/'))))
+        })).filter(d => entraNaFilaDeDeploy(d, 'app'))
         if (appDirty.length > 0) {
           if (!commitMessage) {
             deployRunning = false
