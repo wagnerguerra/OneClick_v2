@@ -583,13 +583,51 @@ export class RelatorioTiService {
    * Só as publicadas, e sem nada do relatório de origem: quem lê o widget não
    * tem o módulo, e o relatório interno não deve vazar por tabela vizinha.
    */
-  async novidadesPublicas(empresaId?: string | null, limite = 30) {
-    return prisma.novidade.findMany({
+  async novidadesPublicas(empresaId?: string | null, limite = 30, userId?: string | null) {
+    const novidades = await prisma.novidade.findMany({
       where: { empresaId: empresaId ?? null, ativo: true },
       orderBy: [{ publicadoEm: 'desc' }, { ordem: 'asc' }],
       take: limite,
-      select: { id: true, titulo: true, descricao: true, tipo: true, moduloSlug: true, publicadoEm: true },
+      select: {
+        id: true, titulo: true, descricao: true, tipo: true, moduloSlug: true, publicadoEm: true,
+        // Total de curtidas + se ESTE usuário já curtiu. Vem no mesmo payload
+        // para o coração nascer no estado certo, sem uma segunda consulta que
+        // faria o botão piscar de vazio para cheio.
+        _count: { select: { reacoes: true } },
+        reacoes: userId ? { where: { userId }, select: { id: true }, take: 1 } : false,
+      },
     })
+    return novidades.map(({ _count, reacoes, ...n }) => ({
+      ...n,
+      curtidas: _count.reacoes,
+      euCurti: Array.isArray(reacoes) && reacoes.length > 0,
+    }))
+  }
+
+  /**
+   * Curte ou descurte uma novidade. Alterna: clicar de novo desfaz.
+   *
+   * O unique (novidade, usuario) e quem garante "uma curtida por pessoa" — dois
+   * cliques simultaneos batem no indice, nao numa checagem de leitura que
+   * poderia passar as duas.
+   */
+  async alternarCurtida(novidadeId: string, userId: string) {
+    const existente = await prisma.novidadeReacao.findUnique({
+      where: { novidadeId_userId: { novidadeId, userId } },
+      select: { id: true },
+    })
+
+    if (existente) {
+      await prisma.novidadeReacao.delete({ where: { id: existente.id } })
+    } else {
+      await prisma.novidadeReacao.create({ data: { novidadeId, userId } })
+        // Corrida entre dois cliques: o unique recusa a segunda inserção e o
+        // estado final (curtido) e o mesmo. Nao e erro para o usuario.
+        .catch(() => undefined)
+    }
+
+    const curtidas = await prisma.novidadeReacao.count({ where: { novidadeId } })
+    return { curtidas, euCurti: !existente }
   }
 
   /** Tudo, inclusive o que foi despublicado — a tela de curadoria precisa ver. */

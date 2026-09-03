@@ -7964,9 +7964,28 @@ model Novidade {
   // SetNull: apagar o relatório de origem não pode apagar a novidade, que já
   // foi lida por todo mundo no painel.
   relatorio RelatorioDiario? @relation(fields: [relatorioId], references: [id], onDelete: SetNull)
+  reacoes   NovidadeReacao[]
 
   @@index([empresaId, ativo, publicadoEm])
   @@map("novidades")
+}
+
+/// Curtida de um usuário numa novidade do painel.
+///
+/// Um REGISTRO por pessoa, não um contador na novidade: assim se sabe quem
+/// curtiu, a mesma pessoa não curte duas vezes (o unique abaixo é quem garante,
+/// não a tela) e descurtir é só apagar a linha.
+model NovidadeReacao {
+  id         String   @id @default(cuid())
+  novidadeId String   @map("novidade_id")
+  userId     String   @map("user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  novidade Novidade @relation(fields: [novidadeId], references: [id], onDelete: Cascade)
+
+  @@unique([novidadeId, userId])
+  @@index([novidadeId])
+  @@map("novidade_reacoes")
 }
 
 /// Configuração do módulo — uma linha por empresa.

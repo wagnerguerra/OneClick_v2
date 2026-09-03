@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Sparkles, Wrench, Bug, Megaphone, ArrowRight } from 'lucide-react'
+import { Sparkles, Wrench, Bug, Megaphone, ArrowRight, Heart } from 'lucide-react'
 import {
   Button, Card, CardContent,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
@@ -19,6 +19,8 @@ interface Novidade {
   tipo: 'NOVO' | 'MELHORIA' | 'CORRECAO' | string
   moduloSlug: string | null
   publicadoEm: string
+  curtidas: number
+  euCurti: boolean
 }
 
 /** Cada natureza tem cor e ícone próprios — dá para separar de relance. */
@@ -79,6 +81,28 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
       .then((r: Novidade[]) => setItens(r ?? []))
       .catch(() => setItens([]))
   }, [canRead, expanded])
+
+  /**
+   * Curte ou descurte. O estado muda na hora e volta atrás se falhar — um
+   * coração que fica aceso sem ter gravado é pior que um erro visível.
+   *
+   * Atualiza lista E modal juntos: com o detalhe aberto, os dois corações
+   * mostram a mesma novidade e não podem discordar.
+   */
+  async function curtir(n: Novidade) {
+    const otimista = { curtidas: n.curtidas + (n.euCurti ? -1 : 1), euCurti: !n.euCurti }
+    const aplicar = (v: { curtidas: number; euCurti: boolean }) => {
+      setItens(prev => prev?.map(i => i.id === n.id ? { ...i, ...v } : i) ?? prev)
+      setDetalhe(prev => prev && prev.id === n.id ? { ...prev, ...v } : prev)
+    }
+    aplicar(otimista)
+    try {
+      const r = await (trpc.relatorioTi as any).curtirNovidade.mutate({ novidadeId: n.id })
+      aplicar({ curtidas: r.curtidas, euCurti: r.euCurti })   // o servidor manda o número final
+    } catch {
+      aplicar({ curtidas: n.curtidas, euCurti: n.euCurti })   // desfaz
+    }
+  }
 
   const vazio = { color: 'sky' as const, Icon: Megaphone, title: titulo, bloco, href: '/relatorios-ti' }
 
@@ -153,6 +177,21 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
                     : <p className="text-sm italic text-muted-foreground">Sem detalhamento — só o título foi publicado.</p>}
                 </DialogBody>
                 <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                  {/* Curtir: mede se a novidade foi bem recebida. A contagem é
+                      visível a todos; uma curtida por pessoa, garantida pelo
+                      índice único no banco — não por regra de tela. */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => curtir(detalhe)}
+                    aria-pressed={detalhe.euCurti}
+                    title={detalhe.euCurti ? 'Remover minha curtida' : 'Curtir esta novidade'}
+                    className={detalhe.euCurti ? 'gap-1.5 border-rose-300 text-rose-600 dark:border-rose-900 dark:text-rose-400' : 'gap-1.5'}
+                  >
+                    <Heart className={detalhe.euCurti ? 'h-3.5 w-3.5 fill-current' : 'h-3.5 w-3.5'} />
+                    {detalhe.curtidas > 0 ? detalhe.curtidas : 'Curtir'}
+                  </Button>
                   {/* Rodapé diz QUAL módulo a novidade toca, não só oferece o
                       caminho. "Melhoria" sem dizer onde obriga a pessoa a abrir
                       o sistema para descobrir se aquilo é da rotina dela. */}
