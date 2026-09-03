@@ -1540,6 +1540,26 @@
       font-size: 14px; font-weight: 600; color: var(--lx-fg);
       margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    /* Selo de PR na parada do GitHub. Um painel inteiro para anunciar que
+       nao ha nada e desproporcional: ocupava a mesma altura de quando ha PR
+       para dizer "nenhum". Vira uma linha no lugar onde a informacao mora. */
+    #page-deploy .lx-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 5px; padding: 2px 9px; border-radius: 999px;
+      font-size: 10.5px; font-weight: 600; white-space: nowrap;
+      background: var(--lx-surface); color: var(--lx-muted);
+      border: 1px solid var(--lx-border);
+    }
+    #page-deploy .lx-chip::before {
+      content: ''; width: 5px; height: 5px; border-radius: 50%;
+      background: currentColor; flex-shrink: 0;
+    }
+    #page-deploy .lx-chip[data-state="erro"] {
+      color: var(--lx-danger);
+      border-color: color-mix(in srgb, var(--lx-danger) 30%, transparent);
+      background: color-mix(in srgb, var(--lx-danger) 8%, transparent);
+    }
+
     #page-deploy .lx-stop-sha {
       font-family: 'Cascadia Code', ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 11px; color: var(--lx-muted); margin-top: 1px;
@@ -2052,6 +2072,13 @@
     .btn:active:not(:disabled) { transform: none; }
     .btn-sm { height: 28px; padding: 0 10px; font-size: 11.5px; }
     .btn-lg { height: 38px; padding: 0 18px; font-size: 13px; font-weight: 600; }
+    /* Acao principal de uma tela — "Salvar" e afins. Verde ficou reservado
+       para o que e semanticamente verde (iniciar um servico); o azul do tema
+       marca a acao principal, como no modelo. */
+    .btn-primary {
+      background: var(--lx-primary); border-color: transparent; color: #fff; font-weight: 600;
+    }
+    .btn-primary:hover { background: var(--lx-primary-hover); border-color: transparent; color: #fff; }
     .btn-solid-green {
       background: var(--green); border-color: transparent; color: #fff; font-weight: 600;
     }
@@ -2189,12 +2216,6 @@
           <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/></svg></span> <span class="nav-label">Serviços</span>
           <span class="nav-badge off" id="navServicesBadge">0/0</span>
         </button>
-        <button class="nav-item" data-page="docker" data-label="Docker">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span> <span class="nav-label">Docker</span>
-        </button>
-        <button class="nav-item" data-page="logs" data-label="Logs">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span> <span class="nav-label">Logs</span>
-        </button>
         <button class="nav-item" data-page="users" data-label="Usuários">
           <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> <span class="nav-label">Usuários</span>
         </button>
@@ -2203,9 +2224,9 @@
           <span class="nav-label">NFe Watcher</span>
           <span class="nav-badge off" id="navNfeBadge">off</span>
         </button>
-        <button class="nav-item" data-page="bi-sync" data-label="VPS Sync">
+        <button class="nav-item" data-page="bi-sync" data-label="Sincronizações">
           <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="23 4 23 10 17 10"/></svg></span>
-          <span class="nav-label">VPS Sync</span>
+          <span class="nav-label">Sincronizações</span>
           <span class="nav-badge off" id="navBiSyncBadge">offline</span>
         </button>
         <button class="nav-item" data-page="deploy" data-label="Deploy">
@@ -2319,60 +2340,11 @@
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- ═══ Page: Services ═══ -->
-      <div class="page" id="page-services">
-        <div class="page-header">
-          <div>
-            <div class="page-title">Gerenciar Serviços</div>
-            <div class="page-subtitle">Controle individual de cada serviço do sistema</div>
-          </div>
-        </div>
-        <div class="actions-bar">
-          <button class="btn btn-green btn-lg btn-flex" onclick="startAll()">&#9654; Iniciar Todos</button>
-          <button class="btn btn-red btn-lg btn-flex" onclick="stopAll()">&#9632; Parar Todos</button>
-          <button class="btn btn-yellow btn-lg btn-flex" onclick="restartAll()">&#8635; Reiniciar Todos</button>
-        </div>
-        <div class="services-grid" id="serviceCards"></div>
-      </div>
-
-      <!-- ═══ Page: Docker ═══ -->
-      <div class="page" id="page-docker">
-        <div class="page-header">
-          <div>
-            <div class="page-title">Docker Containers</div>
-            <div class="page-subtitle">Gerenciamento de PostgreSQL e Redis via Docker</div>
-          </div>
-        </div>
-        <div class="actions-bar">
-          <button class="btn btn-green btn-lg btn-flex" onclick="startDocker()">&#9654; Iniciar Containers</button>
-          <button class="btn btn-red btn-lg btn-flex" onclick="stopDocker()">&#9632; Parar Containers</button>
-        </div>
-        <div class="docker-grid" id="dockerGrid">
-          <div class="docker-card">
-            <div class="docker-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#336791" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v6c0 1.66-4 3-9 3s-9-1.34-9-3V5"/><path d="M21 11v6c0 1.66-4 3-9 3s-9-1.34-9-3v-6"/></svg></div>
-            <div class="docker-name">PostgreSQL 16</div>
-            <div class="docker-port">Porta 5432</div>
-            <div id="dockerPgStatus"><span class="status-dot"></span></div>
-          </div>
-          <div class="docker-card">
-            <div class="docker-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#dc382d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
-            <div class="docker-name">Redis 7</div>
-            <div class="docker-port">Porta 6379</div>
-            <div id="dockerRedisStatus"><span class="status-dot"></span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ═══ Page: Logs ═══ -->
-      <div class="page" id="page-logs">
-        <div class="page-header">
-          <div>
-            <div class="page-title">Logs dos Serviços</div>
-            <div class="page-subtitle">Saída em tempo real da API e do Web</div>
-          </div>
-        </div>
+        <!-- Log dos serviços — mora aqui, embaixo do estado deles. Era uma aba
+             separada: quem acabava de iniciar a API tinha de trocar de tela
+             para ver se ela subiu. -->
+        <div style="margin-top:16px;">
         <div class="logs-panel">
           <div class="logs-header">
             <div class="logs-tabs" id="logTabs">
@@ -2394,6 +2366,23 @@
           </div>
           <div class="log-content" id="logContent"></div>
         </div>
+        </div>
+      </div>
+
+      <!-- ═══ Page: Services ═══ -->
+      <div class="page" id="page-services">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Gerenciar Serviços</div>
+            <div class="page-subtitle">Controle individual de cada serviço do sistema</div>
+          </div>
+        </div>
+        <div class="actions-bar">
+          <button class="btn btn-green btn-lg btn-flex" onclick="startAll()">&#9654; Iniciar Todos</button>
+          <button class="btn btn-red btn-lg btn-flex" onclick="stopAll()">&#9632; Parar Todos</button>
+          <button class="btn btn-yellow btn-lg btn-flex" onclick="restartAll()">&#8635; Reiniciar Todos</button>
+        </div>
+        <div class="services-grid" id="serviceCards"></div>
       </div>
 
       <!-- ═══ Page: Users (online em tempo real via SSE da VPS) ═══ -->
@@ -2415,7 +2404,7 @@
         <!-- URL da VPS -->
         <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--text-secondary);">
           <strong>URL da VPS:</strong> <span id="onlineUsersUrl" style="font-family:monospace;color:var(--text-primary);">—</span>
-          <span style="margin-left:12px;color:var(--text-muted);">(definida em VPS Sync)</span>
+          <span style="margin-left:12px;color:var(--text-muted);">(definida em Sincronizações)</span>
         </div>
 
         <!-- Lista -->
@@ -2539,6 +2528,9 @@
                   <div class="lx-stop-label">GitHub</div>
                   <div class="lx-stop-main" id="deployRemoteBranch">main</div>
                   <div class="lx-stop-sha" id="deployRemoteSha">—</div>
+                  <!-- Só aparece quando NÃO há PR aberto (ou quando a consulta
+                       falha). Havendo PR, quem fala é o painel abaixo. -->
+                  <span id="deployPrChip" class="lx-chip" style="display:none;"></span>
                 </div>
               </div>
 
@@ -2606,7 +2598,9 @@
         <!-- Projetos (core / app) — cartões montados pelo deployRenderProjects -->
         <div id="deployProjectsBox" class="deploy-project-grid"></div>
 
-        <div class="deploy-pr-panel" id="deployPrPanel">
+        <!-- Nasce escondido: quem o revela e o deployPrsVisibilidade, depois
+             de saber se ha PR aberto. -->
+        <div class="deploy-pr-panel" id="deployPrPanel" style="display:none;">
           <div class="deploy-pr-head">
             <div>
               <div class="deploy-pr-titlebar">Pull requests do GitHub <span id="deployPrCount" class="deploy-project-badge">-</span></div>
@@ -2614,9 +2608,7 @@
             </div>
             <button class="lx-btn lx-btn-outline" onclick="deployLoadPrs()">Recarregar</button>
           </div>
-          <div id="deployPrList" class="deploy-pr-list">
-            <div class="lx-empty">Os PRs são carregados ao abrir a aba e ao clicar em Atualizar.</div>
-          </div>
+          <div id="deployPrList" class="deploy-pr-list"></div>
         </div>
 
         <!-- ── Ação ──────────────────────────────────────────────────────
@@ -2757,7 +2749,7 @@
       <div class="page" id="page-bi-sync">
         <div class="page-header">
           <div>
-            <div class="page-title">BI Sync (SCI → VPS)</div>
+            <div class="page-title">Sincronizações</div>
             <div class="page-subtitle">Importa balancete do SCI Firebird local e envia pra produção</div>
           </div>
         </div>
@@ -2991,7 +2983,7 @@
           </div>
 
           <div class="settings-section" style="border:none;background:none;padding-top:0;">
-            <button class="btn btn-green" type="button" onclick="saveAllSettings()">Salvar conexões</button>
+            <button class="btn btn-primary" type="button" onclick="saveAllSettings()">Salvar conexões</button>
           </div>
         </div>
 
@@ -3131,7 +3123,7 @@
           <div class="settings-section-title">
             <span style="color:var(--sky);font-size:18px;">&#128228;</span> Envio automático (rotina "Todas" / mensal)
           </div>
-          <div class="settings-hint" style="margin-bottom:12px;">Usados só pela opção "Rodar agora (todas)" e pela rotina mensal. O envio manual por empresa usa a sua sessão (login na aba VPS Sync).</div>
+          <div class="settings-hint" style="margin-bottom:12px;">Usados só pela opção "Rodar agora (todas)" e pela rotina mensal. O envio manual por empresa usa a sua sessão (login na aba Sincronizações).</div>
 
           <div class="settings-row">
             <label class="settings-label">URL de upload</label>
@@ -3168,7 +3160,7 @@
         </div>
 
         <div style="margin-top:8px;display:flex;gap:10px;align-items:center;">
-          <button class="btn btn-green" onclick="folhaCfgSave()">&#128190; Salvar configuração da folha</button>
+          <button class="btn btn-primary" onclick="folhaCfgSave()">&#128190; Salvar configuração da folha</button>
           <span id="folhaCfgStatus" style="font-size:12px;"></span>
         </div>
 
@@ -3192,7 +3184,7 @@
         </div>
 
         <div style="margin-top:16px;">
-          <button class="btn btn-solid-green btn-lg" onclick="saveAllSettings()">&#10003; Salvar Configurações</button>
+          <button class="btn btn-primary btn-lg" onclick="saveAllSettings()">&#10003; Salvar Configurações</button>
         </div>
       </div>
 
@@ -3336,7 +3328,11 @@
 
     // Renderiza o conjunto de botões pra um service-card, respeitando pending state.
     function renderCardActions(id, svc) {
-      if (!svc.managed) {
+      // Postgres e Redis nao sao processos que o launcher gera, mas tem um
+      // caminho de controle proprio (docker compose). Antes o cartao deles
+      // dizia so "Monitoramento apenas" e obrigava a ir na aba Docker para
+      // subir ou derrubar — e la era tudo ou nada, os dois juntos.
+      if (!svc.managed && !svc.dockerService) {
         return `<span style="font-size:11px;color:var(--text-muted);">Monitoramento apenas</span>`;
       }
       const pending = pendingActions[id];
@@ -3432,10 +3428,7 @@
       dockerEl.textContent = (pgUp && redisUp) ? 'Online' : 'Offline';
       dockerEl.style.color = (pgUp && redisUp) ? 'var(--green)' : 'var(--red)';
 
-      const pgDot = document.querySelector('#dockerPgStatus .status-dot');
-      const redisDot = document.querySelector('#dockerRedisStatus .status-dot');
-      if (pgDot) pgDot.className = pgUp ? 'status-dot running' : 'status-dot';
-      if (redisDot) redisDot.className = redisUp ? 'status-dot running' : 'status-dot';
+
     }
 
     function renderLogs() {
@@ -4787,14 +4780,16 @@
       const count = document.getElementById('deployPrCount')
       const hint = document.getElementById('deployPrHint')
       if (!list) return
-      list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px;">Consultando GitHub...</div>'
+      list.innerHTML = ''
+      deployPrsVisibilidade(0, 'carregando')
       if (count) count.textContent = '...'
       try {
         const r = await window.api.deployListPrs()
         if (!r.ok) {
-          list.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:4px;">${escapeHtml(r.error || 'Falha ao consultar PRs')}</div>`
+          list.innerHTML = `<div style="color:var(--lx-danger);font-size:12px;padding:4px;">${escapeHtml(r.error || 'Falha ao consultar PRs')}</div>`
           if (count) count.textContent = 'erro'
           if (hint) hint.textContent = 'Configure GITHUB_REPO/GITHUB_TOKEN no .deploy.local se necessário.'
+          deployPrsVisibilidade(0, 'erro')
           return
         }
         deployState.prs = r.prs || []
@@ -4815,19 +4810,41 @@
         if (deployState.status) deployRenderProjects(deployState.status)
         deployUpdateSelectionHint()
       } catch (e) {
-        list.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:4px;">${escapeHtml(e.message)}</div>`
+        list.innerHTML = `<div style="color:var(--lx-danger);font-size:12px;padding:4px;">${escapeHtml(e.message)}</div>`
         if (count) count.textContent = 'erro'
+        deployPrsVisibilidade(0, 'erro')
       }
+    }
+
+    /**
+     * Painel de PRs OU selo na parada do GitHub — nunca os dois.
+     *
+     * Havendo PR aberto, ele merece o painel: e uma escolha a fazer antes de
+     * publicar. Nao havendo, um painel do mesmo tamanho so para dizer "nenhum"
+     * ocupa a tela com ausencia. O selo diz o mesmo em uma linha, no lugar
+     * onde a informacao mora — a parada do GitHub.
+     *
+     * `estado` cobre os casos em que ainda nao ha resposta: 'carregando' e
+     * 'erro'. Erro mantem o painel aberto, porque a mensagem nao cabe no selo.
+     */
+    function deployPrsVisibilidade(qtd, estado) {
+      const painel = document.getElementById('deployPrPanel')
+      const selo = document.getElementById('deployPrChip')
+      const mostrarPainel = estado === 'erro' || (estado === 'ok' && qtd > 0)
+      if (painel) painel.style.display = mostrarPainel ? '' : 'none'
+      if (!selo) return
+      const textos = { carregando: 'consultando o GitHub…', erro: 'não foi possível consultar os PRs' }
+      selo.textContent = textos[estado] || 'nenhum PR aberto'
+      selo.dataset.state = estado === 'erro' ? 'erro' : 'vazio'
+      selo.style.display = mostrarPainel ? 'none' : 'inline-flex'
     }
 
     function deployRenderPrs() {
       const list = document.getElementById('deployPrList')
       if (!list) return
       const prs = deployState.prs || []
-      if (!prs.length) {
-        list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px;">Nenhum PR aberto encontrado.</div>'
-        return
-      }
+      deployPrsVisibilidade(prs.length, 'ok')
+      if (!prs.length) { list.innerHTML = ''; return }
       list.innerHTML = ''
       for (const pr of prs) {
         const projectId = deployPrProjectId(pr)

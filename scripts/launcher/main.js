@@ -320,7 +320,11 @@ const services = {
   postgres: {
     name: 'PostgreSQL',
     port: PG_PORT,
+    // `managed: false` continua: eles nao sao processos que o launcher gera, e
+    // "iniciar todos" nao deve tentar dar spawn neles. O que muda e que agora
+    // ha um caminho de controle proprio — o compose —, declarado aqui.
     managed: false,
+    dockerService: 'postgres',
     logs: [],
     color: '#336791',
     icon: 'database',
@@ -329,6 +333,7 @@ const services = {
     name: 'Redis',
     port: REDIS_PORT,
     managed: false,
+    dockerService: 'redis',
     logs: [],
     color: '#dc382d',
     icon: 'zap',
@@ -588,6 +593,13 @@ function addLog(serviceId, text, type = 'stdout') {
 // ══════════════════════════════════════════════════════════════
 async function startService(id) {
   const svc = services[id];
+  if (svc && svc.dockerService) {
+    addLog(id, `Iniciando ${svc.name} (docker compose)...`, 'system');
+    const r = dockerComposeService('start', svc.dockerService);
+    if (!r.ok) addLog(id, `✗ ${r.error}`, 'error');
+    setTimeout(broadcastStatus, 1500);
+    return r;
+  }
   if (!svc || svc.managed === false) return { ok: false, error: 'Serviço não gerenciável' };
   if (svc.process) return { ok: false, error: 'Já está rodando' };
   if (!svc.cwd || !fs.existsSync(svc.cwd)) return { ok: false, error: `Diretório do serviço não configurado: ${svc.cwd || '-'}` };
@@ -644,6 +656,13 @@ async function startService(id) {
 
 function stopService(id) {
   const svc = services[id];
+  if (svc && svc.dockerService) {
+    addLog(id, `Parando ${svc.name} (docker compose)...`, 'system');
+    const r = dockerComposeService('stop', svc.dockerService);
+    if (!r.ok) addLog(id, `✗ ${r.error}`, 'error');
+    setTimeout(broadcastStatus, 1500);
+    return r;
+  }
   if (!svc || svc.managed === false) return { ok: false, error: 'Serviço não gerenciável' };
 
   addLog(id, `Parando ${svc.name}...`, 'system');
@@ -665,6 +684,14 @@ function stopService(id) {
 }
 
 async function restartService(id) {
+  const svcDocker = services[id];
+  if (svcDocker && svcDocker.dockerService) {
+    addLog(id, `Reiniciando ${svcDocker.name} (docker compose)...`, 'system');
+    const r = dockerComposeService('restart', svcDocker.dockerService);
+    if (!r.ok) addLog(id, `✗ ${r.error}`, 'error');
+    setTimeout(broadcastStatus, 1500);
+    return r;
+  }
   stopService(id);
   await new Promise((r) => setTimeout(r, 2000));
   return startService(id);
@@ -764,6 +791,36 @@ async function startDockerContainers() {
   }
 }
 
+/**
+ * Um comando do compose para UM servico (start | stop | restart).
+ *
+ * Antes o Docker era tudo ou nada: `up -d` e `stop` mexiam nos dois containers
+ * juntos. Reiniciar so o Redis obrigava a derrubar o Postgres no caminho.
+ *
+ * Tenta `docker compose` (v2) e cai para `docker-compose` (v1), como o resto
+ * do arquivo ja fazia — a maquina pode ter qualquer um dos dois.
+ */
+function dockerComposeService(acao, servico) {
+  if (!projectRoot || !isProjectRoot(projectRoot)) {
+    return { ok: false, error: 'Raiz do projeto nao configurada' };
+  }
+  const opcoes = { cwd: projectRoot, timeout: 30000, stdio: 'ignore', windowsHide: true };
+  // `start` so religa um container que existe; se nunca subiu, nao ha o que
+  // religar — dai o `up -d` como segunda tentativa.
+  const tentativas = acao === 'start'
+    ? [`docker compose start ${servico}`, `docker compose up -d ${servico}`,
+       `docker-compose start ${servico}`, `docker-compose up -d ${servico}`]
+    : [`docker compose ${acao} ${servico}`, `docker-compose ${acao} ${servico}`];
+  let ultimoErro = null;
+  for (const cmd of tentativas) {
+    try {
+      execSync(cmd, opcoes);
+      return { ok: true };
+    } catch (e) { ultimoErro = e; }
+  }
+  return { ok: false, error: ultimoErro ? ultimoErro.message : 'Falha no docker compose' };
+}
+
 function stopDockerContainers() {
   if (!projectRoot || !isProjectRoot(projectRoot)) return;
   try {
@@ -795,6 +852,9 @@ async function getFullStatus() {
       healthy: health ? health.ok : running,
       health,
       managed: svc.managed !== false,
+      // O renderer usa isto para saber que o cartao tem botoes, mesmo com
+      // `managed: false` — quem executa a acao e o compose, nao o spawn.
+      dockerService: svc.dockerService || null,
       hasProcess: !!svc.process,
       cwd: svc.cwd || null,
       color: svc.color,
