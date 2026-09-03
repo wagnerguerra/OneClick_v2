@@ -2168,8 +2168,21 @@
     .port-item { border-radius: var(--lx-radius-sm); background: var(--bg-surface); }
     .group-label { letter-spacing: 0.08em; font-size: 10px; }
 
-    /* O interruptor acende na primária, como todo controle ligado no modelo. */
+    /* O interruptor acende na primária, como todo controle ligado no modelo.
+       Antes eu havia trocado só o trilho: o botão continuava com a regra
+       antiga (verde), e ligado ele ficava azul por fora com uma bolinha verde
+       dentro — duas cores dizendo a mesma coisa e nenhuma delas do tema.
+       Aqui o par inteiro vira o do modelo: trilho na primária, botão branco. */
+    .toggle-switch { width: 34px; height: 20px; }
+    .toggle-switch .slider { border-radius: 999px; }
+    .toggle-switch .slider::after {
+      width: 16px; height: 16px; left: 2px; top: 2px;
+      background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
+    }
     .toggle-switch input:checked + .slider { background: var(--lx-primary); }
+    .toggle-switch input:checked + .slider::after {
+      transform: translateX(14px); background: #fff;
+    }
 
     /* ── Tabela ─────────────────────────────────────────────────────── */
     .users-table th {
@@ -2241,9 +2254,6 @@
       <nav class="sidebar-nav">
         <button class="nav-item active" data-page="overview" data-label="Visão Geral">
           <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span> <span class="nav-label">Visão Geral</span>
-        </button>
-        <button class="nav-item" data-page="services" data-label="Serviços">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/></svg></span> <span class="nav-label">Serviços</span>
           <span class="nav-badge off" id="navServicesBadge">0/0</span>
         </button>
         <button class="nav-item" data-page="users" data-label="Usuários">
@@ -2314,6 +2324,9 @@
           <div style="display:flex;gap:8px;">
             <button class="btn btn-solid-green btn-lg" onclick="startEverything()">&#9654; Iniciar Tudo</button>
             <button class="btn btn-solid-red btn-lg" onclick="stopEverything()">&#9632; Parar Tudo</button>
+            <!-- Vinha da aba Serviços, que saiu. Sem ele, reiniciar todos os
+                 serviços de uma vez deixaria de existir na interface. -->
+            <button class="btn btn-yellow btn-lg" onclick="restartAll()">&#8635; Reiniciar Tudo</button>
           </div>
         </div>
 
@@ -2397,22 +2410,6 @@
           <div class="log-content" id="logContent"></div>
         </div>
         </div>
-      </div>
-
-      <!-- ═══ Page: Services ═══ -->
-      <div class="page" id="page-services">
-        <div class="page-header">
-          <div>
-            <div class="page-title">Gerenciar Serviços</div>
-            <div class="page-subtitle">Controle individual de cada serviço do sistema</div>
-          </div>
-        </div>
-        <div class="actions-bar">
-          <button class="btn btn-green btn-lg btn-flex" onclick="startAll()">&#9654; Iniciar Todos</button>
-          <button class="btn btn-red btn-lg btn-flex" onclick="stopAll()">&#9632; Parar Todos</button>
-          <button class="btn btn-yellow btn-lg btn-flex" onclick="restartAll()">&#8635; Reiniciar Todos</button>
-        </div>
-        <div class="services-grid" id="serviceCards"></div>
       </div>
 
       <!-- ═══ Page: Users (online em tempo real via SSE da VPS) ═══ -->
@@ -3439,8 +3436,8 @@
       const oneclickSvcs = Object.entries(statusData);
       const html = oneclickSvcs.map(([id, svc]) => buildCardHtml(id, svc)).join('');
 
+      // Uma grade só: a aba Serviços repetia estes mesmos cartões.
       document.getElementById('overviewCards').innerHTML = html;
-      document.getElementById('serviceCards').innerHTML = html;
 
       // Stats
       const entries = Object.values(statusData);
