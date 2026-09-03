@@ -1020,16 +1020,16 @@ export default function ClientesPage() {
               <TableHead className="hidden w-[44px] text-center sm:table-cell" title="Certificado digital">
                 <ShieldCheck className="h-3.5 w-3.5 mx-auto text-muted-foreground" />
               </TableHead>
-              <TableHead>
+              <TableHead className="w-auto sm:w-[280px] xl:w-[300px] 2xl:w-[360px]">
                 <button onClick={() => toggleSort('razaoSocial')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                   Cliente <SortIcon column="razaoSocial" />
                 </button>
               </TableHead>
-              <TableHead className="hidden xl:table-cell w-[170px]">CNPJ/CPF</TableHead>
-              <TableHead className="hidden lg:table-cell">Tributação</TableHead>
-              <TableHead className="hidden lg:table-cell">Grupo</TableHead>
-              <TableHead className="hidden md:table-cell">Município</TableHead>
-              <TableHead className="hidden md:table-cell w-[70px] whitespace-nowrap">UF</TableHead>
+              <TableHead className="hidden w-[180px] whitespace-nowrap xl:table-cell">CNPJ/CPF</TableHead>
+              <TableHead className="hidden w-[180px] xl:table-cell">Tributação</TableHead>
+              <TableHead className="hidden w-[220px] 2xl:table-cell">Grupo</TableHead>
+              <TableHead className="hidden w-[180px] 2xl:table-cell">Município</TableHead>
+              <TableHead className="hidden w-[70px] whitespace-nowrap 2xl:table-cell">UF</TableHead>
               <TableHead className="w-[80px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -1066,13 +1066,13 @@ export default function ClientesPage() {
                   <TableCell className="hidden text-center sm:table-cell">
                     <CertIcon status={cliente.certStatus} expiraEm={cliente.certExpiraEm} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="min-w-0 overflow-hidden">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span onClick={e => e.stopPropagation()} className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <span onClick={e => e.stopPropagation()} className="min-w-0 flex-1 overflow-hidden">
                           <CelulaTexto
                             clienteId={cliente.id} campo="razaoSocial" valor={cliente.razaoSocial}
-                            podeEditar={canEditDetails} className="whitespace-normal break-words text-sm font-medium sm:whitespace-nowrap"
+                            podeEditar={canEditDetails} className="block overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium"
                             onUpdated={v => atualizarLinha(cliente.id, 'razaoSocial', v)}
                           />
                         </span>
@@ -1107,10 +1107,10 @@ export default function ClientesPage() {
                       {renderAreas(cliente.areasContratadas)}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden xl:table-cell font-mono text-xs text-muted-foreground">
+                  <TableCell className="hidden w-[180px] whitespace-nowrap font-mono text-xs text-muted-foreground xl:table-cell">
                     {formatDocumento(cliente.documento, cliente.tipoDocumento)}
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground" onClick={e => e.stopPropagation()}>
+                  <TableCell className="hidden w-[180px] text-sm text-muted-foreground xl:table-cell" onClick={e => e.stopPropagation()}>
                     {/* Tributação exige `edit_taxation` além de `edit_details` — é o
                         mesmo par que a aba do cadastro cobra. */}
                     <CelulaSelect
@@ -1120,7 +1120,7 @@ export default function ClientesPage() {
                       onUpdated={v => atualizarLinha(cliente.id, 'tributacao', v)}
                     />
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground" onClick={e => e.stopPropagation()}>
+                  <TableCell className="hidden w-[220px] text-sm text-muted-foreground 2xl:table-cell" onClick={e => e.stopPropagation()}>
                     {/* Grupo é campo COMERCIAL: o backend recusa sem `manage_commercial`.
                         As opções são os grupos JÁ EM USO (mesma lista do filtro):
                         não existe cadastro de grupos, é texto livre no cliente. */}
@@ -1131,14 +1131,14 @@ export default function ClientesPage() {
                       onUpdated={v => atualizarLinha(cliente.id, 'grupo', v)}
                     />
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground" onClick={e => e.stopPropagation()}>
+                  <TableCell className="hidden w-[180px] text-sm text-muted-foreground 2xl:table-cell" onClick={e => e.stopPropagation()}>
                     <CelulaTexto
                       clienteId={cliente.id} campo="cidade" valor={cliente.cidade}
                       podeEditar={canEditDetails}
                       onUpdated={v => atualizarLinha(cliente.id, 'cidade', v)}
                     />
                   </TableCell>
-                  <TableCell className="hidden md:table-cell w-[70px] whitespace-nowrap text-sm text-muted-foreground" onClick={e => e.stopPropagation()}>
+                  <TableCell className="hidden w-[70px] whitespace-nowrap text-sm text-muted-foreground 2xl:table-cell" onClick={e => e.stopPropagation()}>
                     <CelulaTexto
                       clienteId={cliente.id} campo="uf" valor={cliente.uf}
                       podeEditar={canEditDetails} maxLength={2} upper
