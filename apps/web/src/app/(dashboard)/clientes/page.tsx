@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { useRouter } from 'next/navigation'
@@ -565,6 +565,12 @@ export default function ClientesPage() {
     return pages
   }
 
+  /** Grupos já em uso, no formato que o select da célula espera. */
+  const gruposOpcoes = useMemo(
+    () => Object.fromEntries((filterOptions.grupos.filter(Boolean) as string[]).map(g => [g, g])),
+    [filterOptions.grupos],
+  )
+
   /** Aplica na linha o valor que a célula acabou de salvar (ou desfazer). */
   function atualizarLinha(id: string, campo: string, valor: unknown) {
     setData(prev => prev ? {
@@ -1023,7 +1029,7 @@ export default function ClientesPage() {
               <TableHead className="hidden lg:table-cell">Tributação</TableHead>
               <TableHead className="hidden lg:table-cell">Grupo</TableHead>
               <TableHead className="hidden md:table-cell">Município</TableHead>
-              <TableHead className="hidden md:table-cell w-[50px]">UF</TableHead>
+              <TableHead className="hidden md:table-cell w-[70px] whitespace-nowrap">UF</TableHead>
               <TableHead className="w-[80px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -1104,9 +1110,12 @@ export default function ClientesPage() {
                     />
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-sm text-muted-foreground" onClick={e => e.stopPropagation()}>
-                    {/* Grupo é campo COMERCIAL: o backend recusa sem `manage_commercial`. */}
-                    <CelulaTexto
+                    {/* Grupo é campo COMERCIAL: o backend recusa sem `manage_commercial`.
+                        As opções são os grupos JÁ EM USO (mesma lista do filtro):
+                        não existe cadastro de grupos, é texto livre no cliente. */}
+                    <CelulaSelect
                       clienteId={cliente.id} campo="grupo" valor={cliente.grupo}
+                      opcoes={gruposOpcoes} rotuloVazio="— Sem grupo"
                       podeEditar={canEditDetails && canManageCommercial}
                       onUpdated={v => atualizarLinha(cliente.id, 'grupo', v)}
                     />
@@ -1118,7 +1127,7 @@ export default function ClientesPage() {
                       onUpdated={v => atualizarLinha(cliente.id, 'cidade', v)}
                     />
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground" onClick={e => e.stopPropagation()}>
+                  <TableCell className="hidden md:table-cell w-[70px] whitespace-nowrap text-sm text-muted-foreground" onClick={e => e.stopPropagation()}>
                     <CelulaTexto
                       clienteId={cliente.id} campo="uf" valor={cliente.uf}
                       podeEditar={canEditDetails} maxLength={2} upper
@@ -1413,7 +1422,7 @@ function CelulaTexto({ clienteId, campo, valor, podeEditar, onUpdated, maxLength
       onClick={e => { e.stopPropagation(); setRascunho(valor ?? ''); setEditando(true) }}
       title="Clique para editar"
       className={cn(
-        'w-full rounded px-1 -mx-1 text-left transition-colors hover:bg-muted',
+        'w-full whitespace-nowrap rounded px-1 -mx-1 text-left transition-colors hover:bg-muted',
         salvando && 'opacity-50',
         className,
       )}
@@ -1424,14 +1433,16 @@ function CelulaTexto({ clienteId, campo, valor, podeEditar, onUpdated, maxLength
 }
 
 /** Mesma ideia da célula de texto, para campos com lista fechada. */
-function CelulaSelect({ clienteId, campo, valor, opcoes, podeEditar, onUpdated, className }: {
+function CelulaSelect({ clienteId, campo, valor, opcoes, podeEditar, onUpdated, className, rotuloVazio = '— Não informado' }: {
   clienteId: string
-  campo: 'tributacao'
+  campo: 'tributacao' | 'grupo'
   valor: string | null
   opcoes: Record<string, string>
   podeEditar: boolean
   onUpdated: (v: string | null) => void
   className?: string
+  /** Texto da opção que limpa o campo — "Não informado" não serve para grupo. */
+  rotuloVazio?: string
 }) {
   const [salvando, setSalvando] = useState(false)
   const rotulo = valor ? (opcoes[valor] ?? valor) : null
@@ -1462,13 +1473,13 @@ function CelulaSelect({ clienteId, campo, valor, opcoes, podeEditar, onUpdated, 
           type="button"
           onClick={e => e.stopPropagation()}
           title="Clique para editar"
-          className={cn('w-full rounded px-1 -mx-1 text-left transition-colors hover:bg-muted', salvando && 'opacity-50', className)}
+          className={cn('w-full truncate rounded px-1 -mx-1 text-left transition-colors hover:bg-muted', salvando && 'opacity-50', className)}
         >
           {rotulo || <span className="text-muted-foreground">—</span>}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[170px]" onClick={e => e.stopPropagation()}>
-        <DropdownMenuItem onClick={() => escolher(null)}><span className="text-muted-foreground">— Não informado</span></DropdownMenuItem>
+      <DropdownMenuContent align="start" className="max-h-72 min-w-[170px] overflow-y-auto nice-scrollbar" onClick={e => e.stopPropagation()}>
+        <DropdownMenuItem onClick={() => escolher(null)}><span className="text-muted-foreground">{rotuloVazio}</span></DropdownMenuItem>
         <DropdownMenuSeparator />
         {Object.entries(opcoes).map(([v, l]) => (
           <DropdownMenuItem key={v} onClick={() => escolher(v)}>{l}</DropdownMenuItem>
