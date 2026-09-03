@@ -2203,6 +2203,42 @@ function registerIpcHandlers() {
   }
 
   /**
+   * Le uma linha do `git status --porcelain` em { status, path }.
+   *
+   * O git ENVOLVE O CAMINHO EM ASPAS quando ele tem espaco, aspas ou byte fora
+   * do ASCII — e ai escapa cada byte nao-ASCII em octal (\303\247 = c cedilha).
+   * Fatiar a linha crua deixava as aspas coladas no caminho, e o
+   * `git add -- '"docs/Arquivo X.xlsx"'` saia procurando um arquivo cujo nome
+   * comeca com aspas. Qualquer nome com espaco ou acento derrubava o deploy no
+   * primeiro arquivo — e, de tabela, escapava dos filtros por prefixo, porque
+   * `"docs/...` nao comeca com `docs/`.
+   */
+  function lerLinhaPorcelain(linha) {
+    const status = linha.slice(0, 2).trim()
+    let bruto = linha.slice(3)
+    // Renomeado/copiado vem como `antigo -> novo`. O antigo ja esta no indice
+    // como remocao; o que precisa entrar no commit e o novo.
+    if (status.startsWith('R') || status.startsWith('C')) {
+      const seta = bruto.lastIndexOf(' -> ')
+      if (seta >= 0) bruto = bruto.slice(seta + 4)
+    }
+    if (!(bruto.length > 1 && bruto.startsWith('"') && bruto.endsWith('"'))) {
+      return { status, path: bruto }
+    }
+    const corpo = bruto.slice(1, -1)
+    const ESCAPES = { n: 10, t: 9, r: 13, b: 8, f: 12, v: 11, a: 7 }
+    const bytes = []
+    for (let i = 0; i < corpo.length; i++) {
+      if (corpo[i] !== '\\') { bytes.push(...Buffer.from(corpo[i], 'utf8')); continue }
+      const prox = corpo[++i]
+      if (prox >= '0' && prox <= '7') { bytes.push(parseInt(corpo.substr(i, 3), 8)); i += 2 }
+      else if (prox in ESCAPES) bytes.push(ESCAPES[prox])
+      else bytes.push(...Buffer.from(prox, 'utf8'))
+    }
+    return { status, path: Buffer.from(bytes).toString('utf8') }
+  }
+
+  /**
    * O arquivo entra na fila de commit do deploy?
    *
    * A fila e so do que vai a producao. Ficam de fora os restos de trabalho
@@ -2239,10 +2275,7 @@ function registerIpcHandlers() {
     const localSha = gitOutput(['rev-parse', 'HEAD'], cwd)
     const localShort = gitOutput(['rev-parse', '--short', 'HEAD'], cwd)
     const localStatus = gitOutput(['status', '--porcelain'], cwd)
-    const dirtyFiles = localStatus.split('\n').filter(Boolean).map(l => ({
-      status: l.slice(0, 2).trim(),
-      path: l.slice(3),
-    }))
+    const dirtyFiles = localStatus.split('\n').filter(Boolean).map(lerLinhaPorcelain)
     const dirtyRelevant = dirtyFiles.filter(d => entraNaFilaDeDeploy(d, def.id))
 
     const remoteUrl = gitOutput(['remote', 'get-url', 'origin'], cwd)
@@ -2722,10 +2755,7 @@ function registerIpcHandlers() {
       deployCheckAbort('commit', 1)
       deployCurrentStep = 'commit'
       const statusOut = gitOutput(['status', '--porcelain'])
-      const dirtyAll = statusOut.split('\n').filter(Boolean).map(l => ({
-        status: l.slice(0, 2).trim(),
-        path: l.slice(3),
-      }))
+      const dirtyAll = statusOut.split('\n').filter(Boolean).map(lerLinhaPorcelain)
       const dirtyRelevant = dirtyAll.filter(d => entraNaFilaDeDeploy(d, 'core'))
       if (dirtyRelevant.length > 0) {
         if (!commitMessage) {
@@ -3107,10 +3137,8 @@ function registerIpcHandlers() {
         const appDef = deployProjectDefs(cfg).find(p => p.id === 'app')
         const appCwd = appDef.cwd
         const appBranch = appDef.branch || gitOutput(['rev-parse', '--abbrev-ref', 'HEAD'], appCwd)
-        const appDirty = gitOutput(['status', '--porcelain'], appCwd).split('\n').filter(Boolean).map(l => ({
-          status: l.slice(0, 2).trim(),
-          path: l.slice(3),
-        })).filter(d => entraNaFilaDeDeploy(d, 'app'))
+        const appDirty = gitOutput(['status', '--porcelain'], appCwd).split('\n').filter(Boolean)
+          .map(lerLinhaPorcelain).filter(d => entraNaFilaDeDeploy(d, 'app'))
         if (appDirty.length > 0) {
           if (!commitMessage) {
             deployRunning = false
