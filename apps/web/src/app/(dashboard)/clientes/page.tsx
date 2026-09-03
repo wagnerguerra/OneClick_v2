@@ -27,7 +27,7 @@ import {
   cn,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { BADGE } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { areaTone } from './_lib/area-tone'
 import { trpc } from '@/lib/trpc'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -599,7 +599,7 @@ export default function ClientesPage() {
                   <DropdownMenuItem onClick={openOpcoesModal}><Settings2 className="h-4 w-4" />Opções</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setIntegracoesOpen(true)}><Plug className="h-4 w-4" />Integrações</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/clientes/relatorios')}><BarChart3 className="h-4 w-4 text-emerald-600" />Relatórios</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push('/clientes/relatorios')}><BarChart3 className={cn('h-4 w-4', TEXT.emerald)} />Relatórios</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar Excel/CSV</DropdownMenuItem>
                   <DropdownMenuItem onClick={handleLegacyImport} disabled={legacyImporting}>
                     {legacyImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
@@ -614,12 +614,12 @@ export default function ClientesPage() {
                   </DropdownMenuItem>
                   {(isMaster || isEmpresaMaster) && (
                     <DropdownMenuItem onClick={() => router.push('/clientes/duplicidades')}>
-                      <Copy className="h-4 w-4 text-amber-600" />Cadastros repetidos
+                      <Copy className={cn('h-4 w-4', TEXT.amber)} />Cadastros repetidos
                     </DropdownMenuItem>
                   )}
                   {isMaster && (
                     <DropdownMenuItem onClick={() => setDossieOpen(true)}>
-                      <FileSearch className="h-4 w-4 text-violet-600" />Varredura do dossiê
+                      <FileSearch className={cn('h-4 w-4', TEXT.violet)} />Varredura do dossiê
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -693,11 +693,11 @@ export default function ClientesPage() {
             </span>
             <span className="min-w-0">
               <span className="flex items-baseline gap-2 leading-none">
-                <span className="flex items-baseline gap-0.5 text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                <span className={cn('flex items-baseline gap-0.5 text-lg font-bold tabular-nums', TEXT.emerald)}>
                   <ArrowUp className="h-3.5 w-3.5 self-center" />{stats.entraram90d}
                 </span>
                 <span className="text-muted-foreground/40">/</span>
-                <span className="flex items-baseline gap-0.5 text-lg font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                <span className={cn('flex items-baseline gap-0.5 text-lg font-bold tabular-nums', TEXT.rose)}>
                   <ArrowDown className="h-3.5 w-3.5 self-center" />{stats.sairam90d}
                 </span>
               </span>
@@ -706,7 +706,7 @@ export default function ClientesPage() {
                 {(() => {
                   const saldo = stats.entraram90d - stats.sairam90d
                   if (saldo === 0) return null
-                  return <span className={saldo > 0 ? 'ml-1 font-medium text-emerald-600 dark:text-emerald-400' : 'ml-1 font-medium text-rose-600 dark:text-rose-400'}>
+                  return <span className={cn('ml-1 font-medium', saldo > 0 ? TEXT.emerald : TEXT.rose)}>
                     ({saldo > 0 ? '+' : ''}{saldo})
                   </span>
                 })()}
@@ -1319,7 +1319,7 @@ export default function ClientesPage() {
             <div className="flex gap-1 mb-3 border-b">
               {(['ATIVIDADE', 'ORIGEM', 'GRUPO', 'BENEFICIO'] as const).map(tab => (
                 <button key={tab} type="button"
-                  className={cn('px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px', opcoesTab === tab ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-muted-foreground hover:text-foreground')}
+                  className={cn('px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px', opcoesTab === tab ? 'border-emerald-500 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-muted-foreground hover:text-foreground')}
                   onClick={() => { setOpcoesTab(tab); loadOpcoes(tab) }}
                 >
                   {tab === 'ATIVIDADE' ? 'Atividades' : tab === 'ORIGEM' ? 'Origens' : tab === 'GRUPO' ? 'Grupos' : 'Benefícios'}
@@ -1335,7 +1335,7 @@ export default function ClientesPage() {
             {(() => {
               const filtradas = opcoes.filter(o => !opcoesBusca || o.valor.toLowerCase().includes(opcoesBusca.toLowerCase()))
               return (
-                <div className="h-[50vh] overflow-y-auto divide-y divide-border/50 -mx-1">
+                <div className="h-[50vh] overflow-y-auto nice-scrollbar divide-y divide-border/50 -mx-1">
                   {opcoesLoading ? (
                     <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                   ) : opcoes.length === 0 ? (
