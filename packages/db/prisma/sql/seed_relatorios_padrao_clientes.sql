@@ -13,8 +13,16 @@
 -- de existir e descartada na execucao, entao um relatorio antigo nao quebra:
 -- so perde aquela coluna.
 
-INSERT INTO relatorio_definicoes (modulo, nome, descricao, campos, filtros, origem, visibilidade, favorito_de)
-SELECT v.modulo, v.nome, v.descricao, v.campos, v.filtros::jsonb, 'SISTEMA', 'EMPRESA', '{}'
+-- `id` e `updated_at` vao EXPLICITOS.
+--
+-- No schema eles sao @default(cuid()) e @updatedAt — defaults do Prisma, que a
+-- aplicacao preenche; a coluna no banco nao tem default nenhum. E quem cria
+-- esta tabela em producao e o `prisma db push`, que roda ANTES dos SQLs
+-- cirurgicos: o CREATE TABLE IF NOT EXISTS logo abaixo vira no-op, e com ele os
+-- DEFAULT que ele declarava. Localmente o teste passou justamente porque la a
+-- tabela nasceu do meu SQL, com os defaults — o ambiente escondeu o erro.
+INSERT INTO relatorio_definicoes (id, modulo, nome, descricao, campos, filtros, origem, visibilidade, favorito_de, created_at, updated_at)
+SELECT gen_random_uuid()::text, v.modulo, v.nome, v.descricao, v.campos, v.filtros::jsonb, 'SISTEMA', 'EMPRESA', '{}', NOW(), NOW()
   FROM (VALUES
     ('clientes', 'Carteira mensal por tributação',
      'Todos os clientes mensais ativos, com o regime de cada um.',
