@@ -4,6 +4,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { FileSpreadsheet, FileText, FileDown, Search, ChevronDown, Loader2, ArrowLeft, X, GripVertical } from 'lucide-react'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Button, Input, cn } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -16,6 +19,56 @@ interface Previa {
   linhas: Array<Array<string | number | null>>
   total: number
   truncado: boolean
+}
+
+/**
+ * Uma coluna do relatório, arrastável.
+ *
+ * A alça é o ícone à esquerda, não a pílula inteira: com o botão de remover
+ * dentro dela, arrastar pelo corpo faria o clique de remover disputar com o
+ * início do arrasto — e a pessoa apagaria a coluna que queria mover.
+ */
+function ColunaArrastavel({ chave, rotulo, onRemover }: {
+  chave: string
+  rotulo: string
+  onRemover: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: chave })
+  return (
+    <span
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 10 : undefined,
+      }}
+      className={cn(
+        'flex items-center gap-1 rounded-full border border-border bg-muted/50 py-0.5 pl-1 pr-1 text-[11px]',
+        isDragging && 'ring-2 ring-primary/40',
+      )}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        title="Arraste para reordenar"
+        aria-label={`Reordenar ${rotulo}`}
+        className="cursor-grab touch-none rounded px-0.5 text-muted-foreground hover:text-foreground active:cursor-grabbing"
+      >
+        <GripVertical className="h-3 w-3" />
+      </button>
+      {rotulo}
+      <button
+        type="button"
+        onClick={onRemover}
+        className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+        title="Remover coluna"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  )
 }
 
 /**
@@ -95,16 +148,19 @@ export default function MontarRelatorioPage() {
   const alternar = (chave: string) =>
     setEscolhidos(prev => prev.includes(chave) ? prev.filter(c => c !== chave) : [...prev, chave])
 
-  const mover = (chave: string, passo: number) =>
+  // 5px antes de começar a arrastar: sem essa folga, um clique no X vira um
+  // micro-arrasto e o botão não dispara.
+  const sensores = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  const aoSoltar = (e: DragEndEvent) => {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
     setEscolhidos(prev => {
-      const i = prev.indexOf(chave)
-      const j = i + passo
-      if (i < 0 || j < 0 || j >= prev.length) return prev
-      const copia = [...prev]
-      const a = copia[i]!, b = copia[j]!
-      copia[i] = b; copia[j] = a
-      return copia
+      const de = prev.indexOf(String(active.id))
+      const para = prev.indexOf(String(over.id))
+      return de < 0 || para < 0 ? prev : arrayMove(prev, de, para)
     })
+  }
 
   const rotuloDe = useMemo(() => {
     const m = new Map<string, string>()
@@ -243,30 +299,23 @@ export default function MontarRelatorioPage() {
             </div>
             {escolhidos.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                Marque os campos à esquerda. A ordem em que aparecem aqui é a ordem das colunas no arquivo.
+                Marque os campos à esquerda. Arraste as pílulas para definir a ordem das colunas no arquivo.
               </p>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {escolhidos.map((chave, i) => (
-                  <span
-                    key={chave}
-                    className="flex items-center gap-1 rounded-full border border-border bg-muted/50 py-0.5 pl-1.5 pr-1 text-[11px]"
-                  >
-                    <GripVertical className="h-3 w-3 text-muted-foreground" />
-                    {rotuloDe.get(chave) ?? chave}
-                    {/* Setas em vez de arrastar: numa pílula de 11px o alvo de
-                        arrasto seria pequeno demais para acertar de primeira. */}
-                    <button type="button" onClick={() => mover(chave, -1)} disabled={i === 0}
-                      className="px-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30" title="Mover para a esquerda">‹</button>
-                    <button type="button" onClick={() => mover(chave, 1)} disabled={i === escolhidos.length - 1}
-                      className="px-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30" title="Mover para a direita">›</button>
-                    <button type="button" onClick={() => alternar(chave)}
-                      className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground" title="Remover">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
+              <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={aoSoltar}>
+                <SortableContext items={escolhidos} strategy={horizontalListSortingStrategy}>
+                  <div className="flex flex-wrap gap-1.5">
+                    {escolhidos.map(chave => (
+                      <ColunaArrastavel
+                        key={chave}
+                        chave={chave}
+                        rotulo={rotuloDe.get(chave) ?? chave}
+                        onRemover={() => alternar(chave)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             )}
           </div>
 
