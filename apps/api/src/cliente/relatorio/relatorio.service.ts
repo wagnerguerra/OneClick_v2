@@ -2,12 +2,31 @@ import { Injectable, Inject } from '@nestjs/common'
 import * as XLSX from 'xlsx'
 import { prisma, type Prisma } from '@saas/db'
 import { ClienteService } from '../cliente.service'
-import { CAMPOS_POR_CHAVE, camposPermitidos, type CampoRelatorio } from './campos'
+import { CAMPOS_POR_CHAVE, camposPermitidos, OPERADORES_POR_TIPO, type CampoRelatorio, type OperadorFiltro } from './campos'
 
-/** O que o usuário montou: campos, na ordem, e os filtros da listagem. */
+/**
+ * Uma condição sobre um campo do catálogo.
+ *
+ * "Situação é um de [Mensal]" — a pergunta que o usuário faz depois de já ter
+ * escolhido a coluna. Diferente dos `filtros` da listagem, que descrevem QUEM
+ * entra na conta; estes refinam por qualquer campo do relatório, inclusive os
+ * que a barra de /clientes não oferece.
+ */
+export interface FiltroCampo {
+  campo: string
+  operador: OperadorFiltro
+  valor?: string | number | boolean | null
+  valores?: string[]
+  ate?: string | number
+}
+
+/** O que o usuário montou: campos, na ordem, e os filtros. */
 export interface DefinicaoRelatorio {
   campos: string[]
+  /** Filtros da listagem (mesma forma do input de `cliente.list`). */
   filtros?: Record<string, unknown>
+  /** Filtros por campo do catálogo, montados no próprio construtor. */
+  filtrosCampos?: FiltroCampo[]
   ordenacao?: { campo: string; direcao: 'asc' | 'desc' }
 }
 
@@ -43,6 +62,68 @@ export class ClienteRelatorioService {
       if (campo && permitidos.has(chave)) saida.push(campo)
     }
     return saida
+  }
+
+  /**
+   * Traduz um filtro de campo numa condição do Prisma.
+   *
+   * A tradução passa pelo CATÁLOGO, como tudo aqui: a chave vira o campo real,
+   * e o operador só vale se o tipo do campo o admite. Um operador que não bate
+   * com o tipo é descartado em vez de virar consulta — é o mesmo princípio que
+   * impede nome de coluna de chegar do cliente.
+   *
+   * `null` significa "esta condição não se aplica" e some do `where`.
+   */
+  private condicaoDe(f: FiltroCampo, podeSub: (sub: string) => boolean): Prisma.ClienteWhereInput | null {
+    const campo = CAMPOS_POR_CHAVE.get(f.campo)
+    if (!campo) return null
+    if (campo.exigeSub && !podeSub(campo.exigeSub)) return null
+    // Derivado não filtra: `matrizFilial` sai de um cálculo em JavaScript, e
+    // não há coluna no banco para o Prisma comparar.
+    if (campo.origem.tipo === 'derivado') return null
+    if (!OPERADORES_POR_TIPO[campo.tipo].includes(f.operador)) return null
+
+    // ── A condição, na forma que o Prisma entende ──
+    let cond: unknown
+    switch (f.operador) {
+      case 'igual':
+        cond = campo.tipo === 'booleano' ? f.valor === true || f.valor === 'true'
+             : campo.tipo === 'numero' ? Number(f.valor)
+             : f.valor
+        break
+      case 'diferente': cond = { not: f.valor }; break
+      case 'contem':    cond = { contains: String(f.valor ?? ''), mode: 'insensitive' }; break
+      case 'em': {
+        const lista = (f.valores ?? []).filter(Boolean)
+        if (!lista.length) return null
+        cond = { in: lista }
+        break
+      }
+      case 'maior': cond = { gte: campo.tipo === 'data' ? new Date(String(f.valor)) : Number(f.valor) }; break
+      case 'menor': cond = { lte: campo.tipo === 'data' ? new Date(String(f.valor)) : Number(f.valor) }; break
+      case 'entre':
+        cond = campo.tipo === 'data'
+          ? { gte: new Date(String(f.valor)), lte: new Date(String(f.ate)) }
+          : { gte: Number(f.valor), lte: Number(f.ate) }
+        break
+      case 'vazio':      cond = null; break
+      case 'preenchido': cond = { not: null }; break
+    }
+
+    if (campo.origem.tipo === 'relacao') {
+      const rel = campo.origem.relacao
+      const extra = campo.origem.onde ?? {}
+      // Vazio/preenchido numa relação perguntam pela EXISTÊNCIA do item, não
+      // pelo valor dele: "sem sócio cadastrado", não "sócio com nome nulo".
+      if (f.operador === 'vazio') return { [rel]: { none: extra } } as Prisma.ClienteWhereInput
+      if (f.operador === 'preenchido') return { [rel]: { some: extra } } as Prisma.ClienteWhereInput
+      const [raiz, folha] = campo.origem.campo.split('.')
+      if (campo.origem.campo === '__count') return null
+      const interno = folha ? { [raiz!]: { [folha]: cond } } : { [raiz!]: cond }
+      return { [rel]: { some: { ...extra, ...interno } } } as Prisma.ClienteWhereInput
+    }
+
+    return { [campo.origem.campo]: cond } as Prisma.ClienteWhereInput
   }
 
   /**
@@ -124,9 +205,19 @@ export class ClienteRelatorioService {
     const campos = this.resolverCampos(definicao.campos, ctx.podeSub)
     if (!campos.length) return { colunas: [], linhas: [], total: 0, truncado: false }
 
-    const where = await this.clienteService.montarWhereClientes(
+    const whereLista = await this.clienteService.montarWhereClientes(
       (definicao.filtros ?? {}) as never, ctx.isMaster, ctx.empresaId,
     )
+    // Os dois conjuntos se somam com E: a listagem define QUEM entra na conta,
+    // os filtros de campo refinam dentro disso. Um sobrepor o outro faria o
+    // relatório contar uma população diferente da que a tela mostra — que é
+    // exatamente o problema que o `where` compartilhado veio resolver.
+    const condicoes = (definicao.filtrosCampos ?? [])
+      .map(f => this.condicaoDe(f, ctx.podeSub))
+      .filter((c): c is Prisma.ClienteWhereInput => c !== null)
+    const where: Prisma.ClienteWhereInput = condicoes.length
+      ? { AND: [whereLista, ...condicoes] }
+      : whereLista
 
     const total = await prisma.cliente.count({ where })
     const take = Math.min(opcoes?.limite ?? TETO_LINHAS, TETO_LINHAS)
@@ -173,7 +264,13 @@ export class ClienteRelatorioService {
       grupo,
       campos: campos
         .filter(c => c.grupo === grupo)
-        .map(c => ({ chave: c.chave, rotulo: c.rotulo, tipo: c.tipo, padrao: !!c.padrao })),
+        .map(c => ({
+          chave: c.chave, rotulo: c.rotulo, tipo: c.tipo, padrao: !!c.padrao,
+          opcoes: c.opcoes ?? null,
+          // Derivado não filtra (não há coluna); o resto herda os operadores
+          // do próprio tipo, então a tela não precisa saber a regra.
+          operadores: c.origem.tipo === 'derivado' ? [] : OPERADORES_POR_TIPO[c.tipo],
+        })),
     }))
   }
 
@@ -297,6 +394,7 @@ export class ClienteRelatorioService {
         descricao: d.descricao,
         campos: d.campos,
         filtros: d.filtros as Record<string, unknown>,
+        filtrosCampos: (d.filtrosCampos ?? []) as unknown as FiltroCampo[],
         ordenacao: d.ordenacao as { campo: string; direcao: 'asc' | 'desc' } | null,
         origem: d.origem,
         visibilidade: d.visibilidade,
@@ -319,6 +417,7 @@ export class ClienteRelatorioService {
       descricao?: string
       campos: string[]
       filtros?: Record<string, unknown>
+      filtrosCampos?: FiltroCampo[]
       ordenacao?: { campo: string; direcao: 'asc' | 'desc' }
       visibilidade: 'PRIVADO' | 'EMPRESA'
     },
@@ -347,6 +446,7 @@ export class ClienteRelatorioService {
           descricao: entrada.descricao?.trim() || null,
           campos,
           filtros: (entrada.filtros ?? {}) as never,
+          filtrosCampos: (entrada.filtrosCampos ?? []) as never,
           ordenacao: (entrada.ordenacao ?? null) as never,
           visibilidade: entrada.visibilidade,
         },
@@ -361,6 +461,7 @@ export class ClienteRelatorioService {
         descricao: entrada.descricao?.trim() || null,
         campos,
         filtros: (entrada.filtros ?? {}) as never,
+        filtrosCampos: (entrada.filtrosCampos ?? []) as never,
         ordenacao: (entrada.ordenacao ?? null) as never,
         origem: 'USUARIO',
         visibilidade: entrada.visibilidade,

@@ -58,6 +58,15 @@ export class ClienteRelatorioController {
       }
     }
 
+    // Os filtros de campo chegam como JSON na querystring. Chave ou operador
+    // invalido nao vira consulta: o motor descarta pelo catalogo.
+    let filtrosCampos: Array<Record<string, unknown>> = []
+    if (q.filtrosCampos) {
+      try { filtrosCampos = JSON.parse(q.filtrosCampos) as Array<Record<string, unknown>> } catch {
+        throw new BadRequestException('Filtros de campo inválidos.')
+      }
+    }
+
     const formato = (['xlsx', 'csv', 'pdf'].includes(q.formato ?? '') ? q.formato : 'xlsx') as 'xlsx' | 'csv' | 'pdf'
 
     const cache = new Map<string, boolean>()
@@ -69,7 +78,11 @@ export class ClienteRelatorioController {
 
     this.log.log(`→ relatório de clientes (${formato}, ${campos.length} campos) por ${sessao.userId}`)
     const { buffer, filename, contentType } = await this.svc.gerarArquivo(
-      { campos, filtros, ordenacao: q.ordenarPor ? { campo: q.ordenarPor, direcao: q.ordem === 'desc' ? 'desc' : 'asc' } : undefined },
+      {
+        campos, filtros,
+        filtrosCampos: filtrosCampos as never,
+        ordenacao: q.ordenarPor ? { campo: q.ordenarPor, direcao: q.ordem === 'desc' ? 'desc' : 'asc' } : undefined,
+      },
       { isMaster: sessao.isMaster, empresaId: sessao.empresaId, podeSub: (s) => cache.get(s) === true },
       formato,
       q.titulo || 'Relatório de clientes',

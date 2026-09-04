@@ -12,7 +12,32 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 
-interface CampoCatalogo { chave: string; rotulo: string; tipo: string; padrao: boolean }
+type Operador = 'igual' | 'diferente' | 'contem' | 'em' | 'maior' | 'menor' | 'entre' | 'vazio' | 'preenchido'
+
+const ROTULO_OPERADOR: Record<Operador, string> = {
+  igual: 'é', diferente: 'não é', contem: 'contém', em: 'é um de',
+  maior: 'a partir de', menor: 'até', entre: 'entre',
+  vazio: 'está vazio', preenchido: 'está preenchido',
+}
+/** Operadores que dispensam valor — a linha do filtro fica só com a pergunta. */
+const SEM_VALOR: Operador[] = ['vazio', 'preenchido']
+
+interface FiltroCampo {
+  campo: string
+  operador: Operador
+  valor?: string | number | boolean | null
+  valores?: string[]
+  ate?: string | number
+}
+
+interface CampoCatalogo {
+  chave: string
+  rotulo: string
+  tipo: string
+  padrao: boolean
+  opcoes: Array<{ valor: string; rotulo: string }> | null
+  operadores: Operador[]
+}
 interface GrupoCatalogo { grupo: string; campos: CampoCatalogo[] }
 interface Salvo {
   id: string
@@ -20,6 +45,7 @@ interface Salvo {
   descricao: string | null
   campos: string[]
   filtros: Record<string, unknown>
+  filtrosCampos: FiltroCampo[]
   ordenacao: { campo: string; direcao: 'asc' | 'desc' } | null
   origem: 'SISTEMA' | 'USUARIO'
   visibilidade: 'PRIVADO' | 'EMPRESA'
@@ -118,6 +144,8 @@ export default function MontarRelatorioPage() {
   const [modalSalvar, setModalSalvar] = useState(false)
   /** Os filtros do relatório aberto vencem os da URL — foi o que ele salvou. */
   const [filtrosSalvos, setFiltrosSalvos] = useState<Record<string, unknown> | null>(null)
+  /** Condições montadas aqui, sobre os campos escolhidos. */
+  const [filtrosCampos, setFiltrosCampos] = useState<FiltroCampo[]>([])
 
   /**
    * Os filtros vieram da listagem — aqui eles são só transportados.
@@ -167,6 +195,7 @@ export default function MontarRelatorioPage() {
   const abrir = (r: Salvo) => {
     setEscolhidos(r.campos)
     setFiltrosSalvos(r.filtros ?? {})
+    setFiltrosCampos(r.filtrosCampos ?? [])
     setAbertoId(r.origem === 'SISTEMA' ? null : r.id)   // padrão vira cópia ao salvar
     setNomeNovo(r.nome)
     setVisibilidade(r.visibilidade)
@@ -181,6 +210,7 @@ export default function MontarRelatorioPage() {
         nome: nomeNovo.trim(),
         campos: escolhidos,
         filtros,
+        filtrosCampos,
         visibilidade,
       })
       setModalSalvar(false)
@@ -207,11 +237,11 @@ export default function MontarRelatorioPage() {
     if (!escolhidos.length) { setPrevia(null); return }
     setCarregando(true)
     ;(trpc.cliente as any).relatorioPreview
-      .query({ campos: escolhidos, filtros, limite: 20 })
+      .query({ campos: escolhidos, filtros, filtrosCampos, limite: 20 })
       .then((r: Previa) => setPrevia(r))
       .catch(() => setPrevia(null))
       .finally(() => setCarregando(false))
-  }, [escolhidos, filtros])
+  }, [escolhidos, filtros, filtrosCampos])
 
   useEffect(() => {
     const t = setTimeout(buscarPrevia, 250)   // respira entre cliques rápidos
@@ -235,11 +265,44 @@ export default function MontarRelatorioPage() {
     })
   }
 
-  const rotuloDe = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const g of grupos ?? []) for (const c of g.campos) m.set(c.chave, c.rotulo)
+  const campoDe = useMemo(() => {
+    const m = new Map<string, CampoCatalogo>()
+    for (const g of grupos ?? []) for (const c of g.campos) m.set(c.chave, c)
     return m
   }, [grupos])
+  const rotuloDe = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const [k, c] of campoDe) m.set(k, c.rotulo)
+    return m
+  }, [campoDe])
+
+  /**
+   * Um filtro só existe enquanto o campo dele estiver escolhido.
+   *
+   * Sem isso, desmarcar "Situação" deixaria a condição pendurada: o relatório
+   * continuaria filtrando por uma coluna que ninguém vê mais — o pior tipo de
+   * filtro, o invisível.
+   */
+  useEffect(() => {
+    setFiltrosCampos(prev => {
+      const vivos = prev.filter(f => escolhidos.includes(f.campo))
+      return vivos.length === prev.length ? prev : vivos
+    })
+  }, [escolhidos])
+
+  const alterarFiltro = (campo: string, mudanca: Partial<FiltroCampo> | null) =>
+    setFiltrosCampos(prev => {
+      if (mudanca === null) return prev.filter(f => f.campo !== campo)
+      const i = prev.findIndex(f => f.campo === campo)
+      if (i < 0) {
+        const def = campoDe.get(campo)
+        const operador = (mudanca.operador ?? def?.operadores[0] ?? 'contem') as Operador
+        return [...prev, { campo, operador, ...mudanca }]
+      }
+      const copia = [...prev]
+      copia[i] = { ...copia[i]!, ...mudanca }
+      return copia
+    })
 
   /**
    * O download sai por NAVEGAÇÃO, não por fetch.
@@ -251,6 +314,7 @@ export default function MontarRelatorioPage() {
   const urlArquivo = (formato: 'xlsx' | 'csv' | 'pdf') => {
     const p = new URLSearchParams({ campos: escolhidos.join(','), formato })
     if (Object.keys(filtros).length) p.set('filtros', JSON.stringify(filtros))
+    if (filtrosCampos.length) p.set('filtrosCampos', JSON.stringify(filtrosCampos))
     return `${getApiUrl()}/api/cliente-relatorio?${p.toString()}`
   }
 
@@ -449,6 +513,116 @@ export default function MontarRelatorioPage() {
               </DndContext>
             )}
           </div>
+
+          {/* Filtros sobre os campos escolhidos.
+              So aparece campo que ja e coluna do relatorio: filtrar por algo
+              que nao sai no arquivo produz um resultado que ninguem consegue
+              conferir olhando o proprio relatorio. */}
+          {escolhidos.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h2 className="mb-2 text-[13px] font-semibold">
+                Filtros
+                {filtrosCampos.length > 0 && (
+                  <span className="ml-2 font-normal text-muted-foreground">{filtrosCampos.length} ativo(s)</span>
+                )}
+              </h2>
+              <div className="flex flex-col gap-1.5">
+                {escolhidos.map(chave => {
+                  const campo = campoDe.get(chave)
+                  if (!campo || !campo.operadores.length) return null
+                  const f = filtrosCampos.find(x => x.campo === chave)
+                  return (
+                    <div key={chave} className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
+                      <span className={cn('w-[150px] shrink-0 truncate', !f && 'text-muted-foreground')}>
+                        {campo.rotulo}
+                      </span>
+
+                      <select
+                        value={f?.operador ?? ''}
+                        onChange={e => alterarFiltro(chave, e.target.value
+                          ? { operador: e.target.value as Operador, valor: undefined, valores: [], ate: undefined }
+                          : null)}
+                        className="h-7 rounded-md border border-border bg-background px-1.5 text-[12px]"
+                      >
+                        <option value="">sem filtro</option>
+                        {campo.operadores.map(op => (
+                          <option key={op} value={op}>{ROTULO_OPERADOR[op]}</option>
+                        ))}
+                      </select>
+
+                      {f && !SEM_VALOR.includes(f.operador) && (
+                        campo.opcoes && f.operador === 'em' ? (
+                          // Enum com valores conhecidos: marca-se numa lista em
+                          // vez de digitar "MENSAL" e errar caixa ou acento.
+                          <div className="flex flex-wrap gap-1">
+                            {campo.opcoes.map(o => {
+                              const marcado = (f.valores ?? []).includes(o.valor)
+                              return (
+                                <button
+                                  key={o.valor}
+                                  type="button"
+                                  onClick={() => alterarFiltro(chave, {
+                                    valores: marcado
+                                      ? (f.valores ?? []).filter(v => v !== o.valor)
+                                      : [...(f.valores ?? []), o.valor],
+                                  })}
+                                  className={cn(
+                                    'rounded-full border px-2 py-0.5 text-[11px] transition-colors',
+                                    marcado
+                                      ? 'border-primary/40 bg-primary/10 font-medium text-primary'
+                                      : 'border-border text-muted-foreground hover:bg-muted',
+                                  )}
+                                >
+                                  {o.rotulo}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        ) : campo.tipo === 'booleano' ? (
+                          <select
+                            value={String(f.valor ?? '')}
+                            onChange={e => alterarFiltro(chave, { valor: e.target.value === 'true' })}
+                            className="h-7 rounded-md border border-border bg-background px-1.5 text-[12px]"
+                          >
+                            <option value="">escolha</option>
+                            <option value="true">Sim</option>
+                            <option value="false">Nao</option>
+                          </select>
+                        ) : (
+                          <>
+                            <Input
+                              type={campo.tipo === 'data' ? 'date' : campo.tipo === 'numero' ? 'number' : 'text'}
+                              value={String(f.valor ?? '')}
+                              onChange={e => alterarFiltro(chave, { valor: e.target.value })}
+                              className="h-7 w-[160px] text-[12px]"
+                            />
+                            {f.operador === 'entre' && (
+                              <>
+                                <span className="text-muted-foreground">e</span>
+                                <Input
+                                  type={campo.tipo === 'data' ? 'date' : 'number'}
+                                  value={String(f.ate ?? '')}
+                                  onChange={e => alterarFiltro(chave, { ate: e.target.value })}
+                                  className="h-7 w-[160px] text-[12px]"
+                                />
+                              </>
+                            )}
+                          </>
+                        )
+                      )}
+
+                      {f && (
+                        <button type="button" onClick={() => alterarFiltro(chave, null)}
+                          className="rounded p-0.5 text-muted-foreground hover:text-foreground" title="Remover filtro">
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="rounded-xl border border-border bg-card">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-3">

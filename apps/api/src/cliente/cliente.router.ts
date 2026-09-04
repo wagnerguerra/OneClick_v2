@@ -1556,6 +1556,13 @@ export function createClienteRouter(
       .input(z.object({
         campos: z.array(z.string()).max(60),
         filtros: z.record(z.unknown()).optional(),
+        filtrosCampos: z.array(z.object({
+          campo: z.string(),
+          operador: z.enum(['igual', 'diferente', 'contem', 'em', 'maior', 'menor', 'entre', 'vazio', 'preenchido']),
+          valor: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+          valores: z.array(z.string()).optional(),
+          ate: z.union([z.string(), z.number()]).optional(),
+        })).max(20).optional(),
         ordenacao: z.object({ campo: z.string(), direcao: z.enum(['asc', 'desc']) }).optional(),
         limite: z.number().min(1).max(50).optional(),
       }))
@@ -1567,7 +1574,7 @@ export function createClienteRouter(
           cache.set(sub, await hasSubPermission(ctx.userId, MODULE, sub, { isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster }))
         }
         return relatorioService.executar(
-          { campos: input.campos, filtros: input.filtros, ordenacao: input.ordenacao },
+          { campos: input.campos, filtros: input.filtros, filtrosCampos: input.filtrosCampos, ordenacao: input.ordenacao },
           { isMaster: ctx.isMaster, empresaId: ctx.empresaId, podeSub },
           { limite: input.limite ?? 20 },
         )
@@ -1592,6 +1599,13 @@ export function createClienteRouter(
         descricao: z.string().max(300).optional(),
         campos: z.array(z.string()).min(1).max(60),
         filtros: z.record(z.unknown()).optional(),
+        filtrosCampos: z.array(z.object({
+          campo: z.string(),
+          operador: z.enum(['igual', 'diferente', 'contem', 'em', 'maior', 'menor', 'entre', 'vazio', 'preenchido']),
+          valor: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+          valores: z.array(z.string()).optional(),
+          ate: z.union([z.string(), z.number()]).optional(),
+        })).max(20).optional(),
         ordenacao: z.object({ campo: z.string(), direcao: z.enum(['asc', 'desc']) }).optional(),
         visibilidade: z.enum(['PRIVADO', 'EMPRESA']),
       }))

@@ -30,12 +30,43 @@ export type OrigemCampo =
   /** Calculado a partir do cliente já carregado (não pede coluna nova). */
   | { tipo: 'derivado'; depende: string[] }
 
+/**
+ * O que se pode perguntar de um campo ao filtrá-lo.
+ *
+ * Sai do TIPO do campo, não de configuração à parte: perguntar "maior que" de
+ * um texto ou "contém" de um booleano não faz sentido, e deixar a tela decidir
+ * abriria espaço para uma combinação que o motor não sabe traduzir.
+ */
+export type OperadorFiltro =
+  | 'igual' | 'diferente' | 'contem' | 'em'
+  | 'maior' | 'menor' | 'entre'
+  | 'vazio' | 'preenchido'
+
+export const OPERADORES_POR_TIPO: Record<CampoRelatorio['tipo'], OperadorFiltro[]> = {
+  texto:    ['contem', 'igual', 'diferente', 'vazio', 'preenchido'],
+  enum:     ['em', 'diferente', 'vazio', 'preenchido'],
+  numero:   ['igual', 'maior', 'menor', 'entre', 'vazio', 'preenchido'],
+  data:     ['entre', 'maior', 'menor', 'vazio', 'preenchido'],
+  booleano: ['igual', 'vazio'],
+  // Relação: "contém" pergunta se ALGUM item bate; vazio/preenchido perguntam
+  // se existe item algum.
+  lista:    ['contem', 'vazio', 'preenchido'],
+}
+
+export const ROTULO_OPERADOR: Record<OperadorFiltro, string> = {
+  igual: 'é', diferente: 'não é', contem: 'contém', em: 'é um de',
+  maior: 'a partir de', menor: 'até', entre: 'entre',
+  vazio: 'está vazio', preenchido: 'está preenchido',
+}
+
 export interface CampoRelatorio {
   chave: string
   rotulo: string
   grupo: string
   tipo: 'texto' | 'numero' | 'data' | 'booleano' | 'enum' | 'lista'
   origem: OrigemCampo
+  /** Valores conhecidos de um enum — a tela lista em vez de pedir digitação. */
+  opcoes?: Array<{ valor: string; rotulo: string }>
   /** Sub-permissão do módulo `clientes` exigida para o campo aparecer/sair. */
   exigeSub?: string
   /** Converte o valor bruto no que vai para a célula. */
@@ -96,7 +127,8 @@ export const CAMPOS_CLIENTE: CampoRelatorio[] = [
       return d
     } },
   { chave: 'tipoDocumento', rotulo: 'Tipo de documento', grupo: 'Identificação', tipo: 'enum',
-    origem: { tipo: 'campo', campo: 'tipoDocumento' }, formatar: texto },
+    origem: { tipo: 'campo', campo: 'tipoDocumento' }, formatar: texto,
+    opcoes: [{ valor: 'CNPJ', rotulo: 'CNPJ' }, { valor: 'CPF', rotulo: 'CPF' }] },
   // `tipo` descreve o que sai na CÉLULA (aqui, texto). Que o valor seja
   // derivado é assunto da `origem`, não do tipo — misturar os dois faria a
   // tela ter de conhecer a forma de cálculo para saber como alinhar a coluna.
@@ -108,9 +140,14 @@ export const CAMPOS_CLIENTE: CampoRelatorio[] = [
 
   // ── Comercial ──────────────────────────────────────────────────────
   { chave: 'situacao', rotulo: 'Situação', grupo: 'Comercial', tipo: 'enum',
-    origem: { tipo: 'campo', campo: 'situacao' }, formatar: texto, padrao: true },
+    origem: { tipo: 'campo', campo: 'situacao' }, formatar: texto, padrao: true,
+    opcoes: [
+      { valor: 'MENSAL', rotulo: 'Mensal' }, { valor: 'AVULSO', rotulo: 'Avulso' },
+      { valor: 'PROSPECT', rotulo: 'Prospect' }, { valor: 'PARALIZADO', rotulo: 'Paralizado' },
+    ] },
   { chave: 'status', rotulo: 'Ativo / Inativo', grupo: 'Comercial', tipo: 'enum',
-    origem: { tipo: 'campo', campo: 'status' }, formatar: texto },
+    origem: { tipo: 'campo', campo: 'status' }, formatar: texto,
+    opcoes: [{ valor: 'ATIVO', rotulo: 'Ativo' }, { valor: 'INATIVO', rotulo: 'Inativo' }] },
   { chave: 'grupo', rotulo: 'Grupo empresarial', grupo: 'Comercial', tipo: 'texto',
     origem: { tipo: 'campo', campo: 'grupo' }, formatar: texto },
   { chave: 'categoria', rotulo: 'Categoria', grupo: 'Comercial', tipo: 'texto',
@@ -127,9 +164,11 @@ export const CAMPOS_CLIENTE: CampoRelatorio[] = [
   // ── Fiscal ─────────────────────────────────────────────────────────
   { chave: 'tributacao', rotulo: 'Tributação', grupo: 'Fiscal', tipo: 'enum',
     origem: { tipo: 'campo', campo: 'tributacao' }, padrao: true,
-    formatar: (v) => (v ? TRIBUTACAO[String(v)] ?? String(v) : '') },
+    formatar: (v) => (v ? TRIBUTACAO[String(v)] ?? String(v) : ''),
+    opcoes: Object.entries(TRIBUTACAO).map(([valor, rotulo]) => ({ valor, rotulo })) },
   { chave: 'regime', rotulo: 'Regime contábil', grupo: 'Fiscal', tipo: 'enum',
-    origem: { tipo: 'campo', campo: 'regime' }, formatar: texto },
+    origem: { tipo: 'campo', campo: 'regime' }, formatar: texto,
+    opcoes: [{ valor: 'CAIXA', rotulo: 'Caixa' }, { valor: 'COMPETENCIA', rotulo: 'Competência' }] },
   { chave: 'porte', rotulo: 'Porte', grupo: 'Fiscal', tipo: 'texto',
     origem: { tipo: 'campo', campo: 'porte' }, formatar: texto },
   { chave: 'situacaoCadastral', rotulo: 'Situação cadastral', grupo: 'Fiscal', tipo: 'texto',
@@ -140,7 +179,8 @@ export const CAMPOS_CLIENTE: CampoRelatorio[] = [
     origem: { tipo: 'campo', campo: 'inscricaoMunicipal' }, formatar: texto },
   { chave: 'apuracaoLucroReal', rotulo: 'Apuração do Lucro Real', grupo: 'Fiscal', tipo: 'enum',
     origem: { tipo: 'campo', campo: 'apuracaoLucroReal' },
-    formatar: (v) => (v ? APURACAO[String(v)] ?? String(v) : '') },
+    formatar: (v) => (v ? APURACAO[String(v)] ?? String(v) : ''),
+    opcoes: Object.entries(APURACAO).map(([valor, rotulo]) => ({ valor, rotulo })) },
   { chave: 'fatorR', rotulo: 'Sujeita ao Fator R', grupo: 'Fiscal', tipo: 'booleano',
     origem: { tipo: 'campo', campo: 'fatorR' }, formatar: simNao },
   { chave: 'apuraIssPorFora', rotulo: 'Apura ISS por fora', grupo: 'Fiscal', tipo: 'booleano',

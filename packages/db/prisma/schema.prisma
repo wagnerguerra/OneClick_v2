@@ -8017,6 +8017,10 @@ model RelatorioDefinicao {
   /// Mesma forma do input de `cliente.list` — é o que garante que o relatório
   /// e a listagem filtrem a mesma população.
   filtros    Json
+  /// Condições por campo do catálogo ("Situação é um de [Mensal]"), montadas
+  /// no próprio construtor. Coluna separada de `filtros` de proposito: aquele
+  /// espelha o input de `cliente.list` e precisa manter essa forma.
+  filtrosCampos Json? @map("filtros_campos")
   ordenacao  Json?
 
   /// SISTEMA (semeado por deploy, não se apaga) | USUARIO
