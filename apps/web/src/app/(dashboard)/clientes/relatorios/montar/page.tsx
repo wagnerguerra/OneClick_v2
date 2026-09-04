@@ -3,15 +3,18 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { FileSpreadsheet, FileText, FileDown, Search, ChevronDown, Loader2, ArrowLeft, X, GripVertical, Save, Star, Trash2, Users, Lock, Filter, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { FileSpreadsheet, FileText, FileDown, Search, ChevronDown, Loader2, X, GripVertical, Save, Star, Trash2, Users, Lock, Filter, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
   Button, Input, cn, Checkbox, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+  Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
 } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BackButton } from '@/components/ui/back-button'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 
@@ -162,7 +165,7 @@ function ColunaArrastavel({ chave, campo, filtro, onRemover, onFiltrar }: {
               onChange={e => onFiltrar(e.target.value
                 ? { operador: e.target.value as Operador, valor: undefined, valores: [], ate: undefined }
                 : null)}
-              className="h-8 w-full rounded-md border border-border bg-card px-2 text-[12.5px]"
+              className="h-8 w-full rounded-md px-2 text-[12.5px]"
             >
               <option value="">sem filtro</option>
               {campo!.operadores.map(op => (
@@ -201,7 +204,7 @@ function ColunaArrastavel({ chave, campo, filtro, onRemover, onFiltrar }: {
                   <select
                     value={filtro.valor === true ? 'true' : filtro.valor === false ? 'false' : ''}
                     onChange={e => onFiltrar({ valor: e.target.value === 'true' })}
-                    className="h-8 w-full rounded-md border border-border bg-card px-2 text-[12.5px]"
+                    className="h-8 w-full rounded-md px-2 text-[12.5px]"
                   >
                     <option value="">escolha</option>
                     <option value="true">Sim</option>
@@ -571,9 +574,7 @@ export default function MontarRelatorioPage() {
                 {abertoId ? 'Salvar alterações' : 'Salvar relatório'}
               </Button>
             )}
-            <Button asChild variant="outline" size="sm" className="gap-1.5">
-              <Link href="/clientes/relatorios"><ArrowLeft className="h-3.5 w-3.5" /> Voltar</Link>
-            </Button>
+            <BackButton href="/clientes/relatorios" label="Voltar" />
           </>
         }
       >
@@ -822,18 +823,17 @@ export default function MontarRelatorioPage() {
             </div>
           </div>
 
-          {modalSalvar && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setModalSalvar(false)}>
-              <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-xl" onClick={e => e.stopPropagation()}>
-                <h3 className="text-[15px] font-semibold">
-                  {abertoId ? 'Salvar alterações' : 'Salvar relatório'}
-                </h3>
-                <p className="mt-1 text-xs text-muted-foreground">
+          <Dialog open={modalSalvar} onOpenChange={setModalSalvar}>
+            <DialogContent className="max-w-md">
+              <DialogHeaderIcon icon={Save} color="emerald">
+                <DialogTitle>{abertoId ? 'Salvar alterações' : 'Salvar relatório'}</DialogTitle>
+                <DialogDescription>
                   Guarda os {escolhidos.length} campos escolhidos e os filtros atuais. O relatório
                   roda contra os dados de quando for aberto, não contra os de hoje.
-                </p>
-
-                <label className="mt-4 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Nome</label>
+                </DialogDescription>
+              </DialogHeaderIcon>
+              <DialogBody>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Nome</label>
                 <Input value={nomeNovo} onChange={e => setNomeNovo(e.target.value)} autoFocus
                   placeholder="ex: Carteira mensal por tributação" className="mt-1 h-9 text-sm" />
 
@@ -849,17 +849,16 @@ export default function MontarRelatorioPage() {
                     </button>
                   ))}
                 </div>
-
-                <div className="mt-5 flex justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setModalSalvar(false)}>Cancelar</Button>
-                  <Button size="sm" variant="success" onClick={salvar} disabled={!nomeNovo.trim() || salvando} className="gap-1.5">
-                    {salvando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                    Salvar
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+              </DialogBody>
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setModalSalvar(false)}>Cancelar</Button>
+                <Button size="sm" variant="success" onClick={salvar} disabled={!nomeNovo.trim() || salvando} className="gap-1.5">
+                  {salvando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {!podeMontar && grupos !== null && (
             <p className="text-[11px] text-muted-foreground">
