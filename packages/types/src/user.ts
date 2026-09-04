@@ -405,6 +405,10 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'notify_files', label: 'Notificar vencimentos de arquivos', group: 'Gerais' },
     { key: 'manage_files', label: 'Incluir, editar e excluir arquivos do cliente', group: 'Gerais' },
     { key: 'manage_services', label: 'Gerenciar serviços contratados', group: 'Gerais' },
+    // Os relatórios PADRÃO ficam abertos a quem tem o módulo — é o caminho de
+    // quem só precisa de uma lista pronta. Esta sub-permissão libera o
+    // CONSTRUTOR: montar do zero, escolher campos e salvar o próprio relatório.
+    { key: 'build_reports', label: 'Montar e salvar relatórios próprios', group: 'Gerais' },
     { key: 'manage_responsible', label: 'Gerenciar responsáveis pelos serviços', group: 'Gerais' },
     { key: 'manage_commercial', label: 'Gerenciar aba comercial', group: 'Comercial' },
     { key: 'manage_contracts', label: 'Gerenciar contratos dos clientes', group: 'Comercial' },

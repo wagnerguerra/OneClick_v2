@@ -26,16 +26,23 @@ const Checkbox = React.forwardRef<
     // (que pode ser um var de módulo) resolve em runtime.
     style={accentColor ? ({ ...style, ['--cbx-accent']: accentColor } as React.CSSProperties) : style}
     className={cn(
-      'peer h-4 w-4 shrink-0 rounded-sm border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50',
+      // Anatomia do LuminAux: canto de 5px, borda NEUTRA quando desmarcado e
+      // a cor de destaque só ao marcar. A borda azul no estado vazio deixava
+      // toda lista de opções com um enfileirado de contornos competindo com o
+      // que de fato está selecionado.
+      'peer h-4 w-4 shrink-0 rounded-[5px] border border-border bg-background transition-colors duration-200',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
+      'disabled:cursor-not-allowed disabled:opacity-50',
+      // accentColor (var de módulo) OU primária: só afeta marcado/indeterminate + ring.
       accentColor
-        ? 'border-[var(--cbx-accent)] focus-visible:ring-[var(--cbx-accent)] data-[state=checked]:bg-[var(--cbx-accent)] data-[state=checked]:border-[var(--cbx-accent)] data-[state=checked]:text-white'
-        : 'border-primary focus-visible:ring-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground',
+        ? 'focus-visible:ring-[var(--cbx-accent)] data-[state=checked]:bg-[var(--cbx-accent)] data-[state=checked]:border-[var(--cbx-accent)] data-[state=checked]:text-white data-[state=indeterminate]:bg-[var(--cbx-accent)] data-[state=indeterminate]:border-[var(--cbx-accent)] data-[state=indeterminate]:text-white'
+        : 'focus-visible:ring-ring data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground',
       className,
     )}
     {...props}
   >
     <CheckboxPrimitive.Indicator className={cn('flex items-center justify-center text-current')}>
-      <Check className="h-3.5 w-3.5" />
+      <Check className="h-3 w-3" strokeWidth={3} />
     </CheckboxPrimitive.Indicator>
   </CheckboxPrimitive.Root>
 ))

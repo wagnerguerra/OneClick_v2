@@ -1599,6 +1599,9 @@ function registerIpcHandlers() {
           console.log('[BiSync] Sessão obtida — abrindo SSE automaticamente.')
           biSyncStreamStart(baseUrl).catch(() => {})
         }
+        // A presenca depende da mesma sessao: com o cookie em maos, religa o
+        // stream que estava esperando por ele.
+        if (onlineUsersActive) onlineUsersStreamStart(baseUrl).catch(() => {})
       }
       const text = await resp.text()
       let data = null
@@ -1625,6 +1628,21 @@ function registerIpcHandlers() {
   let biSyncActive = false          // true enquanto o stream deve ficar vivo (auto-reconecta)
   let biSyncReconnectTimer = null
   let biSyncBaseUrl = ''            // baseUrl atual pra reconectar
+
+  // ── Usuarios online ────────────────────────────────────────────────
+  // O stream vive AQUI, no processo principal, porque e aqui que mora o
+  // cookie da sessao da VPS (biSyncCookies). A aba usava um EventSource do
+  // renderer, que sai sem cookie nenhum — o servidor classificava como visita
+  // anonima e devolvia lista vazia. O painel ficava eternamente em zero sem
+  // dizer por que.
+  //
+  // O EventSource tambem nao permite header customizado, entao a via prevista
+  // no controller (x-admin-key) era impossivel por ali. Daqui da: e um fetch
+  // comum, com os headers que quisermos.
+  let onlineUsersCtrl = null
+  let onlineUsersActive = false
+  let onlineUsersReconnectTimer = null
+  let onlineUsersBaseUrl = ''
 
   // Stop EXPLÍCITO (logout/quit): desativa e cancela a reconexão.
   function biSyncStreamStop() {
@@ -1734,6 +1752,93 @@ function registerIpcHandlers() {
       }
     }
   }
+  function onlineUsersAgendarReconexao() {
+    if (!onlineUsersActive || onlineUsersReconnectTimer) return
+    onlineUsersReconnectTimer = setTimeout(() => {
+      onlineUsersReconnectTimer = null
+      if (onlineUsersActive && onlineUsersBaseUrl) onlineUsersStreamStart(onlineUsersBaseUrl).catch(() => {})
+    }, 5000)
+  }
+
+  function onlineUsersEmitir(payload) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('online-users-event', payload)
+    }
+  }
+
+  /**
+   * Abre o SSE de presenca com a sessao do Service Manager.
+   *
+   * Sem cookie ainda nao adianta conectar: o servidor responderia lista vazia,
+   * que e indistinguivel de "ninguem online". Melhor avisar a tela que falta
+   * login e tentar de novo — o login costuma acontecer segundos depois.
+   */
+  async function onlineUsersStreamStart(baseUrl) {
+    if (onlineUsersReconnectTimer) { clearTimeout(onlineUsersReconnectTimer); onlineUsersReconnectTimer = null }
+    if (onlineUsersCtrl) { try { onlineUsersCtrl.abort() } catch {}; onlineUsersCtrl = null }
+    onlineUsersActive = true
+    onlineUsersBaseUrl = baseUrl
+    const cookieStr = biSyncCookies.get(baseUrl) || ''
+    if (!cookieStr) {
+      onlineUsersEmitir({ type: '__semSessao' })
+      onlineUsersAgendarReconexao()
+      return
+    }
+    onlineUsersCtrl = new AbortController()
+    try {
+      const resp = await fetch(`${baseUrl}/api/admin/online-users/events`, {
+        method: 'GET',
+        headers: {
+          'Origin': baseUrl,
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Cookie': cookieStr,
+          'User-Agent': 'OneClick-Launcher/1.0',
+        },
+        signal: onlineUsersCtrl.signal,
+      })
+      if (!resp.ok || !resp.body) {
+        onlineUsersEmitir({ type: '__error', status: resp.status })
+        onlineUsersAgendarReconexao()
+        return
+      }
+      onlineUsersEmitir({ type: '__conectado' })
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const eventos = buffer.split('\n\n')
+        buffer = eventos.pop() || ''
+        for (const ev of eventos) {
+          const linha = ev.split('\n').find(l => l.startsWith('data:'))
+          if (!linha) continue
+          try { onlineUsersEmitir(JSON.parse(linha.slice(5).trim())) } catch { /* payload torto */ }
+        }
+      }
+      onlineUsersAgendarReconexao()
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        onlineUsersEmitir({ type: '__error', message: e.message })
+        onlineUsersAgendarReconexao()
+      }
+    }
+  }
+
+  function onlineUsersStreamStop() {
+    onlineUsersActive = false
+    if (onlineUsersReconnectTimer) { clearTimeout(onlineUsersReconnectTimer); onlineUsersReconnectTimer = null }
+    if (onlineUsersCtrl) { try { onlineUsersCtrl.abort() } catch {}; onlineUsersCtrl = null }
+  }
+
+  ipcMain.handle('online-users-start', (_e, baseUrl) => {
+    onlineUsersStreamStart(baseUrl || onlineUsersBaseUrl).catch(() => {})
+    return { ok: true }
+  })
+  ipcMain.handle('online-users-stop', () => { onlineUsersStreamStop(); return { ok: true } })
+
   /** Primeiro e último dia do mês, no formato que o sci_balancete.py espera. */
   function biSyncPeriodoDoRef(ref) {
     const ano = Math.floor(ref / 100)

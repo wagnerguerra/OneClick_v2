@@ -13,6 +13,7 @@ import { DuplicidadeService } from './duplicidade.service'
 import { MesclagemService } from './mesclagem.service'
 import { CnpjService } from '../cnpj/cnpj.service'
 import { consultasPublicas } from './dossie/consultas-publicas'
+import type { ClienteRelatorioService } from './relatorio/relatorio.service'
 
 const MODULE = 'clientes'
 
@@ -42,6 +43,7 @@ export function createClienteRouter(
   dossieBackfillService?: import('./dossie/dossie-backfill.service').DossieBackfillService,
   logoService?: import('./cliente-logo.service').ClienteLogoService,
   socioPerfisService?: import('./dossie/socio-perfis.service').SocioPerfisService,
+  relatorioService?: ClienteRelatorioService,
 ) {
   return router({
     // Listagem (ativos)
@@ -1530,6 +1532,103 @@ export function createClienteRouter(
       }),
     duplicidadesTipos: readProcedure(MODULE)
       .query(() => duplicidadeService?.tiposVinculo ?? []),
+
+    // ── Gerador de relatórios ─────────────────────────────────────────
+    //
+    // O catálogo e a prévia bastam `readProcedure`: quem enxerga o módulo pode
+    // rodar um relatório PADRÃO. Montar o próprio é que exige `build_reports` —
+    // e isso é conferido na tela e na hora de salvar (fase 2), não aqui, porque
+    // a prévia de um relatório padrão passa por este mesmo caminho.
+    relatorioCatalogo: readProcedure(MODULE)
+      .query(async ({ ctx }) => {
+        if (!relatorioService) return { grupos: [], podeMontar: false }
+        const subs = new Map<string, boolean>()
+        const podeSub = (sub: string) => subs.get(sub) === true
+        // As sub-permissões são resolvidas de uma vez: são poucas e a
+        // alternativa (uma consulta por campo) faria dezenas de idas ao banco.
+        for (const sub of ['manage_commercial', 'manage_services', 'manage_contracts', 'manage_fiscal', 'edit_taxation', 'build_reports']) {
+          subs.set(sub, await hasSubPermission(ctx.userId, MODULE, sub, { isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster }))
+        }
+        return { grupos: relatorioService.catalogo(podeSub), podeMontar: podeSub('build_reports') }
+      }),
+
+    relatorioPreview: readProcedure(MODULE)
+      .input(z.object({
+        campos: z.array(z.string()).max(60),
+        filtros: z.record(z.unknown()).optional(),
+        filtrosCampos: z.array(z.object({
+          campo: z.string(),
+          operador: z.enum(['igual', 'diferente', 'contem', 'em', 'maior', 'menor', 'entre', 'vazio', 'preenchido']),
+          valor: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+          valores: z.array(z.string()).optional(),
+          ate: z.union([z.string(), z.number()]).optional(),
+        })).max(20).optional(),
+        ordenacao: z.object({ campo: z.string(), direcao: z.enum(['asc', 'desc']) }).optional(),
+        limite: z.number().min(1).max(50).optional(),
+      }))
+      .query(async ({ input, ctx }) => {
+        if (!relatorioService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        const cache = new Map<string, boolean>()
+        const podeSub = (sub: string) => cache.get(sub) === true
+        for (const sub of ['manage_commercial', 'manage_services', 'manage_contracts', 'manage_fiscal', 'edit_taxation']) {
+          cache.set(sub, await hasSubPermission(ctx.userId, MODULE, sub, { isMaster: ctx.isMaster, isEmpresaMaster: ctx.isEmpresaMaster }))
+        }
+        return relatorioService.executar(
+          { campos: input.campos, filtros: input.filtros, filtrosCampos: input.filtrosCampos, ordenacao: input.ordenacao },
+          { isMaster: ctx.isMaster, empresaId: ctx.empresaId, podeSub },
+          { limite: input.limite ?? 20 },
+        )
+      }),
+
+    // ── Relatórios salvos ─────────────────────────────────────────────
+    //
+    // LISTAR é `readProcedure`: quem tem o módulo vê os padrão do sistema, que
+    // é o caminho de quem só precisa de uma lista pronta. SALVAR e EXCLUIR
+    // exigem `build_reports` — montar o próprio relatório é que é a permissão
+    // nova.
+    relatoriosSalvos: readProcedure(MODULE)
+      .query(({ ctx }) => {
+        if (!relatorioService) return []
+        return relatorioService.listarSalvos({ userId: ctx.userId, empresaId: ctx.empresaId, isMaster: ctx.isMaster })
+      }),
+
+    relatorioSalvar: writeSubProcedure(MODULE, 'build_reports', 'Montar e salvar relatórios próprios')
+      .input(z.object({
+        id: z.string().optional(),
+        nome: z.string().min(1).max(120),
+        descricao: z.string().max(300).optional(),
+        campos: z.array(z.string()).min(1).max(60),
+        filtros: z.record(z.unknown()).optional(),
+        filtrosCampos: z.array(z.object({
+          campo: z.string(),
+          operador: z.enum(['igual', 'diferente', 'contem', 'em', 'maior', 'menor', 'entre', 'vazio', 'preenchido']),
+          valor: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+          valores: z.array(z.string()).optional(),
+          ate: z.union([z.string(), z.number()]).optional(),
+        })).max(20).optional(),
+        ordenacao: z.object({ campo: z.string(), direcao: z.enum(['asc', 'desc']) }).optional(),
+        visibilidade: z.enum(['PRIVADO', 'EMPRESA']),
+      }))
+      .mutation(({ input, ctx }) => {
+        if (!relatorioService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return relatorioService.salvar(input, { userId: ctx.userId, empresaId: ctx.empresaId, isMaster: ctx.isMaster })
+      }),
+
+    relatorioExcluir: writeSubProcedure(MODULE, 'build_reports', 'Montar e salvar relatórios próprios')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => {
+        if (!relatorioService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return relatorioService.excluir(input.id, { userId: ctx.userId, isMaster: ctx.isMaster })
+      }),
+
+    // Favoritar é gosto pessoal, não edição: qualquer um que enxergue o
+    // relatório pode fixá-lo no próprio topo, inclusive os do sistema.
+    relatorioFavoritar: protectedProcedure
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => {
+        if (!relatorioService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return relatorioService.alternarFavorito(input.id, ctx.userId)
+      }),
 
     // ── Mesclagem de cadastros repetidos ──
     // Só master/empresa-master: move histórico e inativa cadastro, sem desfazer.

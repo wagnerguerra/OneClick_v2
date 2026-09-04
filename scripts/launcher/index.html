@@ -1743,6 +1743,39 @@
     }
 
     /* ── Projetos e PRs: a pele nova sobre a estrutura que o JS monta ── */
+    /* ── Onde publicar, no rodapé ───────────────────────────────────
+       Alinhado à direita, separado do progresso por uma linha: é escolha,
+       não resultado. Fica no canto porque quase nunca muda — mas continua
+       à vista, que é o que uma opção escondida num menu perderia. */
+    #page-deploy .lx-projetos {
+      display: flex; justify-content: flex-end; gap: 8px;
+      margin-top: 14px; padding-top: 14px;
+      border-top: 1px solid var(--lx-border);
+    }
+    #page-deploy .lx-projeto {
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 32px; padding: 0 12px; border-radius: 999px;
+      border: 1px solid var(--lx-border); background: var(--lx-surface);
+      color: var(--lx-muted); font-size: 12px; font-weight: 500; font-family: inherit;
+      cursor: pointer; position: relative;
+      transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+    }
+    #page-deploy .lx-projeto:hover:not(.is-disabled) { background: var(--lx-surface-muted); color: var(--lx-fg); }
+    #page-deploy .lx-projeto.is-selected {
+      background: color-mix(in srgb, var(--lx-primary) 12%, transparent);
+      border-color: color-mix(in srgb, var(--lx-primary) 38%, transparent);
+      color: var(--lx-primary); font-weight: 600;
+    }
+    #page-deploy .lx-projeto.is-disabled { opacity: .45; cursor: not-allowed; }
+    /* O ponto com o numero: um projeto com trabalho parado nao pode parecer
+       igual a um sincronizado. */
+    #page-deploy .lx-projeto-pendencia {
+      min-width: 17px; height: 17px; padding: 0 5px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--lx-warning); color: #fff;
+      font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+
     #page-deploy .deploy-project-grid { gap: 10px; margin-bottom: 12px; }
     #page-deploy .deploy-project-card {
       background: var(--lx-surface); border: 1px solid var(--lx-border);
@@ -2168,8 +2201,21 @@
     .port-item { border-radius: var(--lx-radius-sm); background: var(--bg-surface); }
     .group-label { letter-spacing: 0.08em; font-size: 10px; }
 
-    /* O interruptor acende na primária, como todo controle ligado no modelo. */
+    /* O interruptor acende na primária, como todo controle ligado no modelo.
+       Antes eu havia trocado só o trilho: o botão continuava com a regra
+       antiga (verde), e ligado ele ficava azul por fora com uma bolinha verde
+       dentro — duas cores dizendo a mesma coisa e nenhuma delas do tema.
+       Aqui o par inteiro vira o do modelo: trilho na primária, botão branco. */
+    .toggle-switch { width: 34px; height: 20px; }
+    .toggle-switch .slider { border-radius: 999px; }
+    .toggle-switch .slider::after {
+      width: 16px; height: 16px; left: 2px; top: 2px;
+      background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
+    }
     .toggle-switch input:checked + .slider { background: var(--lx-primary); }
+    .toggle-switch input:checked + .slider::after {
+      transform: translateX(14px); background: #fff;
+    }
 
     /* ── Tabela ─────────────────────────────────────────────────────── */
     .users-table th {
@@ -2241,9 +2287,6 @@
       <nav class="sidebar-nav">
         <button class="nav-item active" data-page="overview" data-label="Visão Geral">
           <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span> <span class="nav-label">Visão Geral</span>
-        </button>
-        <button class="nav-item" data-page="services" data-label="Serviços">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/></svg></span> <span class="nav-label">Serviços</span>
           <span class="nav-badge off" id="navServicesBadge">0/0</span>
         </button>
         <button class="nav-item" data-page="users" data-label="Usuários">
@@ -2314,6 +2357,9 @@
           <div style="display:flex;gap:8px;">
             <button class="btn btn-solid-green btn-lg" onclick="startEverything()">&#9654; Iniciar Tudo</button>
             <button class="btn btn-solid-red btn-lg" onclick="stopEverything()">&#9632; Parar Tudo</button>
+            <!-- Vinha da aba Serviços, que saiu. Sem ele, reiniciar todos os
+                 serviços de uma vez deixaria de existir na interface. -->
+            <button class="btn btn-yellow btn-lg" onclick="restartAll()">&#8635; Reiniciar Tudo</button>
           </div>
         </div>
 
@@ -2397,22 +2443,6 @@
           <div class="log-content" id="logContent"></div>
         </div>
         </div>
-      </div>
-
-      <!-- ═══ Page: Services ═══ -->
-      <div class="page" id="page-services">
-        <div class="page-header">
-          <div>
-            <div class="page-title">Gerenciar Serviços</div>
-            <div class="page-subtitle">Controle individual de cada serviço do sistema</div>
-          </div>
-        </div>
-        <div class="actions-bar">
-          <button class="btn btn-green btn-lg btn-flex" onclick="startAll()">&#9654; Iniciar Todos</button>
-          <button class="btn btn-red btn-lg btn-flex" onclick="stopAll()">&#9632; Parar Todos</button>
-          <button class="btn btn-yellow btn-lg btn-flex" onclick="restartAll()">&#8635; Reiniciar Todos</button>
-        </div>
-        <div class="services-grid" id="serviceCards"></div>
       </div>
 
       <!-- ═══ Page: Users (online em tempo real via SSE da VPS) ═══ -->
@@ -2588,9 +2618,6 @@
               <span id="deployLocalDirtyCount">0</span> arquivo(s) sem commit no repositório local
             </div>
 
-            <div id="deploySynced" class="lx-note lx-note-ok" style="display:none;">
-              Tudo sincronizado — local, GitHub e VPS no mesmo commit.
-            </div>
 
             <!-- ── O que vai subir ──────────────────────────────────────
                  Três listas do mesmo assunto (o que ainda não chegou na
@@ -2630,9 +2657,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Projetos (core / app) — cartões montados pelo deployRenderProjects -->
-        <div id="deployProjectsBox" class="deploy-project-grid"></div>
 
         <!-- Nasce escondido: quem o revela e o deployPrsVisibilidade, depois
              de saber se ha PR aberto. -->
@@ -2739,6 +2763,13 @@
               </button>
             </div>
           </div>
+
+          <!-- Escolha do que publicar. Eram dois cartões do tamanho de uma
+               seção para uma decisão que quase nunca muda (o Core vai sempre;
+               o App entra de vez em quando). Viraram dois ícones no rodapé:
+               ocupam o canto, mostram o estado pela cor e continuam a um
+               clique. -->
+          <div class="lx-projetos" id="deployProjectsBox"></div>
         </div>
 
         <!-- Log -->
@@ -3439,8 +3470,8 @@
       const oneclickSvcs = Object.entries(statusData);
       const html = oneclickSvcs.map(([id, svc]) => buildCardHtml(id, svc)).join('');
 
+      // Uma grade só: a aba Serviços repetia estes mesmos cartões.
       document.getElementById('overviewCards').innerHTML = html;
-      document.getElementById('serviceCards').innerHTML = html;
 
       // Stats
       const entries = Object.values(statusData);
@@ -3658,8 +3689,9 @@
       else showToast('Diagnóstico', result.error || 'Falha ao copiar diagnóstico');
     }
 
-    let onlineUsersEs = null;
     let onlineUsersTick = null;
+
+    let onlineUsersBound = false;
 
     function onlineUsersGetUrl() {
       // Mesma URL do BI Sync — o user já configura uma vez lá
@@ -3736,39 +3768,42 @@
       document.getElementById('onlineUsersConnectBtn').style.display = 'none';
       document.getElementById('onlineUsersDisconnectBtn').style.display = '';
 
-      const sseUrl = `${baseUrl}/api/admin/online-users/events`;
-      try {
-        onlineUsersEs = new EventSource(sseUrl);
-        onlineUsersEs.onopen = () => onlineUsersSetBadge('online');
-        onlineUsersEs.onmessage = (msg) => {
-          try {
-            const payload = JSON.parse(msg.data);
-            if (payload.users) renderOnlineUsers(payload.users);
-          } catch { /* ignora payload inválido */ }
-        };
-        onlineUsersEs.onerror = () => {
-          onlineUsersSetBadge('reconnecting');
-          // EventSource já tenta reconectar sozinho
-        };
-      } catch (e) {
-        document.getElementById('usersBody').innerHTML = `<div class="users-empty">Erro: ${escapeHtml(e.message)}</div>`;
-        onlineUsersSetBadge('error');
-      }
+      // Quem abre o stream é o processo principal: é lá que está o cookie da
+      // sessão da VPS. Um EventSource daqui saía sem cookie nenhum, o servidor
+      // tratava como visita anônima e devolvia lista vazia — a tela ficava em
+      // zero para sempre, sem dizer por quê.
+      window.api.onlineUsersStart(baseUrl);
+    }
 
-      // Tick local pra atualizar os "há X min" sem precisar de nova request
-      if (onlineUsersTick) clearInterval(onlineUsersTick);
-      onlineUsersTick = setInterval(() => {
-        const rows = document.querySelectorAll('#usersBody tr td:last-child');
-        // Os timestamps são re-renderizados a cada evento SSE (5s); esse tick
-        // só ajuda a manter o badge visual coerente entre eventos.
-      }, 30_000);
+    /**
+     * Liga a escuta uma única vez, no boot.
+     *
+     * `__semSessao` é diferente de "ninguém online": significa que o Service
+     * Manager ainda não logou na VPS. Dizer isso na tela evita a leitura errada
+     * de que o escritório inteiro está fora.
+     */
+    function onlineUsersBind() {
+      if (!window.api || !window.api.onOnlineUsersEvent || onlineUsersBound) return;
+      onlineUsersBound = true;
+      window.api.onOnlineUsersEvent((ev) => {
+        if (!ev) return;
+        if (ev.type === '__conectado') { onlineUsersSetBadge('online'); return; }
+        if (ev.type === '__semSessao') {
+          onlineUsersSetBadge('connecting');
+          document.getElementById('usersBody').innerHTML =
+            '<div class="users-empty">Aguardando o login na VPS (aba Sincronizações) para ler a presença.</div>';
+          return;
+        }
+        if (ev.type === '__error') {
+          onlineUsersSetBadge('reconnecting');
+          return;
+        }
+        if (ev.users) { onlineUsersSetBadge('online'); renderOnlineUsers(ev.users); }
+      });
     }
 
     function onlineUsersDisconnect() {
-      if (onlineUsersEs) {
-        try { onlineUsersEs.close(); } catch {}
-        onlineUsersEs = null;
-      }
+      if (window.api && window.api.onlineUsersStop) window.api.onlineUsersStop();
       if (onlineUsersTick) {
         clearInterval(onlineUsersTick);
         onlineUsersTick = null;
@@ -4255,9 +4290,14 @@
       }
       renderLogs();
 
-      // Usuários online: agora via SSE (página separada) — user clica "Conectar"
-      // quando quiser ver. Auto-conecta se a aba "Usuários" estiver aberta E
-      // já há URL configurada (BI Sync foi logado).
+      // Usuários online: liga sozinho. Antes dependia de alguém clicar
+      // "Conectar" — e como nada chamava isso, o painel ficava em "–" desde o
+      // boot. O stream vive no processo principal e sobrevive à troca de aba;
+      // se a sessão da VPS ainda não existir, ele espera e religa quando ela
+      // chegar, em vez de desistir.
+      onlineUsersBind();
+      onlineUsersConnect();
+
       checkSci();
       setInterval(checkSci, 30000);
 
@@ -5012,6 +5052,24 @@
       if (e.key === 'Escape') deployClosePrDrawer()
     })
 
+    /** Icone de cada projeto — o do Core e um servidor; o do App, um celular. */
+    const DEPLOY_PROJETO_ICONES = {
+      core: '<rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/>',
+      app: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+    }
+
+    /**
+     * Onde publicar — dois icones no rodape, nao dois cartoes.
+     *
+     * A escolha quase nunca muda: o Core vai sempre, o App entra de vez em
+     * quando. Dois cartoes do tamanho de uma secao para isso empurravam para
+     * baixo o que importa (o que vai subir e o botao). Como icone, o estado
+     * continua visivel — pintado quando selecionado, apagado quando nao — e o
+     * clique continua a um toque.
+     *
+     * O contador de pendencias vira um ponto no canto do icone: sem ele, um
+     * projeto com trabalho parado ficaria indistinguivel de um sincronizado.
+     */
     function deployRenderProjects(status) {
       const box = document.getElementById('deployProjectsBox')
       if (!box) return
@@ -5023,29 +5081,30 @@
         const enabled = p.id === 'core' || !!p.deployable
         const selected = enabled && validSelected.has(p.id)
         const total = deployProjectActionCount(p)
-        const card = document.createElement('label')
-        card.className = 'deploy-project-card' + (selected ? ' is-selected' : '') + (!enabled ? ' is-disabled' : '')
-        const statusText = p.error || (p.synced ? 'Sincronizado' : `${total} pendente(s)`)
-        card.title = p.cwd || ''
-        card.innerHTML = `
-          <input type="checkbox" value="${p.id}" ${selected ? 'checked' : ''} ${enabled ? '' : 'disabled'}>
-          <div style="min-width:0;">
-            <div class="deploy-project-title">${p.label || p.id}</div>
-            <div class="deploy-project-detail">${p.cwd || '-'} · ${statusText}</div>
-          </div>
-          <span class="deploy-project-badge">${enabled ? (selected ? 'selecionado' : 'opcional') : 'configurar'}</span>
+        const statusText = p.error || (p.synced ? 'sincronizado' : `${total} pendente(s)`)
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'lx-projeto' + (selected ? ' is-selected' : '') + (!enabled ? ' is-disabled' : '')
+        btn.disabled = !enabled
+        btn.title = `${p.label || p.id} — ${statusText}${p.cwd ? ` (${p.cwd})` : ''}`
+        btn.setAttribute('aria-pressed', String(selected))
+        btn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">${DEPLOY_PROJETO_ICONES[p.id] || DEPLOY_PROJETO_ICONES.core}</svg>
+          <span>${escapeHtml(p.label || p.id)}</span>
+          ${total > 0 ? `<span class="lx-projeto-pendencia">${total}</span>` : ''}
         `
-        const input = card.querySelector('input')
-        input.addEventListener('change', () => {
+        btn.addEventListener('click', () => {
+          if (!enabled) return
           const set = new Set(deployState.selectedProjects || [])
-          if (input.checked) set.add(p.id)
-          else set.delete(p.id)
+          if (set.has(p.id)) set.delete(p.id)
+          else set.add(p.id)
           deployState.selectedProjects = [...set]
           deployRenderProjects(deployState.status)
           deployRenderAllCommitLists(deployState.status)
           deployUpdateSelectionHint()
         })
-        box.appendChild(card)
+        box.appendChild(btn)
       }
       deployState.selectedProjects = projects.filter(p => validSelected.has(p.id) && (p.id === 'core' || p.deployable)).map(p => p.id)
       if (!deployState.selectedProjects.length && projects.some(p => p.id === 'core')) deployState.selectedProjects = ['core']
@@ -5324,10 +5383,10 @@
 
         // Sync
         if (r.synced) {
-          document.getElementById('deploySynced').style.display = ''
+          /* o estado "tudo sincronizado" e dito pelas bordas verdes das paradas */
           deploySetBadge('synced', 'ok')
         } else {
-          document.getElementById('deploySynced').style.display = 'none'
+          /* idem: sem aviso a esconder */
           const totalPend = visibleProjects.reduce((sum, p) => sum + deployProjectActionCount(p), 0)
           deploySetBadge(`${totalPend} pendente(s)`, 'err')
         }

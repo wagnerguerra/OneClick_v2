@@ -145,7 +145,7 @@ export default function ClientesPage() {
   const { isMaster, isEmpresaMaster } = useUserPermissions()
   // Edição inline: cada campo tem a SUA permissão, igual ao backend. Gatear
   // tudo num flag só criaria campos que parecem editáveis e falham no save.
-  const { canCreate, canEditDetails, canManageCommercial, canEditTaxation } = useClientesPerms()
+  const { canCreate, canEditDetails, canManageCommercial, canEditTaxation, canManageFiscal, canManageResponsible } = useClientesPerms()
   const [search, setSearch] = useState(() => txt(salvos.search))
   // Inicia JÁ com o valor salvo: se começasse vazio, a primeira busca ignoraria
   // o texto restaurado e a lista piscaria sem filtro antes de corrigir.
@@ -596,22 +596,43 @@ export default function ClientesPage() {
                   <Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuItem onClick={openOpcoesModal}><Settings2 className="h-4 w-4" />Opções</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setIntegracoesOpen(true)}><Plug className="h-4 w-4" />Integrações</DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  {/* Cada item aparece só para quem tem a sub-permissão que o
+                      backend já exige daquela rota. Antes o menu inteiro era
+                      visível a quem tinha leitura no módulo: a pessoa clicava em
+                      "Importar do Legado" e levava um erro de permissão — ou,
+                      pior, imaginava que aquilo era coisa que ela podia fazer.
+                      Ver o que não se pode fazer é um problema em si. */}
+                  {canEditDetails && (
+                    <DropdownMenuItem onClick={openOpcoesModal}><Settings2 className="h-4 w-4" />Opções</DropdownMenuItem>
+                  )}
+                  {canManageFiscal && (
+                    <DropdownMenuItem onClick={() => setIntegracoesOpen(true)}><Plug className="h-4 w-4" />Integrações</DropdownMenuItem>
+                  )}
+                  {(canEditDetails || canManageFiscal) && <DropdownMenuSeparator />}
+                  {/* Relatórios e Exportar ficam abertos a quem tem o módulo:
+                      é o caminho de quem só precisa levar uma lista para fora,
+                      e foi a regra combinada para os relatórios do sistema. */}
                   <DropdownMenuItem onClick={() => router.push('/clientes/relatorios')}><BarChart3 className={cn('h-4 w-4', TEXT.emerald)} />Relatórios</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar Excel/CSV</DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLegacyImport} disabled={legacyImporting}>
-                    {legacyImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-                    {legacyImporting ? 'Importando...' : 'Importar do Legado'}
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExport} disabled={exporting}><FileDown className="h-4 w-4" />Exportar</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setEnriquecimentoOpen(true)}>
-                    <Sparkles className="h-4 w-4 text-orange-500" />Enriquecer CNAE
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setResponsaveisOpen(true)}>
-                    <UserCog className="h-4 w-4 text-orange-500" />Sincronizar Responsáveis
-                  </DropdownMenuItem>
+                  {canEditDetails && (
+                    <>
+                      <DropdownMenuItem onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar Excel/CSV</DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleLegacyImport} disabled={legacyImporting}>
+                        {legacyImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+                        {legacyImporting ? 'Importando...' : 'Importar do Legado'}
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {canManageFiscal && (
+                    <DropdownMenuItem onClick={() => setEnriquecimentoOpen(true)}>
+                      <Sparkles className="h-4 w-4 text-orange-500" />Enriquecer CNAE
+                    </DropdownMenuItem>
+                  )}
+                  {canManageResponsible && (
+                    <DropdownMenuItem onClick={() => setResponsaveisOpen(true)}>
+                      <UserCog className="h-4 w-4 text-orange-500" />Sincronizar Responsáveis
+                    </DropdownMenuItem>
+                  )}
                   {(isMaster || isEmpresaMaster) && (
                     <DropdownMenuItem onClick={() => router.push('/clientes/duplicidades')}>
                       <Copy className={cn('h-4 w-4', TEXT.amber)} />Cadastros repetidos
@@ -744,23 +765,52 @@ export default function ClientesPage() {
                       )
                     })}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                  {/* A legenda é o filtro. O regime escolhido vira uma pílula
+                      pintada na própria cor dele, e os demais recuam — antes o
+                      ativo se distinguia só por um peso de fonte, e não dava
+                      para saber por qual regime a tabela estava filtrada sem
+                      procurar no campo de filtro lá embaixo. */}
+                  {/* Uma linha só. A pílula do ativo é mais larga que o rótulo
+                      solto que ela substitui, e com quatro regimes isso jogava
+                      o último para baixo — o cartão crescia de altura conforme
+                      o que estava filtrado. Espaçamento apertado resolve na
+                      largura de uso; em janela estreita, rola na horizontal em
+                      vez de quebrar. */}
+                  <div className="nice-scrollbar mt-2 flex flex-nowrap items-center gap-x-1.5 overflow-x-auto pb-0.5">
                     {stats.porTributacao.map(t => {
                       const ativoAqui = filterTributacao === t.regime
+                      const cor = corTributacao(t.regime)
+                      const rotulo = TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'
                       return (
                         <button
                           key={t.regime}
                           type="button"
                           onClick={() => aplicarTributacao(t.regime)}
-                          title={`Filtrar por ${TRIBUTACAO_LABELS[t.regime] ?? 'sem tributação'}`}
+                          aria-pressed={ativoAqui}
+                          title={ativoAqui ? `Filtrando por ${rotulo} — clique para limpar` : `Filtrar por ${rotulo}`}
                           className={cn(
-                            'flex items-center gap-1.5 rounded px-1 -mx-1 text-[11px] transition-colors hover:bg-muted',
-                            ativoAqui ? 'font-medium text-foreground' : 'text-muted-foreground',
+                            'flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10.5px] transition-all',
+                            ativoAqui
+                              ? 'font-semibold shadow-sm'
+                              : 'border-transparent text-muted-foreground hover:bg-muted',
+                            // Com um regime escolhido, os outros saem de cena
+                            // sem sumir: continuam clicáveis para trocar.
+                            filterTributacao && !ativoAqui && 'opacity-45 hover:opacity-100',
                           )}
+                          style={ativoAqui ? {
+                            color: cor,
+                            backgroundColor: `color-mix(in srgb, ${cor} 14%, transparent)`,
+                            borderColor: `color-mix(in srgb, ${cor} 45%, transparent)`,
+                          } : undefined}
                         >
-                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: corTributacao(t.regime) }} />
-                          {TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'}
-                          <strong className="font-semibold tabular-nums text-foreground">{t.total}</strong>
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: cor }} />
+                          {rotulo}
+                          <strong
+                            className={cn('font-semibold tabular-nums', !ativoAqui && 'text-foreground')}
+                          >
+                            {t.total}
+                          </strong>
+                          {ativoAqui && <X className="h-3 w-3 shrink-0 opacity-70" />}
                         </button>
                       )
                     })}
@@ -1069,7 +1119,13 @@ export default function ClientesPage() {
                   <TableCell className="min-w-0 overflow-hidden">
                     <div className="min-w-0">
                       <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <span onClick={e => e.stopPropagation()} className="min-w-0 flex-1 overflow-hidden">
+                        {/* Sem `stopPropagation` aqui: a versão editável da
+                            célula é um <button> que já barra a propagação
+                            sozinho. Barrar também neste invólucro engolia o
+                            clique de QUEM NÃO EDITA — para essa pessoa a
+                            célula é um <span> comum, e o clique precisa subir
+                            até a linha para abrir o cadastro. */}
+                        <span className="min-w-0 flex-1 overflow-hidden">
                           <CelulaTexto
                             clienteId={cliente.id} campo="razaoSocial" valor={cliente.razaoSocial}
                             podeEditar={canEditDetails} className="block overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium"
