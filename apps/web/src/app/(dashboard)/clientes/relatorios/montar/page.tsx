@@ -8,7 +8,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  Button, Input, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  Button, Input, cn, Checkbox, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -673,19 +673,25 @@ export default function MontarRelatorioPage() {
                       <span className="ml-auto font-normal normal-case tracking-normal">{marcados}</span>
                     )}
                   </button>
+                  {/* `Checkbox` do design system com `htmlFor`/`id` explicitos: o
+                      input nativo herdava o desenho do sistema operacional, e o
+                      par id/label e o que faz o clique no texto marcar a caixa
+                      sem o rotulo envolver o controle (que dispararia duas
+                      vezes com o Radix). */}
                   {!fechado && g.campos.map(c => (
-                    <label
+                    <div
                       key={c.chave}
-                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-[13px] hover:bg-muted"
+                      className="flex items-center gap-2 rounded px-2 py-1 hover:bg-muted"
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
+                        id={`campo-${c.chave}`}
                         checked={escolhidos.includes(c.chave)}
-                        onChange={() => alternar(c.chave)}
-                        className="h-3.5 w-3.5"
+                        onCheckedChange={() => alternar(c.chave)}
                       />
-                      {c.rotulo}
-                    </label>
+                      <label htmlFor={`campo-${c.chave}`} className="cursor-pointer text-[13px] leading-tight">
+                        {c.rotulo}
+                      </label>
+                    </div>
                   ))}
                 </div>
               )
