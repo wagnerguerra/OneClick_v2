@@ -7,7 +7,10 @@ import { FileSpreadsheet, FileText, FileDown, Search, ChevronDown, Loader2, Arro
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Button, Input, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from '@saas/ui'
+import {
+  Button, Input, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
@@ -491,31 +494,45 @@ export default function MontarRelatorioPage() {
                 para uma escolha que se faz uma vez, no comeco. */}
             {salvos.length > 0 && (
               <div className="flex items-center gap-1">
-                <select
-                  value={abertoId ?? ''}
-                  onChange={e => {
-                    const r = salvos.find(x => x.id === e.target.value)
+                {/* O Select do design system, nao o <select> nativo: o nativo
+                    herda o desenho do sistema operacional e destoava de todo o
+                    resto da tela. `__novo__` no lugar de string vazia porque o
+                    Radix recusa item de valor vazio. */}
+                <Select
+                  value={abertoId ?? '__novo__'}
+                  onValueChange={v => {
+                    const r = salvos.find(x => x.id === v)
                     if (r) abrir(r); else limparMontagem()
                   }}
-                  className="h-8 max-w-[240px] rounded-md border border-border bg-card px-2 text-[12.5px]"
-                  title="Abrir um relatório salvo"
                 >
-                  <option value="">Novo relatório</option>
-                  {(['meus', 'empresa', 'sistema'] as const).map(secao => {
-                    const itens = salvos.filter(r =>
-                      secao === 'meus' ? r.meu && r.origem === 'USUARIO'
-                      : secao === 'empresa' ? !r.meu && r.origem === 'USUARIO'
-                      : r.origem === 'SISTEMA')
-                    if (!itens.length) return null
-                    return (
-                      <optgroup key={secao} label={secao === 'meus' ? 'Meus' : secao === 'empresa' ? 'Da empresa' : 'Do sistema'}>
-                        {itens.map(r => (
-                          <option key={r.id} value={r.id}>{r.favorito ? '★ ' : ''}{r.nome}</option>
-                        ))}
-                      </optgroup>
-                    )
-                  })}
-                </select>
+                  <SelectTrigger className="h-8 w-[230px] text-[12.5px]">
+                    <SelectValue placeholder="Novo relatório" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__novo__">Novo relatório</SelectItem>
+                    {(['meus', 'empresa', 'sistema'] as const).flatMap(secao => {
+                      const itens = salvos.filter(r =>
+                        secao === 'meus' ? r.meu && r.origem === 'USUARIO'
+                        : secao === 'empresa' ? !r.meu && r.origem === 'USUARIO'
+                        : r.origem === 'SISTEMA')
+                      if (!itens.length) return []
+                      const titulo = secao === 'meus' ? 'Meus' : secao === 'empresa' ? 'Da empresa' : 'Do sistema'
+                      return [
+                        // Cabecalho da secao como elemento nao selecionavel: o
+                        // Radix nao expoe SelectLabel neste projeto, e agrupar
+                        // ainda vale — a lista mistura tres procedencias.
+                        <div key={`t-${secao}`} className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {titulo}
+                        </div>,
+                        ...itens.map(r => (
+                          <SelectItem key={r.id} value={r.id} className="text-[12.5px]">
+                            {r.favorito ? '★ ' : ''}{r.nome}
+                          </SelectItem>
+                        )),
+                      ]
+                    })}
+                  </SelectContent>
+                </Select>
 
                 {/* Estrela e lixeira agem sobre o relatorio ABERTO. Num select
                     nao cabe botao por item, e sem elas favoritar e excluir
