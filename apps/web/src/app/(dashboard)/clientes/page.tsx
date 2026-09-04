@@ -744,23 +744,46 @@ export default function ClientesPage() {
                       )
                     })}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                  {/* A legenda é o filtro. O regime escolhido vira uma pílula
+                      pintada na própria cor dele, e os demais recuam — antes o
+                      ativo se distinguia só por um peso de fonte, e não dava
+                      para saber por qual regime a tabela estava filtrada sem
+                      procurar no campo de filtro lá embaixo. */}
+                  <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1">
                     {stats.porTributacao.map(t => {
                       const ativoAqui = filterTributacao === t.regime
+                      const cor = corTributacao(t.regime)
+                      const rotulo = TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'
                       return (
                         <button
                           key={t.regime}
                           type="button"
                           onClick={() => aplicarTributacao(t.regime)}
-                          title={`Filtrar por ${TRIBUTACAO_LABELS[t.regime] ?? 'sem tributação'}`}
+                          aria-pressed={ativoAqui}
+                          title={ativoAqui ? `Filtrando por ${rotulo} — clique para limpar` : `Filtrar por ${rotulo}`}
                           className={cn(
-                            'flex items-center gap-1.5 rounded px-1 -mx-1 text-[11px] transition-colors hover:bg-muted',
-                            ativoAqui ? 'font-medium text-foreground' : 'text-muted-foreground',
+                            'flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-all',
+                            ativoAqui
+                              ? 'font-semibold shadow-sm'
+                              : 'border-transparent text-muted-foreground hover:bg-muted',
+                            // Com um regime escolhido, os outros saem de cena
+                            // sem sumir: continuam clicáveis para trocar.
+                            filterTributacao && !ativoAqui && 'opacity-45 hover:opacity-100',
                           )}
+                          style={ativoAqui ? {
+                            color: cor,
+                            backgroundColor: `color-mix(in srgb, ${cor} 14%, transparent)`,
+                            borderColor: `color-mix(in srgb, ${cor} 45%, transparent)`,
+                          } : undefined}
                         >
-                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: corTributacao(t.regime) }} />
-                          {TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'}
-                          <strong className="font-semibold tabular-nums text-foreground">{t.total}</strong>
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: cor }} />
+                          {rotulo}
+                          <strong
+                            className={cn('font-semibold tabular-nums', !ativoAqui && 'text-foreground')}
+                          >
+                            {t.total}
+                          </strong>
+                          {ativoAqui && <X className="h-3 w-3 shrink-0 opacity-70" />}
                         </button>
                       )
                     })}
