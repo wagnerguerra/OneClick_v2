@@ -1573,6 +1573,49 @@ export function createClienteRouter(
         )
       }),
 
+    // ── Relatórios salvos ─────────────────────────────────────────────
+    //
+    // LISTAR é `readProcedure`: quem tem o módulo vê os padrão do sistema, que
+    // é o caminho de quem só precisa de uma lista pronta. SALVAR e EXCLUIR
+    // exigem `build_reports` — montar o próprio relatório é que é a permissão
+    // nova.
+    relatoriosSalvos: readProcedure(MODULE)
+      .query(({ ctx }) => {
+        if (!relatorioService) return []
+        return relatorioService.listarSalvos({ userId: ctx.userId, empresaId: ctx.empresaId, isMaster: ctx.isMaster })
+      }),
+
+    relatorioSalvar: writeSubProcedure(MODULE, 'build_reports', 'Montar e salvar relatórios próprios')
+      .input(z.object({
+        id: z.string().optional(),
+        nome: z.string().min(1).max(120),
+        descricao: z.string().max(300).optional(),
+        campos: z.array(z.string()).min(1).max(60),
+        filtros: z.record(z.unknown()).optional(),
+        ordenacao: z.object({ campo: z.string(), direcao: z.enum(['asc', 'desc']) }).optional(),
+        visibilidade: z.enum(['PRIVADO', 'EMPRESA']),
+      }))
+      .mutation(({ input, ctx }) => {
+        if (!relatorioService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return relatorioService.salvar(input, { userId: ctx.userId, empresaId: ctx.empresaId, isMaster: ctx.isMaster })
+      }),
+
+    relatorioExcluir: writeSubProcedure(MODULE, 'build_reports', 'Montar e salvar relatórios próprios')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => {
+        if (!relatorioService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return relatorioService.excluir(input.id, { userId: ctx.userId, isMaster: ctx.isMaster })
+      }),
+
+    // Favoritar é gosto pessoal, não edição: qualquer um que enxergue o
+    // relatório pode fixá-lo no próprio topo, inclusive os do sistema.
+    relatorioFavoritar: protectedProcedure
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => {
+        if (!relatorioService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
+        return relatorioService.alternarFavorito(input.id, ctx.userId)
+      }),
+
     // ── Mesclagem de cadastros repetidos ──
     // Só master/empresa-master: move histórico e inativa cadastro, sem desfazer.
     mesclarPreview: readProcedure(MODULE)

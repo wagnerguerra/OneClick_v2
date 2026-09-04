@@ -265,4 +265,136 @@ export class ClienteRelatorioService {
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     }
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // Relatorios salvos
+  // ══════════════════════════════════════════════════════════════════
+
+  /**
+   * Os relatorios que ESTE usuario enxerga.
+   *
+   * Tres origens numa lista so, na ordem em que fazem sentido para quem abre a
+   * tela: os favoritos dele no topo, depois os proprios, depois os da empresa e
+   * os do sistema. Quem nunca montou nada ainda ve os padrao — e e por isso que
+   * eles nao exigem `build_reports`.
+   */
+  async listarSalvos(ctx: { userId: string; empresaId?: string; isMaster?: boolean }) {
+    const definicoes = await prisma.relatorioDefinicao.findMany({
+      where: {
+        modulo: 'clientes',
+        OR: [
+          { origem: 'SISTEMA' },
+          { criadoPor: ctx.userId },
+          { visibilidade: 'EMPRESA', ...(ctx.isMaster ? {} : { empresaId: ctx.empresaId ?? null }) },
+        ],
+      },
+      orderBy: [{ origem: 'asc' }, { nome: 'asc' }],
+    })
+    return definicoes
+      .map(d => ({
+        id: d.id,
+        nome: d.nome,
+        descricao: d.descricao,
+        campos: d.campos,
+        filtros: d.filtros as Record<string, unknown>,
+        ordenacao: d.ordenacao as { campo: string; direcao: 'asc' | 'desc' } | null,
+        origem: d.origem,
+        visibilidade: d.visibilidade,
+        meu: d.criadoPor === ctx.userId,
+        favorito: d.favoritoDe.includes(ctx.userId),
+      }))
+      // Favorito primeiro, depois os meus, depois o resto — a ordem em que a
+      // pessoa procura, nao a ordem em que o banco devolve.
+      .sort((a, b) =>
+        Number(b.favorito) - Number(a.favorito)
+        || Number(b.meu) - Number(a.meu)
+        || a.nome.localeCompare(b.nome, 'pt-BR'))
+  }
+
+  /** Cria ou atualiza um relatorio do usuario. */
+  async salvar(
+    entrada: {
+      id?: string
+      nome: string
+      descricao?: string
+      campos: string[]
+      filtros?: Record<string, unknown>
+      ordenacao?: { campo: string; direcao: 'asc' | 'desc' }
+      visibilidade: 'PRIVADO' | 'EMPRESA'
+    },
+    ctx: { userId: string; empresaId?: string; isMaster?: boolean },
+  ): Promise<{ id: string; nome: string }> {
+    // So chaves do catalogo entram no banco. Sem isso, uma chave invalida
+    // ficaria salva para sempre, falhando silenciosamente a cada execucao.
+    const campos = entrada.campos.filter(c => CAMPOS_POR_CHAVE.has(c))
+    if (!campos.length) throw new Error('Escolha ao menos um campo válido.')
+
+    if (entrada.id) {
+      const atual = await prisma.relatorioDefinicao.findUnique({ where: { id: entrada.id } })
+      if (!atual) throw new Error('Relatório não encontrado.')
+      // Um relatorio do sistema nao se edita: "editar" vira copia. Assim o
+      // padrao continua igual para todo mundo, e quem ajustou fica com o seu.
+      if (atual.origem === 'SISTEMA') {
+        return this.salvar({ ...entrada, id: undefined, nome: `${entrada.nome} (minha versão)` }, ctx)
+      }
+      if (atual.criadoPor !== ctx.userId && !ctx.isMaster) {
+        throw new Error('Só quem criou o relatório pode alterá-lo.')
+      }
+      return prisma.relatorioDefinicao.update({
+        where: { id: entrada.id },
+        data: {
+          nome: entrada.nome.trim(),
+          descricao: entrada.descricao?.trim() || null,
+          campos,
+          filtros: (entrada.filtros ?? {}) as never,
+          ordenacao: (entrada.ordenacao ?? null) as never,
+          visibilidade: entrada.visibilidade,
+        },
+      })
+    }
+
+    return prisma.relatorioDefinicao.create({
+      data: {
+        modulo: 'clientes',
+        empresaId: ctx.empresaId ?? null,
+        nome: entrada.nome.trim(),
+        descricao: entrada.descricao?.trim() || null,
+        campos,
+        filtros: (entrada.filtros ?? {}) as never,
+        ordenacao: (entrada.ordenacao ?? null) as never,
+        origem: 'USUARIO',
+        visibilidade: entrada.visibilidade,
+        criadoPor: ctx.userId,
+        favoritoDe: [],
+      },
+    })
+  }
+
+  async excluir(id: string, ctx: { userId: string; isMaster?: boolean }) {
+    const atual = await prisma.relatorioDefinicao.findUnique({ where: { id } })
+    if (!atual) return { ok: true }
+    if (atual.origem === 'SISTEMA') throw new Error('Relatório do sistema não pode ser excluído.')
+    if (atual.criadoPor !== ctx.userId && !ctx.isMaster) {
+      throw new Error('Só quem criou o relatório pode excluí-lo.')
+    }
+    await prisma.relatorioDefinicao.delete({ where: { id } })
+    return { ok: true }
+  }
+
+  /**
+   * Fixa ou solta um relatorio no topo da lista de quem clicou.
+   *
+   * O favorito e por PESSOA, nao por relatorio: um array de ids em vez de um
+   * booleano. Um booleano faria o gosto de um usuario mudar a lista de todos.
+   */
+  async alternarFavorito(id: string, userId: string) {
+    const atual = await prisma.relatorioDefinicao.findUnique({ where: { id } })
+    if (!atual) throw new Error('Relatório não encontrado.')
+    const tem = atual.favoritoDe.includes(userId)
+    await prisma.relatorioDefinicao.update({
+      where: { id },
+      data: { favoritoDe: tem ? atual.favoritoDe.filter(u => u !== userId) : [...atual.favoritoDe, userId] },
+    })
+    return { favorito: !tem }
+  }
 }

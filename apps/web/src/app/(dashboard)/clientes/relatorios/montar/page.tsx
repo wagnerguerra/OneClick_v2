@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { FileSpreadsheet, FileText, FileDown, Search, ChevronDown, Loader2, ArrowLeft, X, GripVertical } from 'lucide-react'
+import { FileSpreadsheet, FileText, FileDown, Search, ChevronDown, Loader2, ArrowLeft, X, GripVertical, Save, Star, Trash2, FolderOpen, Users, Lock } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -14,6 +14,18 @@ import { getApiUrl } from '@/lib/api-url'
 
 interface CampoCatalogo { chave: string; rotulo: string; tipo: string; padrao: boolean }
 interface GrupoCatalogo { grupo: string; campos: CampoCatalogo[] }
+interface Salvo {
+  id: string
+  nome: string
+  descricao: string | null
+  campos: string[]
+  filtros: Record<string, unknown>
+  ordenacao: { campo: string; direcao: 'asc' | 'desc' } | null
+  origem: 'SISTEMA' | 'USUARIO'
+  visibilidade: 'PRIVADO' | 'EMPRESA'
+  meu: boolean
+  favorito: boolean
+}
 interface Previa {
   colunas: Array<{ chave: string; rotulo: string; tipo: string }>
   linhas: Array<Array<string | number | null>>
@@ -98,13 +110,27 @@ export default function MontarRelatorioPage() {
   const [recolhidos, setRecolhidos] = useState<Set<string>>(new Set())
   const [previa, setPrevia] = useState<Previa | null>(null)
   const [carregando, setCarregando] = useState(false)
+  const [salvos, setSalvos] = useState<Salvo[]>([])
+  const [abertoId, setAbertoId] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
+  const [nomeNovo, setNomeNovo] = useState('')
+  const [visibilidade, setVisibilidade] = useState<'PRIVADO' | 'EMPRESA'>('PRIVADO')
+  const [modalSalvar, setModalSalvar] = useState(false)
+  /** Os filtros do relatório aberto vencem os da URL — foi o que ele salvou. */
+  const [filtrosSalvos, setFiltrosSalvos] = useState<Record<string, unknown> | null>(null)
 
-  /** Os filtros vieram da listagem — aqui eles são só transportados. */
+  /**
+   * Os filtros vieram da listagem — aqui eles são só transportados.
+   *
+   * Um relatório aberto traz os seus, e eles vencem: foi o recorte que a pessoa
+   * salvou. Herdar os da URL por cima mudaria em silêncio o que ela guardou.
+   */
   const filtros = useMemo(() => {
+    if (filtrosSalvos) return filtrosSalvos
     const bruto = params.get('filtros')
     if (!bruto) return {}
     try { return JSON.parse(bruto) as Record<string, unknown> } catch { return {} }
-  }, [params])
+  }, [params, filtrosSalvos])
 
   const rotuloFiltros = useMemo(() => {
     const nomes: Record<string, string> = {
@@ -129,6 +155,53 @@ export default function MontarRelatorioPage() {
       })
       .catch(() => setGrupos([]))
   }, [])
+
+  const carregarSalvos = useCallback(() => {
+    ;(trpc.cliente as any).relatoriosSalvos.query()
+      .then((r: Salvo[]) => setSalvos(r ?? []))
+      .catch(() => setSalvos([]))
+  }, [])
+  useEffect(() => { carregarSalvos() }, [carregarSalvos])
+
+  /** Abre um relatório salvo: campos, ordem e filtros dele. */
+  const abrir = (r: Salvo) => {
+    setEscolhidos(r.campos)
+    setFiltrosSalvos(r.filtros ?? {})
+    setAbertoId(r.origem === 'SISTEMA' ? null : r.id)   // padrão vira cópia ao salvar
+    setNomeNovo(r.nome)
+    setVisibilidade(r.visibilidade)
+  }
+
+  const salvar = async () => {
+    if (!nomeNovo.trim() || !escolhidos.length) return
+    setSalvando(true)
+    try {
+      await (trpc.cliente as any).relatorioSalvar.mutate({
+        id: abertoId ?? undefined,
+        nome: nomeNovo.trim(),
+        campos: escolhidos,
+        filtros,
+        visibilidade,
+      })
+      setModalSalvar(false)
+      carregarSalvos()
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const excluir = async (r: Salvo) => {
+    await (trpc.cliente as any).relatorioExcluir.mutate({ id: r.id }).catch(() => {})
+    if (abertoId === r.id) setAbertoId(null)
+    carregarSalvos()
+  }
+
+  const favoritar = async (r: Salvo) => {
+    // Otimista: a estrela acende na hora e a lista se reordena depois.
+    setSalvos(prev => prev.map(x => x.id === r.id ? { ...x, favorito: !x.favorito } : x))
+    await (trpc.cliente as any).relatorioFavoritar.mutate({ id: r.id }).catch(() => {})
+    carregarSalvos()
+  }
 
   const buscarPrevia = useCallback(() => {
     if (!escolhidos.length) { setPrevia(null); return }
@@ -194,9 +267,23 @@ export default function MontarRelatorioPage() {
     <div className="flex flex-col gap-5">
       <PageHeaderBar
         actions={
-          <Button asChild variant="outline" size="sm" className="gap-1.5">
-            <Link href="/clientes/relatorios"><ArrowLeft className="h-3.5 w-3.5" /> Voltar</Link>
-          </Button>
+          <>
+            {podeMontar && (
+              <Button
+                size="sm"
+                variant="success"
+                className="gap-1.5"
+                disabled={!escolhidos.length}
+                onClick={() => setModalSalvar(true)}
+              >
+                <Save className="h-3.5 w-3.5" />
+                {abertoId ? 'Salvar alterações' : 'Salvar relatório'}
+              </Button>
+            )}
+            <Button asChild variant="outline" size="sm" className="gap-1.5">
+              <Link href="/clientes/relatorios"><ArrowLeft className="h-3.5 w-3.5" /> Voltar</Link>
+            </Button>
+          </>
         }
       >
         <h1 className="truncate">Montar relatório</h1>
@@ -214,6 +301,50 @@ export default function MontarRelatorioPage() {
           <Link href="/clientes" className="ml-auto text-[11px] text-muted-foreground underline-offset-2 hover:underline">
             Ajustar na listagem
           </Link>
+        </div>
+      )}
+
+      {salvos.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <FolderOpen className="h-3.5 w-3.5" /> Relatórios salvos
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {salvos.map(r => (
+              <span
+                key={r.id}
+                className={cn(
+                  'group flex items-center gap-1 rounded-lg border px-1.5 py-1 text-[12px] transition-colors',
+                  abertoId === r.id
+                    ? 'border-primary/40 bg-primary/10 text-primary'
+                    : 'border-border bg-muted/40 hover:bg-muted',
+                )}
+              >
+                <button type="button" onClick={() => favoritar(r)} title={r.favorito ? 'Desafixar' : 'Fixar no topo'}
+                  className={cn('rounded p-0.5', r.favorito ? 'text-amber-500' : 'text-muted-foreground hover:text-foreground')}>
+                  <Star className={cn('h-3 w-3', r.favorito && 'fill-current')} />
+                </button>
+                <button type="button" onClick={() => abrir(r)} className="px-0.5 font-medium">
+                  {r.nome}
+                </button>
+                {/* Quem enxerga o relatório precisa saber por que ele está ali:
+                    é do sistema, é meu, ou alguém compartilhou com a empresa. */}
+                {r.origem === 'SISTEMA' ? (
+                  <span className="rounded-full bg-background px-1.5 text-[9.5px] text-muted-foreground">sistema</span>
+                ) : r.visibilidade === 'EMPRESA' ? (
+                  <Users className="h-3 w-3 text-muted-foreground" aria-label="Compartilhado com a empresa" />
+                ) : (
+                  <Lock className="h-3 w-3 text-muted-foreground" aria-label="Só meu" />
+                )}
+                {r.meu && podeMontar && (
+                  <button type="button" onClick={() => excluir(r)} title="Excluir"
+                    className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
         </div>
       )}
 
@@ -382,6 +513,45 @@ export default function MontarRelatorioPage() {
               )}
             </div>
           </div>
+
+          {modalSalvar && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setModalSalvar(false)}>
+              <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-xl" onClick={e => e.stopPropagation()}>
+                <h3 className="text-[15px] font-semibold">
+                  {abertoId ? 'Salvar alterações' : 'Salvar relatório'}
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Guarda os {escolhidos.length} campos escolhidos e os filtros atuais. O relatório
+                  roda contra os dados de quando for aberto, não contra os de hoje.
+                </p>
+
+                <label className="mt-4 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Nome</label>
+                <Input value={nomeNovo} onChange={e => setNomeNovo(e.target.value)} autoFocus
+                  placeholder="ex: Carteira mensal por tributação" className="mt-1 h-9 text-sm" />
+
+                <label className="mt-4 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Quem enxerga</label>
+                <div className="mt-1 inline-flex overflow-hidden rounded-lg border border-border">
+                  {(['PRIVADO', 'EMPRESA'] as const).map((v, i) => (
+                    <button key={v} type="button" onClick={() => setVisibilidade(v)}
+                      className={cn('flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-medium transition-colors',
+                        i > 0 && 'border-l border-border',
+                        visibilidade === v ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted')}>
+                      {v === 'PRIVADO' ? <Lock className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />}
+                      {v === 'PRIVADO' ? 'Só eu' : 'Toda a empresa'}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-5 flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setModalSalvar(false)}>Cancelar</Button>
+                  <Button size="sm" variant="success" onClick={salvar} disabled={!nomeNovo.trim() || salvando} className="gap-1.5">
+                    {salvando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    Salvar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {!podeMontar && grupos !== null && (
             <p className="text-[11px] text-muted-foreground">

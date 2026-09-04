@@ -212,7 +212,10 @@ export const CAMPOS_CLIENTE: CampoRelatorio[] = [
 
   // ── Societário ─────────────────────────────────────────────────────
   { chave: 'socios', rotulo: 'Sócios', grupo: 'Societário', tipo: 'lista',
-    origem: { tipo: 'relacao', relacao: 'socios', campo: 'nome', juntar: '; ' } },
+    // `nomeCompleto`, não `nome` — foi o que o teste do motor contra o banco
+    // pegou: o typecheck não valida nome de campo dentro de um catálogo de
+    // dados, só a forma dele.
+    origem: { tipo: 'relacao', relacao: 'socios', campo: 'nomeCompleto', juntar: '; ' } },
   { chave: 'qtdSocios', rotulo: 'Qtd. de sócios', grupo: 'Societário', tipo: 'numero',
     origem: { tipo: 'relacao', relacao: 'socios', campo: '__count' } },
   { chave: 'capitalSocial', rotulo: 'Capital social', grupo: 'Societário', tipo: 'numero',

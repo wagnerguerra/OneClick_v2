@@ -7995,6 +7995,46 @@ model Novidade {
 /// Um REGISTRO por pessoa, não um contador na novidade: assim se sabe quem
 /// curtiu, a mesma pessoa não curte duas vezes (o unique abaixo é quem garante,
 /// não a tela) e descurtir é só apagar a linha.
+/// Um relatório do módulo Clientes — a definição, não o resultado.
+///
+/// Os três tipos de relatório (padrão, personalizado e montado na hora) são a
+/// MESMA coisa: quais campos, quais filtros, qual ordem. Muda só onde a
+/// definição mora. O montado na hora não chega a esta tabela: vive na memória
+/// da tela e some ao sair. Padrão e personalizado moram aqui, separados por
+/// `origem` — o que faz "duplicar um padrão e ajustar" sair de graça, sem
+/// código novo.
+model RelatorioDefinicao {
+  id        String  @id @default(cuid())
+  empresaId String? @map("empresa_id")
+  /// Hoje só 'clientes'. Existe para o próximo módulo não precisar de outra
+  /// tabela igual a esta.
+  modulo    String
+  nome      String
+  descricao String?
+
+  /// Chaves do catálogo de campos, NA ORDEM em que saem no arquivo.
+  campos     String[]
+  /// Mesma forma do input de `cliente.list` — é o que garante que o relatório
+  /// e a listagem filtrem a mesma população.
+  filtros    Json
+  ordenacao  Json?
+
+  /// SISTEMA (semeado por deploy, não se apaga) | USUARIO
+  origem       String
+  /// PRIVADO (só o dono) | EMPRESA (todo mundo da empresa enxerga)
+  visibilidade String
+  criadoPor    String?  @map("criado_por")
+  /// Ids de quem fixou este relatório no topo da própria lista.
+  favoritoDe   String[] @map("favorito_de")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([empresaId, modulo])
+  @@index([criadoPor])
+  @@map("relatorio_definicoes")
+}
+
 model NovidadeReacao {
   id         String   @id @default(cuid())
   novidadeId String   @map("novidade_id")
