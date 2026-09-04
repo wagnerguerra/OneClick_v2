@@ -749,7 +749,13 @@ export default function ClientesPage() {
                       ativo se distinguia só por um peso de fonte, e não dava
                       para saber por qual regime a tabela estava filtrada sem
                       procurar no campo de filtro lá embaixo. */}
-                  <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1">
+                  {/* Uma linha só. A pílula do ativo é mais larga que o rótulo
+                      solto que ela substitui, e com quatro regimes isso jogava
+                      o último para baixo — o cartão crescia de altura conforme
+                      o que estava filtrado. Espaçamento apertado resolve na
+                      largura de uso; em janela estreita, rola na horizontal em
+                      vez de quebrar. */}
+                  <div className="nice-scrollbar mt-2 flex flex-nowrap items-center gap-x-1.5 overflow-x-auto pb-0.5">
                     {stats.porTributacao.map(t => {
                       const ativoAqui = filterTributacao === t.regime
                       const cor = corTributacao(t.regime)
@@ -762,7 +768,7 @@ export default function ClientesPage() {
                           aria-pressed={ativoAqui}
                           title={ativoAqui ? `Filtrando por ${rotulo} — clique para limpar` : `Filtrar por ${rotulo}`}
                           className={cn(
-                            'flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-all',
+                            'flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10.5px] transition-all',
                             ativoAqui
                               ? 'font-semibold shadow-sm'
                               : 'border-transparent text-muted-foreground hover:bg-muted',
@@ -776,7 +782,7 @@ export default function ClientesPage() {
                             borderColor: `color-mix(in srgb, ${cor} 45%, transparent)`,
                           } : undefined}
                         >
-                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: cor }} />
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: cor }} />
                           {rotulo}
                           <strong
                             className={cn('font-semibold tabular-nums', !ativoAqui && 'text-foreground')}
