@@ -169,12 +169,24 @@ export class ClienteService {
 
   // ============================================================
   // Listagem (ativos)
-  // ============================================================
-  async list(input: ListClienteInput, isMaster?: boolean, empresaId?: string) {
-    const { page, limit, search, sortBy, sortDir, situacao, status, incluirInativos, exCliente, tributacao, grupo, cidade, uf, isLead, agruparMatriz, numero, tipoCliente, atividade, areaContratada, comBeneficio, comServico } = input
-    const { skip, take } = getPrismaSkipTake(page, limit)
-
-    // Busca textual (#HLP0077): além de case-insensitive, ignora acentos —
+  /**
+   * O `where` da listagem de clientes — a UNICA fonte da verdade dos filtros.
+   *
+   * Estava embutido no `list()`. Saiu para ca porque o gerador de relatorios
+   * precisa filtrar exatamente o mesmo universo: se ele montasse o proprio
+   * where, passariamos a ter tres versoes da verdade (indicador, tabela e
+   * arquivo) e a divergencia entre elas voltaria — desta vez dentro de um
+   * arquivo que sai do escritorio.
+   *
+   * E `async` por causa da busca textual, que resolve os ids por SQL cru
+   * (o Prisma nao expoe `unaccent`).
+   */
+  async montarWhereClientes(
+    input: Partial<ListClienteInput>,
+    isMaster?: boolean,
+    empresaId?: string,
+  ): Promise<Prisma.ClienteWhereInput> {
+    const { search, situacao, status, incluirInativos, exCliente, tributacao, grupo, cidade, uf, isLead, numero, tipoCliente, atividade, areaContratada, comBeneficio, comServico } = input
     // "são paulo" tem que casar com "Sao Paulo" e vice-versa. Prisma não
     // expõe `unaccent`, então buscamos os IDs candidatos via raw SQL e
     // alimentamos o where como `id: { in: [...] }`. A extensão `unaccent`
@@ -257,6 +269,18 @@ export class ClienteService {
         ? { AND: [...searchIdsFilter] as Prisma.ClienteWhereInput[] }
         : {}),
     }
+
+    return where
+  }
+
+  // ============================================================
+  async list(input: ListClienteInput, isMaster?: boolean, empresaId?: string) {
+    // Os filtros propriamente ditos foram para montarWhereClientes; aqui
+    // ficam so os que governam a PAGINA (paginacao, ordem, agrupamento).
+    const { page, limit, sortBy, sortDir, status, agruparMatriz } = input
+    const { skip, take } = getPrismaSkipTake(page, limit)
+
+    const where = await this.montarWhereClientes(input, isMaster, empresaId)
 
     // ------------------------------------------------------------------
     // Agrupamento matriz/filial

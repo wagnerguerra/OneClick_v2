@@ -8,7 +8,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   PieChart, Pie, Cell,
 } from 'recharts'
-import { BarChart3, Loader2, ArrowUpCircle, ArrowDownCircle, FileSpreadsheet, FileText, Users, Layers, Search, ChevronDown, ChevronsDownUp } from 'lucide-react'
+import { BarChart3, Loader2, ArrowUpCircle, ArrowDownCircle, FileSpreadsheet, FileText, Users, Layers, Search, ChevronDown, ChevronsDownUp, Wrench } from 'lucide-react'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -188,6 +188,11 @@ export default function RelatoriosClientesPage() {
       {/* Header */}
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
+        {/* Os relatórios prontos desta tela cobrem os recortes que já sabemos
+            que o escritório usa. O construtor é para o que ninguém previu. */}
+        <Button asChild variant="success" size="sm" className="gap-1.5">
+          <Link href="/clientes/relatorios/montar"><Wrench className="h-3.5 w-3.5" />Montar relatório</Link>
+        </Button>
         <BackButton href="/clientes" label="Voltar" />
       </>}>
         <h1 className="truncate">Relatórios de Clientes</h1>

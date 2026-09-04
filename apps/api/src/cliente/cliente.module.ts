@@ -12,6 +12,8 @@ import { ImportOneclickService } from './import-oneclick.service'
 import { ContratoSyncService } from './contrato-sync.service'
 import { DuplicidadeService } from './duplicidade.service'
 import { MesclagemService } from './mesclagem.service'
+import { ClienteRelatorioService } from './relatorio/relatorio.service'
+import { ClienteRelatorioController } from './relatorio/relatorio.controller'
 import { ContratoSyncController } from './contrato-sync.controller'
 import { AuthModule } from '../auth/auth.module'
 import { CnpjModule } from '../cnpj/cnpj.module'
@@ -26,9 +28,9 @@ import { InativacaoProgramadaScheduler } from './inativacao-programada.scheduler
   // no dia da saída. forwardRef porque o grafo de serviços é um hub — hoje não
   // há ciclo, mas basta alguém importar Cliente lá dentro para haver.
   imports: [CnpjModule, forwardRef(() => BiModule), AuthModule, forwardRef(() => ServicoModule)],
-  controllers: [ContratoSyncController],
+  controllers: [ContratoSyncController, ClienteRelatorioController],
   providers: [
-    InativacaoProgramadaScheduler,ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService],
-  exports: [ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService],
+    InativacaoProgramadaScheduler,ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService, ClienteRelatorioService],
+  exports: [ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService, ClienteRelatorioService],
 })
 export class ClienteModule {}

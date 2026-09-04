@@ -37,6 +37,7 @@ import { SciService } from '../cliente/sci.service'
 import { OmieService } from '../cliente/omie.service'
 import { ContratoSyncService } from '../cliente/contrato-sync.service'
 import { createClienteRouter } from '../cliente/cliente.router'
+import { ClienteRelatorioService } from '../cliente/relatorio/relatorio.service'
 import { StripeService } from '../stripe/stripe.service'
 import { createBillingRouter } from '../stripe/stripe.router'
 import { ColaboradorService } from '../colaborador/colaborador.service'
@@ -274,7 +275,7 @@ export function invalidateUserPermissionsCache(userId: string) {
   permissionCache.delete(userId)
 }
 
-async function getUserPermissions(userId: string): Promise<UserPermissionRow[]> {
+export async function getUserPermissions(userId: string): Promise<UserPermissionRow[]> {
   const cached = permissionCache.get(userId)
   if (cached && cached.expires > Date.now()) return cached.data
 
@@ -667,6 +668,7 @@ export class TrpcService {
     @Inject(DossieBackfillService) private readonly dossieBackfillService: DossieBackfillService,
     @Inject(ClienteLogoService) private readonly clienteLogoService: ClienteLogoService,
     @Inject(SocioPerfisService) private readonly socioPerfisService: SocioPerfisService,
+    @Inject(ClienteRelatorioService) private readonly clienteRelatorioService: ClienteRelatorioService,
     @Inject(SincronizarResponsaveisService) private readonly sincronizarResponsaveisService: SincronizarResponsaveisService,
     @Inject(LegacyImportService) private readonly legacyImportService: LegacyImportService,
     @Inject(SciService) private readonly sciService: SciService,
@@ -818,7 +820,7 @@ export class TrpcService {
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
       adminTenant: createAdminTenantRouter(this.adminTenantService),
-      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService, this.clienteCapaService, this.dossieService, this.dossieBackfillService, this.clienteLogoService, this.socioPerfisService),
+      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService, this.clienteCapaService, this.dossieService, this.dossieBackfillService, this.clienteLogoService, this.socioPerfisService, this.clienteRelatorioService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
       fornecedor: createFornecedorRouter(this.fornecedorService),
