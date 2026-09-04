@@ -143,7 +143,7 @@ export default function ClientesPage() {
   const { isMaster, isEmpresaMaster } = useUserPermissions()
   // Edição inline: cada campo tem a SUA permissão, igual ao backend. Gatear
   // tudo num flag só criaria campos que parecem editáveis e falham no save.
-  const { canCreate, canEditDetails, canManageCommercial, canEditTaxation } = useClientesPerms()
+  const { canCreate, canEditDetails, canManageCommercial, canEditTaxation, canManageFiscal, canManageResponsible } = useClientesPerms()
   const [search, setSearch] = useState(() => txt(salvos.search))
   // Inicia JÁ com o valor salvo: se começasse vazio, a primeira busca ignoraria
   // o texto restaurado e a lista piscaria sem filtro antes de corrigir.
@@ -596,22 +596,43 @@ export default function ClientesPage() {
                   <Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuItem onClick={openOpcoesModal}><Settings2 className="h-4 w-4" />Opções</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setIntegracoesOpen(true)}><Plug className="h-4 w-4" />Integrações</DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  {/* Cada item aparece só para quem tem a sub-permissão que o
+                      backend já exige daquela rota. Antes o menu inteiro era
+                      visível a quem tinha leitura no módulo: a pessoa clicava em
+                      "Importar do Legado" e levava um erro de permissão — ou,
+                      pior, imaginava que aquilo era coisa que ela podia fazer.
+                      Ver o que não se pode fazer é um problema em si. */}
+                  {canEditDetails && (
+                    <DropdownMenuItem onClick={openOpcoesModal}><Settings2 className="h-4 w-4" />Opções</DropdownMenuItem>
+                  )}
+                  {canManageFiscal && (
+                    <DropdownMenuItem onClick={() => setIntegracoesOpen(true)}><Plug className="h-4 w-4" />Integrações</DropdownMenuItem>
+                  )}
+                  {(canEditDetails || canManageFiscal) && <DropdownMenuSeparator />}
+                  {/* Relatórios e Exportar ficam abertos a quem tem o módulo:
+                      é o caminho de quem só precisa levar uma lista para fora,
+                      e foi a regra combinada para os relatórios do sistema. */}
                   <DropdownMenuItem onClick={() => router.push('/clientes/relatorios')}><BarChart3 className="h-4 w-4 text-emerald-600" />Relatórios</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar Excel/CSV</DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLegacyImport} disabled={legacyImporting}>
-                    {legacyImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-                    {legacyImporting ? 'Importando...' : 'Importar do Legado'}
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExport} disabled={exporting}><FileDown className="h-4 w-4" />Exportar</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setEnriquecimentoOpen(true)}>
-                    <Sparkles className="h-4 w-4 text-orange-500" />Enriquecer CNAE
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setResponsaveisOpen(true)}>
-                    <UserCog className="h-4 w-4 text-orange-500" />Sincronizar Responsáveis
-                  </DropdownMenuItem>
+                  {canEditDetails && (
+                    <>
+                      <DropdownMenuItem onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar Excel/CSV</DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleLegacyImport} disabled={legacyImporting}>
+                        {legacyImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+                        {legacyImporting ? 'Importando...' : 'Importar do Legado'}
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {canManageFiscal && (
+                    <DropdownMenuItem onClick={() => setEnriquecimentoOpen(true)}>
+                      <Sparkles className="h-4 w-4 text-orange-500" />Enriquecer CNAE
+                    </DropdownMenuItem>
+                  )}
+                  {canManageResponsible && (
+                    <DropdownMenuItem onClick={() => setResponsaveisOpen(true)}>
+                      <UserCog className="h-4 w-4 text-orange-500" />Sincronizar Responsáveis
+                    </DropdownMenuItem>
+                  )}
                   {(isMaster || isEmpresaMaster) && (
                     <DropdownMenuItem onClick={() => router.push('/clientes/duplicidades')}>
                       <Copy className="h-4 w-4 text-amber-600" />Cadastros repetidos
