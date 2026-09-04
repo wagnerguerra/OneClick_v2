@@ -805,7 +805,10 @@ export default function MontarRelatorioPage() {
                             title={v === null || v === '' ? undefined : String(v)}
                             className={cn(
                               'max-w-[260px] truncate whitespace-nowrap px-3 py-1.5',
-                              previa.colunas[j]?.tipo === 'numero' && 'text-right tabular-nums',
+                              // Toda coluna alinha à esquerda. Jogar as
+                              // numéricas para a direita deixava o Nº do
+                              // cliente solto, longe do nome que ele identifica.
+                              previa.colunas[j]?.tipo === 'numero' && 'tabular-nums',
                             )}
                           >
                             {v === null || v === '' ? <span className="text-muted-foreground">—</span> : String(v)}
