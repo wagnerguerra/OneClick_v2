@@ -422,7 +422,7 @@ export class ClienteRelatorioService {
       visibilidade: 'PRIVADO' | 'EMPRESA'
     },
     ctx: { userId: string; empresaId?: string; isMaster?: boolean },
-  ): Promise<{ id: string; nome: string }> {
+  ): Promise<{ id: string; nome: string; visibilidade: string }> {
     // So chaves do catalogo entram no banco. Sem isso, uma chave invalida
     // ficaria salva para sempre, falhando silenciosamente a cada execucao.
     const campos = entrada.campos.filter(c => CAMPOS_POR_CHAVE.has(c))

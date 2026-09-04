@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { FileSpreadsheet, FileText, FileDown, Search, ChevronDown, Loader2, ArrowLeft, X, GripVertical, Save, Star, Trash2, FolderOpen, Users, Lock, Filter } from 'lucide-react'
+import { FileSpreadsheet, FileText, FileDown, Search, ChevronDown, Loader2, ArrowLeft, X, GripVertical, Save, Star, Trash2, Users, Lock, Filter, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -283,6 +283,8 @@ export default function MontarRelatorioPage() {
   const [nomeNovo, setNomeNovo] = useState('')
   const [visibilidade, setVisibilidade] = useState<'PRIVADO' | 'EMPRESA'>('PRIVADO')
   const [modalSalvar, setModalSalvar] = useState(false)
+  /** O painel de campos recolhe para a tabela ocupar a largura toda. */
+  const [painelCampos, setPainelCampos] = useState(true)
   /** Os filtros do relatório aberto vencem os da URL — foi o que ele salvou. */
   const [filtrosSalvos, setFiltrosSalvos] = useState<Record<string, unknown> | null>(null)
   /** Condições montadas aqui, sobre os campos escolhidos. */
@@ -332,6 +334,17 @@ export default function MontarRelatorioPage() {
   }, [])
   useEffect(() => { carregarSalvos() }, [carregarSalvos])
 
+  const abertoAtual = salvos.find(r => r.id === abertoId)
+
+  /** Volta ao estado de relatório novo, sem herdar o que estava aberto. */
+  const limparMontagem = () => {
+    setAbertoId(null)
+    setFiltrosSalvos(null)
+    setFiltrosCampos([])
+    setNomeNovo('')
+    setVisibilidade('PRIVADO')
+  }
+
   /** Abre um relatório salvo: campos, ordem e filtros dele. */
   const abrir = (r: Salvo) => {
     setEscolhidos(r.campos)
@@ -346,7 +359,7 @@ export default function MontarRelatorioPage() {
     if (!nomeNovo.trim() || !escolhidos.length) return
     setSalvando(true)
     try {
-      await (trpc.cliente as any).relatorioSalvar.mutate({
+      const r = await (trpc.cliente as any).relatorioSalvar.mutate({
         id: abertoId ?? undefined,
         nome: nomeNovo.trim(),
         campos: escolhidos,
@@ -354,6 +367,11 @@ export default function MontarRelatorioPage() {
         filtrosCampos,
         visibilidade,
       })
+      // O relatório recém-salvo passa a ser o ABERTO. Sem isto, o botão
+      // continuava dizendo "Salvar relatório" e um segundo clique criava outra
+      // cópia com o mesmo nome — quem ajustasse uma coluna e salvasse de novo
+      // terminaria com dois relatórios iguais e nenhum aviso.
+      if (r?.id) setAbertoId(r.id)
       setModalSalvar(false)
       carregarSalvos()
     } finally {
@@ -467,6 +485,56 @@ export default function MontarRelatorioPage() {
       <PageHeaderBar
         actions={
           <>
+            {/* Abrir um relatorio salvo cabe num select: a lista cresce com o
+                tempo e uma tira de pilulas ocupava uma faixa inteira da tela
+                para uma escolha que se faz uma vez, no comeco. */}
+            {salvos.length > 0 && (
+              <div className="flex items-center gap-1">
+                <select
+                  value={abertoId ?? ''}
+                  onChange={e => {
+                    const r = salvos.find(x => x.id === e.target.value)
+                    if (r) abrir(r); else limparMontagem()
+                  }}
+                  className="h-8 max-w-[240px] rounded-md border border-border bg-background px-2 text-[12.5px]"
+                  title="Abrir um relatório salvo"
+                >
+                  <option value="">Novo relatório</option>
+                  {(['meus', 'empresa', 'sistema'] as const).map(secao => {
+                    const itens = salvos.filter(r =>
+                      secao === 'meus' ? r.meu && r.origem === 'USUARIO'
+                      : secao === 'empresa' ? !r.meu && r.origem === 'USUARIO'
+                      : r.origem === 'SISTEMA')
+                    if (!itens.length) return null
+                    return (
+                      <optgroup key={secao} label={secao === 'meus' ? 'Meus' : secao === 'empresa' ? 'Da empresa' : 'Do sistema'}>
+                        {itens.map(r => (
+                          <option key={r.id} value={r.id}>{r.favorito ? '★ ' : ''}{r.nome}</option>
+                        ))}
+                      </optgroup>
+                    )
+                  })}
+                </select>
+
+                {/* Estrela e lixeira agem sobre o relatorio ABERTO. Num select
+                    nao cabe botao por item, e sem elas favoritar e excluir
+                    sumiriam junto com a tira de pilulas. */}
+                {abertoAtual && (
+                  <button type="button" onClick={() => favoritar(abertoAtual)}
+                    title={abertoAtual.favorito ? 'Desafixar' : 'Fixar no topo'}
+                    className={cn('rounded p-1', abertoAtual.favorito ? 'text-amber-500' : 'text-muted-foreground hover:text-foreground')}>
+                    <Star className={cn('h-3.5 w-3.5', abertoAtual.favorito && 'fill-current')} />
+                  </button>
+                )}
+                {abertoAtual?.meu && podeMontar && (
+                  <button type="button" onClick={() => excluir(abertoAtual)} title="Excluir este relatório"
+                    className="rounded p-1 text-muted-foreground hover:text-destructive">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
             {podeMontar && (
               <Button
                 size="sm"
@@ -503,54 +571,25 @@ export default function MontarRelatorioPage() {
         </div>
       )}
 
-      {salvos.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-3">
-          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <FolderOpen className="h-3.5 w-3.5" /> Relatórios salvos
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {salvos.map(r => (
-              <span
-                key={r.id}
-                className={cn(
-                  'group flex items-center gap-1 rounded-lg border px-1.5 py-1 text-[12px] transition-colors',
-                  abertoId === r.id
-                    ? 'border-primary/40 bg-primary/10 text-primary'
-                    : 'border-border bg-muted/40 hover:bg-muted',
-                )}
-              >
-                <button type="button" onClick={() => favoritar(r)} title={r.favorito ? 'Desafixar' : 'Fixar no topo'}
-                  className={cn('rounded p-0.5', r.favorito ? 'text-amber-500' : 'text-muted-foreground hover:text-foreground')}>
-                  <Star className={cn('h-3 w-3', r.favorito && 'fill-current')} />
-                </button>
-                <button type="button" onClick={() => abrir(r)} className="px-0.5 font-medium">
-                  {r.nome}
-                </button>
-                {/* Quem enxerga o relatório precisa saber por que ele está ali:
-                    é do sistema, é meu, ou alguém compartilhou com a empresa. */}
-                {r.origem === 'SISTEMA' ? (
-                  <span className="rounded-full bg-background px-1.5 text-[9.5px] text-muted-foreground">sistema</span>
-                ) : r.visibilidade === 'EMPRESA' ? (
-                  <Users className="h-3 w-3 text-muted-foreground" aria-label="Compartilhado com a empresa" />
-                ) : (
-                  <Lock className="h-3 w-3 text-muted-foreground" aria-label="Só meu" />
-                )}
-                {r.meu && podeMontar && (
-                  <button type="button" onClick={() => excluir(r)} title="Excluir"
-                    className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100">
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                )}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
+      <div className={cn('grid gap-4', painelCampos ? 'lg:grid-cols-[300px_1fr]' : 'lg:grid-cols-[40px_1fr]')}>
         {/* ── Campos ──────────────────────────────────────────────── */}
+        {!painelCampos ? (
+          // Recolhido vira uma faixa estreita: sumir de vez deixaria o usuario
+          // sem pista de como trazer os campos de volta.
+          <button
+            type="button"
+            onClick={() => setPainelCampos(true)}
+            title="Mostrar campos"
+            className="flex h-full min-h-[120px] w-10 flex-col items-center gap-2 rounded-xl border border-border bg-card py-3 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider [writing-mode:vertical-rl]">
+              Campos {escolhidos.length}
+            </span>
+          </button>
+        ) : (
         <div className="rounded-xl border border-border bg-card">
-          <div className="border-b border-border p-3">
+          <div className="flex items-center gap-2 border-b border-border p-3">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -560,6 +599,14 @@ export default function MontarRelatorioPage() {
                 className="h-8 pl-8 text-xs"
               />
             </div>
+            <button
+              type="button"
+              onClick={() => setPainelCampos(false)}
+              title="Recolher para alargar a tabela"
+              className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
           </div>
 
           <div className="nice-scrollbar max-h-[520px] overflow-y-auto p-2">
@@ -608,6 +655,7 @@ export default function MontarRelatorioPage() {
             })}
           </div>
         </div>
+        )}
 
         {/* ── Ordem, prévia e download ────────────────────────────── */}
         <div className="flex flex-col gap-4">
