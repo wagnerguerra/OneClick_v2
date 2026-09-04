@@ -690,7 +690,9 @@ export default function MontarRelatorioPage() {
         )}
 
         {/* ── Ordem, prévia e download ────────────────────────────── */}
-        <div className="flex flex-col gap-4">
+        {/* `min-w-0`: sem ele uma celula larga empurra a coluna alem do `1fr`,
+            o card sai da tela e o overflow da tabela nunca chega a agir. */}
+        <div className="flex min-w-0 flex-col gap-4">
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="mb-2 flex items-center justify-between gap-3">
               <h2 className="text-[13px] font-semibold">
@@ -786,10 +788,14 @@ export default function MontarRelatorioPage() {
                     {previa.linhas.map((l, i) => (
                       <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30">
                         {l.map((v, j) => (
-                          <td key={j} className={cn(
-                            'whitespace-nowrap px-3 py-1.5',
-                            previa.colunas[j]?.tipo === 'numero' && 'text-right tabular-nums',
-                          )}>
+                          <td
+                            key={j}
+                            title={v === null || v === '' ? undefined : String(v)}
+                            className={cn(
+                              'max-w-[260px] truncate whitespace-nowrap px-3 py-1.5',
+                              previa.colunas[j]?.tipo === 'numero' && 'text-right tabular-nums',
+                            )}
+                          >
                             {v === null || v === '' ? <span className="text-muted-foreground">—</span> : String(v)}
                           </td>
                         ))}

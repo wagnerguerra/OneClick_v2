@@ -316,17 +316,47 @@ export class ClienteRelatorioService {
 
     if (formato === 'pdf') {
       const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      // A fonte encolhe conforme o numero de colunas: 8 colunas em A4 paisagem
+      // ainda leem bem a 8px, mas 14 a 9.5px viram uma parede cinza.
+      const n = cabecalho.length
+      const fonte = n <= 6 ? 9.5 : n <= 9 ? 8.5 : n <= 12 ? 7.5 : 6.8
+      // Coluna de LISTA (socios, beneficios, areas) e a que estoura: ganha o
+      // dobro de espaco das demais, e o resto divide o que sobra por igual.
+      const pesos = colunas.map(c => (c.tipo === 'lista' ? 2.4 : c.tipo === 'texto' ? 1.2 : 1))
+      const somaPesos = pesos.reduce((a, b) => a + b, 0)
+      const larguras = pesos.map(pe => `${((pe / somaPesos) * 100).toFixed(2)}%`)
+
       const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
-        *{box-sizing:border-box} body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;font-size:11px}
-        h1{font-size:17px;margin:0} .sub{color:#64748b;font-size:10px;margin:3px 0 14px}
-        table{border-collapse:collapse;width:100%}
-        th,td{border-bottom:1px solid #e5e8ee;padding:4px 6px;text-align:left;font-size:9.5px}
-        th{background:#f1f5f9;text-transform:uppercase;letter-spacing:.04em;font-size:8.5px;color:#64748b}
+        *{box-sizing:border-box}
+        body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;font-size:11px;margin:0}
+        h1{font-size:16px;margin:0}
+        .sub{color:#64748b;font-size:9.5px;margin:3px 0 12px}
+        /* table-layout fixed respeita as larguras declaradas; sem ele o
+           navegador da a coluna de socios o espaco que ela pedir e espreme
+           todas as outras. */
+        table{border-collapse:collapse;width:100%;table-layout:fixed}
+        th,td{
+          border-bottom:1px solid #e5e8ee;padding:3px 5px;text-align:left;
+          font-size:${fonte}px;vertical-align:top;
+          /* Sem isto uma célula longa sai pela margem da folha em vez de
+             quebrar — é o que estraga um PDF com coluna de lista. */
+          overflow-wrap:anywhere;word-break:break-word;
+        }
+        th{background:#f1f5f9;text-transform:uppercase;letter-spacing:.04em;font-size:${(fonte - 1).toFixed(1)}px;color:#64748b}
+        /* #fafbfc era invisivel no papel; numa linha de 8 colunas em
+           paisagem a faixa e o que impede o olho de pular de linha. */
+        tbody tr:nth-child(even){background:#f4f6f9}
+        /* O cabeçalho se repete em toda página e a linha não parte no meio. */
+        thead{display:table-header-group}
+        tr{break-inside:avoid}
       </style></head><body>
       <h1>${esc(titulo)}</h1>
       <div class="sub">Gerado em ${esc(geradoEm)} &middot; ${total} cliente(s)${aviso ? ' &middot; ' + esc(aviso) : ''}</div>
-      <table><thead><tr>${cabecalho.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead>
-      <tbody>${linhas.map(l => `<tr>${l.map(c => `<td>${esc(String(c ?? ''))}</td>`).join('')}</tr>`).join('')}</tbody></table>
+      <table>
+        <colgroup>${larguras.map(w => `<col style="width:${w}">`).join('')}</colgroup>
+        <thead><tr>${cabecalho.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead>
+        <tbody>${linhas.map(l => `<tr>${l.map(c => `<td>${esc(String(c ?? ''))}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
       </body></html>`
       const puppeteer = (await import('puppeteer')).default
       const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] })
@@ -335,9 +365,19 @@ export class ClienteRelatorioService {
         await page.setContent(html, { waitUntil: 'load' })
         const buffer = Buffer.from(await page.pdf({
           format: 'A4', printBackground: true,
-          // Muitas colunas em retrato viram uma coluna de letras espremidas.
-          landscape: cabecalho.length > 6,
-          margin: { top: '12mm', right: '10mm', bottom: '12mm', left: '10mm' },
+          // Cinco colunas ja pedem paisagem: em retrato, uma delas sendo lista
+          // (socios) as demais ficam com menos de 2cm cada.
+          landscape: n > 5,
+          margin: { top: '12mm', right: '8mm', bottom: '14mm', left: '8mm' },
+          // Numero de pagina no rodape: um relatorio de 550 clientes sai com
+          // dezenas de folhas, e sem numero elas se perdem ao imprimir.
+          displayHeaderFooter: true,
+          headerTemplate: '<div></div>',
+          footerTemplate:
+            '<div style="width:100%;font-size:7px;color:#94a3b8;padding:0 10mm;display:flex;justify-content:space-between">'
+            + `<span>${esc(titulo)}</span>`
+            + '<span><span class="pageNumber"></span> / <span class="totalPages"></span></span>'
+            + '</div>',
         }))
         await page.close()
         return { buffer, filename: `${base}.pdf`, contentType: 'application/pdf' }
