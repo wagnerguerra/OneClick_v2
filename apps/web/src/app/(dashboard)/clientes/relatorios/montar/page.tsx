@@ -571,7 +571,7 @@ export default function MontarRelatorioPage() {
           </>
         }
       >
-        <h1 className="truncate">Montar relatório</h1>
+        <h1 className="truncate">Gerador de Relatórios</h1>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Escolha os campos, confira a prévia e baixe. Os filtros vêm da listagem de clientes.
         </p>
@@ -606,7 +606,7 @@ export default function MontarRelatorioPage() {
             type="button"
             onClick={() => setPainelCampos(true)}
             title="Mostrar campos"
-            className="flex h-full min-h-[120px] w-10 flex-col items-center gap-2 overflow-hidden rounded-xl border border-border bg-card py-3 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-[140px] w-10 flex-col items-center gap-2 self-start overflow-hidden rounded-xl border border-border bg-card py-3 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <PanelLeftOpen className="h-4 w-4" />
             <span className="text-[11px] font-semibold uppercase tracking-wider [writing-mode:vertical-rl]">
@@ -618,7 +618,7 @@ export default function MontarRelatorioPage() {
         // fixa por dentro, ele e CORTADO durante a animacao em vez de se
         // reorganizar a cada pixel — reflow de 300 para 40px daria um efeito
         // de sanfona no texto.
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="self-start overflow-hidden rounded-xl border border-border bg-card">
           <div className="w-full min-w-[298px]">
           <div className="flex items-center gap-2 border-b border-border p-3">
             <div className="relative">

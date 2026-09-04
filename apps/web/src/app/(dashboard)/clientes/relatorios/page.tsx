@@ -191,7 +191,7 @@ export default function RelatoriosClientesPage() {
         {/* Os relatórios prontos desta tela cobrem os recortes que já sabemos
             que o escritório usa. O construtor é para o que ninguém previu. */}
         <Button asChild variant="success" size="sm" className="gap-1.5">
-          <Link href="/clientes/relatorios/montar"><Wrench className="h-3.5 w-3.5" />Montar relatório</Link>
+          <Link href="/clientes/relatorios/montar"><Wrench className="h-3.5 w-3.5" />Gerador de Relatórios</Link>
         </Button>
         <BackButton href="/clientes" label="Voltar" />
       </>}>
