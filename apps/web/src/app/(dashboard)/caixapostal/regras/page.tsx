@@ -12,10 +12,10 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Collapsible, CollapsibleTrigger, CollapsibleContent,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
-  Checkbox,
+  Checkbox, Switch,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { BADGE, TEXT } from '@/lib/color-styles'
+import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
@@ -51,8 +51,8 @@ interface Regra {
 }
 
 const TIPO_LABELS: Record<string, { label: string; color: string }> = {
-  PRIORIDADE: { label: 'Prioridade', color: 'bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900 dark:text-sky-200 dark:border-sky-700' },
-  RELEVANCIA: { label: 'Relevância', color: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700' },
+  PRIORIDADE: { label: 'Prioridade', color: STRONG.sky },
+  RELEVANCIA: { label: 'Relevância', color: STRONG.amber },
   DESCONSIDERAR: { label: 'Desconsiderar', color: 'bg-muted text-muted-foreground border-border' },
 }
 
@@ -465,7 +465,7 @@ export default function CaixaPostalRegrasPage() {
                 <button className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-muted/30 transition-colors rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-indigo-50 dark:bg-indigo-900/20">
-                      <Zap className="h-4 w-4 text-indigo-600" />
+                      <Zap className={cn('h-4 w-4', TEXT.indigo)} />
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold">Regras do Sistema</h3>
@@ -752,7 +752,7 @@ export default function CaixaPostalRegrasPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <button onClick={() => handleToggleAtivo(r)} className={cn('h-4 w-4 rounded-full border-2 transition-colors', r.ativo ? 'bg-emerald-500 border-emerald-500' : 'bg-transparent border-border')} />
+                    <Switch checked={r.ativo} onCheckedChange={() => handleToggleAtivo(r)} className="mx-auto" />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">

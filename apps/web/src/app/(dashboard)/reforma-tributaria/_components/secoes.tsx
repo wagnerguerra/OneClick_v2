@@ -15,7 +15,12 @@ import {
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend, LabelList,
 } from 'recharts'
 import { Info, TrendingDown, TrendingUp, HelpCircle, ListTree, Download, Share2 } from 'lucide-react'
-import { Button, Card, Input, Label, Badge, cn } from '@saas/ui'
+import {
+  Button, Card, Input, Label, Badge, cn,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import {
   type Parametros, type Regime, type Atividade, type Operacao,
   ROTULO_REGIME, ROTULO_ATIVIDADE, ehServico, temIpi,
@@ -24,24 +29,20 @@ import {
 } from '../_lib/calculo'
 
 // ── Tema dos gráficos (receita do LuminAux, em tokens do tema) ───────────
+// Tooltip = <ChartTooltip> central (dark-aware) via content=; cursor = CHART_CURSOR_FILL.
 const GRADE = { strokeDasharray: '3 3', stroke: 'var(--border)' } as const
 const EIXO = {
   axisLine: false, tickLine: false,
   tick: { fontSize: 11, fill: 'var(--muted-foreground)' },
 } as const
-const TOOLTIP = {
-  contentStyle: {
-    padding: 10, borderRadius: 10, background: 'var(--card)',
-    border: '1px solid var(--border)', color: 'var(--foreground)',
-    fontSize: 12, boxShadow: 'none',
-  },
-  labelStyle: { color: 'var(--muted-foreground)', fontSize: 11, marginBottom: 2 },
-  cursor: { fill: 'var(--muted-foreground)', fillOpacity: 0.08 },
-} as const
 
 /** A cor do IVA é a mesma em toda a tela: é o cenário novo. */
 const COR_IVA = '#22d3ee'
 const COR_ATUAL = '#0f172a'
+// Versão temática do "atual" para PRIMEIRO PLANO (fatia de pizza, legenda, ícone):
+// a #0f172a fixa some no dark. `--color-foreground` é escuro no claro e claro no
+// escuro → sempre legível. (A #0f172a segue nos FUNDOS de barra/gradiente c/ texto branco.)
+const COR_ATUAL_GRAF = 'var(--color-foreground)'
 const COR_NEUTRA = '#cbd5e1'
 
 const REGIMES: Regime[] = ['LUCRO_REAL', 'LUCRO_PRESUMIDO', 'SIMPLES']
@@ -91,7 +92,7 @@ function CampoMoeda({ label, valor, onChange, className }: {
             onChange(digitos ? Number(digitos) / 100 : 0)
           }}
           className={cn(
-            'h-10 w-full rounded-md border border-border bg-card pl-10 pr-3 text-right text-sm tabular-nums text-foreground',
+            'h-10 w-full rounded-md pl-10 pr-3 text-right text-sm tabular-nums text-foreground',
             'focus:outline-none focus:ring-2 focus:ring-ring/40',
             className,
           )}
@@ -152,25 +153,23 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <Label className="text-[13px] font-semibold">Regime tributário atual</Label>
-            <select
-              value={p.regime}
-              onChange={(e) => onChange({ regime: e.target.value as Regime })}
-              className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-            >
-              {REGIMES.map(r => <option key={r} value={r}>{ROTULO_REGIME[r].toUpperCase()}</option>)}
-            </select>
+            <Select value={p.regime} onValueChange={(v) => onChange({ regime: v as Regime })}>
+              <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {REGIMES.map(r => <SelectItem key={r} value={r}>{ROTULO_REGIME[r].toUpperCase()}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label className="text-[13px] font-semibold">Atividade</Label>
-            <select
-              value={p.atividade}
-              onChange={(e) => onChange({ atividade: e.target.value as Atividade })}
-              className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-            >
-              {(['INDUSTRIA', 'COMERCIO', 'SERVICOS'] as Atividade[]).map(a => (
-                <option key={a} value={a}>{ROTULO_ATIVIDADE[a].toUpperCase()}</option>
-              ))}
-            </select>
+            <Select value={p.atividade} onValueChange={(v) => onChange({ atividade: v as Atividade })}>
+              <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(['INDUSTRIA', 'COMERCIO', 'SERVICOS'] as Atividade[]).map(a => (
+                  <SelectItem key={a} value={a}>{ROTULO_ATIVIDADE[a].toUpperCase()}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <CampoMoeda
@@ -356,13 +355,13 @@ export function SecaoComparar({ p }: { p: Parametros }) {
                 <td className="px-4 py-2.5 text-sm text-muted-foreground">(−) Créditos</td>
                 {linhas.map(l => (
                   <Celula key={l.regime}>
-                    <span className={l.creditos > 0 ? 'text-rose-600 dark:text-rose-400' : ''}>
+                    <span className={cn(l.creditos > 0 && TEXT.rose)}>
                       {l.creditos > 0 ? `−${reais(l.creditos)}` : reais(0)}
                     </span>
                   </Celula>
                 ))}
                 <Celula>
-                  <span className="text-rose-600 dark:text-rose-400">−{reais(iva.creditos)}</span>
+                  <span className={TEXT.rose}>−{reais(iva.creditos)}</span>
                 </Celula>
               </tr>
               <tr className="bg-muted/40">
@@ -408,12 +407,12 @@ export function SecaoComparar({ p }: { p: Parametros }) {
               <CartesianGrid {...GRADE} vertical={false} />
               <XAxis dataKey="nome" {...EIXO} />
               <YAxis {...EIXO} tickFormatter={(v) => `${v}%`} />
-              <Tooltip {...TOOLTIP} formatter={(v) => porcento(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => porcento(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={56}>
                 <LabelList dataKey="valor" position="top" formatter={(v) => porcento(Number(v))}
                   style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
                 {dadosAliquota.map((d, i) => (
-                  <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL : COR_NEUTRA} />
+                  <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL_GRAF : COR_NEUTRA} />
                 ))}
               </Bar>
             </BarChart>
@@ -427,12 +426,12 @@ export function SecaoComparar({ p }: { p: Parametros }) {
               <CartesianGrid {...GRADE} horizontal={false} />
               <XAxis type="number" {...EIXO} tickFormatter={reaisCurto} />
               <YAxis type="category" dataKey="nome" width={110} {...EIXO} />
-              <Tooltip {...TOOLTIP} formatter={(v) => reais(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="valor" radius={[0, 4, 4, 0]} maxBarSize={26}>
                 <LabelList dataKey="valor" position="right" formatter={(v) => reaisCurto(Number(v))}
                   style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
                 {dadosTotal.map((d, i) => (
-                  <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL : COR_NEUTRA} />
+                  <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL_GRAF : COR_NEUTRA} />
                 ))}
               </Bar>
             </BarChart>
@@ -468,14 +467,17 @@ export function SecaoTransicao({ p, onChange }: {
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
+            {/* Espaçador ANTES do label: reserva a linha de subtítulo das colunas
+                vizinhas (Faturamento/Carga) no topo, então o label desce e fica
+                colado ao select — e o controle alinha na mesma base das caixas. */}
+            <p className="text-[11px] text-muted-foreground select-none" aria-hidden>&nbsp;</p>
             <Label className="text-[13px] font-semibold">Regime atual</Label>
-            <select
-              value={p.regime}
-              onChange={(e) => onChange({ regime: e.target.value as Regime })}
-              className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-            >
-              {REGIMES.map(r => <option key={r} value={r}>{ROTULO_REGIME[r].toUpperCase()}</option>)}
-            </select>
+            <Select value={p.regime} onValueChange={(v) => onChange({ regime: v as Regime })}>
+              <SelectTrigger className="mt-1 h-10 w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {REGIMES.map(r => <SelectItem key={r} value={r}>{ROTULO_REGIME[r].toUpperCase()}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label className="text-[13px] font-semibold">Faturamento anual</Label>
@@ -556,7 +558,7 @@ export function SecaoTransicao({ p, onChange }: {
               <CartesianGrid {...GRADE} vertical={false} />
               <XAxis dataKey="ano" {...EIXO} />
               <YAxis {...EIXO} tickFormatter={reaisCurto} width={78} />
-              <Tooltip {...TOOLTIP} formatter={(v) => reais(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Area type="monotone" dataKey="total" name="Total a pagar" stroke={COR_IVA} strokeWidth={2} fill="url(#rtTotal)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -572,7 +574,7 @@ export function SecaoTransicao({ p, onChange }: {
               <CartesianGrid {...GRADE} vertical={false} />
               <XAxis dataKey="ano" {...EIXO} />
               <YAxis {...EIXO} tickFormatter={reaisCurto} width={78} />
-              <Tooltip {...TOOLTIP} formatter={(v) => reais(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Line type="monotone" dataKey="sistemaAntigo" name="Sistema antigo" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="ibs" name="IBS (novo)" stroke={COR_IVA} strokeWidth={2} dot={{ r: 3 }} />
@@ -745,7 +747,7 @@ export function SecaoVisaoGeral({ p, cliente }: {
         </div>
         <Card className="px-4 py-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Diferença mensal</p>
-          <p className={cn('mt-1 text-xl font-bold tabular-nums', alivio ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}>
+          <p className={cn('mt-1 text-xl font-bold tabular-nums', alivio ? TEXT.emerald : TEXT.rose)}>
             {alivio ? '−' : '+'}{reais(Math.abs(diferenca))}
           </p>
         </Card>
@@ -793,11 +795,11 @@ export function SecaoVisaoGeral({ p, cliente }: {
               <CartesianGrid {...GRADE} vertical={false} />
               <XAxis dataKey="nome" {...EIXO} />
               <YAxis {...EIXO} tickFormatter={reaisCurto} width={78} />
-              <Tooltip {...TOOLTIP} formatter={(v) => reais(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={90}>
                 <LabelList dataKey="valor" position="top" formatter={(v) => reaisCurto(Number(v))}
                   style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
-                <Cell fill={COR_ATUAL} />
+                <Cell fill={COR_ATUAL_GRAF} />
                 <Cell fill={COR_IVA} />
               </Bar>
             </BarChart>
@@ -811,12 +813,12 @@ export function SecaoVisaoGeral({ p, cliente }: {
               <CartesianGrid {...GRADE} vertical={false} />
               <XAxis dataKey="nome" {...EIXO} />
               <YAxis {...EIXO} tickFormatter={(v) => `${v}%`} />
-              <Tooltip {...TOOLTIP} formatter={(v) => porcento(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => porcento(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={56}>
                 <LabelList dataKey="valor" position="top" formatter={(v) => porcento(Number(v))}
                   style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
                 {porRegime.map((d, i) => (
-                  <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL : COR_NEUTRA} />
+                  <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL_GRAF : COR_NEUTRA} />
                 ))}
               </Bar>
             </BarChart>
@@ -969,7 +971,7 @@ export function SecaoCalculadora({ p, op, onChange }: {
             </div>
             <div className="flex items-center justify-between py-2.5 text-sm">
               <span className="text-muted-foreground">(−) Crédito a compensar</span>
-              <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{reais(r.credito)}</span>
+              <span className={cn('font-semibold tabular-nums', TEXT.emerald)}>{reais(r.credito)}</span>
             </div>
             <div className="flex items-center justify-between py-2.5 text-sm">
               <span className="text-muted-foreground">Alíquota efetiva</span>
@@ -995,16 +997,15 @@ export function SecaoCalculadora({ p, op, onChange }: {
             />
             <div>
               <Label className="text-[13px] font-semibold">Regime da operação</Label>
-              <select
-                value={op.reducao}
-                onChange={(e) => onChange({ reducao: Number(e.target.value) })}
-                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-              >
-                <option value={0}>Padrão — alíquota cheia</option>
-                <option value={30}>Redução de 30% — profissões regulamentadas</option>
-                <option value={60}>Redução de 60% — saúde, educação, alimentos</option>
-                <option value={100}>Alíquota zero / isento</option>
-              </select>
+              <Select value={String(op.reducao)} onValueChange={(v) => onChange({ reducao: Number(v) })}>
+                <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Padrão — alíquota cheia</SelectItem>
+                  <SelectItem value="30">Redução de 30% — profissões regulamentadas</SelectItem>
+                  <SelectItem value="60">Redução de 60% — saúde, educação, alimentos</SelectItem>
+                  <SelectItem value="100">Alíquota zero / isento</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="text-[13px] font-semibold">% de despesas creditáveis</Label>
@@ -1048,10 +1049,10 @@ export function SecaoCalculadora({ p, op, onChange }: {
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={rosca} dataKey="valor" nameKey="nome" innerRadius={62} outerRadius={98} paddingAngle={2}>
-                <Cell fill={COR_ATUAL} />
+                <Cell fill={COR_ATUAL_GRAF} />
                 <Cell fill={COR_IVA} />
               </Pie>
-              <Tooltip {...TOOLTIP} formatter={(v) => reais(Number(v))} />
+              <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
             </PieChart>
           </ResponsiveContainer>

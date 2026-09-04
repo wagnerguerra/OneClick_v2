@@ -29,6 +29,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { useTabLabel } from '@/hooks/use-tab-label'
 import { SeletorCliente, type ClienteSimulador } from './_components/seletor-cliente'
@@ -356,9 +357,10 @@ export default function ReformaTributariaPage() {
                       {/* Estornos e devolucoes ABATEM a base: o valor negativo e correto,
                           nao erro de dado — por isso o rotulo e a cor propria. */}
                       <td
-                        className={`py-2 text-right text-xs font-medium tabular-nums ${
-                          i.valor < 0 ? 'text-emerald-600 dark:text-emerald-400' : ''
-                        }`}
+                        className={cn(
+                          'py-2 text-right text-xs font-medium tabular-nums',
+                          i.valor < 0 && TEXT.emerald,
+                        )}
                       >
                         {reais(i.valor / 12)}
                       </td>

@@ -12,9 +12,11 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-  Dialog, DialogContent, DialogBody, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT, STRONG } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -112,6 +114,8 @@ export default function DtePage() {
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null)
   const [showSyncModal, setShowSyncModal] = useState(false)
   const [syncLogs, setSyncLogs] = useState<Array<{ time: string; level: 'info' | 'warn' | 'error' | 'success'; msg: string }>>([])
+  const [cnpjModalOpen, setCnpjModalOpen] = useState(false)
+  const [cnpjInput, setCnpjInput] = useState('')
 
   // View: 'clientes' (lista agrupada) ou 'mensagens' (mensagens de um cliente)
   const [view, setView] = useState<'clientes' | 'mensagens'>('clientes')
@@ -268,7 +272,7 @@ export default function DtePage() {
           setSyncing(false)
           loadData()
           if (progress.status === 'done') {
-            alerts.success('Sincronizacao concluida', `${progress.mensagensNovas} nova(s) mensagem(ns) importada(s)`)
+            alerts.success('Sincronização concluída', `${progress.mensagensNovas} nova(s) mensagem(ns) importada(s)`)
           }
         }
       } catch { /* silencioso */ }
@@ -279,22 +283,22 @@ export default function DtePage() {
   async function handleSync() {
     const confirmed = await alerts.confirm({
       title: 'Sincronizar DT-e ES',
-      text: 'Isso vai abrir o portal da SEFAZ/ES (Agencia Virtual) e importar as mensagens DT-e de todos os clientes com procuracao. Na primeira execucao, sera necessario selecionar o certificado digital PF do contador no dialogo do Windows.',
-      confirmText: 'Iniciar Sincronizacao',
+      text: 'Isso vai abrir o portal da SEFAZ/ES (Agência Virtual) e importar as mensagens DT-e de todos os clientes com procuração. Na primeira execução, será necessário selecionar o certificado digital PF do contador no diálogo do Windows.',
+      confirmText: 'Iniciar Sincronização',
       icon: 'info',
     })
     if (!confirmed) return
 
     setSyncing(true)
     setSyncLogs([])
-    addLog('info', 'Iniciando sincronizacao...')
+    addLog('info', 'Iniciando sincronização...')
     setSyncProgress({ status: 'running', total: 0, current: 0, currentCliente: 'Iniciando...', mensagensNovas: 0, erros: 0, items: [] })
     setShowSyncModal(true)
 
     try {
       await (trpc.dte as any).sincronizarTodos.mutate()
     } catch (err) {
-      alerts.error('Erro na sincronizacao', (err as Error).message)
+      alerts.error('Erro na sincronização', (err as Error).message)
       setSyncing(false)
     }
   }
@@ -323,6 +327,16 @@ export default function DtePage() {
       setSyncing(false)
       loadData()
     }
+  }
+
+  function confirmarSyncCnpj() {
+    const doc = cnpjInput.replace(/\D/g, '')
+    if (doc.length < 14) {
+      alerts.error('CNPJ inválido', 'Informe um CNPJ com 14 dígitos.')
+      return
+    }
+    setCnpjModalOpen(false)
+    void handleSyncCliente(doc, 'CNPJ ' + formatDoc(doc))
   }
 
   // ============================================================
@@ -400,7 +414,7 @@ export default function DtePage() {
           mensagens: prev.mensagens.filter(m => !ids.includes(m.id)),
         } : null)
       }
-      alerts.success('Excluido', `${ids.length} mensagem(ns) removida(s)`)
+      alerts.success('Excluído', `${ids.length} mensagem(ns) removida(s)`)
     } catch { /* silencioso */ }
   }
 
@@ -450,12 +464,12 @@ export default function DtePage() {
       <PageHeaderBar actions={<>
           {view === 'mensagens' && selectedCliente && (
             <>
-              <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs">
-                {selectedCliente.total} mensagen(s)
+              <Badge variant="outline" className={cn('text-xs', STRONG.indigo)}>
+                {selectedCliente.total} mensagem(ns)
               </Badge>
               {selectedCliente.naoLidas > 0 && (
-                <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 text-xs">
-                  {selectedCliente.naoLidas} nao lida(s)
+                <Badge variant="outline" className={cn('text-xs', STRONG.amber)}>
+                  {selectedCliente.naoLidas} não lida(s)
                 </Badge>
               )}
             </>
@@ -472,18 +486,10 @@ export default function DtePage() {
                 <RefreshCw className="h-3.5 w-3.5 shrink-0" />
                 <div>
                   <p className="font-medium text-xs">Todos os clientes</p>
-                  <p className="text-[10px] opacity-60">Sincroniza DT-e de todas as empresas com procuracao</p>
+                  <p className="text-[10px] opacity-60">Sincroniza DT-e de todas as empresas com procuração</p>
                 </div>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={async () => {
-                const { value } = await alerts.custom({
-                  title: 'Sincronizar por CNPJ',
-                  html: '<input id="swal-cnpj" class="swal2-input" placeholder="00.000.000/0000-00" style="font-size:14px">',
-                  confirmButtonText: 'Sincronizar',
-                  preConfirm: () => (document.getElementById('swal-cnpj') as HTMLInputElement)?.value?.replace(/\D/g, '') || '',
-                })
-                if (value && value.length >= 14) handleSyncCliente(value, 'CNPJ ' + value)
-              }} className="gap-2">
+              <DropdownMenuItem onClick={() => { setCnpjInput(''); setCnpjModalOpen(true) }} className="gap-2">
                 <Search className="h-3.5 w-3.5 shrink-0" />
                 <div>
                   <p className="font-medium text-xs">Por CNPJ</p>
@@ -513,7 +519,7 @@ export default function DtePage() {
             </Button>
           )}
       </>}>
-        <h1 className="truncate">DT-e ES — Domicilio Tributario Eletronico</h1>
+        <h1 className="truncate">DT-e ES — Domicílio Tributário Eletrônico</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
           <span className="text-muted-foreground/50">›</span>
@@ -559,14 +565,14 @@ export default function DtePage() {
             <Card className="p-4 relative overflow-hidden">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Nao lidas</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Não lidas</p>
                   <p className="text-2xl font-bold mt-1">{stats.naoLidas}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">pendentes</p>
                 </div>
                 <div className={cn('flex h-11 w-11 items-center justify-center rounded-full', stats.naoLidas > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30')}>
                   {stats.naoLidas > 0
-                    ? <AlertTriangle className="h-5 w-5 text-amber-600" />
-                    : <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                    ? <AlertTriangle className={cn('h-5 w-5', TEXT.amber)} />
+                    : <CheckCircle2 className={cn('h-5 w-5', TEXT.emerald)} />
                   }
                 </div>
               </div>
@@ -580,7 +586,7 @@ export default function DtePage() {
                   <p className="text-[10px] text-muted-foreground mt-0.5">empresas</p>
                 </div>
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
-                  <Building2 className="h-5 w-5 text-blue-600" />
+                  <Building2 className={cn('h-5 w-5', TEXT.blue)} />
                 </div>
               </div>
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-400" />
@@ -593,7 +599,7 @@ export default function DtePage() {
                   <p className="text-[10px] text-muted-foreground mt-0.5">{stats.total > 0 ? Math.round(((stats.total - stats.naoLidas) / stats.total) * 100) : 0}% do total</p>
                 </div>
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  <CheckCircle2 className={cn('h-5 w-5', TEXT.emerald)} />
                 </div>
               </div>
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-400" />
@@ -604,20 +610,20 @@ export default function DtePage() {
           {stats.total === 0 && !syncing && !loading && (
             <Card className="p-4 border-indigo-200 dark:border-indigo-800/40 bg-indigo-50/50 dark:bg-indigo-950/10">
               <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
+                <Info className={cn('h-5 w-5 shrink-0 mt-0.5', TEXT.indigo)} />
                 <div>
-                  <p className="text-sm font-medium text-foreground">Primeira sincronizacao</p>
+                  <p className="text-sm font-medium text-foreground">Primeira sincronização</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Ao clicar em &quot;Sincronizar&quot;, o sistema abrira o portal da SEFAZ/ES (Agencia Virtual) automaticamente.
-                    Na primeira execucao, sera necessario:
+                    Ao clicar em &quot;Sincronizar&quot;, o sistema abrirá o portal da SEFAZ/ES (Agência Virtual) automaticamente.
+                    Na primeira execução, será necessário:
                   </p>
                   <ul className="text-xs text-muted-foreground mt-1 space-y-0.5 list-disc ml-4">
-                    <li>O hCaptcha do gov.br sera resolvido automaticamente via 2Captcha</li>
-                    <li><strong>Selecionar o certificado digital PF do contador</strong> no dialogo do Windows (apenas na primeira vez)</li>
-                    <li>O sistema navegara automaticamente ate as mensagens DT-e de cada cliente</li>
+                    <li>O hCaptcha do gov.br será resolvido automaticamente via 2Captcha</li>
+                    <li><strong>Selecionar o certificado digital PF do contador</strong> no diálogo do Windows (apenas na primeira vez)</li>
+                    <li>O sistema navegará automaticamente até as mensagens DT-e de cada cliente</li>
                   </ul>
                   <p className="text-xs text-muted-foreground mt-2">
-                    <strong>Pre-requisitos:</strong> Certificado PF do contador instalado no Windows + API Key do 2Captcha configurada em Configuracoes.
+                    <strong>Pré-requisitos:</strong> Certificado PF do contador instalado no Windows + API Key do 2Captcha configurada em Configurações.
                   </p>
                 </div>
               </div>
@@ -663,11 +669,11 @@ export default function DtePage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="whitespace-nowrap">
-                      <TableHead>Razao Social</TableHead>
+                      <TableHead>Razão Social</TableHead>
                       <TableHead className="hidden lg:table-cell w-[150px]">CNPJ</TableHead>
                       <TableHead className="hidden md:table-cell w-[80px] text-center">Msgs</TableHead>
-                      <TableHead className="w-[80px] text-center">Nao lidas</TableHead>
-                      <TableHead className="hidden xl:table-cell w-[120px]">Ultima msg</TableHead>
+                      <TableHead className="w-[80px] text-center">Não lidas</TableHead>
+                      <TableHead className="hidden xl:table-cell w-[120px]">Última msg</TableHead>
                       <TableHead className="w-[44px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -681,12 +687,12 @@ export default function DtePage() {
                         <TableCell className="font-medium text-sm truncate max-w-[300px] uppercase">{cliente.razao_social}</TableCell>
                         <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{formatDoc(cliente.documento)}</TableCell>
                         <TableCell className="hidden md:table-cell text-center">
-                          <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-[10px]">{cliente.total}</Badge>
+                          <Badge variant="outline" className={cn('text-[10px]', STRONG.indigo)}>{cliente.total}</Badge>
                         </TableCell>
                         <TableCell className="text-center">
                           {cliente.naoLidas > 0
-                            ? <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 text-[10px]">{cliente.naoLidas}</Badge>
-                            : <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 text-[10px]">0</Badge>
+                            ? <Badge variant="outline" className={cn('text-[10px]', STRONG.amber)}>{cliente.naoLidas}</Badge>
+                            : <Badge variant="outline" className={cn('text-[10px]', STRONG.emerald)}>0</Badge>
                           }
                         </TableCell>
                         <TableCell className="hidden xl:table-cell text-muted-foreground text-xs">{cliente.ultimaMensagem || '--'}</TableCell>
@@ -777,7 +783,7 @@ export default function DtePage() {
                 <SelectTrigger className="w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="nao_lida">Nao lidas</SelectItem>
+                  <SelectItem value="nao_lida">Não lidas</SelectItem>
                   <SelectItem value="lida">Lidas</SelectItem>
                 </SelectContent>
               </Select>
@@ -796,7 +802,7 @@ export default function DtePage() {
                 <Button variant="outline" size="xs" className="gap-1 text-destructive" onClick={() => handleDeleteLote(selected)}>
                   <Trash2 className="h-3 w-3" /> Excluir
                 </Button>
-                <Button variant="ghost" size="xs" onClick={() => setSelected([])}>Limpar selecao</Button>
+                <Button variant="ghost" size="xs" onClick={() => setSelected([])}>Limpar seleção</Button>
               </div>
             )}
           </Card>
@@ -818,12 +824,10 @@ export default function DtePage() {
                   <TableHeader>
                     <TableRow className="whitespace-nowrap">
                       <TableHead className="hidden sm:table-cell w-[36px]">
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300"
+                        <Checkbox
                           checked={mensagensPaginadas.length > 0 && mensagensPaginadas.every(m => selected.includes(m.id))}
-                          onChange={e => {
-                            if (e.target.checked) setSelected(prev => [...new Set([...prev, ...mensagensPaginadas.map(m => m.id)])])
+                          onCheckedChange={checked => {
+                            if (checked === true) setSelected(prev => [...new Set([...prev, ...mensagensPaginadas.map(m => m.id)])])
                             else setSelected(prev => prev.filter(id => !mensagensPaginadas.some(m => m.id === id)))
                           }}
                         />
@@ -847,12 +851,10 @@ export default function DtePage() {
                         onClick={() => setDetailMsg(msg)}
                       >
                         <TableCell className="hidden sm:table-cell" onClick={e => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            className="rounded border-gray-300"
+                          <Checkbox
                             checked={selected.includes(msg.id)}
-                            onChange={e => {
-                              if (e.target.checked) setSelected(prev => [...prev, msg.id])
+                            onCheckedChange={checked => {
+                              if (checked === true) setSelected(prev => [...prev, msg.id])
                               else setSelected(prev => prev.filter(id => id !== msg.id))
                             }}
                           />
@@ -948,9 +950,9 @@ export default function DtePage() {
                   <TipoBadge tipo={detailMsg.tipo} />
                   <span className="text-xs text-muted-foreground">{detailMsg.data_mensagem}</span>
                   {detailMsg.status === 'nao_lida' ? (
-                    <Badge className="bg-amber-100 text-amber-700 text-[10px]">Nao lida</Badge>
+                    <Badge variant="outline" className={cn('text-[10px]', STRONG.amber)}>Não lida</Badge>
                   ) : (
-                    <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">Lida</Badge>
+                    <Badge variant="outline" className={cn('text-[10px]', STRONG.emerald)}>Lida</Badge>
                   )}
                 </div>
                 <div>
@@ -959,7 +961,7 @@ export default function DtePage() {
                 </div>
                 {detailMsg.observacao && (
                   <div>
-                    <p className="text-[11px] text-muted-foreground uppercase">Observacoes</p>
+                    <p className="text-[11px] text-muted-foreground uppercase">Observações</p>
                     <p className="text-foreground text-xs mt-0.5 whitespace-pre-wrap">{detailMsg.observacao}</p>
                   </div>
                 )}
@@ -992,15 +994,42 @@ export default function DtePage() {
       )}
 
       {/* ============================================================ */}
+      {/* Modal Sincronizar por CNPJ */}
+      {/* ============================================================ */}
+      <Dialog open={cnpjModalOpen} onOpenChange={setCnpjModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeaderIcon icon={Search} accentColor="var(--mod-fiscal, #0369a1)">
+            <DialogTitle>Sincronizar por CNPJ</DialogTitle>
+            <DialogDescription>Informe o CNPJ do cliente para sincronizar as mensagens DT-e junto ao portal SEFAZ/ES.</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">CNPJ</label>
+            <Input
+              value={cnpjInput}
+              onChange={(e) => setCnpjInput(masks.cnpj(e.target.value))}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmarSyncCnpj() }}
+              placeholder="00.000.000/0000-00"
+              className="font-mono"
+              autoFocus
+            />
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCnpjModalOpen(false)}>Cancelar</Button>
+            <Button style={{ backgroundColor: 'var(--mod-fiscal, #0369a1)' }} className="text-white hover:opacity-90" onClick={confirmarSyncCnpj}>Sincronizar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
       {/* Modal Progresso + Log Detalhado (Sync) */}
       {/* ============================================================ */}
       {showSyncModal && (
         <Dialog open={showSyncModal} onOpenChange={open => { if (!open && !syncing) setShowSyncModal(false) }}>
           <DialogContent className="max-w-[700px] max-h-[90vh]">
             <DialogHeaderIcon icon={RefreshCw} color="violet">
-              <DialogTitle className="text-[15px]">Sincronizacao DT-e ES</DialogTitle>
+              <DialogTitle className="text-[15px]">Sincronização DT-e ES</DialogTitle>
               <DialogDescription className="text-[11px]">
-                {syncProgress?.status === 'running' ? 'Sincronizando mensagens...' : syncProgress?.status === 'done' ? 'Concluido!' : syncProgress?.status === 'error' ? 'Erro' : 'Aguardando...'}
+                {syncProgress?.status === 'running' ? 'Sincronizando mensagens...' : syncProgress?.status === 'done' ? 'Concluído!' : syncProgress?.status === 'error' ? 'Erro' : 'Aguardando...'}
               </DialogDescription>
             </DialogHeaderIcon>
             <DialogBody className="space-y-4">
@@ -1024,7 +1053,7 @@ export default function DtePage() {
               {/* Log detalhado */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-foreground">Log de execucao</span>
+                  <span className="text-xs font-medium text-foreground">Log de execução</span>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-muted-foreground">{syncLogs.length} entrada(s)</span>
                     {syncLogs.length > 0 && (
@@ -1046,7 +1075,7 @@ export default function DtePage() {
                   </div>
                 </div>
                 <div
-                  className="bg-gray-950 dark:bg-gray-900 rounded-lg p-3 max-h-[350px] overflow-y-auto font-mono text-[11px] leading-5 border"
+                  className="bg-gray-950 dark:bg-gray-900 rounded-lg p-3 max-h-[350px] overflow-y-auto nice-scrollbar font-mono text-[11px] leading-5 border"
                   ref={el => { if (el) el.scrollTop = el.scrollHeight }}
                 >
                   {syncLogs.length === 0 ? (
@@ -1075,7 +1104,7 @@ export default function DtePage() {
                   <summary className="px-3 py-2 text-xs font-medium cursor-pointer hover:bg-muted/50">
                     Clientes ({syncProgress.items.filter(i => i.status === 'ok').length} ok / {syncProgress.items.length} total)
                   </summary>
-                  <div className="max-h-[200px] overflow-y-auto">
+                  <div className="max-h-[200px] overflow-y-auto nice-scrollbar">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1090,10 +1119,10 @@ export default function DtePage() {
                             <TableCell className="text-xs truncate max-w-[300px]" title={item.razaoSocial}>{item.razaoSocial}</TableCell>
                             <TableCell className="text-xs text-center">{item.mensagens}</TableCell>
                             <TableCell>
-                              {item.status === 'ok' && <Badge className="bg-emerald-100 text-emerald-700 text-[9px]">OK</Badge>}
-                              {item.status === 'processando' && <Badge className="bg-blue-100 text-blue-700 text-[9px]"><Loader2 className="h-3 w-3 animate-spin mr-1" />...</Badge>}
-                              {item.status === 'erro' && <Badge className="bg-red-100 text-red-700 text-[9px]" title={item.erro}>Erro</Badge>}
-                              {item.status === 'pendente' && <Badge className="bg-gray-100 text-gray-500 text-[9px]">Pendente</Badge>}
+                              {item.status === 'ok' && <Badge variant="outline" className={cn('text-[9px]', STRONG.emerald)}>OK</Badge>}
+                              {item.status === 'processando' && <Badge variant="outline" className={cn('text-[9px]', STRONG.blue)}><Loader2 className="h-3 w-3 animate-spin mr-1" />...</Badge>}
+                              {item.status === 'erro' && <Badge variant="outline" className={cn('text-[9px]', STRONG.red)} title={item.erro}>Erro</Badge>}
+                              {item.status === 'pendente' && <Badge variant="outline" className={cn('text-[9px]', STRONG.slate)}>Pendente</Badge>}
                             </TableCell>
                           </TableRow>
                         ))}

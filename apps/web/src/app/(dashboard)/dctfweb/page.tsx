@@ -13,8 +13,10 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -302,9 +304,9 @@ export default function DctfwebPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
         {([
           { label: 'Ag. Fechamento', value: totais.aguardandoFechamento, icon: Clock, color: 'text-gray-500' },
-          { label: 'Pronto p/ Envio', value: totais.prontoEnvio, icon: FileText, color: 'text-sky-600' },
-          { label: 'Ag. Pagamento', value: totais.aguardandoPagamento, icon: DollarSign, color: 'text-amber-600' },
-          { label: 'Concluído', value: totais.concluido, icon: CheckCircle2, color: 'text-emerald-600' },
+          { label: 'Pronto p/ Envio', value: totais.prontoEnvio, icon: FileText, color: TEXT.sky },
+          { label: 'Ag. Pagamento', value: totais.aguardandoPagamento, icon: DollarSign, color: TEXT.amber },
+          { label: 'Concluído', value: totais.concluido, icon: CheckCircle2, color: TEXT.emerald },
           { label: 'Alertas', value: totais.alertasCriticos + totais.alertasAtencao, icon: CircleAlert, color: 'text-red-500' },
         ]).map(kpi => {
           const Icon = kpi.icon
@@ -315,7 +317,7 @@ export default function DctfwebPage() {
                   <p className="text-[11px] text-muted-foreground">{kpi.label}</p>
                   <p className="text-2xl font-bold mt-0.5">{kpi.value}</p>
                 </div>
-                <Icon className={cn('h-8 w-8 opacity-20', kpi.color)} />
+                <Icon className={cn('h-8 w-8 opacity-80', kpi.color)} />
               </div>
             </Card>
           )
@@ -335,13 +337,14 @@ export default function DctfwebPage() {
           const isActive = filtroStatus === f.key
           return (
             <button key={f.key} type="button" onClick={() => { setFiltroStatus(f.key); setPage(1) }}
+              style={isActive ? { backgroundColor: 'var(--mod-fiscal, #0369a1)' } : undefined}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
-                isActive ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 shadow-sm'
-                  : 'border-border/40 text-muted-foreground hover:border-indigo-200 hover:text-foreground bg-card',
+                isActive ? 'border-transparent text-white shadow-sm'
+                  : 'border-border/40 text-muted-foreground hover:border-input hover:text-foreground bg-card',
               )}>
               {f.label}
               <span className={cn('text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none',
-                isActive ? 'bg-indigo-200/60 dark:bg-indigo-800/40 text-indigo-700 dark:text-indigo-300' : 'bg-muted text-muted-foreground',
+                isActive ? 'bg-white/25 text-white' : 'bg-muted text-muted-foreground',
               )}>{f.count}</span>
             </button>
           )
@@ -427,7 +430,7 @@ export default function DctfwebPage() {
                       const proximo = dias >= 0 && dias <= 5
                       return (
                         <span className={cn('text-xs font-mono',
-                          vencido ? 'text-red-600 font-semibold' : proximo ? 'text-amber-600 font-medium' : 'text-muted-foreground',
+                          vencido ? cn(TEXT.red, 'font-semibold') : proximo ? cn(TEXT.amber, 'font-medium') : 'text-muted-foreground',
                         )}>
                           {venc.toLocaleDateString('pt-BR')}
                         </span>
@@ -443,13 +446,13 @@ export default function DctfwebPage() {
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-center">
                     {r.retificadoraPendente ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 font-medium" title={r.motivoRetificadora || ''}>
+                      <span className={cn('inline-flex items-center gap-1 text-[10px] font-medium', TEXT.amber)} title={r.motivoRetificadora || ''}>
                         <AlertTriangle className="h-3 w-3" />Retif.
                       </span>
                     ) : r.statusPosEntrega === 'retificadora_transmitida' ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600"><CheckCircle2 className="h-3 w-3" />OK</span>
+                      <span className={cn('inline-flex items-center gap-1 text-[10px]', TEXT.emerald)}><CheckCircle2 className="h-3 w-3" />OK</span>
                     ) : r.dataUltimaEntrega ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600"><CheckCircle2 className="h-3 w-3" />OK</span>
+                      <span className={cn('inline-flex items-center gap-1 text-[10px]', TEXT.emerald)}><CheckCircle2 className="h-3 w-3" />OK</span>
                     ) : (
                       <span className="text-[10px] text-muted-foreground">—</span>
                     )}
@@ -486,7 +489,7 @@ export default function DctfwebPage() {
                               alerts.success('Regularizada', 'Retificadora marcada como transmitida')
                               fetchData(); fetchTotais()
                             } catch (e) { alerts.error('Erro', (e as Error).message) }
-                          }} className="text-xs gap-2 text-emerald-600">
+                          }} className={cn('text-xs gap-2', TEXT.emerald)}>
                             <CheckCircle2 className="h-3.5 w-3.5" />Retificadora transmitida
                           </DropdownMenuItem>
                         )}
@@ -566,7 +569,7 @@ export default function DctfwebPage() {
                 return (
                   <button key={tab.key} type="button" onClick={() => { setPdfTab(tab.key); loadPdf(pdfRecord, tab.key) }}
                     className={cn('flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
-                      pdfTab === tab.key ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+                      pdfTab === tab.key ? cn('border-indigo-500', TEXT.indigo) : 'border-transparent text-muted-foreground hover:text-foreground')}>
                     <Icon className="h-3.5 w-3.5" />{tab.label}
                     {pdfTab === tab.key && pdfLoading && <Loader2 className="h-3 w-3 animate-spin" />}
                   </button>
@@ -614,17 +617,17 @@ export default function DctfwebPage() {
             <div className="flex items-center justify-between">
               <Badge variant="outline" className="text-[10px]">{syncSelecionados.size} selecionado(s)</Badge>
               <div className="flex gap-2">
-                <button className="text-[10px] text-indigo-600 hover:underline" onClick={() => setSyncSelecionados(new Set(syncClientes.map(c => c.id)))}>Todos</button>
-                <button className="text-[10px] text-indigo-600 hover:underline" onClick={() => setSyncSelecionados(new Set())}>Nenhum</button>
+                <button className={cn('text-[10px] hover:underline', TEXT.indigo)} onClick={() => setSyncSelecionados(new Set(syncClientes.map(c => c.id)))}>Todos</button>
+                <button className={cn('text-[10px] hover:underline', TEXT.indigo)} onClick={() => setSyncSelecionados(new Set())}>Nenhum</button>
               </div>
             </div>
             <Input placeholder="Buscar..." value={syncSearch} onChange={e => setSyncSearch(e.target.value)} className="h-8 text-xs" />
-            <div className="border rounded-lg max-h-[280px] overflow-y-auto">
+            <div className="border rounded-lg max-h-[280px] overflow-y-auto nice-scrollbar">
               {syncClientes.filter(c => !syncSearch || c.razaoSocial.toLowerCase().includes(syncSearch.toLowerCase()) || c.documento.includes(syncSearch)).map(c => (
-                <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', syncSelecionados.has(c.id) && 'bg-indigo-50/40')}>
-                  <input type="checkbox" checked={syncSelecionados.has(c.id)} onChange={() => {
+                <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', syncSelecionados.has(c.id) && 'bg-indigo-50/40 dark:bg-indigo-950/20')}>
+                  <Checkbox checked={syncSelecionados.has(c.id)} onCheckedChange={() => {
                     setSyncSelecionados(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n })
-                  }} className="h-3.5 w-3.5 rounded accent-indigo-500 cursor-pointer" />
+                  }} className="h-3.5 w-3.5 cursor-pointer" />
                   <span className="flex-1 truncate cursor-pointer" onClick={() => setSyncSelecionados(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n })}>{c.razaoSocial}</span>
                   <span className="font-mono text-[10px] text-muted-foreground shrink-0">{formatDoc(c.documento)}</span>
                 </div>
@@ -635,7 +638,7 @@ export default function DctfwebPage() {
                 <div className="px-3 py-2 bg-muted/20 border-b text-[11px] font-medium">
                   Resultado: {syncResultado.filter(r => r.sucesso).length} sucesso, {syncResultado.filter(r => !r.sucesso).length} falha(s)
                 </div>
-                <div className="max-h-[150px] overflow-y-auto divide-y">
+                <div className="max-h-[150px] overflow-y-auto nice-scrollbar divide-y">
                   {syncResultado.filter(r => !r.sucesso).map((r, i) => (
                     <div key={i} className="flex items-center gap-2 px-3 py-1.5 text-[11px]">
                       <XCircle className="h-3 w-3 text-red-500 shrink-0" />
@@ -644,7 +647,7 @@ export default function DctfwebPage() {
                     </div>
                   ))}
                   {syncResultado.every(r => r.sucesso) && (
-                    <div className="px-3 py-3 text-center text-[11px] text-emerald-600">Todos sincronizados com sucesso!</div>
+                    <div className={cn('px-3 py-3 text-center text-[11px]', TEXT.emerald)}>Todos sincronizados com sucesso!</div>
                   )}
                 </div>
               </div>

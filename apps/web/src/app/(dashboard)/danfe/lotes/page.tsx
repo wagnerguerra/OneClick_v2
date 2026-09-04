@@ -47,7 +47,7 @@ export default function LotesPage() {
     <div className="space-y-4">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-          <BackButton href="/danfe" />
+          <BackButton href="/danfe" label="Voltar" />
       </>}>
         <h1 className="truncate">Lotes de DANFE</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">

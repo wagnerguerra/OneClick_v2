@@ -16,6 +16,7 @@ import {
   Button, Dialog, DialogContent, DialogTitle, DialogDescription, Badge, cn,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -293,7 +294,7 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
           <div className="flex items-center justify-between gap-3 pt-1">
             <p className="text-[11px] text-muted-foreground">
               Busca os últimos 12 meses fechados no SCI.
-              {smConectado === true && <span className="ml-1 text-emerald-600 dark:text-emerald-400">Service Manager conectado.</span>}
+              {smConectado === true && <span className={cn('ml-1', TEXT.emerald)}>Service Manager conectado.</span>}
             </p>
             <Button type="button" onClick={importar} className="gap-2" disabled={importando || !clienteId}>
               {importando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}

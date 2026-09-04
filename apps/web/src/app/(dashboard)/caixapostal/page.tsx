@@ -23,6 +23,7 @@ import { cn } from '@saas/ui'
 import { BADGE, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -137,6 +138,10 @@ export default function CaixaPostalPage() {
   // p/ usarem o <Checkbox> centralizado em vez de getElementById(id).checked.
   const [encModalEmail, setEncModalEmail] = useState(false)
   const [encPainelEmail, setEncPainelEmail] = useState(false)
+  // Destinatário do encaminhar (modal e painel) — controlados p/ usarem o <Select>
+  // centralizado em vez de getElementById(id).value.
+  const [encModalDest, setEncModalDest] = useState('')
+  const [encPainelDest, setEncPainelDest] = useState('')
 
   // Carregar mensagens filtradas se vier do dashboard
   useEffect(() => {
@@ -1441,11 +1446,9 @@ export default function CaixaPostalPage() {
                     {/* Status */}
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</label>
-                      <select
-                        className="h-9 w-[220px] rounded-md border border-input bg-transparent px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                      <Select
                         value={(itemDetalhes?.status as string) || 'pendente'}
-                        onChange={async (e) => {
-                          const v = e.target.value
+                        onValueChange={async (v) => {
                           if (!itemDetalhes?.id) return
                           try {
                             await trpc.caixaPostal.alterarStatus.mutate({ itemId: itemDetalhes.id as string, status: v as 'pendente' | 'em_andamento' | 'concluido' | 'arquivado' })
@@ -1454,21 +1457,22 @@ export default function CaixaPostalPage() {
                           } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
                         }}
                       >
-                        <option value="pendente">Pendente</option>
-                        <option value="em_andamento">Em Andamento</option>
-                        <option value="concluido">Concluído</option>
-                        <option value="arquivado">Arquivado</option>
-                      </select>
+                        <SelectTrigger className="h-9 w-[220px] text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pendente">Pendente</SelectItem>
+                          <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                          <SelectItem value="concluido">Concluído</SelectItem>
+                          <SelectItem value="arquivado">Arquivado</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {/* Responsável */}
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Responsável</label>
-                      <select
-                        className="h-9 w-[320px] rounded-md border border-input bg-transparent px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                        value={(itemDetalhes?.responsavelId as string) || ''}
-                        onChange={async (e) => {
-                          const v = e.target.value
+                      <Select
+                        value={(itemDetalhes?.responsavelId as string) || undefined}
+                        onValueChange={async (v) => {
                           if (!itemDetalhes?.id || !v) return
                           try {
                             await trpc.caixaPostal.definirResponsavel.mutate({ itemId: itemDetalhes.id as string, responsavelId: v })
@@ -1478,9 +1482,11 @@ export default function CaixaPostalPage() {
                           } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
                         }}
                       >
-                        <option value="">Selecione um responsável</option>
-                        {usuarios.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                      </select>
+                        <SelectTrigger className="h-9 w-[320px] text-xs"><SelectValue placeholder="Selecione um responsável" /></SelectTrigger>
+                        <SelectContent>
+                          {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                       {typeof itemDetalhes?.responsavelNome === 'string' && itemDetalhes.responsavelNome && (
                         <p className="text-[11px] text-muted-foreground">Atual: <span className="font-medium text-foreground">{itemDetalhes.responsavelNome}</span></p>
                       )}
@@ -1490,7 +1496,7 @@ export default function CaixaPostalPage() {
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Observações</label>
                       <textarea
-                        className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs min-h-[80px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                        className="w-full rounded-md px-3 py-2 text-xs min-h-[80px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                         value={(itemDetalhes?.observacoes as string) || ''}
                         onChange={e => setItemDetalhes(prev => prev ? { ...prev, observacoes: e.target.value } : prev)}
                         placeholder="Adicione observações sobre esta mensagem..."
@@ -1514,14 +1520,14 @@ export default function CaixaPostalPage() {
                     {/* Encaminhar */}
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Encaminhar mensagem</label>
-                      <select id="encaminhar-modal-dest"
-                        className="h-9 w-[320px] rounded-md border border-input bg-transparent px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                        defaultValue="">
-                        <option value="">Selecione o destinatário</option>
-                        {usuarios.map(u => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
-                      </select>
+                      <Select value={encModalDest || undefined} onValueChange={setEncModalDest}>
+                        <SelectTrigger className="h-9 w-[320px] text-xs"><SelectValue placeholder="Selecione o destinatário" /></SelectTrigger>
+                        <SelectContent>
+                          {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.name} ({u.email})</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                       <textarea id="encaminhar-modal-obs"
-                        className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs min-h-[50px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                        className="w-full rounded-md px-3 py-2 text-xs min-h-[50px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                         placeholder="Observação (opcional)..." />
                       <div className="flex items-center gap-3">
                         <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
@@ -1530,7 +1536,7 @@ export default function CaixaPostalPage() {
                         </label>
                         <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1.5"
                           onClick={async () => {
-                            const dest = (document.getElementById('encaminhar-modal-dest') as HTMLSelectElement)?.value
+                            const dest = encModalDest
                             const obs = (document.getElementById('encaminhar-modal-obs') as HTMLTextAreaElement)?.value
                             const email = encModalEmail
                             if (!itemDetalhes?.id || !dest) { alerts.error('Atenção', 'Selecione um destinatário'); return }
@@ -1542,7 +1548,7 @@ export default function CaixaPostalPage() {
                               const isn = detalheMsg?.isn || detalheMsg?.ISN
                               if (isn && selectedCliente) loadItemDetalhes(isn, selectedCliente.documento)
                               showGestaoToast(r.mensagem)
-                              ;(document.getElementById('encaminhar-modal-dest') as HTMLSelectElement).value = ''
+                              setEncModalDest('')
                               ;(document.getElementById('encaminhar-modal-obs') as HTMLTextAreaElement).value = ''
                               setEncModalEmail(false)
                             } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
@@ -1662,13 +1668,11 @@ export default function CaixaPostalPage() {
               }} className="gap-1.5">
                 <X className="h-4 w-4" />Limpar filtro
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => {
+              <BackButton label="Voltar" onClick={() => {
                 setModoFiltrado(false)
                 setMensagensAgregadas([])
                 router.push('/caixapostal')
-              }} className="gap-1.5">
-                <ArrowLeft className="h-4 w-4" />Voltar
-              </Button>
+              }} />
             </>
           ) : selectedCliente ? (
             <div className="flex items-center gap-1.5">
@@ -1730,9 +1734,7 @@ export default function CaixaPostalPage() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button variant="ghost" size="sm" onClick={handleVoltarLista} className="gap-1.5">
-                <ArrowLeft className="h-3.5 w-3.5" />Voltar
-              </Button>
+              <BackButton label="Voltar" onClick={handleVoltarLista} />
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
@@ -2580,10 +2582,9 @@ export default function CaixaPostalPage() {
                         )}
                         <div className="space-y-1">
                           <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</label>
-                          <select className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                          <Select
                             value={(itemDetalhes?.status as string) || 'pendente'}
-                            onChange={async (e) => {
-                              const v = e.target.value
+                            onValueChange={async (v) => {
                               if (!itemDetalhes?.id) return
                               try {
                                 await trpc.caixaPostal.alterarStatus.mutate({ itemId: itemDetalhes.id as string, status: v as 'pendente' | 'em_andamento' | 'concluido' | 'arquivado' })
@@ -2591,18 +2592,20 @@ export default function CaixaPostalPage() {
                                 showGestaoToast('Status atualizado')
                               } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
                             }}>
-                            <option value="pendente">Pendente</option>
-                            <option value="em_andamento">Em Andamento</option>
-                            <option value="concluido">Concluído</option>
-                            <option value="arquivado">Arquivado</option>
-                          </select>
+                            <SelectTrigger className="h-8 w-full text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pendente">Pendente</SelectItem>
+                              <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                              <SelectItem value="concluido">Concluído</SelectItem>
+                              <SelectItem value="arquivado">Arquivado</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Responsável</label>
-                          <select className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                            value={(itemDetalhes?.responsavelId as string) || ''}
-                            onChange={async (e) => {
-                              const v = e.target.value
+                          <Select
+                            value={(itemDetalhes?.responsavelId as string) || undefined}
+                            onValueChange={async (v) => {
                               if (!itemDetalhes?.id || !v) return
                               try {
                                 await trpc.caixaPostal.definirResponsavel.mutate({ itemId: itemDetalhes.id as string, responsavelId: v })
@@ -2611,13 +2614,15 @@ export default function CaixaPostalPage() {
                                 showGestaoToast('Responsável definido')
                               } catch (e2) { alerts.error('Erro', (e2 as Error).message) }
                             }}>
-                            <option value="">Selecione...</option>
-                            {usuarios.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                          </select>
+                            <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                            <SelectContent>
+                              {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Observações</label>
-                          <textarea className="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-xs min-h-[60px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                          <textarea className="w-full rounded-md px-2 py-1.5 text-xs min-h-[60px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                             value={(itemDetalhes?.observacoes as string) || ''}
                             onChange={e => setItemDetalhes(prev => prev ? { ...prev, observacoes: e.target.value } : prev)}
                             placeholder="Adicione observações..." />
@@ -2637,14 +2642,14 @@ export default function CaixaPostalPage() {
                         <hr />
                         <div className="space-y-1">
                           <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Encaminhar mensagem</label>
-                          <select id="encaminhar-painel-dest"
-                            className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                            defaultValue="">
-                            <option value="">Selecione o destinatário</option>
-                            {usuarios.map(u => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
-                          </select>
+                          <Select value={encPainelDest || undefined} onValueChange={setEncPainelDest}>
+                            <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Selecione o destinatário" /></SelectTrigger>
+                            <SelectContent>
+                              {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.name} ({u.email})</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                           <textarea id="encaminhar-painel-obs"
-                            className="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-xs min-h-[40px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                            className="w-full rounded-md px-2 py-1.5 text-xs min-h-[40px] resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                             placeholder="Observação (opcional)..." />
                           <div className="flex items-center gap-3">
                             <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
@@ -2653,7 +2658,7 @@ export default function CaixaPostalPage() {
                             </label>
                             <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1"
                               onClick={async () => {
-                                const dest = (document.getElementById('encaminhar-painel-dest') as HTMLSelectElement)?.value
+                                const dest = encPainelDest
                                 const obs = (document.getElementById('encaminhar-painel-obs') as HTMLTextAreaElement)?.value
                                 const email = encPainelEmail
                                 if (!itemDetalhes?.id || !dest) { alerts.error('Atenção', 'Selecione um destinatário'); return }
@@ -2665,7 +2670,7 @@ export default function CaixaPostalPage() {
                                   const isn = detalheMsg?.isn || detalheMsg?.ISN
                                   if (isn && selectedCliente) loadItemDetalhes(isn, selectedCliente.documento)
                                   showGestaoToast(r.mensagem)
-                                  ;(document.getElementById('encaminhar-painel-dest') as HTMLSelectElement).value = ''
+                                  setEncPainelDest('')
                                   ;(document.getElementById('encaminhar-painel-obs') as HTMLTextAreaElement).value = ''
                                   setEncPainelEmail(false)
                                 } catch (e2) { alerts.error('Erro', (e2 as Error).message) }

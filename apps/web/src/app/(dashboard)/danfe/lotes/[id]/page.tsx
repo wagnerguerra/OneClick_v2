@@ -115,11 +115,11 @@ export default function LoteDetalhePage() {
             </Button>
           )}
           {lote.status === 'PROCESSANDO' && (
-            <Button size="sm" variant="outline" onClick={handleCancelar} className={cn('gap-1.5 hover:bg-rose-50', TEXT.rose, BORDER.rose)}>
+            <Button size="sm" variant="outline" onClick={handleCancelar} className={cn('gap-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30', TEXT.rose, BORDER.rose)}>
               <X className="h-3.5 w-3.5" /> Cancelar
             </Button>
           )}
-          <BackButton href="/danfe/lotes" />
+          <BackButton href="/danfe/lotes" label="Voltar" />
       </>}>
         <h1 className="truncate">{lote.nome}</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -146,8 +146,8 @@ export default function LoteDetalhePage() {
             <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: MODULE_COLOR }} />
           </div>
           <div className="flex gap-4 mt-2 text-[11px]">
-            <span className="text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="inline h-3 w-3 mr-1" />{lote.sucesso} OK</span>
-            {lote.erros > 0 && <span className="text-rose-700 dark:text-rose-400"><AlertOctagon className="inline h-3 w-3 mr-1" />{lote.erros} erros</span>}
+            <span className={TEXT.emerald}><CheckCircle2 className="inline h-3 w-3 mr-1" />{lote.sucesso} OK</span>
+            {lote.erros > 0 && <span className={TEXT.rose}><AlertOctagon className="inline h-3 w-3 mr-1" />{lote.erros} erros</span>}
           </div>
         </div>
       </PageHeaderBar>
@@ -157,7 +157,7 @@ export default function LoteDetalhePage() {
         <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-4 py-3">
           <h5 className="text-[13px] font-semibold">Itens do lote</h5>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="h-8 w-[180px] text-xs bg-card"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Todos os status</SelectItem>
               <SelectItem value="OK">OK</SelectItem>

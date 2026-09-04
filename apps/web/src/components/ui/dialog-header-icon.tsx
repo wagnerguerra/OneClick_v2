@@ -60,6 +60,13 @@ interface Props {
   /** Cor temática do ícone — bg do quadrado + cor do ícone. Padrão: sky. */
   color?: IconColor
   /**
+   * Cor de acento por VALOR/variável (ex.: a cor do módulo `var(--mod-<slug>)`).
+   * Quando setada, o quadrado do ícone usa essa cor (tint suave + ícone na cor,
+   * com ajuste claro/escuro via `color-mix` com o foreground) em vez da paleta
+   * fixa `color`. Use quando a intenção é a cor do módulo — passe a variável.
+   */
+  accentColor?: string
+  /**
    * Classes extras pro {DialogHeader} envoltório. Útil pra:
    * - Sticky em modais com body scrollável: `className="border-b border-border/40"`
    * - Modais com flex-column body: `className="px-6 pt-5 pb-3 shrink-0"`
@@ -82,7 +89,7 @@ interface Props {
   children: ReactNode
 }
 
-export function DialogHeaderIcon({ icon: Icon, color = 'sky', className, srOnly, bgImage, children }: Props) {
+export function DialogHeaderIcon({ icon: Icon, color = 'sky', accentColor, className, srOnly, bgImage, children }: Props) {
   if (srOnly) {
     return (
       <DialogHeader className={cn('sr-only', className)}>
@@ -125,7 +132,13 @@ export function DialogHeaderIcon({ icon: Icon, color = 'sky', className, srOnly,
           Sem subtítulo, o título centraliza sozinho com o ícone (é o container dos
           dois que está centrado, e só há um). */}
       <div className="flex items-center gap-3">
-        <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-lg', COLOR_CLASSES[color])}>
+        <div
+          className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-lg', !accentColor && COLOR_CLASSES[color])}
+          style={accentColor ? {
+            backgroundColor: `color-mix(in srgb, ${accentColor} 14%, transparent)`,
+            color: `color-mix(in srgb, ${accentColor} 78%, var(--color-foreground))`,
+          } : undefined}
+        >
           <Icon className="h-6 w-6" />
         </div>
         <div className="flex-1 min-w-0">

@@ -11,10 +11,15 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  Checkbox,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { ClienteCombobox } from '@/app/(dashboard)/orcamentos/_components/cliente-combobox'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
@@ -83,6 +88,12 @@ export default function SituacaoFiscalPage() {
   // PDF viewer
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
 
+  // Modal Nova Consulta
+  const [consultaOpen, setConsultaOpen] = useState(false)
+  const [consultaClientes, setConsultaClientes] = useState<{ id: string; razaoSocial: string; documento: string }[]>([])
+  const [consultaSelId, setConsultaSelId] = useState('')
+  const [consultaDoc, setConsultaDoc] = useState('')
+
   // Consulta em lote
   const [loteOpen, setLoteOpen] = useState(false)
   const [loteClientes, setLoteClientes] = useState<ClienteMensal[]>([])
@@ -114,147 +125,31 @@ export default function SituacaoFiscalPage() {
   // Ações
   // ============================================================
 
-  async function handleConsultar() {
-    // Carregar clientes MENSAL para o select filtrável
+  async function abrirConsulta() {
+    // Carregar clientes MENSAL para o combobox filtrável
     let clientesMensal: { id: string; razaoSocial: string; documento: string; tipoDocumento: string }[] = []
     try {
       clientesMensal = await trpc.sitfis.listClientesMensal.query() as typeof clientesMensal
     } catch { /* fallback: campo manual */ }
 
-    const clientesData = JSON.stringify(clientesMensal.map(c => ({
-      id: c.id,
-      doc: c.documento,
-      nome: c.razaoSocial,
-      docFmt: masks.cpfCnpj(c.documento),
-    })))
+    setConsultaClientes(clientesMensal.map(c => ({ id: c.id, razaoSocial: c.razaoSocial, documento: c.documento })))
+    setConsultaSelId('')
+    setConsultaDoc('')
+    setConsultaOpen(true)
+  }
 
-    const { value: documento, isConfirmed } = await Swal.fire({
-      title: 'Consultar Situação Fiscal',
-      width: 520,
-      html: `
-        <p style="font-size:13px;color:#666;margin-bottom:14px">
-          Selecione um cliente mensal ou informe o CNPJ/CPF para consultar junto à Receita Federal via SERPRO.
-        </p>
-        ${clientesMensal.length ? `
-          <div style="position:relative;text-align:left">
-            <label style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:block">
-              Cliente Mensal
-            </label>
-            <input
-              id="swal-search"
-              type="text"
-              placeholder="Buscar por nome ou CNPJ..."
-              autocomplete="off"
-              style="width:100%;padding:9px 12px;font-size:13px;border:1px solid #d5d5d5;border-radius:6px;outline:none;box-sizing:border-box;transition:border-color 0.2s"
-              onfocus="this.style.borderColor='#0ea5e9'"
-              onblur="setTimeout(()=>{this.style.borderColor='#d5d5d5'},150)"
-            />
-            <input id="swal-selected-doc" type="hidden" />
-            <input id="swal-selected-clienteid" type="hidden" />
-            <div
-              id="swal-dropdown"
-              style="display:none;position:absolute;left:0;right:0;top:100%;z-index:99;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #e2e2e2;border-top:none;border-radius:0 0 6px 6px;box-shadow:0 4px 12px rgba(0,0,0,0.08)"
-            ></div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;margin:12px 0">
-            <div style="flex:1;height:1px;background:#e5e5e5"></div>
-            <span style="font-size:11px;color:#999">ou informe manualmente</span>
-            <div style="flex:1;height:1px;background:#e5e5e5"></div>
-          </div>
-        ` : ''}
-        <div style="text-align:left">
-          <label style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:block">
-            CNPJ / CPF
-          </label>
-          <input
-            id="swal-doc"
-            type="text"
-            placeholder="Somente números"
-            style="width:100%;padding:9px 12px;font-size:14px;border:1px solid #d5d5d5;border-radius:6px;outline:none;box-sizing:border-box;font-family:monospace;transition:border-color 0.2s"
-            onfocus="this.style.borderColor='#0ea5e9'"
-            onblur="this.style.borderColor='#d5d5d5'"
-          />
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonText: 'Consultar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#0ea5e9',
-      didOpen: () => {
-        const searchEl = document.getElementById('swal-search') as HTMLInputElement | null
-        const dropdownEl = document.getElementById('swal-dropdown') as HTMLDivElement | null
-        const hiddenDoc = document.getElementById('swal-selected-doc') as HTMLInputElement | null
-        const hiddenClienteId = document.getElementById('swal-selected-clienteid') as HTMLInputElement | null
-        const docInput = document.getElementById('swal-doc') as HTMLInputElement
-        const clientes: { id: string; doc: string; nome: string; docFmt: string }[] = JSON.parse(clientesData)
+  function confirmarConsulta() {
+    const cli = consultaClientes.find(c => c.id === consultaSelId)
+    const doc = (consultaDoc || cli?.documento || '').replace(/\D/g, '')
+    if (doc.length !== 11 && doc.length !== 14) {
+      alerts.error('Documento inválido', 'Selecione um cliente mensal ou informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.')
+      return
+    }
+    setConsultaOpen(false)
+    void runConsulta(doc, consultaSelId || undefined)
+  }
 
-        if (!searchEl || !dropdownEl || !hiddenDoc || !hiddenClienteId) return
-
-        function renderList(filter: string) {
-          const term = filter.toLowerCase()
-          const filtered = term
-            ? clientes.filter(c => c.nome.toLowerCase().includes(term) || c.doc.includes(term.replace(/\D/g, '')) || c.docFmt.includes(term))
-            : clientes
-          if (!filtered.length) {
-            dropdownEl!.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:#999">Nenhum cliente encontrado</div>'
-            dropdownEl!.style.display = 'block'
-            return
-          }
-          dropdownEl!.innerHTML = filtered.map(c =>
-            `<div class="swal-cli-item" data-doc="${c.doc}" data-nome="${c.nome}" data-id="${c.id}" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f3f3f3;transition:background 0.15s">
-              <div style="font-weight:500;color:#333">${c.nome}</div>
-              <div style="font-size:11px;color:#888;font-family:monospace;margin-top:1px">${c.docFmt}</div>
-            </div>`
-          ).join('')
-          dropdownEl!.style.display = 'block'
-
-          dropdownEl!.querySelectorAll('.swal-cli-item').forEach(el => {
-            el.addEventListener('mouseenter', () => (el as HTMLElement).style.background = '#f0f9ff')
-            el.addEventListener('mouseleave', () => (el as HTMLElement).style.background = '')
-            el.addEventListener('mousedown', (e) => {
-              e.preventDefault()
-              const target = el as HTMLElement
-              const doc = target.dataset.doc || ''
-              const nome = target.dataset.nome || ''
-              const id = target.dataset.id || ''
-              searchEl!.value = nome
-              hiddenDoc!.value = doc
-              hiddenClienteId!.value = id
-              docInput.value = doc
-              dropdownEl!.style.display = 'none'
-            })
-          })
-        }
-
-        searchEl.addEventListener('focus', () => renderList(searchEl.value))
-        searchEl.addEventListener('input', () => {
-          hiddenDoc.value = ''
-          hiddenClienteId.value = ''
-          docInput.value = ''
-          renderList(searchEl.value)
-        })
-
-        document.addEventListener('click', (e) => {
-          if (!(e.target as HTMLElement).closest('#swal-search') && !(e.target as HTMLElement).closest('#swal-dropdown')) {
-            dropdownEl.style.display = 'none'
-          }
-        }, { once: false })
-      },
-      preConfirm: () => {
-        const docInput = document.getElementById('swal-doc') as HTMLInputElement
-        const hiddenDoc = document.getElementById('swal-selected-doc') as HTMLInputElement | null
-        const hiddenCli = document.getElementById('swal-selected-clienteid') as HTMLInputElement | null
-        const doc = (docInput.value || hiddenDoc?.value || '').replace(/\D/g, '')
-        if (doc.length !== 11 && doc.length !== 14) {
-          Swal.showValidationMessage('Selecione um cliente ou informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.')
-          return false
-        }
-        return { documento: doc, clienteId: hiddenCli?.value || undefined }
-      },
-    })
-    if (!isConfirmed || !documento) return
-    const { documento: docFinal, clienteId } = documento as unknown as { documento: string; clienteId?: string }
-
+  async function runConsulta(docFinal: string, clienteId?: string) {
     setConsultando(true)
     try {
       // Montar mensagem de sucesso incluindo info de sócios sincronizados
@@ -279,13 +174,13 @@ export default function SituacaoFiscalPage() {
         const { isConfirmed: forcar } = await Swal.fire({
           title: 'Consulta recente encontrada',
           html: `<p style="font-size:13px">Este documento já foi consultado em <strong>${dataConsulta}</strong>.</p>
-                 <p style="font-size:13px;color:#666;margin-top:8px">Certidão: <strong>${(result.tipoCertidao as string) || '—'}</strong></p>
-                 <p style="font-size:12px;color:#999;margin-top:12px">Deseja forçar uma nova consulta ao SERPRO?</p>`,
+                 <p style="font-size:13px;opacity:0.75;margin-top:8px">Certidão: <strong>${(result.tipoCertidao as string) || '—'}</strong></p>
+                 <p style="font-size:12px;opacity:0.6;margin-top:12px">Deseja forçar uma nova consulta ao SERPRO?</p>`,
           icon: 'info',
           showCancelButton: true,
           confirmButtonText: 'Forçar nova consulta',
           cancelButtonText: 'Manter resultado atual',
-          confirmButtonColor: '#0ea5e9',
+          confirmButtonColor: 'var(--mod-fiscal, #0369a1)',
         })
 
         if (forcar) {
@@ -483,7 +378,7 @@ export default function SituacaoFiscalPage() {
 
   function EtapaBadge({ etapa, sucesso }: { etapa: string; sucesso: boolean }) {
     if (etapa === 'concluido' && sucesso) {
-      return <div className="flex items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" /><span className="text-xs">OK</span></div>
+      return <div className={cn('flex items-center gap-1', TEXT.emerald)}><CheckCircle2 className="h-3.5 w-3.5" /><span className="text-xs">OK</span></div>
     }
     if (etapa === 'erro') {
       return <div className="flex items-center gap-1 text-red-500"><XCircle className="h-3.5 w-3.5" /><span className="text-xs">Erro</span></div>
@@ -502,6 +397,44 @@ export default function SituacaoFiscalPage() {
 
   return (
     <div className="space-y-6">
+      {/* Modal Nova Consulta */}
+      <Dialog open={consultaOpen} onOpenChange={setConsultaOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeaderIcon icon={Search} accentColor="var(--mod-fiscal, #0369a1)">
+            <DialogTitle>Consultar Situação Fiscal</DialogTitle>
+            <DialogDescription>Selecione um cliente mensal ou informe o CNPJ/CPF para consultar junto à Receita Federal via SERPRO.</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-4">
+            {consultaClientes.length > 0 && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cliente Mensal</label>
+                  <ClienteCombobox
+                    clientes={consultaClientes}
+                    value={consultaSelId}
+                    onSelect={(id) => { setConsultaSelId(id); setConsultaDoc('') }}
+                    placeholder="Buscar por nome ou CNPJ..."
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[11px] text-muted-foreground">ou informe manualmente</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              </>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">CNPJ / CPF</label>
+              <Input value={consultaDoc} onChange={(e) => { setConsultaDoc(e.target.value); if (consultaSelId) setConsultaSelId('') }} placeholder="Somente números" className="font-mono" />
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConsultaOpen(false)}>Cancelar</Button>
+            <Button style={{ backgroundColor: 'var(--mod-fiscal, #0369a1)' }} className="text-white hover:opacity-90" onClick={confirmarConsulta}>Consultar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* PDF Viewer Modal */}
       {pdfUrl && (
         <>
@@ -574,18 +507,17 @@ export default function SituacaoFiscalPage() {
             </div>
 
             {/* Lista de clientes ou progresso */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto nice-scrollbar">
               {loteStatus === 'idle' ? (
                 /* Lista de seleção */
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[40px] pl-5">
-                        <input
-                          type="checkbox"
+                        <Checkbox
+                          className="h-3.5 w-3.5"
                           checked={loteClientesFiltrados.length > 0 && loteClientesFiltrados.every(c => loteSelecionados.has(c.id))}
-                          onChange={e => loteToggleAll(e.target.checked)}
-                          className="h-3.5 w-3.5 rounded border-gray-300"
+                          onCheckedChange={v => loteToggleAll(v === true)}
                         />
                       </TableHead>
                       <TableHead className="text-xs">Razão Social</TableHead>
@@ -598,11 +530,10 @@ export default function SituacaoFiscalPage() {
                     ) : loteClientesFiltrados.map(c => (
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/40" onClick={() => loteToggle(c.id)}>
                         <TableCell className="pl-5">
-                          <input
-                            type="checkbox"
+                          <Checkbox
+                            className="h-3.5 w-3.5"
                             checked={loteSelecionados.has(c.id)}
-                            onChange={() => loteToggle(c.id)}
-                            className="h-3.5 w-3.5 rounded border-gray-300"
+                            onCheckedChange={() => loteToggle(c.id)}
                           />
                         </TableCell>
                         <TableCell className="text-xs font-medium">
@@ -642,13 +573,13 @@ export default function SituacaoFiscalPage() {
                       </div>
                       <div className="shrink-0 text-right min-w-[140px]">
                         {item.status === 'consultando' && (
-                          <span className="text-sky-600 font-medium">Consultando...</span>
+                          <span className={cn('font-medium', TEXT.sky)}>Consultando...</span>
                         )}
                         {item.status === 'sucesso' && (
                           <div>
                             <CertidaoBadge tipo={item.tipoCertidao || null} />
                             {(item.sociosImportados ?? 0) > 0 && (
-                              <p className="text-[10px] text-emerald-600 mt-0.5">{item.sociosImportados} sócio(s)</p>
+                              <p className={cn('text-[10px] mt-0.5', TEXT.emerald)}>{item.sociosImportados} sócio(s)</p>
                             )}
                           </div>
                         )}
@@ -671,7 +602,7 @@ export default function SituacaoFiscalPage() {
               {loteStatus === 'done' ? (
                 <>
                   <div className="flex items-center gap-3 text-xs">
-                    <span className="text-emerald-600 font-medium">
+                    <span className={cn('font-medium', TEXT.emerald)}>
                       {loteItems.filter(i => i.status === 'sucesso').length} sucesso
                     </span>
                     {loteItems.filter(i => i.status === 'erro').length > 0 && (
@@ -722,7 +653,7 @@ export default function SituacaoFiscalPage() {
       <PageHeaderBar actions={<>
           {!trashMode ? (
             <>
-              <Button variant="success" size="sm" onClick={handleConsultar} disabled={consultando} className="gap-1.5">
+              <Button variant="success" size="sm" onClick={abrirConsulta} disabled={consultando} className="gap-1.5">
                 {consultando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 {consultando ? 'Consultando...' : 'Nova Consulta'}
               </Button>
@@ -781,7 +712,7 @@ export default function SituacaoFiscalPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Tipo de Certidão</label>
                   <Select value={filterCertidao || '__all__'} onValueChange={v => { setFilterCertidao(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
                       <SelectItem value="Negativa">Negativa</SelectItem>
@@ -803,13 +734,13 @@ export default function SituacaoFiscalPage() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
             <span className="hidden sm:inline">registros</span>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por CNPJ, CPF ou razão social..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar por CNPJ, CPF ou razão social..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 

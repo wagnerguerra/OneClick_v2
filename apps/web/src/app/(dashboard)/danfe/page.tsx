@@ -141,7 +141,7 @@ export default function DanfePage() {
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="Buscar cliente, CNPJ..." value={busca} onChange={e => setBusca(e.target.value)} className="h-8 pl-8 w-full sm:w-[280px] text-xs bg-card" />
+            <Input placeholder="Buscar cliente, CNPJ..." value={busca} onChange={e => setBusca(e.target.value)} className="h-8 pl-8 w-full sm:w-[280px] text-xs" />
           </div>
         </div>
 
