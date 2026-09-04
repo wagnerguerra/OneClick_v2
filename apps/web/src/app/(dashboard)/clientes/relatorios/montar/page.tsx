@@ -3,11 +3,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { FileSpreadsheet, FileText, FileDown, Search, ChevronDown, Loader2, ArrowLeft, X, GripVertical, Save, Star, Trash2, FolderOpen, Users, Lock } from 'lucide-react'
+import { FileSpreadsheet, FileText, FileDown, Search, ChevronDown, Loader2, ArrowLeft, X, GripVertical, Save, Star, Trash2, FolderOpen, Users, Lock, Filter } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Button, Input, cn } from '@saas/ui'
+import { Button, Input, cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
@@ -66,12 +66,46 @@ interface Previa {
  * dentro dela, arrastar pelo corpo faria o clique de remover disputar com o
  * início do arrasto — e a pessoa apagaria a coluna que queria mover.
  */
-function ColunaArrastavel({ chave, rotulo, onRemover }: {
+/** Resume a condição em poucas palavras, para caber na própria badge. */
+function resumoFiltro(f: FiltroCampo, campo: CampoCatalogo): string {
+  if (f.operador === 'vazio') return 'vazio'
+  if (f.operador === 'preenchido') return 'preenchido'
+  if (f.operador === 'em') {
+    const rotulos = (f.valores ?? []).map(v => campo.opcoes?.find(o => o.valor === v)?.rotulo ?? v)
+    if (!rotulos.length) return ''
+    // Três já é lista longa demais para uma pílula; o resto vira contagem.
+    return rotulos.length <= 2 ? rotulos.join(', ') : `${rotulos.length} valores`
+  }
+  if (campo.tipo === 'booleano') return f.valor === true ? 'Sim' : f.valor === false ? 'Não' : ''
+  const v = String(f.valor ?? '')
+  if (!v) return ''
+  const texto = f.operador === 'entre' ? `${v} — ${String(f.ate ?? '')}` : v
+  return texto.length > 16 ? texto.slice(0, 15) + '…' : texto
+}
+
+/**
+ * Uma coluna do relatório: arrasta para reordenar, e filtra ali mesmo.
+ *
+ * O filtro mora DENTRO da badge em vez de num painel à parte. O painel repetia
+ * a lista inteira de colunas só para pendurar um campo em cada — meia tela para
+ * dizer "sem filtro" sete vezes. Aqui a condição fica onde a coluna está, e a
+ * própria badge mostra o que está filtrando.
+ *
+ * A alça de arrasto é o ícone à esquerda, não a badge inteira: com dois botões
+ * dentro dela, arrastar pelo corpo faria o clique disputar com o arrasto.
+ */
+function ColunaArrastavel({ chave, campo, filtro, onRemover, onFiltrar }: {
   chave: string
-  rotulo: string
+  campo: CampoCatalogo | undefined
+  filtro: FiltroCampo | undefined
   onRemover: () => void
+  onFiltrar: (mudanca: Partial<FiltroCampo> | null) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: chave })
+  const rotulo = campo?.rotulo ?? chave
+  const podeFiltrar = !!campo?.operadores.length
+  const resumo = filtro && campo ? resumoFiltro(filtro, campo) : ''
+
   return (
     <span
       ref={setNodeRef}
@@ -82,7 +116,10 @@ function ColunaArrastavel({ chave, rotulo, onRemover }: {
         zIndex: isDragging ? 10 : undefined,
       }}
       className={cn(
-        'flex items-center gap-1 rounded-full border border-border bg-muted/50 py-0.5 pl-1 pr-1 text-[11px]',
+        'flex items-center gap-1 rounded-full border py-0.5 pl-1 pr-1 text-[11px] transition-colors',
+        filtro
+          ? 'border-primary/40 bg-primary/10 text-primary'
+          : 'border-border bg-muted/50',
         isDragging && 'ring-2 ring-primary/40',
       )}
     >
@@ -96,7 +133,111 @@ function ColunaArrastavel({ chave, rotulo, onRemover }: {
       >
         <GripVertical className="h-3 w-3" />
       </button>
-      {rotulo}
+
+      {podeFiltrar ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className="flex items-center gap-1 rounded px-0.5" title="Filtrar por este campo">
+              {rotulo}
+              {filtro
+                ? <span className="font-semibold">{resumo ? `: ${resumo}` : ''}</span>
+                : <Filter className="h-2.5 w-2.5 opacity-40" />}
+            </button>
+          </DropdownMenuTrigger>
+          {/* Em portal: dentro de uma linha com `flex-wrap` e rolagem, um
+              painel posicionado à mão seria cortado pelo primeiro ancestral
+              com overflow. */}
+          <DropdownMenuContent align="start" className="w-[280px] p-3">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Filtrar {rotulo}
+            </p>
+
+            <select
+              value={filtro?.operador ?? ''}
+              onChange={e => onFiltrar(e.target.value
+                ? { operador: e.target.value as Operador, valor: undefined, valores: [], ate: undefined }
+                : null)}
+              className="h-8 w-full rounded-md border border-border bg-background px-2 text-[12.5px]"
+            >
+              <option value="">sem filtro</option>
+              {campo!.operadores.map(op => (
+                <option key={op} value={op}>{ROTULO_OPERADOR[op]}</option>
+              ))}
+            </select>
+
+            {filtro && !SEM_VALOR.includes(filtro.operador) && (
+              <div className="mt-2">
+                {campo!.opcoes && filtro.operador === 'em' ? (
+                  <div className="flex flex-wrap gap-1">
+                    {campo!.opcoes.map(o => {
+                      const marcado = (filtro.valores ?? []).includes(o.valor)
+                      return (
+                        <button
+                          key={o.valor}
+                          type="button"
+                          onClick={() => onFiltrar({
+                            valores: marcado
+                              ? (filtro.valores ?? []).filter(v => v !== o.valor)
+                              : [...(filtro.valores ?? []), o.valor],
+                          })}
+                          className={cn(
+                            'rounded-full border px-2 py-0.5 text-[11px] transition-colors',
+                            marcado
+                              ? 'border-primary/40 bg-primary/10 font-medium text-primary'
+                              : 'border-border text-muted-foreground hover:bg-muted',
+                          )}
+                        >
+                          {o.rotulo}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : campo!.tipo === 'booleano' ? (
+                  <select
+                    value={filtro.valor === true ? 'true' : filtro.valor === false ? 'false' : ''}
+                    onChange={e => onFiltrar({ valor: e.target.value === 'true' })}
+                    className="h-8 w-full rounded-md border border-border bg-background px-2 text-[12.5px]"
+                  >
+                    <option value="">escolha</option>
+                    <option value="true">Sim</option>
+                    <option value="false">Não</option>
+                  </select>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type={campo!.tipo === 'data' ? 'date' : campo!.tipo === 'numero' ? 'number' : 'text'}
+                      value={String(filtro.valor ?? '')}
+                      onChange={e => onFiltrar({ valor: e.target.value })}
+                      className="h-8 text-[12.5px]"
+                    />
+                    {filtro.operador === 'entre' && (
+                      <>
+                        <span className="text-[11px] text-muted-foreground">e</span>
+                        <Input
+                          type={campo!.tipo === 'data' ? 'date' : 'number'}
+                          value={String(filtro.ate ?? '')}
+                          onChange={e => onFiltrar({ ate: e.target.value })}
+                          className="h-8 text-[12.5px]"
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {filtro && (
+              <button type="button" onClick={() => onFiltrar(null)}
+                className="mt-2 text-[11px] text-muted-foreground hover:text-foreground">
+                Remover filtro
+              </button>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <span className="px-0.5">{rotulo}</span>
+      )}
+
       <button
         type="button"
         onClick={onRemover}
@@ -270,12 +411,6 @@ export default function MontarRelatorioPage() {
     for (const g of grupos ?? []) for (const c of g.campos) m.set(c.chave, c)
     return m
   }, [grupos])
-  const rotuloDe = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const [k, c] of campoDe) m.set(k, c.rotulo)
-    return m
-  }, [campoDe])
-
   /**
    * Um filtro só existe enquanto o campo dele estiver escolhido.
    *
@@ -481,6 +616,12 @@ export default function MontarRelatorioPage() {
               <h2 className="text-[13px] font-semibold">
                 Colunas do relatório
                 <span className="ml-2 font-normal text-muted-foreground">{escolhidos.length}</span>
+                {filtrosCampos.length > 0 && (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                    <Filter className="h-2.5 w-2.5" />
+                    {filtrosCampos.length} filtro(s)
+                  </span>
+                )}
               </h2>
               {escolhidos.length > 0 && (
                 <button
@@ -494,7 +635,7 @@ export default function MontarRelatorioPage() {
             </div>
             {escolhidos.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                Marque os campos à esquerda. Arraste as pílulas para definir a ordem das colunas no arquivo.
+                Marque os campos à esquerda. Arraste para ordenar as colunas; clique no nome para filtrar.
               </p>
             ) : (
               <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={aoSoltar}>
@@ -504,8 +645,10 @@ export default function MontarRelatorioPage() {
                       <ColunaArrastavel
                         key={chave}
                         chave={chave}
-                        rotulo={rotuloDe.get(chave) ?? chave}
+                        campo={campoDe.get(chave)}
+                        filtro={filtrosCampos.find(f => f.campo === chave)}
                         onRemover={() => alternar(chave)}
+                        onFiltrar={m => alterarFiltro(chave, m)}
                       />
                     ))}
                   </div>
@@ -513,116 +656,6 @@ export default function MontarRelatorioPage() {
               </DndContext>
             )}
           </div>
-
-          {/* Filtros sobre os campos escolhidos.
-              So aparece campo que ja e coluna do relatorio: filtrar por algo
-              que nao sai no arquivo produz um resultado que ninguem consegue
-              conferir olhando o proprio relatorio. */}
-          {escolhidos.length > 0 && (
-            <div className="rounded-xl border border-border bg-card p-4">
-              <h2 className="mb-2 text-[13px] font-semibold">
-                Filtros
-                {filtrosCampos.length > 0 && (
-                  <span className="ml-2 font-normal text-muted-foreground">{filtrosCampos.length} ativo(s)</span>
-                )}
-              </h2>
-              <div className="flex flex-col gap-1.5">
-                {escolhidos.map(chave => {
-                  const campo = campoDe.get(chave)
-                  if (!campo || !campo.operadores.length) return null
-                  const f = filtrosCampos.find(x => x.campo === chave)
-                  return (
-                    <div key={chave} className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
-                      <span className={cn('w-[150px] shrink-0 truncate', !f && 'text-muted-foreground')}>
-                        {campo.rotulo}
-                      </span>
-
-                      <select
-                        value={f?.operador ?? ''}
-                        onChange={e => alterarFiltro(chave, e.target.value
-                          ? { operador: e.target.value as Operador, valor: undefined, valores: [], ate: undefined }
-                          : null)}
-                        className="h-7 rounded-md border border-border bg-background px-1.5 text-[12px]"
-                      >
-                        <option value="">sem filtro</option>
-                        {campo.operadores.map(op => (
-                          <option key={op} value={op}>{ROTULO_OPERADOR[op]}</option>
-                        ))}
-                      </select>
-
-                      {f && !SEM_VALOR.includes(f.operador) && (
-                        campo.opcoes && f.operador === 'em' ? (
-                          // Enum com valores conhecidos: marca-se numa lista em
-                          // vez de digitar "MENSAL" e errar caixa ou acento.
-                          <div className="flex flex-wrap gap-1">
-                            {campo.opcoes.map(o => {
-                              const marcado = (f.valores ?? []).includes(o.valor)
-                              return (
-                                <button
-                                  key={o.valor}
-                                  type="button"
-                                  onClick={() => alterarFiltro(chave, {
-                                    valores: marcado
-                                      ? (f.valores ?? []).filter(v => v !== o.valor)
-                                      : [...(f.valores ?? []), o.valor],
-                                  })}
-                                  className={cn(
-                                    'rounded-full border px-2 py-0.5 text-[11px] transition-colors',
-                                    marcado
-                                      ? 'border-primary/40 bg-primary/10 font-medium text-primary'
-                                      : 'border-border text-muted-foreground hover:bg-muted',
-                                  )}
-                                >
-                                  {o.rotulo}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        ) : campo.tipo === 'booleano' ? (
-                          <select
-                            value={String(f.valor ?? '')}
-                            onChange={e => alterarFiltro(chave, { valor: e.target.value === 'true' })}
-                            className="h-7 rounded-md border border-border bg-background px-1.5 text-[12px]"
-                          >
-                            <option value="">escolha</option>
-                            <option value="true">Sim</option>
-                            <option value="false">Nao</option>
-                          </select>
-                        ) : (
-                          <>
-                            <Input
-                              type={campo.tipo === 'data' ? 'date' : campo.tipo === 'numero' ? 'number' : 'text'}
-                              value={String(f.valor ?? '')}
-                              onChange={e => alterarFiltro(chave, { valor: e.target.value })}
-                              className="h-7 w-[160px] text-[12px]"
-                            />
-                            {f.operador === 'entre' && (
-                              <>
-                                <span className="text-muted-foreground">e</span>
-                                <Input
-                                  type={campo.tipo === 'data' ? 'date' : 'number'}
-                                  value={String(f.ate ?? '')}
-                                  onChange={e => alterarFiltro(chave, { ate: e.target.value })}
-                                  className="h-7 w-[160px] text-[12px]"
-                                />
-                              </>
-                            )}
-                          </>
-                        )
-                      )}
-
-                      {f && (
-                        <button type="button" onClick={() => alterarFiltro(chave, null)}
-                          className="rounded p-0.5 text-muted-foreground hover:text-foreground" title="Remover filtro">
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
 
           <div className="rounded-xl border border-border bg-card">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-3">
