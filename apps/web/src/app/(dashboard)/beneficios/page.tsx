@@ -429,7 +429,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
                 : <Button size="sm" className="gap-1.5 text-white hover:opacity-90" style={{ background: COR_FILL }} onClick={fechar} disabled={acao}>{acao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Fechar</Button>}
             </>
           )}
-          <BackButton onClick={onBack} label="Voltar" />
+          <BackButton onClick={onBack} title="Voltar para a lista" />
         </>}
       >
         <h1 className="truncate">{MESES[comp.mes - 1]}/{comp.ano} <span className="ml-1 text-sm font-normal text-muted-foreground">· {comp.diasUteis} dias úteis</span></h1>
