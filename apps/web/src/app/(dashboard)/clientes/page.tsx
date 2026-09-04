@@ -1098,7 +1098,13 @@ export default function ClientesPage() {
                   <TableCell className="min-w-0 overflow-hidden">
                     <div className="min-w-0">
                       <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <span onClick={e => e.stopPropagation()} className="min-w-0 flex-1 overflow-hidden">
+                        {/* Sem `stopPropagation` aqui: a versão editável da
+                            célula é um <button> que já barra a propagação
+                            sozinho. Barrar também neste invólucro engolia o
+                            clique de QUEM NÃO EDITA — para essa pessoa a
+                            célula é um <span> comum, e o clique precisa subir
+                            até a linha para abrir o cadastro. */}
+                        <span className="min-w-0 flex-1 overflow-hidden">
                           <CelulaTexto
                             clienteId={cliente.id} campo="razaoSocial" valor={cliente.razaoSocial}
                             podeEditar={canEditDetails} className="block overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium"
