@@ -249,7 +249,9 @@ export class ClienteRelatorioService {
     })
 
     return {
-      colunas: campos.map(c => ({ chave: c.chave, rotulo: c.rotulo, tipo: c.tipo })),
+      // A tabela e o arquivo usam o rótulo curto quando existe; o painel de
+      // campos, que vem do catálogo, segue com o nome por extenso.
+      colunas: campos.map(c => ({ chave: c.chave, rotulo: c.rotuloCurto ?? c.rotulo, tipo: c.tipo })),
       linhas,
       total,
       truncado: total > take,
@@ -265,7 +267,8 @@ export class ClienteRelatorioService {
       campos: campos
         .filter(c => c.grupo === grupo)
         .map(c => ({
-          chave: c.chave, rotulo: c.rotulo, tipo: c.tipo, padrao: !!c.padrao,
+          chave: c.chave, rotulo: c.rotulo, rotuloCurto: c.rotuloCurto ?? null,
+          tipo: c.tipo, padrao: !!c.padrao,
           opcoes: c.opcoes ?? null,
           // Derivado não filtra (não há coluna); o resto herda os operadores
           // do próprio tipo, então a tela não precisa saber a regra.

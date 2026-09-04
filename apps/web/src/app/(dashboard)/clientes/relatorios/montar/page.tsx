@@ -36,6 +36,7 @@ interface FiltroCampo {
 interface CampoCatalogo {
   chave: string
   rotulo: string
+  rotuloCurto: string | null
   tipo: string
   padrao: boolean
   opcoes: Array<{ valor: string; rotulo: string }> | null
@@ -105,7 +106,8 @@ function ColunaArrastavel({ chave, campo, filtro, onRemover, onFiltrar }: {
   onFiltrar: (mudanca: Partial<FiltroCampo> | null) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: chave })
-  const rotulo = campo?.rotulo ?? chave
+  // Na badge vale o curto: ela divide a linha com outras seis.
+  const rotulo = campo?.rotuloCurto ?? campo?.rotulo ?? chave
   const podeFiltrar = !!campo?.operadores.length
   const resumo = filtro && campo ? resumoFiltro(filtro, campo) : ''
 
@@ -326,6 +328,10 @@ export default function MontarRelatorioPage() {
         setGrupos(r.grupos)
         setPodeMontar(r.podeMontar)
         setEscolhidos(r.grupos.flatMap(g => g.campos.filter(c => c.padrao).map(c => c.chave)))
+        // Tudo contraído na abertura: são onze grupos e ~55 campos, e a lista
+        // aberta obriga a rolar para descobrir que grupos existem. Fechada,
+        // o índice inteiro cabe de uma vez.
+        setRecolhidos(new Set(r.grupos.map(g => g.grupo)))
       })
       .catch(() => setGrupos([]))
   }, [])

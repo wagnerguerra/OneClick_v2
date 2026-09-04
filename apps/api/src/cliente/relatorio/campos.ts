@@ -65,6 +65,13 @@ export interface CampoRelatorio {
   grupo: string
   tipo: 'texto' | 'numero' | 'data' | 'booleano' | 'enum' | 'lista'
   origem: OrigemCampo
+  /**
+   * Versão curta do rótulo, para a coluna da tabela, a badge e o cabeçalho do
+   * arquivo — onde o espaço é caro. O painel de campos continua usando o
+   * `rotulo` inteiro, que é onde a pessoa PROCURA o campo e precisa do nome
+   * por extenso.
+   */
+  rotuloCurto?: string
   /** Valores conhecidos de um enum — a tela lista em vez de pedir digitação. */
   opcoes?: Array<{ valor: string; rotulo: string }>
   /** Sub-permissão do módulo `clientes` exigida para o campo aparecer/sair. */
@@ -110,7 +117,7 @@ const numero = (v: unknown): number | null => {
 
 export const CAMPOS_CLIENTE: CampoRelatorio[] = [
   // ── Identificação ──────────────────────────────────────────────────
-  { chave: 'code', rotulo: 'Nº do cliente', grupo: 'Identificação', tipo: 'numero',
+  { chave: 'code', rotulo: 'Nº do cliente', rotuloCurto: 'Nº', grupo: 'Identificação', tipo: 'numero',
     origem: { tipo: 'campo', campo: 'code' }, padrao: true },
   { chave: 'razaoSocial', rotulo: 'Razão social', grupo: 'Identificação', tipo: 'texto',
     origem: { tipo: 'campo', campo: 'razaoSocial' }, formatar: texto, padrao: true },
