@@ -8,7 +8,7 @@ import {
   Clock, CheckCircle2, LayoutGrid, List, Play, XCircle, Eye,
   GripVertical, Pause, MessageSquare, Paperclip, Send, ChevronDown, ChevronUp,
   AlertCircle, Check, Network, Repeat, Zap, FileText, Type, ListChecks, Layers, Lock, ShieldCheck, Wand2,
-  X, ArrowUpDown, ArrowUp, ArrowDown, Filter,
+  X, ArrowUpDown, ArrowUp, ArrowDown, Filter, HelpCircle,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label,
@@ -188,6 +188,13 @@ function tipoDoServico(s: Servico): {
   classe: string
   Icone: typeof Network
 } {
+  if (s.tipo === 'PERGUNTA') {
+    return {
+      curto: 'Pergunta', completo: 'Pergunta — ponto de decisão que ramifica a cadeia',
+      classe: 'bg-fuchsia-50 dark:bg-fuchsia-900/20 border-fuchsia-300 dark:border-fuchsia-700 text-fuchsia-700 dark:text-fuchsia-300',
+      Icone: HelpCircle,
+    }
+  }
   if (s.categoriaServico === 'FLUXO') {
     return {
       curto: 'Fluxo', completo: 'Parte do Fluxo — item interno de outro serviço',
@@ -279,7 +286,7 @@ export default function ServicosPage() {
   const [segmentoFilter, setSegmentoFilter] = useState<'' | 'avulsos' | SegmentoSlug>('') // filtro por segmento de cliente
   // Filtro de tipo de cadastro: vazio = todos os tipos; demais espelham as 5 pills do form.
   // 'interno' e 'acessoria' são marcações via flag (sobrepõem o tipoCadastroFilter).
-  const [cobrancaFilter, setCobrancaFilter] = useState<'' | 'recorrente' | 'extra' | 'fluxo' | 'interno' | 'acessoria'>('')
+  const [cobrancaFilter, setCobrancaFilter] = useState<'' | 'recorrente' | 'extra' | 'fluxo' | 'interno' | 'acessoria' | 'pergunta'>('')
   /** Natureza do cadastro — comerciais (entram no catálogo do orçamento) vs internos
    *  (execução exclusivamente interna, não aparecem em orçamentos). */
   const [tipoCadastroFilter, setTipoCadastroFilter] = useState<'comerciais' | 'internos'>('comerciais')
@@ -422,6 +429,11 @@ export default function ServicosPage() {
         if (cobrancaFilter === 'extra' && s.categoriaServico !== 'EXTRA') return false
         if (cobrancaFilter === 'interno' && s.ehServicoInterno !== true) return false
         if (cobrancaFilter === 'acessoria' && s.ehObrigacaoAcessoria !== true) return false
+        if (cobrancaFilter === 'pergunta' && s.tipo !== 'PERGUNTA') return false
+        // Sem o filtro de pergunta, os blocos de pergunta nao poluem "Recorrente"
+        // nem "Extraordinario": eles carregam categoria herdada do cadastro, e
+        // e justamente essa heranca que os fazia parecer o que nao sao.
+        if ((cobrancaFilter === 'recorrente' || cobrancaFilter === 'extra') && s.tipo === 'PERGUNTA') return false
         return true
       })
       // Ordenação client-side (a lista já vem completa do backend).
@@ -1201,6 +1213,7 @@ export default function ServicosPage() {
                       <SelectItem value="fluxo">Parte do Fluxo</SelectItem>
                       <SelectItem value="interno">Serviço Interno</SelectItem>
                       <SelectItem value="acessoria">Obrigação Acessória</SelectItem>
+                      <SelectItem value="pergunta">Pergunta</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1797,7 +1810,7 @@ export default function ServicosPage() {
               </div>
               <div className="col-span-12 space-y-1.5">
                 <Label className="text-[13px] font-semibold">Tipo de cadastro</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                   {([
                     { v: 'MENSAL'  as const, key: 'MENSAL',     label: 'Serviço Recorrente',     desc: 'Serviço que precisa ser executado com uma determinada recorrência', tone: 'sky' as const,    Icon: Repeat },
                     { v: 'EXTRA'   as const, key: 'EXTRA',      label: 'Serviço Extraordinário', desc: 'Pontual — cobrança por execução',                                    tone: 'amber' as const,  Icon: Zap },
@@ -1817,6 +1830,7 @@ export default function ServicosPage() {
                       violet: { border: 'border-violet-500', bg: 'bg-violet-50/60 dark:bg-violet-950/30', hover: 'hover:border-violet-300', icon: 'text-violet-600 dark:text-violet-300' },
                       slate:  { border: 'border-slate-500',  bg: 'bg-slate-50/60 dark:bg-slate-900/30', hover: 'hover:border-slate-300',  icon: 'text-slate-600  dark:text-slate-300' },
                       rose:   { border: 'border-rose-500',   bg: 'bg-rose-50/60 dark:bg-rose-950/30',   hover: 'hover:border-rose-300',   icon: 'text-rose-600   dark:text-rose-300' },
+                      fuchsia:{ border: 'border-fuchsia-500', bg: 'bg-fuchsia-50/60 dark:bg-fuchsia-950/30', hover: 'hover:border-fuchsia-300', icon: 'text-fuchsia-600 dark:text-fuchsia-300' },
                     }[opt.tone]
                     const Icon = opt.Icon
                     return (
