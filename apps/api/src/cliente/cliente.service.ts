@@ -1009,7 +1009,7 @@ export class ClienteService {
     noventaDias.setHours(0, 0, 0, 0)
     noventaDias.setDate(noventaDias.getDate() - 90)
 
-    const [mensais, comServico, comBeneficio, entraram90d, sairam90d, tributacao] = await Promise.all([
+    const [mensais, comServico, comBeneficio, entraram90d, sairam90d, tributacao, areas] = await Promise.all([
       prisma.cliente.count({ where: mensalAtivo }),
       prisma.cliente.count({ where: { ...mensalAtivo, servicosContratados: { some: { contratado: true } } } }),
       // Benefício vive em `beneficiosFiscais` — `beneficios` é a relação antiga
@@ -1023,7 +1023,27 @@ export class ClienteService {
         where: { ...base, situacao: 'MENSAL' as never, dataSaida: { gte: noventaDias } },
       }),
       prisma.cliente.groupBy({ by: ['tributacao'], where: mensalAtivo, _count: { _all: true } }),
+      // Serviços contratados por área. Conta VÍNCULOS, não clientes: o mesmo
+      // cliente aparece em contábil e em fiscal, e é isso que se quer saber.
+      // Por consequência a soma passa do total de mensais — ver o comentário
+      // em `porArea` no retorno.
+      prisma.clienteAreaContratada.groupBy({
+        by: ['areaId'],
+        where: { contratado: true, cliente: mensalAtivo },
+        _count: { _all: true },
+      }),
     ])
+
+    // Nome da área numa segunda consulta em vez de `include` no groupBy (que o
+    // Prisma não permite). São meia dúzia de áreas — cabe num findMany só.
+    const nomesArea = new Map<string, string>()
+    if (areas.length > 0) {
+      const encontradas = await prisma.area.findMany({
+        where: { id: { in: areas.map(a => a.areaId) } },
+        select: { id: true, name: true },
+      })
+      for (const a of encontradas) nomesArea.set(a.id, a.name)
+    }
 
     return {
       mensais, comServico, comBeneficio, entraram90d, sairam90d,
@@ -1032,6 +1052,13 @@ export class ClienteService {
       // acionável (quem está sem tributação preenchida).
       porTributacao: tributacao
         .map(t => ({ regime: t.tributacao ?? '__sem__', total: t._count._all }))
+        .sort((a, b) => b.total - a.total),
+      // ATENÇÃO ao consumir: a soma de `porArea` é MAIOR que `mensais`, porque
+      // um cliente contrata várias áreas. Não é distribuição — é quantos
+      // mensais têm cada serviço. Barra empilhada de 100% aqui mentiria.
+      porArea: areas
+        .map(a => ({ area: nomesArea.get(a.areaId) ?? '—', total: a._count._all }))
+        .filter(a => a.area !== '—')
         .sort((a, b) => b.total - a.total),
     }
   }

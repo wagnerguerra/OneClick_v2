@@ -14,7 +14,7 @@ import {
   Ban, RotateCcw, Building2, ExternalLink, Copy,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
   ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
-  CalendarClock, ClipboardCheck, BadgePercent, ArrowLeftRight,
+  CalendarClock, BadgePercent, ArrowLeftRight,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -256,7 +256,7 @@ export default function ClientesPage() {
   const [filterBeneficio, setFilterBeneficio] = useState(() => txt(salvos.beneficio))
   const [filterServico, setFilterServico] = useState(() => txt(salvos.servico))
   const [debouncedNumero, setDebouncedNumero] = useState(() => txt(salvos.numero))
-  const [stats, setStats] = useState<{ mensais: number; comServico: number; comBeneficio: number; entraram90d: number; sairam90d: number; porTributacao: Array<{ regime: string; total: number }> } | null>(null)
+  const [stats, setStats] = useState<{ mensais: number; comServico: number; comBeneficio: number; entraram90d: number; sairam90d: number; porTributacao: Array<{ regime: string; total: number }>; porArea: Array<{ area: string; total: number }> } | null>(null)
   const [filterOptions, setFilterOptions] = useState<{ grupos: (string | null)[]; cidades: (string | null)[]; estados: (string | null)[]; tipos: (string | null)[]; atividades: string[]; beneficios: string[]; areas: string[] }>({ grupos: [], cidades: [], estados: [], tipos: [], atividades: [], beneficios: [], areas: [] })
 
   useEffect(() => {
@@ -679,10 +679,8 @@ export default function ClientesPage() {
           leva para os registros que ele conta, que é o que a pessoa quer fazer
           em seguida. */}
       {stats && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
           {([
-            { k: 'mensais', label: 'Mensais', valor: stats.mensais, cor: '#0891b2', Icone: CalendarClock, dica: 'Filtrar somente os mensais', ligado: onlyMensal, aplicar: () => toggleOnlyMensal() },
-            { k: 'comServico', label: 'Com serviço', valor: stats.comServico, cor: '#16a34a', Icone: ClipboardCheck, dica: 'Filtrar quem tem serviço contratado', ligado: filterServico === '__com__', aplicar: () => { setFilterServico(p => (p === '__com__' ? '' : '__com__')); setPage(1); setFiltersOpen(true) } },
             { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#9333ea', Icone: BadgePercent, dica: 'Filtrar quem tem benefício fiscal', ligado: filterBeneficio === '__com__', aplicar: () => { setFilterBeneficio(p => (p === '__com__' ? '' : '__com__')); setPage(1); setFiltersOpen(true) } },
           ] as const).map(({ k, label, valor, cor, Icone, dica, aplicar, ligado }) => (
             <button
@@ -711,6 +709,59 @@ export default function ClientesPage() {
               </span>
             </button>
           ))}
+
+          {/* Mensais e "com serviço" no mesmo card: o segundo número só existe
+              em relação ao primeiro — 201 sozinho não diz nada, 201 de 203 diz
+              que a carteira está praticamente toda com serviço registrado.
+              Mesma forma do card de entradas/saídas, pelo mesmo motivo.
+
+              Div com dois botões dentro, e não um botão só: são dois filtros
+              independentes, e botão dentro de botão é HTML inválido. */}
+          <div
+            className={cn(
+              'flex items-center gap-3 rounded-xl border bg-card p-3 transition-all',
+              (onlyMensal || filterServico === '__com__') ? 'border-transparent ring-2 ring-cyan-600/60' : 'border-border',
+            )}
+          >
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+              style={{ backgroundColor: 'color-mix(in srgb, #0891b2 12%, transparent)', color: '#0891b2' }}
+            >
+              <CalendarClock className="h-[18px] w-[18px]" />
+            </span>
+            <span className="min-w-0">
+              <span className="flex items-baseline gap-1.5 leading-none">
+                <button
+                  type="button"
+                  onClick={() => toggleOnlyMensal()}
+                  aria-pressed={onlyMensal}
+                  title={onlyMensal ? 'Filtrando somente os mensais — clique para limpar' : 'Filtrar somente os mensais'}
+                  className={cn(
+                    'rounded px-0.5 text-lg font-bold tabular-nums transition-colors hover:bg-muted',
+                    onlyMensal ? 'text-cyan-600 dark:text-cyan-400' : 'text-foreground',
+                  )}
+                >
+                  {stats.mensais.toLocaleString('pt-BR')}
+                </button>
+                <span className="text-muted-foreground/40">/</span>
+                <button
+                  type="button"
+                  onClick={() => { setFilterServico(p => (p === '__com__' ? '' : '__com__')); setPage(1); setFiltersOpen(true) }}
+                  aria-pressed={filterServico === '__com__'}
+                  title={filterServico === '__com__' ? 'Filtrando quem tem serviço — clique para limpar' : 'Filtrar quem tem serviço contratado'}
+                  className={cn(
+                    'rounded px-0.5 text-lg font-bold tabular-nums transition-colors hover:bg-muted',
+                    filterServico === '__com__' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground',
+                  )}
+                >
+                  {stats.comServico.toLocaleString('pt-BR')}
+                </button>
+              </span>
+              <span className="mt-1 block truncate text-[11px] text-muted-foreground">
+                Mensais / com serviço
+              </span>
+            </span>
+          </div>
 
           {/* Movimentação em 90 dias — entradas contra saídas, lado a lado.
               Dois números num card só porque o que interessa é a COMPARAÇÃO:
@@ -835,6 +886,60 @@ export default function ClientesPage() {
                 </>
               )
             })()}
+          </div>
+
+          {/* Por serviço contratado — mesma interação da tributação (clicar no
+              rótulo filtra a tabela), mas SEM barra empilhada, de propósito:
+              um cliente contrata várias áreas, então a soma passa do total de
+              mensais e uma barra de 100% mentiria sobre a proporção. Aqui cada
+              número é "quantos dos mensais têm este serviço" — leitura
+              independente, não fatia de bolo. */}
+          <div className="col-span-2 rounded-xl border border-border bg-card p-3 sm:col-span-3 xl:col-span-2">
+            {stats.porArea.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">Nenhum serviço contratado registrado.</p>
+            ) : (
+              <>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">Por serviço contratado</span>
+                  <span className="text-[11px] tabular-nums text-muted-foreground">{stats.mensais.toLocaleString('pt-BR')} mensais</span>
+                </div>
+                <div className="nice-scrollbar mt-2 flex flex-wrap items-center gap-1.5 overflow-y-auto pb-0.5" style={{ maxHeight: '4.5rem' }}>
+                  {stats.porArea.map(a => {
+                    const ativoAqui = filterArea === a.area
+                    const chave = a.area.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    const conf = AREA_BADGE_MAP[chave]
+                    const cor = conf?.color || '#6b7280'
+                    const Icone = conf?.Icon || Tag
+                    return (
+                      <button
+                        key={a.area}
+                        type="button"
+                        onClick={() => { setFilterArea(p => (p === a.area ? '' : a.area)); setPage(1); setFiltersOpen(true) }}
+                        aria-pressed={ativoAqui}
+                        title={ativoAqui ? `Filtrando por ${a.area} — clique para limpar` : `Filtrar quem tem ${a.area}`}
+                        className={cn(
+                          'flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10.5px] transition-all',
+                          ativoAqui ? 'font-semibold shadow-sm' : 'border-transparent text-muted-foreground hover:bg-muted',
+                          // Com uma área escolhida, as outras recuam sem sumir:
+                          // continuam clicáveis para trocar de filtro.
+                          filterArea && !ativoAqui && 'opacity-45 hover:opacity-100',
+                        )}
+                        style={ativoAqui ? {
+                          color: cor,
+                          backgroundColor: `color-mix(in srgb, ${cor} 14%, transparent)`,
+                          borderColor: `color-mix(in srgb, ${cor} 45%, transparent)`,
+                        } : undefined}
+                      >
+                        <Icone className="h-2.5 w-2.5 shrink-0" style={{ color: cor }} />
+                        {a.area}
+                        <strong className={cn('font-semibold tabular-nums', !ativoAqui && 'text-foreground')}>{a.total}</strong>
+                        {ativoAqui && <X className="h-3 w-3 shrink-0 opacity-70" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
