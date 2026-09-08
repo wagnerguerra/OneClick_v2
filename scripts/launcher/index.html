@@ -2712,7 +2712,7 @@
                   <svg class="icon-ok" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                   <svg class="icon-err" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                 </div>
-                <div class="step-label">Pull</div>
+                <div class="step-label">Código</div>
                 <div class="step-detail"></div>
               </div>
               <div id="step-build-api" class="deploy-step" data-state="pending">
@@ -2722,7 +2722,7 @@
                   <svg class="icon-ok" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                   <svg class="icon-err" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                 </div>
-                <div class="step-label">Build API</div>
+                <div class="step-label">Imagem API</div>
                 <div class="step-detail"></div>
               </div>
               <div id="step-schema" class="deploy-step" data-state="pending">
@@ -2742,7 +2742,7 @@
                   <svg class="icon-ok" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                   <svg class="icon-err" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                 </div>
-                <div class="step-label">Build Web</div>
+                <div class="step-label">Imagem Web</div>
                 <div class="step-detail"></div>
               </div>
               <div id="step-restart" class="deploy-step" data-state="pending">
@@ -5770,6 +5770,22 @@
       if (detail) detail.textContent = ''
     }
 
+    // Rotulo visivel de cada passo. Os IDs ('build-api', 'pull') sao contrato
+    // com o main.js e nao mudam; o texto que o usuario le, sim -- desde que a
+    // imagem passou a vir do registry, "Build API" descrevia um passo que nao
+    // builda e "Pull" competia com o pull de verdade, o das imagens.
+    const ROTULO_DO_PASSO = {
+      push: 'PUSH',
+      pull: 'CÓDIGO',
+      'build-api': 'IMAGEM API',
+      schema: 'SCHEMA',
+      sql: 'SQL',
+      'build-web': 'IMAGEM WEB',
+      restart: 'RESTART',
+      merge: 'MERGE',
+      app: 'APP',
+    }
+
     function deployStepSetState(stepId, state, detail) {
       const el = document.getElementById('step-' + stepId)
       if (!el) return
@@ -5808,7 +5824,7 @@
         }
 
         if (ev.step) {
-          document.getElementById('deployProgressStep').textContent = ev.step.replace('-', ' ').toUpperCase()
+          document.getElementById('deployProgressStep').textContent = ROTULO_DO_PASSO[ev.step] || ev.step.replace('-', ' ').toUpperCase()
           const isOk = ev.level === 'ok'
           const isErr = ev.level === 'err'
 
