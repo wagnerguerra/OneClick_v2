@@ -2830,6 +2830,85 @@ function registerIpcHandlers() {
     return r.status ?? 1
   }
 
+  // -- Imagens vindas do ghcr (build no CI) em vez de buildadas na VPS ------
+  //
+  // Ligado por DEPLOY_IMAGES=ghcr no .deploy.local. Fica DESLIGADO por padrao
+  // de proposito: a virada exige que a VPS ja tenha feito `docker login
+  // ghcr.io` e que o compose de producao tenha perdido o bloco `build:`. Com a
+  // flag, a ordem entre essas duas coisas e a atualizacao do Service Manager
+  // deixa de importar, e a volta atras e uma linha no .deploy.local.
+  //
+  // Motivo de existir: a VPS tem 2 vCPU e 7,8 GB, com o swap quase cheio e o
+  // disco em 78% -- so o cache de build do Docker ocupa 19 GB. O `next build`
+  // era o passo que saturava tudo isso a cada publicacao.
+
+  function ghcrDono(cfg) {
+    if (cfg && cfg.GHCR_OWNER) return cfg.GHCR_OWNER
+    const repo = deployGitHubRepo(cfg)            // "wagnerguerra/OneClick_v2"
+    return repo ? repo.split('/')[0] : null
+  }
+
+  function usaImagensDoGhcr(cfg) {
+    return String((cfg && cfg.DEPLOY_IMAGES) || '').toLowerCase() === 'ghcr'
+  }
+
+  // Espera o workflow de imagens concluir PARA AQUELE SHA.
+  //
+  // Por SHA e nao por `latest`: `latest` e uma corrida -- dois deploys proximos
+  // e voce publica a imagem do outro commit sem perceber. Esperar tambem nao e
+  // zelo, e obrigacao: o push acabou de acontecer, entao a imagem daquele
+  // commit quase certamente ainda nao existe quando o deploy chega aqui.
+  async function aguardaImagensDoSha(cfg, sha, emitir, tetoMs) {
+    const teto = tetoMs || 25 * 60 * 1000
+    const inicio = Date.now()
+    let anunciou = false
+    while (Date.now() - inicio < teto) {
+      const r = await githubJson(`/actions/workflows/build-images.yml/runs?head_sha=${sha}&per_page=1`, cfg)
+      if (!r.ok) return { ok: false, error: `Nao foi possivel consultar o build das imagens no GitHub: ${r.error}` }
+      const run = (r.data && r.data.workflow_runs && r.data.workflow_runs[0]) || null
+      if (run && run.status === 'completed') {
+        if (run.conclusion === 'success') return { ok: true, url: run.html_url }
+        return { ok: false, error: `O build das imagens terminou como "${run.conclusion}". Veja ${run.html_url}` }
+      }
+      if (!anunciou) {
+        emitir(run
+          ? `- Build das imagens em andamento: ${run.html_url}`
+          : '- Aguardando o GitHub criar o build das imagens para este commit...')
+        anunciou = true
+      }
+      await new Promise((resolver) => setTimeout(resolver, 15000))
+    }
+    return { ok: false, error: 'O build das imagens nao concluiu em 25 min. Veja a aba Actions no GitHub.' }
+  }
+
+  // Puxa a imagem do SHA e a REETIQUETA com o nome local que o compose ja usa.
+  //
+  // Reetiquetar em vez de apontar o compose para o ghcr porque
+  // `oneclick-api:latest` nao e usado so pelo compose: o passo que aplica o
+  // `prisma db push` roda `docker run --rm ... oneclick-api:latest`. Mantendo o
+  // nome, nada mais no deploy precisa mudar -- no compose de producao basta
+  // remover o bloco `build:`.
+  function puxaImagemDoGhcr(cfg, servico, sha, onLine) {
+    const dono = ghcrDono(cfg)
+    if (!dono) {
+      return Promise.resolve({ code: 1, stdout: '', stderr: 'GHCR_OWNER nao configurado e nao foi possivel inferir pelo GITHUB_REPO.' })
+    }
+    const remota = `ghcr.io/${dono}/oneclick-${servico}:${sha}`
+    const local = `oneclick-${servico}:latest`
+    return sshExec(
+      cfg,
+      `docker pull ${remota} 2>&1 && docker tag ${remota} ${local} 2>&1 && echo "reetiquetada como ${local}"`,
+      onLine,
+      600000,
+    )
+  }
+
+  // Progresso de camada do `docker pull` e ruido puro na tela do deploy.
+  function linhaDePullRelevante(linha) {
+    if (/^\s*$/.test(linha)) return false
+    return !/^[a-f0-9]{12}: (Pulling|Waiting|Downloading|Extracting|Verifying|Download complete|Pull complete|Already exists)/.test(linha)
+  }
+
   function deployCheckAbort(step, progress) {
     if (!deployAbortRequested) return
     const err = new Error('Deploy abortado pelo usuário')
@@ -3062,25 +3141,42 @@ function registerIpcHandlers() {
       }
       deployEmit(25, 'pull', '✓ Código atualizado na VPS', 'ok')
 
-      // ─── Stage 3: Build API ────────────────────────
-      // IMPORTANTE: build api PRECEDE o db push porque o `prisma db push` usa
-      // a imagem `oneclick-api:latest` (que contém o schema.prisma). Se o build
-      // for depois, o db push acaba rodando com schema antigo e tabelas novas
-      // não são criadas.
-      deployEmit(30, 'build-api', '→ Gerando imagem da API...', 'info')
+      // ─── Stage 3: Imagem da API ───────────────────────
+      // IMPORTANTE: a imagem da API PRECEDE o db push porque o `prisma db push`
+      // roda `docker run ... oneclick-api:latest` (que contém o schema.prisma).
+      // Se viesse depois, o db push usaria schema antigo e tabelas novas não
+      // seriam criadas. Vale nos dois modos — buildando aqui ou puxando do
+      // ghcr, a imagem tem de existir antes.
       deployCheckAbort('build-api', 30)
       deployCurrentStep = 'build-api'
-      const buildApi = await sshExec(cfg, 'cd /opt/oneclick && docker compose build api 2>&1', (line) => {
-        if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
-          deployEmit(45, 'build-api', line, 'info')
+      let buildApi
+      if (usaImagensDoGhcr(cfg)) {
+        deployEmit(28, 'build-api', '→ Aguardando o build das imagens no GitHub...', 'info')
+        const espera = await aguardaImagensDoSha(cfg, targetSha, (m) => deployEmit(30, 'build-api', m, 'info'))
+        if (!espera.ok) {
+          deployEmit(50, 'build-api', `✗ ${espera.error}`, 'err')
+          deployRunning = false
+          return { ok: false, error: espera.error }
         }
-      })
-      if (buildApi.code !== 0) {
-        deployEmit(50, 'build-api', `✗ Geração da imagem da API falhou`, 'err')
-        deployRunning = false
-        return { ok: false, error: 'Geração da imagem da API falhou' }
+        deployEmit(35, 'build-api', '✓ Imagens prontas no GitHub', 'ok')
+        deployEmit(38, 'build-api', '→ Baixando a imagem da API do ghcr...', 'info')
+        buildApi = await puxaImagemDoGhcr(cfg, 'api', targetSha, (line) => {
+          if (linhaDePullRelevante(line)) deployEmit(45, 'build-api', line, 'info')
+        })
+      } else {
+        deployEmit(30, 'build-api', '→ Gerando imagem da API na VPS...', 'info')
+        buildApi = await sshExec(cfg, 'cd /opt/oneclick && docker compose build api 2>&1', (line) => {
+          if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
+            deployEmit(45, 'build-api', line, 'info')
+          }
+        })
       }
-      deployEmit(50, 'build-api', '✓ Imagem da API gerada', 'ok')
+      if (buildApi.code !== 0) {
+        deployEmit(50, 'build-api', `✗ Imagem da API não ficou pronta`, 'err')
+        deployRunning = false
+        return { ok: false, error: 'Imagem da API não ficou pronta' }
+      }
+      deployEmit(50, 'build-api', '✓ Imagem da API pronta', 'ok')
 
       // ─── Stage 4: Schema (se mudou) ────────────────
       // Roda APÓS o build api, usando a imagem recém-buildada (com schema novo).
@@ -3259,21 +3355,31 @@ function registerIpcHandlers() {
         deployEmit(68, 'sql', `✓ ${pendentes.length} SQL(s) aplicado(s)`, 'ok')
       }
 
-      // ─── Stage 5: Build Web ────────────────────────
-      deployEmit(70, 'build-web', '→ Gerando imagem do Web...', 'info')
+      // ─── Stage 5: Imagem do Web ───────────────────────
+      // A espera pelo GitHub já aconteceu no Stage 3 — os dois jobs (API e Web)
+      // correm no mesmo run, então aqui é só puxar.
       deployCheckAbort('build-web', 70)
       deployCurrentStep = 'build-web'
-      const buildWeb = await sshExec(cfg, 'cd /opt/oneclick && docker compose build web 2>&1', (line) => {
-        if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
-          deployEmit(78, 'build-web', line, 'info')
-        }
-      })
-      if (buildWeb.code !== 0) {
-        deployEmit(85, 'build-web', `✗ Geração da imagem do Web falhou`, 'err')
-        deployRunning = false
-        return { ok: false, error: 'Geração da imagem do Web falhou' }
+      let buildWeb
+      if (usaImagensDoGhcr(cfg)) {
+        deployEmit(70, 'build-web', '→ Baixando a imagem do Web do ghcr...', 'info')
+        buildWeb = await puxaImagemDoGhcr(cfg, 'web', targetSha, (line) => {
+          if (linhaDePullRelevante(line)) deployEmit(78, 'build-web', line, 'info')
+        })
+      } else {
+        deployEmit(70, 'build-web', '→ Gerando imagem do Web na VPS...', 'info')
+        buildWeb = await sshExec(cfg, 'cd /opt/oneclick && docker compose build web 2>&1', (line) => {
+          if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
+            deployEmit(78, 'build-web', line, 'info')
+          }
+        })
       }
-      deployEmit(85, 'build-web', '✓ Imagem do Web gerada', 'ok')
+      if (buildWeb.code !== 0) {
+        deployEmit(85, 'build-web', `✗ Imagem do Web não ficou pronta`, 'err')
+        deployRunning = false
+        return { ok: false, error: 'Imagem do Web não ficou pronta' }
+      }
+      deployEmit(85, 'build-web', '✓ Imagem do Web pronta', 'ok')
 
       // ─── Stage 6: Restart + Health check ───────────
       deployEmit(90, 'restart', '→ Reiniciando containers e verificando saúde...', 'info')
