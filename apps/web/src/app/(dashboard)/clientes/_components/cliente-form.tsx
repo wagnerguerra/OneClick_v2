@@ -37,7 +37,7 @@ import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
 import { ParametrosContratoModal } from '@/components/contrato/parametros-contrato-modal'
 import { VerificarErpModal } from '@/components/contrato/verificar-erp-modal'
 import { OrcamentosTab } from './orcamentos-tab'
-import { InativarClienteModal } from './inativar-cliente-modal'
+import { InativarClienteModal, type ClienteVinculado } from './inativar-cliente-modal'
 import { ReativarClienteModal } from './reativar-cliente-modal'
 import { EVENT_BADGE_CLASS, INATIVAR_BTN_CLASS, ZONA_PERIGO_SURFACE_CLASS } from './cliente-status-ui'
 import { trpc } from '@/lib/trpc'
@@ -149,6 +149,9 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
   const [inativarDataInicial, setInativarDataInicial] = useState('')
   const [reativarAberto, setReativarAberto] = useState(false)
   function abrirInativar(dataInicial = '') { setInativarDataInicial(dataInicial); setInativarAberto(true) }
+  // Outros CNPJs ativos da mesma raiz (matriz + filiais). Buscados na abertura
+  // do modal, nao na montagem da ficha: e uma consulta que so serve aqui.
+  const [vinculadosInativar, setVinculadosInativar] = useState<ClienteVinculado[]>([])
   const [clienteLogo, setClienteLogo] = useState<string | null>(defaultValues?.logoUrl || null)
   const [chatMsg, setChatMsg] = useState('')
   const [chatAsCliente, setChatAsCliente] = useState(false)
@@ -462,24 +465,58 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
     } finally { setAbrindoOffboarding(false) }
   }
 
-  async function inativarConfirmado(dataSaida: string, motivo: string, programadaPara: string | null) {
+  async function inativarConfirmado(dataSaida: string, motivo: string, programadaPara: string | null, idsExtras: string[] = []) {
     if (!clienteId) return
     await trpc.cliente.inativar.mutate({
       id: clienteId, dataSaida: dataSaida || undefined, motivo, programadaPara,
     })
+    // Vinculados escolhidos no modal. Um por vez, como no lote da listagem: nao
+    // ha endpoint em bloco, e falhar num deles nao pode derrubar os demais.
+    let extrasOk = 0
+    for (const outroId of idsExtras) {
+      try {
+        await trpc.cliente.inativar.mutate({ id: outroId, dataSaida: dataSaida || undefined, motivo, programadaPara })
+        extrasOk++
+      } catch { /* segue; o balanco vai no aviso */ }
+    }
+    // O que falhou precisa aparecer: quem escolheu "o grupo inteiro" sai da
+    // tela achando que o grupo inteiro saiu.
+    const sobrou = idsExtras.length - extrasOk
+    if (sobrou > 0) {
+      await alerts.error(
+        'Nem todos os vinculados foram inativados',
+        `${extrasOk} de ${idsExtras.length} vinculados foram processados. Verifique os ${sobrou} restantes na listagem.`,
+      )
+    }
     if (programadaPara) {
       // Agendado: o cliente segue ATIVO. Mexer no status aqui mentiria para
       // quem está com a ficha aberta.
       setValue('dataSaida', programadaPara, { shouldDirty: false })
       const dia = new Date(`${programadaPara}T00:00:00`).toLocaleDateString('pt-BR')
-      alerts.success('Inativação agendada', `O cliente continua ativo e será inativado em ${dia}.`)
+      alerts.success('Inativação agendada', extrasOk > 0
+        ? `Este cliente e mais ${extrasOk} vinculado(s) continuam ativos e serão inativados em ${dia}.`
+        : `O cliente continua ativo e será inativado em ${dia}.`)
       return
     }
     setValue('status', 'INATIVO', { shouldDirty: false })
     setValue('dataSaida', dataSaida, { shouldDirty: false })
     setMotivoInativado(motivo)
-    alerts.success('Cliente inativado', 'O cliente foi inativado.')
+    alerts.success('Cliente inativado', extrasOk > 0
+      ? `Este cliente e mais ${extrasOk} vinculado(s) foram inativados.`
+      : 'O cliente foi inativado.')
   }
+
+  // Busca os vinculados quando o modal de inativacao abre.
+  useEffect(() => {
+    if (!inativarAberto || !clienteId) { setVinculadosInativar([]); return }
+    const doc = watchedValues.documento || defaultValues?.documento || ''
+    ;(trpc.cliente as unknown as {
+      listMesmaRaiz: { query: (i: { clienteId: string; documento: string }) => Promise<ClienteVinculado[]> }
+    }).listMesmaRaiz.query({ clienteId, documento: doc })
+      .then(setVinculadosInativar)
+      .catch(() => setVinculadosInativar([]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inativarAberto, clienteId])
 
   const isEdit = mode === 'edit' && defaultValues?.code
 
@@ -1037,6 +1074,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
         count={1}
         nome={defaultValues?.razaoSocial}
         initialDataSaida={inativarDataInicial}
+        vinculados={vinculadosInativar}
         onOpenChange={setInativarAberto}
         onConfirm={inativarConfirmado}
       />

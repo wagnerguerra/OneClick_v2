@@ -32,7 +32,7 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
 import { IntegracoesModal } from './_components/integracoes-modal'
-import { InativarClienteModal } from './_components/inativar-cliente-modal'
+import { InativarClienteModal, type ClienteVinculado } from './_components/inativar-cliente-modal'
 import { ReativarClienteModal } from './_components/reativar-cliente-modal'
 import { STATUS_BADGE_CLASS, EX_CLIENTE_BADGE_CLASS, INATIVAR_BTN_CLASS, isExCliente } from './_components/cliente-status-ui'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
@@ -304,7 +304,9 @@ export default function ClientesPage() {
   // Inativação (#HLP0209/0211) — modal único (data de saída opcional + motivo).
   // `ids` cobre tanto a linha (1 id) quanto o lote (vários). A Lixeira foi
   // aposentada: inativo agora é status=INATIVO, visível pelo filtro "Inativo".
-  const [inativarAlvo, setInativarAlvo] = useState<{ ids: string[]; nome: string } | null>(null)
+  const [inativarAlvo, setInativarAlvo] = useState<{ ids: string[]; nome: string; documento?: string } | null>(null)
+  // Vinculados pelo CNPJ do alvo — so faz sentido inativando UM cliente.
+  const [vinculadosInativar, setVinculadosInativar] = useState<ClienteVinculado[]>([])
   const [reativarAlvo, setReativarAlvo] = useState<{ id: string; nome: string } | null>(null)
 
   // Importação legado
@@ -451,22 +453,37 @@ export default function ClientesPage() {
 
   // Abre o modal de inativação (linha ou lote). O modal cuida dos próprios
   // campos (data de saída opcional + motivo).
-  function openInativar(ids: string[], nome: string) {
+  function openInativar(ids: string[], nome: string, documento?: string) {
     if (ids.length === 0) return
-    setInativarAlvo({ ids, nome })
+    setInativarAlvo({ ids, nome, documento })
   }
 
+  // Busca os outros CNPJs ativos da mesma raiz ao abrir o modal para um unico
+  // cliente. No lote nao pergunta nada: quem escolheu o alcance foi o usuario,
+  // marcando as linhas.
+  useEffect(() => {
+    const alvo = inativarAlvo
+    if (!alvo || alvo.ids.length !== 1 || !alvo.documento) { setVinculadosInativar([]); return }
+    ;(trpc.cliente as unknown as {
+      listMesmaRaiz: { query: (i: { clienteId: string; documento: string }) => Promise<ClienteVinculado[]> }
+    }).listMesmaRaiz.query({ clienteId: alvo.ids[0]!, documento: alvo.documento })
+      .then(setVinculadosInativar)
+      .catch(() => setVinculadosInativar([]))
+  }, [inativarAlvo])
+
   // Confirma a inativação de 1..N clientes com a MESMA data de saída + motivo.
-  async function inativarConfirmado(dataSaida: string, motivo: string, programadaPara: string | null) {
+  async function inativarConfirmado(dataSaida: string, motivo: string, programadaPara: string | null, idsExtras: string[] = []) {
     if (!inativarAlvo) return
     let ok = 0
-    for (const id of inativarAlvo.ids) {
+    // Os vinculados escolhidos no modal entram na mesma fila do lote.
+    const alvos = [...inativarAlvo.ids, ...idsExtras]
+    for (const id of alvos) {
       try {
         await trpc.cliente.inativar.mutate({ id, dataSaida: dataSaida || undefined, motivo, programadaPara })
         ok++
       } catch { /* skip */ }
     }
-    const n = inativarAlvo.ids.length
+    const n = alvos.length
     if (programadaPara) {
       const dia = new Date(`${programadaPara}T00:00:00`).toLocaleDateString('pt-BR')
       await alerts.success(
@@ -1217,7 +1234,7 @@ export default function ClientesPage() {
                                 <RotateCcw className="h-4 w-4" />Reativar
                               </DropdownMenuItem>
                             ) : (
-                              <DropdownMenuItem onClick={() => openInativar([cliente.id], cliente.razaoSocial)}>
+                              <DropdownMenuItem onClick={() => openInativar([cliente.id], cliente.razaoSocial, cliente.documento)}>
                                 <Ban className="h-4 w-4" />Inativar
                               </DropdownMenuItem>
                             )}
@@ -1233,7 +1250,7 @@ export default function ClientesPage() {
                             <RotateCcw className="h-3.5 w-3.5" />
                           </Button>
                         ) : (
-                          <Button variant="soft-warning" size="icon-sm" title="Inativar" onClick={() => openInativar([cliente.id], cliente.razaoSocial)}>
+                          <Button variant="soft-warning" size="icon-sm" title="Inativar" onClick={() => openInativar([cliente.id], cliente.razaoSocial, cliente.documento)}>
                             <Ban className="h-3.5 w-3.5" />
                           </Button>
                         )}
@@ -1290,6 +1307,7 @@ export default function ClientesPage() {
         open={!!inativarAlvo}
         count={inativarAlvo?.ids.length ?? 0}
         nome={inativarAlvo?.nome}
+        vinculados={vinculadosInativar}
         onOpenChange={o => { if (!o) setInativarAlvo(null) }}
         onConfirm={inativarConfirmado}
       />
