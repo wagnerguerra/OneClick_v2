@@ -56,13 +56,21 @@ interface Parametro {
 // Main Component
 // ============================================================
 
-export function ServicosCard({ clienteId }: { clienteId: string }) {
+/**
+ * `registrarSalvar`: a ficha do cliente entrega aqui uma funcao que o botao
+ * "Salvar" do cabecalho passa a chamar. Sem ela (uso do card fora da ficha), o
+ * card mantem o proprio botao.
+ */
+export function ServicosCard({ clienteId, registrarSalvar }: {
+  clienteId: string
+  registrarSalvar?: (fn: (() => Promise<void>) | null) => void
+}) {
   // Contrai o card pelo cabecalho; abre expandido a cada visita.
   const [cardAberto, setCardAberto] = useState(true)
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
   const isMaster = (session?.user as any)?.role === 'master' || (session?.user as any)?.isMaster
-  const { canManageServices, canManageResponsible } = useClientesPerms()
+  const { canManageServices, canManageResponsible, canEditDetails } = useClientesPerms()
 
   const [rows, setRows] = useState<AreaRow[]>([])
   const [users, setUsers] = useState<UserOption[]>([])
@@ -91,7 +99,10 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
     setDirty(true)
   }
 
-  async function handleSave() {
+  // `silencioso` = chamada vinda do Salvar global. Nesse caso o card nao
+  // anuncia sucesso (quem anuncia e a ficha, uma vez so) e deixa o erro subir,
+  // para a ficha dizer exatamente o que ficou para tras.
+  async function handleSave(silencioso = false) {
     setSaving(true)
     try {
       await (trpc.cliente as any).servicosSalvar.mutate({
@@ -105,13 +116,25 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
           observacoes: r.observacoes,
         })),
       })
-      await alerts.success('Salvo', 'Servicos atualizados com sucesso.')
+      if (!silencioso) await alerts.success('Salvo', 'Servicos atualizados com sucesso.')
       setDirty(false)
       fetchData()
     } catch (e) {
+      if (silencioso) throw e
       alerts.error('Erro', (e as Error).message || 'Nao foi possivel salvar os servicos.')
     } finally { setSaving(false) }
   }
+
+  // Registra o salvamento na ficha a cada mudanca de `rows`/`dirty` — a funcao
+  // fecha sobre esses valores, e uma registrada uma vez so gravaria o estado
+  // antigo. Sem alteracao pendente nao chama o servidor a toa.
+  useEffect(() => {
+    if (!registrarSalvar) return
+    registrarSalvar(async () => { if (dirty) await handleSave(true) })
+    // Ao desmontar (troca de aba), some do alcance do botao global.
+    return () => registrarSalvar(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registrarSalvar, dirty, rows])
 
   // Responsável/Substituto têm permissão dedicada (manage_responsible) e endpoint
   // próprio (setAreaResponsavel). Quem só tem essa permissão (sem manage_services)
@@ -190,8 +213,12 @@ export function ServicosCard({ clienteId }: { clienteId: string }) {
             </div>
           </div>
 
-          {canManageServices && (
-            <Button variant="success" size="sm" onClick={handleSave} disabled={saving || !dirty} className="gap-1.5">
+          {/* O botao proprio sobrevive so onde o Salvar global nao existe ou nao
+              esta ao alcance: fora da ficha, ou para quem tem `manage_services`
+              sem `edit_details` — esse usuario nao ve o botao do cabecalho e
+              ficaria sem nenhuma forma de salvar. */}
+          {canManageServices && !(registrarSalvar && canEditDetails) && (
+            <Button type="button" variant="success" size="sm" onClick={() => handleSave()} disabled={saving || !dirty} className="gap-1.5">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
             </Button>

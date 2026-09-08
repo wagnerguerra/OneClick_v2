@@ -368,6 +368,16 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
     } catch { /* silencioso */ }
   }
 
+  // A aba Servicos guarda o proprio estado (areas, responsaveis, pesos). O card
+  // registra aqui como salva-lo, e o "Salvar" do cabecalho passa a gravar os
+  // dois — era estranho ter dois botoes salvando partes diferentes da mesma
+  // ficha. Fica nulo enquanto a aba nao esta aberta: o Radix desmonta o
+  // conteudo das abas inativas.
+  const salvarServicosRef = useRef<(() => Promise<void>) | null>(null)
+  const registrarSalvarServicos = useCallback((fn: (() => Promise<void>) | null) => {
+    salvarServicosRef.current = fn
+  }, [])
+
   async function onSubmit(data: CreateClienteInput) {
     setSaving(true)
     setError(null)
@@ -378,6 +388,14 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
         router.push(`/clientes/${created.id}`)
       } else {
         await trpc.cliente.update.mutate({ id: clienteId!, data })
+        // Erro nos servicos nao pode ficar mudo: o cadastro ja foi gravado e so
+        // eles ficariam para tras — anunciar "salvo com sucesso" seria mentira.
+        try {
+          await salvarServicosRef.current?.()
+        } catch (e) {
+          await alerts.error('Servicos nao salvos', (e as Error).message || 'O cadastro foi salvo, mas os servicos contratados nao.')
+          return
+        }
         await alerts.success('Cliente atualizado', 'Os dados foram salvos com sucesso.')
       }
     } catch {
@@ -869,7 +887,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
               </TabsContent>
               <TabsContent value="servicos" className="mt-0">
                 {isEdit && clienteId ? (
-                  <ServicosCard clienteId={clienteId} />
+                  <ServicosCard clienteId={clienteId} registrarSalvar={registrarSalvarServicos} />
                 ) : (
                   <PlaceholderTab icon={Briefcase} title="Serviços" description="Salve o cliente primeiro para gerenciar serviços contratados." />
                 )}
