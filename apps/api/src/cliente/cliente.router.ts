@@ -108,6 +108,28 @@ export function createClienteRouter(
         input.id, input.dataSaida, input.motivo, ctx.userId, ctx.isMaster, ctx.empresaId, input.programadaPara,
       )),
 
+    // Pedido de encerramento — o estado entre ATIVO e a inativação. Exige a
+    // mesma sub-permissão da inativação: quem pode encerrar pode registrar que
+    // pediram para encerrar.
+    solicitarEncerramento: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({
+        id: z.string(),
+        canal: z.string().optional().nullable(),
+        motivo: z.string().trim().min(1, 'Informe o motivo do pedido de encerramento.'),
+        /** Data pretendida pelo cliente, quando informada. Não agenda nada. */
+        previstoPara: z.string().optional().nullable(),
+      }))
+      .mutation(({ input, ctx }) => clienteService.solicitarEncerramento(
+        input.id, { canal: input.canal, motivo: input.motivo, previstoPara: input.previstoPara },
+        ctx.userId, ctx.isMaster, ctx.empresaId,
+      )),
+
+    cancelarSolicitacaoEncerramento: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+      .input(z.object({ id: z.string(), motivo: z.string().optional() }))
+      .mutation(({ input, ctx }) => clienteService.cancelarSolicitacaoEncerramento(
+        input.id, input.motivo, ctx.userId, ctx.isMaster, ctx.empresaId,
+      )),
+
     cancelarInativacaoProgramada: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
       .input(z.object({ id: z.string(), motivo: z.string().optional() }))
       .mutation(({ input, ctx }) => clienteService.cancelarInativacaoProgramada(

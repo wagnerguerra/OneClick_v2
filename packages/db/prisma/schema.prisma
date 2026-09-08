@@ -177,7 +177,7 @@ model User {
   /// Override manual do status do chat. Valores: 'online' | 'ausente' | 'dnd'
   /// (não perturbar) | 'invisible' (parece offline pros outros). null = automático
   /// derivado do lastActivityAt.
-  chatStatus       String?   @map("chat_status")
+  chatStatus String? @map("chat_status")
 
   // Documentos
   cpf            String?
@@ -231,8 +231,8 @@ model User {
   salario Decimal? @db.Decimal(10, 2)
 
   // Contrato / RH
-  tipoContrato  TipoContrato @default(CLT) @map("tipo_contrato")
-  dataAdmissao  DateTime?    @map("data_admissao")
+  tipoContrato   TipoContrato @default(CLT) @map("tipo_contrato")
+  dataAdmissao   DateTime?    @map("data_admissao")
   /**
    * Matrícula do colaborador na folha de pagamento (o "Código" da tela do
    * sistema de folha). Existe para a próxima conferência com a folha casar por
@@ -240,12 +240,12 @@ model User {
    * folha o completo ("ANDREIA PEREIRA SALLES"), e essa distância já produziu
    * casamento errado — inclusive com um homônimo inativo do mesmo colaborador.
    */
-  matriculaFolha String?     @map("matricula_folha")
-  dataDemissao  DateTime?    @map("data_demissao")
-  cargaHoraria  Int?         @default(44) @map("carga_horaria")
-  idOneClick    String?      @map("id_oneclick")
-  incluirFerias Boolean      @default(true) @map("incluir_ferias")
-  observacoes   String?      @db.Text
+  matriculaFolha String?      @map("matricula_folha")
+  dataDemissao   DateTime?    @map("data_demissao")
+  cargaHoraria   Int?         @default(44) @map("carga_horaria")
+  idOneClick     String?      @map("id_oneclick")
+  incluirFerias  Boolean      @default(true) @map("incluir_ferias")
+  observacoes    String?      @db.Text
 
   // MFA / 2FA (Better Auth two-factor plugin)
   twoFactorEnabled Boolean @default(false) @map("two_factor_enabled")
@@ -253,16 +253,16 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant                 Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  empresa                Empresa?                @relation(fields: [empresaId], references: [id], onDelete: SetNull)
-  area                   Area?                   @relation("UserArea", fields: [areaId], references: [id], onDelete: SetNull)
-  relatoriosDiarios      RelatorioDiario[]       @relation("RelatorioAutor")
-  manifestacoes          Manifestacao[]          @relation("ManifestacaoAutor")
-  reunioes               Reuniao[]               @relation("ReuniaoAutor")
-  reunioesParticipando   ReuniaoParticipante[]   @relation("ReuniaoParticipanteUsuario")
-  reunioesAcoes          ReuniaoAcao[]           @relation("ReuniaoAcaoResponsavel")
-  acessoriasColaborador  AcessoriasColaborador[] @relation("AcessoriasColaboradorUser")
-  cargo                  Cargo?                  @relation(fields: [cargoId], references: [id], onDelete: SetNull)
+  tenant                 Tenant?                       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  empresa                Empresa?                      @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  area                   Area?                         @relation("UserArea", fields: [areaId], references: [id], onDelete: SetNull)
+  relatoriosDiarios      RelatorioDiario[]             @relation("RelatorioAutor")
+  manifestacoes          Manifestacao[]                @relation("ManifestacaoAutor")
+  reunioes               Reuniao[]                     @relation("ReuniaoAutor")
+  reunioesParticipando   ReuniaoParticipante[]         @relation("ReuniaoParticipanteUsuario")
+  reunioesAcoes          ReuniaoAcao[]                 @relation("ReuniaoAcaoResponsavel")
+  acessoriasColaborador  AcessoriasColaborador[]       @relation("AcessoriasColaboradorUser")
+  cargo                  Cargo?                        @relation(fields: [cargoId], references: [id], onDelete: SetNull)
   sessions               Session[]
   accounts               Account[]
   twoFactor              TwoFactor[]
@@ -279,39 +279,39 @@ model User {
   socioArquivos          SocioArquivo[]
   socioMensagens         SocioMensagem[]
   situacoesFiscais       SituacaoFiscal[]
-  caixaPostalItems       CaixaPostalItem[]       @relation("CaixaPostalLeitora")
-  caixaPostalResponsavel CaixaPostalItem[]       @relation("CaixaPostalResponsavel")
+  caixaPostalItems       CaixaPostalItem[]             @relation("CaixaPostalLeitora")
+  caixaPostalResponsavel CaixaPostalItem[]             @relation("CaixaPostalResponsavel")
   caixaPostalRegras      CaixaPostalRegra[]
   caixaPostalEventLogs   CaixaPostalEventLog[]
-  responsavelAreas       ClienteAreaContratada[] @relation("AreaResponsavel")
-  substitutoAreas        ClienteAreaContratada[] @relation("AreaSubstituto")
-  eventoCriados          AgendaEvento[]          @relation("EventoCriador")
-  eventoParticipacoes    AgendaParticipante[]    @relation("EventoParticipante")
-  tarefasCriadas         AgendaTarefa[]          @relation("TarefaCriador")
-  tarefaParticipacoes    AgendaTarefaParticipante[] @relation("TarefaParticipante")
-  helpdeskSolicitados    HelpdeskTicket[]        @relation("HelpdeskTicketSolicitante")
-  helpdeskResponsavel    HelpdeskTicket[]        @relation("HelpdeskTicketResponsavel")
+  responsavelAreas       ClienteAreaContratada[]       @relation("AreaResponsavel")
+  substitutoAreas        ClienteAreaContratada[]       @relation("AreaSubstituto")
+  eventoCriados          AgendaEvento[]                @relation("EventoCriador")
+  eventoParticipacoes    AgendaParticipante[]          @relation("EventoParticipante")
+  tarefasCriadas         AgendaTarefa[]                @relation("TarefaCriador")
+  tarefaParticipacoes    AgendaTarefaParticipante[]    @relation("TarefaParticipante")
+  helpdeskSolicitados    HelpdeskTicket[]              @relation("HelpdeskTicketSolicitante")
+  helpdeskResponsavel    HelpdeskTicket[]              @relation("HelpdeskTicketResponsavel")
   helpdeskMensagens      HelpdeskMensagem[]
   helpdeskAnexos         HelpdeskAnexo[]
   helpdeskWatchers       HelpdeskWatcher[]
   helpdeskEventos        HelpdeskEvento[]
   // Chat interno
-  chatParticipacoes      ChatParticipante[]      @relation("ChatParticipanteUser")
+  chatParticipacoes      ChatParticipante[]            @relation("ChatParticipanteUser")
   // Gestão de Ativos
-  ativosResponsavel      Ativo[]                 @relation("AtivoResponsavel")
+  ativosResponsavel      Ativo[]                       @relation("AtivoResponsavel")
   ativoMovimentacoes     AtivoMovimentacao[]
-  ativoManutencoes       AtivoManutencao[]       @relation("AtivoManutencaoResponsavel")
+  ativoManutencoes       AtivoManutencao[]             @relation("AtivoManutencaoResponsavel")
   // Client error logs
-  clientErrorsReportados ClientErrorLog[]        @relation("ClientErrorUser")
-  clientErrorsResolvidos ClientErrorLog[]        @relation("ClientErrorResolver")
+  clientErrorsReportados ClientErrorLog[]              @relation("ClientErrorUser")
+  clientErrorsResolvidos ClientErrorLog[]              @relation("ClientErrorResolver")
   // DANFE
-  danfesUploaded         Danfe[]                 @relation("DanfeUploader")
-  notasServicoUploaded   NotaServicoImportada[]  @relation("NfseUploader")
-  danfeLotes             DanfeLote[]             @relation("DanfeLoteUploader")
+  danfesUploaded         Danfe[]                       @relation("DanfeUploader")
+  notasServicoUploaded   NotaServicoImportada[]        @relation("NfseUploader")
+  danfeLotes             DanfeLote[]                   @relation("DanfeLoteUploader")
+  reformaSimulacoes      ReformaTributariaSimulacao[]
+  projetoParticipacoes   ProjetoExecucaoParticipante[]
 
   @@map("users")
-  reformaSimulacoes ReformaTributariaSimulacao[]
-  projetoParticipacoes ProjetoExecucaoParticipante[]
 }
 
 model Session {
@@ -428,24 +428,24 @@ model Area {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  empresa            Empresa?                @relation(fields: [empresaId], references: [id], onDelete: SetNull)
-  parent             Area?                   @relation("AreaHierarchy", fields: [parentId], references: [id])
-  children           Area[]                  @relation("AreaHierarchy")
-  leader             User?                   @relation(fields: [leaderId], references: [id])
-  users              User[]                  @relation("UserArea")
+  empresa            Empresa?                 @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  parent             Area?                    @relation("AreaHierarchy", fields: [parentId], references: [id])
+  children           Area[]                   @relation("AreaHierarchy")
+  leader             User?                    @relation(fields: [leaderId], references: [id])
+  users              User[]                   @relation("UserArea")
   cargos             Cargo[]
   clienteContatos    ClienteContato[]
   clienteAreas       ClienteAreaContratada[]
   helpdeskCategorias HelpdeskCategoria[]
   helpdeskTickets    HelpdeskTicket[]
-  ativos             Ativo[]                 @relation("AtivoArea")
+  ativos             Ativo[]                  @relation("AtivoArea")
   acessoriasDptos    AcessoriasDepartamento[] @relation("AcessoriasDepartamentoArea")
-  servicosArea       Servico[]               @relation("ServicoArea")
+  servicosArea       Servico[]                @relation("ServicoArea")
+  manifestacoes      Manifestacao[]
+  reunioes           Reuniao[]
+  melhorias          Melhoria[]
 
   @@map("areas")
-  manifestacoes Manifestacao[]
-  reunioes      Reuniao[]
-  melhorias     Melhoria[]
 }
 
 // ============================================================
@@ -723,9 +723,9 @@ model Cliente {
   coverImage    String?       @map("cover_image")
 
   // Dossiê (enriquecimento por CNPJ) — satélites aditivas, ver o fim do schema.
-  dossieColetas   ClienteDossieColeta[]
-  dossieFatos     ClienteDossieFato[]
-  dossieSugestoes ClienteDossieSugestao[]
+  dossieColetas    ClienteDossieColeta[]
+  dossieFatos      ClienteDossieFato[]
+  dossieSugestoes  ClienteDossieSugestao[]
   projetoExecucoes ProjetoExecucao[]
 
   // Integração
@@ -745,20 +745,20 @@ model Cliente {
   alertaProcuracaoEm DateTime? @map("alerta_procuracao_em")
 
   // Comercial
-  situacao    ClienteSituacao @default(MENSAL)
-  status      ClienteStatus   @default(ATIVO)
-  grupo       String?
-  categoria   String?         @default("NAO_INFORMADO")
-  origem      String?
+  situacao      ClienteSituacao @default(MENSAL)
+  status        ClienteStatus   @default(ATIVO)
+  grupo         String?
+  categoria     String?         @default("NAO_INFORMADO")
+  origem        String?
   // Capital social (vem do QSA/Receita ou da importação legada). Lido/gravado por
   // socio.* e cnpj.service; precisa existir fisicamente (era usado só em SQL cru).
-  capitalSocial Decimal?      @map("capital_social") @db.Decimal(14, 2)
+  capitalSocial Decimal?        @map("capital_social") @db.Decimal(14, 2)
   /// Abertura da empresa na Receita — não confundir com `dataEntrada`, que é
   /// quando ela virou cliente da casa. Vem do dossiê; fica ao lado da entrada
   /// na aba Comercial justamente para a diferença ficar à vista.
-  dataAbertura DateTime?      @map("data_abertura")
-  dataEntrada DateTime?       @map("data_entrada")
-  dataSaida   DateTime?       @map("data_saida")
+  dataAbertura  DateTime?       @map("data_abertura")
+  dataEntrada   DateTime?       @map("data_entrada")
+  dataSaida     DateTime?       @map("data_saida")
 
   /// Inativação AGENDADA para uma data futura (offboarding).
   ///
@@ -769,11 +769,28 @@ model Cliente {
   ///
   /// Nulo = sem agendamento. Preenchido = o job diário inativa quando a data
   /// chega, e avisa as áreas que não registraram o encerramento.
+  // ── Pedido de encerramento ──────────────────────────────────────────────
+  // O estado que faltava entre ATIVO e a inativação: o cliente avisou que quer
+  // sair, mas ainda não há decisão nem, muitas vezes, data. Sem um lugar para
+  // registrar o PEDIDO, ou se inativa cedo demais (e a área para antes da hora)
+  // ou o registro só nasce depois que tudo já aconteceu.
+  //
+  // Preenchido = cliente em "encerramento solicitado". Continua ATIVO: ninguém
+  // para de trabalhar por causa do pedido, mas a cadeia de saída já começou.
+  encerramentoSolicitadoEm  DateTime? @map("encerramento_solicitado_em")
+  encerramentoSolicitadoPor String?   @map("encerramento_solicitado_por")
+  /// Por onde o pedido chegou: TELEFONE | EMAIL | WHATSAPP | PRESENCIAL | OUTRO.
+  encerramentoCanal         String?   @map("encerramento_canal")
+  encerramentoMotivo        String?   @map("encerramento_motivo") @db.Text
+  /// Data pretendida pelo cliente, quando ele informa uma. Não é agendamento —
+  /// vira `inativacaoProgramadaPara` só quando a saída for de fato decidida.
+  encerramentoPrevistoPara  DateTime? @map("encerramento_previsto_para")
+
   inativacaoProgramadaPara   DateTime? @map("inativacao_programada_para")
   inativacaoProgramadaMotivo String?   @map("inativacao_programada_motivo")
   inativacaoProgramadaPor    String?   @map("inativacao_programada_por")
   inativacaoProgramadaEm     DateTime? @map("inativacao_programada_em")
-  observacoes String?         @db.Text
+  observacoes                String?   @db.Text
 
   // Fiscal
   tributacao         TaxRegime?
@@ -795,17 +812,17 @@ model Cliente {
 
   /// TRIMESTRAL | ANUAL | ESTIMATIVA. Só existe no Lucro Real; a tela esconde o
   /// campo nos demais regimes para ninguém preencher o que não se aplica.
-  apuracaoLucroReal  String?         @map("apuracao_lucro_real")
+  apuracaoLucroReal  String?  @map("apuracao_lucro_real")
   /// Simples Nacional: sujeita ao Fator R (decide entre o Anexo III e o V).
-  fatorR             Boolean?        @map("fator_r")
+  fatorR             Boolean? @map("fator_r")
   /// Destaca o imposto fora da nota — muda a conferência e a apuração.
-  apuraIssPorFora    Boolean?        @map("apura_iss_por_fora")
-  apuraIcmsPorFora   Boolean?        @map("apura_icms_por_fora")
-  possuiProLabore    Boolean?        @map("possui_pro_labore")
-  possuiFuncionarios Boolean?        @map("possui_funcionarios")
+  apuraIssPorFora    Boolean? @map("apura_iss_por_fora")
+  apuraIcmsPorFora   Boolean? @map("apura_icms_por_fora")
+  possuiProLabore    Boolean? @map("possui_pro_labore")
+  possuiFuncionarios Boolean? @map("possui_funcionarios")
   /// Empresa sem movimento no período — o ContratoTemplate já sabia perguntar
   /// isso (`comMovimento`), mas o cliente não tinha onde responder.
-  semMovimento       Boolean?        @map("sem_movimento")
+  semMovimento       Boolean? @map("sem_movimento")
 
   /// Natureza jurídica da Receita ("2062 - Sociedade Empresária Limitada").
   /// Mora na Legalização, junto de NIRE e CNAE, que é onde se consulta.
@@ -889,57 +906,57 @@ model Cliente {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
 
-  empresa              Empresa?                @relation(fields: [empresaId], references: [id], onDelete: SetNull)
-  socios               Socio[]
-  situacoesFiscais     SituacaoFiscal[]
-  events               ClienteEvent[]
-  arquivos             ClienteArquivo[]
-  contatos             ClienteContato[]
-  inscricoes           ClienteInscricao[]
-  contratoParams       ClienteContratoParam[]
-  erpSnapshots         ClienteErpSnapshot[]
-  custeioMensal        ClienteCusteioMensal[]
-  biCategorias         ClienteBiCategoria[]
-  biLinhas             ClienteBiLinha[]
-  biLinks              ClienteBiLink[]
-  biCacheFaturamento   BiCacheFaturamento[]
-  biCacheBalancete     BiCacheBalancete[]
-  biKpiContasIgnoradas BiKpiContaIgnorada[]
-  biKpiRegrasCalculo   BiKpiRegraCalculo[]
-  historicos           ClienteHistorico[]
-  servicosContratados  ClienteAreaContratada[]
-  folhaFiliais         FolhaFilial[]
-  folhaBiSyncJobs      FolhaBiSyncJob[]
-  reformaSimulacoes    ReformaTributariaSimulacao[]
+  empresa                 Empresa?                     @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  socios                  Socio[]
+  situacoesFiscais        SituacaoFiscal[]
+  events                  ClienteEvent[]
+  arquivos                ClienteArquivo[]
+  contatos                ClienteContato[]
+  inscricoes              ClienteInscricao[]
+  contratoParams          ClienteContratoParam[]
+  erpSnapshots            ClienteErpSnapshot[]
+  custeioMensal           ClienteCusteioMensal[]
+  biCategorias            ClienteBiCategoria[]
+  biLinhas                ClienteBiLinha[]
+  biLinks                 ClienteBiLink[]
+  biCacheFaturamento      BiCacheFaturamento[]
+  biCacheBalancete        BiCacheBalancete[]
+  biKpiContasIgnoradas    BiKpiContaIgnorada[]
+  biKpiRegrasCalculo      BiKpiRegraCalculo[]
+  historicos              ClienteHistorico[]
+  servicosContratados     ClienteAreaContratada[]
+  folhaFiliais            FolhaFilial[]
+  folhaBiSyncJobs         FolhaBiSyncJob[]
+  reformaSimulacoes       ReformaTributariaSimulacao[]
   reformaCreditoOverrides ReformaCreditoOverride[]
-  folhaEventoContas    FolhaEventoConta[]
-  folhaImportacoes     FolhaImportacao[]
-  contratos            Contrato[]
-  servicoExecucoes     ServicoExecucao[]       @relation("ClienteServicoExecucoes")
-  acessoriasEntregas   AcessoriasEntrega[]
-  acessoriasRegras     AcessoriasRegraObrigacao[]
-  certificadosDigitais CertificadoDigital[]
-  processos            Processo[]              @relation("ClienteProcessos")
-  obrigacoes           ClienteObrigacao[]
-  ativos               Ativo[]                 @relation("AtivoCliente")
-  driveSyncLogs        DriveSyncLog[]
-  driveSyncedFiles     DriveSyncedFile[]
-  danfes               Danfe[]                 @relation("ClienteDanfes")
-  notasServico         NotaServicoImportada[]  @relation("ClienteNotasServico")
-  atividades           ClienteAtividade[]
-  beneficios           ClienteBeneficio[]
-  beneficiosFiscais    BeneficioFiscalCliente[]
-  acessos              ClienteAcesso[]
-  vencimentosCliente   ClienteVencimento[]
-  andamentosCliente    ClienteAndamento[]
-  cnaes                ClienteCnae[]
-  protocolos           ClienteProtocolo[]
-  ocorrencias          ClienteOcorrencia[]
-  dteMensagens         ClienteDteMensagem[]
+  folhaEventoContas       FolhaEventoConta[]
+  folhaImportacoes        FolhaImportacao[]
+  contratos               Contrato[]
+  servicoExecucoes        ServicoExecucao[]            @relation("ClienteServicoExecucoes")
+  acessoriasEntregas      AcessoriasEntrega[]
+  acessoriasRegras        AcessoriasRegraObrigacao[]
+  certificadosDigitais    CertificadoDigital[]
+  processos               Processo[]                   @relation("ClienteProcessos")
+  obrigacoes              ClienteObrigacao[]
+  ativos                  Ativo[]                      @relation("AtivoCliente")
+  driveSyncLogs           DriveSyncLog[]
+  driveSyncedFiles        DriveSyncedFile[]
+  danfes                  Danfe[]                      @relation("ClienteDanfes")
+  notasServico            NotaServicoImportada[]       @relation("ClienteNotasServico")
+  atividades              ClienteAtividade[]
+  beneficios              ClienteBeneficio[]
+  beneficiosFiscais       BeneficioFiscalCliente[]
+  acessos                 ClienteAcesso[]
+  vencimentosCliente      ClienteVencimento[]
+  andamentosCliente       ClienteAndamento[]
+  cnaes                   ClienteCnae[]
+  protocolos              ClienteProtocolo[]
+  ocorrencias             ClienteOcorrencia[]
+  dteMensagens            ClienteDteMensagem[]
+  manifestacoes           Manifestacao[]
+  reunioes                Reuniao[]
 
   @@map("clientes")
-  manifestacoes Manifestacao[]
-  reunioes      Reuniao[]
 }
 
 // Drive Sync — rastreia cada arquivo já processado (dedup por file_id + sha256)
@@ -1055,7 +1072,7 @@ model ClienteAcesso {
   observacoes String?  @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_acessos")
@@ -1073,7 +1090,7 @@ model ClienteVencimento {
   concluido      Boolean   @default(false)
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cliente        Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_vencimentos")
@@ -1091,21 +1108,21 @@ model ClienteAndamento {
   usuarioId     String?   @map("usuario_id")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cliente       Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_andamentos")
 }
 
 model ClienteCnae {
-  id         String   @id @default(cuid())
-  clienteId  String   @map("cliente_id")
-  codigo     String
-  descricao  String?
-  principal  Boolean  @default(false)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id        String   @id @default(cuid())
+  clienteId String   @map("cliente_id")
+  codigo    String
+  descricao String?
+  principal Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  cliente   Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_cnaes")
@@ -1185,7 +1202,7 @@ model ClienteOcorrencia {
   usuarioId     String?   @map("usuario_id")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cliente       Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_ocorrencias")
@@ -1199,32 +1216,32 @@ model ClienteDteMensagem {
   dataMensagem DateTime? @map("data_mensagem")
   observacao   String?   @db.Text
   createdAt    DateTime  @default(now()) @map("created_at")
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cliente      Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([clienteId])
   @@map("cliente_dte_mensagens")
 }
 
 model ClienteParticularidade {
-  id                      String   @id @default(cuid())
-  clienteAreaContratadaId String   @unique @map("cliente_area_contratada_id")
-  texto                   String?  @db.Text
-  updatedByUserId         String?  @map("updated_by_user_id")
-  createdAt               DateTime @default(now()) @map("created_at")
-  updatedAt               DateTime @updatedAt @map("updated_at")
-  clienteAreaContratada ClienteAreaContratada @relation(fields: [clienteAreaContratadaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cliente_particularidades_cac_id_fkey")
+  id                      String                @id @default(cuid())
+  clienteAreaContratadaId String                @unique @map("cliente_area_contratada_id")
+  texto                   String?               @db.Text
+  updatedByUserId         String?               @map("updated_by_user_id")
+  createdAt               DateTime              @default(now()) @map("created_at")
+  updatedAt               DateTime              @updatedAt @map("updated_at")
+  clienteAreaContratada   ClienteAreaContratada @relation(fields: [clienteAreaContratadaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cliente_particularidades_cac_id_fkey")
 
   @@map("cliente_particularidades")
 }
 
 model ClienteParticularidadeHistorico {
-  id                      String   @id @default(cuid())
-  clienteAreaContratadaId String   @map("cliente_area_contratada_id")
-  textoAnterior           String?  @map("texto_anterior") @db.Text
-  textoNovo               String?  @map("texto_novo") @db.Text
-  usuarioId               String?  @map("usuario_id")
-  createdAt               DateTime @default(now()) @map("created_at")
-  clienteAreaContratada ClienteAreaContratada @relation(fields: [clienteAreaContratadaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cliente_part_hist_cac_id_fkey")
+  id                      String                @id @default(cuid())
+  clienteAreaContratadaId String                @map("cliente_area_contratada_id")
+  textoAnterior           String?               @map("texto_anterior") @db.Text
+  textoNovo               String?               @map("texto_novo") @db.Text
+  usuarioId               String?               @map("usuario_id")
+  createdAt               DateTime              @default(now()) @map("created_at")
+  clienteAreaContratada   ClienteAreaContratada @relation(fields: [clienteAreaContratadaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cliente_part_hist_cac_id_fkey")
 
   @@index([clienteAreaContratadaId])
   @@map("cliente_particularidades_historico")
@@ -1324,28 +1341,28 @@ model ClienteInscricao {
 
 // Parâmetros do Contrato do Cliente
 model ClienteContratoParam {
-  id           String   @id @default(cuid())
-  clienteId    String   @map("cliente_id")
-  empresaId    String?  @map("empresa_id")
-  honorario    Float    @default(0)
-  lancamentos  Int      @default(0)
-  faturamento  Float    @default(0)
-  nfEntrada    Int      @default(0) @map("nf_entrada")
-  nfSaida      Int      @default(0) @map("nf_saida")
-  nfPrestado   Int      @default(0) @map("nf_prestado")
-  nfTomado     Int      @default(0) @map("nf_tomado")
-  funcionarios Int      @default(0)
+  id                  String    @id @default(cuid())
+  clienteId           String    @map("cliente_id")
+  empresaId           String?   @map("empresa_id")
+  honorario           Float     @default(0)
+  lancamentos         Int       @default(0)
+  faturamento         Float     @default(0)
+  nfEntrada           Int       @default(0) @map("nf_entrada")
+  nfSaida             Int       @default(0) @map("nf_saida")
+  nfPrestado          Int       @default(0) @map("nf_prestado")
+  nfTomado            Int       @default(0) @map("nf_tomado")
+  funcionarios        Int       @default(0)
   // Metadata do contrato (Fase 2 — vínculo, vigência, renovação, farol).
-  numero              String?   // número/identificação do contrato
-  tipo                String?   // tipo/modalidade do contrato
+  numero              String? // número/identificação do contrato
+  tipo                String? // tipo/modalidade do contrato
   dataInicio          DateTime? @map("data_inicio")
   dataFim             DateTime? @map("data_fim")
   permanente          Boolean   @default(false) // sem prazo → não alerta renovação
   diasAlertaRenovacao Int?      @map("dias_alerta_renovacao") // janela de alerta (default 30)
   responsavelId       String?   @map("responsavel_id")
   gestaoIgnorar       Boolean   @default(false) @map("gestao_ignorar") // fora do painel de gestão
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
 
@@ -1697,19 +1714,19 @@ model ReformaTributariaPremissa {
 
 /// Historico de simulacoes e pareceres do comparativo IBS/CBS.
 model ReformaTributariaSimulacao {
-  id              String   @id
-  empresaId       String?  @map("empresa_id")
-  clienteId       String   @map("cliente_id")
-  userId          String?  @map("user_id")
-  premissas       Json
-  diagnostico     Json
-  cenarios        Json
-  recomendacao    String
-  resumo          Json
-  parecer         String
-  qualidadeScore  Int      @default(0) @map("qualidade_score")
-  faturamento12m  Decimal  @default(0) @map("faturamento_12m") @db.Decimal(14, 2)
-  createdAt       DateTime @default(now()) @map("created_at")
+  id             String   @id
+  empresaId      String?  @map("empresa_id")
+  clienteId      String   @map("cliente_id")
+  userId         String?  @map("user_id")
+  premissas      Json
+  diagnostico    Json
+  cenarios       Json
+  recomendacao   String
+  resumo         Json
+  parecer        String
+  qualidadeScore Int      @default(0) @map("qualidade_score")
+  faturamento12m Decimal  @default(0) @map("faturamento_12m") @db.Decimal(14, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
 
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
@@ -1825,12 +1842,12 @@ model ClienteAreaContratada {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  cliente     Cliente                @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  area        Area                   @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  responsavel User?                  @relation("AreaResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
-  substituto  User?                  @relation("AreaSubstituto", fields: [substitutoId], references: [id], onDelete: SetNull)
-  parametros  ClienteAreaParametro[]
-  particularidade        ClienteParticularidade?
+  cliente                  Cliente                           @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  area                     Area                              @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  responsavel              User?                             @relation("AreaResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  substituto               User?                             @relation("AreaSubstituto", fields: [substitutoId], references: [id], onDelete: SetNull)
+  parametros               ClienteAreaParametro[]
+  particularidade          ClienteParticularidade?
   particularidadeHistorico ClienteParticularidadeHistorico[]
 
   @@unique([clienteId, areaId])
@@ -1962,7 +1979,7 @@ model Fornecedor {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  empresa          Empresa?          @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  empresa          Empresa?                  @relation(fields: [empresaId], references: [id], onDelete: SetNull)
   events           FornecedorEvent[]
   ativos           Ativo[]
   ativoManutencoes AtivoManutencao[]
@@ -2157,9 +2174,9 @@ model Compra {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  fornecedor Fornecedor                @relation(fields: [fornecedorId], references: [id])
+  fornecedor Fornecedor @relation(fields: [fornecedorId], references: [id])
   /// Cotação que originou este pedido (quando nasceu de uma apuração).
-  cotacaoId String? @map("cotacao_id")
+  cotacaoId  String?    @map("cotacao_id")
 
   empresa    Empresa?                  @relation(fields: [empresaId], references: [id], onDelete: SetNull)
   cotacao    CompraCotacao?            @relation(fields: [cotacaoId], references: [id], onDelete: SetNull)
@@ -2521,10 +2538,10 @@ model SocioPerfilSocial {
   socioId String @map("socio_id")
 
   /// INSTAGRAM | FACEBOOK | LINKEDIN | X | YOUTUBE | TIKTOK | OUTRO
-  rede       String
-  url        String  @db.Text
+  rede          String
+  url           String  @db.Text
   identificador String? @map("identificador")
-  observacao String? @db.Text
+  observacao    String? @db.Text
 
   /// manual (alguém colou o link) | sugerido (veio da busca)
   origem     String  @default("manual")
@@ -2673,7 +2690,7 @@ model WhatsappNumero {
   phoneNumberId String   @map("phone_number_id") // Meta Cloud phone_number_id
   wabaId        String?  @map("waba_id")
   displayName   String?  @map("display_name")
-  numero        String?  // E.164 (exibição)
+  numero        String? // E.164 (exibição)
   ativo         Boolean  @default(true)
   empresaId     String?  @map("empresa_id")
   createdAt     DateTime @default(now()) @map("created_at")
@@ -2684,18 +2701,18 @@ model WhatsappNumero {
 }
 
 model WhatsappSetor {
-  id              String   @id @default(cuid())
-  nome            String
-  cor             String   @default("#22c55e")
+  id             String   @id @default(cuid())
+  nome           String
+  cor            String   @default("#22c55e")
   // JSON: horário de atendimento por dia da semana
-  horario         Json?
-  msgForaHorario  String?  @map("msg_fora_horario") @db.Text
-  botAtivo        Boolean  @default(true) @map("bot_ativo")
-  ativo           Boolean  @default(true)
-  ordem           Int      @default(0)
-  empresaId       String?  @map("empresa_id")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  horario        Json?
+  msgForaHorario String?  @map("msg_fora_horario") @db.Text
+  botAtivo       Boolean  @default(true) @map("bot_ativo")
+  ativo          Boolean  @default(true)
+  ordem          Int      @default(0)
+  empresaId      String?  @map("empresa_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@index([empresaId, ativo])
   @@map("whatsapp_setores")
@@ -2715,7 +2732,7 @@ model WhatsappSetorAgente {
 model WhatsappContato {
   id        String   @id @default(cuid())
   waId      String   @map("wa_id") // wa_id da Meta (número sem +)
-  telefone  String?  // E.164
+  telefone  String? // E.164
   nome      String?
   fotoUrl   String?  @map("foto_url")
   clienteId String?  @map("cliente_id") // vínculo opcional ao Cliente do CRM
@@ -3355,9 +3372,9 @@ enum AgendaRecorrencia {
 
 /// Comportamento ao detectar conflito de horário (participante ou sala).
 enum AgendaConflitoModo {
-  DESLIGADO  // não verifica
-  AVISAR     // mostra dialog mas deixa salvar
-  BLOQUEAR   // impede salvar
+  DESLIGADO // não verifica
+  AVISAR // mostra dialog mas deixa salvar
+  BLOQUEAR // impede salvar
 }
 
 /// Configuração singleton por tenant (1 linha apenas) — regras de conflito da agenda.
@@ -3375,16 +3392,16 @@ model AgendaConfig {
 /// Quando ativo, o scheduler envia diariamente um email pros usuarios listados em
 /// `destinatariosIds` no horário/dias configurados.
 model AgendaDisparoConfig {
-  id               String   @id @default(cuid())
-  empresaId        String?  @map("empresa_id")   // isolamento multi-tenant: destinatários só desta empresa
-  ativo            Boolean  @default(false)
-  horario          String   @default("07:00")             // HH:MM
-  diasSemana       Int[]    @default([1, 2, 3, 4, 5])    // 0=dom..6=sab — default seg-sex
-  enviarParaTodos  Boolean  @default(false) @map("enviar_para_todos")  // ignora destinatariosIds e manda pra todos os colaboradores ativos
-  destinatariosIds String[] @default([]) @map("destinatarios_ids")
-  ultimoDisparoEm  DateTime? @map("ultimo_disparo_em")    // pra evitar disparos duplicados no mesmo minuto
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id               String    @id @default(cuid())
+  empresaId        String?   @map("empresa_id") // isolamento multi-tenant: destinatários só desta empresa
+  ativo            Boolean   @default(false)
+  horario          String    @default("07:00") // HH:MM
+  diasSemana       Int[]     @default([1, 2, 3, 4, 5]) // 0=dom..6=sab — default seg-sex
+  enviarParaTodos  Boolean   @default(false) @map("enviar_para_todos") // ignora destinatariosIds e manda pra todos os colaboradores ativos
+  destinatariosIds String[]  @default([]) @map("destinatarios_ids")
+  ultimoDisparoEm  DateTime? @map("ultimo_disparo_em") // pra evitar disparos duplicados no mesmo minuto
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   @@map("agenda_disparo_config")
 }
@@ -3394,13 +3411,13 @@ model AgendaDisparoConfig {
 model AgendaDisparoLog {
   id             String   @id @default(cuid())
   disparadoEm    DateTime @default(now()) @map("disparado_em")
-  dataReferencia DateTime @map("data_referencia") @db.Date    // a data do "Agenda do Dia" disparada
-  modo           String                                       // 'auto' | 'teste' | 'reenvio'
+  dataReferencia DateTime @map("data_referencia") @db.Date // a data do "Agenda do Dia" disparada
+  modo           String // 'auto' | 'teste' | 'reenvio'
   enviados       Int      @default(0)
   falhas         Int      @default(0)
-  destinatarios  String[] @default([])                        // userIds que receberam OK
-  erros          Json?                                        // [{ userId, email, motivo }]
-  triggeredBy    String?  @map("triggered_by")                // userId quando manual
+  destinatarios  String[] @default([]) // userIds que receberam OK
+  erros          Json? // [{ userId, email, motivo }]
+  triggeredBy    String?  @map("triggered_by") // userId quando manual
   createdAt      DateTime @default(now()) @map("created_at")
 
   @@index([disparadoEm(sort: Desc)])
@@ -3410,27 +3427,27 @@ model AgendaDisparoLog {
 /// Modelo configurável do e-mail diário da agenda (roda em PARALELO ao HTML
 /// hardcoded; só é usado no disparo quando `ativo=true`). Singleton por empresa.
 model AgendaEmailTemplate {
-  id                     String   @id @default(cuid())
-  empresaId              String?  @map("empresa_id")
-  ativo                  Boolean  @default(false) // interruptor: usar este modelo no disparo
-  assunto                String   @default("Agenda do dia · {{dataDisplay}}")
-  accent                 String   @default("#38bdf8")
-  larguraMax             Int      @default(600) @map("largura_max") // largura máxima do corpo do e-mail (px)
-  logoUrl                String   @default("") @map("logo_url") // logomarca do topo (URL do /api/upload)
-  logoLargura            Int      @default(0) @map("logo_largura") // largura da logo em px; 0 = tamanho original
-  headerHtml             String   @default("") @map("header_html") @db.Text
-  introHtml              String   @default("") @map("intro_html") @db.Text
-  footerHtml             String   @default("") @map("footer_html") @db.Text
-  eventoLinhaHtml        String   @default("") @map("evento_linha_html") @db.Text
-  semEventosHtml         String   @default("") @map("sem_eventos_html") @db.Text
-  cardModo               String   @default("builder") @map("card_modo") // 'builder' | 'html'
-  cardElementos          String   @default("") @map("card_elementos") @db.Text // JSON [{key,visivel}] do builder
-  mostrarOutros          Boolean  @default(true) @map("mostrar_outros")
-  nomeGrupoOutros        String   @default("Outros") @map("nome_grupo_outros")
-  nomeGrupoParticulares  String   @default("Compromissos pessoais") @map("nome_grupo_particulares")
-  corParticulares        String   @default("#a855f7") @map("cor_particulares")
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
+  id                    String   @id @default(cuid())
+  empresaId             String?  @map("empresa_id")
+  ativo                 Boolean  @default(false) // interruptor: usar este modelo no disparo
+  assunto               String   @default("Agenda do dia · {{dataDisplay}}")
+  accent                String   @default("#38bdf8")
+  larguraMax            Int      @default(600) @map("largura_max") // largura máxima do corpo do e-mail (px)
+  logoUrl               String   @default("") @map("logo_url") // logomarca do topo (URL do /api/upload)
+  logoLargura           Int      @default(0) @map("logo_largura") // largura da logo em px; 0 = tamanho original
+  headerHtml            String   @default("") @map("header_html") @db.Text
+  introHtml             String   @default("") @map("intro_html") @db.Text
+  footerHtml            String   @default("") @map("footer_html") @db.Text
+  eventoLinhaHtml       String   @default("") @map("evento_linha_html") @db.Text
+  semEventosHtml        String   @default("") @map("sem_eventos_html") @db.Text
+  cardModo              String   @default("builder") @map("card_modo") // 'builder' | 'html'
+  cardElementos         String   @default("") @map("card_elementos") @db.Text // JSON [{key,visivel}] do builder
+  mostrarOutros         Boolean  @default(true) @map("mostrar_outros")
+  nomeGrupoOutros       String   @default("Outros") @map("nome_grupo_outros")
+  nomeGrupoParticulares String   @default("Compromissos pessoais") @map("nome_grupo_particulares")
+  corParticulares       String   @default("#a855f7") @map("cor_particulares")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
   grupos AgendaEmailGrupo[]
 
@@ -3440,14 +3457,14 @@ model AgendaEmailTemplate {
 /// Grupos configuráveis do e-mail da agenda — eventos caem aqui por tipo (tiposIds)
 /// ou por serem particulares (incluiParticulares). O que sobra vai pro "Outros".
 model AgendaEmailGrupo {
-  id                String   @id @default(cuid())
-  templateId        String   @map("template_id")
-  nome              String
-  cor               String   @default("#38bdf8")
-  icone             String   @default("")
-  ordem             Int      @default(0)
-  incluiParticulares Boolean @default(false) @map("inclui_particulares")
-  tiposIds          String[] @default([]) @map("tipos_ids")
+  id                 String   @id @default(cuid())
+  templateId         String   @map("template_id")
+  nome               String
+  cor                String   @default("#38bdf8")
+  icone              String   @default("")
+  ordem              Int      @default(0)
+  incluiParticulares Boolean  @default(false) @map("inclui_particulares")
+  tiposIds           String[] @default([]) @map("tipos_ids")
 
   template AgendaEmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
@@ -3476,30 +3493,30 @@ model AgendaSala {
 }
 
 model AgendaTipo {
-  id             String   @id @default(cuid())
+  id                  String   @id @default(cuid())
   // Isolamento multi-tenant: NULL = tipo global (default compartilhado); set = do tenant. F-013.
-  empresaId      String?  @map("empresa_id")
-  nome           String
-  cor            String   @default("#3b82f6")
-  corBorda       String   @default("#2563eb") @map("cor_borda")
-  corTexto       String   @default("#ffffff") @map("cor_texto")
-  bloqueiaAgenda Boolean  @default(false) @map("bloqueia_agenda")
+  empresaId           String?  @map("empresa_id")
+  nome                String
+  cor                 String   @default("#3b82f6")
+  corBorda            String   @default("#2563eb") @map("cor_borda")
+  corTexto            String   @default("#ffffff") @map("cor_texto")
+  bloqueiaAgenda      Boolean  @default(false) @map("bloqueia_agenda")
   // Regras de campos extras exibidos no form do evento, por tipo.
-  permiteModalidade   Boolean @default(false) @map("permite_modalidade")
-  permiteSala         Boolean @default(false) @map("permite_sala")
-  permiteGaragem      Boolean @default(false) @map("permite_garagem")
-  permiteEquipamentos Boolean @default(false) @map("permite_equipamentos")
+  permiteModalidade   Boolean  @default(false) @map("permite_modalidade")
+  permiteSala         Boolean  @default(false) @map("permite_sala")
+  permiteGaragem      Boolean  @default(false) @map("permite_garagem")
+  permiteEquipamentos Boolean  @default(false) @map("permite_equipamentos")
   // Allowlist de salas disponíveis para este tipo (vazio = todas as ativas).
-  salasPermitidas String[] @default([]) @map("salas_permitidas")
+  salasPermitidas     String[] @default([]) @map("salas_permitidas")
   /// Destaca os eventos deste tipo no e-mail do dia, com uma moldura colorida.
   /// Existe porque informação importante (ex.: "arrumar sala") ficava diluída
   /// numa lista de vinte eventos e quem precisava agir passava direto.
-  destacarEmail Boolean @default(false) @map("destacar_email")
+  destacarEmail       Boolean  @default(false) @map("destacar_email")
   /// Cor da moldura do destaque. Nulo = usa a cor da borda do próprio tipo.
-  corDestaque   String? @map("cor_destaque")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  corDestaque         String?  @map("cor_destaque")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   eventos AgendaEvento[]
 
@@ -3660,19 +3677,19 @@ enum AgendaLembreteCanal {
 /// conflito de horário. Tem prazo (data + hora opcional), pode ter lembrete
 /// próprio e ser marcada como concluída. Inspirada em Google Tasks.
 model AgendaTarefa {
-  id             String    @id @default(cuid())
-  titulo         String
-  descricao      String?   @db.Text
-  prazo          DateTime  @db.Date          // data do prazo (sempre UTC midnight)
-  horaPrazo      String?   @map("hora_prazo") // HH:MM opcional (null = sem hora específica)
-  concluida      Boolean   @default(false)
-  concluidaEm    DateTime? @map("concluida_em")
-  prioridade     String    @default("NORMAL") // BAIXA | NORMAL | ALTA
-  isActive       Boolean   @default(true) @map("is_active") // soft-delete (paridade com eventos)
+  id          String    @id @default(cuid())
+  titulo      String
+  descricao   String?   @db.Text
+  prazo       DateTime  @db.Date // data do prazo (sempre UTC midnight)
+  horaPrazo   String?   @map("hora_prazo") // HH:MM opcional (null = sem hora específica)
+  concluida   Boolean   @default(false)
+  concluidaEm DateTime? @map("concluida_em")
+  prioridade  String    @default("NORMAL") // BAIXA | NORMAL | ALTA
+  isActive    Boolean   @default(true) @map("is_active") // soft-delete (paridade com eventos)
 
-  criadorId      String    @map("criador_id")
-  criador        User      @relation("TarefaCriador", fields: [criadorId], references: [id])
-  empresaId      String?   @map("empresa_id")
+  criadorId String  @map("criador_id")
+  criador   User    @relation("TarefaCriador", fields: [criadorId], references: [id])
+  empresaId String? @map("empresa_id")
 
   // Vínculo opcional com um card do CRM (Oportunidade). Quando presente, a tarefa
   // é criada/gerida a partir da oportunidade, mas vive na lista de tarefas do
@@ -3680,11 +3697,11 @@ model AgendaTarefa {
   oportunidadeId String?       @map("oportunidade_id")
   oportunidade   Oportunidade? @relation("OportunidadeAgendaTarefas", fields: [oportunidadeId], references: [id], onDelete: SetNull)
 
-  lembretes      AgendaTarefaLembrete[]
-  participantes  AgendaTarefaParticipante[]
+  lembretes     AgendaTarefaLembrete[]
+  participantes AgendaTarefaParticipante[]
 
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([criadorId, concluida, prazo])
   @@index([isActive], map: "agenda_tarefas_is_active_idx")
@@ -3856,7 +3873,7 @@ model Oportunidade {
   cpfCnpj            String?   @map("cpf_cnpj")
   razaoSocial        String?   @map("razao_social")
   nomeFantasia       String?   @map("nome_fantasia")
-  cnaeCodigo         String?   @map("cnae_codigo")   // CNAE principal (código), da consulta de CNPJ
+  cnaeCodigo         String?   @map("cnae_codigo") // CNAE principal (código), da consulta de CNPJ
   cnaeDescricao      String?   @map("cnae_descricao") // atividade principal (descrição do CNAE)
   // Contato
   contatoNome        String?   @map("contato_nome")
@@ -3883,12 +3900,12 @@ model Oportunidade {
   eventos   OportunidadeEvento[]
 
   // Eventos da agenda vinculados a esta oportunidade (vínculo bidirecional)
-  agendaEventos AgendaEvento[] @relation("OportunidadeAgendaEventos")
+  agendaEventos  AgendaEvento[]             @relation("OportunidadeAgendaEventos")
   // Vínculos N:N com eventos da agenda (vários cards por evento) — ver AgendaEventoOportunidade.
   agendaVinculos AgendaEventoOportunidade[]
   // Tarefas da agenda vinculadas a esta oportunidade (a "tarefa do CRM" é uma
   // AgendaTarefa com oportunidadeId preenchido) — ver AgendaTarefa.
-  agendaTarefas AgendaTarefa[] @relation("OportunidadeAgendaTarefas")
+  agendaTarefas  AgendaTarefa[]             @relation("OportunidadeAgendaTarefas")
 
   @@index([etapaId])
   @@index([clienteId])
@@ -3903,7 +3920,7 @@ model LeadFunilConfig {
   id                  String   @id @default(cuid())
   empresaId           String?  @map("empresa_id")
   slug                String   @unique
-  nome                String?  // rótulo amigável da campanha
+  nome                String? // rótulo amigável da campanha
   ativo               Boolean  @default(true)
   trilhaPrompt        String   @default("") @map("trilha_prompt") @db.Text
   rubrica             String   @default("") @db.Text
@@ -3967,8 +3984,8 @@ model BeneficioConfig {
   diariaVT            Decimal  @default(10.20) @map("diaria_vt") @db.Decimal(10, 2)
   vtDiasDescontoSaldo Int      @default(7) @map("vt_dias_desconto_saldo")
   notificarAuto       Boolean  @default(false) @map("notificar_auto") // alerta automático aos líderes
-  diaNotificacao      Int?     @map("dia_notificacao")                // dia do mês (1-28) do alerta
-  diaCobranca         Int?     @map("dia_cobranca")                   // dia do mês (1-28) da cobrança a quem não lançou
+  diaNotificacao      Int?     @map("dia_notificacao") // dia do mês (1-28) do alerta
+  diaCobranca         Int?     @map("dia_cobranca") // dia do mês (1-28) da cobrança a quem não lançou
   ativo               Boolean  @default(true)
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
@@ -3994,22 +4011,22 @@ model BeneficioColaborador {
 }
 
 model BeneficioCompetencia {
-  id                  String   @id @default(cuid())
-  empresaId           String   @map("empresa_id")
+  id                  String                 @id @default(cuid())
+  empresaId           String                 @map("empresa_id")
   ano                 Int
   mes                 Int
-  diasUteis           Int      @map("dias_uteis")
-  diariaVA            Decimal  @map("diaria_va") @db.Decimal(10, 2)
-  diariaVT            Decimal  @map("diaria_vt") @db.Decimal(10, 2)
-  vtDiasDescontoSaldo Int      @default(7) @map("vt_dias_desconto_saldo")
-  status              String   @default("ABERTA") // ABERTA | EM_APONTAMENTO | FECHADA
-  abertoPorId         String?  @map("aberto_por_id")
-  fechadoPorId        String?  @map("fechado_por_id")
-  fechadoEm           DateTime? @map("fechado_em")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
-  apontamentos BeneficioApontamento[]
-  recargas     BeneficioRecarga[]
+  diasUteis           Int                    @map("dias_uteis")
+  diariaVA            Decimal                @map("diaria_va") @db.Decimal(10, 2)
+  diariaVT            Decimal                @map("diaria_vt") @db.Decimal(10, 2)
+  vtDiasDescontoSaldo Int                    @default(7) @map("vt_dias_desconto_saldo")
+  status              String                 @default("ABERTA") // ABERTA | EM_APONTAMENTO | FECHADA
+  abertoPorId         String?                @map("aberto_por_id")
+  fechadoPorId        String?                @map("fechado_por_id")
+  fechadoEm           DateTime?              @map("fechado_em")
+  createdAt           DateTime               @default(now()) @map("created_at")
+  updatedAt           DateTime               @updatedAt @map("updated_at")
+  apontamentos        BeneficioApontamento[]
+  recargas            BeneficioRecarga[]
 
   @@unique([empresaId, ano, mes])
   @@index([empresaId, ano, mes])
@@ -4017,20 +4034,20 @@ model BeneficioCompetencia {
 }
 
 model BeneficioApontamento {
-  id            String   @id @default(cuid())
-  competenciaId String   @map("competencia_id")
-  colaboradorId String   @map("colaborador_id")
-  diasFerias    Int      @default(0) @map("dias_ferias")
-  diasLicenca   Int      @default(0) @map("dias_licenca")
-  diasAusencia  Int      @default(0) @map("dias_ausencia")
-  faltas        Int      @default(0)
-  plantoes      Int      @default(0)
-  vtSaldoCartao Decimal  @default(0) @map("vt_saldo_cartao") @db.Decimal(10, 2)
-  observacao    String?  @db.Text
-  lancadoPorId  String?  @map("lancado_por_id")
-  lancadoEm     DateTime @default(now()) @map("lancado_em")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-  competencia BeneficioCompetencia @relation(fields: [competenciaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "beneficio_apontamento_competencia_fkey")
+  id            String               @id @default(cuid())
+  competenciaId String               @map("competencia_id")
+  colaboradorId String               @map("colaborador_id")
+  diasFerias    Int                  @default(0) @map("dias_ferias")
+  diasLicenca   Int                  @default(0) @map("dias_licenca")
+  diasAusencia  Int                  @default(0) @map("dias_ausencia")
+  faltas        Int                  @default(0)
+  plantoes      Int                  @default(0)
+  vtSaldoCartao Decimal              @default(0) @map("vt_saldo_cartao") @db.Decimal(10, 2)
+  observacao    String?              @db.Text
+  lancadoPorId  String?              @map("lancado_por_id")
+  lancadoEm     DateTime             @default(now()) @map("lancado_em")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  competencia   BeneficioCompetencia @relation(fields: [competenciaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "beneficio_apontamento_competencia_fkey")
 
   @@unique([competenciaId, colaboradorId])
   @@index([competenciaId])
@@ -4038,16 +4055,16 @@ model BeneficioApontamento {
 }
 
 model BeneficioRecarga {
-  id              String   @id @default(cuid())
-  competenciaId   String   @map("competencia_id")
-  colaboradorId   String   @map("colaborador_id")
-  valorVA         Decimal  @default(0) @map("valor_va") @db.Decimal(10, 2)
-  valorVT         Decimal  @default(0) @map("valor_vt") @db.Decimal(10, 2)
-  valorMobilidade Decimal  @default(0) @map("valor_mobilidade") @db.Decimal(10, 2)
-  total           Decimal  @default(0) @db.Decimal(10, 2)
+  id              String               @id @default(cuid())
+  competenciaId   String               @map("competencia_id")
+  colaboradorId   String               @map("colaborador_id")
+  valorVA         Decimal              @default(0) @map("valor_va") @db.Decimal(10, 2)
+  valorVT         Decimal              @default(0) @map("valor_vt") @db.Decimal(10, 2)
+  valorMobilidade Decimal              @default(0) @map("valor_mobilidade") @db.Decimal(10, 2)
+  total           Decimal              @default(0) @db.Decimal(10, 2)
   breakdown       Json?
-  geradoEm        DateTime @default(now()) @map("gerado_em")
-  competencia BeneficioCompetencia @relation(fields: [competenciaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "beneficio_recarga_competencia_fkey")
+  geradoEm        DateTime             @default(now()) @map("gerado_em")
+  competencia     BeneficioCompetencia @relation(fields: [competenciaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "beneficio_recarga_competencia_fkey")
 
   @@unique([competenciaId, colaboradorId])
   @@index([competenciaId])
@@ -4138,65 +4155,65 @@ enum OrcamentoStatus {
 }
 
 model Orcamento {
-  id                String          @id @default(cuid())
-  numero            Int             @default(autoincrement())
-  token             String          @unique @default(cuid())
-  oportunidadeId    String?         @map("oportunidade_id")
-  clienteId         String?         @map("cliente_id")
-  responsavelId     String?         @map("responsavel_id")
-  solicitanteId     String?         @map("solicitante_id")
-  status            OrcamentoStatus @default(NOVO)
-  tipo              String? // SERVICO_EXTRA | SERVICO_MENSAL
-  area              String?
-  validadeDias      Int             @default(90) @map("validade_dias")
-  contatos          String?
-  emailsContatos    String?         @map("emails_contatos")
-  descontoPct       Decimal?        @map("desconto_pct") @db.Decimal(5, 2)
-  descontoValor     Decimal?        @map("desconto_valor") @db.Decimal(12, 2)
-  formaPagamento    String?         @map("forma_pagamento")
-  textoInterno      String?         @map("texto_interno") @db.Text
-  textoCorpoCliente String?         @map("texto_corpo_cliente") @db.Text
-  observacoes       String?         @db.Text
+  id                     String          @id @default(cuid())
+  numero                 Int             @default(autoincrement())
+  token                  String          @unique @default(cuid())
+  oportunidadeId         String?         @map("oportunidade_id")
+  clienteId              String?         @map("cliente_id")
+  responsavelId          String?         @map("responsavel_id")
+  solicitanteId          String?         @map("solicitante_id")
+  status                 OrcamentoStatus @default(NOVO)
+  tipo                   String? // SERVICO_EXTRA | SERVICO_MENSAL
+  area                   String?
+  validadeDias           Int             @default(90) @map("validade_dias")
+  contatos               String?
+  emailsContatos         String?         @map("emails_contatos")
+  descontoPct            Decimal?        @map("desconto_pct") @db.Decimal(5, 2)
+  descontoValor          Decimal?        @map("desconto_valor") @db.Decimal(12, 2)
+  formaPagamento         String?         @map("forma_pagamento")
+  textoInterno           String?         @map("texto_interno") @db.Text
+  textoCorpoCliente      String?         @map("texto_corpo_cliente") @db.Text
+  observacoes            String?         @db.Text
   // Decisao do cliente
-  decisaoTipo       String?         @map("decisao_tipo")
-  decisaoEm         DateTime?       @map("decisao_em")
-  decisaoNome       String?         @map("decisao_nome")
-  decisaoCpf        String?         @map("decisao_cpf")
-  decisaoObs        String?         @map("decisao_obs") @db.Text
+  decisaoTipo            String?         @map("decisao_tipo")
+  decisaoEm              DateTime?       @map("decisao_em")
+  decisaoNome            String?         @map("decisao_nome")
+  decisaoCpf             String?         @map("decisao_cpf")
+  decisaoObs             String?         @map("decisao_obs") @db.Text
   // Dados de faturamento informados pelo cliente ao aprovar (link público).
-  decisaoCnpjFaturamento String?    @map("decisao_cnpj_faturamento")
-  decisaoEmailFinanceiro String?    @map("decisao_email_financeiro")
+  decisaoCnpjFaturamento String?         @map("decisao_cnpj_faturamento")
+  decisaoEmailFinanceiro String?         @map("decisao_email_financeiro")
   // Totais calculados
-  totalServicos     Decimal         @default(0) @map("total_servicos") @db.Decimal(12, 2)
-  totalTaxas        Decimal         @default(0) @map("total_taxas") @db.Decimal(12, 2)
-  totalDespesas     Decimal         @default(0) @map("total_despesas") @db.Decimal(12, 2)
-  descontoAplicado  Decimal         @default(0) @map("desconto_aplicado") @db.Decimal(12, 2)
-  totalGeral        Decimal         @default(0) @map("total_geral") @db.Decimal(12, 2)
+  totalServicos          Decimal         @default(0) @map("total_servicos") @db.Decimal(12, 2)
+  totalTaxas             Decimal         @default(0) @map("total_taxas") @db.Decimal(12, 2)
+  totalDespesas          Decimal         @default(0) @map("total_despesas") @db.Decimal(12, 2)
+  descontoAplicado       Decimal         @default(0) @map("desconto_aplicado") @db.Decimal(12, 2)
+  totalGeral             Decimal         @default(0) @map("total_geral") @db.Decimal(12, 2)
   // Controle
-  arquivado         Boolean         @default(false)
-  arquivadoEm       DateTime?       @map("arquivado_em")
-  arquivadoPor      String?         @map("arquivado_por")
-  ordem             Int             @default(0)
+  arquivado              Boolean         @default(false)
+  arquivadoEm            DateTime?       @map("arquivado_em")
+  arquivadoPor           String?         @map("arquivado_por")
+  ordem                  Int             @default(0)
   // Datas dedicadas por transicao de status
-  dtEnviado         DateTime?       @map("dt_enviado")
-  dtAprovado        DateTime?       @map("dt_aprovado")
-  dtLiberado        DateTime?       @map("dt_liberado")
-  dtFinalizado      DateTime?       @map("dt_finalizado")
-  dtEncerrado       DateTime?       @map("dt_encerrado")
-  dtCancelado       DateTime?       @map("dt_cancelado")
+  dtEnviado              DateTime?       @map("dt_enviado")
+  dtAprovado             DateTime?       @map("dt_aprovado")
+  dtLiberado             DateTime?       @map("dt_liberado")
+  dtFinalizado           DateTime?       @map("dt_finalizado")
+  dtEncerrado            DateTime?       @map("dt_encerrado")
+  dtCancelado            DateTime?       @map("dt_cancelado")
   // Paralizacao (pausa sem mudar status)
-  paralizado        Boolean         @default(false)
-  paralizadoEm      DateTime?       @map("paralizado_em")
-  paralizadoPor     String?         @map("paralizado_por")
-  paralizadoMotivo  String?         @map("paralizado_motivo") @db.Text
+  paralizado             Boolean         @default(false)
+  paralizadoEm           DateTime?       @map("paralizado_em")
+  paralizadoPor          String?         @map("paralizado_por")
+  paralizadoMotivo       String?         @map("paralizado_motivo") @db.Text
   // Auditoria — quantas vezes este orcamento foi reaberto
-  reaberturasCount  Int             @default(0) @map("reaberturas_count")
+  reaberturasCount       Int             @default(0) @map("reaberturas_count")
   // Servico template vinculado — quando orcamento for APROVADO, sistema cria
   // automaticamente uma ServicoExecucao para o responsavel executar o checklist
-  servicoId         String?         @map("servico_id")
-  empresaId         String?         @map("empresa_id")
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
+  servicoId              String?         @map("servico_id")
+  empresaId              String?         @map("empresa_id")
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
 
   servico   Servico?            @relation("OrcamentoServicoTemplate", fields: [servicoId], references: [id], onDelete: SetNull)
   itens     OrcamentoItem[]
@@ -4213,30 +4230,30 @@ model Orcamento {
 }
 
 model OrcamentoItem {
-  id            String   @id @default(cuid())
-  orcamentoId   String   @map("orcamento_id")
-  tipo          String // SERVICO | TAXA | DESPESA
-  descricao     String
-  quantidade    Decimal  @default(1) @db.Decimal(15, 4)
-  valorUnitario Decimal  @map("valor_unitario") @db.Decimal(12, 2)
+  id              String   @id @default(cuid())
+  orcamentoId     String   @map("orcamento_id")
+  tipo            String // SERVICO | TAXA | DESPESA
+  descricao       String
+  quantidade      Decimal  @default(1) @db.Decimal(15, 4)
+  valorUnitario   Decimal  @map("valor_unitario") @db.Decimal(12, 2)
   // Desconto POR ITEM — só se aplica a itens de serviço (TAXA/DESPESA ignoram).
   // Percentual e/ou valor fixo; ambos somam. NULL = sem desconto no item (#HLP0302).
-  descontoPct   Decimal? @map("desconto_pct") @db.Decimal(5, 2)
-  descontoValor Decimal? @map("desconto_valor") @db.Decimal(12, 2)
-  catalogoId    String?  @map("catalogo_id")
+  descontoPct     Decimal? @map("desconto_pct") @db.Decimal(5, 2)
+  descontoValor   Decimal? @map("desconto_valor") @db.Decimal(12, 2)
+  catalogoId      String?  @map("catalogo_id")
   // Subserviço escolhido dentro do serviço acima. Quando preenchido, é ELE que
   // manda no texto e no valor — o serviço mãe vira só o agrupador.
-  subservicoId  String?  @map("subservico_id")
+  subservicoId    String?  @map("subservico_id")
   // Texto escolhido do catálogo — vira o "texto padrão" exibido para este item
-  catalogoTextoId String? @map("catalogo_texto_id")
-  situacao      String   @default("A_FAZER") // A_FAZER | FAZENDO | PENDENTE | CONCLUIDO (legado crp_orcamentos.com_orc_ser.situacao)
-  createdAt     DateTime @default(now()) @map("created_at")
+  catalogoTextoId String?  @map("catalogo_texto_id")
+  situacao        String   @default("A_FAZER") // A_FAZER | FAZENDO | PENDENTE | CONCLUIDO (legado crp_orcamentos.com_orc_ser.situacao)
+  createdAt       DateTime @default(now()) @map("created_at")
 
-  orcamento Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  orcamento     Orcamento               @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
   catalogoTexto OrcamentoCatalogoTexto? @relation(fields: [catalogoTextoId], references: [id], onDelete: SetNull)
   // SetNull, e não Cascade: apagar um serviço do catálogo não pode levar junto
   // o item de um orçamento já enviado ao cliente.
-  subservico Servico? @relation("ItemSubservico", fields: [subservicoId], references: [id], onDelete: SetNull)
+  subservico    Servico?                @relation("ItemSubservico", fields: [subservicoId], references: [id], onDelete: SetNull)
 
   @@index([orcamentoId])
   @@index([subservicoId])
@@ -4527,9 +4544,11 @@ model Servico {
    * notas ou documentação automática quando o serviço é executado.
    */
   textoPadrao         String?           @map("texto_padrao") @db.Text
+  gatilhos            GatilhoFluxo[]    @relation("GatilhosDoServico")
 
   // ── Bloco do tipo PERGUNTA — campos só preenchidos quando tipo=PERGUNTA ──
   /**
+   * /**
    * /** Texto da pergunta apresentada ao gestor em runtime
    * (ex.: "Serviço mensal em todas as áreas?").
    */
@@ -4546,6 +4565,7 @@ model Servico {
 
   // ── Estratégia de atribuição de responsável (legado) ──
   /**
+   * /**
    * /** @deprecated Mantido apenas para compat com bloco PERGUNTA / fluxos antigos.
    * Novas decisões de atribuição usam os campos `atribuicao*` abaixo.
    */
@@ -4561,21 +4581,22 @@ model Servico {
   // null (claim-first — todos veem em /meus-servicos, primeiro a marcar passo
   // reivindica). Configurado na pill "Identificação" do detalhe do serviço.
   /**
+   * /**
    * /** IDs de usuários candidatos diretamente listados.
    */
-  atribuicaoColaboradores  String[] @default([]) @map("atribuicao_colaboradores")
+  atribuicaoColaboradores       String[] @default([]) @map("atribuicao_colaboradores")
   /**
    * IDs de áreas — todos os usuários ativos dessas áreas viram candidatos.
    */
-  atribuicaoAreas          String[] @default([]) @map("atribuicao_areas")
+  atribuicaoAreas               String[] @default([]) @map("atribuicao_areas")
   /**
    * Se true, soma o responsável do orçamento que originou a execução.
    */
-  atribuicaoUsaOrcamento   Boolean  @default(false) @map("atribuicao_usa_orcamento")
+  atribuicaoUsaOrcamento        Boolean  @default(false) @map("atribuicao_usa_orcamento")
   /**
    * Se true, soma o responsável do cliente na área do serviço (ClienteAreaContratada).
    */
-  atribuicaoUsaClienteArea Boolean  @default(false) @map("atribuicao_usa_cliente_area")
+  atribuicaoUsaClienteArea      Boolean  @default(false) @map("atribuicao_usa_cliente_area")
   /**
    * Fonte de atribuição: os responsáveis do cliente em TODAS as áreas que ele
    * contratou — não só na área do serviço, que é o que `atribuicaoUsaClienteArea`
@@ -4584,25 +4605,24 @@ model Servico {
    * área contratada por AQUELE cliente. Como isso muda de cliente para cliente,
    * não cabe em `atribuicaoAreas`, que é uma lista fixa no template.
    */
-  atribuicaoUsaAreasContratadas Boolean @default(false) @map("atribuicao_usa_areas_contratadas")
+  atribuicaoUsaAreasContratadas Boolean  @default(false) @map("atribuicao_usa_areas_contratadas")
 
   /**
    * Este bloco espera a data de saída do cliente.
-   *
    * Duas consequências, as duas do mesmo fato — o prazo dele não é um SLA em
    * horas, é uma data que o cliente escolheu:
-   *
-   *  1. O `prazoLimite` da execução passa a ser `Cliente.inativacaoProgramadaPara`.
-   *     Sem isso, um bloco que legitimamente espera duas semanas nasce com prazo
-   *     para depois de amanhã e é cobrado como atrasado pelo cron horário.
-   *  2. O job de inativação agendada conclui a execução quando a data chega,
-   *     disparando os sucessores. É o que faz o fluxo esperar de verdade, em vez
-   *     de depender de alguém lembrar de fechar o checklist no dia certo.
+   * 1. O `prazoLimite` da execução passa a ser `Cliente.inativacaoProgramadaPara`.
+   * Sem isso, um bloco que legitimamente espera duas semanas nasce com prazo
+   * para depois de amanhã e é cobrado como atrasado pelo cron horário.
+   * 2. O job de inativação agendada conclui a execução quando a data chega,
+   * disparando os sucessores. É o que faz o fluxo esperar de verdade, em vez
+   * de depender de alguém lembrar de fechar o checklist no dia certo.
    */
   aguardaSaidaCliente Boolean @default(false) @map("aguarda_saida_cliente")
 
   // ── Procedência / referências externas ──
   /**
+   * /**
    * /** URL da fonte oficial onde o vencimento/regra foi confirmado (ex.: site Receita,
    * portal SEFAZ). Usada como prova de auditoria + facilita revisão anual.
    */
@@ -4625,6 +4645,7 @@ model Servico {
 
   // ── Configurações avançadas (espelho dos campos do Acessórias) ──
   /**
+   * /**
    * /** Apelido curto exibido em colunas/relatórios. Max 10 chars.
    */
   mininome             String?       @db.VarChar(10)
@@ -4688,7 +4709,7 @@ model Servico {
   vencimentosMensais   ServicoVencimentoMensal[]
 
   // Área do serviço (FK) — substitui o antigo campo texto `categoria`.
-  area         Area?     @relation("ServicoArea", fields: [areaId], references: [id], onDelete: SetNull)
+  area Area? @relation("ServicoArea", fields: [areaId], references: [id], onDelete: SetNull)
 
   // Self-relation: filhos = itens de fluxo deste serviço top-level
   servicoPai   Servico?  @relation("ServicoFluxoItens", fields: [servicoPaiId], references: [id], onDelete: Cascade)
@@ -4696,7 +4717,7 @@ model Servico {
 
   // Subserviços — o serviço visto como pai e como filho no catálogo comercial.
   // Ver ServicoSubservico para o porquê de não ser o servicoPaiId acima.
-  subservicos ServicoSubservico[] @relation("SubservicoPai")
+  subservicos   ServicoSubservico[] @relation("SubservicoPai")
   eSubservicoDe ServicoSubservico[] @relation("SubservicoFilho")
 
   // Itens de orçamento que escolheram este serviço como subserviço.
@@ -5008,7 +5029,7 @@ model AcessoriasRegraObrigacao {
   id String @id @default(cuid())
 
   /// Nome exato da obrigação no Acessórias.
-  nome String
+  nome      String
   /// Null = a regra vale para todos os clientes.
   clienteId String? @map("cliente_id")
 
@@ -5076,7 +5097,7 @@ model AcessoriasEntrega {
 
   /// Texto cru do Acessórias ("Guia já acessada/lida", "Guia ainda não
   /// acessada/lida" ou vazio quando a entrega não tem guia para ler).
-  guiaLida String? @map("guia_lida")
+  guiaLida String?  @map("guia_lida")
   /// Derivado do texto acima: true = lida, false = não lida, null = sem guia.
   /// Guardar o derivado permite filtrar e indexar sem depender da frase.
   lida     Boolean?
@@ -5179,26 +5200,26 @@ model AcessoriasSyncLog {
   // A sincronização roda em segundo plano e leva minutos; sem isto a tela só
   // conseguiria dizer "rodando", sem noção de quanto falta.
   /// Quantos itens já foram processados (clientes, no caso das entregas).
-  progressoAtual        Int?      @map("progresso_atual")
+  progressoAtual Int?    @map("progresso_atual")
   /// Total previsto. Null enquanto a contagem ainda não é conhecida.
-  progressoTotal        Int?      @map("progresso_total")
+  progressoTotal Int?    @map("progresso_total")
   /// O que está sendo feito agora, em linguagem de usuário.
-  progressoMsg          String?   @map("progresso_msg")
+  progressoMsg   String? @map("progresso_msg")
   /// Registro do que aconteceu, item a item — é o que a tela abre ao clicar na
   /// linha do histórico. Limitado no serviço para não crescer sem controle.
-  detalhes              Json?
+  detalhes       Json?
 
   /// Marcado quando alguém pede para parar. O laço confere entre um cliente e
   /// o próximo e encerra por conta própria, deixando gravado o que já fez.
-  cancelPedidoEm        DateTime? @map("cancel_pedido_em")
+  cancelPedidoEm DateTime? @map("cancel_pedido_em")
   /// Sinal de vida do laço. Sem ele não dá para distinguir uma sincronização
   /// lenta de uma que morreu junto com o processo — as duas ficam "rodando"
   /// para sempre na tela.
-  heartbeatEm           DateTime? @map("heartbeat_em")
+  heartbeatEm    DateTime? @map("heartbeat_em")
 
   /// Usuário que disparou (null = cron automático).
-  triggeredBy           String?   @map("triggered_by")
-  empresaId             String?   @map("empresa_id")
+  triggeredBy String? @map("triggered_by")
+  empresaId   String? @map("empresa_id")
 
   @@index([tipo, startedAt])
   @@index([empresaId])
@@ -5230,8 +5251,8 @@ model ServicoGrupo {
   ordem     Int       @default(0)
   ativo     Boolean   @default(true)
   empresaId String?   @map("empresa_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   itens ServicoGrupoItem[]
 
@@ -5309,37 +5330,37 @@ model ServicoExecucao {
   // ── Sincronização com Acessórias ──
   /// Chave canônica da entrega no Acessórias (Config.EntID). Quando disponível,
   /// vira a chave primária do sync diferencial. Nulo até a 1ª sincronização.
-  acessoriasEntId       String?   @map("acessorias_ent_id")
+  acessoriasEntId         String?   @map("acessorias_ent_id")
   /// Nome da obrigação no Acessórias — usado como fallback de match quando
   /// EntID ainda não foi resolvido (chave composta com competencia + clienteId).
-  acessoriasNome        String?   @map("acessorias_nome")
+  acessoriasNome          String?   @map("acessorias_nome")
   /// Competência da entrega (mês de referência). YYYY-MM-DD = primeiro dia do mês.
-  acessoriasComp        DateTime? @map("acessorias_comp") @db.Date
+  acessoriasComp          DateTime? @map("acessorias_comp") @db.Date
   /// Prazo legal da entrega no Acessórias (EntDtPrazo).
-  acessoriasPrazo       DateTime? @map("acessorias_prazo") @db.Date
+  acessoriasPrazo         DateTime? @map("acessorias_prazo") @db.Date
   /// Status crú vindo do Acessórias (Pendente, Entregue, Atrasada!, Ent. antecipada, etc.).
   /// Mapeado pra ServicoExecucao.status na hora do sync, mas guardamos cru pra debug.
-  acessoriasStatus      String?   @map("acessorias_status")
+  acessoriasStatus        String?   @map("acessorias_status")
   /// EntLastDH — timestamp da última alteração no Acessórias. Usado pra detectar
   /// updates entre syncs (se mudou no Acessórias, reflete em OneClick).
-  acessoriasLastDH      DateTime? @map("acessorias_last_dh")
+  acessoriasLastDH        DateTime? @map("acessorias_last_dh")
   /// Quando esta execução foi sincronizada do Acessórias pela última vez.
-  acessoriasSyncedAt    DateTime? @map("acessorias_synced_at")
+  acessoriasSyncedAt      DateTime? @map("acessorias_synced_at")
   /// Nome do responsável pelo PRAZO no Acessórias (Config.RespPrazo). String pura —
   /// match com User do OneClick é feito por SincronizarResponsaveisService.
-  acessoriasRespPrazo   String?   @map("acessorias_resp_prazo")
+  acessoriasRespPrazo     String?   @map("acessorias_resp_prazo")
   /// Nome do responsável pela ENTREGA no Acessórias (Config.RespEntrega).
-  acessoriasRespEntrega String?   @map("acessorias_resp_entrega")
+  acessoriasRespEntrega   String?   @map("acessorias_resp_entrega")
   /// Departamento no Acessórias (Config.DptoNome): Fiscal, Trabalhista, Pessoal, Contábil...
   /// Usado pelo agregador pra decidir qual ClienteAreaContratada atualizar.
-  acessoriasDpto        String?   @map("acessorias_dpto")
+  acessoriasDpto          String?   @map("acessorias_dpto")
   /// IDs de origem dos responsáveis no Acessórias (Config.RespEntregaID /
   /// RespPrazoID). São eles que resolvem o `responsavelId` desta execução via
   /// AcessoriasColaborador — o nome acima serve só para exibir. Guardar o ID
   /// também permite saber quando a atribuição MUDOU lá, e só então reatribuir
   /// aqui (senão o sync desfaria toda troca de responsável feita à mão).
-  acessoriasRespEntregaId String? @map("acessorias_resp_entrega_id")
-  acessoriasRespPrazoId   String? @map("acessorias_resp_prazo_id")
+  acessoriasRespEntregaId String?   @map("acessorias_resp_entrega_id")
+  acessoriasRespPrazoId   String?   @map("acessorias_resp_prazo_id")
 
   // ── Log de entrega manual (módulo /minhas-obrigacoes) ──
   /// Usuário que marcou esta execução como entregue.
@@ -5621,6 +5642,48 @@ enum AjusteVencimento {
   POSTERGAR
 }
 
+// ============================================================
+// Gatilhos de fluxo — a ponte entre um evento do cadastro e o motor de
+// serviços.
+//
+// Até aqui existia UMA ponte, e ela era chumbada: o botão de offboarding
+// procurava um serviço PELO NOME (variável de ambiente) e abria a execução.
+// Qualquer outro evento — cliente criado, área contratada, área encerrada —
+// não tinha como iniciar fluxo nenhum.
+//
+// A condição usa a MESMA linguagem do `ServicoEncadeamento.condicao`
+// ({ all?: Regra[], any?: Regra[] } — ver packages/types/src/processo.ts), de
+// propósito: quem já configura condição numa seta do editor não aprende uma
+// segunda sintaxe aqui.
+// ============================================================
+model GatilhoFluxo {
+  id         String   @id @default(cuid())
+  /// Evento do cadastro que dispara. Texto livre e não enum para que um evento
+  /// novo não exija migração — a lista válida vive em @saas/types.
+  evento     String
+  /// Condição opcional avaliada contra o cliente no momento do disparo.
+  /// Falsa = não dispara, e o motivo fica registrado no log.
+  condicao   Json?
+  servicoId  String   @map("servico_id")
+  /// true = execução nasce em AGUARDANDO_INICIO e alguém confirma antes de a
+  /// cadeia andar. É o padrão: um pedido registrado por engano abriria distrato,
+  /// convocaria quatro áreas e mandaria e-mail ao cliente.
+  confirmar  Boolean  @default(true)
+  ativo      Boolean  @default(true)
+  ordem      Int      @default(0)
+  /// Texto de orientação para quem configura.
+  observacao String?  @db.Text
+  empresaId  String?  @map("empresa_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  servico Servico @relation("GatilhosDoServico", fields: [servicoId], references: [id], onDelete: Cascade)
+
+  @@index([evento, ativo])
+  @@index([empresaId])
+  @@map("gatilhos_fluxo")
+}
+
 model ServicoRecorrencia {
   id                String                @id @default(cuid())
   servicoId         String                @unique @map("servico_id")
@@ -5649,6 +5712,7 @@ model ServicoRecorrencia {
   // Por que: situações como "DAS dia 20 e outra obrigação dia 5" exigem 2+ datas/mês
   // sem precisar de 2 ServicoRecorrencia separados. Mantém 1:1 com Servico.
   /**
+   * /**
    * /** Dias do mês a disparar (1..31; usar 31 como sentinela para "último dia"). Vazio = usa ancoragem clássica.
    */
   diasDoMes         Int[]                 @default([]) @map("dias_do_mes")
@@ -6297,7 +6361,7 @@ model DashboardLayoutUser {
 
 model ChatConversa {
   id               String    @id @default(cuid())
-  nome             String?   // só pra grupos; DMs usam nome do "outro"
+  nome             String? // só pra grupos; DMs usam nome do "outro"
   isGrupo          Boolean   @default(false) @map("is_grupo")
   criadorId        String    @map("criador_id")
   /// Cache do timestamp da última mensagem — usado pra ordenar conversas
@@ -6314,20 +6378,20 @@ model ChatConversa {
 }
 
 model ChatParticipante {
-  id          String       @id @default(cuid())
-  conversaId  String       @map("conversa_id")
-  conversa    ChatConversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
-  usuarioId   String       @map("usuario_id")
-  usuario     User         @relation("ChatParticipanteUser", fields: [usuarioId], references: [id])
+  id         String       @id @default(cuid())
+  conversaId String       @map("conversa_id")
+  conversa   ChatConversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  usuarioId  String       @map("usuario_id")
+  usuario    User         @relation("ChatParticipanteUser", fields: [usuarioId], references: [id])
   /// Timestamp da última mensagem que o user marcou como lida. Mensagens com
   /// createdAt > lastReadAt contam pro unreadCount.
-  lastReadAt  DateTime?    @map("last_read_at")
+  lastReadAt DateTime?    @map("last_read_at")
   /// 'admin' ou 'membro' — só relevante em grupos. DMs ignoram.
-  papel       String       @default("membro")
+  papel      String       @default("membro")
   /// "Excluir conversa pra mim" — soft hide do lado do usuário. Quando uma
   /// nova mensagem chega, o backend zera esse campo e a conversa reaparece.
-  hiddenAt    DateTime?    @map("hidden_at")
-  joinedAt    DateTime     @default(now()) @map("joined_at")
+  hiddenAt   DateTime?    @map("hidden_at")
+  joinedAt   DateTime     @default(now()) @map("joined_at")
 
   @@unique([conversaId, usuarioId])
   @@index([usuarioId])
@@ -6357,12 +6421,12 @@ model ChatMensagem {
 /// Reações de emoji em mensagens — múltiplos users podem reagir com o mesmo
 /// emoji (agregado na UI por count). Único por user/emoji/mensagem.
 model ChatReaction {
-  id          String       @id @default(cuid())
-  mensagemId  String       @map("mensagem_id")
-  mensagem    ChatMensagem @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
-  usuarioId   String       @map("usuario_id")
-  emoji       String
-  createdAt   DateTime     @default(now()) @map("created_at")
+  id         String       @id @default(cuid())
+  mensagemId String       @map("mensagem_id")
+  mensagem   ChatMensagem @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
+  usuarioId  String       @map("usuario_id")
+  emoji      String
+  createdAt  DateTime     @default(now()) @map("created_at")
 
   @@unique([mensagemId, usuarioId, emoji])
   @@index([mensagemId])
@@ -6386,11 +6450,11 @@ model ChatAnexo {
 /// Configuração global do chat interno (singleton — sempre 1 linha).
 /// Editável apenas pelo master em /configuracoes/chat.
 model ChatConfig {
-  id              String   @id @default(cuid())
+  id             String   @id @default(cuid())
   /// Minutos sem atividade antes do status virar 'ausente' automaticamente.
-  ausenteAposMin  Int      @default(5) @map("ausente_apos_min")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  ausenteAposMin Int      @default(5) @map("ausente_apos_min")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("chat_config")
 }
@@ -6511,20 +6575,20 @@ model HelpdeskTicket {
   // aiPlano*    = plano gerado pela API do Claude (markdown + metadados estruturados)
   // Status do plano: pendente | aprovado | rejeitado. Aprovado vira mensagem no ticket;
   // rejeitado volta status pra NOVO e o operador trata manualmente.
-  aiScore                Int?      @map("ai_score")
-  aiElegivel             Boolean?  @map("ai_elegivel")
-  aiPlano                String?   @map("ai_plano") @db.Text
-  aiPlanoMeta            Json?     @map("ai_plano_meta")
-  aiPlanoStatus          String?   @map("ai_plano_status")
-  aiPlanoAprovadoPor     String?   @map("ai_plano_aprovado_por")
-  aiPlanoAprovadoEm      DateTime? @map("ai_plano_aprovado_em")
-  aiPlanoMotivoRejeicao  String?   @map("ai_plano_motivo_rejeicao") @db.Text
+  aiScore               Int?      @map("ai_score")
+  aiElegivel            Boolean?  @map("ai_elegivel")
+  aiPlano               String?   @map("ai_plano") @db.Text
+  aiPlanoMeta           Json?     @map("ai_plano_meta")
+  aiPlanoStatus         String?   @map("ai_plano_status")
+  aiPlanoAprovadoPor    String?   @map("ai_plano_aprovado_por")
+  aiPlanoAprovadoEm     DateTime? @map("ai_plano_aprovado_em")
+  aiPlanoMotivoRejeicao String?   @map("ai_plano_motivo_rejeicao") @db.Text
   // Execução automática do plano via Claude API (#HLP0083). Resultado:
   // { arquivosModificados: [{path, conteudo}], resumo: string, raciocinio }
   // custoUsd: gasto real da chamada (input+output tokens × preço Sonnet)
-  aiExecutionResult      Json?     @map("ai_execution_result")
-  aiExecutionCustoUsd    Decimal?  @map("ai_execution_custo_usd") @db.Decimal(10, 6)
-  aiExecutionEm          DateTime? @map("ai_execution_em")
+  aiExecutionResult     Json?     @map("ai_execution_result")
+  aiExecutionCustoUsd   Decimal?  @map("ai_execution_custo_usd") @db.Decimal(10, 6)
+  aiExecutionEm         DateTime? @map("ai_execution_em")
 
   arquivado Boolean  @default(false)
   ativo     Boolean  @default(true)
@@ -6532,12 +6596,12 @@ model HelpdeskTicket {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  solicitante User?              @relation("HelpdeskTicketSolicitante", fields: [solicitanteId], references: [id], onDelete: SetNull)
-  responsavel User?              @relation("HelpdeskTicketResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
-  categoria   HelpdeskCategoria? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
-  area        Area?              @relation(fields: [areaId], references: [id], onDelete: SetNull)
-  empresa     Empresa?           @relation(fields: [empresaId], references: [id], onDelete: SetNull)
-  ativoRef    Ativo?             @relation(fields: [ativoId], references: [id], onDelete: SetNull)
+  solicitante User?                @relation("HelpdeskTicketSolicitante", fields: [solicitanteId], references: [id], onDelete: SetNull)
+  responsavel User?                @relation("HelpdeskTicketResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  categoria   HelpdeskCategoria?   @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  area        Area?                @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  empresa     Empresa?             @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  ativoRef    Ativo?               @relation(fields: [ativoId], references: [id], onDelete: SetNull)
   mensagens   HelpdeskMensagem[]
   anexos      HelpdeskAnexo[]
   watchers    HelpdeskWatcher[]
@@ -6566,9 +6630,9 @@ model HelpdeskMensagem {
   respostaParaId    String?   @map("resposta_para_id")
   createdAt         DateTime  @default(now()) @map("created_at")
 
-  ticket HelpdeskTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  autor  User?           @relation(fields: [autorId], references: [id], onDelete: SetNull)
-  anexos HelpdeskAnexo[]
+  ticket       HelpdeskTicket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  autor        User?              @relation(fields: [autorId], references: [id], onDelete: SetNull)
+  anexos       HelpdeskAnexo[]
   respostaPara HelpdeskMensagem?  @relation("HelpdeskMensagemResposta", fields: [respostaParaId], references: [id], onDelete: SetNull)
   respostas    HelpdeskMensagem[] @relation("HelpdeskMensagemResposta")
 
@@ -6631,19 +6695,19 @@ model HelpdeskEvento {
 /// Configuração singleton da triagem IA do helpdesk. Editável apenas
 /// pelo master em /configuracoes/helpdesk-ia.
 model HelpdeskAiConfig {
-  id           String   @id @default(cuid())
+  id                String   @id @default(cuid())
   /// Master pode desligar a triagem rapidamente sem mexer no .env.
-  enabled      Boolean  @default(true)
+  enabled           Boolean  @default(true)
   /// Limite mensal de gasto em USD. Quando o consumo do mês ultrapassa,
   /// a triagem é pulada até o início do próximo mês. 0 = sem limite.
-  capUsdMensal Decimal  @default(10) @map("cap_usd_mensal") @db.Decimal(10, 2)
+  capUsdMensal      Decimal  @default(10) @map("cap_usd_mensal") @db.Decimal(10, 2)
   /// Limite mínimo/máximo de caracteres da descrição pra a IA processar.
   /// Fora dessa faixa o ticket é pulado (provável lixo ou exige humano).
-  minCharsDescricao Int @default(20) @map("min_chars_descricao")
-  maxCharsDescricao Int @default(10000) @map("max_chars_descricao")
+  minCharsDescricao Int      @default(20) @map("min_chars_descricao")
+  maxCharsDescricao Int      @default(10000) @map("max_chars_descricao")
   /// Score mínimo pra chamar a API. Tickets abaixo disso são marcados como
   /// não-elegíveis e NÃO consomem crédito (#HLP0083).
-  scoreThreshold Int @default(30) @map("score_threshold")
+  scoreThreshold    Int      @default(30) @map("score_threshold")
   /// JSON com faixas e pesos editáveis pelo master. Formato:
   /// {
   ///   "faixasChars":  [{min, max, pontos}],
@@ -6652,9 +6716,9 @@ model HelpdeskAiConfig {
   ///   "pesosTipo": { DUVIDA, INCIDENTE, REQUISICAO, MELHORIA }
   /// }
   /// null → o service aplica os defaults internos (ver DEFAULT_REGRAS_PESO).
-  regrasPeso   Json?    @map("regras_peso")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  regrasPeso        Json?    @map("regras_peso")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@map("helpdesk_ai_config")
 }
@@ -6755,8 +6819,8 @@ model ClienteObrigacao {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  cliente  Cliente         @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  servico  Servico         @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  servico Servico @relation(fields: [servicoId], references: [id], onDelete: Cascade)
 
   @@unique([clienteId, servicoId])
   @@index([servicoId])
@@ -7348,8 +7412,8 @@ model ProjetoExecucao {
   projetoId String @map("projeto_id")
 
   /// Nome da frente. Vazio, a tela mostra o nome do cliente.
-  titulo    String?
-  clienteId String? @map("cliente_id")
+  titulo        String?
+  clienteId     String? @map("cliente_id")
   /// Quem responde por ESTA execução.
   responsavelId String? @map("responsavel_id")
 
@@ -7518,12 +7582,12 @@ model ProjetoAnexo {
 // Singleton de configurações do módulo Projetos (1 registro por schema/tenant).
 // O service garante a existência via getOrCreate.
 model ProjetoConfig {
-  id                     String   @id @default(cuid())
-  autoArquivarHabilitado Boolean  @default(false) @map("auto_arquivar_habilitado")
-  autoArquivarDias       Int      @default(90)    @map("auto_arquivar_dias")
+  id                     String    @id @default(cuid())
+  autoArquivarHabilitado Boolean   @default(false) @map("auto_arquivar_habilitado")
+  autoArquivarDias       Int       @default(90) @map("auto_arquivar_dias")
   ultimaExecucao         DateTime? @map("ultima_execucao")
-  ultimoTotalArquivados  Int      @default(0) @map("ultimo_total_arquivados")
-  updatedAt              DateTime @updatedAt @map("updated_at")
+  ultimoTotalArquivados  Int       @default(0) @map("ultimo_total_arquivados")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
   @@map("projetos_config")
 }
@@ -7551,7 +7615,7 @@ model ProjetoTag {
   cor       String   @default("#94a3b8")
   createdAt DateTime @default(now()) @map("created_at")
 
-  projeto       Projeto              @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  projeto       Projeto            @relation(fields: [projetoId], references: [id], onDelete: Cascade)
   tarefasLinked ProjetoTarefaTag[]
 
   @@unique([projetoId, nome])
@@ -7722,36 +7786,36 @@ model TvBloco {
 // Sem FK p/ Cliente (decoupled — match por documento; clienteId pode ser null).
 // ============================================================
 model OrcamentoLegado {
-  id             String   @id @default(cuid())
-  legacyId       Int      @map("legacy_id") // com_orc.id
-  numero         Int
-  clienteId      String?  @map("cliente_id") // Cliente novo (match por CNPJ); null = sem correspondência
-  cnpj           String?  // documento do cliente no legado (só dígitos)
-  razaoSocial    String?  @map("razao_social")
-  status         String?
-  tipo           String?
-  contato        String?
-  contatoEmail   String?  @map("contato_email")
-  validadeDias   Int?     @map("validade_dias")
-  desconto       String?
-  valorDesconto  String?  @map("valor_desconto")
-  valorTotal     Decimal? @map("valor_total") @db.Decimal(15, 2)
-  descricao      String?  @db.Text
-  decisaoTipo    String?  @map("decisao_tipo")
-  decisaoNome    String?  @map("decisao_nome")
-  decisaoCpf     String?  @map("decisao_cpf")
-  decisaoObs     String?  @map("decisao_obs") @db.Text
-  decisaoEm      DateTime? @map("decisao_em")
-  csatNota       Int?     @map("csat_nota")
-  csatObs        String?  @map("csat_obs") @db.Text
-  dtNovo         DateTime? @map("dt_novo")
-  dtEnviado      DateTime? @map("dt_enviado")
-  dtAprovado     DateTime? @map("dt_aprovado")
-  dtLiberado     DateTime? @map("dt_liberado")
-  dtFinalizado   DateTime? @map("dt_finalizado")
-  dtEncerrado    DateTime? @map("dt_encerrado")
-  dtCancelado    DateTime? @map("dt_cancelado")
-  importadoEm    DateTime @default(now()) @map("importado_em")
+  id            String    @id @default(cuid())
+  legacyId      Int       @map("legacy_id") // com_orc.id
+  numero        Int
+  clienteId     String?   @map("cliente_id") // Cliente novo (match por CNPJ); null = sem correspondência
+  cnpj          String? // documento do cliente no legado (só dígitos)
+  razaoSocial   String?   @map("razao_social")
+  status        String?
+  tipo          String?
+  contato       String?
+  contatoEmail  String?   @map("contato_email")
+  validadeDias  Int?      @map("validade_dias")
+  desconto      String?
+  valorDesconto String?   @map("valor_desconto")
+  valorTotal    Decimal?  @map("valor_total") @db.Decimal(15, 2)
+  descricao     String?   @db.Text
+  decisaoTipo   String?   @map("decisao_tipo")
+  decisaoNome   String?   @map("decisao_nome")
+  decisaoCpf    String?   @map("decisao_cpf")
+  decisaoObs    String?   @map("decisao_obs") @db.Text
+  decisaoEm     DateTime? @map("decisao_em")
+  csatNota      Int?      @map("csat_nota")
+  csatObs       String?   @map("csat_obs") @db.Text
+  dtNovo        DateTime? @map("dt_novo")
+  dtEnviado     DateTime? @map("dt_enviado")
+  dtAprovado    DateTime? @map("dt_aprovado")
+  dtLiberado    DateTime? @map("dt_liberado")
+  dtFinalizado  DateTime? @map("dt_finalizado")
+  dtEncerrado   DateTime? @map("dt_encerrado")
+  dtCancelado   DateTime? @map("dt_cancelado")
+  importadoEm   DateTime  @default(now()) @map("importado_em")
 
   itens     OrcamentoLegadoItem[]
   mensagens OrcamentoLegadoMensagem[]
@@ -7779,10 +7843,10 @@ model OrcamentoLegadoItem {
 }
 
 model OrcamentoLegadoMensagem {
-  id          String   @id @default(cuid())
-  orcamentoId String   @map("orcamento_id")
-  autorNome   String?  @map("autor_nome")
-  conteudo    String   @db.Text
+  id          String    @id @default(cuid())
+  orcamentoId String    @map("orcamento_id")
+  autorNome   String?   @map("autor_nome")
+  conteudo    String    @db.Text
   data        DateTime?
 
   orcamento OrcamentoLegado @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
@@ -7792,10 +7856,10 @@ model OrcamentoLegadoMensagem {
 }
 
 model OrcamentoLegadoEvento {
-  id          String   @id @default(cuid())
-  orcamentoId String   @map("orcamento_id")
-  autorNome   String?  @map("autor_nome")
-  evento      String   @db.Text
+  id          String    @id @default(cuid())
+  orcamentoId String    @map("orcamento_id")
+  autorNome   String?   @map("autor_nome")
+  evento      String    @db.Text
   data        DateTime?
 
   orcamento OrcamentoLegado @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
@@ -7967,19 +8031,19 @@ model RelatorioEnvio {
 /// O texto NASCE do relatório mas é editável: o que se escreve para a diretoria
 /// não é o que se escreve para quem só quer saber o que mudou no sistema.
 model Novidade {
-  id             String    @id @default(cuid())
-  empresaId      String?   @map("empresa_id")
-  relatorioId    String?   @map("relatorio_id")
+  id             String   @id @default(cuid())
+  empresaId      String?  @map("empresa_id")
+  relatorioId    String?  @map("relatorio_id")
   titulo         String
-  descricao      String?   @db.Text
+  descricao      String?  @db.Text
   /// NOVO | MELHORIA | CORRECAO
-  tipo           String    @default("NOVO")
+  tipo           String   @default("NOVO")
   /// Módulo a que se refere — dá o ícone e o link no widget.
-  moduloSlug     String?   @map("modulo_slug")
-  ordem          Int       @default(0)
-  ativo          Boolean   @default(true)
-  publicadoEm    DateTime  @default(now()) @map("publicado_em")
-  publicadoPorId String?   @map("publicado_por_id")
+  moduloSlug     String?  @map("modulo_slug")
+  ordem          Int      @default(0)
+  ativo          Boolean  @default(true)
+  publicadoEm    DateTime @default(now()) @map("publicado_em")
+  publicadoPorId String?  @map("publicado_por_id")
 
   // SetNull: apagar o relatório de origem não pode apagar a novidade, que já
   // foi lida por todo mundo no painel.
@@ -8013,15 +8077,15 @@ model RelatorioDefinicao {
   descricao String?
 
   /// Chaves do catálogo de campos, NA ORDEM em que saem no arquivo.
-  campos     String[]
+  campos        String[]
   /// Mesma forma do input de `cliente.list` — é o que garante que o relatório
   /// e a listagem filtrem a mesma população.
-  filtros    Json
+  filtros       Json
   /// Condições por campo do catálogo ("Situação é um de [Mensal]"), montadas
   /// no próprio construtor. Coluna separada de `filtros` de proposito: aquele
   /// espelha o input de `cliente.list` e precisa manter essa forma.
-  filtrosCampos Json? @map("filtros_campos")
-  ordenacao  Json?
+  filtrosCampos Json?    @map("filtros_campos")
+  ordenacao     Json?
 
   /// SISTEMA (semeado por deploy, não se apaga) | USUARIO
   origem       String
@@ -8054,16 +8118,16 @@ model NovidadeReacao {
 
 /// Configuração do módulo — uma linha por empresa.
 model RelatorioTiConfig {
-  id                    String   @id @default(cuid())
-  empresaId             String?  @unique @map("empresa_id")
+  id                  String   @id @default(cuid())
+  empresaId           String?  @unique @map("empresa_id")
   /// Área cuja equipe posta os relatórios. Em branco, ninguém é cobrado.
-  areaId                String?  @map("area_id")
+  areaId              String?  @map("area_id")
   /// Ids de usuário que recebem o consolidado (mesmo desenho do disparo da agenda).
-  destinatariosIds      String[] @map("destinatarios_ids")
+  destinatariosIds    String[] @map("destinatarios_ids")
   /// E-mails avulsos, para quem não é usuário do sistema.
-  destinatariosEmails   String[] @map("destinatarios_emails")
-  assuntoPadrao         String?  @map("assunto_padrao")
-  atualizadoEm          DateTime @updatedAt @map("atualizado_em")
+  destinatariosEmails String[] @map("destinatarios_emails")
+  assuntoPadrao       String?  @map("assunto_padrao")
+  atualizadoEm        DateTime @updatedAt @map("atualizado_em")
 
   @@map("relatorios_ti_config")
 }
@@ -8075,21 +8139,21 @@ model RelatorioTiConfig {
 /// com `tipo`. No menu são três módulos, com três permissões: quem vê elogio
 /// não vê reclamação.
 model Manifestacao {
-  id        String  @id @default(cuid())
-  empresaId String? @map("empresa_id")
+  id             String  @id @default(cuid())
+  empresaId      String? @map("empresa_id")
   /// Origem no v1: 'elo' | 'rec' | 'sug' + id (os ids dos três colidem entre si).
-  legacySource String? @map("legacy_source")
-  legacyId     Int?    @map("legacy_id")
+  legacySource   String? @map("legacy_source")
+  legacyId       Int?    @map("legacy_id")
   /// Resíduo do v1: elogiados em texto livre quando não casaram com usuário.
   elogiadosTexto String? @map("elogiados_texto")
   /// Código que a pessoa leva embora: ELO-7K3M-92QF. É por ele que se
   /// acompanha a tratativa sem se identificar.
-  protocolo String  @unique
+  protocolo      String  @unique
 
   /// ELOGIO | RECLAMACAO | SUGESTAO
-  tipo   String
+  tipo    String
   /// INTERNA | CLIENTE — de que lado partiu.
-  origem String  @default("INTERNA")
+  origem  String  @default("INTERNA")
   /// Anônima NÃO guarda autor. Sem exceção: é o que a palavra promete.
   anonima Boolean @default(false)
 
@@ -8123,37 +8187,37 @@ model Manifestacao {
 
   // ── Tratativa ──
   /// Retorno imediato dado ao cliente (reclamação, status 1 → 2).
-  retornoCliente   String?   @db.Text @map("retorno_cliente")
-  retornoEm        DateTime? @map("retorno_em")
-  retornoPorId     String?   @map("retorno_por_id")
+  retornoCliente  String?   @map("retorno_cliente") @db.Text
+  retornoEm       DateTime? @map("retorno_em")
+  retornoPorId    String?   @map("retorno_por_id")
   /// Procedente? NULL = ainda não analisada.
-  procede          Boolean?
-  causaDescricao   String?   @db.Text @map("causa_descricao")
+  procede         Boolean?
+  causaDescricao  String?   @map("causa_descricao") @db.Text
   /// Por que NÃO procede.
-  justificativa    String?   @db.Text
+  justificativa   String?   @db.Text
   /// Posição final entregue a quem reclamou.
-  retornoFinal     String?   @db.Text @map("retorno_final")
+  retornoFinal    String?   @map("retorno_final") @db.Text
   /// Resposta da Qualidade (elogio e sugestão usam este).
-  resposta         String?   @db.Text
-  respondidoEm     DateTime? @map("respondido_em")
-  respondidoPorId  String?   @map("respondido_por_id")
-  encerradoEm      DateTime? @map("encerrado_em")
-  encerradoPorId   String?   @map("encerrado_por_id")
+  resposta        String?   @db.Text
+  respondidoEm    DateTime? @map("respondido_em")
+  respondidoPorId String?   @map("respondido_por_id")
+  encerradoEm     DateTime? @map("encerrado_em")
+  encerradoPorId  String?   @map("encerrado_por_id")
 
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
-  autor     User?      @relation("ManifestacaoAutor", fields: [autorId], references: [id], onDelete: SetNull)
-  cliente   Cliente?   @relation(fields: [clienteId], references: [id], onDelete: SetNull)
-  area      Area?      @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  autor     User?                  @relation("ManifestacaoAutor", fields: [autorId], references: [id], onDelete: SetNull)
+  cliente   Cliente?               @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  area      Area?                  @relation(fields: [areaId], references: [id], onDelete: SetNull)
   mensagens ManifestacaoMensagem[]
   arquivos  ManifestacaoArquivo[]
   logs      ManifestacaoLog[]
 
+  @@unique([legacySource, legacyId])
   @@index([empresaId, tipo, status])
   @@index([empresaId, tipo, criadoEm])
   @@index([autorId])
-  @@unique([legacySource, legacyId])
   @@map("manifestacoes")
 }
 
@@ -8241,8 +8305,8 @@ model Reuniao {
   /// pessoal continue achando a reunião pelo número que já usa.
   numero    Int?
 
-  tipoId String? @map("tipo_id")
-  titulo String
+  tipoId    String? @map("tipo_id")
+  titulo    String
   /// 264 das 281 reuniões do v1 têm cliente: este módulo é, na prática,
   /// registro de reunião COM cliente, não só de reunião interna.
   clienteId String? @map("cliente_id")
@@ -8317,9 +8381,9 @@ model ReuniaoAcao {
   responsavelId   String? @map("responsavel_id")
   responsavelNome String? @map("responsavel_nome")
 
-  prazo DateTime? @db.Date
+  prazo  DateTime? @db.Date
   /// PENDENTE | CONCLUIDA (no v1, situacao '1' e '2').
-  status String @default("PENDENTE")
+  status String    @default("PENDENTE")
 
   concluidoEm    DateTime? @map("concluido_em")
   concluidoPorId String?   @map("concluido_por_id")
@@ -8328,8 +8392,8 @@ model ReuniaoAcao {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
-  reuniao      Reuniao @relation(fields: [reuniaoId], references: [id], onDelete: Cascade)
-  responsavel  User?   @relation("ReuniaoAcaoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  reuniao     Reuniao @relation(fields: [reuniaoId], references: [id], onDelete: Cascade)
+  responsavel User?   @relation("ReuniaoAcaoResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
 
   @@index([reuniaoId])
   @@index([responsavelId, status])
@@ -8409,8 +8473,8 @@ model DocumentoProcesso {
 
   criadoEm DateTime @default(now()) @map("criado_em")
 
-  documentos DocumentoInterno[]
-  tabelasRegistros TabelaRegistro[]
+  documentos         DocumentoInterno[]
+  tabelasRegistros   TabelaRegistro[]
   documentosExternos DocumentoExterno[]
 
   @@index([empresaId, ativo])
@@ -8465,11 +8529,11 @@ model DocumentoInterno {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
-  tipo       DocumentoTipo?           @relation(fields: [tipoId], references: [id], onDelete: SetNull)
-  processo   DocumentoProcesso?       @relation(fields: [processoId], references: [id], onDelete: SetNull)
-  versaoAtual DocumentoInternoVersao? @relation("VersaoVigente", fields: [versaoAtualId], references: [id], onDelete: SetNull)
-  versoes    DocumentoInternoVersao[] @relation("VersoesDoDocumento")
-  logs       DocumentoInternoLog[]
+  tipo        DocumentoTipo?           @relation(fields: [tipoId], references: [id], onDelete: SetNull)
+  processo    DocumentoProcesso?       @relation(fields: [processoId], references: [id], onDelete: SetNull)
+  versaoAtual DocumentoInternoVersao?  @relation("VersaoVigente", fields: [versaoAtualId], references: [id], onDelete: SetNull)
+  versoes     DocumentoInternoVersao[] @relation("VersoesDoDocumento")
+  logs        DocumentoInternoLog[]
 
   @@index([empresaId, tipoId])
   @@index([processoId])
@@ -8479,12 +8543,12 @@ model DocumentoInterno {
 
 /// Uma revisão do documento: o arquivo daquela versão e o que mudou nela.
 model DocumentoInternoVersao {
-  id           String @id @default(cuid())
-  documentoId  String @map("documento_id")
+  id          String @id @default(cuid())
+  documentoId String @map("documento_id")
   /// Id da linha de origem em `sgq_doc`.
-  legacyId     Int?   @map("legacy_id")
+  legacyId    Int?   @map("legacy_id")
 
-  revisao Int @default(0)
+  revisao  Int    @default(0)
   /// NOVO | EM_APROVACAO | APROVADO | SUBSTITUIDO | CANCELADO | REJEITADO
   /// (o `sgq_doc_sit` do v1; "Excluído" de lá é o `ativo = 0`, que aqui não
   /// vira situação — documento apagado some.)
@@ -8513,8 +8577,8 @@ model DocumentoInternoVersao {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
-  documento    DocumentoInterno            @relation("VersoesDoDocumento", fields: [documentoId], references: [id], onDelete: Cascade)
-  vigenteDe    DocumentoInterno?           @relation("VersaoVigente")
+  documento    DocumentoInterno             @relation("VersoesDoDocumento", fields: [documentoId], references: [id], onDelete: Cascade)
+  vigenteDe    DocumentoInterno?            @relation("VersaoVigente")
   elaboradores DocumentoInternoElaborador[]
 
   // NAO e unique de proposito. Em 7 documentos o v1 gravou duas linhas com o
@@ -8600,15 +8664,15 @@ model Capacitacao {
   empresaId String? @map("empresa_id")
   legacyId  Int?    @map("legacy_id")
 
-  titulo String
+  titulo   String
   /// INTERNA | EXTERNA — o `tipo` 1/2 do v1, que lá vinha chumbado no HTML.
-  ambito String  @default("INTERNA")
+  ambito   String  @default("INTERNA")
   metodoId String? @map("metodo_id")
 
   /// Quem aplicou ("Aplicado por" no formulário do v1).
-  instrutor    String?
-  organizacao  String?
-  local        String?
+  instrutor   String?
+  organizacao String?
+  local       String?
 
   dataInicio DateTime  @map("data_inicio") @db.Date
   dataFim    DateTime? @map("data_fim") @db.Date
@@ -8673,12 +8737,12 @@ model Capacitacao {
 /// que quem executava tal atividade foi treinado. Daí o `nome` como resíduo,
 /// igual ao que se fez em Reuniões e Documentos Internos.
 model CapacitacaoParticipante {
-  id            String  @id @default(cuid())
-  capacitacaoId String  @map("capacitacao_id")
-  usuarioId     String? @map("usuario_id")
+  id            String    @id @default(cuid())
+  capacitacaoId String    @map("capacitacao_id")
+  usuarioId     String?   @map("usuario_id")
   /// Só quando não há usuário a apontar: ex-colaborador ou convidado externo.
   nome          String?
-  confirmado    Boolean @default(false)
+  confirmado    Boolean   @default(false)
   confirmadoEm  DateTime? @map("confirmado_em") @db.Date
 
   criadoEm DateTime @default(now()) @map("criado_em")
@@ -8766,11 +8830,11 @@ model Melhoria {
   /// REGISTRADA | IMPLEMENTADA | CANCELADA. O v1 não tinha ciclo nenhum: a
   /// data prevista existia e ninguém conseguia dizer "feito". É o único
   /// acréscimo de comportamento do port.
-  status          String    @default("REGISTRADA")
-  implementadaEm  DateTime? @map("implementada_em") @db.Date
+  status         String    @default("REGISTRADA")
+  implementadaEm DateTime? @map("implementada_em") @db.Date
 
-  autorId  String?  @map("autor_id")
-  criadoEm DateTime @default(now()) @map("criado_em")
+  autorId      String?  @map("autor_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
   area Area? @relation(fields: [areaId], references: [id], onDelete: SetNull)
@@ -8810,9 +8874,9 @@ model TabelaRegistro {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
-  processo    DocumentoProcesso?      @relation(fields: [processoId], references: [id], onDelete: SetNull)
-  versaoAtual TabelaRegistroVersao?   @relation("TabelaVersaoVigente", fields: [versaoAtualId], references: [id], onDelete: SetNull)
-  versoes     TabelaRegistroVersao[]  @relation("VersoesDaTabela")
+  processo    DocumentoProcesso?     @relation(fields: [processoId], references: [id], onDelete: SetNull)
+  versaoAtual TabelaRegistroVersao?  @relation("TabelaVersaoVigente", fields: [versaoAtualId], references: [id], onDelete: SetNull)
+  versoes     TabelaRegistroVersao[] @relation("VersoesDaTabela")
 
   @@index([empresaId])
   @@index([processoId])
@@ -8836,11 +8900,11 @@ model TabelaRegistroVersao {
   retencao      String? @db.Text
   disposicao    String? @db.Text
 
-  registradoPorId String? @map("registrado_por_id")
+  registradoPorId   String?  @map("registrado_por_id")
   /// Nome do autor no v1 quando a pessoa não existe mais no v2 (ex-colaborador).
-  registradoPorNome String? @map("registrado_por_nome")
-  criadoEm        DateTime @default(now()) @map("criado_em")
-  atualizadoEm    DateTime @updatedAt @map("atualizado_em")
+  registradoPorNome String?  @map("registrado_por_nome")
+  criadoEm          DateTime @default(now()) @map("criado_em")
+  atualizadoEm      DateTime @updatedAt @map("atualizado_em")
 
   tabela    TabelaRegistro  @relation("VersoesDaTabela", fields: [tabelaId], references: [id], onDelete: Cascade)
   vigenteDe TabelaRegistro? @relation("TabelaVersaoVigente")
@@ -8869,9 +8933,9 @@ model AnaliseContexto {
   /// EXTERNA | INTERNA
   analise String
   /// OPORTUNIDADE | AMEACA | FORCA | FRAQUEZA (Ext: oportunidade/ameaça; Int: força/fraqueza)
-  tipo String
+  tipo    String
 
-  identificacao String
+  identificacao    String
   /// Texto livre no v1 (Estratégico, Trabalhista...) — não é o mapa sgq_proc.
   processo         String?
   parteInteressada String? @map("parte_interessada") @db.Text
@@ -8907,9 +8971,9 @@ model AnaliseContexto {
 }
 
 model AnaliseContextoAcao {
-  id        String  @id @default(cuid())
-  analiseId String  @map("analise_id")
-  legacyId  Int?    @map("legacy_id")
+  id        String @id @default(cuid())
+  analiseId String @map("analise_id")
+  legacyId  Int?   @map("legacy_id")
 
   /// IMEDIATA | CORRETIVA | AVALIACAO_EFICACIA
   tipo      String
@@ -8920,11 +8984,11 @@ model AnaliseContextoAcao {
   /// quando não casa com um usuário, o texto fica aqui.
   responsavelNome String? @map("responsavel_nome")
 
-  prazo         DateTime? @db.Date
-  concluida     Boolean   @default(false)
-  finalizadoEm  DateTime? @map("finalizado_em") @db.Date
-  finalizadoPorId String? @map("finalizado_por_id")
-  observacao    String?   @db.Text
+  prazo           DateTime? @db.Date
+  concluida       Boolean   @default(false)
+  finalizadoEm    DateTime? @map("finalizado_em") @db.Date
+  finalizadoPorId String?   @map("finalizado_por_id")
+  observacao      String?   @db.Text
 
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
@@ -8969,7 +9033,7 @@ model NaoConformidade {
   /// AGUARDANDO_CAUSA | AGUARDANDO_ACOES | EM_TRATAMENTO | AGUARDANDO_CONCLUSAO | FINALIZADA | CANCELADA
   situacao String @default("AGUARDANDO_CAUSA")
   /// NAO_CONFORMIDADE | OPORTUNIDADE_MELHORIA (o tipo 2 é herança do legado)
-  tipo String @default("NAO_CONFORMIDADE")
+  tipo     String @default("NAO_CONFORMIDADE")
 
   clienteId   String? @map("cliente_id")
   clienteNome String? @map("cliente_nome")
@@ -8992,10 +9056,10 @@ model NaoConformidade {
   detalhamento String @db.Text
 
   // NC similar (aponta outra NC) e reincidência (gerada por avaliação não eficaz)
-  ncSimilarId    String?  @map("nc_similar_id")
-  ncSimilarTexto String?  @map("nc_similar_texto") @db.Text
-  reincidencia   Boolean  @default(false)
-  ncAnteriorId   String?  @map("nc_anterior_id")
+  ncSimilarId    String? @map("nc_similar_id")
+  ncSimilarTexto String? @map("nc_similar_texto") @db.Text
+  reincidencia   Boolean @default(false)
+  ncAnteriorId   String? @map("nc_anterior_id")
 
   // Análise da causa
   causa      String?   @db.Text
@@ -9003,10 +9067,10 @@ model NaoConformidade {
   causaPorId String?   @map("causa_por_id")
 
   // Forma de avaliação da eficácia (etapa intermediária do v1)
-  eficaciaDetalhes       String?   @map("eficacia_detalhes") @db.Text
-  eficaciaResponsavelId  String?   @map("eficacia_responsavel_id")
-  eficaciaPrazo          DateTime? @map("eficacia_prazo") @db.Date
-  eficaciaRegistrada     Boolean   @default(false) @map("eficacia_registrada")
+  eficaciaDetalhes      String?   @map("eficacia_detalhes") @db.Text
+  eficaciaResponsavelId String?   @map("eficacia_responsavel_id")
+  eficaciaPrazo         DateTime? @map("eficacia_prazo") @db.Date
+  eficaciaRegistrada    Boolean   @default(false) @map("eficacia_registrada")
 
   // Avaliação final
   avaliacao       String?   @db.Text
@@ -9029,9 +9093,9 @@ model NaoConformidade {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
-  origem     NaoConformidadeOrigem? @relation(fields: [origemId], references: [id], onDelete: SetNull)
-  ncAnterior NaoConformidade?       @relation("Reincidencia", fields: [ncAnteriorId], references: [id], onDelete: SetNull)
-  reincidencias NaoConformidade[]   @relation("Reincidencia")
+  origem        NaoConformidadeOrigem? @relation(fields: [origemId], references: [id], onDelete: SetNull)
+  ncAnterior    NaoConformidade?       @relation("Reincidencia", fields: [ncAnteriorId], references: [id], onDelete: SetNull)
+  reincidencias NaoConformidade[]      @relation("Reincidencia")
 
   acoes     NaoConformidadeAcao[]
   mensagens NaoConformidadeMensagem[]
@@ -9046,9 +9110,9 @@ model NaoConformidade {
 }
 
 model NaoConformidadeAcao {
-  id       String  @id @default(cuid())
-  ncId     String  @map("nc_id")
-  legacyId Int?    @map("legacy_id")
+  id       String @id @default(cuid())
+  ncId     String @map("nc_id")
+  legacyId Int?   @map("legacy_id")
 
   /// IMEDIATA | CORRETIVA | AVALIACAO_EFICACIA
   tipo      String @default("CORRETIVA")
@@ -9075,10 +9139,10 @@ model NaoConformidadeAcao {
 }
 
 model NaoConformidadeMensagem {
-  id       String  @id @default(cuid())
-  ncId     String  @map("nc_id")
-  legacyId Int?    @map("legacy_id")
-  texto    String  @db.Text
+  id        String  @id @default(cuid())
+  ncId      String  @map("nc_id")
+  legacyId  Int?    @map("legacy_id")
+  texto     String  @db.Text
   autorId   String? @map("autor_id")
   autorNome String? @map("autor_nome")
 
@@ -9108,10 +9172,10 @@ model NaoConformidadeArquivo {
 
 /// Trilha de eventos — o v1 gravava frases prontas; o v2 grava códigos + detalhe.
 model NaoConformidadeLog {
-  id       String  @id @default(cuid())
-  ncId     String  @map("nc_id")
-  legacyId Int?    @map("legacy_id")
-  evento   String
+  id          String  @id @default(cuid())
+  ncId        String  @map("nc_id")
+  legacyId    Int?    @map("legacy_id")
+  evento      String
   usuarioId   String? @map("usuario_id")
   usuarioNome String? @map("usuario_nome")
 
@@ -9137,7 +9201,7 @@ model DocumentoExterno {
   empresaId String? @map("empresa_id")
   legacyId  Int?    @map("legacy_id")
 
-  nome String
+  nome       String
   /// Mapa compartilhado com Documentos Internos (mesma sgq_proc de origem).
   processoId String? @map("processo_id")
 
@@ -9181,8 +9245,8 @@ model DocumentoExternoVersao {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
-  documento     DocumentoExterno  @relation("DocExtVersoes", fields: [documentoId], references: [id], onDelete: Cascade)
-  vigenteDe     DocumentoExterno? @relation("DocExtVigente")
+  documento DocumentoExterno  @relation("DocExtVersoes", fields: [documentoId], references: [id], onDelete: Cascade)
+  vigenteDe DocumentoExterno? @relation("DocExtVigente")
 
   // `revisao` NÃO é único por documento: o legado repete números; o v2 numera última+1.
   @@index([documentoId, revisao])
@@ -9246,11 +9310,11 @@ model FeriasPeriodo {
 
 /// Um gozo (ou abono) lançado dentro do período.
 model FeriasEvento {
-  id        String  @id @default(cuid())
-  periodoId String  @map("periodo_id")
-  legacyId  Int?    @map("legacy_id")
+  id        String @id @default(cuid())
+  periodoId String @map("periodo_id")
+  legacyId  Int?   @map("legacy_id")
 
-  ordem     Int       @default(1)
+  ordem      Int      @default(1)
   dataInicio DateTime @map("data_inicio") @db.Date
   dataFim    DateTime @map("data_fim") @db.Date
   descricao  String?
@@ -9342,8 +9406,8 @@ model Contato {
 
 /// Pessoa/telefone dentro de uma entrada da agenda.
 model ContatoPessoa {
-  id        String  @id @default(cuid())
-  contatoId String  @map("contato_id")
+  id        String @id @default(cuid())
+  contatoId String @map("contato_id")
 
   nome     String?
   telefone String?
@@ -9356,7 +9420,6 @@ model ContatoPessoa {
   @@map("contato_pessoas")
 }
 
-
 model Coleta {
   id        String  @id @default(cuid())
   empresaId String? @map("empresa_id")
@@ -9367,7 +9430,7 @@ model Coleta {
   numero    Int     @unique @default(autoincrement())
 
   /// ENTREGA | COLETA | RECEBIMENTO (tipo 1/2/3 do v1)
-  tipo String
+  tipo     String
   /// A máquina de estados do v1 (crpcltsts): AGUARDANDO_ROTA |
   /// ROTA_CONFIRMADA | RETIRADA_DISPONIVEL | ENTREGUE_CLIENTE | NA_RECEPCAO |
   /// EM_TRIAGEM | NO_SETOR | DEVOLVIDO_ARQUIVO | DEVOLVIDO_CLIENTE |
@@ -9415,9 +9478,9 @@ model Coleta {
 
 /// Quem fez o quê e quando — a trilha que o crpcltlog guardava.
 model ColetaLog {
-  id       String  @id @default(cuid())
-  coletaId String  @map("coleta_id")
-  legacyId Int?    @map("legacy_id")
+  id       String @id @default(cuid())
+  coletaId String @map("coleta_id")
+  legacyId Int?   @map("legacy_id")
 
   /// Situação em que a ação deixou o registro (null p/ eventos sem transição).
   situacao String?
@@ -9453,18 +9516,18 @@ model ClienteDossieColeta {
   clienteId String @map("cliente_id")
 
   /// Bloco do dossiê: receita | fiscal | risco | presenca_digital
-  bloco     String
+  bloco    String
   /// Identificador do provedor: opencnpj | brasilapi | serpro | ...
-  fonte     String
-  urlFonte  String? @map("url_fonte")
+  fonte    String
+  urlFonte String? @map("url_fonte")
 
   /// ok | erro | sem_dados
-  status      String
-  erro        String? @db.Text
-  httpStatus  Int?    @map("http_status")
-  latenciaMs  Int?    @map("latencia_ms")
+  status     String
+  erro       String? @db.Text
+  httpStatus Int?    @map("http_status")
+  latenciaMs Int?    @map("latencia_ms")
   /// Resposta crua do provedor, como veio.
-  payload     Json?
+  payload    Json?
 
   coletadoEm DateTime @default(now()) @map("coletado_em")
 
@@ -9488,12 +9551,12 @@ model ClienteDossieFato {
   /// Valor estruturado quando o campo é lista/objeto (CNAEs, QSA, telefones).
   valorJson Json?   @map("valor_json")
 
-  fonte      String
-  urlFonte   String?  @map("url_fonte")
+  fonte     String
+  urlFonte  String? @map("url_fonte")
   /// 0.0 a 1.0. Fonte oficial ≈ 1.0; busca web fica bem abaixo — e por regra
   /// nunca sobrescreve fato oficial.
-  confianca  Decimal  @default(1.0) @db.Decimal(3, 2)
-  oficial    Boolean  @default(true)
+  confianca Decimal @default(1.0) @db.Decimal(3, 2)
+  oficial   Boolean @default(true)
 
   coletadoEm DateTime @default(now()) @map("coletado_em")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -9512,19 +9575,19 @@ model ClienteDossieSugestao {
   clienteId String @map("cliente_id")
 
   /// Campo do CADASTRO que mudaria (ex.: 'razaoSocial', 'inscricaoEstadual').
-  campo        String
-  valorAtual   String? @map("valor_atual") @db.Text
+  campo         String
+  valorAtual    String? @map("valor_atual") @db.Text
   valorSugerido String? @map("valor_sugerido") @db.Text
 
   fonte      String
-  urlFonte   String? @map("url_fonte")
+  urlFonte   String?  @map("url_fonte")
   coletadoEm DateTime @default(now()) @map("coletado_em")
 
   /// pendente | aprovada | rejeitada
-  status       String    @default("pendente")
-  decididoPor  String?   @map("decidido_por")
-  decididoEm   DateTime? @map("decidido_em")
-  observacao   String?   @db.Text
+  status      String    @default("pendente")
+  decididoPor String?   @map("decidido_por")
+  decididoEm  DateTime? @map("decidido_em")
+  observacao  String?   @db.Text
 
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -9536,9 +9599,9 @@ model ClienteDossieSugestao {
 /// Trilha de acesso ao dossiê (LGPD): o QSA traz pessoa física, então fica
 /// registrado quem abriu o dossiê de qual cliente e quando.
 model ClienteDossieAcesso {
-  id        String @id @default(cuid())
-  clienteId String @map("cliente_id")
-  usuarioId String @map("usuario_id")
+  id        String   @id @default(cuid())
+  clienteId String   @map("cliente_id")
+  usuarioId String   @map("usuario_id")
   /// visualizou | atualizou | aprovou_sugestao | rejeitou_sugestao
   acao      String
   criadoEm  DateTime @default(now()) @map("criado_em")

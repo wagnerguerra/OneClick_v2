@@ -3,6 +3,7 @@ import { ServicoService } from './servico.service'
 import { ServicoScheduler } from './servico.scheduler'
 import { ServicoExecucaoEventsService } from './servico-execucao-events.service'
 import { ServicoFluxoAiService } from './servico-fluxo-ai.service'
+import { GatilhoFluxoService } from './gatilho-fluxo.service'
 import { ServicoExecucaoSseController } from './servico-execucao-sse.controller'
 import { OrcamentoModule } from '../orcamento/orcamento.module'
 import { ProcessoModule } from '../processo/processo.module'
@@ -12,7 +13,7 @@ import { NotificacaoModule } from '../notificacao/notificacao.module'
 @Module({
   imports: [forwardRef(() => OrcamentoModule), ProcessoModule, NotificationModule, forwardRef(() => NotificacaoModule)],
   controllers: [ServicoExecucaoSseController],
-  providers: [ServicoService, ServicoScheduler, ServicoExecucaoEventsService, ServicoFluxoAiService],
-  exports: [ServicoService, ServicoExecucaoEventsService],
+  providers: [ServicoService, ServicoScheduler, ServicoExecucaoEventsService, ServicoFluxoAiService, GatilhoFluxoService],
+  exports: [ServicoService, ServicoExecucaoEventsService, GatilhoFluxoService],
 })
 export class ServicoModule {}
