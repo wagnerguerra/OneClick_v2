@@ -15,6 +15,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Sheet, SheetContent, SheetHeader, SheetBody, SheetTitle, SheetDescription,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
@@ -159,6 +160,18 @@ function novaOpTemConteudo(f: Record<string, unknown>): boolean {
 // Helpers
 // ============================================================
 
+// Faixas do filtro "tempo de vida": dias corridos desde a criacao da
+// oportunidade. Mesma contagem que o SlaIndicator ja mostra no rodape do card
+// ("Tempo de vida: N dias"), para o filtro e o card nunca discordarem.
+const FAIXAS_IDADE: Array<{ chave: string; rotulo: string; min: number; max?: number }> = [
+  { chave: '0-7', rotulo: 'Até 7 dias', min: 0, max: 7 },
+  { chave: '8-15', rotulo: 'De 8 a 15 dias', min: 8, max: 15 },
+  { chave: '16-30', rotulo: 'De 16 a 30 dias', min: 16, max: 30 },
+  { chave: '31-60', rotulo: 'De 31 a 60 dias', min: 31, max: 60 },
+  { chave: '61-90', rotulo: 'De 61 a 90 dias', min: 61, max: 90 },
+  { chave: '90+', rotulo: 'Mais de 90 dias', min: 91 },
+]
+
 function diasDesde(dateStr: string): number {
   const d = new Date(dateStr)
   return Math.floor((Date.now() - d.getTime()) / 86400000)
@@ -201,6 +214,11 @@ export default function CrmPage() {
   const [novaTagCor, setNovaTagCor] = useState('#94a3b8')
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  // Filtros locais do funil: responsavel e tempo de vida. Ficam no cliente
+  // porque `listKanban` ja devolve o funil inteiro (nao pagina) - filtrar aqui
+  // e instantaneo e nao custa uma ida ao servidor a cada troca.
+  const [filtroResponsavel, setFiltroResponsavel] = useState('') // '' = todos | '__sem__' = sem responsavel | id do usuario
+  const [filtroIdade, setFiltroIdade] = useState('')             // '' = qualquer | chave de FAIXAS_IDADE
   const [debouncedSearch, setDebouncedSearch] = useState('')
   // Mantém o termo atual acessível ao fetchAll (usado tb. pelos refreshes via SSE)
   const searchRef = useRef('')
@@ -523,9 +541,51 @@ export default function CrmPage() {
   }, [fetchAll, activeCardId])
 
   // ── Computed ──
-  // A busca é feita no servidor (listKanban com `search`), então aqui só
-  // repassamos as oportunidades já filtradas.
-  const filteredOps = oportunidades
+  // Responsaveis do seletor: saem das proprias oportunidades carregadas, nao de
+  // uma lista de usuarios. Quem nao tem card no funil so poluiria o filtro.
+  const responsaveisDisponiveis = useMemo(() => {
+    const mapa = new Map<string, string>()
+    oportunidades.forEach(o => {
+      const r = (o as any).responsavel
+      if (r?.id) mapa.set(r.id, r.name || 'Sem nome')
+    })
+    return [...mapa.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+  }, [oportunidades])
+
+  const filtrosAtivos = (filtroResponsavel ? 1 : 0) + (filtroIdade ? 1 : 0)
+
+  // Texto do rodape da tabela: dizer quantos cards sobraram sem dizer POR QUE
+  // deixa o usuario achando que sumiu registro.
+  const resumoFiltros = [
+    filtroResponsavel === '__sem__'
+      ? 'sem responsável'
+      : filtroResponsavel
+        ? responsaveisDisponiveis.find(r => r.id === filtroResponsavel)?.name
+        : null,
+    filtroIdade ? FAIXAS_IDADE.find(f => f.chave === filtroIdade)?.rotulo.toLowerCase() : null,
+  ].filter(Boolean).join(' · ')
+
+  // A busca é feita no servidor (listKanban com `search`); responsavel e tempo
+  // de vida são aplicados aqui, sobre o que já veio.
+  const filteredOps = useMemo(() => {
+    if (!filtrosAtivos) return oportunidades
+    const faixa = FAIXAS_IDADE.find(f => f.chave === filtroIdade)
+    return oportunidades.filter(o => {
+      if (filtroResponsavel === '__sem__') {
+        if (o.responsavelId) return false
+      } else if (filtroResponsavel && o.responsavelId !== filtroResponsavel) {
+        return false
+      }
+      if (faixa) {
+        const dias = diasDesde(o.createdAt)
+        if (dias < faixa.min) return false
+        if (faixa.max !== undefined && dias > faixa.max) return false
+      }
+      return true
+    })
+  }, [oportunidades, filtroResponsavel, filtroIdade, filtrosAtivos])
 
   const opsByEtapa = useMemo(() => {
     const map: Record<string, Oportunidade[]> = {}
@@ -926,6 +986,71 @@ export default function CrmPage() {
               </SelectContent>
             </Select>
           )}
+          {/* Filtros locais (responsavel / tempo de vida) num menu: a barra de
+              acoes ja disputa espaco com busca, campanha, alternador de visao e
+              engrenagem — dois seletores soltos estouram o notebook de 1366. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5" title="Filtrar por responsável e tempo de vida">
+                <SlidersHorizontal className="h-4 w-4" />
+                Filtros
+                {filtrosAtivos > 0 && (
+                  <span
+                    className="ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white"
+                    style={{ backgroundColor: MODULE_COLOR }}
+                  >
+                    {filtrosAtivos}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            {/* `onSelect` barrado nos itens: sao dois grupos independentes e
+                fechar o menu a cada escolha obrigaria a reabrir para o segundo. */}
+            <DropdownMenuContent align="end" className="nice-scrollbar max-h-[70vh] w-60 overflow-y-auto">
+              <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">Responsável</DropdownMenuLabel>
+              {[
+                { valor: '', rotulo: 'Todos os responsáveis' },
+                { valor: '__sem__', rotulo: 'Sem responsável' },
+                ...responsaveisDisponiveis.map(r => ({ valor: r.id, rotulo: r.name })),
+              ].map(op => (
+                <DropdownMenuItem
+                  key={op.valor || '__todos__'}
+                  onSelect={e => { e.preventDefault(); setFiltroResponsavel(op.valor) }}
+                  className="gap-2 text-[13px]"
+                >
+                  <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                    {filtroResponsavel === op.valor && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: MODULE_COLOR }} />}
+                  </span>
+                  <span className="truncate">{op.rotulo}</span>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">Tempo de vida</DropdownMenuLabel>
+              {[{ chave: '', rotulo: 'Qualquer tempo' }, ...FAIXAS_IDADE].map(f => (
+                <DropdownMenuItem
+                  key={f.chave || '__qualquer__'}
+                  onSelect={e => { e.preventDefault(); setFiltroIdade(f.chave) }}
+                  className="gap-2 text-[13px]"
+                >
+                  <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                    {filtroIdade === f.chave && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: MODULE_COLOR }} />}
+                  </span>
+                  <span className="truncate">{f.rotulo}</span>
+                </DropdownMenuItem>
+              ))}
+              {filtrosAtivos > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={e => { e.preventDefault(); setFiltroResponsavel(''); setFiltroIdade('') }}
+                    className="gap-2 text-[13px] text-muted-foreground"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Limpar filtros
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <div className="flex items-center border rounded-lg overflow-hidden">
             <button type="button" className={cn('p-1.5 transition-colors', viewMode === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')} onClick={() => { setViewMode('kanban'); localStorage.setItem('crm-view-mode', 'kanban') }} title="Kanban">
               <LayoutGrid className="h-4 w-4" />
@@ -1052,6 +1177,7 @@ export default function CrmPage() {
             <div className="border-t border-border/60 bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
               Mostrando <span className="font-medium text-foreground">{filteredOps.length}</span> oportunidade(s)
               {search && <> para “<span className="font-medium text-foreground">{search}</span>”</>}
+              {resumoFiltros && <> · <span className="font-medium text-foreground">{resumoFiltros}</span></>}
             </div>
           )}
         </Card>
