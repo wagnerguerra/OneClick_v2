@@ -1,0 +1,118 @@
+name: SQL de deploy — ensaio contra banco limpo
+
+# ──────────────────────────────────────────────────────────────────────────
+# Ensaia, num Postgres descartável, exatamente o que o deploy faz no banco de
+# produção — e na MESMA ORDEM:
+#
+#   1. o schema do Prisma cria as tabelas   (em produção: `prisma db push`)
+#   2. os 143 arquivos de packages/db/prisma/sql/*.sql são aplicados em ordem
+#      alfabética, com ON_ERROR_STOP
+#
+# POR QUE A ORDEM É O PONTO
+# Em 04/09 um seed derrubou o deploy em produção com
+# `null value in column "id" of relation "relatorio_definicoes"`. A causa não
+# estava no SQL isolado: `@default(cuid())` e `@updatedAt` são preenchidos pelo
+# Prisma, não pelo banco, então a coluna nasce SEM default. Como o `db push`
+# roda ANTES, a tabela já existia e o `CREATE TABLE IF NOT EXISTS` do seed virou
+# no-op — levando junto os DEFAULTs que ele declarava. Só a sequência completa
+# revela isso; o arquivo, lido sozinho, parece correto.
+#
+# Este job foi validado contra a versão pré-correção daquele seed (b92b52f4^) e
+# reproduz o erro de produção palavra por palavra.
+#
+# O usuário do banco é `oneclick`, como em produção: objeto criado por outro
+# dono quebra o `db push` do deploy com permission denied.
+#
+# `migrate diff --from-empty` no lugar de `db push`: gera o mesmo DDL para um
+# banco vazio, sem precisar de `--accept-data-loss` num workflow.
+#
+# Ainda NÃO é check obrigatório no ruleset da main — deixe verde algumas vezes
+# antes de exigir. Roda em todo PR e todo push (sem filtro de path de propósito:
+# check obrigatório que não dispara trava o PR para sempre).
+# ──────────────────────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: sql-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: oneclick
+          POSTGRES_PASSWORD: oneclick
+          POSTGRES_DB: oneclick
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U oneclick -d oneclick"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://oneclick:oneclick@localhost:5432/oneclick
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Habilita corepack (pnpm@10.33.0)
+        run: corepack enable
+
+      - name: Instala dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Garante o cliente psql
+        run: command -v psql >/dev/null || sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Etapa 1 — schema do Prisma cria as tabelas
+        working-directory: packages/db
+        run: |
+          npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > /tmp/schema.sql
+          echo "DDL gerado: $(wc -l < /tmp/schema.sql) linhas"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f /tmp/schema.sql
+          psql "$DATABASE_URL" -tAc "select count(*) from information_schema.tables where table_schema='public'" \
+            | xargs -I{} echo "Tabelas criadas: {}"
+
+      - name: Etapa 2 — aplica os SQL de deploy em ordem alfabética
+        run: |
+          falhas=0
+          total=0
+          for f in $(ls packages/db/prisma/sql/*.sql | sort); do
+            total=$((total + 1))
+            if psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f" > /tmp/psql.out 2>&1; then
+              echo "  ok    $(basename "$f")"
+            else
+              falhas=$((falhas + 1))
+              msg=$(grep -m1 -E '^(psql:)?.*ERROR' /tmp/psql.out || echo 'falhou sem mensagem')
+              echo "  FALHA $(basename "$f")"
+              echo "::error file=$f::$msg"
+              sed -n '1,12p' /tmp/psql.out
+            fi
+          done
+          {
+            echo "### SQL de deploy"
+            echo ""
+            echo "- arquivos aplicados: **$total**"
+            echo "- falhas: **$falhas**"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$falhas" -ne 0 ]; then
+            echo "$falhas arquivo(s) falhariam no deploy. Corrija antes de publicar."
+            exit 1
+          fi
+          echo "Todos os $total arquivos aplicaram limpos."
