@@ -5,8 +5,14 @@ name: Build & Push imagens (API + Web)
 # publica no GitHub Container Registry (ghcr.io). Objetivo: tirar o `next build`
 # (pesado de RAM) da produção — a VPS passa a só dar `docker pull` + `up`.
 #
-# Trigger: MANUAL por enquanto (workflow_dispatch). Quando quiser build
-# automático a cada push na oneclick_v2, descomente o bloco `push:` abaixo.
+# Trigger: todo push na `main` (o trunk desde 30/06) e tambem manual. Precisa
+# ser automatico: o deploy publica um SHA e, logo em seguida, quer a imagem
+# daquele SHA — se o build so acontecesse a mao, o deploy encontraria `:latest`
+# de um commit anterior e publicaria o codigo errado sem avisar.
+#
+# NAO ha bloco `concurrency` de proposito. Cancelar o build antigo quando chega
+# push novo economizaria minutos, mas deixaria SHAs da main sem imagem — e e
+# justamente por SHA que o deploy vai puxar.
 #
 # PRÉ-REQUISITOS (configurar uma vez no GitHub → Settings → Secrets and
 # variables → Actions → aba "Variables"):
@@ -15,20 +21,28 @@ name: Build & Push imagens (API + Web)
 #   NEXT_PUBLIC_APP_URL  → URL pública do app (ex.: https://app.oneclick.central-rnc.com.br)
 # O push pro ghcr.io usa o GITHUB_TOKEN embutido — nenhum secret extra.
 #
-# CONSUMIR NA VPS (mudança no Service Manager — fora deste repo):
-#   # 1x: autenticar no ghcr (PAT com read:packages, ou deixe o pacote público)
+# CONSUMIR NA VPS — puxar por SHA e RETAGUEAR com o nome local:
+#   # 1x: autenticar no ghcr (PAT com read:packages, ou torne o pacote publico)
 #   echo "$GHCR_PAT" | docker login ghcr.io -u wagnerguerra --password-stdin
-#   # a cada deploy, no lugar do `docker buildx bake`:
-#   docker pull ghcr.io/wagnerguerra/oneclick-api:latest
-#   docker pull ghcr.io/wagnerguerra/oneclick-web:latest
-#   docker compose up -d   # com `image: ghcr.io/wagnerguerra/oneclick-{api,web}:latest`
+#   # a cada deploy, no lugar do `docker compose build`:
+#   docker pull ghcr.io/wagnerguerra/oneclick-api:<sha>
+#   docker tag  ghcr.io/wagnerguerra/oneclick-api:<sha> oneclick-api:latest
+#
+# Retaguear para `oneclick-api:latest` (o nome que o compose de producao ja usa)
+# em vez de apontar o compose para o ghcr: assim TUDO que vem depois continua
+# funcionando sem tocar — inclusive o `docker run ... oneclick-api:latest` que
+# aplica o `prisma db push`. No compose de producao basta remover o bloco
+# `build:`; a linha `image:` fica como esta.
+#
+# Puxar por <sha> e nao por `latest` porque `latest` e uma corrida: dois deploys
+# proximos e voce publica a imagem do outro commit sem perceber.
 # Detalhes em docs/CI-BUILD-IMAGENS.md.
 # ──────────────────────────────────────────────────────────────────────────
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-  # push:
-  #   branches: [oneclick_v2]
 
 env:
   REGISTRY: ghcr.io
