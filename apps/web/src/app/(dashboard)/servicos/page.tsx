@@ -8,7 +8,7 @@ import {
   Clock, CheckCircle2, LayoutGrid, List, Play, XCircle, Eye,
   GripVertical, Pause, MessageSquare, Paperclip, Send, ChevronDown, ChevronUp,
   AlertCircle, Check, Network, Repeat, Zap, FileText, Type, ListChecks, Layers, Lock, ShieldCheck, Wand2,
-  SlidersHorizontal, X, ArrowUpDown, ArrowUp, ArrowDown,
+  X, ArrowUpDown, ArrowUp, ArrowDown, Filter,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label,
@@ -1041,95 +1041,174 @@ export default function ServicosPage() {
           )}
         </>}
       >
-        <h1 className="truncate">{view === 'templates' ? 'Serviços e Obrigações' : 'Execuções'}</h1>
+        <h1 className="truncate">{view === 'templates' ? 'Cadastro de Serviços' : 'Execuções'}</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
           <span className="text-muted-foreground/50">›</span>
           <span>Cadastros</span>
           <span className="text-muted-foreground/50">›</span>
-          <span>Serviços e Obrigações</span>
+          <span>Serviços</span>
         </p>
       </PageHeaderBar>
 
-      {/* Indicadores compactos clicaveis — atuam como filtros rapidos da tabela.
-          Cada KPI muda view + statusFilter e marca-se como ativo (ring + bg
-          tinted). Em mobile: grid 2x2; em desktop: linha unica com dividers. */}
-      <Card className="p-0 overflow-hidden">
-        <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/60">
-          {/* Helper: estado "ativo" de cada indicador para destaque visual */}
-          {(() => {
-            const isTemplatesActive = view === 'templates'
-            const isAndamentoActive = view === 'execucoes' && statusFilter === 'EM_ANDAMENTO'
-            const isConcluidasActive = view === 'execucoes' && statusFilter === 'CONCLUIDO'
-            const isTotalActive = view === 'execucoes' && !statusFilter
-            const baseBtnCls = 'flex items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus:outline-none focus:bg-muted/50 cursor-pointer'
-            const activeBtnCls = 'bg-muted/60'
-            return (
-              <>
-                <button
-                  type="button"
-                  onClick={() => { setView('templates'); setStatusFilter(''); setPage(1) }}
-                  className={cn(baseBtnCls, isTemplatesActive && activeBtnCls)}
-                  title="Filtrar por templates ativos"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-900/20 shrink-0">
-                    <ClipboardCheck className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none mb-1">Templates Ativos</p>
-                    <p className="text-lg font-bold leading-none tabular-nums">{stats?.templates ?? 0}</p>
-                  </div>
-                </button>
+      {/* Indicadores — mesma anatomia dos de /clientes: cartão próprio com
+          ícone tintado, número grande e rótulo embaixo, e anel na cor quando
+          o filtro está ligado. Antes eram uma faixa única dividida por linhas,
+          que não conversava com o resto do sistema.
 
-                <button
-                  type="button"
-                  onClick={() => { setView('execucoes'); setStatusFilter('EM_ANDAMENTO'); setPage(1) }}
-                  className={cn(baseBtnCls, isAndamentoActive && activeBtnCls)}
-                  title="Filtrar execuções em andamento"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-50 dark:bg-amber-900/20 shrink-0">
-                    <Play className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none mb-1">Em Andamento</p>
-                    <p className="text-lg font-bold leading-none tabular-nums">{stats?.emAndamento ?? 0}</p>
-                  </div>
-                </button>
+          Continuam sendo atalhos de filtro: clicar troca a visão e o status. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {([
+          { k: 'templates', label: 'Templates ativos', valor: stats?.templates ?? 0, cor: '#0284c7', Icone: ClipboardCheck,
+            dica: 'Ver os templates de serviço', ligado: view === 'templates',
+            aplicar: () => { setView('templates'); setStatusFilter(''); setPage(1) } },
+          { k: 'andamento', label: 'Em andamento', valor: stats?.emAndamento ?? 0, cor: '#d97706', Icone: Play,
+            dica: 'Filtrar execuções em andamento', ligado: view === 'execucoes' && statusFilter === 'EM_ANDAMENTO',
+            aplicar: () => { setView('execucoes'); setStatusFilter('EM_ANDAMENTO'); setPage(1) } },
+          { k: 'concluidas', label: 'Concluídas', valor: stats?.concluidas ?? 0, cor: '#16a34a', Icone: CheckCircle2,
+            dica: 'Filtrar execuções concluídas', ligado: view === 'execucoes' && statusFilter === 'CONCLUIDO',
+            aplicar: () => { setView('execucoes'); setStatusFilter('CONCLUIDO'); setPage(1) } },
+          { k: 'total', label: 'Total de execuções', valor: (stats?.emAndamento ?? 0) + (stats?.concluidas ?? 0), cor: '#7c3aed', Icone: Clock,
+            dica: 'Mostrar todas as execuções', ligado: view === 'execucoes' && !statusFilter,
+            aplicar: () => { setView('execucoes'); setStatusFilter(''); setPage(1) } },
+        ] as const).map(({ k, label, valor, cor, Icone, dica, aplicar, ligado }) => (
+          <button
+            key={k}
+            type="button"
+            onClick={aplicar}
+            title={dica}
+            aria-pressed={ligado}
+            className={cn(
+              'flex items-center gap-3 rounded-xl border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm',
+              ligado ? 'border-transparent ring-2' : 'border-border',
+            )}
+            style={ligado ? { boxShadow: `0 0 0 2px ${cor}` } : undefined}
+          >
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+              style={{ backgroundColor: `color-mix(in srgb, ${cor} 12%, transparent)`, color: cor }}
+            >
+              <Icone className="h-[18px] w-[18px]" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-lg font-bold leading-none tabular-nums text-foreground">
+                {valor.toLocaleString('pt-BR')}
+              </span>
+              <span className="mt-1 block truncate text-[11px] text-muted-foreground">{label}</span>
+            </span>
+          </button>
+        ))}
+      </div>
 
-                <button
-                  type="button"
-                  onClick={() => { setView('execucoes'); setStatusFilter('CONCLUIDO'); setPage(1) }}
-                  className={cn(baseBtnCls, isConcluidasActive && activeBtnCls)}
-                  title="Filtrar execuções concluídas"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/20 shrink-0">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none mb-1">Concluídas</p>
-                    <p className="text-lg font-bold leading-none tabular-nums">{stats?.concluidas ?? 0}</p>
-                  </div>
-                </button>
+      {/* Filtros — cartão próprio acima da tabela, como em /clientes: cabeçalho
+          clicável com ícone, contagem de ativos, "Limpar" e a seta que gira.
+          Antes o painel morava dentro do cabeçalho da tabela, atrás de um botão
+          que não existia em nenhuma outra tela.
 
-                <button
-                  type="button"
-                  onClick={() => { setView('execucoes'); setStatusFilter(''); setPage(1) }}
-                  className={cn(baseBtnCls, isTotalActive && activeBtnCls)}
-                  title="Mostrar todas as execuções"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-violet-50 dark:bg-violet-900/20 shrink-0">
-                    <Clock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none mb-1">Total Execuções</p>
-                    <p className="text-lg font-bold leading-none tabular-nums">{(stats?.emAndamento ?? 0) + (stats?.concluidas ?? 0)}</p>
-                  </div>
-                </button>
-              </>
-            )
-          })()}
-        </div>
-      </Card>
+          A animação é por grid-template-rows (0fr↔1fr). O `overflow` só vira
+          `visible` depois de abrir: mantê-lo assim durante a transição deixaria
+          o conteúdo escapar do cartão enquanto ele cresce. */}
+      {view === 'templates' && (
+        <Card
+          className={cn('overflow-hidden transition-all', filtrosOpen ? '' : 'cursor-pointer')}
+          onClick={() => !filtrosOpen && setFiltrosOpen(true)}
+        >
+          <div
+            className="flex flex-col gap-3 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+            onClick={(e) => { e.stopPropagation(); setFiltrosOpen(!filtrosOpen) }}
+          >
+            <div className="flex cursor-pointer flex-wrap items-center gap-2 text-sm font-medium sm:gap-3">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                Filtros
+                {filtrosAtivos > 0 && (
+                  <Badge variant="default" className="bg-emerald-500 px-1.5 py-0 text-[10px]">{filtrosAtivos}</Badge>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              {filtrosAtivos > 0 && (
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); limparFiltros() }}>
+                  <X className="h-3 w-3" />Limpar
+                </Button>
+              )}
+              <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', filtrosOpen && 'rotate-180')} />
+            </div>
+          </div>
+
+          <div
+            className="grid transition-all duration-300 ease-out motion-reduce:transition-none"
+            style={{ gridTemplateRows: filtrosOpen ? '1fr' : '0fr', opacity: filtrosOpen ? 1 : 0 }}
+            aria-hidden={!filtrosOpen}
+          >
+            <div className="min-h-0" style={{ overflow: filtrosOverflow ? 'visible' : 'hidden' }}>
+              <div className="grid grid-cols-2 gap-3 px-4 pb-4 pt-3 sm:grid-cols-3 lg:grid-cols-5">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-muted-foreground">Natureza</Label>
+                  <Select value={tipoCadastroFilter} onValueChange={v => { setTipoCadastroFilter(v as 'comerciais' | 'internos'); setPage(1) }}>
+                    <SelectTrigger className="h-8 w-full bg-card text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="comerciais">Comerciais</SelectItem>
+                      <SelectItem value="internos">Internos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-muted-foreground">Área</Label>
+                  <Select value={areaFilter || '__all__'} onValueChange={v => { setAreaFilter(v === '__all__' ? '' : v); setPage(1) }}>
+                    <SelectTrigger className="h-8 w-full bg-card text-xs"><SelectValue placeholder="Filtrar por área" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todas as áreas</SelectItem>
+                      {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-muted-foreground">Cadeia</Label>
+                  <Select value={cadeiaFilter || '__all__'} onValueChange={v => { setCadeiaFilter(v === '__all__' ? '' : v as typeof cadeiaFilter); setPage(1) }}>
+                    <SelectTrigger className="h-8 w-full bg-card text-xs"><SelectValue placeholder="Cadeia" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Toda a cadeia</SelectItem>
+                      <SelectItem value="unicos">Únicos (sem cadeia)</SelectItem>
+                      <SelectItem value="cadeia">Em cadeia (qualquer)</SelectItem>
+                      <SelectItem value="inicio">Início de cadeia (raiz)</SelectItem>
+                      <SelectItem value="meio">Meio de cadeia</SelectItem>
+                      <SelectItem value="final">Final de cadeia</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-muted-foreground">Segmento</Label>
+                  <Select value={segmentoFilter || '__all__'} onValueChange={v => { setSegmentoFilter(v === '__all__' ? '' : v as typeof segmentoFilter); setPage(1) }}>
+                    <SelectTrigger className="h-8 w-full bg-card text-xs"><SelectValue placeholder="Segmento" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todos os segmentos</SelectItem>
+                      <SelectItem value="avulsos">Avulsos (sem segmento)</SelectItem>
+                      {SEGMENTO_SLUGS.map(slug => (
+                        <SelectItem key={slug} value={slug}>{SEGMENTO_META[slug].label} ({SEGMENTO_META[slug].regime})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-muted-foreground">Tipo</Label>
+                  <Select value={cobrancaFilter || '__all__'} onValueChange={v => { setCobrancaFilter(v === '__all__' ? '' : v as typeof cobrancaFilter); setPage(1) }}>
+                    <SelectTrigger className="h-8 w-full bg-card text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todos os tipos</SelectItem>
+                      <SelectItem value="recorrente">Serviço Recorrente</SelectItem>
+                      <SelectItem value="extra">Serviço Extraordinário</SelectItem>
+                      <SelectItem value="fluxo">Parte do Fluxo</SelectItem>
+                      <SelectItem value="interno">Serviço Interno</SelectItem>
+                      <SelectItem value="acessoria">Obrigação Acessória</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* ══════════════════ VIEW: TEMPLATES ══════════════════ */}
       {view === 'templates' && (
@@ -1141,109 +1220,9 @@ export default function ServicosPage() {
                   <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
                   <SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
                 </Select>
-                <button
-                  type="button"
-                  onClick={() => setFiltrosOpen(v => !v)}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border transition-colors shrink-0',
-                    filtrosOpen || filtrosAtivos > 0
-                      ? 'bg-muted border-border text-foreground'
-                      : 'bg-card border-border text-muted-foreground hover:bg-muted/50',
-                  )}
-                  title="Filtros"
-                >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  Filtros
-                  {filtrosAtivos > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-white text-[10px] font-semibold leading-none" style={{ backgroundColor: MODULE_COLOR }}>{filtrosAtivos}</span>
-                  )}
-                  <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-300', filtrosOpen && 'rotate-180')} />
-                </button>
               </div>
               <div className="max-w-xs w-full sm:w-auto">
                 <Input placeholder="Buscar serviço..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
-              </div>
-            </div>
-
-            {/* Painel de filtros colapsável — anima via grid-template-rows (0fr↔1fr). */}
-            <div
-              className="grid transition-all duration-300 ease-out motion-reduce:transition-none"
-              style={{ gridTemplateRows: filtrosOpen ? '1fr' : '0fr', opacity: filtrosOpen ? 1 : 0, marginTop: filtrosOpen ? '0.75rem' : 0 }}
-              aria-hidden={!filtrosOpen}
-            >
-              <div className="min-h-0" style={{ overflow: filtrosOverflow ? 'visible' : 'hidden' }}>
-                <div className="rounded-lg border border-border bg-card/60 p-3">
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-medium text-muted-foreground">Natureza</Label>
-                      <Select value={tipoCadastroFilter} onValueChange={v => { setTipoCadastroFilter(v as 'comerciais' | 'internos'); setPage(1) }}>
-                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="comerciais">Comerciais</SelectItem>
-                          <SelectItem value="internos">Internos</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-medium text-muted-foreground">Área</Label>
-                      <Select value={areaFilter || '__all__'} onValueChange={v => { setAreaFilter(v === '__all__' ? '' : v); setPage(1) }}>
-                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Filtrar por área" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__all__">Todas as áreas</SelectItem>
-                          {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-medium text-muted-foreground">Cadeia</Label>
-                      <Select value={cadeiaFilter || '__all__'} onValueChange={v => { setCadeiaFilter(v === '__all__' ? '' : v as typeof cadeiaFilter); setPage(1) }}>
-                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Cadeia" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__all__">Toda a cadeia</SelectItem>
-                          <SelectItem value="unicos">Únicos (sem cadeia)</SelectItem>
-                          <SelectItem value="cadeia">Em cadeia (qualquer)</SelectItem>
-                          <SelectItem value="inicio">Início de cadeia (raiz)</SelectItem>
-                          <SelectItem value="meio">Meio de cadeia</SelectItem>
-                          <SelectItem value="final">Final de cadeia</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-medium text-muted-foreground">Segmento</Label>
-                      <Select value={segmentoFilter || '__all__'} onValueChange={v => { setSegmentoFilter(v === '__all__' ? '' : v as typeof segmentoFilter); setPage(1) }}>
-                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Segmento" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__all__">Todos os segmentos</SelectItem>
-                          <SelectItem value="avulsos">Avulsos (sem segmento)</SelectItem>
-                          {SEGMENTO_SLUGS.map(slug => (
-                            <SelectItem key={slug} value={slug}>{SEGMENTO_META[slug].label} ({SEGMENTO_META[slug].regime})</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-medium text-muted-foreground">Tipo</Label>
-                      <Select value={cobrancaFilter || '__all__'} onValueChange={v => { setCobrancaFilter(v === '__all__' ? '' : v as typeof cobrancaFilter); setPage(1) }}>
-                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__all__">Todos os tipos</SelectItem>
-                          <SelectItem value="recorrente">Serviço Recorrente</SelectItem>
-                          <SelectItem value="extra">Serviço Extraordinário</SelectItem>
-                          <SelectItem value="fluxo">Parte do Fluxo</SelectItem>
-                          <SelectItem value="interno">Serviço Interno</SelectItem>
-                          <SelectItem value="acessoria">Obrigação Acessória</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  {filtrosAtivos > 0 && (
-                    <div className="mt-3 flex justify-end">
-                      <button type="button" onClick={limparFiltros} className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
-                        <X className="h-3.5 w-3.5" /> Limpar filtros
-                      </button>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           </div>
