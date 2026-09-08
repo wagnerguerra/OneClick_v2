@@ -69,6 +69,8 @@ jobs:
           context: .
           file: apps/api/Dockerfile
           push: true
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-api:latest
             ${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-api:${{ github.sha }}
