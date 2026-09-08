@@ -92,6 +92,17 @@ const TRIBUTACAO_LABELS: Record<string, string> = {
   LUCRO_REAL: 'Lucro Real', MEI: 'MEI', IMUNE: 'Imune', ISENTA: 'Isenta',
 }
 
+/**
+ * Rótulo curto, só para a legenda do indicador. "Lucro" some porque o cartão
+ * já se chama "Por tributação" — a palavra ocupava um terço da pílula sem
+ * distinguir nada, e era o que empurrava a legenda para além da largura do
+ * cartão. O nome inteiro continua no `title` de cada pílula.
+ */
+const TRIBUTACAO_LABELS_CURTO: Record<string, string> = {
+  SIMPLES_NACIONAL: 'Simples', LUCRO_PRESUMIDO: 'Presumido',
+  LUCRO_REAL: 'Real', MEI: 'MEI', IMUNE: 'Imune', ISENTA: 'Isenta',
+}
+
 /** Cor de cada regime na barra de distribuição. Sem regime fica cinza. */
 const TRIBUTACAO_CORES: Record<string, string> = {
   SIMPLES_NACIONAL: '#16a34a', LUCRO_PRESUMIDO: '#2563eb', LUCRO_REAL: '#9333ea',
@@ -680,36 +691,6 @@ export default function ClientesPage() {
           em seguida. */}
       {stats && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
-          {([
-            { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#9333ea', Icone: BadgePercent, dica: 'Filtrar quem tem benefício fiscal', ligado: filterBeneficio === '__com__', aplicar: () => { setFilterBeneficio(p => (p === '__com__' ? '' : '__com__')); setPage(1); setFiltersOpen(true) } },
-          ] as const).map(({ k, label, valor, cor, Icone, dica, aplicar, ligado }) => (
-            <button
-              key={k}
-              type="button"
-              onClick={aplicar}
-              title={dica}
-              aria-pressed={ligado}
-              className={cn(
-                'flex items-center gap-3 rounded-xl border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm',
-                ligado ? 'border-transparent ring-2' : 'border-border',
-              )}
-              style={ligado ? { boxShadow: `0 0 0 2px ${cor}` } : undefined}
-            >
-              <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                style={{ backgroundColor: `color-mix(in srgb, ${cor} 12%, transparent)`, color: cor }}
-              >
-                <Icone className="h-[18px] w-[18px]" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-lg font-bold leading-none tabular-nums text-foreground">
-                  {valor.toLocaleString('pt-BR')}
-                </span>
-                <span className="mt-1 block truncate text-[11px] text-muted-foreground">{label}</span>
-              </span>
-            </button>
-          ))}
-
           {/* Mensais e "com serviço" no mesmo card: o segundo número só existe
               em relação ao primeiro — 201 sozinho não diz nada, 201 de 203 diz
               que a carteira está praticamente toda com serviço registrado.
@@ -762,6 +743,36 @@ export default function ClientesPage() {
               </span>
             </span>
           </div>
+
+          {([
+            { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#9333ea', Icone: BadgePercent, dica: 'Filtrar quem tem benefício fiscal', ligado: filterBeneficio === '__com__', aplicar: () => { setFilterBeneficio(p => (p === '__com__' ? '' : '__com__')); setPage(1); setFiltersOpen(true) } },
+          ] as const).map(({ k, label, valor, cor, Icone, dica, aplicar, ligado }) => (
+            <button
+              key={k}
+              type="button"
+              onClick={aplicar}
+              title={dica}
+              aria-pressed={ligado}
+              className={cn(
+                'flex items-center gap-3 rounded-xl border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm',
+                ligado ? 'border-transparent ring-2' : 'border-border',
+              )}
+              style={ligado ? { boxShadow: `0 0 0 2px ${cor}` } : undefined}
+            >
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `color-mix(in srgb, ${cor} 12%, transparent)`, color: cor }}
+              >
+                <Icone className="h-[18px] w-[18px]" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-bold leading-none tabular-nums text-foreground">
+                  {valor.toLocaleString('pt-BR')}
+                </span>
+                <span className="mt-1 block truncate text-[11px] text-muted-foreground">{label}</span>
+              </span>
+            </button>
+          ))}
 
           {/* Movimentação em 90 dias — entradas contra saídas, lado a lado.
               Dois números num card só porque o que interessa é a COMPARAÇÃO:
@@ -838,24 +849,25 @@ export default function ClientesPage() {
                       ativo se distinguia só por um peso de fonte, e não dava
                       para saber por qual regime a tabela estava filtrada sem
                       procurar no campo de filtro lá embaixo. */}
-                  {/* Uma linha só. A pílula do ativo é mais larga que o rótulo
-                      solto que ela substitui, e com quatro regimes isso jogava
-                      o último para baixo — o cartão crescia de altura conforme
-                      o que estava filtrado. Espaçamento apertado resolve na
-                      largura de uso; em janela estreita, rola na horizontal em
-                      vez de quebrar. */}
-                  <div className="nice-scrollbar mt-2 flex flex-nowrap items-center gap-x-1.5 overflow-x-auto pb-0.5">
+                  {/* Quebra em vez de rolar. A barra de rolagem horizontal
+                      escondia regime atrás de um gesto que ninguém faz — e
+                      aparecia sempre, porque o cartão encolheu quando o
+                      indicador de serviços entrou na grade. Com o rótulo curto
+                      os quatro regimes cabem numa linha na largura de uso; se
+                      não couberem, descem, que é degradação visível. */}
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {stats.porTributacao.map(t => {
                       const ativoAqui = filterTributacao === t.regime
                       const cor = corTributacao(t.regime)
-                      const rotulo = TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'
+                      const rotulo = TRIBUTACAO_LABELS_CURTO[t.regime] ?? 'Sem info'
+                      const rotuloLongo = TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'
                       return (
                         <button
                           key={t.regime}
                           type="button"
                           onClick={() => aplicarTributacao(t.regime)}
                           aria-pressed={ativoAqui}
-                          title={ativoAqui ? `Filtrando por ${rotulo} — clique para limpar` : `Filtrar por ${rotulo}`}
+                          title={ativoAqui ? `Filtrando por ${rotuloLongo} — clique para limpar` : `Filtrar por ${rotuloLongo}`}
                           className={cn(
                             'flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10.5px] transition-all',
                             ativoAqui
@@ -903,7 +915,10 @@ export default function ClientesPage() {
                   <span className="text-[11px] font-medium text-muted-foreground">Por serviço contratado</span>
                   <span className="text-[11px] tabular-nums text-muted-foreground">{stats.mensais.toLocaleString('pt-BR')} mensais</span>
                 </div>
-                <div className="nice-scrollbar mt-2 flex flex-wrap items-center gap-1.5 overflow-y-auto pb-0.5" style={{ maxHeight: '4.5rem' }}>
+                {/* Mesma anatomia da legenda de tributação — os dois cartões
+                    ficam lado a lado e qualquer diferença de espaçamento entre
+                    eles lê como desalinhamento. */}
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {stats.porArea.map(a => {
                     const ativoAqui = filterArea === a.area
                     const chave = a.area.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
