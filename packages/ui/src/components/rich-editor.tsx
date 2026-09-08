@@ -314,10 +314,17 @@ export function RichEditor({
       try {
         const formData = new FormData()
         formData.append('file', file)
+        // `__NEXT_PUBLIC_API_URL` é publicado pelo app (Providers). Sem ele,
+        // mesma origem — que funciona em produção, onde o proxy serve /api na
+        // origem do site. O `localhost:4000` de antes só acertava por acidente,
+        // quando o navegador estava na mesma máquina da API.
         const apiUrl = typeof window !== 'undefined'
-          ? ((window as unknown as Record<string, unknown>).__NEXT_PUBLIC_API_URL as string) || 'http://localhost:4000'
-          : 'http://localhost:4000'
-        const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData })
+          ? ((window as unknown as Record<string, unknown>).__NEXT_PUBLIC_API_URL as string) || ''
+          : ''
+        // `credentials` é obrigatório: o endpoint exige sessão, e sem o cookie
+        // a resposta é 401. Todos os outros 32 pontos que sobem arquivo no app
+        // já mandavam — este era o único que não.
+        const res = await fetch(`${apiUrl}/api/upload`, { method: 'POST', body: formData, credentials: 'include' })
         if (res.ok) {
           const { url } = await res.json()
           // URL retornada é relativa ('/api/upload/<filename>') — precisa virar
@@ -329,7 +336,14 @@ export function RichEditor({
         }
       } catch { /* fallback para base64 */ }
 
-      // Fallback: base64
+      // Fallback: base64. Preserva o trabalho de quem colou a imagem, mas
+      // engorda o conteúdo salvo — por isso o aviso, para o caso não passar
+      // despercebido como passou até aqui.
+      if (typeof console !== 'undefined') {
+        console.warn(
+          '[RichEditor] upload falhou; a imagem foi embutida em base64 e vai inchar o conteúdo salvo.',
+        )
+      }
       const reader = new FileReader()
       reader.onload = () => {
         if (reader.result) {

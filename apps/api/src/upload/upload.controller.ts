@@ -79,7 +79,12 @@ export class UploadController {
       },
     }),
   )
-  upload(@UploadedFile() file: Express.Multer.File) {
+  // `exigirSessao` existia no controller e era usada só pelas rotas de
+  // certificado — a rota genérica aceitava arquivo de qualquer um que
+  // alcançasse a API, até 20 MB, gravando em disco. Fechado aqui: os callers
+  // do app já mandavam o cookie, e o do RichEditor passou a mandar.
+  async upload(@Req() req: Request, @UploadedFile() file: Express.Multer.File) {
+    await this.exigirSessao(req)
     if (!file) {
       throw new BadRequestException('Nenhum arquivo enviado.')
     }
