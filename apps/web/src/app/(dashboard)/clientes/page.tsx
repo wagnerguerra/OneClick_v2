@@ -1063,7 +1063,10 @@ export default function ClientesPage() {
             </Select>
             <span className="hidden sm:inline">registros</span>
           </div>
-          <div className="w-full sm:w-auto sm:max-w-xs">
+          {/* Largura tripla (o input caia no tamanho intrinseco, ~185px). O teto
+              em 60% da linha impede que ele encoste no "Exibir N registros"
+              num notebook 1366. */}
+          <div className="w-full sm:w-[560px] sm:max-w-[60%]">
             <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
           </div>
         </div>
