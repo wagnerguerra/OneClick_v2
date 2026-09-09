@@ -5644,9 +5644,15 @@
             const detail = stepEl.querySelector('.step-detail')
             if (detail) detail.textContent = `aguarde… (${sinceLastEvent}s)`
           }
-          // Loga UMA vez no log de debug, sem spammar
-          if (sinceLastEvent >= 30 && !deployState._waitMessageShown) {
-            deployAppendLog(`· VPS demorando a responder (${sinceLastEvent}s). Aguarde…`, 'warn')
+          // Loga UMA vez, sem spammar. E NAO culpa a VPS: desde que as imagens
+          // vem do registry, os passos mais demorados sao esperar o build no
+          // GitHub e baixar a imagem — nos dois, nenhum comando SSH esta em
+          // curso. Dizer "VPS demorando a responder" ali mandava procurar o
+          // problema no lugar errado. O limite subiu de 30s para 60s pelo mesmo
+          // motivo: um build de imagem leva minutos, e isso e o normal.
+          if (sinceLastEvent >= 60 && !deployState._waitMessageShown) {
+            const rot = ROTULO_DO_PASSO[deployState._currentStep] || deployState._currentStep
+            deployAppendLog(`· ${rot}: ${sinceLastEvent}s sem novidade — passo longo, aguarde…`, 'warn')
             deployState._waitMessageShown = true
           }
         } else if (sinceLastEvent < 5) {
