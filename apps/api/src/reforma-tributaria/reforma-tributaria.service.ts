@@ -37,6 +37,8 @@ export interface ClienteBase {
 export interface Metrics {
   faturamento12m: number
   faturamentoMedioMensal: number
+  /** Receita mes a mes (periodo = AAAAMM). Vazia quando a fonte nao e o balancete. */
+  faturamentoSerie: Array<{ periodo: string; receita: number }>
   comprasMercadorias12m: number
   servicosTomados12m: number
   documentosSaida: number
@@ -1154,6 +1156,10 @@ export class ReformaTributariaService {
     return {
       faturamento12m,
       faturamentoMedioMensal: faturamento12m / Math.max(1, meses),
+      // So vai a serie quando o faturamento VEIO do balancete. Nas outras
+      // fontes (snapshot, documentos fiscais) nao ha mes a mes para abrir, e
+      // devolver uma serie vazia junto de um numero cheio confundiria mais.
+      faturamentoSerie: contabil.faturamento12m > 0 ? contabil.faturamentoSerie : [],
       comprasMercadorias12m,
       servicosTomados12m,
       documentosSaida: saidaDocs.reduce((acc, r) => acc + Number(r.docs), 0) + asNumber(snapshots.nf_saida) + asNumber(snapshots.nf_prestado) + sci.documentosSaida,
@@ -1205,6 +1211,31 @@ export class ReformaTributariaService {
       periodoInicio,
       periodoFim,
     )
+    // Receita mes a mes, para a conferencia na tela. Mesmo criterio da soma
+    // acima, so que agrupado por periodo: se o criterio divergisse, a soma dos
+    // meses nao fecharia com a media exibida e a conferencia acusaria um erro
+    // inexistente.
+    const serieRows = await prisma.$queryRawUnsafe<Array<{
+      periodo: string
+      receita: number | string | null
+    }>>(
+      `WITH ${SQL_SINTETICAS}
+        , linhas AS (${SQL_LINHAS_ANALITICAS})
+        SELECT l.periodo,
+          COALESCE(SUM(CASE
+            WHEN COALESCE(c.categoria_dre, '') IN ('RECEITA_BRUTA')
+              OR l.conta LIKE '03.1.1%' OR l.conta LIKE '3.1.1%'
+            THEN l.vl ELSE 0 END), 0) AS receita
+         FROM linhas l
+         LEFT JOIN cliente_bi_categorias c
+           ON c.cliente_id = l.cliente_id AND c.conta = l.conta
+        GROUP BY l.periodo
+        ORDER BY l.periodo`,
+      clienteId,
+      periodoInicio,
+      periodoFim,
+    )
+
     const creditoRows = await prisma.$queryRawUnsafe<Array<{
       conta: string
       nomeConta: string
@@ -1272,6 +1303,10 @@ export class ReformaTributariaService {
       disponivel: periodos > 0 && (faturamento12m > 0 || custosDespesas12m > 0),
       faturamento12m,
       custosDespesas12m,
+      // Receita por mes (AAAAMM). E o que permite conferir a media na tela: uma
+      // media esconde o mes zerado por balancete faltando e o mes atipico que a
+      // puxa sozinho.
+      faturamentoSerie: serieRows.map(r => ({ periodo: String(r.periodo), receita: asNumber(r.receita) })),
       creditos,
       margemOperacionalPercentual: faturamento12m > 0 ? (faturamento12m - custosDespesas12m) / faturamento12m : null,
       mensagem: periodos > 0

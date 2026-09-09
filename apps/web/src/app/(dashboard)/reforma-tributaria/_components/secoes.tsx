@@ -123,7 +123,7 @@ function CampoPercentual({ label, valor, onChange, disabled }: {
 // ══════════════════════════════════════════════════════════════════
 // 1. CONFIGURAR
 // ══════════════════════════════════════════════════════════════════
-export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirComposicao }: {
+export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirComposicao, serieFaturamento, onAbrirSerie }: {
   p: Parametros
   onChange: (patch: Partial<Parametros>) => void
   /** De onde veio o faturamento sugerido. */
@@ -131,6 +131,9 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
   /** Contas do balancete que somam as despesas creditáveis. */
   composicao?: ItemComposicao[]
   onAbrirComposicao?: () => void
+  /** Receita mes a mes do balancete. Havendo, o rodape do campo abre a conferencia. */
+  serieFaturamento?: Array<{ periodo: string; receita: number }>
+  onAbrirSerie?: () => void
 }) {
   const totalIva = p.cbs + p.ibs
   const servico = ehServico(p.atividade)
@@ -179,16 +182,32 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
               onChange={(v) => onChange({ faturamentoMensal: v })}
             />
             {/* A procedência do número fica à vista: apresentar faturamento sem
-                saber de onde saiu é o jeito mais rápido de perder a conversa. */}
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {origem === 'balancete'
-                ? 'Das contas de receita do balancete importado.'
-                : origem === 'contrato'
-                  ? 'Do parâmetro de contrato (consulta ao SCI).'
-                  : origem === 'erp'
-                    ? 'Média dos últimos 12 meses de snapshot do ERP.'
-                    : 'Sem faturamento no cadastro — informe o valor.'}
-            </p>
+                saber de onde saiu é o jeito mais rápido de perder a conversa.
+                E quando o número é uma MÉDIA, a procedência não basta: a média
+                esconde o mês zerado por balancete faltando e o mês atípico que
+                a puxa sozinho. Por isso, vindo do balancete, o rodapé abre o
+                mês a mês — mesma ideia da composição das despesas logo abaixo. */}
+            {origem === 'balancete' && serieFaturamento && serieFaturamento.length > 0 ? (
+              <button
+                type="button"
+                onClick={onAbrirSerie}
+                className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                title="Ver o faturamento mês a mês do balancete"
+              >
+                Média de {serieFaturamento.length} mês(es) do balancete — clique para conferir.
+                <ListTree className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {origem === 'balancete'
+                  ? 'Das contas de receita do balancete importado.'
+                  : origem === 'contrato'
+                    ? 'Do parâmetro de contrato (consulta ao SCI).'
+                    : origem === 'erp'
+                      ? 'Média dos últimos 12 meses de snapshot do ERP.'
+                      : 'Sem faturamento no cadastro — informe o valor.'}
+              </p>
+            )}
           </div>
         </div>
 

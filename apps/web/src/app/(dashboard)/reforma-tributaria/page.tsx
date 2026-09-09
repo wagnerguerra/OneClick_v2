@@ -106,7 +106,10 @@ export default function ReformaTributariaPage() {
   /** Contas do balancete que somam a base de crédito, quando o diagnóstico as
    *  conhece. Sem balancete importado a lista é vazia e o valor não abre. */
   const [composicao, setComposicao] = useState<ItemComposicao[]>([])
+  /** Receita mes a mes do balancete — o detalhe por tras da media exibida. */
+  const [serieFaturamento, setSerieFaturamento] = useState<Array<{ periodo: string; receita: number }>>([])
   const [verComposicao, setVerComposicao] = useState(false)
+  const [verSerie, setVerSerie] = useState(false)
   const [verBalancete, setVerBalancete] = useState(false)
 
   const alterar = useCallback((patch: Partial<Parametros>) => setP(prev => ({ ...prev, ...patch })), [])
@@ -138,11 +141,13 @@ export default function ReformaTributariaPage() {
 
     setCarregandoCliente(true)
     setComposicao([])
+    setSerieFaturamento([])
     try {
       const d = await (trpc.reformaTributaria as never as {
         diagnostico: { query: (i: { clienteId: string; meses: number }) => Promise<{
           metrics: {
             faturamentoMedioMensal: number
+            faturamentoSerie?: Array<{ periodo: string; receita: number }>
             comprasMercadorias12m: number
             servicosTomados12m: number
             fontePrincipal: 'BALANCETE_ERP' | 'SNAPSHOT_SCI' | 'DOCUMENTOS_FISCAIS'
@@ -170,6 +175,7 @@ export default function ReformaTributariaPage() {
       if (mensalContabil > 0 && d.metrics.fontePrincipal === 'BALANCETE_ERP') {
         setP(prev => ({ ...prev, faturamentoMensal: Math.round(mensalContabil) }))
         setOrigem('balancete')
+        setSerieFaturamento(d.metrics.faturamentoSerie ?? [])
       }
     } catch { /* sem ERP para este cliente — o campo fica editável em zero */ }
     finally { setCarregandoCliente(false) }
@@ -247,8 +253,12 @@ export default function ReformaTributariaPage() {
       ) : (
         <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
           {/* Rail de navegação */}
+          {/* Rail dentro de um Card, como o painel lateral da /agenda: a
+              navegação flutuava sobre o fundo da página, sem borda nem
+              superfície, e por isso não se lia como um bloco — parecia texto
+              solto ao lado do conteúdo. */}
           <nav className="lg:sticky lg:top-4 lg:self-start">
-            <div className="space-y-4">
+            <Card className="space-y-4 p-3">
               {NAV.map((g, gi) => (
                 <div key={gi}>
                   {g.grupo && (
@@ -282,13 +292,15 @@ export default function ReformaTributariaPage() {
                   </div>
                 </div>
               ))}
-            </div>
 
-            <p className="mt-6 flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              Simulador pedagógico. Os resultados são estimativas e devem ser validados com especialistas
-              tributários.
-            </p>
+              {/* O aviso entra no mesmo cartão: e parte da navegacao, nao um
+                  bloco a parte flutuando embaixo dela. */}
+              <p className="flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                Simulador pedagógico. Os resultados são estimativas e devem ser validados com especialistas
+                tributários.
+              </p>
+            </Card>
           </nav>
 
           {/* Conteúdo */}
@@ -298,6 +310,8 @@ export default function ReformaTributariaPage() {
                 p={p} onChange={alterar} origem={origem}
                 composicao={composicao}
                 onAbrirComposicao={() => setVerComposicao(true)}
+                serieFaturamento={serieFaturamento}
+                onAbrirSerie={() => setVerSerie(true)}
               />
             )}
             {aba === 'comparar' && <SecaoComparar p={p} />}
@@ -321,6 +335,89 @@ export default function ReformaTributariaPage() {
       {/* Composição das despesas creditáveis — as contas do balancete que somam
           o valor, com o motivo da classificação. Os valores do diagnóstico são
           de 12 meses; aqui a coluna é mensal, para bater com o campo da tela. */}
+      {/* Faturamento mes a mes — a conferencia da media exibida no campo.
+          Uma media de 12 meses trata igual o mes que faltou no balancete e o
+          mes atipico que a puxou sozinho; quem apresenta o numero ao cliente
+          precisa poder abrir os dois. */}
+      <Dialog open={verSerie} onOpenChange={setVerSerie}>
+        <DialogContent className="max-w-lg">
+          <DialogHeaderIcon icon={ListTree} color="sky">
+            <DialogTitle>Faturamento mês a mês</DialogTitle>
+            <DialogDescription>
+              Contas de receita do balancete importado, por período. A média destes meses é o valor usado nas simulações.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <div className="nice-scrollbar max-h-[60vh] overflow-y-auto px-5 pb-5">
+            {serieFaturamento.length === 0 ? (
+              <p className="py-8 text-center text-xs text-muted-foreground">
+                Sem balancete importado para este cliente.
+              </p>
+            ) : (() => {
+              const total = serieFaturamento.reduce((a, m) => a + m.receita, 0)
+              const media = total / serieFaturamento.length
+              // O maior mes calibra a barra. Sem ela, doze numeros alinhados
+              // nao mostram qual mes destoa — que e justamente o que se procura
+              // ao conferir uma media.
+              const maior = Math.max(...serieFaturamento.map(m => Math.abs(m.receita)), 1)
+              return (
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-card">
+                    <tr className="border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <th className="py-2 text-left">Mês</th>
+                      <th className="py-2 text-left">Proporção</th>
+                      <th className="py-2 text-right">Receita</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {serieFaturamento.map(m => {
+                      const ano = m.periodo.slice(0, 4)
+                      const mes = m.periodo.slice(4, 6)
+                      const zerado = m.receita === 0
+                      return (
+                        <tr key={m.periodo} className={zerado ? 'opacity-60' : undefined}>
+                          <td className="py-2 pr-3 text-xs tabular-nums text-foreground">{mes}/{ano}</td>
+                          <td className="py-2 pr-3">
+                            <span className="block h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                              <span
+                                className="block h-full rounded-full bg-sky-500"
+                                style={{ width: `${Math.max(0, (m.receita / maior) * 100)}%` }}
+                              />
+                            </span>
+                          </td>
+                          <td className="py-2 text-right text-xs font-medium tabular-nums text-foreground">
+                            {zerado
+                              ? <span className="text-muted-foreground">sem lançamento</span>
+                              : reais(m.receita)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-border">
+                      <td colSpan={2} className="py-2.5 text-[13px] font-semibold text-foreground">
+                        Média mensal
+                      </td>
+                      <td className="py-2.5 text-right text-[13px] font-bold tabular-nums text-foreground">
+                        {reais(media)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colSpan={2} className="pb-1 text-[11px] text-muted-foreground">
+                        Total no período
+                      </td>
+                      <td className="pb-1 text-right text-[11px] tabular-nums text-muted-foreground">
+                        {reais(total)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              )
+            })()}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={verComposicao} onOpenChange={setVerComposicao}>
         <DialogContent className="max-w-2xl">
           <DialogHeaderIcon icon={ListTree} color="sky">
