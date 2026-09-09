@@ -2858,27 +2858,63 @@ function registerIpcHandlers() {
   // e voce publica a imagem do outro commit sem perceber. Esperar tambem nao e
   // zelo, e obrigacao: o push acabou de acontecer, entao a imagem daquele
   // commit quase certamente ainda nao existe quando o deploy chega aqui.
-  async function aguardaImagensDoSha(cfg, sha, emitir, tetoMs) {
+  async function aguardaImagensDoSha(cfg, sha, emitir, nomeJob, tetoMs) {
     const teto = tetoMs || 25 * 60 * 1000
     const inicio = Date.now()
     let anunciou = false
+    let runId = null
+    let runUrl = null
+
     while (Date.now() - inicio < teto) {
-      const r = await githubJson(`/actions/workflows/build-images.yml/runs?head_sha=${sha}&per_page=1`, cfg)
-      if (!r.ok) return { ok: false, error: `Nao foi possivel consultar o build das imagens no GitHub: ${r.error}` }
-      const run = (r.data && r.data.workflow_runs && r.data.workflow_runs[0]) || null
-      if (run && run.status === 'completed') {
-        if (run.conclusion === 'success') return { ok: true, url: run.html_url }
-        return { ok: false, error: `O build das imagens terminou como "${run.conclusion}". Veja ${run.html_url}` }
+      // 1) Acha o run daquele commit (uma vez; depois so reconsulta os jobs).
+      if (!runId) {
+        const r = await githubJson(`/actions/workflows/build-images.yml/runs?head_sha=${sha}&per_page=1`, cfg)
+        if (!r.ok) return { ok: false, error: `Nao foi possivel consultar o build das imagens no GitHub: ${r.error}` }
+        const run = (r.data && r.data.workflow_runs && r.data.workflow_runs[0]) || null
+        if (run) { runId = run.id; runUrl = run.html_url }
       }
-      if (!anunciou) {
-        emitir(run
-          ? `- Build das imagens em andamento: ${run.html_url}`
-          : '- Aguardando o GitHub criar o build das imagens para este commit...')
+
+      // 2) Espera o JOB, nao o run.
+      //
+      // O run so termina quando API e Web terminam, e os dois quase nunca levam
+      // o mesmo tempo: num commit que so mexe no web, a imagem da API sai em ~30s
+      // (tudo cache) e o run leva ~4min30 por causa do web. Esperar o run fazia o
+      // passo "Imagem API" ficar 4 minutos parado esperando algo que ele nao usa.
+      if (runId) {
+        const j = await githubJson(`/actions/runs/${runId}/jobs?per_page=50`, cfg)
+        if (j.ok) {
+          const jobs = (j.data && j.data.jobs) || []
+          const job = jobs.find(x => x.name === nomeJob)
+          if (job && job.status === 'completed') {
+            if (job.conclusion === 'success') return { ok: true, url: job.html_url || runUrl }
+            return { ok: false, error: `O job "${nomeJob}" terminou como "${job.conclusion}". Veja ${job.html_url || runUrl}` }
+          }
+          // Run acabou e o job nem apareceu: cancelado, ou o nome mudou no
+          // workflow. Falhar aqui e melhor que esperar o teto inteiro.
+          if (!job && jobs.length > 0) {
+            const r2 = await githubJson(`/actions/runs/${runId}`, cfg)
+            if (r2.ok && r2.data && r2.data.status === 'completed') {
+              return { ok: false, error: `O build terminou sem o job "${nomeJob}" (nomes vistos: ${jobs.map(x => x.name).join(', ')}). Veja ${runUrl}` }
+            }
+          }
+          if (!anunciou && job) {
+            emitir(`- ${nomeJob} em andamento: ${job.html_url || runUrl}`)
+            anunciou = true
+          }
+        }
+      }
+
+      if (!anunciou && !runId) {
+        emitir('- Aguardando o GitHub criar o build das imagens para este commit...')
         anunciou = true
       }
-      await new Promise((resolver) => setTimeout(resolver, 15000))
+      // Primeiro minuto de 5 em 5s: um job em cache termina em ~30s, e um
+      // intervalo de 15s desperdicava metade disso so esperando a proxima
+      // pergunta. Depois relaxa, que ai o build e longo mesmo.
+      const rapido = Date.now() - inicio < 60 * 1000
+      await new Promise((resolver) => setTimeout(resolver, rapido ? 5000 : 15000))
     }
-    return { ok: false, error: 'O build das imagens nao concluiu em 25 min. Veja a aba Actions no GitHub.' }
+    return { ok: false, error: `O job "${nomeJob}" nao concluiu em 25 min. Veja a aba Actions no GitHub.` }
   }
 
   // Puxa a imagem do SHA e a REETIQUETA com o nome local que o compose ja usa.
@@ -3151,14 +3187,14 @@ function registerIpcHandlers() {
       deployCurrentStep = 'build-api'
       let buildApi
       if (usaImagensDoGhcr(cfg)) {
-        deployEmit(28, 'build-api', '→ Aguardando o build das imagens no GitHub...', 'info')
-        const espera = await aguardaImagensDoSha(cfg, targetSha, (m) => deployEmit(30, 'build-api', m, 'info'))
+        deployEmit(28, 'build-api', '→ Aguardando o build da imagem da API no GitHub...', 'info')
+        const espera = await aguardaImagensDoSha(cfg, targetSha, (m) => deployEmit(30, 'build-api', m, 'info'), 'build-api')
         if (!espera.ok) {
           deployEmit(50, 'build-api', `✗ ${espera.error}`, 'err')
           deployRunning = false
           return { ok: false, error: espera.error }
         }
-        deployEmit(35, 'build-api', '✓ Imagens prontas no GitHub', 'ok')
+        deployEmit(35, 'build-api', '✓ Imagem da API pronta no GitHub', 'ok')
         deployEmit(38, 'build-api', '→ Baixando a imagem da API do ghcr...', 'info')
         buildApi = await puxaImagemDoGhcr(cfg, 'api', targetSha, (line) => {
           if (linhaDePullRelevante(line)) deployEmit(45, 'build-api', line, 'info')
@@ -3356,13 +3392,22 @@ function registerIpcHandlers() {
       }
 
       // ─── Stage 5: Imagem do Web ───────────────────────
-      // A espera pelo GitHub já aconteceu no Stage 3 — os dois jobs (API e Web)
-      // correm no mesmo run, então aqui é só puxar.
+      // Espera o job do WEB — o Stage 3 esperou só o da API, de propósito. Os
+      // dois correm no mesmo run e raramente levam o mesmo tempo; enquanto o web
+      // buildava, o deploy aproveitou para rodar o db push e os SQL. Quando
+      // chega aqui, normalmente já terminou.
       deployCheckAbort('build-web', 70)
       deployCurrentStep = 'build-web'
       let buildWeb
       if (usaImagensDoGhcr(cfg)) {
-        deployEmit(70, 'build-web', '→ Baixando a imagem do Web do ghcr...', 'info')
+        const esperaWeb = await aguardaImagensDoSha(cfg, targetSha, (m) => deployEmit(70, 'build-web', m, 'info'), 'build-web')
+        if (!esperaWeb.ok) {
+          deployEmit(85, 'build-web', `✗ ${esperaWeb.error}`, 'err')
+          deployRunning = false
+          return { ok: false, error: esperaWeb.error }
+        }
+        deployEmit(72, 'build-web', '✓ Imagem do Web pronta no GitHub', 'ok')
+        deployEmit(74, 'build-web', '→ Baixando a imagem do Web do ghcr...', 'info')
         buildWeb = await puxaImagemDoGhcr(cfg, 'web', targetSha, (line) => {
           if (linhaDePullRelevante(line)) deployEmit(78, 'build-web', line, 'info')
         })

@@ -74,8 +74,15 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-api:latest
             ${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-api:${{ github.sha }}
-          cache-from: type=gha,scope=api
-          cache-to: type=gha,scope=api,mode=max
+          # Cache no REGISTRY, nao no Actions. O cache do Actions tem teto de
+          # 10 GB por repositorio; com `mode=max` guardando toda camada
+          # intermediaria de duas imagens Node, os dois escopos passavam do
+          # teto e se despejavam por LRU. O sintoma era o build da API oscilar
+          # entre 21s (cache quente) e 298s (cache frio) para o MESMO tipo de
+          # commit. No ghcr nao ha esse teto, e cada imagem tem a sua tag de
+          # cache -- param de brigar por espaco.
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-api:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-api:buildcache,mode=max
 
   build-web:
     runs-on: ubuntu-latest
@@ -103,5 +110,12 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-web:latest
             ${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-web:${{ github.sha }}
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,scope=web,mode=max
+          # Cache no REGISTRY, nao no Actions. O cache do Actions tem teto de
+          # 10 GB por repositorio; com `mode=max` guardando toda camada
+          # intermediaria de duas imagens Node, os dois escopos passavam do
+          # teto e se despejavam por LRU. O sintoma era o build da API oscilar
+          # entre 21s (cache quente) e 298s (cache frio) para o MESMO tipo de
+          # commit. No ghcr nao ha esse teto, e cada imagem tem a sua tag de
+          # cache -- param de brigar por espaco.
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-web:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/oneclick-web:buildcache,mode=max
