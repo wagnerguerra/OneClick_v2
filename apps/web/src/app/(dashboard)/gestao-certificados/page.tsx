@@ -12,7 +12,7 @@ import {
   Button, Input, Badge, Card, Label, cn, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -408,77 +408,53 @@ export default function GestaoCertificadosPage() {
     <div className="flex flex-col gap-5 h-[calc(100vh-98px)]" suppressHydrationWarning>
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-          {isAdmin && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setBulkImportOpen(true)}
-                className="gap-1.5"
-                title="Importar múltiplos PFX de uma vez (drag-and-drop)"
-              >
-                <UploadCloud className="h-4 w-4" /> Importar PFX em Lote
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setLegacyImportOpen(true)}
-                className="gap-1.5"
-                title="Importar certificados do OneClick V1"
-              >
-                <DatabaseBackup className="h-4 w-4" /> Importar do Legado
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBackfillObservacoes}
-                disabled={backfillando}
-                className="gap-1.5"
-                title="Atualiza as observações dos certificados já importados com a descrição/senha e o nome do arquivo do legado"
-              >
-                {backfillando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                {backfillando ? 'Atualizando...' : 'Atualizar Obs. do Legado'}
-              </Button>
-              </>
-          )}
-          {canDelete && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleVarrerDuplicatas}
-                disabled={varrendo}
-                className="gap-1.5"
-                title="Encontra e exclui certificados duplicados (mesmo número de série)"
-              >
-                {varrendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                {varrendo ? 'Varrendo...' : 'Limpar Duplicatas'}
-              </Button>
-          )}
-          {isAdmin && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAtualizarSino}
-                disabled={atualizandoSino}
-                className="gap-1.5"
-                title="Atualiza notificações no sino para certs vencidos e próximos do vencimento"
-              >
-                {atualizandoSino ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-                {atualizandoSino ? 'Atualizando...' : 'Atualizar Sino'}
-              </Button>
-            </>
-          )}
-          {canManageConfig && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setConfigOpen(true)}
-              className="gap-1.5"
-              title="Configurações de segurança (reautenticação para ver senha / baixar PFX)"
-            >
-              <Settings2 className="h-4 w-4" />
-            </Button>
+          {/* Um botao primario e o resto no menu de tres pontos, como em
+              /clientes. Eram seis botoes soltos disputando o cabecalho — a
+              acao que se usa todo dia ("Novo Certificado") ficava do mesmo
+              tamanho que a varredura de duplicatas, que se usa uma vez por
+              semestre. */}
+          {(isAdmin || canDelete || canManageConfig) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                {isAdmin && (
+                  <>
+                    <DropdownMenuItem onClick={() => setBulkImportOpen(true)}>
+                      <UploadCloud className="h-4 w-4" />Importar PFX em Lote
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setLegacyImportOpen(true)}>
+                      <DatabaseBackup className="h-4 w-4" />Importar do Legado
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleBackfillObservacoes} disabled={backfillando}>
+                      {backfillando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      {backfillando ? 'Atualizando...' : 'Atualizar Obs. do Legado'}
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {canDelete && (
+                  <DropdownMenuItem onClick={handleVarrerDuplicatas} disabled={varrendo}>
+                    {varrendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    {varrendo ? 'Varrendo...' : 'Limpar Duplicatas'}
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={handleAtualizarSino} disabled={atualizandoSino}>
+                    {atualizandoSino ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                    {atualizandoSino ? 'Atualizando...' : 'Atualizar Sino'}
+                  </DropdownMenuItem>
+                )}
+                {canManageConfig && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setConfigOpen(true)}>
+                      <Settings2 className="h-4 w-4" />Configurações de segurança
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           <Button
             size="sm"
@@ -500,65 +476,82 @@ export default function GestaoCertificadosPage() {
         </p>
       </PageHeaderBar>
 
-      {/* KPIs / Filtros */}
-      <div className="flex flex-wrap items-center gap-2 shrink-0">
-        {[
-          // Todas as abas saem da MESMA fonte. Antes "Todos" contava o array
-          // ja carregado e as demais vinham do getStats — duas contagens da
-          // mesma coisa, com recortes diferentes, lado a lado.
-          { key: '__all__', label: 'Todos', count: stats?.total ?? items.length, color: '#3b82f6', icon: FileLock },
-          { key: 'ATIVO', label: 'Vigentes', count: stats?.ativos ?? 0, color: '#10b981', icon: CheckCircle2 },
-          { key: 'VENCENDO', label: 'Vencendo', count: (stats?.vencendo60 ?? 0) + (stats?.vencendo30 ?? 0), color: '#f59e0b', icon: Clock },
-          { key: 'VENCIDO', label: 'Vencidos', count: stats?.vencidos ?? 0, color: '#ef4444', icon: XCircle },
-          { key: 'REVOGADO', label: 'Revogados', count: stats?.revogados ?? 0, color: '#a855f7', icon: Ban },
-          { key: 'ARQUIVADO', label: 'Arquivados', count: arquivados.length, color: '#64748b', icon: Archive },
-        ].map(f => {
-          const Icon = f.icon
-          const active = filtroStatus === f.key
+      {/* Indicadores — mesma anatomia dos de /clientes: cartao proprio com
+          icone tintado, numero grande e rotulo embaixo, e anel na cor quando o
+          filtro esta ligado. Eram pilhas pequenas em linha, formato que nao
+          aparece em nenhuma outra tela.
+
+          Continuam sendo filtros: clicar troca a aba de status. */}
+      <div className="grid grid-cols-2 gap-3 shrink-0 sm:grid-cols-3 xl:grid-cols-6">
+        {([
+          { key: '__all__',   label: 'Todos',      count: stats?.total ?? items.length, cor: '#3b82f6', Icone: FileLock },
+          { key: 'ATIVO',     label: 'Vigentes',   count: stats?.ativos ?? 0,           cor: '#10b981', Icone: CheckCircle2 },
+          { key: 'VENCENDO',  label: 'Vencendo',   count: (stats?.vencendo60 ?? 0) + (stats?.vencendo30 ?? 0), cor: '#f59e0b', Icone: Clock },
+          { key: 'VENCIDO',   label: 'Vencidos',   count: stats?.vencidos ?? 0,         cor: '#ef4444', Icone: XCircle },
+          { key: 'REVOGADO',  label: 'Revogados',  count: stats?.revogados ?? 0,        cor: '#a855f7', Icone: Ban },
+          { key: 'ARQUIVADO', label: 'Arquivados', count: arquivados.length,            cor: '#64748b', Icone: Archive },
+        ] as const).map(f => {
+          const Icone = f.Icone
+          const ligado = filtroStatus === f.key
           return (
             <button
               key={f.key}
               type="button"
               onClick={() => setFiltroStatus(f.key)}
+              aria-pressed={ligado}
+              title={`Filtrar por ${f.label.toLowerCase()}`}
               className={cn(
-                'inline-flex items-center gap-2 h-8 px-3 rounded-md border text-xs font-medium transition-colors',
-                // Arquivados fica encostado à direita, junto da barra de pesquisa.
-                f.key === 'ARQUIVADO' && 'ml-auto',
-                active
-                  ? 'border-foreground/20'
-                  : 'border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                'flex items-center gap-3 rounded-xl border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm',
+                ligado ? 'border-transparent ring-2' : 'border-border',
               )}
-              style={active ? { borderColor: f.color, backgroundColor: `${f.color}10`, color: f.color } : undefined}
+              style={ligado ? { boxShadow: `0 0 0 2px ${f.cor}` } : undefined}
             >
-              <Icon className="h-3.5 w-3.5" style={!active ? { color: f.color } : undefined} />
-              <span>{f.label}</span>
-              <Badge
-                variant="secondary"
-                className="text-[10px] px-1.5 py-0 h-4 ml-0.5 tabular-nums"
-                style={active ? { backgroundColor: `${f.color}20`, color: f.color } : undefined}
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `color-mix(in srgb, ${f.cor} 12%, transparent)`, color: f.cor }}
               >
-                {f.count}
-              </Badge>
+                <Icone className="h-[18px] w-[18px]" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-bold leading-none tabular-nums text-foreground">
+                  {f.count.toLocaleString('pt-BR')}
+                </span>
+                <span className="mt-1 block truncate text-[11px] text-muted-foreground">{f.label}</span>
+              </span>
             </button>
           )
         })}
-        <div>
-          <Input
-            type="search"
-            name={`cert-busca-${empresaIdAtual ?? 'x'}`}
-            autoComplete="off"
-            data-1p-ignore
-            data-lpignore="true"
-            readOnly={buscaReadonly}
-            onFocus={() => setBuscaReadonly(false)}
-            onBlur={() => setBuscaReadonly(true)}
-            placeholder="Buscar por titular, documento, cliente..."
-            value={filtroBusca}
-            onChange={e => setFiltroBusca(e.target.value)}
-            className="h-8 w-[280px] text-xs"
-          />
-        </div>
       </div>
+
+      {/* Busca na barra da tabela, como em /clientes. Antes ficava encostada
+          nas pilhas de status, no meio dos indicadores — e sumia junto com a
+          tabela quando o filtro nao achava nada, deixando quem digitou sem
+          como apagar o que digitou. Aqui ela existe nos tres estados. */}
+      <Card className="shrink-0">
+        <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-xs text-muted-foreground">
+            {loading
+              ? 'Carregando…'
+              : <>Mostrando <span className="font-medium text-foreground tabular-nums">{filtered.length}</span> certificado(s)</>}
+          </span>
+          <div className="w-full sm:w-[420px]">
+            <Input
+              type="search"
+              name={`cert-busca-${empresaIdAtual ?? 'x'}`}
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
+              readOnly={buscaReadonly}
+              onFocus={() => setBuscaReadonly(false)}
+              onBlur={() => setBuscaReadonly(true)}
+              placeholder="Buscar por titular, documento, cliente..."
+              value={filtroBusca}
+              onChange={e => setFiltroBusca(e.target.value)}
+              className="h-8 w-full text-xs bg-card"
+            />
+          </div>
+        </div>
+      </Card>
 
       {/* Tabela */}
       {loading ? (
