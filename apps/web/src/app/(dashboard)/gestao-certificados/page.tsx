@@ -7,6 +7,7 @@ import {
   Ban, Trash2, CheckCircle2, Clock, XCircle, FileLock,
   Upload, Lock, RefreshCw, History, DatabaseBackup, UploadCloud, X, FileCheck, Bell,
   Settings2, KeyRound,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label, cn, Checkbox,
@@ -127,6 +128,11 @@ export default function GestaoCertificadosPage() {
   })()
   const [filtroStatus, setFiltroStatus] = useState<string>(filtroInicial)
   const [filtroBusca, setFiltroBusca] = useState('')
+  // Paginacao no cliente: a lista ja vem inteira (133 certificados no recorte
+  // da gestao) e o filtro por status/busca e local. Ver PADRAO_PAGINAS §1.4 —
+  // server-side e o padrao; aqui o volume nao justifica.
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
   // Anti-autofill do Chrome: o campo fica readonly sempre que NÃO está em foco
   // (é quando o autofill dispara — no load, ao tabular, na detecção de form).
   // Vira editável só enquanto o usuário digita. O browser nunca injeta e-mail.
@@ -212,6 +218,34 @@ export default function GestaoCertificadosPage() {
     }
     return out
   }, [items, arquivados, filtroStatus, filtroBusca])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / limit))
+  const pagina = useMemo(
+    () => filtered.slice((page - 1) * limit, page * limit),
+    [filtered, page, limit],
+  )
+  const startRecord = filtered.length === 0 ? 0 : (page - 1) * limit + 1
+  const endRecord = Math.min(page * limit, filtered.length)
+
+  // Volta a primeira pagina quando o conjunto muda — trocar de aba estando na
+  // pagina 3 deixaria a tabela vazia com o rodape dizendo que ha registros.
+  useEffect(() => { setPage(1) }, [filtroStatus, filtroBusca, limit])
+
+  // Pagina que ficou vazia depois de excluir/arquivar recua sozinha; sem isto
+  // a tela fica em branco e so o rodape denuncia que ha registros atras.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  /** Ate 5 numeros, centrados na pagina atual — mesma janela do /clientes. */
+  function getPageNumbers() {
+    const pages: number[] = []
+    let start = Math.max(1, page - 2)
+    const end = Math.min(totalPages, start + 4)
+    start = Math.max(1, end - 4)
+    for (let i = start; i <= end; i++) pages.push(i)
+    return pages
+  }
 
   // Config de reautenticação — carrega ao abrir a engrenagem.
   useEffect(() => {
@@ -527,11 +561,16 @@ export default function GestaoCertificadosPage() {
           proprio, e quem digitou fica sem como apagar o que digitou. */}
       <Card className="flex flex-1 flex-col overflow-hidden">
         <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-xs text-muted-foreground">
-            {loading
-              ? 'Carregando…'
-              : <>Mostrando <span className="font-medium tabular-nums text-foreground">{filtered.length}</span> certificado(s)</>}
-          </span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="hidden sm:inline">Exibir</span>
+            <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
+              <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <span className="hidden sm:inline">registros</span>
+          </div>
           <div className="w-full sm:w-[420px]">
             <Input
               type="search"
@@ -593,8 +632,8 @@ export default function GestaoCertificadosPage() {
                   {canDelete && (
                     <TableHead className="w-[44px]">
                       <Checkbox
-                        checked={filtered.length > 0 && filtered.every(c => selecionados.has(c.id))}
-                        onCheckedChange={() => toggleSelecionarTodos(filtered.map(c => c.id))}
+                        checked={pagina.length > 0 && pagina.every(c => selecionados.has(c.id))}
+                        onCheckedChange={() => toggleSelecionarTodos(pagina.map(c => c.id))}
                         aria-label="Selecionar todos"
                       />
                     </TableHead>
@@ -610,7 +649,7 @@ export default function GestaoCertificadosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(c => (
+                {pagina.map(c => (
                   <TableRow
                     key={c.id}
                     className={cn(
@@ -676,6 +715,24 @@ export default function GestaoCertificadosPage() {
                 ))}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Rodape: contagem a esquerda, paginacao a direita — PADRAO_PAGINAS §1.4 */}
+          <div className="flex shrink-0 flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Mostrando <span className="font-medium">{startRecord}</span> a <span className="font-medium">{endRecord}</span> de <span className="font-medium">{filtered.length}</span> registros
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(1)}><ChevronsLeft className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+                {getPageNumbers().map(n => (
+                  <Button key={n} variant={n === page ? 'soft' : 'outline'} size="icon-xs" className="text-xs" onClick={() => setPage(n)}>{n}</Button>
+                ))}
+                <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(totalPages)}><ChevronsRight className="h-3.5 w-3.5" /></Button>
+              </div>
+            )}
           </div>
           </>
         )}

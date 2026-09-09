@@ -171,6 +171,12 @@ export default function BeneficiosFiscaisPage() {
   // registros — a pessoa conclui que o filtro quebrou.
   useEffect(() => { setPage(1) }, [filtroStatus, busca, limit])
 
+  // Pagina que ficou vazia depois de excluir em massa recua sozinha; sem isto
+  // a tela fica em branco e so o rodape denuncia que ha registros atras.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
   /** Ate 5 numeros, centrados na pagina atual — mesma janela do /clientes. */
   function getPageNumbers() {
     const pages: number[] = []
