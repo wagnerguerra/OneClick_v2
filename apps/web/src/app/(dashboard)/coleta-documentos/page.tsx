@@ -324,21 +324,21 @@ export default function ColetaDocumentosPage() {
         <div className="min-h-0 overflow-hidden">
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
               <Select value={fTipo || '__all__'} onValueChange={(v) => { setFTipo(v === '__all__' ? '' : v); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[135px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[135px] text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todos os tipos</SelectItem>
                   {COLETA_TIPOS.map((t) => <SelectItem key={t} value={t}>{COLETA_TIPO_LABEL[t]}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={fSituacao || '__all__'} onValueChange={(v) => { setFSituacao(v === '__all__' ? '' : v); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[175px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[175px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todas as situações</SelectItem>
                   {COLETA_SITUACOES.map((s) => <SelectItem key={s} value={s}>{COLETA_SITUACAO_LABEL[s]}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={fCategoria || '__all__'} onValueChange={(v) => { setFCategoria(v === '__all__' ? '' : v); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[175px] text-xs bg-card"><SelectValue placeholder="Categoria" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[175px] text-xs"><SelectValue placeholder="Categoria" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todas as categorias</SelectItem>
                   {categorias.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
@@ -361,7 +361,7 @@ export default function ColetaDocumentosPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
             <span className="text-xs text-muted-foreground">por página</span>

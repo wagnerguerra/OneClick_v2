@@ -1062,7 +1062,7 @@ export default function OrcamentosPage() {
           <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 flex-1">
               <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
               </Select>
               {/* #HLP0266: no escopo "Para liberação do financeiro" a lista é
@@ -1073,7 +1073,7 @@ export default function OrcamentosPage() {
                 </span>
               ) : (
                 <Select value={statusFilter || '__all__'} onValueChange={v => { setStatusFilter(v === '__all__' ? '' : v); setPage(1) }}>
-                  <SelectTrigger className="h-8 w-full text-xs bg-card sm:w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-full text-xs sm:w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">Todos os status</SelectItem>
                     {Object.entries(STATUS_LABELS).map(([k, v]) => (

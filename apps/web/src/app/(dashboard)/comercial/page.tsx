@@ -330,7 +330,7 @@ export default function ComercialPage() {
                 {funilChart.length ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={funilChart} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                       <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                       <Tooltip content={<ChartTooltip format={(v: number, n?: string) => (n === 'Valor' ? formatCurrency(v) : v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
@@ -388,7 +388,7 @@ export default function ComercialPage() {
                 {ctEvolucao.length ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={ctEvolucao} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                       <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                       <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
@@ -409,7 +409,7 @@ export default function ComercialPage() {
               <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.crmDesempenho} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                     <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                     <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />

@@ -146,14 +146,14 @@ export default function CapacitacoesPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={status || '__all__'} onValueChange={(v) => { setStatus(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[190px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as situações</SelectItem>
                 {STATUS_OPCOES.map((s) => <SelectItem key={s} value={s}>{CAPACITACAO_STATUS_LABEL[s as keyof typeof CAPACITACAO_STATUS_LABEL]}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={metodoId || '__all__'} onValueChange={(v) => { setMetodoId(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[160px] text-xs bg-card"><SelectValue placeholder="Método" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Método" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os métodos</SelectItem>
                 {metodos.map((m) => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}
@@ -174,7 +174,7 @@ export default function CapacitacoesPage() {
               </Button>
             )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>

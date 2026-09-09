@@ -1343,7 +1343,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           <div className="px-5 py-4 space-y-3">
             <div><Label className="text-xs">Tipo do Alvará *</Label><Input value={vncForm.descricao} onChange={e => setVncForm(p => ({ ...p, descricao: e.target.value }))} className="text-xs mt-1" /></div>
             <div><Label className="text-xs">Vencimento</Label><Input type="date" value={vncForm.dataVencimento} onChange={e => setVncForm(p => ({ ...p, dataVencimento: e.target.value }))} className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Observações</Label><textarea value={vncForm.observacoes} onChange={e => setVncForm(p => ({ ...p, observacoes: e.target.value }))} rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs mt-1 resize-none" /></div>
+            <div><Label className="text-xs">Observações</Label><textarea value={vncForm.observacoes} onChange={e => setVncForm(p => ({ ...p, observacoes: e.target.value }))} rows={3} className="w-full rounded-md px-3 py-2 text-xs mt-1 resize-none" /></div>
           </div>
           <div className="flex justify-end gap-2 border-t px-5 py-3">
             <Button type="button" variant="outline" size="sm" onClick={() => setVncModalOpen(false)}>Fechar</Button>
@@ -1366,12 +1366,12 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
           <div className="px-5 py-4 space-y-3">
             <div>
               <Label className="text-xs">Tipo *</Label>
-              <select value={andForm.tipo} onChange={e => setAndForm(p => ({ ...p, tipo: e.target.value }))} className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs mt-1">
+              <select value={andForm.tipo} onChange={e => setAndForm(p => ({ ...p, tipo: e.target.value }))} className="w-full rounded-md px-3 py-2 text-xs mt-1">
                 {TIPOS_ANDAMENTO.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div><Label className="text-xs">Título</Label><Input value={andForm.titulo} onChange={e => setAndForm(p => ({ ...p, titulo: e.target.value }))} placeholder="Título do andamento" className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Descrição</Label><textarea value={andForm.descricao} onChange={e => setAndForm(p => ({ ...p, descricao: e.target.value }))} rows={4} className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs mt-1 resize-none" placeholder="Descrição detalhada..." /></div>
+            <div><Label className="text-xs">Descrição</Label><textarea value={andForm.descricao} onChange={e => setAndForm(p => ({ ...p, descricao: e.target.value }))} rows={4} className="w-full rounded-md px-3 py-2 text-xs mt-1 resize-none" placeholder="Descrição detalhada..." /></div>
           </div>
           <div className="flex justify-end gap-2 border-t px-5 py-3">
             <Button type="button" variant="outline" size="sm" onClick={() => setAndModalOpen(false)}>Fechar</Button>
@@ -1730,7 +1730,7 @@ function EditSocioModal(props: {
               {/* Observações */}
               <div className="space-y-1.5">
                 <Label htmlFor="observacoes" className="text-[13px] font-semibold">Observações</Label>
-                <textarea id="observacoes" rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                <textarea id="observacoes" rows={3} className="w-full rounded-md px-3 py-2 text-sm"
                   value={socio.observacoes ?? ''}
                   onChange={e => setField('observacoes', e.target.value)} />
               </div>

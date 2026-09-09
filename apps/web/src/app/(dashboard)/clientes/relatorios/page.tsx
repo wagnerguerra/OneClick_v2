@@ -282,7 +282,7 @@ export default function RelatoriosClientesPage() {
                   <p className="text-[13px] font-semibold mb-2">Acompanhamento mensal</p>
                   <ResponsiveContainer width="100%" height={190}>
                     <BarChart data={barData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                       <XAxis dataKey="mes" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                       <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} /><Legend />
                       <Bar dataKey="Entradas" fill={COR_ENTRADA} radius={[3, 3, 0, 0]} />

@@ -404,7 +404,7 @@ export default function PainelEntregasPage() {
             </div>
 
             <Select value={dpto || '__all__'} onValueChange={(v) => setDpto(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="h-8 w-[160px] bg-card text-xs"><SelectValue placeholder="Departamento" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Departamento" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os departamentos</SelectItem>
                 {opcoes.departamentos.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
@@ -412,7 +412,7 @@ export default function PainelEntregasPage() {
             </Select>
 
             <Select value={responsavelId || '__all__'} onValueChange={(v) => setResponsavelId(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="h-8 w-[190px] bg-card text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Responsável" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os responsáveis</SelectItem>
                 {opcoes.responsaveis.map((r) => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}
@@ -434,7 +434,7 @@ export default function PainelEntregasPage() {
             {/* Um campo só, com as duas formas de recortar o tempo. Separados,
                 dava para combinar recortes que se anulam e receber tela vazia. */}
             <Select value={recorte} onValueChange={(v) => setRecorte(v as Recorte)}>
-              <SelectTrigger className="h-8 w-[170px] bg-card text-xs"><SelectValue placeholder="Recorte" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue placeholder="Recorte" /></SelectTrigger>
               <SelectContent>
                 <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Por vencimento
@@ -450,7 +450,7 @@ export default function PainelEntregasPage() {
             </Select>
 
             <Select value={String(janelaDias)} onValueChange={(v) => setJanelaDias(Number(v))}>
-              <SelectTrigger className="h-8 w-[130px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[3, 5, 7, 10, 15, 30].map((d) => <SelectItem key={d} value={String(d)}>janela de {d}d</SelectItem>)}
               </SelectContent>

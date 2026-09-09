@@ -127,7 +127,7 @@ export default function SociosPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
-            <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}><SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger><SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent></Select>
+            <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}><SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger><SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent></Select>
             <span className="hidden sm:inline">registros</span>
           </div>
           <div className="max-w-xs w-full sm:w-auto"><Input placeholder="Buscar por nome, CPF ou e-mail..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs bg-card" /></div>

@@ -412,7 +412,7 @@ export default function ControleFeriasPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={fSituacao || '__all__'} onValueChange={(v) => { setFSituacao(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[150px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos</SelectItem>
                 <SelectItem value="ABERTOS">Em aberto</SelectItem>
@@ -420,14 +420,14 @@ export default function ControleFeriasPage() {
               </SelectContent>
             </Select>
             <Select value={fColaborador || '__all__'} onValueChange={(v) => { setFColaborador(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[210px] text-xs bg-card"><SelectValue placeholder="Colaborador" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[210px] text-xs"><SelectValue placeholder="Colaborador" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os colaboradores</SelectItem>
                 {usuarios.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={fColaboradores} onValueChange={(v) => { setFColaboradores(v as 'ATIVOS' | 'TODOS'); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[190px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ATIVOS">Colaboradores ativos</SelectItem>
                 <SelectItem value="TODOS">Incluir desligados</SelectItem>
@@ -461,7 +461,7 @@ export default function ControleFeriasPage() {
               </Button>
             )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>

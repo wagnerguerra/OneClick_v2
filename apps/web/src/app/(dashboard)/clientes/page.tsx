@@ -885,7 +885,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Grupo Empresarial</label>
                   <Select value={filterGrupo || '__all__'} onValueChange={(v) => { setFilterGrupo(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       {filterOptions.grupos.map((g) => <SelectItem key={g} value={g!}>{g}</SelectItem>)}
@@ -895,7 +895,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Atividade</label>
                   <Select value={filterAtividade || '__all__'} onValueChange={(v) => { setFilterAtividade(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
                       {filterOptions.atividades.map((a) => <SelectItem key={a} value={a!}>{a}</SelectItem>)}
@@ -905,7 +905,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Município</label>
                   <Select value={filterCidade || '__all__'} onValueChange={(v) => { setFilterCidade(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       {filterOptions.cidades.map((c) => <SelectItem key={c} value={c!}>{c}</SelectItem>)}
@@ -915,7 +915,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Estado</label>
                   <Select value={filterUf || '__all__'} onValueChange={(v) => { setFilterUf(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       {filterOptions.estados.map((e) => <SelectItem key={e} value={e!}>{e}</SelectItem>)}
@@ -925,7 +925,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Tributação</label>
                   <Select value={filterTributacao || '__all__'} onValueChange={(v) => { setFilterTributacao(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
                       {Object.entries(TRIBUTACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -938,7 +938,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Áreas Contratadas</label>
                   <Select value={filterArea || '__all__'} onValueChange={(v) => { setFilterArea(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
                       {filterOptions.areas.map((a) => <SelectItem key={a} value={a!}>{a}</SelectItem>)}
@@ -948,7 +948,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Tipo de Cliente</label>
                   <Select value={filterTipo || '__all__'} onValueChange={(v) => { setFilterTipo(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       {filterOptions.tipos.map((t) => <SelectItem key={t} value={t!}>{t}</SelectItem>)}
@@ -958,7 +958,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Situação</label>
                   <Select value={(onlyMensal || onlyExCliente) ? 'MENSAL' : (filterSituacao || '__all__')} onValueChange={(v) => { setFilterSituacao(v === '__all__' ? '' : v); setPage(1) }} disabled={onlyMensal || onlyExCliente}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todas</SelectItem>
                       {Object.entries(SITUACAO_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -968,7 +968,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Cliente com Benefício</label>
                   <Select value={filterBeneficio || '__all__'} onValueChange={(v) => { setFilterBeneficio(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       <SelectItem value="__com__">Com benefício (qualquer)</SelectItem>
@@ -983,7 +983,7 @@ export default function ClientesPage() {
                       (`contratado = true` em cliente_areas_contratadas), para os
                       dois não divergirem. */}
                   <Select value={filterServico || '__all__'} onValueChange={(v) => { setFilterServico(v === '__all__' ? '' : v); setPage(1) }}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">Todos</SelectItem>
                       <SelectItem value="__com__">Com serviço contratado</SelectItem>
@@ -995,7 +995,7 @@ export default function ClientesPage() {
                   <label className="text-xs font-medium text-muted-foreground">Cliente Ativo / Inativo</label>
                   {/* #HLP0209 — Ativos (padrão) · Inativos · Todos (ativos+inativos). Ex-cliente trava em Inativos. */}
                   <Select value={onlyExCliente ? 'INATIVO' : filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1) }} disabled={onlyExCliente}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ATIVO">Ativos</SelectItem>
                       <SelectItem value="INATIVO">Inativos</SelectItem>
@@ -1008,7 +1008,7 @@ export default function ClientesPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Ex-cliente</label>
                   <Select value={onlyExCliente ? 'sim' : 'nao'} onValueChange={(v) => setExCliente(v === 'sim')}>
-                    <SelectTrigger className="h-8 text-xs bg-card"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="nao">Não</SelectItem>
                       <SelectItem value="sim">Sim</SelectItem>
@@ -1041,7 +1041,7 @@ export default function ClientesPage() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
             <span className="hidden sm:inline">registros</span>

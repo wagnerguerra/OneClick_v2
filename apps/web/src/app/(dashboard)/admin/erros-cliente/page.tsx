@@ -329,11 +329,11 @@ export default function ErrosClientePage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 flex-wrap">
             <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{[20, 30, 50, 100].map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={resolvedFilter} onValueChange={v => { setResolvedFilter(v as any); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="open">Abertos</SelectItem>
                 <SelectItem value="resolved">Resolvidos</SelectItem>
@@ -341,7 +341,7 @@ export default function ErrosClientePage() {
               </SelectContent>
             </Select>
             <Select value={levelFilter} onValueChange={v => { setLevelFilter(v as any); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os níveis</SelectItem>
                 <SelectItem value="ERROR">Erros</SelectItem>
@@ -594,7 +594,7 @@ function AnaliseTab() {
             <h2 className="text-[13px] font-semibold">Tendência — últimos {dias} dias</h2>
           </div>
           <Select value={String(dias)} onValueChange={v => setDias(Number(v))}>
-            <SelectTrigger className="h-8 w-[100px] text-xs bg-card"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[100px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="7">7 dias</SelectItem>
               <SelectItem value="30">30 dias</SelectItem>
@@ -609,11 +609,11 @@ function AnaliseTab() {
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.3} />
                 <XAxis dataKey="dia" tick={{ fontSize: 10 }} tickFormatter={(d) => d.slice(5)} />
                 <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
                 <RechartsTooltip
-                  contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: '11px' }}
+                  contentStyle={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', fontSize: '11px' }}
                   labelFormatter={(d) => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR')}
                 />
                 <Legend wrapperStyle={{ fontSize: '11px' }} />

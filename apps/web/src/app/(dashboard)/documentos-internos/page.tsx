@@ -144,21 +144,21 @@ export default function DocumentosInternosPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={situacao || '__all__'} onValueChange={(v) => { setSituacao(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[160px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as situações</SelectItem>
                 {SITUACAO_OPCOES.map((s) => <SelectItem key={s} value={s}>{DOCUMENTO_SITUACAO_LABEL[s as keyof typeof DOCUMENTO_SITUACAO_LABEL]}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={tipoId || '__all__'} onValueChange={(v) => { setTipoId(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[160px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os tipos</SelectItem>
                 {tipos.map((t) => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={processoId || '__all__'} onValueChange={(v) => { setProcessoId(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[190px] text-xs bg-card"><SelectValue placeholder="Processo" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Processo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os processos</SelectItem>
                 {processos.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
@@ -170,7 +170,7 @@ export default function DocumentosInternosPage() {
               </Button>
             )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>

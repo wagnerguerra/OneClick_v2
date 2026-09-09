@@ -152,7 +152,7 @@ export default function MelhoriasPage() {
         <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-muted/20 px-4 py-3">
           <h4 className="text-[13px] font-semibold">Registradas</h4>
           <Select value={status || '__all__'} onValueChange={(v) => setStatus(v === '__all__' ? '' : v)}>
-            <SelectTrigger className="h-8 w-[160px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Todas as situações</SelectItem>
               {Object.entries(MELHORIA_STATUS_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}

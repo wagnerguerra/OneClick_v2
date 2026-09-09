@@ -81,7 +81,7 @@ function borderColorByStatus(st: 'ok' | 'igual' | 'defasado' | 'sem'): string {
   if (st === 'ok') return 'rgba(16,185,129,0.5)'
   if (st === 'igual') return 'rgba(245,158,11,0.5)'
   if (st === 'defasado') return 'rgba(239,68,68,0.5)'
-  return 'var(--border)'
+  return 'var(--color-border)'
 }
 
 // Helper: último mês das rows (mais recente cronologicamente)
@@ -230,9 +230,9 @@ export function ContratoChartModal({
                         className="rounded border-l-4 p-3 bg-card"
                         style={{
                           borderLeftColor: borderColorByStatus(card.status),
-                          borderTop: '1px solid var(--border)',
-                          borderRight: '1px solid var(--border)',
-                          borderBottom: '1px solid var(--border)',
+                          borderTop: '1px solid var(--color-border)',
+                          borderRight: '1px solid var(--color-border)',
+                          borderBottom: '1px solid var(--color-border)',
                         }}
                       >
                         <p className="text-[10px] text-muted-foreground uppercase font-semibold">{card.label}</p>

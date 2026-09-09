@@ -176,7 +176,7 @@ export default function AnaliseContextoPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={fAnalise || '__all__'} onValueChange={(v) => { setFAnalise(v === '__all__' ? '' : v); setFTipo(''); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[160px] text-xs bg-card"><SelectValue placeholder="Análise" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Análise" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Externa e Interna</SelectItem>
                 <SelectItem value="EXTERNA">Análise Externa</SelectItem>
@@ -184,7 +184,7 @@ export default function AnaliseContextoPage() {
               </SelectContent>
             </Select>
             <Select value={fTipo || '__all__'} onValueChange={(v) => { setFTipo(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[150px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os tipos</SelectItem>
                 {(fAnalise ? TIPOS_POR_ANALISE[fAnalise] ?? [] : Object.keys(ANALISE_CONTEXTO_TIPO_LABEL)).map((t) => (
@@ -193,7 +193,7 @@ export default function AnaliseContextoPage() {
               </SelectContent>
             </Select>
             <Select value={fSituacao || '__all__'} onValueChange={(v) => { setFSituacao(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas</SelectItem>
                 <SelectItem value="PENDENTE">Sem avaliação</SelectItem>
@@ -206,7 +206,7 @@ export default function AnaliseContextoPage() {
               </Button>
             )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>

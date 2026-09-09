@@ -468,7 +468,7 @@ export default function UsuariosPage() {
           <div className="min-h-0 overflow-hidden">
             <div className="flex flex-wrap items-center gap-2 border-t border-border/60 px-4 py-3">
               <Select value={filtroPerfil || '__all__'} onValueChange={(v) => { setFiltroPerfil(v === '__all__' ? '' : v); setPage(1) }}>
-                <SelectTrigger className="h-8 w-full bg-card text-xs sm:w-[190px]"><SelectValue placeholder="Perfil" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-full text-xs sm:w-[190px]"><SelectValue placeholder="Perfil" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todos os perfis</SelectItem>
                   {Object.entries(USER_ROLE_LABELS).map(([v, label]) => (
@@ -477,7 +477,7 @@ export default function UsuariosPage() {
                 </SelectContent>
               </Select>
               <Select value={incluirInativos ? 'TODOS' : 'ATIVOS'} onValueChange={(v) => { setIncluirInativos(v === 'TODOS'); setPage(1) }}>
-                <SelectTrigger className="h-8 w-full bg-card text-xs sm:w-[190px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-full text-xs sm:w-[190px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ATIVOS">Somente ativos</SelectItem>
                   <SelectItem value="TODOS">Incluir desligados</SelectItem>
@@ -509,7 +509,7 @@ export default function UsuariosPage() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
             <span className="hidden sm:inline">registros</span>

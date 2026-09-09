@@ -397,7 +397,7 @@ export default function ParametrosOrcamentosPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3 flex-1 flex-wrap">
             <Select value={tipoFilter} onValueChange={setTipoFilter}>
-              <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os tipos</SelectItem>
                 <SelectItem value="SERVICO">Serviço</SelectItem>

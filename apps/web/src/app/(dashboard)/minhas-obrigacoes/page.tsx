@@ -211,7 +211,7 @@ export default function MinhasObrigacoesPage() {
                 {filtrosAtivos > 0 && <Badge variant="outline" className="h-5 text-[10px]">{filtrosAtivos}</Badge>}
               </div>
               <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as StatusFiltro)}>
-                <SelectTrigger className="h-8 w-[130px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="TODOS">Todos</SelectItem>
                   <SelectItem value="PENDENTES">Pendentes</SelectItem>
@@ -220,7 +220,7 @@ export default function MinhasObrigacoesPage() {
                 </SelectContent>
               </Select>
               <Select value={filtroArea} onValueChange={setFiltroArea}>
-                <SelectTrigger className="h-8 w-[150px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="TODAS">Todas as áreas</SelectItem>
                   {areasDisponiveis.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}

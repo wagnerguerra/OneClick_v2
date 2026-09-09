@@ -356,7 +356,7 @@ export default function CrmFunilPage() {
                   <div className="col-span-12 sm:col-span-6 space-y-1.5">
                     <Label className="text-[13px] font-semibold">Tipo de evento da reunião</Label>
                     <Select value={cfg.tipoEventoReuniaoId ?? '__default__'} onValueChange={v => upd({ tipoEventoReuniaoId: v === '__default__' ? null : v })}>
-                      <SelectTrigger className="h-9 text-sm bg-card"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__default__">Padrão (Reunião com Lead)</SelectItem>
                         {tipos.map(t => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}

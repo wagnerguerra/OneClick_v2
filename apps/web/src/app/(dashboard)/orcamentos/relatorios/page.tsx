@@ -236,7 +236,7 @@ function FunilTab({ funil }: { funil: FunilData }) {
         <h3 className="text-sm font-semibold mb-4">Distribuicao</h3>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={dadosChart}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
@@ -341,7 +341,7 @@ function DesempenhoTab({ data }: { data: DesempenhoData }) {
         ) : (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={dadosChart}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
@@ -526,7 +526,7 @@ function SatisfacaoTab({ data }: { data: PesquisaData | null }) {
           <h4 className="text-sm font-semibold mb-4">Distribuição das notas NPS (0–10)</h4>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={chartNps}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
               <XAxis dataKey="nome" tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />

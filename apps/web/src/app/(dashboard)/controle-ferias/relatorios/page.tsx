@@ -45,12 +45,12 @@ const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
  * cada um vira o token equivalente: hex chumbado atravessa o modo claro e
  * desaparece no escuro, que é o erro que o CLAUDE.md manda evitar.
  */
-const GRADE = { strokeDasharray: '3 3', stroke: 'var(--border)' } as const
+const GRADE = { strokeDasharray: '3 3', stroke: 'var(--color-border)' } as const
 
 const EIXO = {
   axisLine: false,
   tickLine: false,
-  tick: { fontSize: 12, fill: 'var(--muted-foreground)' },
+  tick: { fontSize: 12, fill: 'var(--color-muted-foreground)' },
 } as const
 
 /**
@@ -295,7 +295,7 @@ export default function RelatoriosFeriasPage() {
         actions={
           <div className="flex items-center gap-2">
             <Select value={incluirInativos ? 'TODOS' : 'ATIVOS'} onValueChange={(v) => setIncluirInativos(v === 'TODOS')}>
-              <SelectTrigger className="h-8 w-[190px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ATIVOS">Colaboradores ativos</SelectItem>
                 <SelectItem value="TODOS">Incluir desligados</SelectItem>
@@ -493,7 +493,7 @@ export default function RelatoriosFeriasPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <Select value={farolFiltro || '__all__'} onValueChange={(v) => setFarolFiltro(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="h-8 w-[190px] bg-card text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as situações</SelectItem>
                 {Object.entries(FAROL_UI).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
@@ -578,7 +578,7 @@ export default function RelatoriosFeriasPage() {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={String(ano)} onValueChange={(v) => setAno(Number(v))}>
-              <SelectTrigger className="h-8 w-[120px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Array.from({ length: 7 }, (_, i) => new Date().getFullYear() - 3 + i).map((a) => (
                   <SelectItem key={a} value={String(a)}>{a}</SelectItem>
@@ -676,7 +676,7 @@ export default function RelatoriosFeriasPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <Select value={situacaoPagto || '__all__'} onValueChange={(v) => setSituacaoPagto(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="h-8 w-[210px] bg-card text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[210px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as situações</SelectItem>
                 {Object.entries(PAGTO_UI).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}

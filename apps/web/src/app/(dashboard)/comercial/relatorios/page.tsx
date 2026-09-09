@@ -252,7 +252,7 @@ function MrrReport({ mrr }: { mrr: MrrData }) {
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={serie12m} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => formatCompact(v)} width={56} />
               <Tooltip content={<ChartTooltip format={formatCurrency} />} cursor={{ fill: CHART_CURSOR_FILL }} />
@@ -299,7 +299,7 @@ function VendedoresReport({ data }: { data: VendedoresData }) {
         <div className="divide-y divide-border">
           {ranking.map((v, i) => (
             <div key={v.id} className="flex items-center gap-3 px-5 py-3">
-              <div className="w-6 shrink-0 text-center text-sm font-bold tabular-nums" style={{ color: i < 3 ? MEDALHAS[i] : 'hsl(var(--muted-foreground))' }}>
+              <div className="w-6 shrink-0 text-center text-sm font-bold tabular-nums" style={{ color: i < 3 ? MEDALHAS[i] : 'var(--color-muted-foreground)' }}>
                 {i + 1}
               </div>
               <Avatar className="h-9 w-9 shrink-0">

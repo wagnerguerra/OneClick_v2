@@ -460,7 +460,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               )}
             </div>
             <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
-              <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="TODAS">Todas as áreas</SelectItem>
                 {areasPresentes.map((a) => (
@@ -469,7 +469,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               </SelectContent>
             </Select>
             <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as any)}>
-              <SelectTrigger className="h-8 w-[120px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="TODOS">Todos</SelectItem>
                 <SelectItem value="ATIVAS">Ativas</SelectItem>

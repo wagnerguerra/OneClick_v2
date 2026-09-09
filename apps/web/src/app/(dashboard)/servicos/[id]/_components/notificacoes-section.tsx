@@ -610,7 +610,7 @@ export function NotificacoesSection({
                       <span className="text-[10px] font-normal text-muted-foreground">— quando cair em final de semana ou feriado nacional</span>
                     </Label>
                     <Select value={recAjuste} onValueChange={(v) => setRecAjuste(v as typeof recAjuste)}>
-                      <SelectTrigger className="h-9 text-sm bg-card max-w-md">
+                      <SelectTrigger className="h-9 text-sm max-w-md">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

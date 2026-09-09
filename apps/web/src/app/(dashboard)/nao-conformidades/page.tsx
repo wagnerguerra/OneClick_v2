@@ -144,28 +144,28 @@ export default function NaoConformidadesPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Select value={fSituacao || '__all__'} onValueChange={(v) => { setFSituacao(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[170px] text-xs bg-card"><SelectValue placeholder="Situação" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue placeholder="Situação" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as situações</SelectItem>
                 {NC_SITUACOES.map((s) => <SelectItem key={s} value={s}>{NC_SITUACAO_LABEL[s]}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={fOrigem || '__all__'} onValueChange={(v) => { setFOrigem(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[160px] text-xs bg-card"><SelectValue placeholder="Origem" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Origem" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as origens</SelectItem>
                 {origens.map((o) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={fArea || '__all__'} onValueChange={(v) => { setFArea(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[150px] text-xs bg-card"><SelectValue placeholder="Área" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue placeholder="Área" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas as áreas</SelectItem>
                 {areas.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={fReincidencia || '__all__'} onValueChange={(v) => { setFReincidencia(v === '__all__' ? '' : v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue placeholder="Reincidência" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="Reincidência" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Reincidência: todas</SelectItem>
                 <SelectItem value="sim">Só reincidências</SelectItem>
@@ -178,7 +178,7 @@ export default function NaoConformidadesPage() {
               </Button>
             )}
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>

@@ -86,7 +86,7 @@ export default function FolhaPagamentoPage() {
             <div className="w-full sm:w-[420px] space-y-1.5">
               <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Cliente</Label>
               <div className="relative" ref={comboRef}>
-                <button type="button" onClick={() => setComboOpen(v => !v)} className={cn('flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs', 'hover:bg-accent/50 focus:outline-none focus:ring-2', !clienteId && 'text-muted-foreground')}>
+                <button type="button" role="combobox" onClick={() => setComboOpen(v => !v)} className={cn('flex w-full items-center justify-between rounded-md border border-input px-3 py-2 text-xs', 'hover:bg-accent/50 focus:outline-none focus:ring-2', !clienteId && 'text-muted-foreground')}>
                   <span className="truncate">{clienteSelecionado ? clienteSelecionado.razaoSocial : 'Selecione um cliente'}</span>
                   <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 </button>

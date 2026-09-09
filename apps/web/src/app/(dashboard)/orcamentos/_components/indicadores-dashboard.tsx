@@ -136,7 +136,7 @@ export function IndicadoresDashboard() {
             <h3 className="text-sm font-semibold mb-4">Acompanhamento dos últimos 12 meses — Mensais x Extras</h3>
             <ResponsiveContainer width="100%" height={340}>
               <BarChart data={data.serie12m}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="mes" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={50} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                 <Tooltip content={<ChartTooltip format={(v) => `${v} orçamentos`} />} cursor={{ fill: CHART_CURSOR_FILL }} />

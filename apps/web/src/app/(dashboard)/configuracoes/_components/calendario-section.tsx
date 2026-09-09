@@ -539,21 +539,21 @@ export function CalendarioSection() {
                 <span className="hidden sm:inline">Filtros</span>
               </div>
               <Select value={String(filtroAno)} onValueChange={(v) => setFiltroAno(v === 'TODOS' ? 'TODOS' : Number(v))}>
-                <SelectTrigger className="h-8 w-[110px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[110px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="TODOS">Todos anos</SelectItem>
                   {ANOS_DISPONIVEIS.map((a) => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as any)}>
-                <SelectTrigger className="h-8 w-[150px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="TODOS">Todos os tipos</SelectItem>
                   {FERIADO_TIPO.map((t) => <SelectItem key={t} value={t}>{FERIADO_TIPO_LABELS[t]}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={filtroUf} onValueChange={setFiltroUf}>
-                <SelectTrigger className="h-8 w-[100px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[100px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="TODAS">Todas UFs</SelectItem>
                   {UFS_BRASIL.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}

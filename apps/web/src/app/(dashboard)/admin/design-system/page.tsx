@@ -787,11 +787,11 @@ function TablesSection() {
                   sm:flex-row sm:items-center sm:justify-between">
     <div className="flex items-center gap-2 flex-wrap">
       <Select value={String(limit)} onValueChange={...}>
-        <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
         <SelectContent>{[20, 50, 100].map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
       </Select>
       <Select value={status} onValueChange={...}>
-        <SelectTrigger className="h-8 w-[170px] text-xs bg-card"><SelectValue placeholder="Status" /></SelectTrigger>
+        <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
         <SelectContent>...</SelectContent>
       </Select>
     </div>
@@ -850,11 +850,11 @@ function TablesSection() {
           <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2 flex-wrap">
               <Select defaultValue="20">
-                <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="20">20</SelectItem><SelectItem value="50">50</SelectItem></SelectContent>
               </Select>
               <Select defaultValue="__all__">
-                <SelectTrigger className="h-8 w-[140px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="__all__">Todos status</SelectItem></SelectContent>
               </Select>
             </div>

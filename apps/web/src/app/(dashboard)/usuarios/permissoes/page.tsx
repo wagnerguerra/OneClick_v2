@@ -88,7 +88,7 @@ export default function PermissoesEmMassaPage() {
   // vista. Abre-se o bloco em que se vai mexer.
   const [abertos, setAbertos] = useState<Set<string>>(new Set())
   const cores = useModuleColors()
-  const corDe = (bloco: string) => cores[COR_DO_BLOCO[bloco] ?? ''] ?? 'var(--muted-foreground)'
+  const corDe = (bloco: string) => cores[COR_DO_BLOCO[bloco] ?? ''] ?? 'var(--color-muted-foreground)'
 
   const carregarAlvos = useCallback(async () => {
     setCarregando(true)

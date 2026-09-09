@@ -30,10 +30,10 @@ import {
 
 // ── Tema dos gráficos (receita do LuminAux, em tokens do tema) ───────────
 // Tooltip = <ChartTooltip> central (dark-aware) via content=; cursor = CHART_CURSOR_FILL.
-const GRADE = { strokeDasharray: '3 3', stroke: 'var(--border)' } as const
+const GRADE = { strokeDasharray: '3 3', stroke: 'var(--color-border)' } as const
 const EIXO = {
   axisLine: false, tickLine: false,
-  tick: { fontSize: 11, fill: 'var(--muted-foreground)' },
+  tick: { fontSize: 11, fill: 'var(--color-muted-foreground)' },
 } as const
 
 /** A cor do IVA é a mesma em toda a tela: é o cenário novo. */
@@ -410,7 +410,7 @@ export function SecaoComparar({ p }: { p: Parametros }) {
               <Tooltip content={<ChartTooltip format={(v) => porcento(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={56}>
                 <LabelList dataKey="valor" position="top" formatter={(v) => porcento(Number(v))}
-                  style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                  style={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
                 {dadosAliquota.map((d, i) => (
                   <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL_GRAF : COR_NEUTRA} />
                 ))}
@@ -429,7 +429,7 @@ export function SecaoComparar({ p }: { p: Parametros }) {
               <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="valor" radius={[0, 4, 4, 0]} maxBarSize={26}>
                 <LabelList dataKey="valor" position="right" formatter={(v) => reaisCurto(Number(v))}
-                  style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                  style={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
                 {dadosTotal.map((d, i) => (
                   <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL_GRAF : COR_NEUTRA} />
                 ))}
@@ -798,7 +798,7 @@ export function SecaoVisaoGeral({ p, cliente }: {
               <Tooltip content={<ChartTooltip format={(v) => reais(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={90}>
                 <LabelList dataKey="valor" position="top" formatter={(v) => reaisCurto(Number(v))}
-                  style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                  style={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
                 <Cell fill={COR_ATUAL_GRAF} />
                 <Cell fill={COR_IVA} />
               </Bar>
@@ -816,7 +816,7 @@ export function SecaoVisaoGeral({ p, cliente }: {
               <Tooltip content={<ChartTooltip format={(v) => porcento(Number(v))} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={56}>
                 <LabelList dataKey="valor" position="top" formatter={(v) => porcento(Number(v))}
-                  style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                  style={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
                 {porRegime.map((d, i) => (
                   <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL_GRAF : COR_NEUTRA} />
                 ))}

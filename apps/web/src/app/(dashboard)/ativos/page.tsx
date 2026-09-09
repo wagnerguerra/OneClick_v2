@@ -180,11 +180,11 @@ export default function AtivosPage() {
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 flex-wrap">
             <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={v => { setStatusFilter(v as any); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[170px] text-xs bg-card"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os status</SelectItem>
                 {Object.entries(ATIVO_STATUS_META).map(([k, m]) => (
@@ -193,7 +193,7 @@ export default function AtivosPage() {
               </SelectContent>
             </Select>
             <Select value={tipoFilter} onValueChange={v => { setTipoFilter(v); setPage(1) }}>
-              <SelectTrigger className="h-8 w-[200px] text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[200px] text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todos os tipos</SelectItem>
                 {tipos.map(t => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}

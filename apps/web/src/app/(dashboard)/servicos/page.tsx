@@ -1139,7 +1139,7 @@ export default function ServicosPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3 flex-wrap">
                 <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
-                  <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
                 </Select>
                 <button
@@ -1178,7 +1178,7 @@ export default function ServicosPage() {
                     <div className="space-y-1">
                       <Label className="text-[11px] font-medium text-muted-foreground">Natureza</Label>
                       <Select value={tipoCadastroFilter} onValueChange={v => { setTipoCadastroFilter(v as 'comerciais' | 'internos'); setPage(1) }}>
-                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-8 w-full text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="comerciais">Comerciais</SelectItem>
                           <SelectItem value="internos">Internos</SelectItem>
@@ -1188,7 +1188,7 @@ export default function ServicosPage() {
                     <div className="space-y-1">
                       <Label className="text-[11px] font-medium text-muted-foreground">Área</Label>
                       <Select value={areaFilter || '__all__'} onValueChange={v => { setAreaFilter(v === '__all__' ? '' : v); setPage(1) }}>
-                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Filtrar por área" /></SelectTrigger>
+                        <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Filtrar por área" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__all__">Todas as áreas</SelectItem>
                           {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
@@ -1198,7 +1198,7 @@ export default function ServicosPage() {
                     <div className="space-y-1">
                       <Label className="text-[11px] font-medium text-muted-foreground">Cadeia</Label>
                       <Select value={cadeiaFilter || '__all__'} onValueChange={v => { setCadeiaFilter(v === '__all__' ? '' : v as typeof cadeiaFilter); setPage(1) }}>
-                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Cadeia" /></SelectTrigger>
+                        <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Cadeia" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__all__">Toda a cadeia</SelectItem>
                           <SelectItem value="unicos">Únicos (sem cadeia)</SelectItem>
@@ -1212,7 +1212,7 @@ export default function ServicosPage() {
                     <div className="space-y-1">
                       <Label className="text-[11px] font-medium text-muted-foreground">Segmento</Label>
                       <Select value={segmentoFilter || '__all__'} onValueChange={v => { setSegmentoFilter(v === '__all__' ? '' : v as typeof segmentoFilter); setPage(1) }}>
-                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Segmento" /></SelectTrigger>
+                        <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Segmento" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__all__">Todos os segmentos</SelectItem>
                           <SelectItem value="avulsos">Avulsos (sem segmento)</SelectItem>
@@ -1225,7 +1225,7 @@ export default function ServicosPage() {
                     <div className="space-y-1">
                       <Label className="text-[11px] font-medium text-muted-foreground">Tipo</Label>
                       <Select value={cobrancaFilter || '__all__'} onValueChange={v => { setCobrancaFilter(v === '__all__' ? '' : v as typeof cobrancaFilter); setPage(1) }}>
-                        <SelectTrigger className="h-8 w-full text-xs bg-card"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                        <SelectTrigger className="h-8 w-full text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__all__">Todos os tipos</SelectItem>
                           <SelectItem value="recorrente">Serviço Recorrente</SelectItem>
@@ -1530,11 +1530,11 @@ export default function ServicosPage() {
           <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 flex-1">
               <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[60px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent>
               </Select>
               <Select value={statusFilter || '__all__'} onValueChange={v => { setStatusFilter(v === '__all__' ? '' : v); setPage(1) }}>
-                <SelectTrigger className="h-8 w-[150px] text-xs bg-card"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todos os status</SelectItem>
                   {Object.entries(STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
