@@ -14,14 +14,20 @@ import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend, LabelList,
 } from 'recharts'
-import { Info, TrendingDown, TrendingUp, HelpCircle, ListTree, Download, Share2 } from 'lucide-react'
+import { Info, TrendingDown, TrendingUp, HelpCircle, ListTree, Download, Share2, AlertTriangle } from 'lucide-react'
 import { Button, Card, Input, Label, Badge, cn } from '@saas/ui'
 import {
-  type Parametros, type Regime, type Atividade, type Operacao,
-  ROTULO_REGIME, ROTULO_ATIVIDADE, ehServico, temIpi,
-  calcularRegime, calcularIva, calcularTransicao, calcularOperacao,
-  reais, porcento, reaisCurto,
+  type Parametros, type Regime, type Atividade, type Operacao, type Escopo,
+  ROTULO_REGIME, ROTULO_ATIVIDADE, ROTULO_ESCOPO, ehServico, temIpi,
+  calcularComparativo, colunaDoRegime, calcularTransicao, calcularOperacao, aliquotaCpp,
+  reais, porcento, reaisCurto, reaisOuTraco, porcentoOuTraco,
 } from '../_lib/calculo'
+import {
+  type Anexo, type AtividadeSimples, type ClassificacaoIva,
+  ANO_INICIAL, ANO_PLENO, REDUCOES_IVA, ROTULO_ANEXO,
+  CPP_FAP_MAX, CPP_FAP_MIN, CPP_RAT_MAX, CPP_RAT_MIN, CPP_TERCEIROS_MAX,
+  ISS_MAX, ISS_MIN,
+} from '../_lib/parametros-fiscais'
 
 // ── Tema dos gráficos (receita do LuminAux, em tokens do tema) ───────────
 const GRADE = { strokeDasharray: '3 3', stroke: 'var(--border)' } as const
@@ -45,6 +51,29 @@ const COR_ATUAL = '#0f172a'
 const COR_NEUTRA = '#cbd5e1'
 
 const REGIMES: Regime[] = ['LUCRO_REAL', 'LUCRO_PRESUMIDO', 'SIMPLES']
+
+const ESCOPOS: Escopo[] = ['CONSUMO', 'RENDA', 'PREVIDENCIA']
+
+const ANOS_BASE: number[] = Array.from(
+  { length: ANO_PLENO - ANO_INICIAL + 1 },
+  (_, i) => ANO_INICIAL + i,
+)
+
+const ROTULO_ATIVIDADE_SIMPLES: Record<AtividadeSimples, string> = {
+  CONTABILIDADE: 'Serviços contábeis',
+  MEDICINA_AMBULATORIAL: 'Medicina ambulatorial',
+  ODONTOLOGIA: 'Odontologia',
+  PSICOLOGIA: 'Psicologia',
+  FISIOTERAPIA: 'Fisioterapia',
+  ENGENHARIA_ARQUITETURA: 'Engenharia e arquitetura',
+  TECNOLOGIA: 'Tecnologia e software',
+  CONSULTORIA: 'Consultoria e assessoria',
+  COMERCIO: 'Comércio',
+  INDUSTRIA: 'Indústria',
+  OUTROS_SERVICOS: 'Outros serviços',
+}
+
+const ATIVIDADES_SIMPLES = Object.keys(ROTULO_ATIVIDADE_SIMPLES) as AtividadeSimples[]
 
 /** Uma conta do balancete que entra na base de crédito. */
 export interface ItemComposicao {
@@ -270,28 +299,248 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
           <h3 className="mb-4 text-[13px] font-semibold text-foreground">
             Sistema antigo · {ROTULO_REGIME[p.regime]} <span className="font-normal text-muted-foreground">(editáveis)</span>
           </h3>
-          {p.regime === 'SIMPLES' ? (
-            <div className="space-y-4">
-              <CampoPercentual label="DAS — efetivo sobre o faturamento" valor={p.das} onChange={(v) => onChange({ das: v })} />
-              <p className="text-[11px] text-muted-foreground">
-                O DAS varia por anexo e faixa de receita. Confira a alíquota efetiva do cliente no PGDAS
-                antes de apresentar o número.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <CampoPercentual label="PIS" valor={p.pis} onChange={(v) => onChange({ pis: v })} />
-              <CampoPercentual label="COFINS" valor={p.cofins} onChange={(v) => onChange({ cofins: v })} />
-              {temIpi(p.atividade) && (
-                <CampoPercentual label="IPI — Indústria" valor={p.ipi} onChange={(v) => onChange({ ipi: v })} />
-              )}
-              {servico
-                ? <CampoPercentual label="ISS — Município" valor={p.iss} onChange={(v) => onChange({ iss: v })} />
-                : <CampoPercentual label="ICMS — Média" valor={p.icms} onChange={(v) => onChange({ icms: v })} />}
-            </div>
-          )}
+          {/* Valem para as colunas de Lucro Real e Presumido, que o comparativo
+              calcula mesmo quando o cliente é do Simples. No Presumido o
+              PIS/COFINS é o cumulativo (0,65% e 3%), fixado em lei — só o
+              não-cumulativo do Real é editável aqui. */}
+          <div className="space-y-4">
+            <CampoPercentual label="PIS — não-cumulativo (Lucro Real)" valor={p.pis} onChange={(v) => onChange({ pis: v })} />
+            <CampoPercentual label="COFINS — não-cumulativo (Lucro Real)" valor={p.cofins} onChange={(v) => onChange({ cofins: v })} />
+            {temIpi(p.atividade) && (
+              <CampoPercentual label="IPI — Indústria" valor={p.ipi} onChange={(v) => onChange({ ipi: v })} />
+            )}
+            {servico
+              ? <CampoPercentual label={`ISS — Município (${ISS_MIN}% a ${ISS_MAX}%)`} valor={p.iss} onChange={(v) => onChange({ iss: v })} />
+              : <CampoPercentual label="ICMS — Média" valor={p.icms} onChange={(v) => onChange({ icms: v })} />}
+          </div>
         </Card>
       </div>
+
+      {/* ── Folha e CPP ────────────────────────────────────────────────
+          A CPP é o item que decide a comparação: no Anexo III ela é 43,40% do
+          DAS, ou seja, já está paga dentro da guia. Sair do Simples é passar a
+          recolher INSS patronal por fora — sem este campo, isso não aparecia
+          em lugar nenhum da simulação. */}
+      <Card className="mt-5 border-t-2 p-5" style={{ borderTopColor: COR_IVA }}>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="text-[13px] font-semibold text-foreground">Folha de pagamento e CPP</h3>
+          <span className="text-[11px] text-muted-foreground">decide a comparação entre Simples e Presumido</span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <CampoMoeda
+              label="Folha mensal"
+              valor={p.folhaMensal}
+              onChange={(v) => onChange({ folhaMensal: v })}
+            />
+            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+              <span className="text-[11px] text-muted-foreground">% da receita:</span>
+              {[20, 25, 30, 35, 40].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => onChange({ folhaMensal: Math.round(p.faturamentoMensal * n / 100) })}
+                  className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  {n}%
+                </button>
+              ))}
+            </div>
+            {p.faturamentoMensal > 0 && p.folhaMensal > 0 && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {porcento((p.folhaMensal / p.faturamentoMensal) * 100, 1)} da receita.
+              </p>
+            )}
+          </div>
+          <div>
+            <Label className="text-[13px] font-semibold">RAT</Label>
+            <p className="text-[11px] text-muted-foreground">{CPP_RAT_MIN}% a {CPP_RAT_MAX}% conforme o risco</p>
+            <Input
+              type="number" step="0.1" min={CPP_RAT_MIN} max={CPP_RAT_MAX}
+              value={p.cppRat}
+              onChange={(e) => onChange({ cppRat: Number(e.target.value) })}
+              className="mt-1 h-10 text-sm tabular-nums"
+            />
+          </div>
+          <div>
+            <Label className="text-[13px] font-semibold">FAP</Label>
+            <p className="text-[11px] text-muted-foreground">{CPP_FAP_MIN} a {CPP_FAP_MAX}, multiplica o RAT</p>
+            <Input
+              type="number" step="0.01" min={CPP_FAP_MIN} max={CPP_FAP_MAX}
+              value={p.cppFap}
+              onChange={(e) => onChange({ cppFap: Number(e.target.value) })}
+              className="mt-1 h-10 text-sm tabular-nums"
+            />
+          </div>
+          <div>
+            <Label className="text-[13px] font-semibold">Terceiros</Label>
+            <p className="text-[11px] text-muted-foreground">até {CPP_TERCEIROS_MAX}% — Sistema S, INCRA, SEBRAE</p>
+            <Input
+              type="number" step="0.1" min="0" max={CPP_TERCEIROS_MAX}
+              value={p.cppTerceiros}
+              onChange={(e) => onChange({ cppTerceiros: Number(e.target.value) })}
+              className="mt-1 h-10 text-sm tabular-nums"
+            />
+          </div>
+        </div>
+        <div
+          className="mt-4 flex items-center justify-between rounded-lg px-4 py-3 text-white"
+          style={{ background: `linear-gradient(135deg, ${COR_ATUAL}, #134e5e)` }}
+        >
+          <span className="text-sm font-semibold">CPP total · 20% patronal + RAT×FAP + terceiros</span>
+          <span className="text-lg font-bold tabular-nums">{porcento(aliquotaCpp(p))}</span>
+        </div>
+        {p.folhaMensal <= 0 && (
+          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            Sem a folha, a CPP não entra nas colunas fora do Simples e o comparativo <b>não é conclusivo</b>.
+          </p>
+        )}
+      </Card>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        {/* ── Simples Nacional ──────────────────────────────────────────── */}
+        <Card className="p-5">
+          <h3 className="mb-4 text-[13px] font-semibold text-foreground">
+            Simples Nacional <span className="font-normal text-muted-foreground">(memória de cálculo do DAS)</span>
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <CampoMoeda label="RBT12 — receita bruta dos 12 meses" valor={p.rbt12} onChange={(v) => onChange({ rbt12: v })} />
+              <button
+                type="button"
+                onClick={() => onChange({ rbt12: Math.round(p.faturamentoMensal * 12) })}
+                className="mt-1 text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                Usar faturamento mensal × 12
+              </button>
+            </div>
+            <div>
+              <Label className="text-[13px] font-semibold">Atividade (LC 123)</Label>
+              <select
+                value={p.atividadeSimples}
+                onChange={(e) => onChange({ atividadeSimples: e.target.value as AtividadeSimples })}
+                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
+              >
+                {ATIVIDADES_SIMPLES.map(a => (
+                  <option key={a} value={a}>{ROTULO_ATIVIDADE_SIMPLES[a]}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Decide o anexo, o Fator R e o ISS fixo. Serviços contábeis são Anexo III
+                por lei (art. 18, §5º-B), independentemente da folha.
+              </p>
+            </div>
+            <div>
+              <Label className="text-[13px] font-semibold">Anexo</Label>
+              <select
+                value={p.anexo}
+                onChange={(e) => onChange({ anexo: e.target.value as Anexo | 'AUTO' })}
+                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
+              >
+                <option value="AUTO">AUTOMÁTICO — pela atividade e pelo Fator R</option>
+                {(['I', 'II', 'III', 'IV', 'V'] as Anexo[]).map(a => (
+                  <option key={a} value={a}>{ROTULO_ANEXO[a]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <CampoMoeda label="DAS informado (guia mensal)" valor={p.dasInformado} onChange={(v) => onChange({ dasInformado: v })} />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Conferido contra a memória de cálculo. Divergência acima de 2% dispara alerta no comparativo.
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        {/* ── IVA e perfil da carteira ──────────────────────────────────── */}
+        <Card className="p-5">
+          <h3 className="mb-4 text-[13px] font-semibold text-foreground">
+            IVA Dual <span className="font-normal text-muted-foreground">(ano-base, redução e carteira)</span>
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-[13px] font-semibold">Ano-base</Label>
+              <select
+                value={p.anoBase}
+                onChange={(e) => onChange({ anoBase: Number(e.target.value) })}
+                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
+              >
+                {ANOS_BASE.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                As alíquotas do IVA são função do ano: o regime pleno só vale em {ANO_PLENO}.
+              </p>
+            </div>
+            <div>
+              <Label className="text-[13px] font-semibold">Redução por atividade</Label>
+              <select
+                value={p.classificacaoIva}
+                onChange={(e) => onChange({ classificacaoIva: e.target.value as ClassificacaoIva })}
+                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
+              >
+                {(Object.keys(REDUCOES_IVA) as ClassificacaoIva[]).map(k => (
+                  <option key={k} value={k}>{REDUCOES_IVA[k].rotulo}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-muted-foreground">{REDUCOES_IVA[p.classificacaoIva].base}</p>
+            </div>
+            <div>
+              <CampoPercentual
+                label="Receita com clientes PJ no regime regular"
+                valor={p.percentualClientesPjRegular}
+                onChange={(v) => onChange({ percentualClientesPjRegular: v })}
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Esses clientes se creditam integralmente do IBS/CBS destacado: para essa fatia,
+                o tributo é repasse e não custo. Alimenta o impacto econômico líquido.
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* ── ISS fixo ──────────────────────────────────────────────────── */}
+      {servico && (
+        <Card className="mt-5 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[13px] font-semibold text-foreground">Sociedade uniprofissional — ISS fixo</h3>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Sociedade simples de profissionais habilitados recolhe ISS em valor fixo por
+                profissional, não como percentual do faturamento (DL 406/1968, art. 9º, §§1º e 3º).
+                Escritórios de serviços contábeis no Simples também recolhem fixo, fora do DAS
+                (LC 123/2006, art. 18, §22-A). O valor é definido por lei municipal — não há
+                padrão nacional a presumir.
+              </p>
+            </div>
+            <label className="flex shrink-0 items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={p.issUniprofissional}
+                onChange={(e) => onChange({ issUniprofissional: e.target.checked })}
+                className="h-4 w-4 rounded border-border"
+              />
+              Sociedade uniprofissional
+            </label>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <CampoMoeda
+              label="ISS fixo por profissional (mensal)"
+              valor={p.issFixoPorProfissional}
+              onChange={(v) => onChange({ issFixoPorProfissional: v })}
+            />
+            <div>
+              <Label className="text-[13px] font-semibold">Profissionais habilitados</Label>
+              <Input
+                type="number" min="0" step="1"
+                value={p.profissionais}
+                onChange={(e) => onChange({ profissionais: Number(e.target.value) })}
+                className="mt-1.5 h-10 text-sm tabular-nums"
+              />
+            </div>
+          </div>
+        </Card>
+      )}
 
       <p className="mt-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300">
         Os resultados da simulação não substituem uma consultoria tributária. Confirme os dados, as alíquotas
@@ -305,18 +554,19 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
 // 2. COMPARAR REGIMES
 // ══════════════════════════════════════════════════════════════════
 export function SecaoComparar({ p }: { p: Parametros }) {
-  const linhas = useMemo(() => REGIMES.map(r => calcularRegime(p, r)), [p])
-  const iva = useMemo(() => calcularIva(p), [p])
-  const servico = ehServico(p.atividade)
+  const c = useMemo(() => calcularComparativo(p), [p])
+  const colunas = c.colunas
+  const atual = colunaDoRegime(c, p.regime)
 
-  const dadosAliquota = [
-    ...linhas.map(l => ({ nome: ROTULO_REGIME[l.regime], valor: l.aliquotaEfetiva, atual: l.regime === p.regime })),
-    { nome: 'IVA', valor: iva.aliquotaEfetiva, atual: false },
-  ]
-  const dadosTotal = [
-    ...linhas.map(l => ({ nome: ROTULO_REGIME[l.regime], valor: l.totalEfetivo, atual: l.regime === p.regime })),
-    { nome: 'IVA', valor: iva.totalEfetivo, atual: false },
-  ]
+  // Só entra no gráfico a coluna que fecha. Plotar barra zerada para o Lucro
+  // Real (que não fecha sem DRE) sugeriria carga nenhuma.
+  const plotaveis = colunas.filter(l => l.aliquotaEfetiva !== null && l.totalEfetivo !== null)
+  const dadosAliquota = plotaveis.map(l => ({
+    nome: l.rotulo, valor: l.aliquotaEfetiva as number, atual: l.chave === atual.chave,
+  }))
+  const dadosTotal = plotaveis.map(l => ({
+    nome: l.rotulo, valor: l.totalEfetivo as number, atual: l.chave === atual.chave,
+  }))
 
   const Celula = ({ children, forte }: { children: React.ReactNode; forte?: boolean }) => (
     <td className={cn('px-4 py-2.5 text-right text-sm tabular-nums', forte && 'font-semibold')}>{children}</td>
@@ -327,96 +577,233 @@ export function SecaoComparar({ p }: { p: Parametros }) {
       <Titulo
         eyebrow="Comparativo"
         titulo="Comparar Regimes"
-        descricao="Carga tributária mensal de cada regime do sistema atual contra o novo IVA Dual (CBS + IBS), a partir dos dados de Configurar. O regime do cliente está destacado."
+        descricao="Carga tributária mensal de cada regime. Todas as colunas somam as mesmas categorias — consumo, renda e previdência —, que é o que torna a comparação possível. O regime do cliente está destacado."
       />
+
+      {/* A divergência do DAS vem antes da tabela: se o valor informado não
+          bate com a memória de cálculo, o resto da comparação está apoiado
+          num número que ninguém conferiu. */}
+      {c.divergenciaDas?.alerta && (
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+          <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
+            <AlertTriangle className="h-4 w-4" /> DAS informado diverge do calculado
+          </p>
+          <p className="mt-1 text-xs text-amber-800 dark:text-amber-300/90">
+            Informado <b>{reais(c.divergenciaDas.informado)}</b> · calculado{' '}
+            <b>{reais(c.divergenciaDas.calculado)}</b> pela {c.memoriaDas.faixaTexto.toLowerCase()} do{' '}
+            {ROTULO_ANEXO[c.memoriaDas.anexo]} ({porcento(c.divergenciaDas.diferencaPct)} de diferença).
+            Confira o RBT12, o anexo e as particularidades da guia antes de apresentar.
+          </p>
+        </div>
+      )}
+
+      {!c.conclusivo && (
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+          <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
+            <AlertTriangle className="h-4 w-4" /> Comparativo ainda não conclusivo
+          </p>
+          <ul className="mt-1.5 list-disc space-y-0.5 pl-6 text-xs text-amber-800 dark:text-amber-300/90">
+            {c.motivosNaoConclusivo.map(m => <li key={m}>{m}</li>)}
+          </ul>
+        </div>
+      )}
 
       <Card className="mb-5 overflow-hidden">
         <div className="overflow-x-auto nice-scrollbar">
-          <table className="w-full min-w-[720px]">
+          <table className="w-full min-w-[900px]">
             <thead>
               <tr className="text-white" style={{ background: `linear-gradient(90deg, ${COR_ATUAL}, #14343f)` }}>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Item</th>
-                {linhas.map(l => (
-                  <th key={l.regime} className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider">
+                {colunas.map(l => (
+                  <th
+                    key={l.chave}
+                    className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider"
+                    style={l.chave === 'IVA' ? { background: COR_IVA, color: COR_ATUAL } : undefined}
+                  >
                     <span className="inline-flex items-center gap-1.5">
-                      {ROTULO_REGIME[l.regime]}
-                      {l.regime === p.regime && (
+                      {l.rotulo}
+                      {l.chave === atual.chave && (
                         <Badge className="h-4 border-0 px-1.5 text-[9px]" style={{ background: COR_IVA, color: COR_ATUAL }}>
                           atual
                         </Badge>
                       )}
                     </span>
+                    <span className="mt-0.5 block text-[10px] font-normal normal-case tracking-normal opacity-70">
+                      {l.subtitulo}
+                    </span>
                   </th>
                 ))}
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ background: COR_IVA, color: COR_ATUAL }}>
-                  IVA · CBS + IBS
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              <tr>
-                <td className="px-4 py-2.5 text-sm text-muted-foreground">PIS / DAS (CBS)</td>
-                {linhas.map(l => <Celula key={l.regime}>{reais(l.federal)}</Celula>)}
-                <Celula>{reais(iva.cbs)}</Celula>
-              </tr>
-              <tr>
-                <td className="px-4 py-2.5 text-sm text-muted-foreground">COFINS</td>
-                {linhas.map(l => <Celula key={l.regime}>{l.cofins > 0 ? reais(l.cofins) : '—'}</Celula>)}
-                <Celula>—</Celula>
-              </tr>
-              <tr>
-                <td className="px-4 py-2.5 text-sm text-muted-foreground">
-                  {servico ? 'ISS (IBS)' : 'IPI / ICMS (IBS)'}
-                </td>
-                {linhas.map(l => <Celula key={l.regime}>{l.estadualMunicipal > 0 ? reais(l.estadualMunicipal) : '—'}</Celula>)}
-                <Celula>{reais(iva.ibs)}</Celula>
-              </tr>
+              {/* As três categorias, na mesma ordem em toda coluna. */}
+              {ESCOPOS.map(e => (
+                <tr key={e}>
+                  <td className="px-4 py-2.5 text-sm text-muted-foreground">{ROTULO_ESCOPO[e]}</td>
+                  {colunas.map(l => {
+                    const v = e === 'CONSUMO' ? l.consumo : e === 'RENDA' ? l.renda : l.previdencia
+                    return (
+                      <Celula key={l.chave}>
+                        {v === null
+                          ? <span className="text-amber-600 dark:text-amber-400" title="Não calculável com os dados informados">—</span>
+                          : reais(v)}
+                      </Celula>
+                    )
+                  })}
+                </tr>
+              ))}
+
               <tr>
                 <td className="px-4 py-2.5 text-sm text-muted-foreground">(−) Créditos</td>
-                {linhas.map(l => (
-                  <Celula key={l.regime}>
+                {colunas.map(l => (
+                  <Celula key={l.chave}>
                     <span className={l.creditos > 0 ? 'text-rose-600 dark:text-rose-400' : ''}>
                       {l.creditos > 0 ? `−${reais(l.creditos)}` : reais(0)}
                     </span>
                   </Celula>
                 ))}
-                <Celula>
-                  <span className="text-rose-600 dark:text-rose-400">−{reais(iva.creditos)}</span>
-                </Celula>
               </tr>
+
               <tr className="bg-muted/40">
                 <td className="px-4 py-2.5 text-sm font-semibold text-foreground">Total nominal</td>
-                {linhas.map(l => <Celula key={l.regime} forte>{reais(l.totalNominal)}</Celula>)}
-                <Celula forte>{reais(iva.totalNominal)}</Celula>
+                {colunas.map(l => <Celula key={l.chave} forte>{reaisOuTraco(l.totalNominal)}</Celula>)}
               </tr>
+
               <tr className="text-white" style={{ background: `linear-gradient(90deg, ${COR_ATUAL}, #14343f)` }}>
                 <td className="px-4 py-3 text-sm font-semibold">Total efetivo</td>
-                {linhas.map(l => (
-                  <td key={l.regime} className="px-4 py-3 text-right text-sm font-bold tabular-nums">{reais(l.totalEfetivo)}</td>
+                {colunas.map(l => (
+                  <td
+                    key={l.chave}
+                    className="px-4 py-3 text-right text-sm font-bold tabular-nums"
+                    style={l.chave === 'IVA' ? { color: COR_IVA } : undefined}
+                  >
+                    {reaisOuTraco(l.totalEfetivo)}
+                  </td>
                 ))}
-                <td className="px-4 py-3 text-right text-sm font-bold tabular-nums" style={{ color: COR_IVA }}>
-                  {reais(iva.totalEfetivo)}
-                </td>
               </tr>
-              <tr>
-                <td className="px-4 py-2.5 text-sm text-muted-foreground">Alíquota nominal</td>
-                {linhas.map(l => <Celula key={l.regime}>{porcento(l.aliquotaNominal)}</Celula>)}
-                <Celula>{porcento(iva.aliquotaNominal)}</Celula>
-              </tr>
+
               <tr className="bg-muted/40">
                 <td className="px-4 py-2.5 text-sm font-semibold text-foreground">Alíquota efetiva</td>
-                {linhas.map(l => <Celula key={l.regime} forte>{porcento(l.aliquotaEfetiva)}</Celula>)}
-                <Celula forte>{porcento(iva.aliquotaEfetiva)}</Celula>
+                {colunas.map(l => <Celula key={l.chave} forte>{porcentoOuTraco(l.aliquotaEfetiva)}</Celula>)}
+              </tr>
+
+              {/* Impacto econômico líquido: o IBS/CBS destacado para adquirente
+                  que se credita é repasse, não custo. Só a coluna IVA difere. */}
+              <tr>
+                <td className="px-4 py-2.5 text-sm text-muted-foreground">
+                  Impacto econômico líquido
+                  <span className="ml-1.5 text-[11px]">
+                    (crédito do adquirente: {porcento(p.percentualClientesPjRegular, 0)} da carteira)
+                  </span>
+                </td>
+                {colunas.map(l => <Celula key={l.chave}>{reaisOuTraco(l.impactoLiquido)}</Celula>)}
+              </tr>
+
+              {/* Retenções NÃO entram no total: são antecipação compensável.
+                  Ficam à vista porque apertam o caixa. */}
+              <tr className="border-t-2 border-dashed border-border">
+                <td className="px-4 py-2.5 text-sm text-muted-foreground">
+                  Retenções na fonte
+                  <span className="ml-1.5 text-[11px]">IRRF 1,5% + CSRF 4,65% · antecipação, fora da carga</span>
+                </td>
+                {colunas.map(l => (
+                  <Celula key={l.chave}>
+                    <span className="text-muted-foreground">{l.retencoes > 0 ? reais(l.retencoes) : '—'}</span>
+                  </Celula>
+                ))}
               </tr>
             </tbody>
           </table>
         </div>
       </Card>
 
+      {/* Memória: cada coluna abre os tributos que a compõem, com o
+          dispositivo legal de cada um. É o que permite conferir em vez de
+          acreditar. */}
+      <div className="mb-5 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        {colunas.map(l => (
+          <Card key={l.chave} className="p-4">
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[13px] font-semibold text-foreground">{l.rotulo}</p>
+                <p className="text-[11px] text-muted-foreground">{l.subtitulo}</p>
+              </div>
+              <span className="shrink-0 text-sm font-bold tabular-nums">{reaisOuTraco(l.totalEfetivo)}</span>
+            </div>
+            <table className="w-full">
+              <tbody className="divide-y divide-border/40">
+                {l.itens.map(it => (
+                  <tr key={it.chave}>
+                    <td className="py-1.5 pr-2 text-xs text-foreground">
+                      {it.rotulo}
+                      <span className="block text-[10px] text-muted-foreground">{it.base}</span>
+                    </td>
+                    <td className="py-1.5 text-right text-xs tabular-nums">
+                      {it.valor === null
+                        ? <span className="text-amber-600 dark:text-amber-400">—</span>
+                        : reais(it.valor)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {l.pendencias.length > 0 && (
+              <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-amber-700 dark:text-amber-400">
+                {l.pendencias.map(m => <li key={m}>{m}</li>)}
+              </ul>
+            )}
+            {l.notas.length > 0 && (
+              <ul className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
+                {l.notas.map(m => <li key={m}>{m}</li>)}
+              </ul>
+            )}
+          </Card>
+        ))}
+
+        {/* Memória do DAS: faixa, parcela a deduzir e partilha. */}
+        <Card className="p-4">
+          <p className="text-[13px] font-semibold text-foreground">Memória de cálculo do DAS</p>
+          <p className="text-[11px] text-muted-foreground">
+            {ROTULO_ANEXO[c.memoriaDas.anexo]} · {c.memoriaDas.faixaTexto}
+            {c.memoriaDas.anexoPorLei && ' · anexo por determinação legal (art. 18, §5º-B)'}
+          </p>
+          <div className="mt-2 space-y-1 text-xs">
+            <p className="flex justify-between"><span className="text-muted-foreground">Alíquota nominal</span><span className="tabular-nums">{porcento(c.memoriaDas.nominal)}</span></p>
+            <p className="flex justify-between"><span className="text-muted-foreground">Parcela a deduzir</span><span className="tabular-nums">{reais(c.memoriaDas.deduzir)}</span></p>
+            <p className="flex justify-between"><span className="text-muted-foreground">Alíquota efetiva</span><span className="tabular-nums font-semibold">{porcento(c.memoriaDas.aliquotaEfetivaBruta)}</span></p>
+            {c.memoriaDas.fatorR !== null && (
+              <p className="flex justify-between"><span className="text-muted-foreground">Fator R (folha ÷ receita)</span><span className="tabular-nums">{porcento(c.memoriaDas.fatorR)}</span></p>
+            )}
+          </div>
+          <table className="mt-2 w-full">
+            <tbody className="divide-y divide-border/40">
+              {c.memoriaDas.partilha.map(l => (
+                <tr key={l.tributo} className={c.memoriaDas.foraDoDas.includes(l.tributo) ? 'opacity-50' : undefined}>
+                  <td className="py-1 text-xs text-foreground">
+                    {l.tributo}
+                    {c.memoriaDas.foraDoDas.includes(l.tributo) && (
+                      <span className="ml-1 text-[10px] text-muted-foreground">fora do DAS</span>
+                    )}
+                  </td>
+                  <td className="py-1 text-right text-xs tabular-nums text-muted-foreground">{porcento(l.percentual)}</td>
+                  <td className="py-1 text-right text-xs tabular-nums">{reais(l.valor)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {c.memoriaDas.avisos.length > 0 && (
+            <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-muted-foreground">
+              {c.memoriaDas.avisos.map(m => <li key={m}>{m}</li>)}
+            </ul>
+          )}
+        </Card>
+      </div>
+
       <p className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
         <b>Importante:</b> a simulação não deve ser lida apenas pela alíquota final. Avalie também o impacto da
         geração de créditos, a relação com os clientes (quem compra pode aproveitar o crédito) e a
-        competitividade do negócio.
+        competitividade do negócio. O Simples <b>não é extinto</b> pela reforma: as duas primeiras colunas
+        são as alternativas do art. 41 da LC 214/2025.
       </p>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -432,7 +819,7 @@ export function SecaoComparar({ p }: { p: Parametros }) {
                 <LabelList dataKey="valor" position="top" formatter={(v) => porcento(Number(v))}
                   style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
                 {dadosAliquota.map((d, i) => (
-                  <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL : COR_NEUTRA} />
+                  <Cell key={i} fill={d.nome.includes('IVA') ? COR_IVA : d.atual ? COR_ATUAL : COR_NEUTRA} />
                 ))}
               </Bar>
             </BarChart>
@@ -445,13 +832,13 @@ export function SecaoComparar({ p }: { p: Parametros }) {
             <BarChart data={dadosTotal} layout="vertical" margin={{ left: 8, right: 56 }}>
               <CartesianGrid {...GRADE} horizontal={false} />
               <XAxis type="number" {...EIXO} tickFormatter={reaisCurto} />
-              <YAxis type="category" dataKey="nome" width={110} {...EIXO} />
+              <YAxis type="category" dataKey="nome" width={150} {...EIXO} />
               <Tooltip {...TOOLTIP} formatter={(v) => reais(Number(v))} />
               <Bar dataKey="valor" radius={[0, 4, 4, 0]} maxBarSize={26}>
                 <LabelList dataKey="valor" position="right" formatter={(v) => reaisCurto(Number(v))}
                   style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
                 {dadosTotal.map((d, i) => (
-                  <Cell key={i} fill={d.nome === 'IVA' ? COR_IVA : d.atual ? COR_ATUAL : COR_NEUTRA} />
+                  <Cell key={i} fill={d.nome.includes('IVA') ? COR_IVA : d.atual ? COR_ATUAL : COR_NEUTRA} />
                 ))}
               </Bar>
             </BarChart>
@@ -469,8 +856,9 @@ export function SecaoTransicao({ p, onChange }: {
   p: Parametros; onChange: (patch: Partial<Parametros>) => void
 }) {
   const anos = useMemo(() => calcularTransicao(p), [p])
-  const atual = useMemo(() => calcularRegime(p, p.regime), [p])
-  const iva = useMemo(() => calcularIva(p), [p])
+  const comparativo = useMemo(() => calcularComparativo(p), [p])
+  const atual = colunaDoRegime(comparativo, p.regime)
+  const iva = comparativo.iva
 
   return (
     <>
@@ -507,9 +895,12 @@ export function SecaoTransicao({ p, onChange }: {
             <Label className="text-[13px] font-semibold">Carga atual → nova</Label>
             <p className="text-[11px] text-muted-foreground">alíquota efetiva</p>
             <div className="mt-1 flex h-10 items-center gap-2 rounded-md border border-border bg-muted/40 px-3 text-sm font-medium tabular-nums">
-              {porcento(atual.aliquotaEfetiva)}
+              {porcentoOuTraco(atual.aliquotaEfetiva)}
               <span className="text-muted-foreground">→</span>
-              <span style={{ color: COR_IVA }}>{porcento(iva.aliquotaEfetiva)}</span>
+              {/* O "nova" precisa dizer de QUE ano estamos falando: as
+                  alíquotas do IVA só chegam ao regime pleno em 2033. */}
+              <span style={{ color: COR_IVA }}>{porcentoOuTraco(iva.aliquotaEfetiva)}</span>
+              <span className="text-[11px] font-normal text-muted-foreground">em {p.anoBase}</span>
             </div>
           </div>
         </div>
@@ -643,12 +1034,20 @@ export function SecaoVisaoGeral({ p, cliente }: {
   p: Parametros
   cliente: { razaoSocial: string; documento: string | null; cnaePrincipal: string | null; cidade?: string | null; uf?: string | null } | null
 }) {
-  const atual = useMemo(() => calcularRegime(p, p.regime), [p])
-  const iva = useMemo(() => calcularIva(p), [p])
-  const diferenca = iva.totalEfetivo - atual.totalEfetivo
-  const variacao = atual.totalEfetivo > 0 ? (diferenca / atual.totalEfetivo) * 100 : 0
-  const economiaAnual = -diferenca * 12
-  const alivio = diferenca < 0
+  const comparativo = useMemo(() => calcularComparativo(p), [p])
+  const atual = colunaDoRegime(comparativo, p.regime)
+  const iva = comparativo.iva
+
+  // Hoje e pós-reforma podem não fechar (Lucro Real sem DRE, folha ausente).
+  // Quando não fecham, a diferença não existe — e é isso que a tela mostra,
+  // em vez de um número derivado de zero.
+  const hoje = atual.totalEfetivo
+  const depois = iva.totalEfetivo
+  const comparavel = hoje !== null && depois !== null
+  const diferenca = comparavel ? depois - hoje : null
+  const variacao = comparavel && hoje > 0 ? ((depois - hoje) / hoje) * 100 : null
+  const economiaAnual = diferenca !== null ? -diferenca * 12 : null
+  const alivio = diferenca !== null && diferenca < 0
 
   const anos = useMemo(() => calcularTransicao(p), [p])
   const folhaRef = useRef<HTMLDivElement>(null)
@@ -691,26 +1090,33 @@ export function SecaoVisaoGeral({ p, cliente }: {
       `Regime atual: ${ROTULO_REGIME[p.regime]} · ${ROTULO_ATIVIDADE[p.atividade]}`,
       `Faturamento mensal: ${reais(p.faturamentoMensal)}`,
       '',
-      `Imposto hoje (efetivo): ${reais(atual.totalEfetivo)}/mês — ${porcento(atual.aliquotaEfetiva)}`,
-      `Pós-reforma (IBS+CBS): ${reais(iva.totalEfetivo)}/mês — ${porcento(iva.aliquotaEfetiva)}`,
-      `Diferença: ${diferenca < 0 ? '-' : '+'}${reais(Math.abs(diferenca))}/mês (${porcento(variacao)})`,
-      `${diferenca < 0 ? 'Economia' : 'Custo adicional'} anual estimado: ${reais(Math.abs(economiaAnual))}`,
+      `Imposto hoje (efetivo): ${reaisOuTraco(hoje)}/mês — ${porcentoOuTraco(atual.aliquotaEfetiva)}`,
+      `Pós-reforma em ${p.anoBase} (IBS+CBS): ${reaisOuTraco(depois)}/mês — ${porcentoOuTraco(iva.aliquotaEfetiva)}`,
+      diferenca !== null
+        ? `Diferença: ${diferenca < 0 ? '-' : '+'}${reais(Math.abs(diferenca))}/mês (${porcentoOuTraco(variacao)})`
+        : 'Diferença: não calculável — faltam dados na simulação.',
+      economiaAnual !== null
+        ? `${economiaAnual > 0 ? 'Economia' : 'Custo adicional'} anual estimado: ${reais(Math.abs(economiaAnual))}`
+        : null,
+      // Uma simulação incompleta não pode circular no WhatsApp como se
+      // estivesse fechada — quem recebe não tem como saber o que faltou.
+      ...(comparativo.conclusivo ? [] : ['', '*Simulação ainda não conclusiva:*', ...comparativo.motivosNaoConclusivo.map(m => `- ${m}`)]),
       '',
-      'Estimativa pedagógica, com alíquota de referência de '
-        + `${porcento(p.cbs + p.ibs)} (CBS ${porcento(p.cbs)} + IBS ${porcento(p.ibs)}). `
+      `Comparativo com escopo completo (consumo + renda + previdência), ano-base ${p.anoBase}. `
         + 'Não substitui consultoria tributária.',
     ].filter(Boolean).join('\n')
     window.open(`https://wa.me/?text=${encodeURIComponent(linhas)}`, '_blank', 'noopener')
   }
 
   const antesDepois = [
-    { nome: 'Hoje', valor: atual.totalEfetivo },
-    { nome: 'Pós-reforma', valor: iva.totalEfetivo },
+    { nome: 'Hoje', valor: hoje ?? 0 },
+    { nome: `Pós-reforma ${p.anoBase}`, valor: depois ?? 0 },
   ]
-  const porRegime = [
-    ...REGIMES.map(r => { const l = calcularRegime(p, r); return { nome: ROTULO_REGIME[r], valor: l.aliquotaEfetiva, atual: r === p.regime } }),
-    { nome: 'IVA', valor: iva.aliquotaEfetiva, atual: false },
-  ]
+  // Só as colunas que fecham entram no gráfico — barra zerada para uma coluna
+  // sem total diria "carga nenhuma", que é o oposto do que o `—` significa.
+  const porRegime = comparativo.colunas
+    .filter(l => l.aliquotaEfetiva !== null)
+    .map(l => ({ nome: l.rotulo, valor: l.aliquotaEfetiva as number, atual: l.chave === atual.chave }))
 
   /** CNPJ por extenso. Era mascarado, mas quem vê esta tela é a equipe e o
    *  próprio cliente — esconder o documento dele não protegia ninguém e ainda
@@ -756,23 +1162,34 @@ export function SecaoVisaoGeral({ p, cliente }: {
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl px-4 py-4 text-white" style={{ background: COR_ATUAL }}>
           <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">Imposto hoje · efetivo</p>
-          <p className="mt-1 text-xl font-bold tabular-nums">{reais(atual.totalEfetivo)}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums">{reaisOuTraco(hoje)}</p>
         </div>
         <div className="rounded-xl px-4 py-4" style={{ background: COR_IVA, color: COR_ATUAL }}>
-          <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">Pós-reforma</p>
-          <p className="mt-1 text-xl font-bold tabular-nums">{reais(iva.totalEfetivo)}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">Pós-reforma · {p.anoBase}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums">{reaisOuTraco(depois)}</p>
         </div>
         <Card className="px-4 py-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Diferença mensal</p>
-          <p className={cn('mt-1 text-xl font-bold tabular-nums', alivio ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}>
-            {alivio ? '−' : '+'}{reais(Math.abs(diferenca))}
+          <p className={cn('mt-1 text-xl font-bold tabular-nums', diferenca === null ? 'text-muted-foreground' : alivio ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}>
+            {diferenca === null ? '—' : `${alivio ? '−' : '+'}${reais(Math.abs(diferenca))}`}
           </p>
         </Card>
-        <div className={cn('rounded-xl px-4 py-4', alivio ? 'bg-lime-300 text-slate-900' : 'bg-rose-200 text-rose-950')}>
+        <div className={cn('rounded-xl px-4 py-4', diferenca === null ? 'bg-muted text-muted-foreground' : alivio ? 'bg-lime-300 text-slate-900' : 'bg-rose-200 text-rose-950')}>
           <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">Variação</p>
-          <p className="mt-1 text-xl font-bold tabular-nums">{porcento(variacao)}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums">{porcentoOuTraco(variacao)}</p>
         </div>
       </div>
+
+      {!comparativo.conclusivo && (
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+          <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
+            <AlertTriangle className="h-4 w-4" /> Simulação ainda não conclusiva
+          </p>
+          <ul className="mt-1.5 list-disc space-y-0.5 pl-6 text-xs text-amber-800 dark:text-amber-300/90">
+            {comparativo.motivosNaoConclusivo.map(m => <li key={m}>{m}</li>)}
+          </ul>
+        </div>
+      )}
 
       <div className={cn(
         'mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3',
@@ -781,10 +1198,10 @@ export function SecaoVisaoGeral({ p, cliente }: {
           : 'border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30',
       )}>
         <span className={cn('text-sm font-medium', alivio ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300')}>
-          {alivio ? 'Economia anual estimada' : 'Custo adicional anual estimado'}
+          {economiaAnual === null ? 'Diferença anual' : alivio ? 'Economia anual estimada' : 'Custo adicional anual estimado'}
         </span>
         <span className={cn('text-lg font-bold tabular-nums', alivio ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300')}>
-          {reais(Math.abs(economiaAnual))}
+          {economiaAnual === null ? '—' : reais(Math.abs(economiaAnual))}
         </span>
       </div>
 
@@ -864,47 +1281,43 @@ export function SecaoVisaoGeral({ p, cliente }: {
           </p>
 
           <div className="kpis">
-            <div className="kpi"><p className="r">Imposto hoje</p><p className="v">{reais(atual.totalEfetivo)}</p></div>
-            <div className="kpi"><p className="r">Pós-reforma</p><p className="v">{reais(iva.totalEfetivo)}</p></div>
-            <div className="kpi"><p className="r">Diferença mensal</p><p className="v">{diferenca < 0 ? '−' : '+'}{reais(Math.abs(diferenca))}</p></div>
-            <div className="kpi"><p className="r">Variação</p><p className="v">{porcento(variacao)}</p></div>
+            <div className="kpi"><p className="r">Imposto hoje</p><p className="v">{reaisOuTraco(hoje)}</p></div>
+            <div className="kpi"><p className="r">Pós-reforma ({p.anoBase})</p><p className="v">{reaisOuTraco(depois)}</p></div>
+            <div className="kpi"><p className="r">Diferença mensal</p><p className="v">{diferenca === null ? '—' : `${diferenca < 0 ? '−' : '+'}${reais(Math.abs(diferenca))}`}</p></div>
+            <div className="kpi"><p className="r">Variação</p><p className="v">{porcentoOuTraco(variacao)}</p></div>
           </div>
 
           <div className="destaque">
-            <span>{alivio ? 'Economia anual estimada' : 'Custo adicional anual estimado'}</span>
-            <span>{reais(Math.abs(economiaAnual))}</span>
+            <span>{economiaAnual === null ? 'Diferença anual' : alivio ? 'Economia anual estimada' : 'Custo adicional anual estimado'}</span>
+            <span>{economiaAnual === null ? '—' : reais(Math.abs(economiaAnual))}</span>
           </div>
 
           <h2>Comparativo de regimes — carga mensal</h2>
           <table>
             <thead>
               <tr>
-                <th>Regime</th><th>Total nominal</th><th>Total efetivo</th>
-                <th>Alíquota nominal</th><th>Alíquota efetiva</th>
+                <th>Regime</th><th>Consumo</th><th>Renda</th><th>Previdência</th>
+                <th>Total efetivo</th><th>Alíquota efetiva</th>
               </tr>
             </thead>
             <tbody>
-              {REGIMES.map(r => {
-                const l = calcularRegime(p, r)
-                return (
-                  <tr key={r} className={r === p.regime ? 'forte' : undefined}>
-                    <td>{ROTULO_REGIME[r]}{r === p.regime ? ' (atual)' : ''}</td>
-                    <td>{reais(l.totalNominal)}</td>
-                    <td>{reais(l.totalEfetivo)}</td>
-                    <td>{porcento(l.aliquotaNominal)}</td>
-                    <td>{porcento(l.aliquotaEfetiva)}</td>
-                  </tr>
-                )
-              })}
-              <tr className="forte">
-                <td>IVA — CBS + IBS</td>
-                <td>{reais(iva.totalNominal)}</td>
-                <td>{reais(iva.totalEfetivo)}</td>
-                <td>{porcento(iva.aliquotaNominal)}</td>
-                <td>{porcento(iva.aliquotaEfetiva)}</td>
-              </tr>
+              {comparativo.colunas.map(c => (
+                <tr key={c.chave} className={c.chave === colunaDoRegime(comparativo, p.regime).chave ? 'forte' : undefined}>
+                  <td>{c.rotulo}{c.chave === colunaDoRegime(comparativo, p.regime).chave ? ' (atual)' : ''}</td>
+                  <td>{reaisOuTraco(c.consumo)}</td>
+                  <td>{reaisOuTraco(c.renda)}</td>
+                  <td>{reaisOuTraco(c.previdencia)}</td>
+                  <td>{reaisOuTraco(c.totalEfetivo)}</td>
+                  <td>{porcentoOuTraco(c.aliquotaEfetiva)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
+          <p style={{ fontSize: '9pt', marginTop: '4pt' }}>
+            Todas as colunas somam as mesmas categorias — tributos sobre consumo,
+            sobre a renda e previdência patronal. Onde há &quot;—&quot;, o componente
+            não é calculável com os dados informados e NÃO foi somado como zero.
+          </p>
 
           <h2>Transição 2026–2033 — valores anuais</h2>
           <table>

@@ -37,10 +37,11 @@ import {
   SecaoConfigurar, SecaoComparar, SecaoTransicao, SecaoVisaoGeral, SecaoCalculadora,
   type ItemComposicao,
 } from './_components/secoes'
+import { type AtividadeSimples, type ClassificacaoIva } from './_lib/parametros-fiscais'
 import {
   type Parametros, type Regime, type Atividade, type Operacao,
-  PADRAO, ROTULO_REGIME, ROTULO_ATIVIDADE, reais, porcento,
-  calcularRegime, calcularIva,
+  PADRAO, ROTULO_REGIME, ROTULO_ATIVIDADE, reais, porcentoOuTraco,
+  calcularComparativo, colunaDoRegime,
 } from './_lib/calculo'
 
 type Aba = 'configurar' | 'comparar' | 'transicao' | 'visao' | 'calculadora'
@@ -82,6 +83,38 @@ function atividadeDoCnae(cnae: string | null): Atividade {
   if (divisao >= 5 && divisao <= 33) return 'INDUSTRIA'
   if (divisao >= 45 && divisao <= 47) return 'COMERCIO'
   return 'SERVICOS'
+}
+
+/**
+ * Classificação do CNAE para as reduções da LC 214/2025 e para o anexo do
+ * Simples.
+ *
+ * Só mapeia o que dá para afirmar pela divisão do CNAE. O que não se encaixa
+ * cai em "sem redução" e "outros serviços" — errar para o lado da alíquota
+ * cheia é menos ruim do que conceder uma redução que a empresa não tem.
+ */
+function perfilDoCnae(cnae: string | null): { classificacaoIva: ClassificacaoIva; atividadeSimples: AtividadeSimples } {
+  const d = (cnae ?? '').replace(/\D/g, '')
+  const divisao = d.length >= 2 ? Number(d.slice(0, 2)) : 0
+  const grupo = d.length >= 4 ? d.slice(0, 4) : ''
+
+  // 69.20 — atividades de contabilidade, auditoria e consultoria tributária.
+  if (grupo === '6920') return { classificacaoIva: 'PROFISSAO_REGULAMENTADA', atividadeSimples: 'CONTABILIDADE' }
+  // 69.11 — advocacia. Profissão regulamentada, mas Anexo IV no Simples.
+  if (grupo === '6911') return { classificacaoIva: 'PROFISSAO_REGULAMENTADA', atividadeSimples: 'OUTROS_SERVICOS' }
+  // 71 — serviços de arquitetura e engenharia.
+  if (divisao === 71) return { classificacaoIva: 'PROFISSAO_REGULAMENTADA', atividadeSimples: 'ENGENHARIA_ARQUITETURA' }
+  // 86 — atividades de atenção à saúde humana.
+  if (divisao === 86) return { classificacaoIva: 'SAUDE_EDUCACAO', atividadeSimples: 'MEDICINA_AMBULATORIAL' }
+  // 85 — educação.
+  if (divisao === 85) return { classificacaoIva: 'SAUDE_EDUCACAO', atividadeSimples: 'OUTROS_SERVICOS' }
+  // 62 e 63 — tecnologia da informação. Sujeitas ao Fator R.
+  if (divisao === 62 || divisao === 63) return { classificacaoIva: 'PADRAO', atividadeSimples: 'TECNOLOGIA' }
+  // 70 — consultoria em gestão. Também sujeita ao Fator R.
+  if (divisao === 70) return { classificacaoIva: 'PADRAO', atividadeSimples: 'CONSULTORIA' }
+  if (divisao >= 45 && divisao <= 47) return { classificacaoIva: 'PADRAO', atividadeSimples: 'COMERCIO' }
+  if (divisao >= 5 && divisao <= 33) return { classificacaoIva: 'PADRAO', atividadeSimples: 'INDUSTRIA' }
+  return { classificacaoIva: 'PADRAO', atividadeSimples: 'OUTROS_SERVICOS' }
 }
 
 const PARAMETROS_INICIAIS: Parametros = {
@@ -131,12 +164,24 @@ export default function ReformaTributariaPage() {
     const doErp = c.faturamento12m > 0 ? c.faturamento12m / 12 : 0
     const mensal = doContrato || doErp
     setOrigem(doContrato ? 'contrato' : doErp ? 'erp' : 'nenhuma')
+    // O RBT12 é o que o ERP conhece; sem snapshot, os 12 meses da mensal são a
+    // melhor aproximação disponível — e o campo fica editável para corrigir.
+    const rbt12 = c.faturamento12m > 0 ? Math.round(c.faturamento12m) : Math.round(mensal * 12)
+    const perfil = perfilDoCnae(c.cnaePrincipal)
     setP(prev => ({
       ...prev,
       regime: regimeDoCadastro(c.tributacao),
       atividade: atividadeDoCnae(c.cnaePrincipal),
       faturamentoMensal: Math.round(mensal),
       despesasCreditaveis: 0,
+      rbt12,
+      anexo: 'AUTO',
+      atividadeSimples: perfil.atividadeSimples,
+      classificacaoIva: perfil.classificacaoIva,
+      // Folha e DAS informado nunca são chutados: sem eles a tela se declara
+      // não conclusiva, que é a informação correta a dar.
+      folhaMensal: 0,
+      dasInformado: 0,
     }))
 
     setCarregandoCliente(true)
@@ -188,8 +233,9 @@ export default function ReformaTributariaPage() {
     setOp(prev => ({ ...prev, despesasCreditaveis: Number(pct.toFixed(2)) }))
   }, [p.despesasCreditaveis, p.faturamentoMensal])
 
-  const atual = useMemo(() => calcularRegime(p, p.regime), [p])
-  const iva = useMemo(() => calcularIva(p), [p])
+  const comparativo = useMemo(() => calcularComparativo(p), [p])
+  const atual = colunaDoRegime(comparativo, p.regime)
+  const iva = comparativo.iva
   // Basta o cliente: o resumo é o contexto da tela, e escondê-lo quando o
   // faturamento é zero tirava justamente a informação de que ele está zerado.
   const pronto = !!cliente
@@ -230,7 +276,9 @@ export default function ReformaTributariaPage() {
               { r: 'Regime', v: ROTULO_REGIME[p.regime].toUpperCase() },
               { r: 'Atividade', v: ROTULO_ATIVIDADE[p.atividade].toUpperCase() },
               { r: 'Faturamento/mês', v: reais(p.faturamentoMensal) },
-              { r: 'Carga hoje → nova', v: `${porcento(atual.aliquotaEfetiva)} → ${porcento(iva.aliquotaEfetiva)}` },
+              // O "nova" precisa dizer de que ano se trata: a alíquota do IVA
+              // é função do ano-base, e só é plena em 2033.
+              { r: `Carga hoje → ${p.anoBase}`, v: `${porcentoOuTraco(atual.aliquotaEfetiva)} → ${porcentoOuTraco(iva.aliquotaEfetiva)}` },
             ].map(x => (
               <div key={x.r}>
                 <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{x.r}</p>
