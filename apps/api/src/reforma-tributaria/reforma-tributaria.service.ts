@@ -313,6 +313,37 @@ const SQL_LINHAS_ANALITICAS = `
              AND l.conta NOT IN (SELECT conta FROM sinteticas)`
 
 /**
+ * O que conta como FATURAMENTO — mesmo criterio do relatorio do SCI.
+ *
+ * Receita bruta de vendas e servicos (03.1.1) MENOS devolucoes e abatimentos
+ * (03.1.3.01). Sao as duas metades: o abatimento concedido nunca foi faturado,
+ * entao nao pode entrar no faturamento.
+ *
+ * O que NAO entra, e o porque de cada exclusao:
+ * - 03.1.3.02..07 — impostos sobre vendas (Simples, ISS, ICMS). Descontar
+ *   imposto da receita bruta da RECEITA LIQUIDA, que e outro numero. A Central
+ *   Contabil em 07/2026 tinha R$ 27.835,91 de Simples Nacional aqui; abater
+ *   isso teria trocado uma divergencia de R$ 360 por uma de R$ 28 mil.
+ * - 03.1.4 (financeiras), 03.1.5 (participacoes) e 03.1.6 (operacionais
+ *   diversas, como recuperacao de despesa) — receita da empresa, mas nao
+ *   faturamento; o SCI tambem as deixa de fora.
+ *
+ * As duas contas de 03.1.3.01 vem com o nome prefixado por "(-)", entao o `vl`
+ * de SQL_LINHAS_ANALITICAS ja as entrega negativas: aqui elas so precisam ser
+ * SOMADAS. Nenhuma conta 03.1.3 tem `categoria_dre` (conferido nos 11 clientes
+ * com balancete), logo nao ha risco de a linha entrar duas vezes.
+ *
+ * Vive numa constante porque as duas consultas — o total de 12 meses e a serie
+ * mes a mes da tela de conferencia — precisam somar exatamente a mesma coisa.
+ * Quando eram dois literais iguais, so um foi corrigido.
+ */
+const SQL_RECEITA = `CASE
+            WHEN COALESCE(c.categoria_dre, '') IN ('RECEITA_BRUTA')
+              OR l.conta LIKE '03.1.1%' OR l.conta LIKE '3.1.1%'
+              OR l.conta LIKE '03.1.3.01%' OR l.conta LIKE '3.1.3.01%'
+            THEN l.vl ELSE 0 END`
+
+/**
  * Grupos de folha do plano de contas do SCI.
  *
  * Existem porque a conta SINTETICA da folha nao se denuncia pelo nome: as filhas
@@ -1195,10 +1226,7 @@ export class ReformaTributariaService {
       `WITH ${SQL_SINTETICAS}
         , linhas AS (${SQL_LINHAS_ANALITICAS})
         SELECT
-          COALESCE(SUM(CASE
-            WHEN COALESCE(c.categoria_dre, '') IN ('RECEITA_BRUTA')
-              OR l.conta LIKE '03.1.1%' OR l.conta LIKE '3.1.1%'
-            THEN l.vl ELSE 0 END), 0) AS receita,
+          COALESCE(SUM(${SQL_RECEITA}), 0) AS receita,
           COALESCE(SUM(CASE
             WHEN COALESCE(c.categoria_dre, '') IN ('CUSTO_DAS_VENDAS', 'DESPESAS_VARIAVEIS', 'DESPESAS_OPERACIONAIS')
               OR l.conta LIKE '04.1.%' OR l.conta LIKE '4.1.%' OR l.conta LIKE '04.2.1.%' OR l.conta LIKE '04.2.2.%'
@@ -1211,10 +1239,10 @@ export class ReformaTributariaService {
       periodoInicio,
       periodoFim,
     )
-    // Receita mes a mes, para a conferencia na tela. Mesmo criterio da soma
-    // acima, so que agrupado por periodo: se o criterio divergisse, a soma dos
-    // meses nao fecharia com a media exibida e a conferencia acusaria um erro
-    // inexistente.
+    // Receita mes a mes, para a conferencia na tela: a mesma soma acima,
+    // agrupada por periodo. Compartilham SQL_RECEITA porque, se o criterio
+    // divergisse, a soma dos meses nao fecharia com a media exibida e a
+    // conferencia acusaria um erro inexistente.
     const serieRows = await prisma.$queryRawUnsafe<Array<{
       periodo: string
       receita: number | string | null
@@ -1222,10 +1250,7 @@ export class ReformaTributariaService {
       `WITH ${SQL_SINTETICAS}
         , linhas AS (${SQL_LINHAS_ANALITICAS})
         SELECT l.periodo,
-          COALESCE(SUM(CASE
-            WHEN COALESCE(c.categoria_dre, '') IN ('RECEITA_BRUTA')
-              OR l.conta LIKE '03.1.1%' OR l.conta LIKE '3.1.1%'
-            THEN l.vl ELSE 0 END), 0) AS receita
+          COALESCE(SUM(${SQL_RECEITA}), 0) AS receita
          FROM linhas l
          LEFT JOIN cliente_bi_categorias c
            ON c.cliente_id = l.cliente_id AND c.conta = l.conta
