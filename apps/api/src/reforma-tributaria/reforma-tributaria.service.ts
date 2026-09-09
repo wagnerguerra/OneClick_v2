@@ -56,6 +56,27 @@ export interface Metrics {
     margemOperacionalPercentual: number | null
     mensagem?: string
   }
+  /**
+   * Folha de pagamento do cliente, para a base da CPP no simulador de regimes.
+   *
+   * `baseMensal` e a REMUNERACAO media mensal — salarios, pro-labore, horas
+   * extras, ferias, 13o e as provisoes desses. Nao inclui encargos (FGTS, INSS)
+   * nem beneficios (vale, plano de saude, bolsa estagio): sobre eles a CPP nao
+   * incide, e soma-los inflaria em cerca de 20% o custo de sair do Simples.
+   */
+  folha: {
+    origem: 'balancete_importado' | 'indisponivel'
+    baseMensal: number
+    encargosMensal: number
+    beneficiosMensal: number
+    itens: Array<{
+      conta: string
+      nomeConta: string
+      categoria: 'REMUNERACAO' | 'ENCARGO' | 'BENEFICIO' | 'REVISAR'
+      valor: number
+      motivo: string
+    }>
+  }
   creditos: {
     origem: 'balancete_importado' | 'documentos_fiscais' | 'premissa'
     baseCreditavel12m: number
@@ -360,6 +381,53 @@ const FOLHA_NOME = /salario|pro labore|pro-labore|ordenado|ferias|decimo|fgts|in
 const TRIBUTOS_NOME = /irpj|csll|imposto de renda|contribuicao social|multa|juros|taxa|parcelamento|distribuicao|lucro|doacao/
 
 const CREDITO_NOME = /mercadoria|insumo|materia prima|material aplicado|embalagem|frete|energia|combustivel|aluguel|locacao|software|licenca|servico tomado|terceir/
+
+/**
+ * Contas de despesa de pessoal, classificadas para a base da CPP.
+ *
+ * A ORDEM dos testes e o que faz a classificacao funcionar. "Provisao de
+ * Encargos S/Ferias" contem "ferias" e "encargos": se REMUNERACAO fosse testada
+ * primeiro, a provisao de encargo entraria na base e a CPP incidiria sobre ela
+ * — encargo sobre encargo. Por isso ENCARGO e BENEFICIO vem antes.
+ *
+ * Base da CPP e a remuneracao paga ao segurado (Lei 8.212/1991, art. 22, I).
+ * Ficam de fora:
+ *  - FGTS e a propria contribuicao previdenciaria, que sao encargos;
+ *  - vale-transporte, alimentacao e plano de saude, que a lei exclui do
+ *    salario de contribuicao (art. 28, §9o);
+ *  - bolsa de estagio, porque estagiario nao e segurado empregado
+ *    (Lei 11.788/2008, art. 3o, §1o).
+ */
+const FOLHA_ENCARGO = /fgts|inss|encargo|previdenci|rescis|sistema s|sesc|senac|senai|sebrae|incra|salario.?educacao|sat\b|rat\b/
+const FOLHA_BENEFICIO = /vale.?transporte|vale.?refeicao|vale.?alimentacao|alimentacao do trabalhador|assistencia medica|plano de saude|odontolog|seguro de vida|medicina ocupacional|bolsa|estagi|creche|auxilio/
+const FOLHA_REMUNERACAO = /salario|ordenado|pro.?labore|hora extra|ferias|decimo terceiro|gratifica|comissao|aviso previo|insalubridade|periculosidade|adicional noturno|remunerac/
+/** Sintetica que denuncia o bloco de pessoal, para pegar a conta de nome mudo. */
+const FOLHA_PAI = /trabalhista|pessoal|folha de pagamento|encargos sociais|provisoes/
+
+function classificarContaFolha(row: { conta: string; nomeConta: string; nomePai: string }): {
+  categoria: 'REMUNERACAO' | 'ENCARGO' | 'BENEFICIO' | 'REVISAR'
+  motivo: string
+} | null {
+  const nome = textoNormalizado(row.nomeConta)
+  const pai = textoNormalizado(row.nomePai)
+  const doBlocoDePessoal = FOLHA_PAI.test(pai)
+
+  if (FOLHA_ENCARGO.test(nome)) {
+    return { categoria: 'ENCARGO', motivo: 'Encargo sobre a folha — a CPP nao incide sobre ele.' }
+  }
+  if (FOLHA_BENEFICIO.test(nome)) {
+    return { categoria: 'BENEFICIO', motivo: 'Beneficio fora do salario de contribuicao (Lei 8.212/1991, art. 28, §9o).' }
+  }
+  if (FOLHA_REMUNERACAO.test(nome)) {
+    return { categoria: 'REMUNERACAO', motivo: 'Remuneracao — base da CPP (Lei 8.212/1991, art. 22, I).' }
+  }
+  // Conta pendurada no bloco de pessoal com nome que nao se explica. Aparece
+  // para o usuario decidir, em vez de entrar ou sair calada.
+  if (doBlocoDePessoal) {
+    return { categoria: 'REVISAR', motivo: 'Esta no bloco de pessoal, mas o nome nao identifica a natureza.' }
+  }
+  return null
+}
 
 function classificarContaCredito(row: { conta: string; nomeConta: string; categoriaDre: string | null }): {
   categoria: 'CREDITAVEL' | 'NAO_CREDITAVEL' | 'REVISAR'
@@ -1191,6 +1259,10 @@ export class ReformaTributariaService {
       // fontes (snapshot, documentos fiscais) nao ha mes a mes para abrir, e
       // devolver uma serie vazia junto de um numero cheio confundiria mais.
       faturamentoSerie: contabil.faturamento12m > 0 ? contabil.faturamentoSerie : [],
+      // A folha so existe com balancete: nao ha como deduzi-la de documento
+      // fiscal nem de snapshot. Sem ela o simulador pede o valor na tela, que e
+      // melhor do que devolver zero e passar por folha inexistente.
+      folha: contabil.folha,
       comprasMercadorias12m,
       servicosTomados12m,
       documentosSaida: saidaDocs.reduce((acc, r) => acc + Number(r.docs), 0) + asNumber(snapshots.nf_saida) + asNumber(snapshots.nf_prestado) + sci.documentosSaida,
@@ -1290,6 +1362,34 @@ export class ReformaTributariaService {
       periodoInicio,
       periodoFim,
     )
+    // Contas de despesa com o nome do PAI junto: a conta de nome mudo
+    // ("Reembolso de Despesas") so se identifica como pessoal pela sintetica
+    // que a abriga ("DESPESAS TRABALHISTAS").
+    const folhaRows = await prisma.$queryRawUnsafe<Array<{
+      conta: string
+      nomeConta: string
+      nomePai: string | null
+      valor: number | string | null
+    }>>(
+      `WITH ${SQL_SINTETICAS}
+        , linhas AS (${SQL_LINHAS_ANALITICAS})
+        , nomes AS (
+            SELECT DISTINCT conta, nome_conta
+              FROM cliente_bi_linhas WHERE cliente_id = $1
+          )
+        SELECT l.conta, l.nome_conta AS "nomeConta",
+               pai.nome_conta AS "nomePai",
+               SUM(l.vl) AS valor
+         FROM linhas l
+         LEFT JOIN nomes pai
+           ON pai.conta = substring(l.conta from '^(.*)\\.[^.]+$')
+        WHERE l.conta LIKE '04.%' OR l.conta LIKE '4.%'
+        GROUP BY l.conta, l.nome_conta, pai.nome_conta`,
+      clienteId,
+      periodoInicio,
+      periodoFim,
+    )
+
     const overrides = await this.getCreditoOverrides(clienteId)
     const creditoItens = creditoRows.map(row => {
       const ov = overrides.get(row.conta)
@@ -1323,6 +1423,32 @@ export class ReformaTributariaService {
     const faturamento12m = asNumber(row?.receita)
     const custosDespesas12m = asNumber(row?.custosDespesas)
     const periodos = Number(row?.periodos ?? 0)
+
+    // Folha: a media MENSAL da remuneracao. Dividir pelos periodos de fato
+    // importados, e nao por 12 fixo, e o que impede um balancete de 4 meses de
+    // sair com uma folha tres vezes menor do que a real.
+    const folhaItens = folhaRows
+      .map(r => {
+        const c = classificarContaFolha({
+          conta: r.conta, nomeConta: r.nomeConta, nomePai: r.nomePai ?? '',
+        })
+        return c ? { conta: r.conta, nomeConta: r.nomeConta, ...c, valor: asNumber(r.valor) } : null
+      })
+      .filter((i): i is NonNullable<typeof i> => i !== null && i.valor !== 0)
+      .sort((a, b) => b.valor - a.valor)
+
+    const porCategoria = (cat: string) =>
+      periodos > 0
+        ? folhaItens.filter(i => i.categoria === cat).reduce((acc, i) => acc + i.valor, 0) / periodos
+        : 0
+
+    const folha = {
+      origem: folhaItens.length > 0 ? 'balancete_importado' as const : 'indisponivel' as const,
+      baseMensal: porCategoria('REMUNERACAO'),
+      encargosMensal: porCategoria('ENCARGO'),
+      beneficiosMensal: porCategoria('BENEFICIO'),
+      itens: folhaItens.slice(0, 20),
+    }
     return {
       consultado: true,
       disponivel: periodos > 0 && (faturamento12m > 0 || custosDespesas12m > 0),
@@ -1332,6 +1458,7 @@ export class ReformaTributariaService {
       // media esconde o mes zerado por balancete faltando e o mes atipico que a
       // puxa sozinho.
       faturamentoSerie: serieRows.map(r => ({ periodo: String(r.periodo), receita: asNumber(r.receita) })),
+      folha,
       creditos,
       margemOperacionalPercentual: faturamento12m > 0 ? (faturamento12m - custosDespesas12m) / faturamento12m : null,
       mensagem: periodos > 0

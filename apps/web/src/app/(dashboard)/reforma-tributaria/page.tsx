@@ -35,7 +35,7 @@ import { SeletorCliente, type ClienteSimulador } from './_components/seletor-cli
 import { BalanceteModal } from './_components/balancete-modal'
 import {
   SecaoConfigurar, SecaoComparar, SecaoTransicao, SecaoVisaoGeral, SecaoCalculadora,
-  type ItemComposicao,
+  type ItemComposicao, type ItemFolha,
 } from './_components/secoes'
 import { type AtividadeSimples, type ClassificacaoIva } from './_lib/parametros-fiscais'
 import {
@@ -141,6 +141,8 @@ export default function ReformaTributariaPage() {
   const [composicao, setComposicao] = useState<ItemComposicao[]>([])
   /** Receita mes a mes do balancete — o detalhe por tras da media exibida. */
   const [serieFaturamento, setSerieFaturamento] = useState<Array<{ periodo: string; receita: number }>>([])
+  /** Contas de pessoal do balancete que somam a folha sugerida. */
+  const [composicaoFolha, setComposicaoFolha] = useState<ItemFolha[]>([])
   const [verComposicao, setVerComposicao] = useState(false)
   const [verSerie, setVerSerie] = useState(false)
   const [verBalancete, setVerBalancete] = useState(false)
@@ -186,6 +188,7 @@ export default function ReformaTributariaPage() {
 
     setCarregandoCliente(true)
     setComposicao([])
+    setComposicaoFolha([])
     setSerieFaturamento([])
     try {
       const d = await (trpc.reformaTributaria as never as {
@@ -193,6 +196,13 @@ export default function ReformaTributariaPage() {
           metrics: {
             faturamentoMedioMensal: number
             faturamentoSerie?: Array<{ periodo: string; receita: number }>
+            folha?: {
+              origem: 'balancete_importado' | 'indisponivel'
+              baseMensal: number
+              encargosMensal: number
+              beneficiosMensal: number
+              itens: ItemFolha[]
+            }
             comprasMercadorias12m: number
             servicosTomados12m: number
             fontePrincipal: 'BALANCETE_ERP' | 'SNAPSHOT_SCI' | 'DOCUMENTOS_FISCAIS'
@@ -200,6 +210,16 @@ export default function ReformaTributariaPage() {
           }
         }> }
       }).diagnostico.query({ clienteId: c.id, meses: 12 })
+
+      // A folha sai das contas de pessoal do balancete — remuneração apenas,
+      // sem encargos nem benefícios, que não são base da CPP. Vem como
+      // SUGESTÃO com a composição aberta: quem apresenta precisa poder conferir
+      // conta a conta antes de dizer quanto custa sair do Simples.
+      const folha = d.metrics.folha
+      if (folha && folha.origem === 'balancete_importado' && folha.baseMensal > 0) {
+        setP(prev => ({ ...prev, folhaMensal: Math.round(folha.baseMensal) }))
+        setComposicaoFolha(folha.itens)
+      }
 
       // A base do balancete tem precedência sobre compras+serviços: ela vem de
       // contas classificadas uma a uma, e é a única que sabe dizer de onde veio.
@@ -368,6 +388,7 @@ export default function ReformaTributariaPage() {
           <div className="min-w-0">
             {aba === 'configurar' && (
               <SecaoConfigurar
+                composicaoFolha={composicaoFolha}
                 p={p} onChange={alterar} origem={origem}
                 composicao={composicao}
                 onAbrirComposicao={() => setVerComposicao(true)}

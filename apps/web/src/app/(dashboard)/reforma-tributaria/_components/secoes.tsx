@@ -75,6 +75,23 @@ const ROTULO_ATIVIDADE_SIMPLES: Record<AtividadeSimples, string> = {
 
 const ATIVIDADES_SIMPLES = Object.keys(ROTULO_ATIVIDADE_SIMPLES) as AtividadeSimples[]
 
+/** Uma conta de pessoal do balancete, classificada para a base da CPP. */
+export interface ItemFolha {
+  conta: string
+  nomeConta: string
+  categoria: 'REMUNERACAO' | 'ENCARGO' | 'BENEFICIO' | 'REVISAR'
+  /** Valor acumulado na janela analisada. */
+  valor: number
+  motivo: string
+}
+
+const ROTULO_CATEGORIA_FOLHA: Record<ItemFolha['categoria'], string> = {
+  REMUNERACAO: 'Na base',
+  ENCARGO: 'Encargo',
+  BENEFICIO: 'Benefício',
+  REVISAR: 'Revisar',
+}
+
 /** Uma conta do balancete que entra na base de crédito. */
 export interface ItemComposicao {
   conta: string
@@ -152,9 +169,11 @@ function CampoPercentual({ label, valor, onChange, disabled }: {
 // ══════════════════════════════════════════════════════════════════
 // 1. CONFIGURAR
 // ══════════════════════════════════════════════════════════════════
-export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirComposicao, serieFaturamento, onAbrirSerie }: {
+export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirComposicao, serieFaturamento, onAbrirSerie, composicaoFolha }: {
   p: Parametros
   onChange: (patch: Partial<Parametros>) => void
+  /** Contas de pessoal do balancete que somam a folha sugerida. */
+  composicaoFolha?: ItemFolha[]
   /** De onde veio o faturamento sugerido. */
   origem?: 'balancete' | 'contrato' | 'erp' | 'nenhuma'
   /** Contas do balancete que somam as despesas creditáveis. */
@@ -394,6 +413,50 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
           <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
             Sem a folha, a CPP não entra nas colunas fora do Simples e o comparativo <b>não é conclusivo</b>.
           </p>
+        )}
+
+        {/* Composição: as contas de pessoal do balancete, com o que entrou na
+            base e o que ficou de fora. Apresentar uma folha sem poder abrir a
+            conta é pedir para ser contestado na reunião. */}
+        {composicaoFolha && composicaoFolha.length > 0 && (
+          <details className="mt-3 rounded-lg border border-border bg-muted/20">
+            <summary className="cursor-pointer px-4 py-2.5 text-xs font-medium text-foreground">
+              Sugerida pelo balancete — {composicaoFolha.filter(i => i.categoria === 'REMUNERACAO').length} conta(s) de
+              remuneração. Clique para conferir o que entrou e o que ficou de fora.
+            </summary>
+            <div className="max-h-[280px] overflow-y-auto nice-scrollbar border-t border-border/60">
+              <table className="w-full">
+                <tbody className="divide-y divide-border/40">
+                  {composicaoFolha.map(i => (
+                    <tr key={i.conta} className={i.categoria === 'REMUNERACAO' ? undefined : 'opacity-60'}>
+                      <td className="px-4 py-1.5">
+                        <span className="text-xs text-foreground">{i.nomeConta}</span>
+                        <span className="block text-[10px] text-muted-foreground">{i.conta} · {i.motivo}</span>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'h-4 whitespace-nowrap px-1.5 text-[9px]',
+                            i.categoria === 'REMUNERACAO' && 'border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400',
+                            i.categoria === 'REVISAR' && 'border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-400',
+                          )}
+                        >
+                          {ROTULO_CATEGORIA_FOLHA[i.categoria]}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-1.5 text-right text-xs tabular-nums">{reais(i.valor)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="border-t border-border/60 px-4 py-2 text-[11px] text-muted-foreground">
+              Encargos (FGTS, INSS) e benefícios (vale, plano de saúde, bolsa de estágio) ficam
+              fora: a CPP não incide sobre eles (Lei 8.212/1991, arts. 22 e 28, §9º). Valores
+              acumulados na janela do balancete — o campo acima traz a média mensal.
+            </p>
+          </details>
         )}
       </Card>
 
