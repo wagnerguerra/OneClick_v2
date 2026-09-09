@@ -1029,6 +1029,12 @@ export default function ServicosPage() {
       <PageHeaderBar actions={<>
           {view === 'templates' && (
             <>
+              {/* O "Novo" abre o grupo, como no /clientes: e a acao que se usa
+                  todo dia, e estava por ultimo, depois de alternador de visao,
+                  Execucoes, Grupos e Assistente. */}
+              <Button variant="success" size="sm" onClick={openCreateServico} className="gap-1.5">
+                <Plus className="h-4 w-4" />Novo Servico
+              </Button>
               <div className="flex items-center border rounded-[2px] overflow-hidden">
                 <button type="button" className={cn('p-1.5 transition-colors', viewMode === 'tabela' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')} onClick={() => { setViewMode('tabela'); localStorage.setItem('servicos-view-mode', 'tabela') }} title="Tabela">
                   <List className="h-4 w-4" />
@@ -1045,9 +1051,6 @@ export default function ServicosPage() {
               </Button>
               <Button variant="outline" size="sm" onClick={() => setWizardOpen(true)} className="gap-1.5">
                 <Wand2 className="h-4 w-4" />Assistente
-              </Button>
-              <Button variant="success" size="sm" onClick={openCreateServico} className="gap-1.5">
-                <Plus className="h-4 w-4" />Novo Servico
               </Button>
             </>
           )}

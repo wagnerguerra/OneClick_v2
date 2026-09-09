@@ -407,12 +407,18 @@ export default function GestaoCertificadosPage() {
   return (
     <div className="flex flex-col gap-5 h-[calc(100vh-98px)]" suppressHydrationWarning>
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
-          {/* Um botao primario e o resto no menu de tres pontos, como em
-              /clientes. Eram seis botoes soltos disputando o cabecalho — a
-              acao que se usa todo dia ("Novo Certificado") ficava do mesmo
-              tamanho que a varredura de duplicatas, que se usa uma vez por
-              semestre. */}
+      {/* `mb-0`: o wrapper da pagina ja separa os blocos com `gap-5`, e a
+          margem propria do cabecalho somava a ela — 40px em cima contra 20px
+          embaixo dos indicadores. Mesma correcao ja aplicada no /crm. */}
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
+          {/* O "Novo" vem primeiro, e o resto no menu de tres pontos — o mesmo
+              arranjo do /clientes. Eram seis botoes soltos disputando o
+              cabecalho, com a acao que se usa todo dia ("Novo Certificado") do
+              mesmo tamanho que a varredura de duplicatas, que se usa uma vez
+              por semestre. */}
+          <Button size="sm" onClick={() => setNovoOpen(true)} className="gap-1.5">
+            <Plus className="h-4 w-4" />Novo Certificado
+          </Button>
           {(isAdmin || canDelete || canManageConfig) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -456,9 +462,6 @@ export default function GestaoCertificadosPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button size="sm" onClick={() => setNovoOpen(true)} className="gap-1.5">
-            <Plus className="h-4 w-4" />Novo Certificado
-          </Button>
         </>}
       >
         <h1 className="truncate">Certificados Digitais</h1>
