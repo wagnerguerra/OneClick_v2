@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react'
 import { Card, CardContent, cn, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import { BiKpiCards, type KpiData } from './bi-kpi-cards'
 import {
   ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -115,21 +117,6 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
   const fontesReceita = (data?.fontesReceita ?? []).slice(0, 5)
   const fontesDespesas = (data?.fontesDespesas ?? []).slice(0, 5)
 
-  // Tooltip customizado
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload) return null
-    return (
-      <div className="rounded-lg border bg-white dark:bg-card px-3 py-2 shadow-md">
-        <p className="text-xs font-semibold text-foreground mb-1">{label}</p>
-        {payload.map((p: any, i: number) => (
-          <p key={i} className="text-[11px]" style={{ color: p.color }}>
-            {p.name === 'custos' ? 'Custos Fixos' : p.name === 'despesas' ? 'Despesas Op.' : p.name}: <span className="font-semibold">{formatCurrency(p.value)}</span>
-          </p>
-        ))}
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-5">
       {/* KPI Cards */}
@@ -191,41 +178,25 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                   const renderBarLabel = (props: any) => {
                     const { x, y, width, value } = props
                     if (!value || value === 0) return null
-                    return <text x={x + width / 2} y={y - 4} fill="var(--muted-foreground)" textAnchor="middle" fontSize={9}>{formatCompact(value)}</text>
+                    return <text x={x + width / 2} y={y - 4} fill="var(--color-muted-foreground)" textAnchor="middle" fontSize={9}>{formatCompact(value)}</text>
                   }
 
                   return (
                     <ResponsiveContainer width="100%" height={400}>
                       <ComposedChart data={chartData} margin={{ top: 25, right: 20, left: 10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
-                        <XAxis dataKey="mes" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={{ stroke: 'var(--border)' }} />
-                        <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickFormatter={v => formatCompact(v)} axisLine={{ stroke: 'var(--border)' }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
+                        <XAxis dataKey="mes" tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} axisLine={{ stroke: 'var(--color-border)' }} />
+                        <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} tickFormatter={v => formatCompact(v)} axisLine={{ stroke: 'var(--color-border)' }} />
                         {isComparativo && (
-                          <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#000000' }} tickFormatter={v => `${Number(v).toFixed(0)}%`} axisLine={{ stroke: '#f59e0b' }} />
+                          <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: 'var(--color-foreground)' }} tickFormatter={v => `${Number(v).toFixed(0)}%`} axisLine={{ stroke: '#f59e0b' }} />
                         )}
-                        <Tooltip content={({ active, payload, label }: any) => {
-                          if (!active || !payload) return null
-                          return (
-                            <div className="rounded-lg border bg-white dark:bg-card px-3 py-2 shadow-md">
-                              <p className="text-xs font-semibold text-foreground mb-1">{label}</p>
-                              {payload.filter((p: any) => p.dataKey !== 'variacao').map((p: any, i: number) => (
-                                <p key={i} className="text-[11px]" style={{ color: p.color }}>
-                                  {String(p.dataKey).replace('valor_', '')}: <span className="font-semibold">{formatCurrency(p.value)}</span>
-                                </p>
-                              ))}
-                              {isComparativo && payload.find((p: any) => p.dataKey === 'variacao') && (
-                                <p className="text-[11px] mt-1 pt-1 border-t" style={{ color: '#000000' }}>
-                                  Variação: <span className="font-semibold">{Number(payload.find((p: any) => p.dataKey === 'variacao')?.value ?? 0).toFixed(1)}%</span>
-                                </p>
-                              )}
-                            </div>
-                          )
-                        }} />
-                        <Legend iconType="circle" iconSize={8} formatter={(value) => {
-                          if (value === 'variacao') return <span className="text-xs" style={{ color: '#000000' }}>Variação %</span>
-                          const anoLabel = String(value).replace('valor_', '')
-                          return <span className="text-xs text-foreground">{anoLabel}</span>
-                        }} />
+                        <Tooltip
+                          content={<ChartTooltip format={(v, n) => n === 'Variação %' ? `${Number(v).toFixed(1)}%` : formatCurrency(Number(v))} />}
+                          cursor={{ fill: CHART_CURSOR_FILL }}
+                        />
+                        <Legend iconType="circle" iconSize={8} formatter={(value) => (
+                          <span className="text-xs text-foreground">{value}</span>
+                        )} />
                         {anos.map((a, idx) => (
                           <Bar
                             key={`valor_${a}`}
@@ -234,7 +205,7 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                             fill={isComparativo ? ANO_COLORS[idx % ANO_COLORS.length] : MODULE_COLOR}
                             radius={[4, 4, 0, 0]}
                             opacity={isComparativo ? 0.7 + idx * 0.1 : 0.85}
-                            name={`valor_${a}`}
+                            name={String(a)}
                           >
                             <LabelList dataKey={`valor_${a}`} content={renderBarLabel} />
                           </Bar>
@@ -244,11 +215,11 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                             type="monotone"
                             dataKey="variacao"
                             yAxisId="right"
-                            stroke="#000000"
+                            stroke="var(--color-foreground)"
                             strokeWidth={2}
-                            dot={{ fill: '#000000', r: 3 }}
-                            name="variacao"
-                            label={({ x, y, value }: any) => value != null && value !== 0 ? <text x={x} y={y - 10} fill="#000" textAnchor="middle" fontSize={9} fontWeight={600}>{`${Number(value).toFixed(1)}%`}</text> : null}
+                            dot={{ fill: 'var(--color-foreground)', r: 3 }}
+                            name="Variação %"
+                            label={({ x, y, value }: any) => value != null && value !== 0 ? <text x={x} y={y - 10} fill="var(--color-foreground)" textAnchor="middle" fontSize={9} fontWeight={600}>{`${Number(value).toFixed(1)}%`}</text> : null}
                           />
                         )}
                       </ComposedChart>
@@ -362,7 +333,7 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                             <Cell fill={GREEN_SOLID} stroke={GREEN_SOLID} />
                             <Cell fill={RED_SOLID} stroke={RED_SOLID} />
                           </Pie>
-                          <Tooltip formatter={(value) => `${value}%`} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid var(--border)' }} />
+                          <Tooltip content={<ChartTooltip format={(v) => `${v}%`} />} />
                         </PieChart>
                       </ResponsiveContainer>
                       <div className="flex flex-col gap-2 w-full mt-1">
@@ -396,21 +367,21 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                   ) : (
                     <ResponsiveContainer width="100%" height={380}>
                       <BarChart data={barData} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
-                        <XAxis dataKey="mes" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={{ stroke: 'var(--border)' }} />
-                        <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickFormatter={v => formatCompact(v)} axisLine={{ stroke: 'var(--border)' }} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend iconType="circle" iconSize={8} formatter={(value) => {
-                          const parts = String(value).split('_')
-                          const tipo = parts[0] === 'custos' ? 'Custos' : 'Despesas'
-                          const anoLabel = parts[1] || ''
-                          return <span className="text-xs text-foreground">{tipo} {anoLabel}</span>
-                        }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
+                        <XAxis dataKey="mes" tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} axisLine={{ stroke: 'var(--color-border)' }} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} tickFormatter={v => formatCompact(v)} axisLine={{ stroke: 'var(--color-border)' }} />
+                        <Tooltip
+                          content={<ChartTooltip format={(v) => formatCurrency(Number(v))} />}
+                          cursor={{ fill: CHART_CURSOR_FILL }}
+                        />
+                        <Legend iconType="circle" iconSize={8} formatter={(value) => (
+                          <span className="text-xs text-foreground">{value}</span>
+                        )} />
                         {anos.map((a, idx) => (
-                          <Bar key={`custos_${a}`} dataKey={`custos_${a}`} stackId={`stack_${a}`} fill={isComparativo ? ANO_COLORS[idx % ANO_COLORS.length] : GREEN} radius={[0, 0, 0, 0]} opacity={0.7} />
+                          <Bar key={`custos_${a}`} dataKey={`custos_${a}`} stackId={`stack_${a}`} fill={isComparativo ? ANO_COLORS[idx % ANO_COLORS.length] : GREEN} radius={[0, 0, 0, 0]} opacity={0.7} name={isComparativo ? `Custos ${a}` : 'Custos Fixos'} />
                         ))}
                         {anos.map((a, idx) => (
-                          <Bar key={`despesas_${a}`} dataKey={`despesas_${a}`} stackId={`stack_${a}`} fill={isComparativo ? ANO_COLORS[idx % ANO_COLORS.length] : RED} radius={[4, 4, 0, 0]} opacity={isComparativo ? 0.4 : 0.85} />
+                          <Bar key={`despesas_${a}`} dataKey={`despesas_${a}`} stackId={`stack_${a}`} fill={isComparativo ? ANO_COLORS[idx % ANO_COLORS.length] : RED} radius={[4, 4, 0, 0]} opacity={isComparativo ? 0.4 : 0.85} name={isComparativo ? `Despesas ${a}` : 'Despesas Op.'} />
                         ))}
                       </BarChart>
                     </ResponsiveContainer>
@@ -427,7 +398,7 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                 <h4 className="text-[13px] font-semibold text-foreground">Comparativo entre Anos</h4>
               </div>
               <CardContent className="p-4 bg-white dark:bg-card">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto nice-scrollbar">
                   <table className="w-full text-xs border-collapse">
                     <thead>
                       <tr className="border-b bg-muted/30">
@@ -457,12 +428,12 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                           <tr key={row.key} className="border-b hover:bg-muted/10">
                             <td className="px-3 py-2 font-medium">{row.label}</td>
                             {vals.map((v, i) => (
-                              <td key={i} className={cn('px-3 py-2 text-right tabular-nums font-semibold', v < 0 && 'text-red-600')}>
+                              <td key={i} className={cn('px-3 py-2 text-right tabular-nums font-semibold', v < 0 && TEXT.red)}>
                                 {row.pct ? `${v.toFixed(1)}%` : formatCurrency(v)}
                               </td>
                             ))}
                             {variacao !== null && (
-                              <td className={cn('px-3 py-2 text-right tabular-nums font-bold', variacao > 0 ? 'text-emerald-600' : variacao < 0 ? 'text-red-600' : '')}>
+                              <td className={cn('px-3 py-2 text-right tabular-nums font-bold', variacao > 0 ? TEXT.emerald : variacao < 0 ? TEXT.red : '')}>
                                 {variacao > 0 ? '+' : ''}{variacao.toFixed(1)}%
                               </td>
                             )}

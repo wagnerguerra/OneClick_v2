@@ -140,7 +140,7 @@ function ScrollFrame({ children }: { children: React.ReactNode }) {
     <div className="rounded-[2px] border border-border/60 overflow-hidden">
       {/* overflow-auto nativo (mesmo padrão da tabela de pendências): barra
           sempre visível e scroll confiável, ao contrário do ScrollArea/Radix. */}
-      <div className="max-h-[460px] overflow-auto">
+      <div className="nice-scrollbar max-h-[460px] overflow-auto">
         {children}
       </div>
     </div>

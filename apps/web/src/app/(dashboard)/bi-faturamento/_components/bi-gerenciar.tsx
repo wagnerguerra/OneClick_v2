@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Loader2, Trash2, Plus, Minus } from 'lucide-react'
-import { Button, Input, Badge } from '@saas/ui'
+import { Button, Input, Badge, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { TEXT, BORDER } from '@/lib/color-styles'
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -179,9 +180,12 @@ export function BiGerenciar({ clienteId, ano }: BiGerenciarProps) {
           ) : periodos.length === 0 ? (
             <p className="text-xs text-muted-foreground h-8 flex items-center">Nenhum período disponível</p>
           ) : (
-            <select value={selectedPeriodo} onChange={e => setSelectedPeriodo(e.target.value)} className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-              {periodos.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <Select value={selectedPeriodo} onValueChange={setSelectedPeriodo}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {periodos.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
           )}
         </div>
 
@@ -197,7 +201,7 @@ export function BiGerenciar({ clienteId, ano }: BiGerenciarProps) {
         </div>
 
         <div className="ml-auto mt-5">
-          <Button variant="outline" size="sm" onClick={handleDeletePeriodo} disabled={!selectedPeriodo || deleting} className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50 hover:!text-white">
+          <Button variant="outline" size="sm" onClick={handleDeletePeriodo} disabled={!selectedPeriodo || deleting} className={cn('gap-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 hover:!text-white', TEXT.red, BORDER.red)}>
             {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             Excluir Período
           </Button>
@@ -212,7 +216,7 @@ export function BiGerenciar({ clienteId, ano }: BiGerenciarProps) {
       ) : visibleItems.length === 0 ? (
         <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Nenhuma conta encontrada</div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border/60" style={{ maxHeight: '65vh' }}>
+        <div className="overflow-x-auto nice-scrollbar rounded-lg border border-border/60" style={{ maxHeight: '65vh' }}>
           <table className="w-full text-xs border-collapse">
             <thead className="sticky top-0 z-10">
               <tr className="bg-muted/50 border-b">
@@ -234,7 +238,7 @@ export function BiGerenciar({ clienteId, ano }: BiGerenciarProps) {
 
                 return (
                   <tr key={row.conta} className={cn('border-b border-border/20 hover:bg-muted/20 transition-colors', isGroup && 'bg-muted/10')}>
-                    <td className="sticky left-0 z-[5] px-3 py-1.5 whitespace-nowrap" style={{ backgroundColor: '#fff', paddingLeft: `${12 + indent}px`, boxShadow: '4px 0 8px -4px rgba(0,0,0,0.06)' }}>
+                    <td className="sticky left-0 z-[5] px-3 py-1.5 whitespace-nowrap" style={{ backgroundColor: 'var(--color-card)', paddingLeft: `${12 + indent}px`, boxShadow: '4px 0 8px -4px rgba(0,0,0,0.06)' }}>
                       <div className="flex items-center gap-1">
                         {hasSub ? (
                           <button type="button" onClick={() => toggleExpand(row.conta)} className="flex h-4 w-4 shrink-0 items-center justify-center rounded hover:bg-muted text-muted-foreground">
@@ -245,11 +249,11 @@ export function BiGerenciar({ clienteId, ano }: BiGerenciarProps) {
                         <span className={cn('truncate', isGroup && 'font-semibold')} title={n.nomeConta}>{n.nomeConta}</span>
                       </div>
                     </td>
-                    <td className={cn('px-3 py-1.5 text-right tabular-nums', n.saldoAnterior < 0 && 'text-red-600', isGroup && 'font-semibold')}>{formatCurrency(n.saldoAnterior)}</td>
-                    <td className={cn('px-3 py-1.5 text-right tabular-nums', n.debitos < 0 && 'text-red-600')}>{formatCurrency(n.debitos)}</td>
-                    <td className={cn('px-3 py-1.5 text-right tabular-nums', n.creditos < 0 && 'text-red-600')}>{formatCurrency(n.creditos)}</td>
-                    <td className={cn('px-3 py-1.5 text-right tabular-nums', n.saldoAtual < 0 && 'text-red-600', isGroup && 'font-semibold')}>{formatCurrency(n.saldoAtual)}</td>
-                    <td className={cn('px-3 py-1.5 text-right tabular-nums', n.movimento < 0 && 'text-red-600')}>{formatCurrency(n.movimento)}</td>
+                    <td className={cn('px-3 py-1.5 text-right tabular-nums', n.saldoAnterior < 0 && TEXT.red, isGroup && 'font-semibold')}>{formatCurrency(n.saldoAnterior)}</td>
+                    <td className={cn('px-3 py-1.5 text-right tabular-nums', n.debitos < 0 && TEXT.red)}>{formatCurrency(n.debitos)}</td>
+                    <td className={cn('px-3 py-1.5 text-right tabular-nums', n.creditos < 0 && TEXT.red)}>{formatCurrency(n.creditos)}</td>
+                    <td className={cn('px-3 py-1.5 text-right tabular-nums', n.saldoAtual < 0 && TEXT.red, isGroup && 'font-semibold')}>{formatCurrency(n.saldoAtual)}</td>
+                    <td className={cn('px-3 py-1.5 text-right tabular-nums', n.movimento < 0 && TEXT.red)}>{formatCurrency(n.movimento)}</td>
                   </tr>
                 )
               })}

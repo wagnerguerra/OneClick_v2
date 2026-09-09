@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useSearchParams } from 'next/navigation'
 import {
-  Search, Loader2, Save, ChevronDown, ChevronRight, Plus, Trash2, Calculator,
+  Search, Loader2, Save, ChevronDown, ChevronRight, ArrowUp, ArrowDown, Plus, Trash2, Calculator,
   RefreshCw, Copy, Eraser, Download, Upload, ChevronsDown, ChevronsUp,
   MoreHorizontal, FolderTree, Link2, Building2, ChevronsUpDown, Check,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -65,6 +67,21 @@ const CATEGORIAS_DRE = [
 ] as const
 
 const MODULE_COLOR = 'var(--mod-contabil, #a78bfa)'
+
+// Tipo da categoria. Canônico = R/C/F; valores legados minúsculos
+// (real/calculada/referencia) são normalizados pro canônico.
+const TIPO_OPTIONS = [
+  { value: 'R', label: 'Real' },
+  { value: 'C', label: 'Calculada' },
+  { value: 'F', label: 'Referência' },
+] as const
+const normTipo = (t: string | null | undefined): 'R' | 'C' | 'F' => {
+  const s = String(t ?? '').toLowerCase()
+  if (s === 'c' || s === 'calculada') return 'C'
+  if (s === 'f' || s === 'referencia' || s === 'referência' || s === 'formula' || s === 'fórmula') return 'F'
+  return 'R'
+}
+
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
@@ -142,7 +159,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
   }
 
   const handleSave = () => {
-    if (operandos.length === 0) { alert('Adicione pelo menos uma conta à fórmula.'); return }
+    if (operandos.length === 0) { alerts.warning('Fórmula incompleta', 'Adicione pelo menos uma conta à fórmula.'); return }
     if (operandos.length === 1) {
       onSave({ operacao: 'igualdade', operandos: [operandos[0]] })
     } else {
@@ -167,21 +184,14 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
       }).join('')
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-lg border bg-background shadow-xl" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="flex items-center gap-3 border-b px-5 py-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
-            <Calculator className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold">Editar fórmula</h3>
-            <p className="text-xs text-muted-foreground">{nome}</p>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="space-y-3 px-5 py-4 max-h-[70vh] overflow-y-auto">
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeaderIcon icon={Calculator} color="violet">
+          <DialogTitle>Editar fórmula</DialogTitle>
+          <DialogDescription>{nome}</DialogDescription>
+        </DialogHeaderIcon>
+        <DialogBody>
+          <div className="space-y-3">
           {/* Instruções */}
           <div className="rounded-md border p-3">
             <p className="text-xs font-semibold mb-1">Operações entre contas</p>
@@ -205,24 +215,23 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
             {operandos.length === 0 ? (
               <p className="text-[11px] text-muted-foreground">Use <strong>+ Adicionar</strong> abaixo.</p>
             ) : (
-              <div className="space-y-1 max-h-[160px] overflow-y-auto">
+              <div className="space-y-1 max-h-[160px] overflow-y-auto nice-scrollbar">
                 {operandos.map((cId, i) => (
                   <div key={`${cId}-${i}`} className="flex items-center gap-2 rounded border bg-background px-2 py-1.5">
                     {i > 0 && (
-                      <select
-                        value={operadores[i - 1] || 'soma'}
-                        onChange={e => updateOperador(i - 1, e.target.value)}
-                        className="h-6 rounded border border-input bg-background px-1 text-[11px] font-semibold shrink-0 w-[5.5rem]"
-                      >
-                        {Object.entries(OP_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                      </select>
+                      <Select value={operadores[i - 1] || 'soma'} onValueChange={(v) => updateOperador(i - 1, v)}>
+                        <SelectTrigger className="h-6 w-[5.5rem] text-[11px] font-semibold shrink-0"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(OP_LABELS).map(([k, v]) => <SelectItem key={k} value={k} className="text-[11px]">{v}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     )}
                     {i === 0 && <span className="w-[5.5rem] shrink-0" />}
-                    <span className="inline-flex items-center justify-center rounded bg-violet-100 text-violet-700 px-1.5 text-[10px] font-bold shrink-0">{i + 1}</span>
+                    <span className="inline-flex items-center justify-center rounded bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-200 px-1.5 text-[10px] font-bold shrink-0">{i + 1}</span>
                     <span className="flex-1 text-xs truncate"><code>{cId}</code> <span className="text-muted-foreground">{getNome(cId)}</span></span>
-                    <button type="button" onClick={() => moveOperando(i, 'up')} disabled={i === 0} className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30">↑</button>
-                    <button type="button" onClick={() => moveOperando(i, 'down')} disabled={i >= operandos.length - 1} className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30">↓</button>
-                    <button type="button" onClick={() => removeOperando(i)} className="text-xs text-red-500 hover:text-red-700">×</button>
+                    <button type="button" title="Subir" onClick={() => moveOperando(i, 'up')} disabled={i === 0} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"><ArrowUp className="h-4 w-4" /></button>
+                    <button type="button" title="Descer" onClick={() => moveOperando(i, 'down')} disabled={i >= operandos.length - 1} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"><ArrowDown className="h-4 w-4" /></button>
+                    <button type="button" title="Remover" onClick={() => removeOperando(i)} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
                 ))}
               </div>
@@ -237,9 +246,9 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
               placeholder="Buscar código ou nome..."
               value={busca}
               onChange={e => setBusca(e.target.value)}
-              className="mb-2 flex h-7 w-full rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+              className="mb-2 flex h-7 w-full rounded-md px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
             />
-            <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+            <div className="max-h-[200px] overflow-y-auto nice-scrollbar space-y-0.5">
               {filteredCats.length === 0 ? (
                 <p className="py-3 text-center text-[11px] text-muted-foreground">Nenhuma categoria encontrada.</p>
               ) : filteredCats.map(c => {
@@ -248,7 +257,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
                   <div key={c.conta} className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted/50">
                     <span className="text-xs truncate"><code>{c.conta}</code> <span className="text-muted-foreground">{c.nomeSci || c.nomeExibido || ''}</span></span>
                     {inFormula ? (
-                      <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">na fórmula</span>
+                      <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-full shrink-0">na fórmula</span>
                     ) : (
                       <button type="button" onClick={() => addOperando(c.conta)} className="text-[11px] font-medium shrink-0 rounded px-2 py-0.5" style={{ color: MODULE_COLOR }}>+ Adicionar</button>
                     )}
@@ -257,15 +266,16 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
               })}
             </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>Fechar</Button>
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline" size="sm">Fechar</Button>
+          </DialogClose>
           <Button type="button" size="sm" onClick={handleSave} style={{ backgroundColor: MODULE_COLOR }} className="text-white hover:opacity-90">Salvar</Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -277,26 +287,45 @@ function PaiSelect({ value, options, excludeConta, onChange }: {
   onChange: (val: string | null) => void
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
+  // Portaliza o dropdown pro body (position: fixed) — assim não é cortado pelo
+  // container rolável da tabela (overflow-x-auto). Fecha em clique fora ou scroll.
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return
+      setOpen(false)
     }
+    const onScroll = () => setOpen(false)
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    window.addEventListener('scroll', onScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      window.removeEventListener('scroll', onScroll, true)
+    }
   }, [open])
 
   const label = value || '—'
 
+  const openMenu = () => {
+    if (open) { setOpen(false); return }
+    if (btnRef.current) setRect(btnRef.current.getBoundingClientRect())
+    setOpen(true)
+  }
+
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative">
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen(v => !v)}
+        role="combobox"
+        onClick={openMenu}
         className={cn(
-          'flex h-7 w-full items-center justify-between rounded-md border border-input bg-background px-2 font-mono text-xs',
+          'flex h-7 w-full items-center justify-between rounded-md border border-input px-2 font-mono text-xs',
           'hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
           !value && 'text-muted-foreground',
         )}
@@ -304,14 +333,18 @@ function PaiSelect({ value, options, excludeConta, onChange }: {
         <span className="truncate">{label}</span>
         <ChevronDown className="ml-1 h-3 w-3 shrink-0 text-muted-foreground" />
       </button>
-      {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-[320px] rounded-lg border bg-popover shadow-lg">
+      {open && rect && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-[60] rounded-lg border bg-popover shadow-lg"
+          style={{ top: rect.bottom + 4, left: rect.left, width: 320 }}
+        >
           <Command className="rounded-lg" shouldFilter={true}>
             <Command.Input
               placeholder="Buscar conta..."
               className="w-full border-b border-border bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground"
             />
-            <Command.List className="max-h-[200px] overflow-y-auto p-1">
+            <Command.List className="max-h-[200px] overflow-y-auto nice-scrollbar p-1">
               <Command.Empty className="px-3 py-3 text-center text-[11px] text-muted-foreground">
                 Nenhuma conta encontrada
               </Command.Empty>
@@ -343,7 +376,8 @@ function PaiSelect({ value, options, excludeConta, onChange }: {
               ))}
             </Command.List>
           </Command>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
@@ -374,6 +408,8 @@ export default function BiCategoriasBalancetePage() {
 
   // Modal "Importar Balancete do SCI" — padrão DialogHeaderIcon
   const [importarOpen, setImportarOpen] = useState(false)
+  const [novaOpen, setNovaOpen] = useState(false)
+  const [novaForm, setNovaForm] = useState<{ conta: string; nome: string; tipo: 'R' | 'C' | 'F' }>({ conta: '', nome: '', tipo: 'R' })
   const [importarForm, setImportarForm] = useState({
     mesInicio: 1, anoInicio: new Date().getFullYear(),
     mesFim: new Date().getMonth() + 1, anoFim: new Date().getFullYear(),
@@ -650,21 +686,19 @@ export default function BiCategoriasBalancetePage() {
     } catch { alerts.error('Erro', 'Falha ao excluir categorias') }
   }
 
-  const handleCreateCategoria = async () => {
-    const { value: formValues } = await Swal.fire({
-      title: 'Nova Categoria', html: `<input id="swal-conta" class="swal2-input" placeholder="Conta (ex: 1.01)"><input id="swal-nome" class="swal2-input" placeholder="Nome exibido"><select id="swal-tipo" class="swal2-select" style="margin-top:8px"><option value="R">Real</option><option value="C">Calculada</option><option value="F">Formula</option></select>`,
-      focusConfirm: false, showCancelButton: true, confirmButtonColor: MODULE_COLOR, cancelButtonColor: '#6b7280', confirmButtonText: 'Criar', cancelButtonText: 'Cancelar',
-      preConfirm: () => {
-        const conta = (document.getElementById('swal-conta') as HTMLInputElement).value.trim()
-        const nome = (document.getElementById('swal-nome') as HTMLInputElement).value.trim()
-        const tipo = (document.getElementById('swal-tipo') as HTMLSelectElement).value
-        if (!conta || !nome) { Swal.showValidationMessage('Conta e nome são obrigatórios'); return null }
-        return { conta, nome, tipo }
-      },
-    })
-    if (!formValues) return
-    setCategorias((prev) => [...prev, { conta: formValues.conta, nomeSci: formValues.nome, nomeExibido: formValues.nome, parentConta: null, nivel: formValues.conta.split('.').length - 1, ordem: categorias.length + 1, tipo: formValues.tipo as 'R' | 'C' | 'F', ativo: true }])
+  const handleCreateCategoria = () => {
+    if (!clienteId) return
+    setNovaForm({ conta: '', nome: '', tipo: 'R' })
+    setNovaOpen(true)
+  }
+
+  const handleNovaConfirmar = () => {
+    const conta = novaForm.conta.trim()
+    const nome = novaForm.nome.trim()
+    if (!conta || !nome) { alerts.warning('Campos obrigatórios', 'Conta e nome são obrigatórios.'); return }
+    setCategorias((prev) => [...prev, { conta, nomeSci: nome, nomeExibido: nome, parentConta: null, nivel: conta.split('.').length - 1, ordem: categorias.length + 1, tipo: novaForm.tipo, ativo: true }])
     setDirty(true)
+    setNovaOpen(false)
   }
 
   const handleCopiar = async () => {
@@ -1066,9 +1100,10 @@ export default function BiCategoriasBalancetePage() {
               <div className="relative" ref={comboRef}>
                 <button
                   type="button"
+                  role="combobox"
                   onClick={() => setComboOpen(v => !v)}
                   className={cn(
-                    'flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs',
+                    'flex w-full items-center justify-between rounded-md border border-input px-3 py-2 text-xs',
                     'hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                     !clienteId && 'text-muted-foreground',
                   )}
@@ -1086,7 +1121,7 @@ export default function BiCategoriasBalancetePage() {
                         placeholder="Buscar por nome ou CNPJ..."
                         className="w-full border-b border-border bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground"
                       />
-                      <Command.List className="max-h-[250px] overflow-y-auto p-1">
+                      <Command.List className="max-h-[250px] overflow-y-auto nice-scrollbar p-1">
                         <Command.Empty className="px-3 py-4 text-center text-xs text-muted-foreground">
                           Nenhum cliente encontrado
                         </Command.Empty>
@@ -1120,13 +1155,12 @@ export default function BiCategoriasBalancetePage() {
             {/* Ano */}
             <div className="w-[100px] space-y-1.5">
               <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Ano</Label>
-              <select
-                value={year}
-                onChange={(e) => setYear(Number(e.target.value))}
-                className="flex h-[34px] w-full items-center rounded-md border border-input bg-background px-3 text-xs ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
+              <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                <SelectTrigger className="h-[34px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {YEARS.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Buscar */}
@@ -1171,17 +1205,16 @@ export default function BiCategoriasBalancetePage() {
                 {visibleCategorias.length} de {categorias.length} categorias
                 {selected.size > 0 && ` · ${selected.size} selecionada(s)`}
                 {' · '}{categorias.filter((c) => c.ativo).length} ativas no BI
-                {dirty && <span className="ml-2 text-amber-600 font-medium">Alterações não salvas</span>}
+                {dirty && <span className={cn('ml-2 font-medium', TEXT.amber)}>Alterações não salvas</span>}
               </p>
             )}
           </div>
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-muted-foreground shrink-0">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={apenasNoBi}
-                onChange={(e) => setApenasNoBi(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-gray-300 accent-sky-500"
+                onCheckedChange={(v) => setApenasNoBi(v === true)}
+                className="h-3.5 w-3.5"
               />
               Apenas marcadas no BI
             </label>
@@ -1198,7 +1231,7 @@ export default function BiCategoriasBalancetePage() {
                 <DropdownMenuItem onClick={expandAll}><ChevronsDown className="mr-2 h-4 w-4" /> Expandir Tudo</DropdownMenuItem>
                 <DropdownMenuItem onClick={collapseAll}><ChevronsUp className="mr-2 h-4 w-4" /> Recolher Tudo</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleDeleteSelected} disabled={selected.size === 0} className="text-red-600 focus:text-red-600 hover:!text-white"><Trash2 className="mr-2 h-4 w-4" /> Excluir Selecionadas ({selected.size})</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDeleteSelected} disabled={selected.size === 0} className="text-red-600 dark:text-red-400 focus:text-red-600 hover:!text-white"><Trash2 className="mr-2 h-4 w-4" /> Excluir Selecionadas ({selected.size})</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleCopiar} disabled={!clienteId}><Copy className="mr-2 h-4 w-4" /> Copiar para outro cliente</DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLimpar} disabled={!clienteId}><Eraser className="mr-2 h-4 w-4" /> Limpar Personalizações</DropdownMenuItem>
@@ -1207,13 +1240,13 @@ export default function BiCategoriasBalancetePage() {
                 <DropdownMenuItem onClick={handleImportBackup} disabled={!clienteId}><Upload className="mr-2 h-4 w-4" /> Importar Backup (JSON)</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleImportarBalancete} disabled={!clienteId} className="font-medium hover:!text-white" style={{ color: MODULE_COLOR }}><RefreshCw className="mr-2 h-4 w-4" /> Importar Balancete (SCI)</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExcluirBalancete} disabled={!clienteId} className="text-red-600 focus:text-red-600 hover:!text-white"><Trash2 className="mr-2 h-4 w-4" /> Excluir Balancete</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExcluirBalancete} disabled={!clienteId} className="text-red-600 dark:text-red-400 focus:text-red-600 hover:!text-white"><Trash2 className="mr-2 h-4 w-4" /> Excluir Balancete</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLinkPublico} disabled={!clienteId}><Link2 className="mr-2 h-4 w-4" /> Link Público BI</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={loadCategorias} disabled={!clienteId}><RefreshCw className="mr-2 h-4 w-4" /> Recarregar</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLimparTudoCliente} disabled={!clienteId} className="text-red-600 focus:text-red-600 hover:!text-white font-medium"><Trash2 className="mr-2 h-4 w-4" /> Apagar tudo do cliente</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLimparTudoCliente} disabled={!clienteId} className="text-red-600 dark:text-red-400 focus:text-red-600 hover:!text-white font-medium"><Trash2 className="mr-2 h-4 w-4" /> Apagar tudo do cliente</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button
@@ -1244,12 +1277,12 @@ export default function BiCategoriasBalancetePage() {
             <Button variant="outline" size="sm" className="mt-3 gap-1.5" onClick={handleCreateCategoria}><Plus className="h-4 w-4" /> Criar Categoria</Button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto nice-scrollbar">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[rgba(0,0,0,0.08)] bg-muted/30">
+                <tr className="border-b border-border/60 bg-muted/30">
                   <th className="w-9 px-2 py-2.5 text-center">
-                    <input type="checkbox" checked={selected.size > 0 && selected.size === visibleCategorias.length} onChange={toggleSelectAll} className="h-3.5 w-3.5 rounded border-gray-300 accent-sky-500" />
+                    <Checkbox checked={selected.size > 0 && selected.size === visibleCategorias.length} onCheckedChange={toggleSelectAll} className="mx-auto h-3.5 w-3.5" />
                   </th>
                   <th className="w-[90px] px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Conta</th>
                   <th className="px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap" style={{ width: '25%' }}>Nome (SCI)</th>
@@ -1260,15 +1293,14 @@ export default function BiCategoriasBalancetePage() {
                   <th className="w-[170px] px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap" title="Categoria DRE — herda do template global (SERPRO2) quando vazio; override do cliente prevalece">Categoria DRE</th>
                   <th className="w-[70px] px-2 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1.5">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={categorias.length > 0 && categorias.every((c) => c.ativo)}
-                        onChange={(e) => {
-                          const val = e.target.checked
+                        onCheckedChange={(v) => {
+                          const val = v === true
                           setCategorias((prev) => prev.map((c) => ({ ...c, ativo: val })))
                           setDirty(true)
                         }}
-                        className="h-3.5 w-3.5 rounded border-gray-300 accent-sky-500"
+                        className="h-3.5 w-3.5"
                         title={categorias.every((c) => c.ativo) ? 'Desmarcar todas' : 'Marcar todas'}
                       />
                       <span>No BI</span>
@@ -1301,12 +1333,12 @@ export default function BiCategoriasBalancetePage() {
                         isGroup && !isMatch && 'bg-muted/10',
                         isMatch
                           ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 shadow-[0_1px_6px_rgba(245,158,11,0.2)]'
-                          : 'border-[rgba(0,0,0,0.04)]',
+                          : 'border-border/40',
                       )}
                       style={isMatch ? { borderLeft: '4px solid #f59e0b', animation: 'searchPulse 0.5s ease-in-out' } : undefined}
                     >
                       <td className="px-2 py-1 text-center">
-                        <input type="checkbox" checked={selected.has(cat.conta)} onChange={() => toggleSelect(cat.conta)} className="h-3.5 w-3.5 rounded border-gray-300 accent-sky-500" />
+                        <Checkbox checked={selected.has(cat.conta)} onCheckedChange={() => toggleSelect(cat.conta)} className="mx-auto h-3.5 w-3.5" />
                       </td>
                       <td className="px-2 py-1 font-mono text-xs">
                         <div className="flex items-center" style={{ paddingLeft: indent }}>
@@ -1334,25 +1366,21 @@ export default function BiCategoriasBalancetePage() {
                         <Input type="number" value={cat.ordem} onChange={(e) => updateField(cat.conta, 'ordem', Number(e.target.value))} className="mx-auto h-7 w-14 text-center text-xs" min={0} />
                       </td>
                       <td className="px-2 py-1 text-center">
-                        <select
-                          value={cat.tipo}
-                          onChange={(e) => updateField(cat.conta, 'tipo', e.target.value)}
-                          className="h-6 rounded border border-input bg-background px-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-ring"
-                        >
-                          <option value="R">Real</option>
-                          <option value="C">Calculada</option>
-                          <option value="F">Referência</option>
-                          <option value="real">Real</option>
-                          <option value="calculada">Calculada</option>
-                          <option value="referencia">Referência</option>
-                        </select>
+                        <Select value={normTipo(cat.tipo)} onValueChange={(v) => updateField(cat.conta, 'tipo', v)}>
+                          <SelectTrigger className="mx-auto h-7 w-[120px] text-[11px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {TIPO_OPTIONS.map(o => (
+                              <SelectItem key={o.value} value={o.value} className="text-[11px]">{o.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="px-2 py-1">
                         <div className="flex items-center gap-1">
-                          <select
-                            value={catDreEffective}
-                            onChange={(e) => {
-                              const val = e.target.value || null
+                          <Select
+                            value={catDreEffective || '__none__'}
+                            onValueChange={(raw) => {
+                              const val = raw === '__none__' ? null : raw
                               setCategorias((prev) => prev.map((c) => {
                                 if (c.conta !== cat.conta) return c
                                 if (!val) {
@@ -1364,25 +1392,31 @@ export default function BiCategoriasBalancetePage() {
                               }))
                               setDirty(true)
                             }}
-                            title={catDreIsInherited
-                              ? `Herdado do template global (sinal ${padraoEntry?.sinal === 1 ? '+1' : padraoEntry?.sinal})`
-                              : catDreIsOverride
-                                ? `Override do cliente (sinal ${cat.sinal === 1 ? '+1' : cat.sinal})`
-                                : 'Sem categoria — conta não entra na DRE'}
-                            className={cn(
-                              'h-6 w-full rounded border bg-background px-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-ring',
-                              catDreIsOverride
-                                ? 'border-violet-400 text-violet-700 font-medium dark:text-violet-300'
-                                : catDreIsInherited
-                                  ? 'border-input text-muted-foreground italic'
-                                  : 'border-input text-muted-foreground',
-                            )}
                           >
-                            <option value="">— sem categoria —</option>
-                            {CATEGORIAS_DRE.map(c => (
-                              <option key={c.value} value={c.value}>{c.label}</option>
-                            ))}
-                          </select>
+                            <SelectTrigger
+                              title={catDreIsInherited
+                                ? `Herdado do template global (sinal ${padraoEntry?.sinal === 1 ? '+1' : padraoEntry?.sinal})`
+                                : catDreIsOverride
+                                  ? `Override do cliente (sinal ${cat.sinal === 1 ? '+1' : cat.sinal})`
+                                  : 'Sem categoria — conta não entra na DRE'}
+                              className={cn(
+                                'h-7 w-full text-[11px]',
+                                catDreIsOverride
+                                  ? 'text-violet-700 dark:text-violet-300 font-medium'
+                                  : catDreIsInherited
+                                    ? 'text-muted-foreground italic'
+                                    : 'text-muted-foreground',
+                              )}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__" className="text-[11px]">— sem categoria —</SelectItem>
+                              {CATEGORIAS_DRE.map(c => (
+                                <SelectItem key={c.value} value={c.value} className="text-[11px]">{c.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           {catDreIsOverride && (
                             <button
                               type="button"
@@ -1401,7 +1435,7 @@ export default function BiCategoriasBalancetePage() {
                         </div>
                       </td>
                       <td className="px-2 py-1 text-center">
-                        <input type="checkbox" checked={cat.ativo} onChange={(e) => updateField(cat.conta, 'ativo', e.target.checked)} className="h-3.5 w-3.5 rounded border-gray-300 accent-sky-500" />
+                        <Checkbox checked={cat.ativo} onCheckedChange={(v) => updateField(cat.conta, 'ativo', v === true)} className="mx-auto h-3.5 w-3.5" />
                       </td>
                       <td className="px-2 py-1">
                         <div className="flex items-center justify-center gap-1">
@@ -1413,7 +1447,7 @@ export default function BiCategoriasBalancetePage() {
                             className={cn(
                               'rounded p-1 transition-colors',
                               cat.tipo === 'C' || cat.tipo === 'calculada'
-                                ? 'text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20'
+                                ? 'text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20'
                                 : 'text-muted-foreground/30 cursor-not-allowed',
                             )}
                           >
@@ -1427,7 +1461,7 @@ export default function BiCategoriasBalancetePage() {
                               try { await trpc.cliente.biDeleteCategoria.mutate({ clienteId, conta: cat.conta }); setCategorias((prev) => prev.filter((c) => c.conta !== cat.conta)); setSelected((prev) => { const n = new Set(prev); n.delete(cat.conta); return n }) }
                               catch { alerts.error('Erro', 'Falha ao excluir categoria') }
                             }}
-                            className="rounded p-1 text-muted-foreground opacity-100 transition-opacity hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 dark:hover:bg-red-900/20"
+                            className="rounded p-1 text-muted-foreground opacity-100 transition-opacity hover:bg-red-50 hover:text-red-600 dark:hover:text-red-400 sm:opacity-0 sm:group-hover:opacity-100 dark:hover:bg-red-900/20"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -1533,7 +1567,7 @@ export default function BiCategoriasBalancetePage() {
                     style={{ width: `${importarStatus.progress}%` }}
                   />
                 </div>
-                <div className="max-h-[180px] overflow-y-auto rounded-md bg-muted/40 border border-border p-2 font-mono text-[11px] text-foreground">
+                <div className="max-h-[180px] overflow-y-auto nice-scrollbar rounded-md bg-muted/40 border border-border p-2 font-mono text-[11px] text-foreground">
                   {importarStatus.log.length === 0
                     ? <span className="text-muted-foreground italic">Aguardando log...</span>
                     : importarStatus.log.map((l, i) => <div key={i}>{l}</div>)}
@@ -1630,6 +1664,66 @@ export default function BiCategoriasBalancetePage() {
             >
               {excluirSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
               {excluirSubmitting ? 'Excluindo...' : 'Excluir'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Nova Categoria (padrão DialogHeaderIcon) */}
+      <Dialog open={novaOpen} onOpenChange={setNovaOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeaderIcon icon={Plus} color="emerald">
+            <DialogTitle>Nova Categoria</DialogTitle>
+            <DialogDescription>Adiciona uma linha de categoria ao BI deste cliente</DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Conta</Label>
+                <Input
+                  autoFocus
+                  className="h-9 text-sm"
+                  placeholder="Ex: 1.01"
+                  value={novaForm.conta}
+                  onChange={(e) => setNovaForm(f => ({ ...f, conta: e.target.value }))}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleNovaConfirmar() }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Nome exibido</Label>
+                <Input
+                  className="h-9 text-sm"
+                  placeholder="Nome exibido"
+                  value={novaForm.nome}
+                  onChange={(e) => setNovaForm(f => ({ ...f, nome: e.target.value }))}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleNovaConfirmar() }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Tipo</Label>
+                <Select value={novaForm.tipo} onValueChange={(v) => setNovaForm(f => ({ ...f, tipo: v as 'R' | 'C' | 'F' }))}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="R">Real</SelectItem>
+                    <SelectItem value="C">Calculada</SelectItem>
+                    <SelectItem value="F">Fórmula</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" size="sm">Cancelar</Button>
+            </DialogClose>
+            <Button
+              size="sm"
+              onClick={handleNovaConfirmar}
+              className="gap-1.5"
+              style={{ background: MODULE_COLOR, color: 'white' }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Criar
             </Button>
           </DialogFooter>
         </DialogContent>

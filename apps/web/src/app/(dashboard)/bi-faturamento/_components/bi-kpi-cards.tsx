@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { DollarSign, Receipt, Wallet, BarChart3, Info, X, Loader2, Search, Save } from 'lucide-react'
-import { Card, CardContent, Button, Input, cn } from '@saas/ui'
+import { DollarSign, Receipt, Wallet, BarChart3, Info, Loader2, Search, Save } from 'lucide-react'
+import { Card, CardContent, Button, Input, Checkbox, cn, Dialog, DialogContent, DialogBody, DialogFooter, DialogClose, DialogTitle, DialogDescription } from '@saas/ui'
+import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-contabil, #8b5cf6)'
 
@@ -71,7 +73,7 @@ function KpiCard({ def, onOpenDetail }: { def: KpiCardDef; onOpenDetail: (type: 
         <div className="flex items-start justify-between">
           <div className="space-y-1 flex-1">
             <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{def.label}</p>
-            <p className={cn('text-xl font-bold tabular-nums', def.negative && isNeg ? 'text-red-600' : 'text-foreground')}>
+            <p className={cn('text-xl font-bold tabular-nums', def.negative && isNeg ? TEXT.red : 'text-foreground')}>
               {fmtCurrency(def.value)}
             </p>
             {def.subtitle && <p className="text-[10px] text-muted-foreground">{def.subtitle}</p>}
@@ -172,48 +174,32 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
   // Build detail info per type
   const detail = buildDetail(type, data)
 
-  const [closing, setClosing] = useState(false)
-  const handleClose = () => { setClosing(true); setTimeout(onClose, 200) }
-
   return (
-    <div className={cn('fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-200', closing ? 'bg-black/0' : 'bg-black/50')} style={{ animation: closing ? undefined : 'fadeIn 0.2s ease-out' }} onClick={handleClose}>
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes zoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-        @keyframes zoomOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.9); } }
-      `}</style>
-      <div
-        className="w-full max-w-2xl rounded-lg border bg-background shadow-xl max-h-[85vh] flex flex-col"
-        style={{ animation: closing ? 'zoomOut 0.2s ease-in forwards' : 'zoomIn 0.2s ease-out' }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b px-5 py-4">
-          <div>
-            <h3 className="text-sm font-semibold">{titles[type]}</h3>
-            <p className="text-xs text-muted-foreground">{subtitles[type]}</p>
-          </div>
-          <button type="button" onClick={handleClose} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
-        </div>
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeaderIcon icon={type === 'receita' ? DollarSign : type === 'custos_fixos' ? Wallet : type === 'despesas' ? Receipt : BarChart3} color="violet">
+          <DialogTitle>{titles[type]}</DialogTitle>
+          <DialogDescription>{subtitles[type]}</DialogDescription>
+        </DialogHeaderIcon>
 
         {/* Tabs */}
         <div className="flex border-b px-5">
-          <button type="button" onClick={() => setTab('resumo')} className={cn('px-4 py-2.5 text-xs font-medium border-b-2 transition-colors', tab === 'resumo' ? 'border-violet-500 text-violet-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+          <button type="button" onClick={() => setTab('resumo')} className={cn('px-4 py-2.5 text-xs font-medium border-b-2 transition-colors', tab === 'resumo' ? 'border-violet-500 text-violet-600 dark:text-violet-400' : 'border-transparent text-muted-foreground hover:text-foreground')}>
             Resumo
           </button>
-          <button type="button" onClick={() => { setTab('contas'); loadContas() }} className={cn('px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5', tab === 'contas' ? 'border-violet-500 text-violet-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
-            Contas {contasSelecionadas.size > 0 && <span className="rounded bg-violet-100 text-violet-700 px-1.5 py-0.5 text-[10px] font-bold">{contasSelecionadas.size}</span>}
+          <button type="button" onClick={() => { setTab('contas'); loadContas() }} className={cn('px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5', tab === 'contas' ? 'border-violet-500 text-violet-600 dark:text-violet-400' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            Contas {contasSelecionadas.size > 0 && <span className="rounded bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-200 px-1.5 py-0.5 text-[10px] font-bold">{contasSelecionadas.size}</span>}
           </button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <DialogBody>
           {tab === 'resumo' && (
             <div className="space-y-4">
               {/* Total */}
               <div>
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">Total</p>
-                <div className={cn('rounded border bg-muted/30 px-3 py-2 text-lg font-bold tabular-nums', detail.total < 0 && 'text-red-600')}>
+                <div className={cn('rounded border bg-muted/30 px-3 py-2 text-lg font-bold tabular-nums', detail.total < 0 && TEXT.red)}>
                   {fmtCurrencyFull(detail.total)}
                 </div>
               </div>
@@ -257,7 +243,7 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
                             <tr key={c.conta} className="border-b hover:bg-muted/10">
                               <td className="px-3 py-1.5 font-mono">{c.conta}</td>
                               <td className="px-3 py-1.5">{c.nomeConta}</td>
-                              <td className={cn('px-3 py-1.5 text-right tabular-nums font-medium', c.valor < 0 && 'text-red-600')}>
+                              <td className={cn('px-3 py-1.5 text-right tabular-nums font-medium', c.valor < 0 && TEXT.red)}>
                                 {fmtCurrencyFull(c.valor)}
                               </td>
                             </tr>
@@ -266,7 +252,7 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
                         <tfoot>
                           <tr className="border-t-2 bg-muted/30">
                             <td colSpan={2} className="px-3 py-2 font-semibold">Total</td>
-                            <td className={cn('px-3 py-2 text-right tabular-nums font-bold', totalMarcado < 0 && 'text-red-600')}>
+                            <td className={cn('px-3 py-2 text-right tabular-nums font-bold', totalMarcado < 0 && TEXT.red)}>
                               {fmtCurrencyFull(totalMarcado)}
                             </td>
                           </tr>
@@ -301,7 +287,7 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
                       <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                       <Input placeholder="Buscar conta ou nome..." value={contasSearch} onChange={e => setContasSearch(e.target.value)} className="h-7 text-xs" style={{ paddingLeft: '2rem' }} />
                     </div>
-                    <button type="button" onClick={toggleAll} className="text-[11px] text-violet-600 hover:underline shrink-0">
+                    <button type="button" onClick={toggleAll} className="text-[11px] text-violet-600 dark:text-violet-400 hover:underline shrink-0">
                       {contasFiltradas.every(c => contasSelecionadas.has(c.conta)) ? 'Desmarcar todas' : 'Selecionar todas'}
                     </button>
                     {contasSelecionadas.size > 0 && (
@@ -313,19 +299,19 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                     <span>{contasDisponiveis.length} conta(s) disponíveis · {contasSelecionadas.size} selecionada(s)</span>
                     {contasSelecionadas.size > 0 && (
-                      <span className="font-semibold text-violet-600">
+                      <span className="font-semibold text-violet-600 dark:text-violet-400">
                         Total selecionado: {fmtCurrencyFull(contasDisponiveis.filter(c => contasSelecionadas.has(c.conta)).reduce((s, c) => s + c.valor, 0))}
                       </span>
                     )}
                   </div>
 
                   {/* Table */}
-                  <div className="max-h-[350px] overflow-y-auto rounded border">
+                  <div className="max-h-[350px] overflow-y-auto nice-scrollbar rounded border">
                     <table className="w-full text-xs border-collapse">
                       <thead className="sticky top-0 z-10">
                         <tr className="border-b bg-muted/50">
                           <th className="w-8 px-2 py-2 text-center">
-                            <input type="checkbox" checked={contasFiltradas.length > 0 && contasFiltradas.every(c => contasSelecionadas.has(c.conta))} onChange={toggleAll} className="h-3.5 w-3.5 accent-sky-500" />
+                            <Checkbox checked={contasFiltradas.length > 0 && contasFiltradas.every(c => contasSelecionadas.has(c.conta))} onCheckedChange={() => toggleAll()} className="h-3.5 w-3.5" />
                           </th>
                           <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase text-muted-foreground">Conta</th>
                           <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase text-muted-foreground">Nome</th>
@@ -338,7 +324,7 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
                           return (
                             <tr key={c.conta} className={cn('border-b hover:bg-muted/20 cursor-pointer', checked && 'bg-violet-50/50 dark:bg-violet-900/10')} onClick={() => toggleConta(c.conta)}>
                               <td className="px-2 py-1 text-center" onClick={e => e.stopPropagation()}>
-                                <input type="checkbox" checked={checked} onChange={() => toggleConta(c.conta)} className="h-3.5 w-3.5 accent-sky-500" />
+                                <Checkbox checked={checked} onCheckedChange={() => toggleConta(c.conta)} className="h-3.5 w-3.5" />
                               </td>
                               <td className="px-2 py-1 font-mono">{c.conta}</td>
                               <td className="px-2 py-1">{c.nomeConta}</td>
@@ -365,14 +351,15 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
             </div>
           )}
 
-        </div>
+        </DialogBody>
 
-        {/* Footer */}
-        <div className="flex justify-end border-t px-5 py-3">
-          <Button variant="outline" size="sm" onClick={handleClose}>Fechar</Button>
-        </div>
-      </div>
-    </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" size="sm">Fechar</Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -431,7 +418,7 @@ export function BiKpiCards({ data, loading, clienteId, ano, onKpisChanged }: BiK
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="border-l-4 border-l-gray-200">
+          <Card key={i} className="border-l-4 border-l-border">
             <CardContent className="p-5">
               <div className="space-y-3 animate-pulse">
                 <div className="h-3 w-24 rounded bg-muted" />
@@ -449,7 +436,7 @@ export function BiKpiCards({ data, loading, clienteId, ano, onKpisChanged }: BiK
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {['Receita Bruta', 'Custos Fixos', 'Despesas', 'Lucro Líquido'].map((label) => (
-          <Card key={label} className="border-l-4 border-l-gray-200">
+          <Card key={label} className="border-l-4 border-l-border">
             <CardContent className="p-5">
               <div className="space-y-1">
                 <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>

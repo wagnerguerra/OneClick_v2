@@ -19,6 +19,7 @@ import { alerts } from '@/lib/alerts'
 import { fileToBase64 } from '@/lib/file'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BackButton } from '@/components/ui/back-button'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { VersionHistoryDialog } from '../version-history-dialog'
 
@@ -664,7 +665,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1.5">
           <Label className="text-[13px] font-semibold">Nome do modelo <span className="text-destructive">*</span></Label>
-          <Input className="h-9 text-sm bg-card" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: nome da empresa, nome do banco..." />
+          <Input className="h-9 text-sm" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: nome da empresa, nome do banco..." />
         </div>
         {/* "Ativo" só na edição — na criação o modelo nasce sempre ativo. */}
         {mode === 'edit' && (
@@ -798,7 +799,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         <div className="space-y-1.5 max-w-xs">
           <Label className="text-[13px] font-semibold">Conta corrente <span className="text-destructive">*</span></Label>
           <Input
-            className="h-9 text-sm bg-card"
+            className="h-9 text-sm"
             inputMode="numeric"
             value={def.contasCorrentes.unica}
             onChange={(e) => setCcUnica(soDigitos(e.target.value))}
@@ -919,7 +920,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
   const secNota = (
     <Card className="p-5 space-y-2">
       <Label className="text-[13px] font-semibold">Nota desta versão (opcional)</Label>
-      <Input className="h-9 text-sm bg-card" value={note} onChange={(e) => setNote(e.target.value)} placeholder="O que mudou nesta versão?" />
+      <Input className="h-9 text-sm" value={note} onChange={(e) => setNote(e.target.value)} placeholder="O que mudou nesta versão?" />
     </Card>
   )
 
@@ -968,7 +969,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
         <div className="space-y-6 pb-24">
           {/* Topo — PADRAO_PAGINAS §1.1 */}
           <PageHeaderBar actions={<>
-              <Button variant="outline" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4" /> Sair</Button>
+              <BackButton onClick={handleBack} label="Sair" title="Sair" />
           </>}>
             <h1 className="truncate">Novo Modelo de Tratamento</h1>
             <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -1027,7 +1028,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
                 <History className="h-4 w-4" /> Histórico
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4" /> Voltar</Button>
+            <BackButton onClick={handleBack} label="Voltar" />
         </>}>
           <h1 className="truncate">Editar Modelo</h1>
           <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">

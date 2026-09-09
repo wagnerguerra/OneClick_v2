@@ -184,7 +184,7 @@ export function VersionHistoryDialog({ modelId, modelNome, open, onOpenChange, c
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="text-[11px] font-semibold text-muted-foreground">Comparar com</label>
                   <Select value={compareId || NONE} onValueChange={(v) => setCompareId(v === NONE ? '' : v)}>
-                    <SelectTrigger className="h-8 w-[240px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 w-[240px] text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value={NONE}>Nenhuma (só visualizar)</SelectItem>
                       {versions.filter((v) => v.id !== viewingId).map((v) => (

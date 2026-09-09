@@ -158,7 +158,7 @@ function VariavelPicker({ headers, onInsert }: { headers: string[]; onInsert: (t
           <Braces className="h-3.5 w-3.5" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()} className="max-h-72 w-56 overflow-y-auto">
+      <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()} className="max-h-72 w-56 overflow-y-auto nice-scrollbar">
         <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Data</div>
         {HISTORICO_DATA_VARS.map((v) => (
           <DropdownMenuItem key={v.token} onSelect={() => onInsert(historicoToken(v.token))}>{v.label}</DropdownMenuItem>
@@ -212,10 +212,10 @@ function BatchInput({ placeholder, numeric, variaveis, onApply }: { placeholder:
   return (
     <div className="flex gap-1">
       {variaveis ? (
-        <HistoricoFixoInput headers={variaveis} className="h-7 text-xs bg-card" placeholder={placeholder} value={v} onChange={setV} />
+        <HistoricoFixoInput headers={variaveis} className="h-7 text-xs" placeholder={placeholder} value={v} onChange={setV} />
       ) : (
         <Input
-          className="h-7 text-xs bg-card"
+          className="h-7 text-xs"
           placeholder={placeholder}
           inputMode={numeric ? 'numeric' : undefined}
           value={v}
@@ -329,7 +329,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
             <div className="relative w-full max-w-xs sm:flex-1">
               <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                className="h-8 pl-7 text-xs bg-card"
+                className="h-8 pl-7 text-xs"
                 placeholder={searchPlaceholder ?? 'Buscar...'}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -340,7 +340,7 @@ function ContrapartidaTabela<T extends CpItemComum>({
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <span>Exibir</span>
               <Select value={pageSize === 'all' ? 'all' : String(pageSize)} onValueChange={(v) => { marcaMexeu(); setPageSize(v === 'all' ? 'all' : Number(v)); setPage(0) }}>
-                <SelectTrigger className="h-8 w-[92px] text-xs bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[92px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
                   <SelectItem value="all">Todos</SelectItem>
@@ -422,13 +422,13 @@ function ContrapartidaTabela<T extends CpItemComum>({
                 {dcByDescricao && (
                   <TableCell>
                     <Select value={it.direcao ?? ''} onValueChange={(v) => handleUpdate(i, { direcao: v as Direcao } as Partial<T>)} disabled={pular}>
-                      <SelectTrigger className={cn('h-8 text-xs bg-card', !pular && !it.direcao && invalidCls(revisar), pular && 'line-through')}><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectTrigger className={cn('h-8 text-xs', !pular && !it.direcao && invalidCls(revisar), pular && 'line-through')}><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent><SelectItem value="DEBITO">Débito</SelectItem><SelectItem value="CREDITO">Crédito</SelectItem></SelectContent>
                     </Select>
                   </TableCell>
                 )}
-                <TableCell><Input disabled={pular} className={cn('h-8 text-xs bg-card', !pular && !it.conta.trim() && invalidCls(revisar), pular && 'line-through placeholder:line-through')} placeholder="Contrapartida" inputMode="numeric" value={it.conta} onChange={(e) => handleUpdate(i, { conta: soDigitos(e.target.value) } as Partial<T>)} /></TableCell>
-                <TableCell><HistoricoFixoInput headers={headers} disabled={pular} className={cn('h-8 text-xs bg-card', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(v) => handleUpdate(i, { historicoFixo: v } as Partial<T>)} /></TableCell>
+                <TableCell><Input disabled={pular} className={cn('h-8 text-xs', !pular && !it.conta.trim() && invalidCls(revisar), pular && 'line-through placeholder:line-through')} placeholder="Contrapartida" inputMode="numeric" value={it.conta} onChange={(e) => handleUpdate(i, { conta: soDigitos(e.target.value) } as Partial<T>)} /></TableCell>
+                <TableCell><HistoricoFixoInput headers={headers} disabled={pular} className={cn('h-8 text-xs', pular && 'line-through placeholder:line-through')} placeholder="Histórico fixo (opcional)" value={it.historicoFixo ?? ''} onChange={(v) => handleUpdate(i, { historicoFixo: v } as Partial<T>)} /></TableCell>
                 <TableCell><div className="flex justify-center"><Checkbox checked={pular} onCheckedChange={(v) => handleUpdate(i, { pular: !!v } as Partial<T>)} /></div></TableCell>
                 {onRemove && (
                   <TableCell>
@@ -605,7 +605,7 @@ function PainelCorrespondencia({ descricoes, itens, totalLinhas, truncated, onCr
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative w-full max-w-xs sm:flex-1">
                 <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input className="h-8 pl-7 text-xs bg-card" placeholder="Buscar descrição..." value={query} onChange={(e) => setQuery(e.target.value)} />
+                <Input className="h-8 pl-7 text-xs" placeholder="Buscar descrição..." value={query} onChange={(e) => setQuery(e.target.value)} />
               </div>
               <div className="flex items-center gap-0.5 rounded-[3px] border border-border bg-card p-0.5 text-xs">
                 <button type="button" onClick={() => setSoSem(true)} className={cn('rounded-[2px] px-2 py-1 whitespace-nowrap', soSem ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground')}>
@@ -741,7 +741,7 @@ export function ContrapartidaPalavraChave({ def, setDef, dcByDescricao, headers 
           header: 'Palavra-chave', className: 'min-w-[160px]',
           render: (it, i) => (
             <div className="relative">
-              <Input className="h-8 text-xs bg-card" placeholder="Palavra-chave" value={it.palavraChave} onChange={(e) => update(i, { palavraChave: e.target.value })} />
+              <Input className="h-8 text-xs" placeholder="Palavra-chave" value={it.palavraChave} onChange={(e) => update(i, { palavraChave: e.target.value })} />
               {totalLinhas > 0 && it.palavraChave.trim() !== '' && (
                 // Flutua logo abaixo do input, FORA do fluxo (absolute): não muda a
                 // altura da célula nem o padding; pointer-events-none p/ não bloquear.

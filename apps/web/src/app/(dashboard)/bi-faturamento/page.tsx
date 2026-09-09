@@ -183,9 +183,10 @@ export default function BiFaturamentoPage() {
               <div className="relative" ref={comboRef}>
                 <button
                   type="button"
+                  role="combobox"
                   onClick={() => setComboOpen(v => !v)}
                   className={cn(
-                    'flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs',
+                    'flex w-full items-center justify-between rounded-md border border-input px-3 py-2 text-xs',
                     'hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                     !clienteId && 'text-muted-foreground',
                   )}
@@ -203,7 +204,7 @@ export default function BiFaturamentoPage() {
                         placeholder="Buscar por nome ou CNPJ..."
                         className="w-full border-b border-border bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground"
                       />
-                      <Command.List className="max-h-[250px] overflow-y-auto p-1">
+                      <Command.List className="max-h-[250px] overflow-y-auto nice-scrollbar p-1">
                         <Command.Empty className="px-3 py-4 text-center text-xs text-muted-foreground">
                           Nenhum cliente encontrado
                         </Command.Empty>
@@ -348,7 +349,7 @@ export default function BiFaturamentoPage() {
                         'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                         activeTab === tab.key
                           ? 'text-white shadow-sm'
-                          : 'text-muted-foreground hover:bg-white hover:text-foreground',
+                          : 'text-muted-foreground hover:bg-background hover:text-foreground',
                       )}
                       style={activeTab === tab.key ? { backgroundColor: MODULE_COLOR } : undefined}
                     >
@@ -363,7 +364,7 @@ export default function BiFaturamentoPage() {
             {/* Conteudo da aba */}
             <div key={activeTab} className="flex-1 min-w-0" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
               {/* Titulo interno */}
-              <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.08)]">
+              <div className="px-4 py-3 border-b border-border/60">
                 <h4 className="text-[13px] font-semibold text-foreground">
                   {TABS.find(t => t.key === activeTab)?.label}
                 </h4>

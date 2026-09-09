@@ -179,7 +179,7 @@ export function ColumnSelect({ headers, value, optional, onChange, placeholder =
   const selectValue = optional ? (value || NONE) : value
   return (
     <Select value={selectValue} onValueChange={(v) => onChange(v === NONE ? '' : v)}>
-      <SelectTrigger className={cn('h-9 text-sm bg-card', className)}><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectTrigger className={cn('h-9 text-sm', className)}><SelectValue placeholder={placeholder} /></SelectTrigger>
       <SelectContent>
         {optional && <SelectItem value={NONE}>— Nenhuma —</SelectItem>}
         {options.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}
