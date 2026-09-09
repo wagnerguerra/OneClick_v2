@@ -256,14 +256,17 @@ export default function BeneficiosFiscaisPage() {
     <div className="space-y-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
+          {/* "+ Novo" primeiro e no `variant` padrao do Button — a cor do
+              modulo fica para os destaques internos, nao para a acao principal
+              (docs/PADRAO_PAGINAS.md §1.1). */}
+          {canWrite && (
+            <Button size="sm" onClick={() => setVincModal({ _new: true })} className="gap-1.5">
+              <Plus className="h-4 w-4" />Novo benefício
+            </Button>
+          )}
           {canManageCatalogo && (
             <Button variant="outline" size="sm" onClick={() => setCatModalOpen(true)} className="gap-1.5">
               <Settings2 className="h-4 w-4" /> Catálogo
-            </Button>
-          )}
-          {canWrite && (
-            <Button size="sm" onClick={() => setVincModal({ _new: true })} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
-              <Plus className="h-4 w-4" /> Novo benefício
             </Button>
           )}
         </>}
@@ -278,51 +281,69 @@ export default function BeneficiosFiscaisPage() {
         </p>
       </PageHeaderBar>
 
-      {/* Filtros (pílulas) + busca — padrão /gestao-certificados */}
-      <div className="flex flex-wrap items-center gap-2 shrink-0">
+      {/* Indicadores — anatomia de /clientes: cartao proprio, icone tintado,
+          numero grande e anel na cor quando o filtro esta ligado. Continuam
+          sendo os filtros de status; a busca desceu para a barra da tabela. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         {([
-          { key: null as Status | null, label: 'Todos', count: dash.TOTAL, color: '#94a3b8', icon: Percent },
-          ...(['NO_PRAZO', 'VENCENDO', 'VENCIDO', 'SEM_DATA'] as Status[]).map(s => ({
-            key: s as Status | null, label: STATUS_CFG[s].label, count: dash[s], color: STATUS_CFG[s].color, icon: STATUS_CFG[s].icon,
+          { key: null as Status | null, label: 'Todos', count: dash.TOTAL, cor: '#94a3b8', Icone: Percent },
+          ...(['NO_PRAZO', 'VENCENDO', 'VENCIDO', 'SEM_DATA'] as Status[]).map(st => ({
+            key: st as Status | null, label: STATUS_CFG[st].label, count: dash[st], cor: STATUS_CFG[st].color, Icone: STATUS_CFG[st].icon,
           })),
         ]).map(f => {
-          const Icon = f.icon
-          const active = filtroStatus === f.key
+          const Icone = f.Icone
+          const ligado = filtroStatus === f.key
           return (
             <button
               key={f.label}
               type="button"
               onClick={() => setFiltroStatus(f.key)}
+              aria-pressed={ligado}
+              title={`Filtrar por ${f.label.toLowerCase()}`}
               className={cn(
-                'inline-flex items-center gap-2 h-8 px-3 rounded-md border text-xs font-medium transition-colors',
-                active ? 'border-foreground/20' : 'border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                'flex items-center gap-3 rounded-xl border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm',
+                ligado ? 'border-transparent ring-2' : 'border-border',
               )}
-              style={active ? { borderColor: f.color, backgroundColor: `${f.color}10`, color: f.color } : undefined}
+              style={ligado ? { boxShadow: `0 0 0 2px ${f.cor}` } : undefined}
             >
-              <Icon className="h-3.5 w-3.5" style={!active ? { color: f.color } : undefined} />
-              <span>{f.label}</span>
-              <Badge
-                variant="secondary"
-                className="text-[10px] px-1.5 py-0 h-4 ml-0.5 tabular-nums"
-                style={active ? { backgroundColor: `${f.color}20`, color: f.color } : undefined}
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `color-mix(in srgb, ${f.cor} 12%, transparent)`, color: f.cor }}
               >
-                {f.count}
-              </Badge>
+                <Icone className="h-[18px] w-[18px]" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-bold leading-none tabular-nums text-foreground">
+                  {f.count.toLocaleString('pt-BR')}
+                </span>
+                <span className="mt-1 block truncate text-[11px] text-muted-foreground">{f.label}</span>
+              </span>
             </button>
           )
         })}
-        <div className="ml-auto">
-          <Input
-            placeholder="Buscar por cliente ou benefício..."
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-            className="h-8 w-[280px] text-xs"
-          />
-        </div>
       </div>
 
       {/* Tabela */}
       <Card className="overflow-hidden">
+        {/* Busca na barra do card, como em /clientes — os tres estados
+            (carregando, vazio e com resultado) ja vivem dentro deste mesmo
+            card, entao ela nunca some junto com a tabela. */}
+        <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-xs text-muted-foreground">
+            {loading
+              ? 'Carregando…'
+              : <>Mostrando <span className="font-medium tabular-nums text-foreground">{visiveis.length}</span> benefício(s)</>}
+          </span>
+          <div className="w-full sm:w-[420px]">
+            <Input
+              placeholder="Buscar por cliente ou benefício..."
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              className="h-8 w-full bg-card text-xs"
+            />
+          </div>
+        </div>
+
         {/* Barra de ações em massa — aparece quando há seleção */}
         {podeSelecionar && selecionados.size > 0 && (
           <div className="flex items-center justify-between gap-3 px-4 py-2 bg-fuchsia-50 dark:bg-fuchsia-950/20 border-b border-fuchsia-200 dark:border-fuchsia-900">
