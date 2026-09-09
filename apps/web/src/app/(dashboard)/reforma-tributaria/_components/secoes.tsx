@@ -753,6 +753,13 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
                     className="px-4 py-3 text-right text-sm font-bold tabular-nums"
                     style={l.chave === 'IVA' ? { color: COR_IVA } : undefined}
                   >
+                    {/* Coluna parcial: o total existe mas é um PISO. O "a partir
+                        de" evita que um número incompleto passe por fechado. */}
+                    {l.parcial && l.totalEfetivo !== null && (
+                      <span className="mr-1 text-[10px] font-normal opacity-70" title="Falta um componente — o total é um piso">
+                        a partir de
+                      </span>
+                    )}
                     {reaisOuTraco(l.totalEfetivo)}
                   </td>
                 ))}
@@ -804,7 +811,12 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
                 <p className="text-[13px] font-semibold text-foreground">{l.rotulo}</p>
                 <p className="text-[11px] text-muted-foreground">{l.subtitulo}</p>
               </div>
-              <span className="shrink-0 text-sm font-bold tabular-nums">{reaisOuTraco(l.totalEfetivo)}</span>
+              <span className="shrink-0 text-sm font-bold tabular-nums">
+                {l.parcial && l.totalEfetivo !== null && (
+                  <span className="mr-1 text-[10px] font-normal text-amber-600 dark:text-amber-400">parcial</span>
+                )}
+                {reaisOuTraco(l.totalEfetivo)}
+              </span>
             </div>
             <table className="w-full">
               <tbody className="divide-y divide-border/40">

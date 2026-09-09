@@ -196,6 +196,12 @@ export default function ReformaTributariaPage() {
           metrics: {
             faturamentoMedioMensal: number
             faturamentoSerie?: Array<{ periodo: string; receita: number }>
+            das?: {
+              origem: 'balancete_importado' | 'indisponivel'
+              percentualMediano: number
+              mensalEstimado: number
+              mesesComLancamento: number
+            }
             folha?: {
               origem: 'balancete_importado' | 'indisponivel'
               baseMensal: number
@@ -210,6 +216,15 @@ export default function ReformaTributariaPage() {
           }
         }> }
       }).diagnostico.query({ clienteId: c.id, meses: 12 })
+
+      // O DAS efetivamente recolhido está no balancete. Entra como "informado"
+      // para ser confrontado com a memória de cálculo — que é o ponto do
+      // alerta de divergência: se a guia não bate com a tabela, ou o RBT12 está
+      // errado, ou a guia tem particularidade que o simulador não conhece.
+      const das = d.metrics.das
+      if (das && das.origem === 'balancete_importado' && das.mensalEstimado > 0) {
+        setP(prev => ({ ...prev, dasInformado: Math.round(das.mensalEstimado * 100) / 100 }))
+      }
 
       // A folha sai das contas de pessoal do balancete — remuneração apenas,
       // sem encargos nem benefícios, que não são base da CPP. Vem como

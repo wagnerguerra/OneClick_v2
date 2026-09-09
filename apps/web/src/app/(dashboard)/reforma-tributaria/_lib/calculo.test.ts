@@ -329,14 +329,33 @@ describe('escopo — toda coluna soma as mesmas categorias', () => {
     expect(c.conclusivo).toBe(false)
   })
 
-  it('ISS fixo não informado vira pendência, e não zero', () => {
-    // Sem o valor municipal a coluna do Simples NAO fecha. É o comportamento
-    // desejado: somar zero ali faria o Simples parecer mais barato do que é.
+  it('ISS fixo não informado deixa a coluna PARCIAL, não nula', () => {
+    // O ISS fixo é municipal, pequeno, e nem todo escritório recolhe em
+    // separado — anular a coluna atual do cliente por causa dele apagava o
+    // número que a pessoa abriu a tela para ver. Some do total, vira pendência
+    // e marca a coluna como parcial: o total é um PISO, não um fechamento.
     const semIss = calcularComparativo(base())
     const item = semIss.simplesDentro.itens.find(i => i.chave === 'iss_fixo')!
     expect(item.valor).toBeNull()
-    expect(semIss.simplesDentro.totalEfetivo).toBeNull()
+    expect(item.essencial).toBe(false)
+    expect(semIss.simplesDentro.parcial).toBe(true)
+    expect(semIss.simplesDentro.totalEfetivo).toBeCloseTo(22_925.20, 1)
     expect(semIss.simplesDentro.pendencias.some(m => m.includes('ISS fixo'))).toBe(true)
+  })
+
+  it('informado, o ISS fixo entra no total e a coluna deixa de ser parcial', () => {
+    const comIss = calcularComparativo(baseCompleta())
+    expect(comIss.simplesDentro.parcial).toBe(false)
+    expect(comIss.simplesDentro.totalEfetivo).toBeCloseTo(22_925.20 + 250 * 4, 1)
+  })
+
+  it('o Lucro Real continua anulando o total: renda é essencial', () => {
+    // A distinção que importa: IRPJ/CSLL do Real são a maior parcela e não se
+    // estimam sem DRE. Um total sem eles seria engano com cara de número.
+    const c = calcularComparativo(baseCompleta())
+    expect(c.real.itens.find(i => i.chave === 'irpj')!.essencial).toBe(true)
+    expect(c.real.totalEfetivo).toBeNull()
+    expect(c.real.parcial).toBe(false)
   })
 })
 

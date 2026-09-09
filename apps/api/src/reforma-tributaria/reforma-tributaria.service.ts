@@ -64,6 +64,23 @@ export interface Metrics {
    * nem beneficios (vale, plano de saude, bolsa estagio): sobre eles a CPP nao
    * incide, e soma-los inflaria em cerca de 20% o custo de sair do Simples.
    */
+  /**
+   * DAS efetivamente recolhido, lido do balancete.
+   *
+   * `mensalEstimado` sai da MEDIANA da razao DAS/receita entre os meses em que
+   * a guia foi lancada, aplicada a receita media. A mediana existe porque o
+   * lancamento do DAS e irregular na pratica contabil: ha mes sem lancamento e
+   * mes que acumula dois ou tres. A media dessa serie produziria um numero
+   * baixo e um alerta de divergencia falso a cada cliente.
+   */
+  das: {
+    origem: 'balancete_importado' | 'indisponivel'
+    /** Razao mediana DAS/receita, em %. */
+    percentualMediano: number
+    mensalEstimado: number
+    /** Meses em que a guia aparece lancada. */
+    mesesComLancamento: number
+  }
   folha: {
     origem: 'balancete_importado' | 'indisponivel'
     baseMensal: number
@@ -1263,6 +1280,7 @@ export class ReformaTributariaService {
       // fiscal nem de snapshot. Sem ela o simulador pede o valor na tela, que e
       // melhor do que devolver zero e passar por folha inexistente.
       folha: contabil.folha,
+      das: contabil.das,
       comprasMercadorias12m,
       servicosTomados12m,
       documentosSaida: saidaDocs.reduce((acc, r) => acc + Number(r.docs), 0) + asNumber(snapshots.nf_saida) + asNumber(snapshots.nf_prestado) + sci.documentosSaida,
@@ -1390,6 +1408,30 @@ export class ReformaTributariaService {
       periodoFim,
     )
 
+    // DAS por periodo, ao lado da receita do mesmo periodo. Precisa ser mes a
+    // mes: e a razao de cada mes que a mediana depois resume.
+    const dasRows = await prisma.$queryRawUnsafe<Array<{
+      periodo: string
+      receita: number | string | null
+      das: number | string | null
+    }>>(
+      `WITH ${SQL_SINTETICAS}
+        , linhas AS (${SQL_LINHAS_ANALITICAS})
+        SELECT l.periodo,
+          COALESCE(SUM(${SQL_RECEITA}), 0) AS receita,
+          COALESCE(SUM(CASE
+            WHEN l.nome_conta ~* 'simples nacional'
+              AND (l.conta LIKE '03.1.3%' OR l.conta LIKE '3.1.3%')
+            THEN -l.vl ELSE 0 END), 0) AS das
+         FROM linhas l
+         LEFT JOIN cliente_bi_categorias c
+           ON c.cliente_id = l.cliente_id AND c.conta = l.conta
+        GROUP BY l.periodo`,
+      clienteId,
+      periodoInicio,
+      periodoFim,
+    )
+
     const overrides = await this.getCreditoOverrides(clienteId)
     const creditoItens = creditoRows.map(row => {
       const ov = overrides.get(row.conta)
@@ -1442,6 +1484,25 @@ export class ReformaTributariaService {
         ? folhaItens.filter(i => i.categoria === cat).reduce((acc, i) => acc + i.valor, 0) / periodos
         : 0
 
+    // Mediana das razoes mensais, so nos meses em que a guia foi lancada.
+    const razoes = dasRows
+      .map(r => ({ receita: asNumber(r.receita), das: asNumber(r.das) }))
+      .filter(r => r.receita > 0 && r.das > 0)
+      .map(r => (r.das / r.receita) * 100)
+      .sort((a, b) => a - b)
+    const percentualMediano = razoes.length > 0
+      ? (razoes.length % 2 === 1
+          ? razoes[(razoes.length - 1) / 2]!
+          : (razoes[razoes.length / 2 - 1]! + razoes[razoes.length / 2]!) / 2)
+      : 0
+    const faturamentoMedio = periodos > 0 ? faturamento12m / periodos : 0
+    const das = {
+      origem: razoes.length > 0 ? 'balancete_importado' as const : 'indisponivel' as const,
+      percentualMediano,
+      mensalEstimado: faturamentoMedio * (percentualMediano / 100),
+      mesesComLancamento: razoes.length,
+    }
+
     const folha = {
       origem: folhaItens.length > 0 ? 'balancete_importado' as const : 'indisponivel' as const,
       baseMensal: porCategoria('REMUNERACAO'),
@@ -1458,6 +1519,7 @@ export class ReformaTributariaService {
       // media esconde o mes zerado por balancete faltando e o mes atipico que a
       // puxa sozinho.
       faturamentoSerie: serieRows.map(r => ({ periodo: String(r.periodo), receita: asNumber(r.receita) })),
+      das,
       folha,
       creditos,
       margemOperacionalPercentual: faturamento12m > 0 ? (faturamento12m - custosDespesas12m) / faturamento12m : null,

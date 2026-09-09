@@ -190,6 +190,20 @@ export interface ItemTributo {
   valor: number | null
   /** Dispositivo legal, para a tela poder mostrar de onde veio. */
   base: string
+  /**
+   * Faltando este item, a coluna ainda pode ser somada?
+   *
+   * `true` (padrão) — sem ele o total é `null`. É o caso do IRPJ/CSLL do Lucro
+   * Real: são a maior parcela da coluna e não se estimam sem DRE; um total sem
+   * eles não seria um total, seria um engano com aparência de número.
+   *
+   * `false` — o item fica de fora e a coluna sai marcada como PARCIAL. É o caso
+   * do ISS fixo municipal: valor pequeno, definido por lei de cada município, e
+   * que muitos escritórios sequer recolhem em separado. Anular a coluna atual
+   * do cliente por causa dele apagava justamente o número que a pessoa abriu a
+   * tela para ver.
+   */
+  essencial?: boolean
 }
 
 export type ColunaChave = 'SIMPLES_DENTRO' | 'SIMPLES_FORA' | 'LUCRO_PRESUMIDO' | 'LUCRO_REAL' | 'IVA'
@@ -197,6 +211,13 @@ export type ColunaChave = 'SIMPLES_DENTRO' | 'SIMPLES_FORA' | 'LUCRO_PRESUMIDO' 
 export interface Coluna {
   chave: ColunaChave
   rotulo: string
+  /**
+   * Faltou algum componente não-essencial?
+   *
+   * O total existe, mas é um PISO: o que falta só somaria. A tela precisa dizer
+   * isso — um número parcial apresentado como fechado é pior do que um traço.
+   */
+  parcial: boolean
   /** Frase curta que explica o que a coluna assume. */
   subtitulo: string
   itens: ItemTributo[]
@@ -242,7 +263,11 @@ function montarColuna(
     impactoLiquido?: number | null
   },
 ): Coluna {
-  const porEscopo = (e: Escopo) => somaOuNulo(itens.filter(i => i.escopo === e).map(i => i.valor))
+  // Item não-essencial ausente não entra na soma nem a anula — some do cálculo
+  // e reaparece como marca de "parcial" na coluna.
+  const ausenteNaoEssencial = itens.some(i => i.valor === null && i.essencial === false)
+  const somaveis = itens.filter(i => !(i.valor === null && i.essencial === false))
+  const porEscopo = (e: Escopo) => somaOuNulo(somaveis.filter(i => i.escopo === e).map(i => i.valor))
   const consumo = porEscopo('CONSUMO')
   const renda = porEscopo('RENDA')
   const previdencia = porEscopo('PREVIDENCIA')
@@ -251,6 +276,7 @@ function montarColuna(
   const totalEfetivo = totalNominal === null ? null : Math.max(0, totalNominal - creditos)
   return {
     chave, rotulo, subtitulo, itens,
+    parcial: ausenteNaoEssencial,
     consumo, renda, previdencia, creditos,
     totalNominal, totalEfetivo,
     aliquotaEfetiva: totalEfetivo !== null && extras.receita > 0
@@ -562,8 +588,12 @@ export function calcularSimples(p: Parametros, ibsCbsPorFora: boolean): { coluna
         escopo: 'CONSUMO',
         valor: null,
         base: 'DL 406/1968, art. 9º, §§1º e 3º',
+        // Não bloqueia o total: o DAS é a quase totalidade da carga do Simples,
+        // e o ISS fixo é um valor municipal pequeno que nem todo escritório
+        // recolhe em separado. A coluna sai marcada como parcial.
+        essencial: false,
       })
-      pendencias.push('ISS fixo: informe o valor por profissional e a quantidade de habilitados.')
+      pendencias.push('ISS fixo municipal não informado — a coluna não o inclui.')
     } else {
       // Fora do DAS por sublimite: volta pelo regime normal, percentual.
       itens.push({
@@ -777,13 +807,14 @@ export function calcularReal(p: Parametros): Coluna {
     }
   }
 
+  // Essenciais: sem eles não há total do Lucro Real que signifique alguma coisa.
   itens.push({
     chave: 'irpj', rotulo: 'IRPJ 15% + adicional 10%', escopo: 'RENDA',
-    valor: null, base: 'Lei 9.430/1996 — sobre o lucro real ajustado',
+    valor: null, base: 'Lei 9.430/1996 — sobre o lucro real ajustado', essencial: true,
   })
   itens.push({
     chave: 'csll', rotulo: 'CSLL 9%', escopo: 'RENDA',
-    valor: null, base: 'Lei 7.689/1988 — sobre a base ajustada',
+    valor: null, base: 'Lei 7.689/1988 — sobre a base ajustada', essencial: true,
   })
   itens.push({
     chave: 'cpp', rotulo: `CPP ${aliquotaCpp(p).toFixed(1)}% s/ folha`, escopo: 'PREVIDENCIA',
