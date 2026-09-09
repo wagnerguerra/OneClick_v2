@@ -456,13 +456,8 @@ export default function GestaoCertificadosPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button
-            size="sm"
-            onClick={() => setNovoOpen(true)}
-            style={{ backgroundColor: MODULE_COLOR }}
-            className="text-white gap-1.5"
-          >
-            <Plus className="h-4 w-4" /> Novo Certificado
+          <Button size="sm" onClick={() => setNovoOpen(true)} className="gap-1.5">
+            <Plus className="h-4 w-4" />Novo Certificado
           </Button>
         </>}
       >
@@ -523,16 +518,16 @@ export default function GestaoCertificadosPage() {
         })}
       </div>
 
-      {/* Busca na barra da tabela, como em /clientes. Antes ficava encostada
-          nas pilhas de status, no meio dos indicadores — e sumia junto com a
-          tabela quando o filtro nao achava nada, deixando quem digitou sem
-          como apagar o que digitou. Aqui ela existe nos tres estados. */}
-      <Card className="shrink-0">
-        <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Tabela — UM card, com a busca na barra do topo, como em /clientes.
+          Os tres estados (carregando, vazio e com resultado) vivem dentro
+          dele: a busca some junto com a tabela se cada estado for um card
+          proprio, e quem digitou fica sem como apagar o que digitou. */}
+      <Card className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-xs text-muted-foreground">
             {loading
               ? 'Carregando…'
-              : <>Mostrando <span className="font-medium text-foreground tabular-nums">{filtered.length}</span> certificado(s)</>}
+              : <>Mostrando <span className="font-medium tabular-nums text-foreground">{filtered.length}</span> certificado(s)</>}
           </span>
           <div className="w-full sm:w-[420px]">
             <Input
@@ -547,26 +542,24 @@ export default function GestaoCertificadosPage() {
               placeholder="Buscar por titular, documento, cliente..."
               value={filtroBusca}
               onChange={e => setFiltroBusca(e.target.value)}
-              className="h-8 w-full text-xs bg-card"
+              className="h-8 w-full bg-card text-xs"
             />
           </div>
         </div>
-      </Card>
 
-      {/* Tabela */}
-      {loading ? (
-        <Card className="flex-1 flex items-center justify-center py-16">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Carregando certificados...
+        {loading ? (
+          <div className="flex flex-1 items-center justify-center py-16">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando certificados...
+            </div>
           </div>
-        </Card>
-      ) : filtered.length === 0 ? (
-        <Card className="flex-1 flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <ShieldCheck className="h-10 w-10 opacity-30 mb-2" />
-          <p className="text-sm">Nenhum certificado encontrado neste filtro</p>
-        </Card>
-      ) : (
-        <Card className="flex-1 overflow-hidden flex flex-col">
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center py-16 text-muted-foreground">
+            <ShieldCheck className="mb-2 h-10 w-10 opacity-30" />
+            <p className="text-sm">Nenhum certificado encontrado neste filtro</p>
+          </div>
+        ) : (
+          <>
           {/* Barra de ações em massa — só aparece quando há seleção */}
           {canDelete && selecionados.size > 0 && (
             <div className="flex items-center justify-between gap-3 px-4 py-2 bg-fuchsia-50 dark:bg-fuchsia-950/20 border-b border-fuchsia-200 dark:border-fuchsia-900">
@@ -681,8 +674,9 @@ export default function GestaoCertificadosPage() {
               </TableBody>
             </Table>
           </div>
-        </Card>
-      )}
+          </>
+        )}
+      </Card>
 
       {/* ── Modais ── */}
       <CertCadastroModal
