@@ -553,7 +553,11 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
 // ══════════════════════════════════════════════════════════════════
 // 2. COMPARAR REGIMES
 // ══════════════════════════════════════════════════════════════════
-export function SecaoComparar({ p }: { p: Parametros }) {
+export function SecaoComparar({ p, onIrParaConfigurar }: {
+  p: Parametros
+  /** Leva para Configurar — o alerta de pendência precisa ser acionável. */
+  onIrParaConfigurar?: () => void
+}) {
   const c = useMemo(() => calcularComparativo(p), [p])
   const colunas = c.colunas
   const atual = colunaDoRegime(c, p.regime)
@@ -605,6 +609,15 @@ export function SecaoComparar({ p }: { p: Parametros }) {
           <ul className="mt-1.5 list-disc space-y-0.5 pl-6 text-xs text-amber-800 dark:text-amber-300/90">
             {c.motivosNaoConclusivo.map(m => <li key={m}>{m}</li>)}
           </ul>
+          {onIrParaConfigurar && (
+            <Button
+              type="button" variant="outline" size="sm"
+              className="mt-2 h-7 border-amber-300 bg-white/60 text-xs text-amber-900 hover:bg-white dark:border-amber-800 dark:bg-transparent dark:text-amber-300"
+              onClick={onIrParaConfigurar}
+            >
+              Preencher em Configurar
+            </Button>
+          )}
         </div>
       )}
 

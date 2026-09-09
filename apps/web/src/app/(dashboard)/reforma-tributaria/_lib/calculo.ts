@@ -313,6 +313,15 @@ export interface MemoriaDas {
   /** Tributos que NÃO saem no DAS (ISS fixo, sublimite). */
   foraDoDas: TributoSimples[]
   valorMensal: number
+  /**
+   * O DAS é calculável?
+   *
+   * Sem RBT12 não há faixa, e sem faixa não há alíquota. Antes isso produzia
+   * uma alíquota efetiva de 0% e a coluna do Simples saía com R$ 0,00 em cada
+   * linha — o zero silencioso que esta correção existe para eliminar, agora
+   * cometido pelo próprio DAS.
+   */
+  calculavel: boolean
   fatorR: number | null
   /** Anexo determinado por lei (art. 18 §5º-B), imune ao Fator R. */
   anexoPorLei: boolean
@@ -383,7 +392,8 @@ export function calcularDas(p: Parametros, opcoes?: { ibsCbsPorFora?: boolean })
   const { faixa, idx } = acharFaixa(tabela, p.rbt12)
   const avisos: string[] = []
 
-  const aliquotaEfetivaBruta = p.rbt12 > 0
+  const calculavel = p.rbt12 > 0
+  const aliquotaEfetivaBruta = calculavel
     ? ((p.rbt12 * pct(faixa.nominal) - faixa.deduzir) / p.rbt12) * 100
     : 0
 
@@ -466,7 +476,7 @@ export function calcularDas(p: Parametros, opcoes?: { ibsCbsPorFora?: boolean })
     faixaTexto: `${idx + 1}ª faixa — de R$ ${reaisFaixa(piso)} a R$ ${reaisFaixa(faixa.ate)}`,
     nominal: faixa.nominal, deduzir: faixa.deduzir,
     aliquotaEfetivaBruta, aliquotaEfetivaDas,
-    partilha, foraDoDas, valorMensal,
+    partilha, foraDoDas, valorMensal, calculavel,
     fatorR, anexoPorLei: porLei,
     acimaDoSublimite, acimaDoTeto, avisos,
   }
@@ -517,13 +527,18 @@ export function calcularSimples(p: Parametros, ibsCbsPorFora: boolean): { coluna
   const notas: string[] = []
   const pendencias: string[] = []
 
+  if (!memoria.calculavel) {
+    pendencias.push('DAS: informe o RBT12 (receita bruta dos últimos 12 meses).')
+  }
+
   for (const linha of memoria.partilha) {
     if (memoria.foraDoDas.includes(linha.tributo)) continue
     itens.push({
       chave: `das_${linha.tributo}`,
       rotulo: `${linha.tributo} (no DAS)`,
       escopo: ESCOPO_TRIBUTO[linha.tributo],
-      valor: linha.valor,
+      // Sem RBT12 o valor não é zero, é desconhecido.
+      valor: memoria.calculavel ? linha.valor : null,
       base: `LC 123/2006, Anexo ${memoria.anexo}, ${memoria.faixa}ª faixa`,
     })
   }

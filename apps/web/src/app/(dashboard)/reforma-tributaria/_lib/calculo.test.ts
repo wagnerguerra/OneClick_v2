@@ -313,6 +313,22 @@ describe('escopo — toda coluna soma as mesmas categorias', () => {
     expect(c.simplesDentro.retencoes).toBe(0)
   })
 
+  it('sem RBT12 o DAS é pendência, e não R$ 0,00', () => {
+    // Regressão: um cliente cujo faturamento vinha do balancete abria com
+    // receita cheia e RBT12 zero. O DAS caía na 1ª faixa, saía zerado, e a
+    // coluna do Simples exibia R$ 0,00 linha a linha — o zero silencioso que
+    // esta correção existe para eliminar, cometido pelo próprio DAS.
+    const c = calcularComparativo(base({ rbt12: 0 }))
+    expect(c.memoriaDas.calculavel).toBe(false)
+    for (const it of c.simplesDentro.itens.filter(i => i.chave.startsWith('das_'))) {
+      expect(it.valor).toBeNull()
+    }
+    expect(c.simplesDentro.renda).toBeNull()
+    expect(c.simplesDentro.previdencia).toBeNull()
+    expect(c.simplesDentro.pendencias.some(m => m.includes('RBT12'))).toBe(true)
+    expect(c.conclusivo).toBe(false)
+  })
+
   it('ISS fixo não informado vira pendência, e não zero', () => {
     // Sem o valor municipal a coluna do Simples NAO fecha. É o comportamento
     // desejado: somar zero ali faria o Simples parecer mais barato do que é.

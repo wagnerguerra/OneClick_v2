@@ -218,9 +218,22 @@ export default function ReformaTributariaPage() {
       // sincronizado abria com faturamento zero e crédito milionário.
       const mensalContabil = d.metrics.faturamentoMedioMensal ?? 0
       if (mensalContabil > 0 && d.metrics.fontePrincipal === 'BALANCETE_ERP') {
-        setP(prev => ({ ...prev, faturamentoMensal: Math.round(mensalContabil) }))
+        // O RBT12 anda JUNTO com o faturamento. Quando só o mensal era
+        // atualizado aqui, o cliente abria com receita de R$ 208 mil e RBT12
+        // zero: o DAS caía na 1ª faixa, zerava, e levava o comparativo inteiro
+        // junto. Tendo os 12 meses do balancete, a soma deles é o RBT12 de
+        // verdade; com série parcial, a média × 12 é a melhor aproximação.
+        const serie = d.metrics.faturamentoSerie ?? []
+        const rbt12Contabil = serie.length >= 12
+          ? serie.reduce((a, m) => a + m.receita, 0)
+          : mensalContabil * 12
+        setP(prev => ({
+          ...prev,
+          faturamentoMensal: Math.round(mensalContabil),
+          rbt12: Math.round(rbt12Contabil),
+        }))
         setOrigem('balancete')
-        setSerieFaturamento(d.metrics.faturamentoSerie ?? [])
+        setSerieFaturamento(serie)
       }
     } catch { /* sem ERP para este cliente — o campo fica editável em zero */ }
     finally { setCarregandoCliente(false) }
@@ -362,7 +375,7 @@ export default function ReformaTributariaPage() {
                 onAbrirSerie={() => setVerSerie(true)}
               />
             )}
-            {aba === 'comparar' && <SecaoComparar p={p} />}
+            {aba === 'comparar' && <SecaoComparar p={p} onIrParaConfigurar={() => setAba('configurar')} />}
             {aba === 'transicao' && <SecaoTransicao p={p} onChange={alterar} />}
             {aba === 'visao' && <SecaoVisaoGeral p={p} cliente={cliente} />}
             {aba === 'calculadora' && (
