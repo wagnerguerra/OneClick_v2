@@ -154,7 +154,7 @@ export default function ClientesPage() {
   const { isMaster, isEmpresaMaster } = useUserPermissions()
   // Edição inline: cada campo tem a SUA permissão, igual ao backend. Gatear
   // tudo num flag só criaria campos que parecem editáveis e falham no save.
-  const { canCreate, canEditDetails, canManageCommercial, canEditTaxation, canManageFiscal, canManageResponsible } = useClientesPerms()
+  const { canCreate, canEditDetails, canManageCommercial, canEditTaxation, canManageFiscal, canManageResponsible, canImportClients } = useClientesPerms()
   const [search, setSearch] = useState(() => txt(salvos.search))
   // Inicia JÁ com o valor salvo: se começasse vazio, a primeira busca ignoraria
   // o texto restaurado e a lista piscaria sem filtro antes de corrigir.
@@ -642,7 +642,11 @@ export default function ClientesPage() {
                       e foi a regra combinada para os relatórios do sistema. */}
                   <DropdownMenuItem onClick={() => router.push('/clientes/relatorios')}><BarChart3 className="h-4 w-4 text-emerald-600" />Relatórios</DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExport} disabled={exporting}><FileDown className="h-4 w-4" />Exportar</DropdownMenuItem>
-                  {canEditDetails && (
+                  {/* Importação tem sub-permissão própria, não `edit_details`:
+                      cria cliente em massa, escreve por cima do que existe e não
+                      tem desfazer. Quem corrige um telefone não deveria, pelo
+                      mesmo direito, poder despejar uma planilha na base. */}
+                  {canImportClients && (
                     <>
                       <DropdownMenuItem onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar Excel/CSV</DropdownMenuItem>
                       <DropdownMenuItem onClick={handleLegacyImport} disabled={legacyImporting}>

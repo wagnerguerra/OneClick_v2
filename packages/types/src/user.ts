@@ -410,6 +410,12 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     // CONSTRUTOR: montar do zero, escolher campos e salvar o próprio relatório.
     { key: 'build_reports', label: 'Montar e salvar relatórios próprios', group: 'Gerais' },
     { key: 'manage_responsible', label: 'Gerenciar responsáveis pelos serviços', group: 'Gerais' },
+    // Importar é diferente de editar: cria clientes em massa, escreve por cima
+    // do que existe e não tem desfazer. Ficava dentro de `edit_details`, então
+    // qualquer pessoa que pudesse corrigir um telefone também podia despejar
+    // uma planilha inteira na base. Sub-permissão própria, concedida caso a
+    // caso — master e empresa-master continuam passando por cima, como sempre.
+    { key: 'import_clients', label: 'Importar clientes (planilha e legado)', group: 'Gerais' },
     { key: 'manage_commercial', label: 'Gerenciar aba comercial', group: 'Comercial' },
     { key: 'manage_contracts', label: 'Gerenciar contratos dos clientes', group: 'Comercial' },
     { key: 'edit_commercial', label: 'Editar particularidades no comercial', group: 'Comercial' },

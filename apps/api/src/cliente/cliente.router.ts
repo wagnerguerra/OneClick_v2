@@ -270,7 +270,7 @@ export function createClienteRouter(
       )),
 
     // Importação em lote
-    importBulk: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+    importBulk: writeSubProcedure(MODULE, 'import_clients', 'Importar clientes')
       .input(z.object({ items: z.array(createClienteSchema) }))
       .mutation(({ input, ctx }) => clienteService.bulkCreate(input.items, ctx.userId, ctx.empresaId)),
 
@@ -914,10 +914,10 @@ export function createClienteRouter(
       }),
 
     // === IMPORTAÇÃO DO LEGADO ===
-    legacyPreview: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+    legacyPreview: writeSubProcedure(MODULE, 'import_clients', 'Importar clientes')
       .query(() => legacyImportService.previewLegacy()),
 
-    legacyImport: writeSubProcedure(MODULE, 'edit_details', 'Editar detalhes do cliente')
+    legacyImport: writeSubProcedure(MODULE, 'import_clients', 'Importar clientes')
       .mutation(({ ctx }) => legacyImportService.importFromLegacy(ctx.empresaId, ctx.userId)),
 
     // === INTEGRAÇÕES ===
