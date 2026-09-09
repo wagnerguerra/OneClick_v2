@@ -852,7 +852,7 @@ function ReauthModal({ open, state, onClose }: {
                 onChange={e => setMotivo(e.target.value)}
                 rows={3}
                 placeholder="Ex: assinar contrato cliente XYZ, renovação de procuração, etc."
-                className="w-full text-sm rounded-md border border-input bg-background px-3 py-2"
+                className="w-full text-sm rounded-md px-3 py-2"
               />
               <p className="text-[10px] text-muted-foreground">Esta justificativa fica gravada na trilha de auditoria.</p>
             </div>
@@ -1017,7 +1017,7 @@ function RenovarCertificadoModal({ target, onClose, onRenovado }: {
               onChange={e => setObservacoes(e.target.value)}
               rows={2}
               placeholder="Ex: renovado em campanha anual, novo emissor..."
-              className="w-full text-sm rounded-md border border-input bg-background px-3 py-2"
+              className="w-full text-sm rounded-md px-3 py-2"
             />
           </div>
         </DialogBody>

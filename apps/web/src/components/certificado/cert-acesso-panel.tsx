@@ -236,7 +236,7 @@ export function CertAcessoPanel({ certId, titular, active, autoDownload = true, 
             onChange={e => setMotivo(e.target.value)}
             rows={2}
             placeholder="Motivo do acesso"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none"
+            className="w-full rounded-md px-3 py-2 text-sm focus:outline-none"
           />
         </div>
         {erro && <p className="text-xs text-rose-600">{erro}</p>}

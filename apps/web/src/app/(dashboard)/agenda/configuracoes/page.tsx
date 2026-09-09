@@ -894,9 +894,10 @@ export default function AgendaConfiguracoesPage() {
                         <div ref={destSearchRef} className="relative max-w-md mt-2">
                           <button
                             type="button"
+                            role="combobox"
                             onClick={() => setDestSearchOpen(o => !o)}
                             className={cn(
-                              'flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-sm',
+                              'flex h-9 w-full items-center justify-between rounded-md border border-input px-3 py-1 text-sm',
                               'focus:outline-none focus:ring-1 focus:ring-ring',
                             )}
                           >

@@ -2671,7 +2671,7 @@ export function FluxoEditor({ rootId, nodes: rawNodes, edges: rawEdges, podeEdit
               <select
                 value={origemSelect}
                 onChange={e => setOrigemSelect(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="h-9 w-full rounded-md px-3 text-sm"
               >
                 <option value="">— Selecione —</option>
                 {blocosConectaveis.map(b => (

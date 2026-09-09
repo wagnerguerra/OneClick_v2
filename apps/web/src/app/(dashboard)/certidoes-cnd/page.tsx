@@ -2248,7 +2248,7 @@ export default function CertidoesCndPage() {
                           console.log('[FILTER] value:', v, 'test:', 'ACBL INFORMACOES LTDA'.toLowerCase().includes(v.toLowerCase()), 'clients:', munConsultaClientes.length)
                           setMunConsultaSearch(v)
                         }}
-                        className="flex w-full rounded-[2px] border border-input bg-background px-3 py-1.5 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-8"
+                        className="flex w-full rounded-[2px] px-3 py-1.5 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-8"
                       />
                       <div className="border rounded-lg max-h-[200px] overflow-y-auto nice-scrollbar">
                         {munConsultaClientes.filter(c => {
