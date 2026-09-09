@@ -154,21 +154,49 @@ export class CertificadoDigitalService {
 
   // ── KPIs ──────────────────────────────────────────────────
 
-  async getStats(empresaId?: string) {
-    const where: any = { arquivado: false }
+  /**
+   * O recorte da gestao de certificados, em UM lugar so.
+   *
+   * `list()` e `getStats()` precisam concordar: um alimenta a tabela e o outro
+   * as abas com os numeros, na mesma tela. Estavam separados, e divergiram —
+   * a aba dizia 12 vencidos e a tabela mostrava 3, porque so a listagem tinha
+   * aprendido a ignorar cliente inativo.
+   *
+   * - `arquivado: false`  — arquivo tem aba propria;
+   * - `status != RENOVADO` — versao antiga de um certificado renovado nao e um
+   *   certificado a mais; a listagem ja a escondia e o contador nao;
+   * - cliente mensal ATIVO, ou nenhum cliente (documento da propria casa).
+   */
+  private recorteGestao(empresaId?: string): any {
+    const where: any = {
+      arquivado: false,
+      status: { not: 'RENOVADO' },
+      OR: [{ clienteId: null }, { cliente: { status: 'ATIVO', situacao: 'MENSAL' } }],
+    }
     if (empresaId) where.empresaId = empresaId
+    return where
+  }
+
+  async getStats(empresaId?: string) {
+    const base = this.recorteGestao(empresaId)
     const agora = new Date()
     const em30 = new Date(agora.getTime() + 30 * 86400000)
     const em60 = new Date(agora.getTime() + 60 * 86400000)
 
-    const [ativos, vencendo60, vencendo30, vencidos, revogados] = await Promise.all([
-      prisma.certificadoDigital.count({ where: { ...where, status: 'ATIVO', expiraEm: { gt: em60 } } }),
-      prisma.certificadoDigital.count({ where: { ...where, status: 'ATIVO', expiraEm: { gt: em30, lte: em60 } } }),
-      prisma.certificadoDigital.count({ where: { ...where, status: 'ATIVO', expiraEm: { gt: agora, lte: em30 } } }),
-      prisma.certificadoDigital.count({ where: { ...where, status: { in: ['ATIVO', 'EXPIRADO'] }, expiraEm: { lte: agora } } }),
-      prisma.certificadoDigital.count({ where: { ...where, status: 'REVOGADO' } }),
+    // `AND` em vez de espalhar `status` no topo: o recorte ja usa `status` e
+    // `OR`, e sobrescrever qualquer um dos dois derrubaria o filtro de cliente
+    // sem erro nenhum — some do resultado e ninguem ve.
+    const com = (extra: any) => ({ ...base, AND: [...(base.AND ?? []), extra] })
+
+    const [total, ativos, vencendo60, vencendo30, vencidos, revogados] = await Promise.all([
+      prisma.certificadoDigital.count({ where: base }),
+      prisma.certificadoDigital.count({ where: com({ status: 'ATIVO', expiraEm: { gt: em60 } }) }),
+      prisma.certificadoDigital.count({ where: com({ status: 'ATIVO', expiraEm: { gt: em30, lte: em60 } }) }),
+      prisma.certificadoDigital.count({ where: com({ status: 'ATIVO', expiraEm: { gt: agora, lte: em30 } }) }),
+      prisma.certificadoDigital.count({ where: com({ status: { in: ['ATIVO', 'EXPIRADO'] }, expiraEm: { lte: agora } }) }),
+      prisma.certificadoDigital.count({ where: com({ status: 'REVOGADO' }) }),
     ])
-    return { ativos, vencendo60, vencendo30, vencidos, revogados }
+    return { total, ativos, vencendo60, vencendo30, vencidos, revogados }
   }
 
   // ── Cadastro (upload PFX + parse + cifra + storage) ───────

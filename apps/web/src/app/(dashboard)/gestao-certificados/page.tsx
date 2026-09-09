@@ -52,6 +52,8 @@ interface Certificado {
 }
 
 interface Stats {
+  /** Tudo que entra no recorte da gestão — a mesma base das demais contagens. */
+  total: number
   ativos: number
   vencendo60: number
   vencendo30: number
@@ -501,7 +503,10 @@ export default function GestaoCertificadosPage() {
       {/* KPIs / Filtros */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
         {[
-          { key: '__all__', label: 'Todos', count: items.length, color: '#3b82f6', icon: FileLock },
+          // Todas as abas saem da MESMA fonte. Antes "Todos" contava o array
+          // ja carregado e as demais vinham do getStats — duas contagens da
+          // mesma coisa, com recortes diferentes, lado a lado.
+          { key: '__all__', label: 'Todos', count: stats?.total ?? items.length, color: '#3b82f6', icon: FileLock },
           { key: 'ATIVO', label: 'Vigentes', count: stats?.ativos ?? 0, color: '#10b981', icon: CheckCircle2 },
           { key: 'VENCENDO', label: 'Vencendo', count: (stats?.vencendo60 ?? 0) + (stats?.vencendo30 ?? 0), color: '#f59e0b', icon: Clock },
           { key: 'VENCIDO', label: 'Vencidos', count: stats?.vencidos ?? 0, color: '#ef4444', icon: XCircle },
