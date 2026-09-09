@@ -105,8 +105,67 @@ Um `<Card>` com três partes:
 - **Sem coluna Status** — situação é badge dentro da linha, gerenciada no form.
 - **Colunas somem antes de espremer** (`hidden md:table-cell`); ordem de sacrifício
   em [`PADRAO_RESPONSIVIDADE.md`](PADRAO_RESPONSIVIDADE.md) §6.
-- **Rodapé** com "Mostrando X a Y de Z registros" e a paginação numérica.
 - **Carregando** é spinner dentro da tabela; **vazio** é ícone + frase, no lugar da lista.
+
+### 1.4 Paginação — referência `/clientes`
+
+Duas metades, sempre no mesmo lugar: **"Exibir N registros" na barra de cima**,
+**contagem e navegação no rodapé**.
+
+```tsx
+{/* toolbar, à esquerda da busca */}
+<div className="flex items-center gap-2 text-xs text-muted-foreground">
+  <span className="hidden sm:inline">Exibir</span>
+  <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
+    <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+    <SelectContent>{[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
+  </Select>
+  <span className="hidden sm:inline">registros</span>
+</div>
+
+{/* rodapé do card */}
+<div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+  <p className="text-xs text-muted-foreground">
+    Mostrando <span className="font-medium">{startRecord}</span> a <span className="font-medium">{endRecord}</span> de <span className="font-medium">{total}</span> registros
+  </p>
+  {totalPages > 1 && (
+    <div className="flex items-center gap-1">
+      <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(1)}><ChevronsLeft className="h-3.5 w-3.5" /></Button>
+      <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+      {getPageNumbers().map(n => (
+        <Button key={n} variant={n === page ? 'soft' : 'outline'} size="icon-xs" className="text-xs" onClick={() => setPage(n)}>{n}</Button>
+      ))}
+      <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-3.5 w-3.5" /></Button>
+      <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(totalPages)}><ChevronsRight className="h-3.5 w-3.5" /></Button>
+    </div>
+  )}
+</div>
+```
+
+Regras:
+
+- **Opções fixas: 10 / 20 / 50 / 100.** Não invente outras.
+- **No máximo 5 números**, centrados na página atual — a janela desliza:
+  `start = max(1, page - 2)`, `end = min(totalPages, start + 4)`, e então
+  `start = max(1, end - 4)` para a janela não encolher no fim da lista.
+- **A navegação some quando só há uma página** (`totalPages > 1`). Setas
+  desabilitadas numa lista de dez linhas são ruído.
+- **Saltos para a primeira e a última** existem porque, com muitas páginas, ir
+  do fim ao começo de um em um é trabalho.
+- **Qualquer mudança de filtro, busca ou tamanho de página volta para a
+  página 1.** Sem isso, filtrar estando na página 3 deixa a tabela vazia com o
+  rodapé dizendo que há registros — e a pessoa conclui que o filtro quebrou.
+- **"Selecionar todos" marca a página, não a lista inteira.** Marcar 500 itens
+  dos quais 20 estão à vista, com uma ação em massa logo adiante, é o caminho
+  curto para excluir o que ninguém viu.
+- **Página vazia não some sozinha:** ao excluir o último registro de uma página,
+  volte para a anterior.
+
+**Server-side é o padrão** (`page`/`limit` no input, `total`/`totalPages` na
+resposta) — é o que `/clientes` faz. Paginar no cliente só quando a lista já
+vem inteira por outra razão legítima e o volume é pequeno (ex.: `/beneficios-fiscais`,
+com algumas dezenas de vínculos e busca server-side). O rodapé é idêntico nos
+dois casos; o que muda é de onde vêm `total` e a fatia.
 
 ---
 

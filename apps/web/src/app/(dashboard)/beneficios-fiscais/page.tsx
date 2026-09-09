@@ -5,6 +5,7 @@ import {
   Percent, Loader2, Plus, MoreVertical, Edit2, Trash2, Settings2,
   CheckCircle2, Clock, AlertTriangle, MinusCircle, Receipt,
   ChevronUp, ChevronDown, ChevronsUpDown, GitBranch,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label, cn, Checkbox, RichEditor,
@@ -97,6 +98,12 @@ export default function BeneficiosFiscaisPage() {
 
   const [filtroStatus, setFiltroStatus] = useState<Status | null>(null)
   const [busca, setBusca] = useState('')
+  // Paginacao no cliente: a lista ja vem inteira do servidor (51 vinculos hoje,
+  // e a busca e que e server-side). Paginar aqui e proporcional ao volume; se
+  // um dia crescer, o caminho e levar page/limit para o endpoint — o rodape
+  // continua o mesmo.
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
   type SortKey = 'cliente' | 'beneficio' | 'vencimento' | 'status'
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'cliente', dir: 'asc' })
   function toggleSort(key: SortKey) {
@@ -151,6 +158,29 @@ export default function BeneficiosFiscaisPage() {
       return r !== 0 ? r : a.clienteNome.localeCompare(b.clienteNome, 'pt-BR', { sensitivity: 'base' })
     })
   }, [vinculos, filtroStatus, sort])
+  const totalPages = Math.max(1, Math.ceil(visiveis.length / limit))
+  const pagina = useMemo(
+    () => visiveis.slice((page - 1) * limit, page * limit),
+    [visiveis, page, limit],
+  )
+  const startRecord = visiveis.length === 0 ? 0 : (page - 1) * limit + 1
+  const endRecord = Math.min(page * limit, visiveis.length)
+
+  // Volta para a primeira pagina quando o conjunto muda. Sem isto, filtrar
+  // estando na pagina 3 deixa a tabela vazia com o rodape dizendo que ha
+  // registros — a pessoa conclui que o filtro quebrou.
+  useEffect(() => { setPage(1) }, [filtroStatus, busca, limit])
+
+  /** Ate 5 numeros, centrados na pagina atual — mesma janela do /clientes. */
+  function getPageNumbers() {
+    const pages: number[] = []
+    let start = Math.max(1, page - 2)
+    const end = Math.min(totalPages, start + 4)
+    start = Math.max(1, end - 4)
+    for (let i = start; i <= end; i++) pages.push(i)
+    return pages
+  }
+
   const catalogoAtivo = useMemo(() => catalogo.filter(c => c.ativo), [catalogo])
 
   const podeSelecionar = canGerarOrcamento || canDelete
@@ -159,7 +189,10 @@ export default function BeneficiosFiscaisPage() {
   }
   function toggleSelTodos() {
     setSelecionados(prev => {
-      const ids = visiveis.map(v => v.id)
+      // Da pagina, nao da lista inteira: "selecionar todos" marcando 51 itens
+      // dos quais so 20 estao a vista e uma acao em massa logo adiante e o
+      // caminho curto para excluir o que ninguem viu.
+      const ids = pagina.map(v => v.id)
       const todos = ids.length > 0 && ids.every(id => prev.has(id))
       return todos ? new Set() : new Set(ids)
     })
@@ -329,11 +362,16 @@ export default function BeneficiosFiscaisPage() {
             (carregando, vazio e com resultado) ja vivem dentro deste mesmo
             card, entao ela nunca some junto com a tabela. */}
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-xs text-muted-foreground">
-            {loading
-              ? 'Carregando…'
-              : <>Mostrando <span className="font-medium tabular-nums text-foreground">{visiveis.length}</span> benefício(s)</>}
-          </span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="hidden sm:inline">Exibir</span>
+            <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
+              <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <span className="hidden sm:inline">registros</span>
+          </div>
           <div className="w-full sm:w-[420px]">
             <Input
               placeholder="Buscar por cliente ou benefício..."
@@ -378,7 +416,7 @@ export default function BeneficiosFiscaisPage() {
                 {podeSelecionar && (
                   <TableHead className="w-[44px]">
                     <Checkbox
-                      checked={visiveis.length > 0 && visiveis.every(v => selecionados.has(v.id))}
+                      checked={pagina.length > 0 && pagina.every(v => selecionados.has(v.id))}
                       onCheckedChange={toggleSelTodos}
                       aria-label="Selecionar todos"
                     />
@@ -391,7 +429,7 @@ export default function BeneficiosFiscaisPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visiveis.map(v => {
+              {pagina.map(v => {
                 const cfg = STATUS_CFG[v.status]
                 return (
                   <TableRow
@@ -471,6 +509,28 @@ export default function BeneficiosFiscaisPage() {
               })}
             </TableBody>
           </Table>
+        )}
+
+        {/* Rodape: contagem a esquerda, paginacao numerica a direita — mesmo
+            desenho do /clientes. Os saltos para primeira/ultima existem porque
+            com muitas paginas ir do fim ao comeco de um em um e trabalho. */}
+        {!loading && visiveis.length > 0 && (
+          <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Mostrando <span className="font-medium">{startRecord}</span> a <span className="font-medium">{endRecord}</span> de <span className="font-medium">{visiveis.length}</span> registros
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(1)}><ChevronsLeft className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+                {getPageNumbers().map(n => (
+                  <Button key={n} variant={n === page ? 'soft' : 'outline'} size="icon-xs" className="text-xs" onClick={() => setPage(n)}>{n}</Button>
+                ))}
+                <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(totalPages)}><ChevronsRight className="h-3.5 w-3.5" /></Button>
+              </div>
+            )}
+          </div>
         )}
       </Card>
 
