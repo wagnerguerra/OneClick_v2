@@ -625,7 +625,11 @@ export default function GestaoCertificadosPage() {
               </div>
             </div>
           )}
-          <div className="overflow-y-auto">
+          {/* `flex-1 min-h-0` e o que faz SO esta area rolar: sem o `min-h-0`
+              um filho flex nao encolhe abaixo do proprio conteudo e o card
+              inteiro estica, levando a rolagem de volta para a pagina.
+              `nice-scrollbar` porque a barra nativa destoa do tema (CLAUDE.md). */}
+          <div className="nice-scrollbar min-h-0 flex-1 overflow-y-auto">
             <Table>
               <TableHeader>
                 <TableRow className="whitespace-nowrap">

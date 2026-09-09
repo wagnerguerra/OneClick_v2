@@ -292,9 +292,12 @@ export default function BeneficiosFiscaisPage() {
   }
 
   return (
-    <div className="space-y-5">
+    // Altura travada — PADRAO_PAGINAS §1.5. O wrapper deixa de ser `space-y` e
+    // passa a `flex ... gap`, que e o que permite o card crescer para o espaco
+    // restante; por isso tambem entra o `mb-0` no cabecalho.
+    <div className="flex h-[calc(100vh-98px)] flex-col gap-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           {/* "+ Novo" primeiro e no `variant` padrao do Button — a cor do
               modulo fica para os destaques internos, nao para a acao principal
               (docs/PADRAO_PAGINAS.md §1.1). */}
@@ -323,7 +326,7 @@ export default function BeneficiosFiscaisPage() {
       {/* Indicadores — anatomia de /clientes: cartao proprio, icone tintado,
           numero grande e anel na cor quando o filtro esta ligado. Continuam
           sendo os filtros de status; a busca desceu para a barra da tabela. */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+      <div className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         {([
           { key: null as Status | null, label: 'Todos', count: dash.TOTAL, cor: '#94a3b8', Icone: Percent },
           ...(['NO_PRAZO', 'VENCENDO', 'VENCIDO', 'SEM_DATA'] as Status[]).map(st => ({
@@ -363,11 +366,11 @@ export default function BeneficiosFiscaisPage() {
       </div>
 
       {/* Tabela */}
-      <Card className="overflow-hidden">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Busca na barra do card, como em /clientes — os tres estados
             (carregando, vazio e com resultado) ja vivem dentro deste mesmo
             card, entao ela nunca some junto com a tabela. */}
-        <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
@@ -412,10 +415,11 @@ export default function BeneficiosFiscaisPage() {
           </div>
         )}
         {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          <div className="flex flex-1 justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : visiveis.length === 0 ? (
-          <div className="text-center py-12 text-sm text-muted-foreground">Nenhum benefício encontrado.</div>
+          <div className="flex-1 py-12 text-center text-sm text-muted-foreground">Nenhum benefício encontrado.</div>
         ) : (
+          <div className="nice-scrollbar min-h-0 flex-1 overflow-y-auto">
           <Table>
             <TableHeader>
               <TableRow className="whitespace-nowrap">
@@ -515,13 +519,14 @@ export default function BeneficiosFiscaisPage() {
               })}
             </TableBody>
           </Table>
+          </div>
         )}
 
         {/* Rodape: contagem a esquerda, paginacao numerica a direita — mesmo
             desenho do /clientes. Os saltos para primeira/ultima existem porque
             com muitas paginas ir do fim ao comeco de um em um e trabalho. */}
         {!loading && visiveis.length > 0 && (
-          <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex shrink-0 flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               Mostrando <span className="font-medium">{startRecord}</span> a <span className="font-medium">{endRecord}</span> de <span className="font-medium">{visiveis.length}</span> registros
             </p>

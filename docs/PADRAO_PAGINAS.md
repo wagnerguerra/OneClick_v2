@@ -167,6 +167,58 @@ vem inteira por outra razão legítima e o volume é pequeno (ex.: `/beneficios-
 com algumas dezenas de vínculos e busca server-side). O rodapé é idêntico nos
 dois casos; o que muda é de onde vêm `total` e a fatia.
 
+### 1.5 Altura travada — a página não rola, os registros rolam
+
+Referência: `/gestao-certificados` (e `/crm`, `/orcamentos`).
+
+A página ocupa a altura da janela e **não cresce**. O card da tabela toma o
+espaço que sobra, e a rolagem acontece **só na área de registros** — cabeçalho
+da tabela, barra de busca e rodapé de paginação ficam sempre à vista.
+
+```tsx
+{/* 1. a página trava na altura da janela */}
+<div className="flex h-[calc(100vh-98px)] flex-col gap-5">
+  <PageHeaderBar className="mb-0 sm:mb-0" …/>
+  <div className="grid shrink-0 …">{/* indicadores */}</div>
+
+  {/* 2. o card toma o resto */}
+  <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex shrink-0 …">{/* toolbar: Exibir + busca */}</div>
+
+    {/* 3. só isto rola */}
+    <div className="nice-scrollbar min-h-0 flex-1 overflow-y-auto">
+      <Table>…</Table>
+    </div>
+
+    <div className="flex shrink-0 …">{/* rodapé: contagem + paginação */}</div>
+  </Card>
+</div>
+```
+
+As três peças, e por que cada uma:
+
+- **`h-[calc(100vh-98px)]` no wrapper.** Os 98px são o cabeçalho do app mais o
+  respiro do `<main>`. É o mesmo número em `/crm`, `/orcamentos` e
+  `/gestao-certificados` — se mudar, muda nos quatro.
+- **`min-h-0 flex-1` no card e na área de rolagem.** O `flex-1` faz crescer; o
+  `min-h-0` é o que **permite encolher**. Sem ele, um filho flex não desce
+  abaixo da altura do próprio conteúdo, o card estica, e a rolagem volta para a
+  página — o sintoma é "apliquei tudo e continua rolando a tela inteira".
+- **`shrink-0` na toolbar, nos indicadores e no rodapé.** Sem isso eles cedem
+  altura antes da tabela e a busca vai sendo espremida conforme a lista cresce.
+
+Mais duas regras:
+
+- A área que rola leva **`nice-scrollbar`** — a barra nativa destoa do tema,
+  sobretudo no escuro (CLAUDE.md).
+- O wrapper precisa ser **`flex … gap-*`**, não `space-y-*`: `space-y` não
+  distribui altura, então o card nunca recebe o espaço restante. Trocando o
+  wrapper, entra também o `mb-0 sm:mb-0` no cabeçalho (§1.1).
+
+**Quando NÃO usar:** telas que não são uma lista só — as que empilham gráficos,
+seções ou vários cards abaixo da tabela. Ali travar a altura esconde conteúdo
+atrás de duas rolagens concorrentes, que é pior do que rolar a página.
+
 ---
 
 ## 2. Página inicial com kanban — referências `/crm` e `/orcamentos`

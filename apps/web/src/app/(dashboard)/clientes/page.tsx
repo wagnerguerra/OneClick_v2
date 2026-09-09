@@ -610,7 +610,10 @@ export default function ClientesPage() {
   const hasActiveFilters = filterSituacao || (filterStatus !== 'ATIVO') || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || filterServico || onlyMensal || onlyExCliente
 
   return (
-    <div className="flex flex-col gap-5">
+    // Altura travada na janela: o card da tabela toma o que sobra e so a area
+    // de registros rola. Assim cabecalho da tabela, busca e paginacao ficam
+    // sempre a vista — PADRAO_PAGINAS §1.5.
+    <div className="flex h-[calc(100vh-98px)] flex-col gap-5">
       {/* Header padrão (como o /crm): barra full-bleed, título + trilha, ações à direita */}
       <PageHeaderBar className="mb-0 sm:mb-0"
         actions={<>
@@ -1177,8 +1180,8 @@ export default function ClientesPage() {
       )}
 
       {/* DataTable */}
-      <Card>
-        <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
@@ -1195,6 +1198,9 @@ export default function ClientesPage() {
           </div>
         </div>
 
+        {/* `min-h-0` e o que permite este filho encolher abaixo do proprio
+            conteudo; sem ele o card estica e a rolagem volta para a pagina. */}
+        <div className="nice-scrollbar min-h-0 flex-1 overflow-y-auto">
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
@@ -1389,10 +1395,11 @@ export default function ClientesPage() {
             )}
           </TableBody>
         </Table>
+        </div>
 
         {/* Footer */}
         {data && (
-          <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex shrink-0 flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               {data.total === 0 ? (
                 'Mostrando 0 registros'
