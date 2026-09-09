@@ -73,6 +73,30 @@ export class CertificadoDigitalService {
       }
     }
 
+    // ── So clientes mensais ATIVOS ───────────────────────────────────────
+    //
+    // A gestao de certificados existe para responder "o que precisa ser
+    // renovado". Cliente que saiu nao gera renovacao: dos 17 certificados
+    // vencidos da base, 10 eram de cliente inativo ou nao-mensal — mais da
+    // metade do numero mandava atras de trabalho que nao existe.
+    //
+    // Na fonte, e nao em cada filtro da tela, porque a regra vale para tudo
+    // que a pagina mostra: lista, contadores, busca e as abas de status.
+    //
+    // DUAS EXCECOES, ambas deliberadas:
+    //  - certificado SEM cliente (da propria empresa ou de um socio) fica: nao
+    //    e cliente que saiu, e documento da casa;
+    //  - quando se pede um cliente ESPECIFICO (`opts.clienteId`, que e como a
+    //    ficha do cliente lista os certificados dele), a regra nao se aplica —
+    //    ali a pessoa pediu aquele cliente, inativo ou nao, e esconder seria
+    //    responder outra pergunta.
+    if (!opts.clienteId) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        { OR: [{ clienteId: null }, { cliente: { status: 'ATIVO', situacao: 'MENSAL' } }] },
+      ]
+    }
+
     return prisma.certificadoDigital.findMany({
       where,
       select: {
@@ -669,7 +693,19 @@ export class CertificadoDigitalService {
     // 4. Para cada cert, decide bucket + destinatários + cria/dedupe notificação
     let notificados = 0
 
+    // Mesma regra da listagem: certificado de cliente que saiu nao e pendencia
+    // de ninguem. Vale para todos os baldes — vencido e "vence em N dias" —,
+    // senao o sino cobraria renovacao que a tela nem mostra.
+    const mensaisAtivos = new Set(
+      (await prisma.cliente.findMany({
+        where: { id: { in: clienteIds }, status: 'ATIVO' as never, situacao: 'MENSAL' as never },
+        select: { id: true },
+      }).catch(() => [] as Array<{ id: string }>)).map(c => c.id),
+    )
+
     for (const cert of certs) {
+      // Sem cliente = documento da propria casa, continua valendo.
+      if (cert.clienteId && !mensaisAtivos.has(cert.clienteId)) continue
       const dias = Math.ceil((new Date(cert.expiraEm).getTime() - agora.getTime()) / 86400000)
       let bucket: 'VENCIDO' | '7D' | '30D' | '60D'
       let titulo: string
