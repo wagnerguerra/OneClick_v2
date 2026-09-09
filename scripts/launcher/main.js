@@ -2357,6 +2357,24 @@ function registerIpcHandlers() {
     return (r.stdout || '').replace(/\r?\n+$/, '')
   }
 
+  // SHA de um ref, ou '' se ele não existe.
+  //
+  // Existe porque `git rev-parse origin/<inexistente>` NÃO sai em branco: ele
+  // ecoa o próprio argumento no stdout ("origin/fix/minha-branch") e devolve
+  // 128. Como gitOutput ignora o código de saída, o chamador recebia uma string
+  // truthy que não é SHA nenhum — e o `merge-base --is-ancestor` seguinte
+  // falhava, o que era lido como "o remoto está à frente". O deploy de uma
+  // branch que só existe local então tentava mesclar um ref inexistente e
+  // morria em "not something we can merge".
+  //
+  // O `--verify --quiet` é o que faz o rev-parse calar e sair em branco.
+  function gitRefSha(ref, cwd) {
+    const r = spawnSync('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], {
+      cwd: cwd || projectRoot, encoding: 'utf8', windowsHide: true,
+    })
+    return r.status === 0 ? (r.stdout || '').replace(/\r?\n+$/, '') : ''
+  }
+
   // Branch default do repositório (trunk). Usa origin/HEAD; cai pra main/master.
   function detectDefaultBranch(cwd) {
     const ref = gitOutput(['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], cwd)
@@ -3109,7 +3127,7 @@ function registerIpcHandlers() {
         targetSha = gitOutput(['rev-parse', 'HEAD'])
         coreDeployBranch = localBranch
       }
-      const remoteShaBeforePush = gitOutput(['rev-parse', `origin/${coreDeployBranch}`])
+      const remoteShaBeforePush = gitRefSha(`origin/${coreDeployBranch}`)
       if (!targetSha) targetSha = gitOutput(['rev-parse', 'HEAD'])
       if (!corePrTarget?.number && gitExitCode(['merge-base', '--is-ancestor', targetSha, 'HEAD']) !== 0) {
         return { ok: false, error: 'Commit selecionado não pertence ao histórico local.' }
@@ -3125,7 +3143,9 @@ function registerIpcHandlers() {
       // topo (HEAD) da própria branch de deploy.
       if (coreDeployBranch === localBranch) {
         await gitExec(['fetch', 'origin', coreDeployBranch], null, 30000)
-        const remoteBranchSha = gitOutput(['rev-parse', `origin/${coreDeployBranch}`])
+        // Branch que ainda não existe no origin devolve '' — nada a integrar, e o
+        // push adiante é que a cria.
+        const remoteBranchSha = gitRefSha(`origin/${coreDeployBranch}`)
         const headSha = gitOutput(['rev-parse', 'HEAD'])
         const remoteAhead = remoteBranchSha && gitExitCode(['merge-base', '--is-ancestor', remoteBranchSha, targetSha]) !== 0
         if (remoteAhead && targetSha === headSha) {
@@ -3518,7 +3538,7 @@ function registerIpcHandlers() {
         // Auto-integra o branch remoto do app antes do push (mesma lógica do core).
         if (appDeployBranch === appBranch) {
           await gitExec(['fetch', 'origin', appDeployBranch], null, 30000, appCwd)
-          const appRemoteSha = gitOutput(['rev-parse', `origin/${appDeployBranch}`], appCwd)
+          const appRemoteSha = gitRefSha(`origin/${appDeployBranch}`, appCwd)
           const appHeadSha = gitOutput(['rev-parse', 'HEAD'], appCwd)
           const appRemoteAhead = appRemoteSha && gitExitCode(['merge-base', '--is-ancestor', appRemoteSha, appTargetSha], appCwd) !== 0
           if (appRemoteAhead && appTargetSha === appHeadSha) {
