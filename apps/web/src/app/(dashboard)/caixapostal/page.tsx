@@ -1650,7 +1650,7 @@ export default function CaixaPostalPage() {
       </Dialog>
 
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           {modoFiltrado ? (
             <>
               <Button variant="outline" size="sm" onClick={() => {

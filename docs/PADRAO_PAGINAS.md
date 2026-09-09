@@ -29,11 +29,12 @@ A ordem é sempre a mesma: **barra da página → filtros → card da tabela →
 
 ```tsx
 <PageHeaderBar
+  className="mb-0 sm:mb-0"        {/* só quando o wrapper usa flex+gap — ver abaixo */}
   actions={<>
-    {/* secundárias → menu ⋮ → primária, nesta ordem */}
+    {/* 1º a primária "+ Novo…", depois as secundárias, e o menu ⋮ por último */}
+    <Button size="sm" asChild className="gap-1.5"><Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link></Button>
     <Button variant="outline" size="sm" className="gap-1.5"><Settings2 className="h-4 w-4" />Opções</Button>
     <DropdownMenu>…<Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>…</DropdownMenu>
-    <Button size="sm" asChild className="gap-1.5"><Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link></Button>
   </>}
 >
   <h1 className="truncate">Clientes</h1>
@@ -50,6 +51,31 @@ A ordem é sempre a mesma: **barra da página → filtros → card da tabela →
 O `<h1>` vai **puro** (o estilo vem do global). A trilha é sempre
 `Página inicial › Bloco › Módulo`. Subpágina acrescenta o próprio nome e ganha
 `<BackButton>` como **último** item das ações.
+
+#### A ordem das ações (09/09/2026)
+
+**O botão "+ Novo…" é sempre o primeiro da esquerda.** É a ação que se usa todo
+dia; ficava por último em nove telas, atrás de alternadores de visão, atalhos e
+botões que se usam uma vez por semestre. Depois dele vêm as secundárias e, por
+último, o menu `⋮` — que é onde mora tudo o que é raro (importações, varreduras,
+configurações).
+
+Botão primário usa o `variant` padrão do `Button` (o azul do tema). Não pinte a
+ação principal com a cor do módulo: a cor do módulo é para barra de progresso,
+checkbox e destaques internos, não para o botão que existe em todas as telas.
+
+#### O espaçamento (`mb-0 sm:mb-0`)
+
+A `PageHeaderBar` traz `mb-4 sm:mb-5` própria. Isso é o certo quando o wrapper
+da página usa `space-y-*`: ali o container é bloco, as margens **colapsam** e o
+espaço sai igual dos dois lados.
+
+Quando o wrapper é `flex flex-col gap-*`, margens **não** colapsam e o `gap`
+entra por cima — o espaço acima do primeiro bloco fica o dobro do que vem
+depois. Nesses casos passe `className="mb-0 sm:mb-0"`, deixando o `gap` como
+única fonte de espaçamento.
+
+Na dúvida: se o wrapper tem `gap-`, use `mb-0 sm:mb-0`.
 
 ### 1.2 Filtros
 Card colapsável com contador de filtros ativos e "Limpar". Fechado, a faixa

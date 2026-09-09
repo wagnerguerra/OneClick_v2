@@ -90,7 +90,7 @@ export function ManifestacaoPage({ config }: { config: Config }) {
   return (
     <div className="flex flex-col gap-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           {podeRegistrar && (
             <Button variant="success" size="sm" className="gap-1.5" onClick={() => setNovoOpen(true)}>
               <Plus className="h-4 w-4" /> {config.rotuloNovo}

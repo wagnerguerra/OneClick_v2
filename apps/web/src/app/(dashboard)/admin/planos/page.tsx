@@ -197,7 +197,7 @@ export default function AdminPlanosPage() {
   return (
     <div className="flex flex-col gap-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           <Button variant="success" size="sm" onClick={openNew}>
             <Plus className="mr-1.5 h-4 w-4" /> Novo plano
           </Button>

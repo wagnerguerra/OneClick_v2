@@ -612,7 +612,7 @@ export default function ClientesPage() {
   return (
     <div className="flex flex-col gap-5">
       {/* Header padrão (como o /crm): barra full-bleed, título + trilha, ações à direita */}
-      <PageHeaderBar
+      <PageHeaderBar className="mb-0 sm:mb-0"
         actions={<>
               {canCreate && (
                 <Button size="sm" asChild className="gap-1.5">

@@ -194,7 +194,7 @@ export default function PermissoesEmMassaPage() {
   return (
     <div className="flex flex-col gap-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           {qtdPendentes > 0 && (
             <Button size="sm" variant="outline" onClick={() => setPendentes({})}>
               <RotateCcw className="h-3.5 w-3.5" /> Descartar

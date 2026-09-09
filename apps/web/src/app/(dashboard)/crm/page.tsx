@@ -963,6 +963,9 @@ export default function CrmPage() {
           à esquerda e ações à direita — 1º módulo padronizado ── */}
       <PageHeaderBar className="mb-0 sm:mb-0"
         actions={<>
+          <Button size="sm" onClick={openCreate} className="gap-1.5">
+            <Plus className="h-4 w-4" /> Nova Oportunidade
+          </Button>
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -1100,9 +1103,6 @@ export default function CrmPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" onClick={openCreate} className="gap-1.5">
-            <Plus className="h-4 w-4" /> Nova Oportunidade
-          </Button>
         </>}
       >
         <h1 className="truncate">CRM</h1>

@@ -244,6 +244,11 @@ export default function ColetaDocumentosPage() {
       {/* Header padrão (como o /crm): barra full-bleed, título + trilha, ações à direita */}
       <PageHeaderBar
         actions={<>
+          {podeEscrever && (
+            <Button size="sm" className="gap-1.5" onClick={abrirNovo}>
+              <Plus className="h-4 w-4" />Novo Registro
+            </Button>
+          )}
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Buscar por nº, cliente, contato..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 w-60 pl-8 text-sm" />
@@ -291,11 +296,6 @@ export default function ColetaDocumentosPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
-          {podeEscrever && (
-            <Button size="sm" className="gap-1.5" onClick={abrirNovo}>
-              <Plus className="h-4 w-4" />Novo Registro
-            </Button>
           )}
         </>}
       >

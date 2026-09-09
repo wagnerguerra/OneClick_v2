@@ -104,14 +104,14 @@ export default function ReunioesPage() {
     <div className="space-y-6">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/reunioes/acoes"><ListTodo className="h-4 w-4" />Minhas ações</Link>
-          </Button>
           {podeRegistrar && (
             <Button variant="success" size="sm" asChild>
               <Link href="/reunioes/new"><Plus className="h-4 w-4" />Nova Reunião</Link>
             </Button>
           )}
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/reunioes/acoes"><ListTodo className="h-4 w-4" />Minhas ações</Link>
+          </Button>
           {podeRegistrar && (
             <Button variant="outline" size="icon-sm" asChild title="Tipos de reunião">
               <Link href="/reunioes/configuracoes"><Settings className="h-4 w-4" /></Link>
