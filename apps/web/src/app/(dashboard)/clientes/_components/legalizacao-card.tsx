@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, Check, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, X, MoreVertical, ChevronDown } from 'lucide-react'
 import {
@@ -13,6 +13,7 @@ import { cn } from '@saas/ui'
 import { MioloColapsavel } from './card-colapsavel'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertDetalhesModal } from '@/components/certificado/cert-detalhes-modal'
+import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
 import { ImportStatusModal, type ImportStep } from './import-status-modal'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -69,7 +70,7 @@ interface Vencimento { id: string; descricao: string; data_vencimento: string; a
 export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoCardProps) {
   // Contrai o card pelo cabecalho; abre expandido a cada visita.
   const [cardAberto, setCardAberto] = useState(true)
-  const { canManageRegistration, canManageFiscal } = useClientesPerms()
+  const { canManageRegistration, canManageFiscal, canEditCertificados } = useClientesPerms()
   const [activeTab, setActiveTab] = useState('pop')
   // Detalhes do certificado (modal compartilhado com o módulo Legalização). #HLP0301
   const [viewCertId, setViewCertId] = useState<string | null>(null)
@@ -156,11 +157,29 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   const [certidoesLoading, setCertidoesLoading] = useState(false)
   const [dteMensagens, setDteMensagens] = useState<Array<{ id: string; tipo: string | null; titulo: string | null; data_mensagem: string | null; observacao: string | null; created_at: string }>>([])
   const [dteLoading, setDteLoading] = useState(false)
-  // Certificados digitais vinculados ao cliente (#HLP0078). A sub-aba "Certificado"
-  // sumiu do detalhe do cliente quando reescrevemos o módulo — agora volta listando
-  // os certificados ativos e linkando pra /gestao-certificados pra criar/gerenciar.
-  const [certificados, setCertificados] = useState<Array<{ id: string; nome: string | null; cnpj: string | null; titular: string | null; expiraEm: string | null; emissor: string | null; status: string }>>([])
+  // Certificados digitais vinculados ao cliente (#HLP0078). Desde o #HLP0385 o
+  // cadastro e a edição acontecem AQUI: antes o botão mandava a pessoa para
+  // /gestao-certificados numa aba nova, que era o que o usuário relatava como
+  // "estamos sendo direcionados para a página dos certificados".
+  //
+  // Os nomes dos campos seguem o que o `list` devolve. Estavam `nome` e `cnpj`,
+  // que a API não manda: o CNPJ nunca aparecia na linha, e o título só não
+  // sumia porque caía no fallback do `titular`.
+  const [certificados, setCertificados] = useState<Array<{
+    id: string
+    titular: string | null
+    documento: string | null
+    expiraEm: string | null
+    emissor: string | null
+    status: string
+    observacoes: string | null
+  }>>([])
   const [certificadosLoading, setCertificadosLoading] = useState(false)
+  /** Modal de cadastro (#HLP0385) — cliente já vem preso ao contexto. */
+  const [certCadastroOpen, setCertCadastroOpen] = useState(false)
+  /** Edição das observações. O resto do certificado sai do PFX e não se edita. */
+  const [certEdit, setCertEdit] = useState<{ id: string; titular: string; observacoes: string } | null>(null)
+  const [certSalvando, setCertSalvando] = useState(false)
 
   // Modal Acesso
   const [aceModalOpen, setAceModalOpen] = useState(false)
@@ -272,16 +291,43 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     }
   }, [activeTab, clienteId, certidoes.length])
 
+  // Recarrega a lista. Função própria porque cadastrar e editar precisam
+  // refazer a busca — o lazy load abaixo só dispara com a lista vazia, então
+  // sozinho ele nunca traria o certificado recém-criado.
+  const carregarCertificados = useCallback(() => {
+    if (!clienteId) return
+    setCertificadosLoading(true)
+    ;(trpc.certificadoDigital as any).list.query({ clienteId, incluirArquivados: false })
+      .then((data: typeof certificados) => setCertificados(data))
+      .catch(() => {})
+      .finally(() => setCertificadosLoading(false))
+  }, [clienteId])
+
   // Lazy load de certificados digitais (#HLP0078)
   useEffect(() => {
     if (activeTab === 'certificados' && clienteId && certificados.length === 0) {
-      setCertificadosLoading(true)
-      ;(trpc.certificadoDigital as any).list.query({ clienteId, incluirArquivados: false })
-        .then((data: typeof certificados) => setCertificados(data))
-        .catch(() => {})
-        .finally(() => setCertificadosLoading(false))
+      carregarCertificados()
     }
-  }, [activeTab, clienteId, certificados.length])
+  }, [activeTab, clienteId, certificados.length, carregarCertificados])
+
+  /** Salva as observações do certificado (#HLP0385). */
+  async function salvarCertificado() {
+    if (!certEdit) return
+    setCertSalvando(true)
+    try {
+      await (trpc.certificadoDigital as any).update.mutate({
+        id: certEdit.id,
+        observacoes: certEdit.observacoes.trim() || null,
+      })
+      setCertEdit(null)
+      carregarCertificados()
+      alerts.success('Certificado atualizado', 'As observações foram salvas.')
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setCertSalvando(false)
+    }
+  }
 
   // ── Acesso CRUD ──
   function openAceModal(acesso?: typeof acessos[0]) {
@@ -1112,15 +1158,18 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                       Certificados (.pfx) vinculados a este cliente. A senha é cifrada com AES-256-GCM.
                     </p>
                   </div>
-                  <a
-                    href={`/gestao-certificados?clienteId=${clienteId ?? ''}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button">
-                      <Plus className="h-3 w-3" /> Adicionar / Gerenciar
+                  {/* #HLP0385 — cadastro AQUI. Antes isto era um link para
+                      /gestao-certificados numa aba nova: quem estava no cadastro
+                      do cliente era jogado para outro módulo, perdia o contexto
+                      e ainda tinha de reencontrar o cliente por lá. */}
+                  {canEditCertificados && (
+                    <Button
+                      variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
+                      onClick={() => setCertCadastroOpen(true)}
+                    >
+                      <Plus className="h-3 w-3" /> Novo certificado
                     </Button>
-                  </a>
+                  )}
                 </div>
               </div>
               <div className="p-5">
@@ -1133,7 +1182,9 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     <ShieldCheck className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     <p className="text-sm">Nenhum certificado vinculado a este cliente.</p>
                     <p className="text-xs mt-1">
-                      Use o botão "Adicionar / Gerenciar" pra fazer upload do .pfx no módulo de certificados.
+                      {canEditCertificados
+                        ? 'Use "Novo certificado" para enviar o .pfx — o sistema lê titular, validade e emissor do próprio arquivo.'
+                        : 'Você não tem permissão para cadastrar certificados — peça a um responsável pela legalização.'}
                     </p>
                   </div>
                 ) : (
@@ -1161,10 +1212,10 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           <FileLock className="h-5 w-5 text-fuchsia-600 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
-                              {cert.titular || cert.nome || cert.id}
+                              {cert.titular || cert.id}
                             </p>
                             <p className="text-[11px] text-muted-foreground truncate">
-                              {cert.cnpj && <>CNPJ: <span className="font-mono">{cert.cnpj}</span> · </>}
+                              {cert.documento && <>Documento: <span className="font-mono">{cert.documento}</span> · </>}
                               {cert.emissor && <>Emissor: {cert.emissor}</>}
                             </p>
                           </div>
@@ -1182,6 +1233,28 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                               </>
                             ) : '—'}
                           </div>
+                          {/* #HLP0385 — editar sem sair do cliente. Só as
+                              observações: titular, validade e emissor são lidos
+                              do PFX e mudá-los faria o cadastro divergir do
+                              arquivo que vale. Trocar o certificado é renovação,
+                              que tem fluxo próprio no módulo. */}
+                          {canEditCertificados && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setCertEdit({
+                                  id: cert.id,
+                                  titular: cert.titular || cert.id,
+                                  observacoes: cert.observacoes || '',
+                                })
+                              }}
+                              className="text-muted-foreground hover:text-foreground shrink-0"
+                              title="Editar observações"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           <a
                             href={`/gestao-certificados?openId=${cert.id}`}
                             target="_blank"
@@ -1207,6 +1280,55 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 origem="cliente"
                 canDownload
               />
+
+              {/* Cadastro no próprio cliente (#HLP0385). O cliente vem preso ao
+                  contexto, então não há seletor para errar — e o certificado já
+                  nasce vinculado. */}
+              <CertCadastroModal
+                open={certCadastroOpen}
+                onOpenChange={setCertCadastroOpen}
+                presetClienteId={clienteId ?? null}
+                onCreated={() => { setCertCadastroOpen(false); carregarCertificados() }}
+                title="Cadastrar certificado digital"
+                subtitle="Informe o arquivo .pfx e a senha — titular, validade e emissor são extraídos automaticamente."
+                note={<>🔒 A senha é cifrada com AES-256-GCM. O certificado fica vinculado a este cliente e aparece também no módulo <b>Gestão de Certificados</b>.</>}
+              />
+
+              {/* Edição das observações (#HLP0385) */}
+              <Dialog open={!!certEdit} onOpenChange={(o) => { if (!o) setCertEdit(null) }}>
+                <DialogContent className="sm:max-w-[480px]">
+                  <DialogHeaderIcon icon={Pencil} color="sky">
+                    <DialogTitle>Editar certificado</DialogTitle>
+                  </DialogHeaderIcon>
+                  <DialogBody className="space-y-3">
+                    <div>
+                      <Label className="text-[13px] font-semibold">Titular</Label>
+                      <p className="mt-1 text-sm text-muted-foreground">{certEdit?.titular}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Titular, validade e emissor vêm do próprio arquivo e não são editáveis.
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-[13px] font-semibold">Observações</Label>
+                      <textarea
+                        value={certEdit?.observacoes ?? ''}
+                        onChange={(e) => setCertEdit(c => (c ? { ...c, observacoes: e.target.value } : c))}
+                        rows={4}
+                        placeholder="Anotações internas sobre este certificado..."
+                        className="mt-1.5 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+                      />
+                    </div>
+                  </DialogBody>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setCertEdit(null)} disabled={certSalvando} type="button">
+                      Cancelar
+                    </Button>
+                    <Button onClick={salvarCertificado} disabled={certSalvando} type="button">
+                      {certSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </>
           )}
 
