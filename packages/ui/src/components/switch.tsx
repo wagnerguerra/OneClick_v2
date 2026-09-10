@@ -15,12 +15,19 @@ interface SwitchProps {
   id?: string
   name?: string
   title?: string
+  /**
+   * Cor de destaque quando LIGADO (aceita qualquer valor CSS, inclusive var —
+   * ex.: `var(--mod-x)` ou um tom semantico como emerald). Aplicada via style
+   * so no estado ligado; desligado segue o off theme-aware. Ausente = primaria.
+   */
+  accentColor?: string
+  style?: React.CSSProperties
   'aria-label'?: string
   'aria-labelledby'?: string
 }
 
 const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
-  ({ checked, defaultChecked, onCheckedChange, disabled, className, ...props }, ref) => {
+  ({ checked, defaultChecked, onCheckedChange, disabled, className, accentColor, style, ...props }, ref) => {
     const isControlled = checked !== undefined
     const [internal, setInternal] = React.useState(!!defaultChecked)
     const value = isControlled ? !!checked : internal
@@ -37,6 +44,9 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
           if (!isControlled) setInternal(v => !v)
           onCheckedChange?.(!value)
         }}
+        // accentColor so pinta o estado ligado (inline vence a classe bg-primary);
+        // desligado nao recebe style e mantem o off theme-aware.
+        style={value && accentColor ? { ...style, backgroundColor: accentColor } : style}
         className={cn(
           // Espelha o toggle de /usuarios (aba Permissões), eleito o melhor: sem
           // border-2 (que desalinhava o thumb), off theme-aware, thumb branco.

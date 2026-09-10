@@ -56,7 +56,7 @@ export type ColorName =
  * superfície de um card) → `SURFACE`.
  */
 export const BADGE: Record<ColorName, string> = {
-  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
+  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800',
   rose: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800',
   amber: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800',
   sky: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800',
@@ -99,7 +99,7 @@ export const STRONG: Record<ColorName, string> = {
 /** Texto colorido (claro -600 / escuro -400). */
 export const TEXT: Record<ColorName, string> = {
   emerald: 'text-emerald-600 dark:text-emerald-400',
-  rose: 'text-rose-600 dark:text-rose-400',
+  rose: 'text-rose-600 dark:text-rose-500',
   amber: 'text-amber-600 dark:text-amber-400',
   sky: 'text-sky-600 dark:text-sky-400',
   indigo: 'text-indigo-600 dark:text-indigo-400',
