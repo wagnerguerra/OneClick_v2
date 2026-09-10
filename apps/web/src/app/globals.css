@@ -816,7 +816,10 @@ html[data-swal2-theme="dark"] { --swal2-background: var(--color-card); }
     opacity: 1;
   }
   .dark input:disabled, .dark input[readonly], .dark textarea:disabled, .dark textarea[readonly] {
-    background-color: #151820 !important;
+    /* Recuo SUTIL a partir do input padrão (#262a33), espelhando o claro
+       (#f3f6f9 é só um degrau abaixo do card). O #151820 antigo saltava quase
+       pro fundo da página e destoava. */
+    background-color: #20242e !important;
   }
 
   textarea {

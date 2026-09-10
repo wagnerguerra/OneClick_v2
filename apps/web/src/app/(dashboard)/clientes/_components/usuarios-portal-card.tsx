@@ -5,10 +5,11 @@ import {
   Users, Plus, Loader2, Pencil, Trash2, ShieldCheck, Building2, MailWarning, Send,
 } from 'lucide-react'
 import {
-  Button, Card, Input, Label, Badge, cn,
+  Button, Card, Input, Label, Badge, cn, Checkbox,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -248,7 +249,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
                     )}
                     {/* Convite ainda não aceito: a pessoa existe, mas não entra. */}
                     {u.ativo && !u.user.emailVerified && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400" title="Ainda não definiu a senha">
+                      <span className={cn('inline-flex items-center gap-1 text-[10px]', TEXT.amber)} title="Ainda não definiu a senha">
                         <MailWarning className="h-3 w-3" /> convite pendente
                       </span>
                     )}
@@ -264,7 +265,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
                     {u.user.email}
                     {u.areas.length > 0
                       ? <> · {u.areas.map(nomeArea).join(', ')}</>
-                      : <> · <span className="text-amber-600 dark:text-amber-400">sem área liberada</span></>}
+                      : <> · <span className={TEXT.amber}>sem área liberada</span></>}
                   </p>
                 </div>
 
@@ -383,11 +384,9 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
               onToggle={id => setEditando(u => (u ? { ...u, areas: alternarArea(u.areas, id) } : u))}
             />
             <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={editando?.ativo ?? false}
-                onChange={e => setEditando(u => (u ? { ...u, ativo: e.target.checked } : u))}
-                className="h-4 w-4 rounded border-border"
+                onCheckedChange={c => setEditando(u => (u ? { ...u, ativo: c === true } : u))}
               />
               Acesso ativo
             </label>

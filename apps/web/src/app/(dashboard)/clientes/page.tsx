@@ -12,10 +12,9 @@ import {
   ChevronDown, X, Database, Loader2, Sparkles, UserCog,
   FileSearch,
   Ban, RotateCcw, Building2, ExternalLink, Copy,
-  Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
+  Tag,
   ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
   CalendarClock, BadgePercent, ArrowLeftRight,
-  type LucideIcon,
 } from 'lucide-react'
 import {
   Button, Input, Badge,
@@ -28,7 +27,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BADGE, TEXT } from '@/lib/color-styles'
-import { areaTone } from './_lib/area-tone'
+import { AREA_BADGE_MAP } from './_lib/area-tone'
 import { trpc } from '@/lib/trpc'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { alerts } from '@/lib/alerts'
@@ -541,34 +540,6 @@ export default function ClientesPage() {
     return tipo === 'CPF' ? masks.cpf(doc) : masks.cnpj(doc)
   }
 
-  // Ícone por área (chave normalizada, sem acento). A COR vem da fonte única
-  // `areaTone` (→ BADGE do color-styles, dark-correto) — a mesma de /clientes/[id]
-  // aba Obrigações. O ícone herda a cor do texto do badge (currentColor).
-  const AREA_ICON: Record<string, LucideIcon> = {
-    contabil: Calculator,
-    fiscal: FileText,
-    trabalhista: Users,
-    societario: Briefcase,
-    legalizacao: Building2,
-    administrativo: ClipboardList,
-    financeiro: Wallet,
-    pessoal: UserCog,
-    dp: UserCog,
-  }
-  // Hex por área — só para a legenda de filtro por área do card de stats, que
-  // tinge o estado ativo via `color-mix` inline (valor CSS cru, não classe).
-  const AREA_COLOR: Record<string, string> = {
-    contabil: '#0284c7',
-    fiscal: '#475569',
-    trabalhista: '#16a34a',
-    societario: '#7c3aed',
-    legalizacao: '#e11d48',
-    administrativo: '#64748b',
-    financeiro: '#0891b2',
-    pessoal: '#ea580c',
-    dp: '#ea580c',
-  }
-
   function renderAreas(areas: string | null) {
     if (!areas) return <span className="text-muted-foreground">—</span>
     return (
@@ -577,12 +548,13 @@ export default function ClientesPage() {
           const trimmed = area.trim()
           if (!trimmed) return null
           const key = trimmed.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          const Icon = AREA_ICON[key] ?? Tag
+          const conf = AREA_BADGE_MAP[key]
+          const Icon = conf?.Icon ?? Tag
           return (
             <span
               key={trimmed}
               title={trimmed}
-              className={cn('inline-flex items-center gap-1 rounded-[4px] border px-1.5 py-[1px] text-[9px] font-semibold uppercase leading-tight tracking-wide', BADGE[areaTone(trimmed)])}
+              className={cn('inline-flex items-center gap-1 rounded-[4px] border px-1.5 py-[1px] text-[9px] font-semibold uppercase leading-tight tracking-wide', BADGE[conf?.tone ?? 'slate'])}
             >
               <Icon className="h-2.5 w-2.5 shrink-0" />
               {trimmed}
@@ -942,8 +914,8 @@ export default function ClientesPage() {
                   {stats.porArea.map(a => {
                     const ativoAqui = filterArea === a.area
                     const chave = a.area.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                    const cor = AREA_COLOR[chave] || '#6b7280'
-                    const Icone = AREA_ICON[chave] ?? Tag
+                    const conf = AREA_BADGE_MAP[chave]
+                    const Icone = conf?.Icon ?? Tag
                     return (
                       <button
                         key={a.area}
@@ -953,18 +925,15 @@ export default function ClientesPage() {
                         title={ativoAqui ? `Filtrando por ${a.area} — clique para limpar` : `Filtrar quem tem ${a.area}`}
                         className={cn(
                           'flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10.5px] transition-all',
-                          ativoAqui ? 'font-semibold shadow-sm' : 'border-transparent text-muted-foreground hover:bg-muted',
+                          // Ativo = pastel da cor da área via helper (mesmos tons dos
+                          // badges da listagem); o ícone herda o texto (currentColor).
+                          ativoAqui ? cn('font-semibold shadow-sm', BADGE[conf?.tone ?? 'slate']) : 'border-transparent text-muted-foreground hover:bg-muted',
                           // Com uma área escolhida, as outras recuam sem sumir:
                           // continuam clicáveis para trocar de filtro.
                           filterArea && !ativoAqui && 'opacity-45 hover:opacity-100',
                         )}
-                        style={ativoAqui ? {
-                          color: cor,
-                          backgroundColor: `color-mix(in srgb, ${cor} 14%, transparent)`,
-                          borderColor: `color-mix(in srgb, ${cor} 45%, transparent)`,
-                        } : undefined}
                       >
-                        <Icone className="h-2.5 w-2.5 shrink-0" style={{ color: cor }} />
+                        <Icone className={cn('h-2.5 w-2.5 shrink-0', TEXT[conf?.tone ?? 'slate'])} />
                         {a.area}
                         <strong className={cn('font-semibold tabular-nums', !ativoAqui && 'text-foreground')}>{a.total}</strong>
                         {ativoAqui && <X className="h-3 w-3 shrink-0 opacity-70" />}
@@ -1036,7 +1005,7 @@ export default function ClientesPage() {
                 {/* Linha 1: Número · Grupo · Atividade · Município · Estado · Tributação */}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Número</label>
-                  <Input value={filterNumero} onChange={(e) => setFilterNumero(e.target.value.replace(/\D/g, ''))} placeholder="Nº do cliente" inputMode="numeric" className="h-8 text-xs bg-card" />
+                  <Input value={filterNumero} onChange={(e) => setFilterNumero(e.target.value.replace(/\D/g, ''))} placeholder="Nº do cliente" inputMode="numeric" className="h-8 text-xs" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Grupo Empresarial</label>
@@ -1206,7 +1175,7 @@ export default function ClientesPage() {
               em 60% da linha impede que ele encoste no "Exibir N registros"
               num notebook 1366. */}
           <div className="w-full sm:w-[560px] sm:max-w-[60%]">
-            <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 

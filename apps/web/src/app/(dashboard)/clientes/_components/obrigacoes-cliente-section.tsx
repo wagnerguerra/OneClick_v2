@@ -498,7 +498,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               placeholder="Buscar obrigação..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-8 text-xs bg-card"
+              className="h-8 pl-8 text-xs"
             />
           </div>
         </div>
@@ -718,7 +718,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                   placeholder="Filtrar..."
                   value={obrSearch}
                   onChange={(e) => setObrSearch(e.target.value)}
-                  className="h-8 pl-8 text-xs bg-card"
+                  className="h-8 pl-8 text-xs"
                 />
               </div>
               <div className="border rounded max-h-[280px] overflow-y-auto divide-y">

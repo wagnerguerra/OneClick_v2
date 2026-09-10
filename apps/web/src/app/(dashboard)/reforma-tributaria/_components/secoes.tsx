@@ -16,7 +16,7 @@ import {
 } from 'recharts'
 import { Info, TrendingDown, TrendingUp, HelpCircle, ListTree, Download, Share2, AlertTriangle } from 'lucide-react'
 import {
-  Button, Card, Input, Label, Badge, cn,
+  Button, Card, Input, Label, Badge, cn, Checkbox,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
@@ -478,15 +478,14 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
             </div>
             <div>
               <Label className="text-[13px] font-semibold">Atividade (LC 123)</Label>
-              <select
-                value={p.atividadeSimples}
-                onChange={(e) => onChange({ atividadeSimples: e.target.value as AtividadeSimples })}
-                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-              >
-                {ATIVIDADES_SIMPLES.map(a => (
-                  <option key={a} value={a}>{ROTULO_ATIVIDADE_SIMPLES[a]}</option>
-                ))}
-              </select>
+              <Select value={p.atividadeSimples} onValueChange={(v) => onChange({ atividadeSimples: v as AtividadeSimples })}>
+                <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ATIVIDADES_SIMPLES.map(a => (
+                    <SelectItem key={a} value={a}>{ROTULO_ATIVIDADE_SIMPLES[a]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="mt-1 text-[11px] text-muted-foreground">
                 Decide o anexo, o Fator R e o ISS fixo. Serviços contábeis são Anexo III
                 por lei (art. 18, §5º-B), independentemente da folha.
@@ -494,16 +493,15 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
             </div>
             <div>
               <Label className="text-[13px] font-semibold">Anexo</Label>
-              <select
-                value={p.anexo}
-                onChange={(e) => onChange({ anexo: e.target.value as Anexo | 'AUTO' })}
-                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-              >
-                <option value="AUTO">AUTOMÁTICO — pela atividade e pelo Fator R</option>
-                {(['I', 'II', 'III', 'IV', 'V'] as Anexo[]).map(a => (
-                  <option key={a} value={a}>{ROTULO_ANEXO[a]}</option>
-                ))}
-              </select>
+              <Select value={p.anexo} onValueChange={(v) => onChange({ anexo: v as Anexo | 'AUTO' })}>
+                <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="AUTO">AUTOMÁTICO — pela atividade e pelo Fator R</SelectItem>
+                  {(['I', 'II', 'III', 'IV', 'V'] as Anexo[]).map(a => (
+                    <SelectItem key={a} value={a}>{ROTULO_ANEXO[a]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <CampoMoeda label="DAS informado (guia mensal)" valor={p.dasInformado} onChange={(v) => onChange({ dasInformado: v })} />
@@ -522,28 +520,26 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
           <div className="space-y-4">
             <div>
               <Label className="text-[13px] font-semibold">Ano-base</Label>
-              <select
-                value={p.anoBase}
-                onChange={(e) => onChange({ anoBase: Number(e.target.value) })}
-                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-              >
-                {ANOS_BASE.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
+              <Select value={String(p.anoBase)} onValueChange={(v) => onChange({ anoBase: Number(v) })}>
+                <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ANOS_BASE.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <p className="mt-1 text-[11px] text-muted-foreground">
                 As alíquotas do IVA são função do ano: o regime pleno só vale em {ANO_PLENO}.
               </p>
             </div>
             <div>
               <Label className="text-[13px] font-semibold">Redução por atividade</Label>
-              <select
-                value={p.classificacaoIva}
-                onChange={(e) => onChange({ classificacaoIva: e.target.value as ClassificacaoIva })}
-                className="mt-1.5 h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
-              >
-                {(Object.keys(REDUCOES_IVA) as ClassificacaoIva[]).map(k => (
-                  <option key={k} value={k}>{REDUCOES_IVA[k].rotulo}</option>
-                ))}
-              </select>
+              <Select value={p.classificacaoIva} onValueChange={(v) => onChange({ classificacaoIva: v as ClassificacaoIva })}>
+                <SelectTrigger className="mt-1.5 h-10 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(REDUCOES_IVA) as ClassificacaoIva[]).map(k => (
+                    <SelectItem key={k} value={k}>{REDUCOES_IVA[k].rotulo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="mt-1 text-[11px] text-muted-foreground">{REDUCOES_IVA[p.classificacaoIva].base}</p>
             </div>
             <div>
@@ -576,11 +572,9 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
               </p>
             </div>
             <label className="flex shrink-0 items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={p.issUniprofissional}
-                onChange={(e) => onChange({ issUniprofissional: e.target.checked })}
-                className="h-4 w-4 rounded border-border"
+                onCheckedChange={(c) => onChange({ issUniprofissional: c === true })}
               />
               Sociedade uniprofissional
             </label>
@@ -720,7 +714,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
                     return (
                       <Celula key={l.chave}>
                         {v === null
-                          ? <span className="text-amber-600 dark:text-amber-400" title="Não calculável com os dados informados">—</span>
+                          ? <span className={TEXT.amber} title="Não calculável com os dados informados">—</span>
                           : reais(v)}
                       </Celula>
                     )
@@ -812,7 +806,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
               </div>
               <span className="shrink-0 text-sm font-bold tabular-nums">
                 {l.parcial && l.totalEfetivo !== null && (
-                  <span className="mr-1 text-[10px] font-normal text-amber-600 dark:text-amber-400">parcial</span>
+                  <span className={cn('mr-1 text-[10px] font-normal', TEXT.amber)}>parcial</span>
                 )}
                 {reaisOuTraco(l.totalEfetivo)}
               </span>
@@ -827,7 +821,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
                     </td>
                     <td className="py-1.5 text-right text-xs tabular-nums">
                       {it.valor === null
-                        ? <span className="text-amber-600 dark:text-amber-400">—</span>
+                        ? <span className={TEXT.amber}>—</span>
                         : reais(it.valor)}
                     </td>
                   </tr>

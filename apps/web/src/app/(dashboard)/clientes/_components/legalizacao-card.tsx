@@ -1316,7 +1316,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                         onChange={(e) => setCertEdit(c => (c ? { ...c, observacoes: e.target.value } : c))}
                         rows={4}
                         placeholder="Anotações internas sobre este certificado..."
-                        className="mt-1.5 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+                        className="mt-1.5 w-full rounded-md px-3 py-2 text-sm text-foreground"
                       />
                     </div>
                   </DialogBody>

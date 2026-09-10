@@ -565,7 +565,7 @@ export default function GestaoCertificadosPage() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
-              <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-[68px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
               </SelectContent>
@@ -585,7 +585,7 @@ export default function GestaoCertificadosPage() {
               placeholder="Buscar por titular, documento, cliente..."
               value={filtroBusca}
               onChange={e => setFiltroBusca(e.target.value)}
-              className="h-8 w-full bg-card text-xs"
+              className="h-8 w-full text-xs"
             />
           </div>
         </div>
