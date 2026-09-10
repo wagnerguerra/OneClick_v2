@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Loader2, X, ChevronDown, Paperclip,
   Bug, Lightbulb, HelpCircle, ClipboardList,
-  AlertTriangle, Zap, AlertCircle, Snowflake,
+  AlertTriangle, Zap, AlertCircle, Snowflake, RotateCcw,
 } from 'lucide-react'
 import {
   Input, Label, RichEditor, cn,
@@ -52,6 +52,56 @@ export interface Categoria {
 }
 
 export interface TicketCriado { id: string; numero: number; hash: string }
+
+/**
+ * #HLP0384 — rascunho do novo ticket.
+ *
+ * Relato do usuario: "o ticket apaga quando voce troca de pagina... nao e como
+ * no e-mail que voce consegue ter um rascunho". A modal fecha no clique fora e
+ * na navegacao, e o que estava digitado ia junto — inclusive quando a pessoa so
+ * saiu para BUSCAR o dado que faltava no proprio ticket.
+ *
+ * Mesmo mecanismo da "Nova Oportunidade" do CRM: o que foi digitado fica no
+ * navegador enquanto o formulario esta aberto, e volta na proxima abertura.
+ * Como o formulario e compartilhado, a modal e o balao do FAB ganham juntos.
+ *
+ * Uma chave so, sem id de usuario — igual ao CRM. O rascunho vive no navegador
+ * da pessoa e some ao criar o ticket ou ao descartar.
+ */
+const RASCUNHO_KEY = 'helpdesk:novo-ticket:rascunho'
+
+interface RascunhoTicket {
+  titulo: string
+  descricao: string
+  tipo: HelpdeskTipo | null
+  prioridade: HelpdeskPrioridade
+  categoriaId: string | null
+  anexos: AnexoStaged[]
+}
+
+/** Texto do editor sem marcacao — o RichEditor entrega "<p></p>" vazio. */
+function textoPuro(html: string): string {
+  return html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
+}
+
+/** Vale a pena guardar? Tipo sozinho nao conta: e um clique, nao digitacao. */
+export function rascunhoTemConteudo(r: Partial<RascunhoTicket>): boolean {
+  return !!(r.titulo?.trim() || textoPuro(r.descricao ?? '') || (r.anexos?.length ?? 0) > 0)
+}
+
+/**
+ * Anexos que podem ir para o rascunho.
+ *
+ * So os de upload CONCLUIDO: 'uploading' e 'error' nao tem `fileUrl` valido, e
+ * voltariam como card quebrado. O `previewUrl` cai fora porque e um ObjectURL —
+ * vale so enquanto a aba viver, e a graca do rascunho e justamente sobreviver a
+ * ela; guardado, viraria uma imagem quebrada na proxima abertura.
+ */
+export function anexosPersistiveis(anexos: AnexoStaged[]): AnexoStaged[] {
+  return anexos
+    .filter(a => a.status === 'ready' && !!a.fileUrl)
+    .map(a => ({ ...a, previewUrl: undefined }))
+}
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -107,6 +157,75 @@ export function useTicketForm(opts: {
   const [anexos, setAnexos] = useState<AnexoStaged[]>([])
   const [loadingCats, setLoadingCats] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  /** Reabrimos com o que a pessoa tinha digitado? Vira aviso na tela. */
+  const [rascunhoRestaurado, setRascunhoRestaurado] = useState(false)
+  /**
+   * Trava a gravacao logo apos criar o ticket.
+   *
+   * Sem ela havia uma corrida: o ticket e criado, apagamos a chave, mas o
+   * formulario continua montado com o texto por mais um render — e o efeito de
+   * gravacao reescrevia o rascunho que acabara de ser publicado. Na abertura
+   * seguinte o ticket ja enviado reaparecia como rascunho.
+   */
+  const suprimirGravacao = useRef(false)
+  /**
+   * Pula o PRIMEIRO disparo da gravação depois de abrir.
+   *
+   * No commit em que `active` vira `true` os dois efeitos rodam, e o de
+   * restauração apenas AGENDA os `setState` — a gravação ainda enxerga o
+   * formulário vazio do render anterior. Sem este pulo ela apaga a chave e só
+   * a reescreve no render seguinte, a partir do que a restauração já leu.
+   *
+   * Não chega a perder o rascunho (a leitura acontece antes), mas abre uma
+   * janela de um frame em que a chave não existe, e faz a corretude depender
+   * de a restauração estar declarada ANTES daqui. Estava declarada DEPOIS na
+   * primeira versão, e aí o rascunho realmente nunca voltava — três testes de
+   * `ticket-form-rascunho.test.tsx` cobrem esse arranjo.
+   */
+  const puloDeAbertura = useRef(false)
+
+  const limparRascunho = useCallback(() => {
+    try { if (typeof window !== 'undefined') localStorage.removeItem(RASCUNHO_KEY) } catch { /* privado/quota */ }
+  }, [])
+
+  // Restaura ao abrir. Declarado ANTES da gravação por clareza de leitura — a
+  // corretude quem garante é o `puloDeAbertura`.
+  useEffect(() => {
+    if (!active || typeof window === 'undefined') return
+    suprimirGravacao.current = false
+    puloDeAbertura.current = true
+    let restaurado = false
+    try {
+      const raw = localStorage.getItem(RASCUNHO_KEY)
+      if (raw) {
+        const d = JSON.parse(raw) as Partial<RascunhoTicket>
+        if (rascunhoTemConteudo(d)) {
+          setTitulo(d.titulo ?? '')
+          setDescricao(d.descricao ?? '')
+          setTipo(d.tipo ?? null)
+          setPrioridade(d.prioridade ?? 'MEDIA')
+          setCategoriaId(d.categoriaId ?? null)
+          setAnexos(d.anexos ?? [])
+          restaurado = true
+        }
+      }
+    } catch { /* rascunho corrompido — ignora e abre limpo */ }
+    setRascunhoRestaurado(restaurado)
+  }, [active])
+
+  // Grava enquanto o formulario esta aberto e ha o que guardar.
+  useEffect(() => {
+    if (!active || typeof window === 'undefined' || suprimirGravacao.current) return
+    if (puloDeAbertura.current) { puloDeAbertura.current = false; return }
+    const rascunho: RascunhoTicket = {
+      titulo, descricao, tipo, prioridade, categoriaId,
+      anexos: anexosPersistiveis(anexos),
+    }
+    try {
+      if (rascunhoTemConteudo(rascunho)) localStorage.setItem(RASCUNHO_KEY, JSON.stringify(rascunho))
+      else localStorage.removeItem(RASCUNHO_KEY)
+    } catch { /* quota/privado — tolera perder o rascunho */ }
+  }, [active, titulo, descricao, tipo, prioridade, categoriaId, anexos])
 
   useEffect(() => {
     if (!active) return
@@ -120,14 +239,35 @@ export function useTicketForm(opts: {
   const reset = useCallback(() => {
     setTitulo(''); setDescricao(''); setTipo(null)
     setPrioridade('MEDIA'); setCategoriaId(null); setAnexos([])
+    // Destrava a gravação. Importa no balão do FAB: lá o `active` continua
+    // `true` na tela de sucesso, então a trava posta ao criar o ticket ficaria
+    // presa — e o PRÓXIMO ticket, escrito sem fechar o balão, não seria salvo.
+    suprimirGravacao.current = false
   }, [])
 
-  // Limpa ao desativar (fechar) — atraso leve p/ não piscar durante a animação.
+  // Limpa os CAMPOS ao fechar — atraso leve p/ não piscar durante a animação. O
+  // rascunho no navegador fica: é ele que devolve o conteúdo na próxima
+  // abertura. O timeout é cancelado se a pessoa reabrir antes dos 200ms, senão
+  // ele zeraria o formulário logo depois de restaurado.
   useEffect(() => {
     if (active) return
-    const t = setTimeout(reset, 200)
+    const t = setTimeout(() => { reset(); setRascunhoRestaurado(false) }, 200)
     return () => clearTimeout(t)
   }, [active, reset])
+
+  /** Botão "Descartar": joga fora o rascunho e zera o formulário. */
+  const descartarRascunho = useCallback(async () => {
+    const ok = await alerts.confirm({
+      title: 'Descartar rascunho?',
+      text: 'O que você digitou neste ticket será apagado.',
+      confirmText: 'Descartar',
+      icon: 'warning',
+    })
+    if (!ok) return
+    limparRascunho()
+    reset()
+    setRascunhoRestaurado(false)
+  }, [limparRascunho, reset])
 
   const descricaoTexto = descricao.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
   // Título só é exigido quando não é auto (o FAB gera se vazio).
@@ -169,19 +309,26 @@ export function useTicketForm(opts: {
           })
         } catch (e) { console.warn('[TicketForm] addAnexo falhou:', (e as Error).message) }
       }
+      // O ticket virou registro: o rascunho perdeu a razao de existir.
+      suprimirGravacao.current = true
+      limparRascunho()
+      setRascunhoRestaurado(false)
       onCreated?.(t)
     } catch (e) {
       alerts.error('Erro', (e as Error).message)
     } finally {
       setSalvando(false)
     }
-  }, [titulo, descricao, tipo, prioridade, categoriaId, anexos, pageUrl, tags, onCreated, autoTitulo])
+  }, [titulo, descricao, tipo, prioridade, categoriaId, anexos, pageUrl, tags, onCreated, autoTitulo, limparRascunho])
 
   return {
     titulo, setTitulo, descricao, setDescricao, tipo, setTipo,
     prioridade, setPrioridade, mostrarPrioridade,
     categoriaId, setCategoriaId, categorias, loadingCats,
     anexos, setAnexos, salvando, canSubmit, submit, reset, autoTitulo: !!autoTitulo,
+    rascunhoRestaurado, descartarRascunho,
+    /** Há algo digitado? Habilita o "Descartar" e o aviso de saída. */
+    temConteudo: rascunhoTemConteudo({ titulo, descricao, anexos }),
   }
 }
 
@@ -201,6 +348,23 @@ export function TicketFormFields({ form, variant = 'modal', onSubmitShortcut }: 
   const fab = variant === 'fab'
   return (
     <div className={cn(fab ? 'space-y-3' : 'space-y-4')}>
+      {/* Rascunho recuperado — #HLP0384. Fica no topo porque o que a pessoa ve
+          primeiro ao reabrir sao os campos ja preenchidos: sem a explicacao,
+          parece que o sistema inventou o conteudo. */}
+      {form.rascunhoRestaurado && (
+        <div className={cn(
+          'flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-amber-800',
+          'dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
+          fab ? 'text-[11px]' : 'text-xs',
+        )}>
+          <RotateCcw className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            Recuperamos o que você tinha começado a escrever. Para começar do zero,
+            use <strong>Descartar</strong>.
+          </span>
+        </div>
+      )}
+
       {/* Tipo (chips) */}
       <div className="space-y-1.5">
         <Label className="text-[13px] font-semibold">Tipo *</Label>
