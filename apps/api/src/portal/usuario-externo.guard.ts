@@ -33,6 +33,22 @@ import { AuthService } from '../auth/auth.service'
 const LIBERADOS = ['/api/auth', '/api/portal']
 
 /**
+ * Leitura de asset — logo do escritório, avatar, anexo já publicado.
+ *
+ * Só GET/HEAD. O `GET /api/upload/:filename` NÃO exige sessão (confirmado no
+ * controller: quem exige é o POST), então já está aberto a quem tiver a URL.
+ * Bloqueá-lo para o usuário logado, enquanto segue aberto para a internet,
+ * seria prejuízo puro — e foi o que quebrou a logo no topo do portal: o
+ * navegador manda o cookie, a guarda via um externo e devolvia 403. Com `curl`
+ * sem cookie a mesma URL respondia 200, o que despistou o diagnóstico.
+ *
+ * O POST continua barrado: enviar arquivo pelo portal é assunto da Fase 1, e
+ * vai ter rota própria com escopo por cliente.
+ */
+const ASSETS_LEITURA = '/api/upload/'
+const METODOS_LEITURA = new Set(['GET', 'HEAD'])
+
+/**
  * O tRPC é liberado aqui e gateado LÁ DENTRO.
  *
  * Uma única rota (`/trpc/<procedure>`) atende procedure interna e procedure de
@@ -59,6 +75,7 @@ export class UsuarioExternoGuard implements CanActivate {
 
     if (TRPC.some(p => caminho.startsWith(p))) return true
     if (LIBERADOS.some(p => caminho.startsWith(p))) return true
+    if (caminho.startsWith(ASSETS_LEITURA) && METODOS_LEITURA.has(req.method)) return true
 
     // Sem cookie não há sessão a resolver — evita uma consulta por requisição
     // em tudo que é público (assets, webhooks, health).

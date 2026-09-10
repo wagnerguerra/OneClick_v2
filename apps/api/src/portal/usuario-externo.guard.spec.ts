@@ -20,12 +20,13 @@ import { UsuarioExternoGuard } from './usuario-externo.guard'
 const getSession = jest.fn()
 const authService = { auth: { api: { getSession } } } as never
 
-function contexto(url: string, comCookie = true): ExecutionContext {
+function contexto(url: string, comCookie = true, method = 'GET'): ExecutionContext {
   return {
     switchToHttp: () => ({
       getRequest: () => ({
         originalUrl: url,
         url,
+        method,
         headers: comCookie ? { cookie: 'better-auth.session_token=abc' } : {},
       }),
     }),
@@ -101,6 +102,34 @@ describe('rotas que o externo precisa', () => {
     // para qualquer caminho que comece parecido.
     getSession.mockResolvedValue(externo)
     await expect(guard.canActivate(contexto('/api/chat/events')))
+      .rejects.toBeInstanceOf(ForbiddenException)
+  })
+})
+
+describe('leitura de asset', () => {
+    // REGRESSÃO: a logo do escritório no topo do portal quebrou porque o
+    // navegador manda o cookie e a guarda via um externo. A MESMA URL
+    // respondia 200 no `curl` (que vai sem cookie), o que despistou o
+    // diagnóstico por um bom tempo.
+  it('libera GET de asset — a logo do topo do portal', async () => {
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/upload/logo.png'))).resolves.toBe(true)
+  })
+
+  it('libera HEAD também', async () => {
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/upload/logo.png', true, 'HEAD'))).resolves.toBe(true)
+  })
+
+  it('mas barra o POST — enviar arquivo é assunto da Fase 1, com rota própria', async () => {
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/upload', true, 'POST')))
+      .rejects.toBeInstanceOf(ForbiddenException)
+  })
+
+  it('barra o POST de certificado, que fica sob o mesmo prefixo', async () => {
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/upload/certificado', true, 'POST')))
       .rejects.toBeInstanceOf(ForbiddenException)
   })
 })
