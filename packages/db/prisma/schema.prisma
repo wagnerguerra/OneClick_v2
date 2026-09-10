@@ -702,10 +702,43 @@ model ClienteUsuario {
   cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   criadoPor User?   @relation("PortalUsuarioCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
 
+  convites PortalConvite[]
+
   @@unique([userId, clienteId])
   @@index([clienteId])
   @@index([userId])
   @@map("cliente_usuarios")
+}
+
+/// Convite de primeiro acesso ao Portal do Cliente.
+///
+/// Existe em vez de reaproveitar o "esqueci minha senha" do Better Auth por
+/// duas razões: o texto é outro (quem nunca entrou não está "redefinindo"
+/// nada) e o prazo é outro — 30 minutos serve para quem pediu o reset agora e
+/// está olhando a caixa de entrada; um convite precisa sobreviver ao fim de
+/// semana.
+///
+/// O token NÃO é guardado: fica só o SHA-256 dele, como as senhas de
+/// certificado. Um vazamento do banco não devolve convites válidos.
+model PortalConvite {
+  id               String @id @default(cuid())
+  clienteUsuarioId String @map("cliente_usuario_id")
+
+  /// SHA-256 hex do token que viaja no link. O token em claro só existe no
+  /// e-mail enviado.
+  tokenHash String @unique @map("token_hash")
+
+  expiraEm DateTime  @map("expira_em")
+  /// Uso único: preenchido quando a senha é definida.
+  usadoEm  DateTime? @map("usado_em")
+
+  criadoPorId String?  @map("criado_por_id")
+  criadoEm    DateTime @default(now()) @map("criado_em")
+
+  clienteUsuario ClienteUsuario @relation(fields: [clienteUsuarioId], references: [id], onDelete: Cascade)
+
+  @@index([clienteUsuarioId])
+  @@map("portal_convites")
 }
 
 // ============================================================
@@ -4609,6 +4642,7 @@ model Servico {
   /**
    * /**
    * /**
+   * /**
    * /** Texto da pergunta apresentada ao gestor em runtime
    * (ex.: "Serviço mensal em todas as áreas?").
    */
@@ -4627,6 +4661,7 @@ model Servico {
   /**
    * /**
    * /**
+   * /**
    * /** @deprecated Mantido apenas para compat com bloco PERGUNTA / fluxos antigos.
    * Novas decisões de atribuição usam os campos `atribuicao*` abaixo.
    */
@@ -4642,6 +4677,7 @@ model Servico {
   // null (claim-first — todos veem em /meus-servicos, primeiro a marcar passo
   // reivindica). Configurado na pill "Identificação" do detalhe do serviço.
   /**
+   * /**
    * /**
    * /**
    * /** IDs de usuários candidatos diretamente listados.
@@ -4686,6 +4722,7 @@ model Servico {
   /**
    * /**
    * /**
+   * /**
    * /** URL da fonte oficial onde o vencimento/regra foi confirmado (ex.: site Receita,
    * portal SEFAZ). Usada como prova de auditoria + facilita revisão anual.
    */
@@ -4708,6 +4745,7 @@ model Servico {
 
   // ── Configurações avançadas (espelho dos campos do Acessórias) ──
   /**
+   * /**
    * /**
    * /**
    * /** Apelido curto exibido em colunas/relatórios. Max 10 chars.
@@ -5776,6 +5814,7 @@ model ServicoRecorrencia {
   // Por que: situações como "DAS dia 20 e outra obrigação dia 5" exigem 2+ datas/mês
   // sem precisar de 2 ServicoRecorrencia separados. Mantém 1:1 com Servico.
   /**
+   * /**
    * /**
    * /**
    * /** Dias do mês a disparar (1..31; usar 31 como sentinela para "último dia"). Vazio = usa ancoragem clássica.

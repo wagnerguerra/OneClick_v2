@@ -43,3 +43,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS cliente_usuarios_user_id_cliente_id_key
 -- usuário" (login) e "quais usuários deste cliente" (aba Usuários).
 CREATE INDEX IF NOT EXISTS cliente_usuarios_cliente_id_idx ON cliente_usuarios (cliente_id);
 CREATE INDEX IF NOT EXISTS cliente_usuarios_user_id_idx    ON cliente_usuarios (user_id);
+
+-- ── Convite de primeiro acesso ──────────────────────────────────────────────
+-- Guarda só o SHA-256 do token; o token em claro vive apenas no e-mail. Um
+-- vazamento do banco não devolve convites utilizáveis.
+CREATE TABLE IF NOT EXISTS portal_convites (
+  id                 text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  cliente_usuario_id text NOT NULL REFERENCES cliente_usuarios(id) ON DELETE CASCADE,
+  token_hash         text NOT NULL,
+  expira_em          timestamp(3) NOT NULL,
+  usado_em           timestamp(3),
+  criado_por_id      text,
+  criado_em          timestamp(3) NOT NULL DEFAULT NOW()
+);
+
+-- O lookup do convite é SEMPRE pelo hash — é o índice que sustenta a validação
+-- do link, e o unique impede colisão de token.
+CREATE UNIQUE INDEX IF NOT EXISTS portal_convites_token_hash_key ON portal_convites (token_hash);
+CREATE INDEX IF NOT EXISTS portal_convites_cliente_usuario_id_idx ON portal_convites (cliente_usuario_id);

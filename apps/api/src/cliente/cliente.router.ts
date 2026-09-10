@@ -1705,6 +1705,10 @@ export function createClienteRouter(
       }))
       .mutation(({ input }) => usuarios().atualizar(input)),
 
+    reenviarConvitePortal: writeSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => usuarios().reenviarConvite(input.id, { userId: ctx.userId })),
+
     desvincularUsuarioPortal: deleteSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => usuarios().desvincular(input.id)),

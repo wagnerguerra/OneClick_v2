@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Users, Plus, Loader2, Pencil, Trash2, ShieldCheck, Building2, MailWarning,
+  Users, Plus, Loader2, Pencil, Trash2, ShieldCheck, Building2, MailWarning, Send,
 } from 'lucide-react'
 import {
   Button, Card, Input, Label, Badge, cn,
@@ -97,18 +97,31 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
         clienteId, nome: form.nome.trim(), email: form.email.trim(),
         telefone: form.telefone.trim() || null,
         nivel: form.nivel, areas: form.areas,
-      }) as { criouUsuario: boolean }
+      }) as { criouUsuario: boolean; convite: { enviado: boolean } | null }
       setNovoAberto(false)
       setForm(formVazio())
       carregar()
       // A frase muda porque a situação muda: gente nova recebe convite; quem já
       // acessava outro cliente do grupo só passou a enxergar mais um.
-      await alerts.success(
-        r.criouUsuario ? 'Usuário cadastrado' : 'Acesso concedido',
-        r.criouUsuario
-          ? 'O acesso vale depois que a pessoa definir a própria senha pelo convite.'
-          : 'Esta pessoa já tinha acesso a outro cliente e agora enxerga este também.',
-      )
+      if (!r.criouUsuario) {
+        await alerts.success(
+          'Acesso concedido',
+          'Esta pessoa já tinha acesso a outro cliente e agora enxerga este também. '
+          + 'A senha continua sendo a que ela já usa.',
+        )
+      } else if (r.convite?.enviado) {
+        await alerts.success(
+          'Convite enviado',
+          'A pessoa recebeu um link para definir a própria senha. Ele vale por 7 dias e só pode ser usado uma vez.',
+        )
+      } else {
+        // O cadastro está feito; só o e-mail falhou. Dizer "cadastrado" e parar
+        // deixaria alguém esperando um convite que não chegou.
+        await alerts.warning(
+          'Usuário cadastrado, convite não enviado',
+          'O cadastro foi salvo, mas o e-mail não saiu. Use "Reenviar convite" na lista para tentar de novo.',
+        )
+      }
     } catch (e) {
       alerts.error('Não foi possível conceder o acesso', (e as Error).message)
     } finally { setSalvando(false) }
@@ -127,6 +140,19 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
     } catch (e) {
       alerts.error('Não foi possível atualizar', (e as Error).message)
     } finally { setSalvando(false) }
+  }
+
+  async function reenviarConvite(u: UsuarioPortal) {
+    try {
+      const r = await (trpc.cliente as any).reenviarConvitePortal.mutate({ id: u.id }) as { enviado: boolean }
+      if (r.enviado) {
+        alerts.success('Convite reenviado', `Novo link enviado para ${u.user.email}. O anterior deixou de valer.`)
+      } else {
+        alerts.error('Convite não enviado', 'O link foi gerado, mas o e-mail não saiu. Verifique a configuração de e-mail.')
+      }
+    } catch (e) {
+      alerts.error('Não foi possível reenviar', (e as Error).message)
+    }
   }
 
   async function desvincular(u: UsuarioPortal) {
@@ -244,6 +270,18 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
 
                 {canManageClientUsers && (
                   <div className="flex shrink-0 items-center gap-1">
+                    {/* Reenviar só faz sentido para quem ainda não entrou —
+                        depois disso, o caminho é "esqueci minha senha". */}
+                    {u.ativo && !u.user.emailVerified && (
+                      <button
+                        type="button"
+                        onClick={() => reenviarConvite(u)}
+                        className="text-muted-foreground hover:text-foreground"
+                        title="Reenviar convite (o link anterior deixa de valer)"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setEditando({ ...u })}

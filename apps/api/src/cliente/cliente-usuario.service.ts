@@ -5,6 +5,7 @@ import { hashPassword } from 'better-auth/crypto'
 import { randomBytes } from 'node:crypto'
 
 import type { PortalNivel } from '../portal/portal-escopo'
+import { PortalConviteService } from '../portal/portal-convite.service'
 
 /**
  * Usuários do cliente — o lado INTERNO do Portal do Cliente.
@@ -39,6 +40,8 @@ export interface VincularInput {
 
 @Injectable()
 export class ClienteUsuarioService {
+  constructor(private readonly conviteService: PortalConviteService) {}
+
   /** Usuários vinculados a um cliente, para a aba do cadastro. */
   async listar(clienteId: string) {
     const vinculos = await prisma.clienteUsuario.findMany({
@@ -162,7 +165,9 @@ export class ClienteUsuarioService {
               criadoPorId: ctx.userId,
             },
           })
-      return { vinculoId: vinculo.id, userId: existente.id, criouUsuario: false }
+      // Quem já usa o portal em outro cliente não recebe convite: já tem senha,
+      // e mandar um link de "definir senha" a essa altura confundiria.
+      return { vinculoId: vinculo.id, userId: existente.id, criouUsuario: false, convite: null }
     }
 
     // Usuário novo. A senha nasce ALEATÓRIA e descartada: o acesso só existe
@@ -213,7 +218,19 @@ export class ClienteUsuarioService {
       return { vinculoId: vinculo.id, userId: user.id }
     })
 
-    return { ...criado, criouUsuario: true }
+    // O convite sai FORA da transação e não a desfaz se falhar: o cadastro já
+    // está certo, e um provedor de e-mail fora do ar não pode apagar o trabalho
+    // de quem acabou de cadastrar. O reenvio resolve.
+    const { enviado } = await this.conviteService
+      .enviar(criado.vinculoId, { userId: ctx.userId })
+      .catch(() => ({ enviado: false }))
+
+    return { ...criado, criouUsuario: true, convite: { enviado } }
+  }
+
+  /** Reenvia o convite — link novo, o anterior deixa de valer. */
+  reenviarConvite(clienteUsuarioId: string, ctx: { userId: string }) {
+    return this.conviteService.enviar(clienteUsuarioId, ctx)
   }
 
   /** Muda nível, áreas ou liga/desliga o acesso. */
