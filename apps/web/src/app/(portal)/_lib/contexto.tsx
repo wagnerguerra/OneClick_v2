@@ -11,11 +11,20 @@ import { createContext, useContext } from 'react'
  * (nem, pior, chutarem um id).
  */
 
+/** Marca do escritório que atende o cliente — a logo do topo. */
+export interface MarcaDoEscritorio {
+  nome: string
+  logoUrl: string | null
+  logoDarkUrl: string | null
+}
+
 export interface VinculoPortal {
   clienteId: string
   razaoSocial: string
   nivel: 'ADMINISTRADOR' | 'OPERACIONAL' | 'CONSULTA'
   areas: string[]
+  /** Acompanha o cliente ATIVO: trocar de empresa pode trocar de escritório. */
+  escritorio: MarcaDoEscritorio | null
 }
 
 export const PortalContexto = createContext<{

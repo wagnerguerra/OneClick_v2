@@ -10,6 +10,7 @@ import {
 import { cn } from '@saas/ui'
 
 import { trpc } from '@/lib/trpc'
+import { resolveAssetUrl } from '@/lib/api-url'
 import { authClient, useSession } from '@/lib/auth-client'
 import { PortalContexto, type VinculoPortal } from './_lib/contexto'
 
@@ -106,6 +107,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     [vinculos, clienteId],
   )
 
+  // A marca segue o cliente ativo. O primeiro vínculo é o reserva para o
+  // instante entre carregar a lista e a empresa ficar escolhida.
+  const escritorio = atual?.escritorio ?? vinculos[0]?.escritorio ?? null
+
   const iniciais = (sessao?.user?.name ?? '?')
     .split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()
 
@@ -168,13 +173,41 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           interno, que é todo organizado por uma sidebar de módulos. */}
       <header className="sticky top-0 z-40 border-b border-[#e6ebf2] bg-white/90 backdrop-blur dark:border-[#1b2739] dark:bg-[#0e1726]/90">
         <div className="mx-auto flex h-16 max-w-[1180px] items-center gap-3 px-5">
-          <Link href="/portal" className="flex shrink-0 items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1a6dff] text-white">
-              <LayoutGrid className="h-4 w-4" />
-            </span>
-            <span className="text-[15px] font-bold tracking-tight">
-              Portal<span className="text-[#1a6dff]">Cliente</span>
-            </span>
+          {/* A marca é a do ESCRITÓRIO, não do produto. Quem entra aqui é
+              cliente da Central Contábil — ele não tem relação com o nome do
+              sistema, e ver a logo de quem o atende é o que faz a página
+              parecer dele. Cai no nome quando não há logo cadastrada. */}
+          <Link href="/portal" className="flex shrink-0 items-center gap-2" title="Início">
+            {escritorio?.logoUrl ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={resolveAssetUrl(escritorio.logoUrl)}
+                  alt={escritorio.nome}
+                  className={cn(
+                    'h-8 w-auto max-w-[150px] object-contain',
+                    escritorio.logoDarkUrl && 'dark:hidden',
+                  )}
+                />
+                {escritorio.logoDarkUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={resolveAssetUrl(escritorio.logoDarkUrl)}
+                    alt={escritorio.nome}
+                    className="hidden h-8 w-auto max-w-[150px] object-contain dark:block"
+                  />
+                )}
+              </>
+            ) : (
+              <>
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1a6dff] text-white">
+                  <LayoutGrid className="h-4 w-4" />
+                </span>
+                <span className="max-w-[180px] truncate text-[15px] font-bold tracking-tight">
+                  {escritorio?.nome ?? 'Portal do cliente'}
+                </span>
+              </>
+            )}
           </Link>
 
           <nav className="ml-4 hidden items-center gap-1 md:flex">
@@ -318,7 +351,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
       <footer className="border-t border-[#e6ebf2] bg-white py-5 dark:border-[#1b2739] dark:bg-[#0e1726]">
         <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-3 px-5 text-[12px] text-slate-500">
-          <span>Portal do cliente · {atual?.razaoSocial}</span>
+          <span>{escritorio?.nome ?? 'Portal do cliente'} · {atual?.razaoSocial}</span>
           <span>Dúvidas sobre o acesso? Fale com o seu escritório contábil.</span>
         </div>
       </footer>

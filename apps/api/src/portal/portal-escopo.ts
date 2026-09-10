@@ -110,13 +110,27 @@ export async function resolverVinculo(userId: string, clienteId: string): Promis
   }
 }
 
+/** Marca do escritório que atende o cliente — a logo do topo do portal. */
+export interface MarcaDoEscritorio {
+  nome: string
+  logoUrl: string | null
+  logoDarkUrl: string | null
+}
+
 /**
  * Todos os clientes que este usuário enxerga.
  *
  * É o que alimenta o seletor de empresa do portal — o caso do diretor de grupo
  * com matriz e filiais, que foi a razão de o vínculo ser tabela e não campo.
+ *
+ * Traz junto a marca do ESCRITÓRIO que atende cada cliente. O portal não pode
+ * usar `empresa.getMyEmpresa`, que é interna e o usuário externo não alcança —
+ * e a marca precisa acompanhar o cliente ativo, não a sessão: numa instalação
+ * com mais de um escritório, trocar de empresa troca de logo.
  */
-export async function listarVinculos(userId: string): Promise<Array<VinculoPortal & { razaoSocial: string }>> {
+export async function listarVinculos(
+  userId: string,
+): Promise<Array<VinculoPortal & { razaoSocial: string; escritorio: MarcaDoEscritorio | null }>> {
   const vinculos = await prisma.clienteUsuario.findMany({
     where: { userId, ativo: true, cliente: { status: 'ATIVO' } },
     select: {
@@ -127,6 +141,9 @@ export async function listarVinculos(userId: string): Promise<Array<VinculoPorta
         select: {
           razaoSocial: true,
           servicosContratados: { where: { contratado: true }, select: { areaId: true } },
+          empresa: {
+            select: { razaoSocial: true, nomeFantasia: true, logoUrl: true, logoDarkUrl: true },
+          },
         },
       },
     },
@@ -138,6 +155,13 @@ export async function listarVinculos(userId: string): Promise<Array<VinculoPorta
     nivel: v.nivel as PortalNivel,
     areas: intersecaoAreas(v.areas, v.cliente.servicosContratados.map(a => a.areaId)),
     razaoSocial: v.cliente.razaoSocial,
+    escritorio: v.cliente.empresa
+      ? {
+          nome: v.cliente.empresa.nomeFantasia ?? v.cliente.empresa.razaoSocial,
+          logoUrl: v.cliente.empresa.logoUrl,
+          logoDarkUrl: v.cliente.empresa.logoDarkUrl,
+        }
+      : null,
   }))
 }
 

@@ -145,11 +145,19 @@ describe('listarVinculos — o caso do grupo econômico', () => {
     findMany.mockResolvedValue([
       {
         clienteId: 'matriz', nivel: 'ADMINISTRADOR', areas: ['fiscal', 'pessoal'],
-        cliente: { razaoSocial: 'GRUPO X MATRIZ', servicosContratados: [{ areaId: 'fiscal' }, { areaId: 'pessoal' }] },
+        cliente: {
+          razaoSocial: 'GRUPO X MATRIZ',
+          servicosContratados: [{ areaId: 'fiscal' }, { areaId: 'pessoal' }],
+          empresa: { razaoSocial: 'CENTRAL CONTABIL LTDA', nomeFantasia: 'Central Contábil', logoUrl: '/uploads/logo.png', logoDarkUrl: null },
+        },
       },
       {
         clienteId: 'filial', nivel: 'ADMINISTRADOR', areas: ['fiscal', 'pessoal'],
-        cliente: { razaoSocial: 'GRUPO X FILIAL', servicosContratados: [{ areaId: 'fiscal' }] },
+        cliente: {
+          razaoSocial: 'GRUPO X FILIAL',
+          servicosContratados: [{ areaId: 'fiscal' }],
+          empresa: { razaoSocial: 'CENTRAL CONTABIL LTDA', nomeFantasia: 'Central Contábil', logoUrl: '/uploads/logo.png', logoDarkUrl: null },
+        },
       },
     ])
     const lista = await listarVinculos('u1')
@@ -157,6 +165,51 @@ describe('listarVinculos — o caso do grupo econômico', () => {
     // Mesma pessoa, permissões diferentes por empresa — porque o contrato difere.
     expect(lista[0]!.areas).toEqual(['fiscal', 'pessoal'])
     expect(lista[1]!.areas).toEqual(['fiscal'])
+  })
+
+  it('traz a marca do escritório junto — é a logo do topo do portal', async () => {
+    // O portal não alcança `empresa.getMyEmpresa`, que é interna. E a marca
+    // acompanha o CLIENTE: numa instalação com mais de um escritório, trocar
+    // de empresa troca de logo.
+    findMany.mockResolvedValue([{
+      clienteId: 'c1', nivel: 'ADMINISTRADOR', areas: ['fiscal'],
+      cliente: {
+        razaoSocial: 'CENTRAL CONTABIL LTDA',
+        servicosContratados: [{ areaId: 'fiscal' }],
+        empresa: {
+          razaoSocial: 'CENTRAL CONTABIL LTDA', nomeFantasia: 'Central Contábil',
+          logoUrl: '/uploads/logo.png', logoDarkUrl: '/uploads/logo-dark.png',
+        },
+      },
+    }])
+    const lista = await listarVinculos('u1')
+    expect(lista[0]!.escritorio).toEqual({
+      nome: 'Central Contábil',
+      logoUrl: '/uploads/logo.png',
+      logoDarkUrl: '/uploads/logo-dark.png',
+    })
+  })
+
+  it('cliente sem empresa não quebra — a marca sai nula', async () => {
+    findMany.mockResolvedValue([{
+      clienteId: 'c1', nivel: 'CONSULTA', areas: [],
+      cliente: { razaoSocial: 'ACME', servicosContratados: [], empresa: null },
+    }])
+    const lista = await listarVinculos('u1')
+    expect(lista[0]!.escritorio).toBeNull()
+  })
+
+  it('usa a razão social quando não há nome fantasia', async () => {
+    findMany.mockResolvedValue([{
+      clienteId: 'c1', nivel: 'CONSULTA', areas: [],
+      cliente: {
+        razaoSocial: 'ACME',
+        servicosContratados: [],
+        empresa: { razaoSocial: 'ESCRITORIO XYZ LTDA', nomeFantasia: null, logoUrl: null, logoDarkUrl: null },
+      },
+    }])
+    const lista = await listarVinculos('u1')
+    expect(lista[0]!.escritorio!.nome).toBe('ESCRITORIO XYZ LTDA')
   })
 
   it('só traz vínculo ativo de cliente ativo', async () => {
