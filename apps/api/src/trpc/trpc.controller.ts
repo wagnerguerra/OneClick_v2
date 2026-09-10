@@ -95,6 +95,9 @@ export class TrpcController {
         let empresaId: string | undefined
         let isMaster = false
         let isEmpresaMaster = false
+        // Papel do usuário. Serve para barrar o usuário EXTERNO (portal do
+        // cliente) nas procedures internas — ver `assertUsuarioInterno`.
+        let role: string | undefined
 
         try {
           const headers = new Headers()
@@ -112,6 +115,7 @@ export class TrpcController {
             tenantId = user.tenantId as string | undefined
             isMaster = (user.isMaster as boolean) ?? false
             isEmpresaMaster = (user.isEmpresaMaster as boolean) ?? false
+            role = user.role as string | undefined
             // Empresa ATIVA server-authoritative (F-012): o master segue a empresa
             // ativa (multi-empresa); o não-master é SEMPRE a home — um activeEmpresaId
             // divergente é ignorado (defesa). Este é o ÚNICO empresaId usado pelas
@@ -145,6 +149,7 @@ export class TrpcController {
           empresaId,
           isMaster,
           isEmpresaMaster,
+          role,
           billingState,
           trialEndsAt,
         }

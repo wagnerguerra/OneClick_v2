@@ -273,6 +273,8 @@ model User {
   empresaEvents          EmpresaEvent[]
   clienteEvents          ClienteEvent[]
   clienteArquivos        ClienteArquivo[]
+  clienteUsuarios        ClienteUsuario[]              @relation("PortalUsuario")
+  clienteUsuariosCriados ClienteUsuario[]              @relation("PortalUsuarioCriadoPor")
   clienteHistoricos      ClienteHistorico[]
   fornecedorEvents       FornecedorEvent[]
   socioEvents            SocioEvent[]
@@ -651,6 +653,62 @@ model EmpresaEvent {
 }
 
 // ============================================================
+// Portal do Cliente — vínculo do usuário externo
+// ============================================================
+
+/// Nível do usuário do cliente DENTRO do portal (nada a ver com os perfis
+/// internos do escritório). Ver docs/PORTAL_DO_CLIENTE.md.
+enum PortalNivel {
+  /// Sócio/diretor do cliente. Vê tudo do portal e cadastra os próprios usuários.
+  ADMINISTRADOR
+  /// Envia e baixa documentos, abre chamados. Não vê honorário nem contrato.
+  OPERACIONAL
+  /// Só leitura.
+  CONSULTA
+}
+
+/// Vínculo entre um usuário externo e um cliente do escritório.
+///
+/// É tabela, e NÃO um `clienteId` no User, por um motivo concreto: o diretor de
+/// um grupo com matriz e filiais precisa de UM login que enxergue as várias
+/// empresas. Com campo único no usuário, esse caso exigiria um login por
+/// empresa — e sair disso depois é migração de dados e de sessão.
+///
+/// A trinca que define o que a pessoa enxerga:
+///  - `nivel`  → o que ela pode FAZER (ver enum acima);
+///  - `areas`  → em QUE áreas (ids de `Area`), interseccionadas com as que o
+///    cliente de fato contratou em `ClienteAreaContratada`;
+///  - `ativo`  → desliga o acesso sem apagar a trilha de quem já acessou.
+///
+/// `areas` é um array de ids em vez de tabela de junção porque a integridade
+/// que importa não é a existência da área, e sim ela estar CONTRATADA por este
+/// cliente — o que só a validação na escrita garante, e é onde ela está.
+model ClienteUsuario {
+  id        String      @id @default(cuid())
+  userId    String      @map("user_id")
+  clienteId String      @map("cliente_id")
+  nivel     PortalNivel @default(OPERACIONAL)
+  areas     String[]    @default([])
+  ativo     Boolean     @default(true)
+
+  /// Quem criou o vínculo. Pode ser um usuário INTERNO (escritório cadastrando
+  /// o primeiro administrador) ou o próprio administrador do cliente.
+  criadoPorId String? @map("criado_por_id")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  user      User    @relation("PortalUsuario", fields: [userId], references: [id], onDelete: Cascade)
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  criadoPor User?   @relation("PortalUsuarioCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, clienteId])
+  @@index([clienteId])
+  @@index([userId])
+  @@map("cliente_usuarios")
+}
+
+// ============================================================
 // Permissões de Usuário por Módulo
 // ============================================================
 
@@ -911,6 +969,7 @@ model Cliente {
   situacoesFiscais        SituacaoFiscal[]
   events                  ClienteEvent[]
   arquivos                ClienteArquivo[]
+  usuariosPortal          ClienteUsuario[]
   contatos                ClienteContato[]
   inscricoes              ClienteInscricao[]
   contratoParams          ClienteContratoParam[]
@@ -4549,6 +4608,7 @@ model Servico {
   // ── Bloco do tipo PERGUNTA — campos só preenchidos quando tipo=PERGUNTA ──
   /**
    * /**
+   * /**
    * /** Texto da pergunta apresentada ao gestor em runtime
    * (ex.: "Serviço mensal em todas as áreas?").
    */
@@ -4566,6 +4626,7 @@ model Servico {
   // ── Estratégia de atribuição de responsável (legado) ──
   /**
    * /**
+   * /**
    * /** @deprecated Mantido apenas para compat com bloco PERGUNTA / fluxos antigos.
    * Novas decisões de atribuição usam os campos `atribuicao*` abaixo.
    */
@@ -4581,6 +4642,7 @@ model Servico {
   // null (claim-first — todos veem em /meus-servicos, primeiro a marcar passo
   // reivindica). Configurado na pill "Identificação" do detalhe do serviço.
   /**
+   * /**
    * /**
    * /** IDs de usuários candidatos diretamente listados.
    */
@@ -4623,6 +4685,7 @@ model Servico {
   // ── Procedência / referências externas ──
   /**
    * /**
+   * /**
    * /** URL da fonte oficial onde o vencimento/regra foi confirmado (ex.: site Receita,
    * portal SEFAZ). Usada como prova de auditoria + facilita revisão anual.
    */
@@ -4645,6 +4708,7 @@ model Servico {
 
   // ── Configurações avançadas (espelho dos campos do Acessórias) ──
   /**
+   * /**
    * /**
    * /** Apelido curto exibido em colunas/relatórios. Max 10 chars.
    */
@@ -5712,6 +5776,7 @@ model ServicoRecorrencia {
   // Por que: situações como "DAS dia 20 e outra obrigação dia 5" exigem 2+ datas/mês
   // sem precisar de 2 ServicoRecorrencia separados. Mantém 1:1 com Servico.
   /**
+   * /**
    * /**
    * /** Dias do mês a disparar (1..31; usar 31 como sentinela para "último dia"). Vazio = usa ancoragem clássica.
    */

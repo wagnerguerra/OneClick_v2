@@ -44,7 +44,15 @@ export function createClienteRouter(
   logoService?: import('./cliente-logo.service').ClienteLogoService,
   socioPerfisService?: import('./dossie/socio-perfis.service').SocioPerfisService,
   relatorioService?: ClienteRelatorioService,
+  usuarioService?: import('./cliente-usuario.service').ClienteUsuarioService,
 ) {
+  /** Serviço opcional na assinatura; aqui vira erro claro em vez de crash. */
+  const usuarios = () => {
+    if (!usuarioService) {
+      throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço de usuários do cliente indisponível.' })
+    }
+    return usuarioService
+  }
   return router({
     // Listagem (ativos)
     list: readProcedure(MODULE)
@@ -1663,6 +1671,44 @@ export function createClienteRouter(
         if (!mesclagemService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
         return mesclagemService.previsualizar(input.origemId, input.destinoId, ctx.isMaster ?? false, ctx.empresaId)
       }),
+    // ── Usuários do cliente (Portal do Cliente, Fase 0) ──────────────────
+    // Gateadas pela sub-permissão `manage_client_users`, que já existia no
+    // front (`use-clientes-perms.ts`) sem contrapartida no backend — dar acesso
+    // ao portal de um cliente não é a mesma coisa que editar o cadastro dele.
+    listarUsuariosPortal: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => usuarios().listar(input.clienteId)),
+
+    areasDisponiveisPortal: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => usuarios().areasDisponiveis(input.clienteId)),
+
+    vincularUsuarioPortal: writeSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
+      .input(z.object({
+        clienteId: z.string(),
+        nome: z.string().min(3),
+        email: z.string().email(),
+        nivel: z.enum(['ADMINISTRADOR', 'OPERACIONAL', 'CONSULTA']),
+        areas: z.array(z.string()).default([]),
+        telefone: z.string().nullish(),
+      }))
+      .mutation(({ input, ctx }) => usuarios().vincular(input, {
+        userId: ctx.userId, tenantId: ctx.tenantId,
+      })),
+
+    atualizarUsuarioPortal: writeSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
+      .input(z.object({
+        id: z.string(),
+        nivel: z.enum(['ADMINISTRADOR', 'OPERACIONAL', 'CONSULTA']).optional(),
+        areas: z.array(z.string()).optional(),
+        ativo: z.boolean().optional(),
+      }))
+      .mutation(({ input }) => usuarios().atualizar(input)),
+
+    desvincularUsuarioPortal: deleteSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input }) => usuarios().desvincular(input.id)),
+
     mesclarExecutar: writeProcedure(MODULE)
       .input(z.object({ origemId: z.string(), destinoId: z.string() }))
       .mutation(({ input, ctx }) => {

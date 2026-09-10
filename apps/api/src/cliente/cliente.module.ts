@@ -13,6 +13,7 @@ import { ContratoSyncService } from './contrato-sync.service'
 import { DuplicidadeService } from './duplicidade.service'
 import { MesclagemService } from './mesclagem.service'
 import { ClienteRelatorioService } from './relatorio/relatorio.service'
+import { ClienteUsuarioService } from './cliente-usuario.service'
 import { ClienteRelatorioController } from './relatorio/relatorio.controller'
 import { ContratoSyncController } from './contrato-sync.controller'
 import { AuthModule } from '../auth/auth.module'
@@ -30,7 +31,7 @@ import { InativacaoProgramadaScheduler } from './inativacao-programada.scheduler
   imports: [CnpjModule, forwardRef(() => BiModule), AuthModule, forwardRef(() => ServicoModule)],
   controllers: [ContratoSyncController, ClienteRelatorioController],
   providers: [
-    InativacaoProgramadaScheduler,ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService, ClienteRelatorioService],
-  exports: [ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService, ClienteRelatorioService],
+    InativacaoProgramadaScheduler,ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService, ClienteRelatorioService, ClienteUsuarioService],
+  exports: [ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService, ClienteRelatorioService, ClienteUsuarioService],
 })
 export class ClienteModule {}
