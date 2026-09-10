@@ -41,6 +41,7 @@ import { ClienteRelatorioService } from '../cliente/relatorio/relatorio.service'
 import { ClienteUsuarioService } from '../cliente/cliente-usuario.service'
 import { PortalConviteService } from '../portal/portal-convite.service'
 import { PortalArquivosService } from '../portal/portal-arquivos.service'
+import { PortalEscritorioService } from '../portal/portal-escritorio.service'
 import { createPortalRouter } from '../portal/portal.router'
 import { StripeService } from '../stripe/stripe.service'
 import { createBillingRouter } from '../stripe/stripe.router'
@@ -800,6 +801,7 @@ export class TrpcService {
     @Inject(ClienteUsuarioService) private readonly clienteUsuarioService: ClienteUsuarioService,
     @Inject(PortalConviteService) private readonly portalConviteService: PortalConviteService,
     @Inject(PortalArquivosService) private readonly portalArquivosService: PortalArquivosService,
+    @Inject(PortalEscritorioService) private readonly portalEscritorioService: PortalEscritorioService,
     @Inject(SincronizarResponsaveisService) private readonly sincronizarResponsaveisService: SincronizarResponsaveisService,
     @Inject(LegacyImportService) private readonly legacyImportService: LegacyImportService,
     @Inject(SciService) private readonly sciService: SciService,
@@ -951,7 +953,7 @@ export class TrpcService {
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
       adminTenant: createAdminTenantRouter(this.adminTenantService),
-      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService, this.clienteCapaService, this.dossieService, this.dossieBackfillService, this.clienteLogoService, this.socioPerfisService, this.clienteRelatorioService, this.clienteUsuarioService),
+      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService, this.clienteCapaService, this.dossieService, this.dossieBackfillService, this.clienteLogoService, this.socioPerfisService, this.clienteRelatorioService, this.clienteUsuarioService, this.portalEscritorioService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
       fornecedor: createFornecedorRouter(this.fornecedorService),

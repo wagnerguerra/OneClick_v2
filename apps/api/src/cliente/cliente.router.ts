@@ -45,7 +45,14 @@ export function createClienteRouter(
   socioPerfisService?: import('./dossie/socio-perfis.service').SocioPerfisService,
   relatorioService?: ClienteRelatorioService,
   usuarioService?: import('./cliente-usuario.service').ClienteUsuarioService,
+  portalEscritorioService?: import('../portal/portal-escritorio.service').PortalEscritorioService,
 ) {
+  const portalEsc = () => {
+    if (!portalEscritorioService) {
+      throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Portal do cliente indisponível.' })
+    }
+    return portalEscritorioService
+  }
   /** Serviço opcional na assinatura; aqui vira erro claro em vez de crash. */
   const usuarios = () => {
     if (!usuarioService) {
@@ -1671,6 +1678,43 @@ export function createClienteRouter(
         if (!mesclagemService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
         return mesclagemService.previsualizar(input.origemId, input.destinoId, ctx.isMaster ?? false, ctx.empresaId)
       }),
+    // ── Portal do Cliente, Fase 1: publicação e solicitações ─────────────
+    // Publicar reusa `manage_files`, a mesma sub-permissão que já governa os
+    // arquivos do cliente: quem pode anexar é quem pode entregar.
+    publicarArquivoPortal: writeSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
+      .input(z.object({
+        arquivoId: z.string(),
+        visivel: z.boolean(),
+        competencia: z.string().regex(/^\d{6}$/).nullish().nullish(),
+        categoria: z.string().nullish(),
+      }))
+      .mutation(({ input, ctx }) => portalEsc().publicarArquivo(input, {
+        isMaster: ctx.isMaster, empresaId: ctx.empresaId,
+      })),
+
+    listarSolicitacoesPortal: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => portalEsc().listarSolicitacoes(input.clienteId)),
+
+    criarSolicitacaoPortal: writeSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
+      .input(z.object({
+        clienteId: z.string(),
+        titulo: z.string().min(3),
+        descricao: z.string().nullish(),
+        competencia: z.string().regex(/^\d{6}$/).nullish().nullish(),
+        categoria: z.string().nullish(),
+        prazo: z.string().nullish(),
+      }))
+      .mutation(({ input, ctx }) => portalEsc().criarSolicitacao(input, {
+        userId: ctx.userId, isMaster: ctx.isMaster, empresaId: ctx.empresaId,
+      })),
+
+    cancelarSolicitacaoPortal: writeSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => portalEsc().cancelarSolicitacao(input.id, {
+        isMaster: ctx.isMaster, empresaId: ctx.empresaId,
+      })),
+
     // ── Usuários do cliente (Portal do Cliente, Fase 0) ──────────────────
     // Gateadas pela sub-permissão `manage_client_users`, que já existia no
     // front (`use-clientes-perms.ts`) sem contrapartida no backend — dar acesso

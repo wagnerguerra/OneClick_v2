@@ -53,6 +53,7 @@ import { ServicosCard } from './servicos-card'
 import { ParticularidadesCard } from './particularidades-card'
 import { LegalizacaoCard } from './legalizacao-card'
 import { UsuariosPortalCard } from './usuarios-portal-card'
+import { PortalDocumentosCard } from './portal-documentos-card'
 import { CnpjFilialSelect } from './cnpj-filial-select'
 import { ContabilCard } from './contabil-card'
 import { ObrigacoesClienteSection } from './obrigacoes-cliente-section'
@@ -948,8 +949,14 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 <PlaceholderTab icon={MessageSquareQuote} title="Reclamações" description="Registro de reclamações e tratativas. Este módulo será implementado em breve." />
               </TabsContent>
               <TabsContent value="usuarios" className="mt-0">
-                {/* Portal do Cliente, Fase 0 — deixou de ser placeholder. */}
-                <UsuariosPortalCard clienteId={clienteId} />
+                {/* Portal do Cliente. Acesso (Fase 0) e documentos (Fase 1)
+                    ficam juntos: decidir QUEM entra e O QUE ele recebe é a
+                    mesma conversa, e separar em duas abas obrigaria a ir e
+                    voltar para configurar um cliente novo. */}
+                <div className="space-y-5">
+                  <UsuariosPortalCard clienteId={clienteId} />
+                  <PortalDocumentosCard clienteId={clienteId} />
+                </div>
               </TabsContent>
               <TabsContent value="logs" className="mt-0">
                 {isEdit && clienteId ? <LogsTab clienteId={clienteId} /> : (
