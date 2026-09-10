@@ -1,3 +1,4 @@
+import { APP_GUARD } from '@nestjs/core'
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common'
 import { LoggerModule } from 'nestjs-pino'
 import { AuthModule } from './auth/auth.module'
@@ -31,6 +32,7 @@ import { AgendamentoModule } from './agendamento/agendamento.module'
 import { GoogleBackupModule } from './google-backup/google-backup.module'
 import { SignatureModule } from './signature/signature.module'
 import { OnlineUsersModule } from './online-users/online-users.module'
+import { UsuarioExternoGuard } from './portal/usuario-externo.guard'
 import { ChatModule } from './chat/chat.module'
 import { ReformaTributariaModule } from './reforma-tributaria/reforma-tributaria.module'
 import { CusteioModule } from './custeio/custeio.module'
@@ -78,6 +80,13 @@ import { CusteioModule } from './custeio/custeio.module'
     SignatureModule,
     ReformaTributariaModule,
     CusteioModule,
+  ],
+  providers: [
+    // Guarda GLOBAL: usuário do Portal do Cliente não entra em rota interna.
+    // Está aqui, e não em cada controller, porque são 40+ deles e o vazamento
+    // que motivou isto (`/api/admin/online-users` devolvendo o diretório da
+    // equipe ao cliente) estava justamente num que ninguém lembraria de revisar.
+    { provide: APP_GUARD, useClass: UsuarioExternoGuard },
   ],
 })
 export class AppModule implements NestModule {

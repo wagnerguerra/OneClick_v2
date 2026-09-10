@@ -44,6 +44,16 @@ export class OnlineUsersController {
       const session = await this.authService.auth.api.getSession({ headers })
       if (session?.user) {
         const user = session.user as Record<string, unknown>
+        // Usuário do Portal do Cliente NÃO vê a equipe do escritório.
+        //
+        // Este endpoint alimenta a coluna "Pessoas" do chat, e o escopo dele é
+        // `empresaId` — que o usuário externo herda do escritório ao ser
+        // cadastrado. Sem esta linha, o cliente recebia o diretório interno
+        // inteiro, com nome, avatar e quem estava online. Foi relatado.
+        //
+        // A `UsuarioExternoGuard` global já barra a rota; isto fica como
+        // segunda camada, no lugar exato onde o dado sai.
+        if (user.role === 'COLABORADOR_CLIENTE') return { tier: 'none', empresaId: null }
         // Master global → monitoramento completo (todos os tenants + PII).
         if (user.isMaster === true) return { tier: 'full', empresaId: null, userId: user.id as string }
         // Demais sessões → só presença da própria empresa, sem PII.

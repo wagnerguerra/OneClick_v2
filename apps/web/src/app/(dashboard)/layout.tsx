@@ -108,6 +108,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login')
       return
     }
+    // Usuário do Portal do Cliente não entra na estação de trabalho interna.
+    // O bloqueio de verdade é no servidor (`UsuarioExternoGuard` no REST e
+    // `assertUsuarioInterno` no tRPC); isto evita que ele veja a casca do
+    // sistema interno piscar antes de cada consulta ser recusada.
+    if ((session.user as { role?: string })?.role === 'COLABORADOR_CLIENTE') {
+      router.replace('/portal')
+      return
+    }
     // Guard: usuário sem empresa (e não MASTER global) → onboarding
     if (!isMasterGlobal && !hasEmpresa) {
       router.push('/onboarding')

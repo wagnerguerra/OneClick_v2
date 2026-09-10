@@ -218,7 +218,7 @@ import { createSignatureRouter } from '../signature/signature.router'
 import { createNfseRouter } from '../nfse/nfse.router'
 import { createMinhasObrigacoesRouter } from '../minhas-obrigacoes/minhas-obrigacoes.router'
 import { AuthService } from '../auth/auth.service'
-import { resolverVinculo, atendeNivel, type PortalNivel } from '../portal/portal-escopo'
+import { resolverVinculo, atendeNivel, ehUsuarioDePortal, type PortalNivel } from '../portal/portal-escopo'
 
 /**
  * Estado de billing do tenant, calculado no createContext.
@@ -501,6 +501,28 @@ export const portalProcedure = t.procedure.use(async ({ ctx, getRawInput, next }
   }
 
   return next({ ctx: { ...ctx, userId: ctx.userId, portal: vinculo } })
+})
+
+/**
+ * Portal, SEM cliente definido.
+ *
+ * Para o que existe antes da escolha da empresa: descobrir quais clientes esta
+ * pessoa enxerga. É a única porta do portal que não exige `clienteId`, e por
+ * isso ela devolve apenas a lista de vínculos — nada de dado de cliente.
+ *
+ * Exige ser externo de fato: quem não tem vínculo nenhum não tem o que fazer
+ * aqui, e um interno que caísse nesta rota veria uma lista vazia em vez de um
+ * erro confuso.
+ */
+export const portalSessaoProcedure = t.procedure.use(async ({ ctx, next }) => {
+  if (!ctx.userId) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+  }
+  assertTenantActive(ctx)
+  if (!(await ehUsuarioDePortal(ctx.userId))) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Este acesso não pertence a nenhum cliente.' })
+  }
+  return next({ ctx: { ...ctx, userId: ctx.userId } })
 })
 
 /**

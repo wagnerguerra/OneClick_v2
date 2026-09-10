@@ -1,7 +1,8 @@
 import { z } from 'zod'
 
-import { router, publicProcedure } from '../trpc/trpc.service'
+import { router, publicProcedure, portalSessaoProcedure, portalProcedure } from '../trpc/trpc.service'
 import type { ConviteValido } from './portal-tipos'
+import { listarVinculos } from './portal-escopo'
 
 /**
  * O router declara o que USA do serviço, em vez de importar a classe.
@@ -33,6 +34,25 @@ interface ConviteApi {
  */
 export function createPortalRouter(conviteService: ConviteApi) {
   return router({
+    /**
+     * As empresas que este usuário enxerga.
+     *
+     * É a primeira chamada do portal e a única sem `clienteId` — alimenta o
+     * seletor de empresa. Devolve só nome, nível e áreas: nenhum dado do
+     * cliente sai daqui, isso é papel das rotas com escopo.
+     */
+    meusClientes: portalSessaoProcedure.query(({ ctx }) => listarVinculos(ctx.userId)),
+
+    /**
+     * O que a pessoa pode ver NESTE cliente.
+     *
+     * A tela usa para montar o menu: sem isto ela ofereceria itens que a API
+     * recusaria depois, e o cliente descobriria a permissão pelo erro.
+     */
+    meuAcesso: portalProcedure
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ ctx }) => ctx.portal),
+
     convite: router({
       /** Abre a tela do convite. Devolve o mínimo para a pessoa se reconhecer. */
       validar: publicProcedure
