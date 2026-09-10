@@ -1002,6 +1002,7 @@ model Cliente {
   situacoesFiscais        SituacaoFiscal[]
   events                  ClienteEvent[]
   arquivos                ClienteArquivo[]
+  solicitacoesPortal      PortalSolicitacao[]
   usuariosPortal          ClienteUsuario[]
   contatos                ClienteContato[]
   inscricoes              ClienteInscricao[]
@@ -1116,10 +1117,79 @@ model ClienteArquivo {
   userId     String?   @map("user_id")
   createdAt  DateTime  @default(now()) @map("created_at")
 
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // ── Porta-arquivos do Portal do Cliente (Fase 1) ──────────────────────
+  /// Competência AAAAMM. É a pasta raiz do porta-arquivos: contabilidade se
+  /// organiza por mês, e "cadê a guia de agosto?" é como a pessoa procura.
+  competencia String? @db.VarChar(6)
 
+  /// Agrupamento dentro da competência: guias, folha, notas, contabil,
+  /// societario, outros. Texto e não enum porque a lista muda com o uso, e
+  /// migração de enum por causa disso não se paga.
+  categoria String?
+
+  /// Quem colocou: ESCRITORIO ou CLIENTE. Não dá para deduzir do `userId` —
+  /// o autor pode ter sido removido, e a origem do arquivo não muda por isso.
+  origem String @default("ESCRITORIO")
+
+  /// O cliente enxerga este arquivo no portal?
+  ///
+  /// Default FALSE de propósito. A tabela já tem milhares de arquivos internos
+  /// — contratos, documentos de análise, coisas que o escritório guardou sobre
+  /// o cliente e não PARA o cliente. Um default true publicaria tudo isso de
+  /// uma vez no dia do deploy. Publicar é ato deliberado, arquivo por arquivo.
+  visivelParaCliente Boolean @default(false) @map("visivel_para_cliente")
+
+  /// Quando o cliente abriu. É o recibo de leitura que encerra a discussão de
+  /// "não me mandaram a guia".
+  lidoEm    DateTime? @map("lido_em")
+  lidoPorId String?   @map("lido_por_id")
+
+  /// Preenchido quando o arquivo resolve uma solicitação do escritório.
+  solicitacaoId String? @map("solicitacao_id")
+
+  cliente     Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  user        User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  solicitacao PortalSolicitacao? @relation(fields: [solicitacaoId], references: [id], onDelete: SetNull)
+
+  @@index([clienteId, competencia])
+  @@index([solicitacaoId])
   @@map("cliente_arquivos")
+}
+
+/// Documento que o escritório pede ao cliente.
+///
+/// É o que transforma o portal em processo, em vez de pasta compartilhada: o
+/// escritório pede "o extrato do Itaú de agosto", aquilo vira pendência com
+/// prazo na tela do cliente, e anexar resolve. Sem isso, o porta-arquivos vira
+/// um Drive — e o cliente continua sendo cobrado por WhatsApp.
+model PortalSolicitacao {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+
+  titulo    String
+  descricao String? @db.Text
+
+  /// Mesma competência e categoria dos arquivos: a pendência nasce já sabendo
+  /// em que pasta o que vier vai cair.
+  competencia String? @db.VarChar(6)
+  categoria   String?
+
+  prazo DateTime?
+
+  /// PENDENTE, ATENDIDA ou CANCELADA. A atendida guarda quando e por quem.
+  situacao    String    @default("PENDENTE")
+  atendidaEm  DateTime? @map("atendida_em")
+  atendidaPor String?   @map("atendida_por")
+
+  criadaPorId  String?  @map("criada_por_id")
+  criadaEm     DateTime @default(now()) @map("criada_em")
+  atualizadaEm DateTime @updatedAt @map("atualizada_em")
+
+  cliente  Cliente          @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  arquivos ClienteArquivo[]
+
+  @@index([clienteId, situacao])
+  @@map("portal_solicitacoes")
 }
 
 // Atividades do Cliente (#5) — um cliente pode ter várias atividades.
@@ -4643,6 +4713,7 @@ model Servico {
    * /**
    * /**
    * /**
+   * /**
    * /** Texto da pergunta apresentada ao gestor em runtime
    * (ex.: "Serviço mensal em todas as áreas?").
    */
@@ -4662,6 +4733,7 @@ model Servico {
    * /**
    * /**
    * /**
+   * /**
    * /** @deprecated Mantido apenas para compat com bloco PERGUNTA / fluxos antigos.
    * Novas decisões de atribuição usam os campos `atribuicao*` abaixo.
    */
@@ -4677,6 +4749,7 @@ model Servico {
   // null (claim-first — todos veem em /meus-servicos, primeiro a marcar passo
   // reivindica). Configurado na pill "Identificação" do detalhe do serviço.
   /**
+   * /**
    * /**
    * /**
    * /**
@@ -4723,6 +4796,7 @@ model Servico {
    * /**
    * /**
    * /**
+   * /**
    * /** URL da fonte oficial onde o vencimento/regra foi confirmado (ex.: site Receita,
    * portal SEFAZ). Usada como prova de auditoria + facilita revisão anual.
    */
@@ -4745,6 +4819,7 @@ model Servico {
 
   // ── Configurações avançadas (espelho dos campos do Acessórias) ──
   /**
+   * /**
    * /**
    * /**
    * /**
@@ -5814,6 +5889,7 @@ model ServicoRecorrencia {
   // Por que: situações como "DAS dia 20 e outra obrigação dia 5" exigem 2+ datas/mês
   // sem precisar de 2 ServicoRecorrencia separados. Mantém 1:1 com Servico.
   /**
+   * /**
    * /**
    * /**
    * /**

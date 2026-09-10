@@ -42,11 +42,28 @@ const LIBERADOS = ['/api/auth', '/api/portal']
  * navegador manda o cookie, a guarda via um externo e devolvia 403. Com `curl`
  * sem cookie a mesma URL respondia 200, o que despistou o diagnóstico.
  *
- * O POST continua barrado: enviar arquivo pelo portal é assunto da Fase 1, e
- * vai ter rota própria com escopo por cliente.
+ * O envio do porta-arquivos (Fase 1) usa o `POST /api/upload` — ver
+ * `ENVIO_ARQUIVO` abaixo.
  */
 const ASSETS_LEITURA = '/api/upload/'
 const METODOS_LEITURA = new Set(['GET', 'HEAD'])
+
+/**
+ * Envio de arquivo pelo porta-arquivos.
+ *
+ * Só o `POST /api/upload` EXATO, sem subcaminho. O endpoint já exige sessão,
+ * limita tamanho e filtra tipo, e o que ele devolve é apenas uma URL — o
+ * arquivo só vira documento de alguém quando `portal.arquivos.enviar` o vincula
+ * ao cliente, e essa rota passa pelo escopo.
+ *
+ * As irmãs `/api/upload/certificado` e `/api/upload/certificado-pf` continuam
+ * barradas: são fluxo interno de certificado digital, e o portal não tem o que
+ * fazer com elas. Por isso a comparação é exata e não por prefixo.
+ *
+ * O que ainda falta, e está anotado no plano: cota por cliente. Hoje o limite
+ * é o do endpoint (por arquivo), não o do cliente (no total).
+ */
+const ENVIO_ARQUIVO = '/api/upload'
 
 /**
  * O tRPC é liberado aqui e gateado LÁ DENTRO.
@@ -76,6 +93,7 @@ export class UsuarioExternoGuard implements CanActivate {
     if (TRPC.some(p => caminho.startsWith(p))) return true
     if (LIBERADOS.some(p => caminho.startsWith(p))) return true
     if (caminho.startsWith(ASSETS_LEITURA) && METODOS_LEITURA.has(req.method)) return true
+    if (caminho === ENVIO_ARQUIVO && req.method === 'POST') return true
 
     // Sem cookie não há sessão a resolver — evita uma consulta por requisição
     // em tudo que é público (assets, webhooks, health).

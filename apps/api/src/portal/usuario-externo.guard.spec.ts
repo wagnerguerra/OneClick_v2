@@ -121,15 +121,18 @@ describe('leitura de asset', () => {
     await expect(guard.canActivate(contexto('/api/upload/logo.png', true, 'HEAD'))).resolves.toBe(true)
   })
 
-  it('mas barra o POST — enviar arquivo é assunto da Fase 1, com rota própria', async () => {
+  it('libera o POST EXATO — é por ele que o porta-arquivos envia', async () => {
     getSession.mockResolvedValue(externo)
-    await expect(guard.canActivate(contexto('/api/upload', true, 'POST')))
-      .rejects.toBeInstanceOf(ForbiddenException)
+    await expect(guard.canActivate(contexto('/api/upload', true, 'POST'))).resolves.toBe(true)
   })
 
-  it('barra o POST de certificado, que fica sob o mesmo prefixo', async () => {
+  it('barra o POST de certificado, que mora sob o mesmo prefixo', async () => {
+    // A comparação do envio é EXATA justamente por isto: as rotas de
+    // certificado digital são fluxo interno, e um `startsWith` as abriria.
     getSession.mockResolvedValue(externo)
     await expect(guard.canActivate(contexto('/api/upload/certificado', true, 'POST')))
+      .rejects.toBeInstanceOf(ForbiddenException)
+    await expect(guard.canActivate(contexto('/api/upload/certificado-pf', true, 'POST')))
       .rejects.toBeInstanceOf(ForbiddenException)
   })
 })

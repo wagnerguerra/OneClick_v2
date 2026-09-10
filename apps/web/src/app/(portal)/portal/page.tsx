@@ -31,12 +31,14 @@ const RECURSOS: Recurso[] = [
   {
     titulo: 'Documentos',
     descricao: 'Baixe guias e relatórios, e envie suas notas e extratos — organizados por competência.',
-    icone: FolderOpen, cor: 'bg-[#eaf1ff] text-[#1a6dff]', fase: 1,
+    icone: FolderOpen, cor: 'bg-[#eaf1ff] text-[#1a6dff]', fase: 1, href: '/portal/documentos',
   },
   {
     titulo: 'Pendências',
     descricao: 'O que o escritório está esperando de você, com prazo. Resolve ao anexar.',
-    icone: Clock, cor: 'bg-[#fdf0e6] text-[#d97b34]', fase: 1,
+    // As pendências vivem dentro de Documentos: sem o arquivo ao lado, uma
+    // tela só de cobrança não resolve nada.
+    icone: Clock, cor: 'bg-[#fdf0e6] text-[#d97b34]', fase: 1, href: '/portal/documentos',
   },
   {
     titulo: 'Obrigações do mês',

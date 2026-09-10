@@ -40,6 +40,7 @@ import { createClienteRouter } from '../cliente/cliente.router'
 import { ClienteRelatorioService } from '../cliente/relatorio/relatorio.service'
 import { ClienteUsuarioService } from '../cliente/cliente-usuario.service'
 import { PortalConviteService } from '../portal/portal-convite.service'
+import { PortalArquivosService } from '../portal/portal-arquivos.service'
 import { createPortalRouter } from '../portal/portal.router'
 import { StripeService } from '../stripe/stripe.service'
 import { createBillingRouter } from '../stripe/stripe.router'
@@ -798,6 +799,7 @@ export class TrpcService {
     @Inject(ClienteRelatorioService) private readonly clienteRelatorioService: ClienteRelatorioService,
     @Inject(ClienteUsuarioService) private readonly clienteUsuarioService: ClienteUsuarioService,
     @Inject(PortalConviteService) private readonly portalConviteService: PortalConviteService,
+    @Inject(PortalArquivosService) private readonly portalArquivosService: PortalArquivosService,
     @Inject(SincronizarResponsaveisService) private readonly sincronizarResponsaveisService: SincronizarResponsaveisService,
     @Inject(LegacyImportService) private readonly legacyImportService: LegacyImportService,
     @Inject(SciService) private readonly sciService: SciService,
@@ -975,7 +977,7 @@ export class TrpcService {
       sqlConsole: createSqlConsoleRouter(this.sqlConsoleService),
       nota: createNotaRouter(this.notaService),
       whatsapp: createWhatsappRouter(this.whatsappService, this.whatsappCloudService),
-      portal: createPortalRouter(this.portalConviteService),
+      portal: createPortalRouter(this.portalConviteService, this.portalArquivosService),
       faq: createFaqRouter(this.faqService),
       servico: createServicoRouter(this.servicoService),
       processo: createProcessoRouter(this.processoService),

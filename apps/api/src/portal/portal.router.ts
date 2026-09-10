@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { router, publicProcedure, portalSessaoProcedure, portalProcedure } from '../trpc/trpc.service'
+import type { PortalArquivosService } from './portal-arquivos.service'
 import type { ConviteValido } from './portal-tipos'
 import { listarVinculos } from './portal-escopo'
 
@@ -32,7 +33,10 @@ interface ConviteApi {
  * `portalProcedure`, que exige sessão e resolve o cliente antes do handler.
  * A regra do namespace continua valendo: nada lê dado de cliente sem escopo.
  */
-export function createPortalRouter(conviteService: ConviteApi) {
+export function createPortalRouter(
+  conviteService: ConviteApi,
+  arquivosService: PortalArquivosService,
+) {
   return router({
     /**
      * As empresas que este usuário enxerga.
@@ -42,6 +46,50 @@ export function createPortalRouter(conviteService: ConviteApi) {
      * cliente sai daqui, isso é papel das rotas com escopo.
      */
     meusClientes: portalSessaoProcedure.query(({ ctx }) => listarVinculos(ctx.userId)),
+
+    /**
+     * Porta-arquivos — Fase 1.
+     *
+     * Todas com `portalProcedure`: o `clienteId` vem do input, e o vínculo é
+     * resolvido ANTES do handler. O serviço recebe o vínculo pronto e nunca
+     * monta consulta sem ele.
+     */
+    arquivos: router({
+      /** As competências com algo publicado — a árvore de pastas. */
+      competencias: portalProcedure
+        .input(z.object({ clienteId: z.string() }))
+        .query(({ ctx }) => arquivosService.competencias(ctx.portal)),
+
+      listar: portalProcedure
+        .input(z.object({ clienteId: z.string(), competencia: z.string().length(6).optional() }))
+        .query(({ input, ctx }) => arquivosService.listar(ctx.portal, input.competencia)),
+
+      /** Devolve a URL e marca o recibo de leitura. */
+      abrir: portalProcedure
+        .input(z.object({ clienteId: z.string(), arquivoId: z.string() }))
+        .mutation(({ input, ctx }) => arquivosService.abrir(ctx.portal, input.arquivoId, ctx.userId)),
+
+      enviar: portalProcedure
+        .input(z.object({
+          clienteId: z.string(),
+          fileName: z.string().min(1),
+          fileUrl: z.string().min(1),
+          fileSize: z.number().nullish(),
+          mimeType: z.string().nullish(),
+          competencia: z.string().length(6).nullish(),
+          categoria: z.string().nullish(),
+          descricao: z.string().nullish(),
+          solicitacaoId: z.string().nullish(),
+        }))
+        .mutation(({ input, ctx }) => arquivosService.enviar(ctx.portal, input, ctx.userId)),
+    }),
+
+    /** O que o escritório está esperando deste cliente. */
+    solicitacoes: router({
+      pendentes: portalProcedure
+        .input(z.object({ clienteId: z.string() }))
+        .query(({ ctx }) => arquivosService.solicitacoesPendentes(ctx.portal)),
+    }),
 
     /**
      * O que a pessoa pode ver NESTE cliente.

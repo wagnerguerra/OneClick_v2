@@ -34,7 +34,7 @@ import { PortalContexto, type VinculoPortal } from './_lib/contexto'
 /** Item de menu. `emBreve` some da barra e vira aviso na tela de destino. */
 const NAV = [
   { href: '/portal', rotulo: 'Início', icone: LayoutGrid },
-  { href: '/portal/documentos', rotulo: 'Documentos', icone: FolderOpen, emBreve: true },
+  { href: '/portal/documentos', rotulo: 'Documentos', icone: FolderOpen },
   { href: '/portal/obrigacoes', rotulo: 'Obrigações', icone: CalendarCheck, emBreve: true },
   { href: '/portal/chamados', rotulo: 'Atendimento', icone: LifeBuoy, emBreve: true },
 ] as const
