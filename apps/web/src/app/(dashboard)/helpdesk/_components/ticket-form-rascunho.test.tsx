@@ -88,6 +88,30 @@ describe('rascunho do novo ticket', () => {
     await waitFor(() => expect(result.current.titulo).toBe('Solicitação de acesso'))
   })
 
+  it('remonta o editor ao restaurar — senão o texto não aparece', async () => {
+    // REGRESSÃO do relato: o aviso "recuperamos o que você escreveu" apareceu
+    // sobre um campo em branco. O RichEditor nasce com o conteúdo e depois só
+    // aceita mudança externa se não estiver focado — e o balão foca a descrição
+    // 50ms após abrir. A `key` derivada daqui força a remontagem, e o editor é
+    // criado já com o texto.
+    localStorage.setItem(CHAVE, JSON.stringify({
+      titulo: '', descricao: '<p>teste</p>',
+      tipo: null, prioridade: 'MEDIA', categoriaId: null, anexos: [],
+    }))
+    const { result } = abrir()
+    await waitFor(() => expect(result.current.descricao).toBe('<p>teste</p>'))
+    expect(result.current.restauracaoSeq).toBe(1)
+  })
+
+  it('não remonta o editor quando não houve restauração', async () => {
+    // Remontar à toa apagaria o que está sendo digitado.
+    const { result } = abrir()
+    await waitFor(() => expect(result.current.rascunhoRestaurado).toBe(false))
+    act(() => { result.current.setDescricao('<p>digitando</p>') })
+    await waitFor(() => expect(localStorage.getItem(CHAVE)).not.toBeNull())
+    expect(result.current.restauracaoSeq).toBe(0)
+  })
+
   it('abre limpo quando não há rascunho', async () => {
     const { result } = abrir()
     await waitFor(() => expect(result.current.rascunhoRestaurado).toBe(false))

@@ -160,6 +160,24 @@ export function useTicketForm(opts: {
   /** Reabrimos com o que a pessoa tinha digitado? Vira aviso na tela. */
   const [rascunhoRestaurado, setRascunhoRestaurado] = useState(false)
   /**
+   * Contador de restauracoes — vira `key` do RichEditor, forcando a remontagem.
+   *
+   * Relatado no proprio #HLP0384: o aviso "recuperamos o que voce escreveu"
+   * aparecia sobre uma descricao EM BRANCO — pior do que nao ter rascunho,
+   * porque promete um texto que nao esta la.
+   *
+   * O estado recebe o texto; quem nao o exibe e o editor. Ele nasce com
+   * `content: value` na montagem e depois so aceita valor externo passando por
+   * varias guardas (eco do proprio onChange, campo em foco, comparacao de
+   * HTML) — guardas que existem para o auto-save de outras telas nao reverter o
+   * que esta sendo digitado, e que nao dao para relaxar sem risco em toda a
+   * aplicacao. Conferido em `ticket-form-editor.test.tsx`: sem a remontagem, o
+   * `.ProseMirror` fica vazio mesmo com o estado preenchido.
+   *
+   * Remontar resolve na raiz e so aqui: o editor e criado ja com o conteudo.
+   */
+  const [restauracaoSeq, setRestauracaoSeq] = useState(0)
+  /**
    * Trava a gravacao logo apos criar o ticket.
    *
    * Sem ela havia uma corrida: o ticket e criado, apagamos a chave, mas o
@@ -211,6 +229,9 @@ export function useTicketForm(opts: {
       }
     } catch { /* rascunho corrompido — ignora e abre limpo */ }
     setRascunhoRestaurado(restaurado)
+    // Mesmo lote do setDescricao: no render seguinte a `key` muda e o editor
+    // remonta ja com o texto.
+    if (restaurado) setRestauracaoSeq(n => n + 1)
   }, [active])
 
   // Grava enquanto o formulario esta aberto e ha o que guardar.
@@ -326,7 +347,7 @@ export function useTicketForm(opts: {
     prioridade, setPrioridade, mostrarPrioridade,
     categoriaId, setCategoriaId, categorias, loadingCats,
     anexos, setAnexos, salvando, canSubmit, submit, reset, autoTitulo: !!autoTitulo,
-    rascunhoRestaurado, descartarRascunho,
+    rascunhoRestaurado, descartarRascunho, restauracaoSeq,
     /** Há algo digitado? Habilita o "Descartar" e o aviso de saída. */
     temConteudo: rascunhoTemConteudo({ titulo, descricao, anexos }),
   }
@@ -436,6 +457,8 @@ export function TicketFormFields({ form, variant = 'modal', onSubmitShortcut }: 
       <div className="space-y-1.5">
         <Label className="text-[13px] font-semibold">Descrição *</Label>
         <RichEditor
+          // Remonta a cada restauracao de rascunho — ver `restauracaoSeq`.
+          key={`descricao-${form.restauracaoSeq}`}
           value={form.descricao}
           onChange={form.setDescricao}
           toolbar={fab ? 'basico' : 'completo'}
