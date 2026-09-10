@@ -6,7 +6,8 @@
  * de outro tenant sendo publicado a partir daqui.
  */
 
-const arquivo = { updateMany: jest.fn() }
+const arquivo = { updateMany: jest.fn(), findFirst: jest.fn() }
+const pasta = { findFirst: jest.fn() }
 const solicitacao = { findMany: jest.fn(), create: jest.fn(), updateMany: jest.fn() }
 const cliente = { findFirst: jest.fn() }
 const clienteUsuario = { count: jest.fn() }
@@ -15,6 +16,7 @@ jest.mock('@saas/db', () => ({
   prisma: {
     clienteArquivo: arquivo,
     portalSolicitacao: solicitacao,
+    portalPasta: pasta,
     cliente,
     clienteUsuario,
   },
@@ -34,6 +36,8 @@ function arg<T>(m: jest.Mock, i = 0): T {
 beforeEach(() => {
   jest.clearAllMocks()
   arquivo.updateMany.mockResolvedValue({ count: 1 })
+  arquivo.findFirst.mockResolvedValue({ clienteId: 'cli-1' })
+  pasta.findFirst.mockResolvedValue({ id: 'p1' })
   solicitacao.updateMany.mockResolvedValue({ count: 1 })
   solicitacao.create.mockResolvedValue({ id: 's1' })
   cliente.findFirst.mockResolvedValue({ id: 'cli-1' })
@@ -41,16 +45,26 @@ beforeEach(() => {
 })
 
 describe('publicarArquivo', () => {
-  it('exige competência para publicar', async () => {
-    // Publicar sem competência deixaria o arquivo fora da árvore: ele existiria
-    // e não apareceria em pasta nenhuma. O escritório acharia que entregou.
+  it('publica SEM competência — ela virou atributo, não pasta', async () => {
+    // Enquanto a navegação era por competência, ela era obrigatória: sem mês, o
+    // arquivo ficava fora da árvore. Com pastas de verdade isso se inverteu —
+    // contrato e documento societário não têm mês, e exigir um só produziria
+    // competência inventada.
     await expect(svc.publicarArquivo({ arquivoId: 'a1', visivel: true }, daEmpresa))
-      .rejects.toThrow(/competência/i)
-    expect(arquivo.updateMany).not.toHaveBeenCalled()
+      .resolves.toEqual({ ok: true })
   })
 
-  it('não exige competência para DESPUBLICAR', async () => {
+  it('despublica sem exigir nada', async () => {
     await expect(svc.publicarArquivo({ arquivoId: 'a1', visivel: false }, daEmpresa)).resolves.toEqual({ ok: true })
+  })
+
+  it('recusa pasta de destino de outro cliente', async () => {
+    arquivo.findFirst.mockResolvedValue({ clienteId: 'cli-1' })
+    pasta.findFirst.mockResolvedValue(null)
+    await expect(svc.publicarArquivo(
+      { arquivoId: 'a1', visivel: true, pastaId: 'de-outro' }, daEmpresa,
+    )).rejects.toThrow(/não encontrada/i)
+    expect(arquivo.updateMany).not.toHaveBeenCalled()
   })
 
   it('recusa competência fora de AAAAMM', async () => {

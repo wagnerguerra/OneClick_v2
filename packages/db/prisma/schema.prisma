@@ -1003,6 +1003,7 @@ model Cliente {
   events                  ClienteEvent[]
   arquivos                ClienteArquivo[]
   solicitacoesPortal      PortalSolicitacao[]
+  pastasPortal            PortalPasta[]
   usuariosPortal          ClienteUsuario[]
   contatos                ClienteContato[]
   inscricoes              ClienteInscricao[]
@@ -1147,13 +1148,55 @@ model ClienteArquivo {
   /// Preenchido quando o arquivo resolve uma solicitação do escritório.
   solicitacaoId String? @map("solicitacao_id")
 
+  /// Pasta onde o arquivo aparece no portal. `null` = raiz.
+  pastaId String? @map("pasta_id")
+
   cliente     Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   user        User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   solicitacao PortalSolicitacao? @relation(fields: [solicitacaoId], references: [id], onDelete: SetNull)
+  pasta       PortalPasta?       @relation(fields: [pastaId], references: [id], onDelete: SetNull)
 
   @@index([clienteId, competencia])
+  @@index([clienteId, pastaId])
   @@index([solicitacaoId])
   @@map("cliente_arquivos")
+}
+
+/// Pasta do porta-arquivos, no modelo do Drive.
+///
+/// A Fase 1 nasceu sem tabela de pastas: a competência (AAAAMM) era a pasta, e
+/// a árvore saía dos próprios campos. Funcionava para guias mensais e não
+/// funcionava para o resto — o cliente quer uma pasta "Contratos", outra
+/// "Documentos societários", e essas não têm mês.
+///
+/// Agora a navegação é por pasta de verdade, criada por quem usa. `competencia`
+/// e `categoria` continuam no arquivo, mas como ATRIBUTO: a categoria é o que
+/// decide quem enxerga (o recorte por área), e a competência serve para busca
+/// e para o escritório se organizar. Nenhuma das duas navega mais.
+model PortalPasta {
+  id        String  @id @default(cuid())
+  clienteId String  @map("cliente_id")
+  nome      String
+  /// `null` = raiz. A árvore é montada por este campo.
+  paiId     String? @map("pai_id")
+
+  /// Quem criou: ESCRITORIO ou CLIENTE. A tela mostra, porque numa pasta
+  /// compartilhada saber de quem é a organização evita bagunça.
+  origem String @default("ESCRITORIO")
+
+  criadaPorId String?  @map("criada_por_id")
+  criadaEm    DateTime @default(now()) @map("criada_em")
+
+  cliente  Cliente          @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pai      PortalPasta?     @relation("PastaFilhas", fields: [paiId], references: [id], onDelete: Cascade)
+  filhas   PortalPasta[]    @relation("PastaFilhas")
+  arquivos ClienteArquivo[]
+
+  /// Não deixa duas pastas com o mesmo nome lado a lado — é o que o Drive faz,
+  /// e o que evita o cliente criar "Notas" três vezes sem perceber.
+  @@unique([clienteId, paiId, nome])
+  @@index([clienteId, paiId])
+  @@map("portal_pastas")
 }
 
 /// Documento que o escritório pede ao cliente.
@@ -4714,6 +4757,7 @@ model Servico {
    * /**
    * /**
    * /**
+   * /**
    * /** Texto da pergunta apresentada ao gestor em runtime
    * (ex.: "Serviço mensal em todas as áreas?").
    */
@@ -4734,6 +4778,7 @@ model Servico {
    * /**
    * /**
    * /**
+   * /**
    * /** @deprecated Mantido apenas para compat com bloco PERGUNTA / fluxos antigos.
    * Novas decisões de atribuição usam os campos `atribuicao*` abaixo.
    */
@@ -4749,6 +4794,7 @@ model Servico {
   // null (claim-first — todos veem em /meus-servicos, primeiro a marcar passo
   // reivindica). Configurado na pill "Identificação" do detalhe do serviço.
   /**
+   * /**
    * /**
    * /**
    * /**
@@ -4797,6 +4843,7 @@ model Servico {
    * /**
    * /**
    * /**
+   * /**
    * /** URL da fonte oficial onde o vencimento/regra foi confirmado (ex.: site Receita,
    * portal SEFAZ). Usada como prova de auditoria + facilita revisão anual.
    */
@@ -4819,6 +4866,7 @@ model Servico {
 
   // ── Configurações avançadas (espelho dos campos do Acessórias) ──
   /**
+   * /**
    * /**
    * /**
    * /**
@@ -5889,6 +5937,7 @@ model ServicoRecorrencia {
   // Por que: situações como "DAS dia 20 e outra obrigação dia 5" exigem 2+ datas/mês
   // sem precisar de 2 ServicoRecorrencia separados. Mantém 1:1 com Servico.
   /**
+   * /**
    * /**
    * /**
    * /**

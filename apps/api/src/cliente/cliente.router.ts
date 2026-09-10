@@ -1685,12 +1685,17 @@ export function createClienteRouter(
       .input(z.object({
         arquivoId: z.string(),
         visivel: z.boolean(),
-        competencia: z.string().regex(/^\d{6}$/).nullish().nullish(),
+        competencia: z.string().regex(/^\d{6}$/).nullish(),
         categoria: z.string().nullish(),
+        pastaId: z.string().nullish(),
       }))
       .mutation(({ input, ctx }) => portalEsc().publicarArquivo(input, {
         isMaster: ctx.isMaster, empresaId: ctx.empresaId,
       })),
+
+    listarPastasPortal: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => portalEsc().listarPastas(input.clienteId)),
 
     listarSolicitacoesPortal: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
@@ -1701,7 +1706,7 @@ export function createClienteRouter(
         clienteId: z.string(),
         titulo: z.string().min(3),
         descricao: z.string().nullish(),
-        competencia: z.string().regex(/^\d{6}$/).nullish().nullish(),
+        competencia: z.string().regex(/^\d{6}$/).nullish(),
         categoria: z.string().nullish(),
         prazo: z.string().nullish(),
       }))

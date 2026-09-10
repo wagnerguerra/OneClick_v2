@@ -13,12 +13,16 @@ const arquivo = {
   create: jest.fn(), update: jest.fn(),
 }
 const solicitacao = { findMany: jest.fn(), findFirst: jest.fn(), update: jest.fn() }
+const pasta = {
+  findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), delete: jest.fn(),
+}
 const tx = { clienteArquivo: arquivo, portalSolicitacao: solicitacao }
 
 jest.mock('@saas/db', () => ({
   prisma: {
     clienteArquivo: arquivo,
     portalSolicitacao: solicitacao,
+    portalPasta: pasta,
     $transaction: (fn: (t: unknown) => unknown) => fn(tx),
   },
 }))
@@ -55,6 +59,9 @@ beforeEach(() => {
   arquivo.findMany.mockResolvedValue([])
   arquivo.groupBy.mockResolvedValue([])
   solicitacao.findMany.mockResolvedValue([])
+  pasta.findMany.mockResolvedValue([])
+  pasta.findFirst.mockResolvedValue({ id: 'p1', nome: 'Contratos', paiId: null })
+  pasta.create.mockResolvedValue({ id: 'nova', nome: 'Contratos' })
 })
 
 describe('o recorte que toda consulta carrega', () => {
@@ -67,11 +74,10 @@ describe('o recorte que toda consulta carrega', () => {
     expect(w.visivelParaCliente).toBe(true)
   })
 
-  it('as competências saem do mesmo recorte', async () => {
-    await svc.competencias(vinculo())
-    const w = arg<{ where: Record<string, unknown> }>(arquivo.groupBy).where
-    expect(w.clienteId).toBe('cli-1')
-    expect(w.visivelParaCliente).toBe(true)
+  it('a raiz lista o que não está em pasta nenhuma', async () => {
+    await svc.listar(vinculo())
+    const w = arg<{ where: Record<string, unknown> }>(arquivo.findMany).where
+    expect(w.pastaId).toBeNull()
   })
 })
 
@@ -97,6 +103,75 @@ describe('recorte por área', () => {
     await svc.listar(vinculo({ areas: [] }))
     const w = arg<{ where: { OR?: Array<Record<string, unknown>> } }>(arquivo.findMany).where
     expect(w.OR).toEqual(expect.arrayContaining([{ categoria: null }]))
+  })
+})
+
+describe('pastas', () => {
+  it('abrir a raiz não valida pasta nenhuma', async () => {
+    await svc.abrirPasta(vinculo(), null)
+    // `findFirst` de pasta só é chamado para montar o caminho, e na raiz não há
+    // caminho — nenhuma chamada.
+    expect(pasta.findFirst).not.toHaveBeenCalled()
+  })
+
+  it('abrir pasta de OUTRO cliente é 404', async () => {
+    // A validação vem antes de qualquer listagem: sem ela, bastaria adivinhar
+    // um id para ler os arquivos de outra empresa.
+    pasta.findFirst.mockResolvedValue(null)
+    await expect(svc.abrirPasta(vinculo(), 'de-outro')).rejects.toThrow(/não encontrada|nao encontrada/i)
+    expect(arquivo.findMany).not.toHaveBeenCalled()
+  })
+
+  it('lista subpastas e arquivos da pasta aberta', async () => {
+    pasta.findFirst.mockResolvedValue({ id: 'p1', nome: 'Contratos', paiId: null })
+    pasta.findMany.mockResolvedValue([
+      { id: 'f1', nome: 'Aditivos', origem: 'CLIENTE', criadaEm: new Date(), _count: { filhas: 0, arquivos: 3 } },
+    ])
+    const r = await svc.abrirPasta(vinculo(), 'p1')
+    expect(r.pastas[0]).toMatchObject({ id: 'f1', nome: 'Aditivos', itens: 3 })
+    expect(arg<{ where: Record<string, unknown> }>(arquivo.findMany).where.pastaId).toBe('p1')
+  })
+
+  it('o caminho vai da raiz até a pasta atual', async () => {
+    pasta.findFirst
+      .mockResolvedValueOnce({ id: 'p2', nome: 'Aditivos', paiId: 'p1' })   // validação
+      .mockResolvedValueOnce({ id: 'p2', nome: 'Aditivos', paiId: 'p1' })   // caminho
+      .mockResolvedValueOnce({ id: 'p1', nome: 'Contratos', paiId: null })
+    const r = await svc.abrirPasta(vinculo(), 'p2')
+    expect(r.caminho.map(c => c.nome)).toEqual(['Contratos', 'Aditivos'])
+  })
+
+  it('CONSULTA não cria pasta', async () => {
+    await expect(svc.criarPasta(vinculo({ nivel: 'CONSULTA' }), { nome: 'X' }, 'u1'))
+      .rejects.toThrow(/somente leitura/i)
+    expect(pasta.create).not.toHaveBeenCalled()
+  })
+
+  it('recusa nome repetido lado a lado', async () => {
+    // É o que evita o cliente criar "Notas" três vezes sem perceber.
+    pasta.findFirst.mockResolvedValue({ id: 'ja-existe' })
+    await expect(svc.criarPasta(vinculo(), { nome: 'Notas' }, 'u1')).rejects.toThrow(/Ja existe|Já existe/i)
+  })
+
+  it('cria no cliente do vínculo, marcada como do CLIENTE', async () => {
+    pasta.findFirst.mockResolvedValue(null)
+    await svc.criarPasta(vinculo(), { nome: 'Contratos' }, 'u1')
+    const d = arg<{ data: Record<string, unknown> }>(pasta.create).data
+    expect(d).toMatchObject({ clienteId: 'cli-1', nome: 'Contratos', origem: 'CLIENTE', criadaPorId: 'u1' })
+  })
+
+  it('não apaga pasta com conteúdo', async () => {
+    // O cascade do banco levaria as subpastas e o SetNull soltaria os arquivos
+    // na raiz — as duas perdas sem ninguém perceber.
+    pasta.findFirst.mockResolvedValue({ id: 'p1', _count: { filhas: 0, arquivos: 2 } })
+    await expect(svc.excluirPasta(vinculo(), 'p1')).rejects.toThrow(/nao esta vazia|não está vazia/i)
+    expect(pasta.delete).not.toHaveBeenCalled()
+  })
+
+  it('apaga pasta vazia', async () => {
+    pasta.findFirst.mockResolvedValue({ id: 'p1', _count: { filhas: 0, arquivos: 0 } })
+    await svc.excluirPasta(vinculo(), 'p1')
+    expect(pasta.delete).toHaveBeenCalledWith({ where: { id: 'p1' } })
   })
 })
 
@@ -145,6 +220,13 @@ describe('enviar', () => {
   it('nível CONSULTA não envia', async () => {
     await expect(svc.enviar(vinculo({ nivel: 'CONSULTA' }), base, 'u1'))
       .rejects.toThrow(/somente leitura/i)
+    expect(arquivo.create).not.toHaveBeenCalled()
+  })
+
+  it('recusa pasta de destino de outro cliente', async () => {
+    pasta.findFirst.mockResolvedValue(null)
+    await expect(svc.enviar(vinculo(), { ...base, pastaId: 'de-outro' }, 'u1'))
+      .rejects.toThrow(/nao encontrada|não encontrada/i)
     expect(arquivo.create).not.toHaveBeenCalled()
   })
 

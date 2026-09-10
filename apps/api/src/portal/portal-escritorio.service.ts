@@ -49,6 +49,7 @@ export class PortalEscritorioService {
       visivel: boolean
       competencia?: string | null
       categoria?: string | null
+      pastaId?: string | null
     },
     escopo: { isMaster?: boolean; empresaId?: string | null },
   ) {
@@ -59,14 +60,28 @@ export class PortalEscritorioService {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Categoria desconhecida.' })
     }
 
-    // Publicar sem competência deixaria o arquivo fora da árvore do portal —
-    // ele existiria e não apareceria em pasta nenhuma, que é pior do que não
-    // publicar: o escritório acharia que entregou.
-    if (input.visivel && !input.competencia) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: 'Informe a competência (AAAAMM) para publicar — é a pasta em que o cliente vai procurar.',
+    // A competência é OPCIONAL desde que a navegação passou a ser por pasta.
+    // Antes ela era obrigatória porque ERA a pasta; agora é atributo, e exigir
+    // mês para publicar um contrato ou um documento societário — que não têm
+    // mês — só produziria competência inventada.
+    //
+    // Pasta de destino precisa ser DESTE cliente. Sem esta checagem, um id de
+    // pasta de outro cliente colocaria o arquivo fora do alcance de quem
+    // deveria vê-lo — ou, pior, dentro do alcance de quem não deveria.
+    if (input.pastaId) {
+      const arquivo = await prisma.clienteArquivo.findFirst({
+        where: { id: input.arquivoId, cliente: this.clienteNoEscopo(escopo) },
+        select: { clienteId: true },
       })
+      const pasta = arquivo
+        ? await prisma.portalPasta.findFirst({
+            where: { id: input.pastaId, clienteId: arquivo.clienteId },
+            select: { id: true },
+          })
+        : null
+      if (!pasta) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta de destino não encontrada.' })
+      }
     }
 
     const alterados = await prisma.clienteArquivo.updateMany({
@@ -77,12 +92,47 @@ export class PortalEscritorioService {
         visivelParaCliente: input.visivel,
         ...(input.competencia !== undefined ? { competencia: input.competencia } : {}),
         ...(input.categoria !== undefined ? { categoria: input.categoria } : {}),
+        ...(input.pastaId !== undefined ? { pastaId: input.pastaId } : {}),
       },
     })
     if (alterados.count === 0) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Arquivo não encontrado.' })
     }
     return { ok: true }
+  }
+
+  /**
+   * Pastas do cliente, achatadas com o caminho no nome.
+   *
+   * Achatar em vez de devolver árvore porque o consumidor é um `select` da
+   * tela de publicação: "Contratos / Aditivos" diz onde o arquivo vai cair sem
+   * exigir que a pessoa navegue. Cliente com centenas de pastas ia pedir outra
+   * coisa; nenhum tem, e o `take` segura o caso patológico.
+   */
+  async listarPastas(clienteId: string) {
+    const pastas = await prisma.portalPasta.findMany({
+      where: { clienteId },
+      orderBy: { nome: 'asc' },
+      take: 300,
+      select: { id: true, nome: true, paiId: true },
+    })
+    const porId = new Map(pastas.map(p => [p.id, p]))
+
+    const caminhoDe = (id: string): string => {
+      const partes: string[] = []
+      let atual: string | null = id
+      for (let i = 0; atual && i < 20; i++) {
+        const p = porId.get(atual)
+        if (!p) break
+        partes.unshift(p.nome)
+        atual = p.paiId
+      }
+      return partes.join(' / ')
+    }
+
+    return pastas
+      .map(p => ({ id: p.id, caminho: caminhoDe(p.id) }))
+      .sort((a, b) => a.caminho.localeCompare(b.caminho, 'pt-BR'))
   }
 
   /** Solicitações do cliente, abertas e fechadas, para o painel do escritório. */

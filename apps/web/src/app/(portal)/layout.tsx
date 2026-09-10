@@ -167,7 +167,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="min-h-screen bg-[#f6f8fb] dark:bg-[#0b1220]">
+    // `flex-col` + `min-h-screen` e o `<main>` com `flex-1`: o conteúdo empurra
+    // o rodapé para baixo quando é longo, e o rodapé encosta na base quando é
+    // curto. Sem isso ele flutuava no meio da tela em página com pouca coisa,
+    // como a de documentos de um cliente novo.
+    <div className="flex min-h-screen flex-col bg-[#f6f8fb] dark:bg-[#0b1220]">
       {/* ── Navbar ────────────────────────────────────────────────────────
           Horizontal, no topo. É a diferença estrutural em relação ao sistema
           interno, que é todo organizado por uma sidebar de módulos. */}
@@ -343,13 +347,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         className="pointer-events-none h-40 w-full bg-gradient-to-b from-[#e8f1ff] to-transparent dark:from-[#101b2e]"
       />
 
-      <main className="mx-auto -mt-40 max-w-[1180px] px-5 pb-16 pt-8">
+      <main className="mx-auto -mt-40 w-full max-w-[1180px] flex-1 px-5 pb-16 pt-8">
         {clienteId
           ? <PortalContexto.Provider value={{ clienteId, vinculo: atual }}>{children}</PortalContexto.Provider>
           : null}
       </main>
 
-      <footer className="border-t border-[#e6ebf2] bg-white py-5 dark:border-[#1b2739] dark:bg-[#0e1726]">
+      <footer className="mt-auto border-t border-[#e6ebf2] bg-white py-5 dark:border-[#1b2739] dark:bg-[#0e1726]">
         <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-3 px-5 text-[12px] text-slate-500">
           <span>{escritorio?.nome ?? 'Portal do cliente'} · {atual?.razaoSocial}</span>
           <span>Dúvidas sobre o acesso? Fale com o seu escritório contábil.</span>

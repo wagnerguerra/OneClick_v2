@@ -55,14 +55,28 @@ export function createPortalRouter(
      * monta consulta sem ele.
      */
     arquivos: router({
-      /** As competências com algo publicado — a árvore de pastas. */
-      competencias: portalProcedure
-        .input(z.object({ clienteId: z.string() }))
-        .query(({ ctx }) => arquivosService.competencias(ctx.portal)),
+      /**
+       * Abre uma pasta: subpastas, arquivos e o caminho até a raiz.
+       *
+       * `pastaId` ausente = raiz. Uma chamada só porque a tela precisa das três
+       * coisas juntas — e porque validar a pasta antes de listar é o que impede
+       * navegar para a pasta de outro cliente por id adivinhado.
+       */
+      abrirPasta: portalProcedure
+        .input(z.object({ clienteId: z.string(), pastaId: z.string().nullish() }))
+        .query(({ input, ctx }) => arquivosService.abrirPasta(ctx.portal, input.pastaId)),
 
-      listar: portalProcedure
-        .input(z.object({ clienteId: z.string(), competencia: z.string().length(6).optional() }))
-        .query(({ input, ctx }) => arquivosService.listar(ctx.portal, input.competencia)),
+      criarPasta: portalProcedure
+        .input(z.object({
+          clienteId: z.string(),
+          nome: z.string().min(1).max(80),
+          paiId: z.string().nullish(),
+        }))
+        .mutation(({ input, ctx }) => arquivosService.criarPasta(ctx.portal, input, ctx.userId)),
+
+      excluirPasta: portalProcedure
+        .input(z.object({ clienteId: z.string(), pastaId: z.string() }))
+        .mutation(({ input, ctx }) => arquivosService.excluirPasta(ctx.portal, input.pastaId)),
 
       /** Devolve a URL e marca o recibo de leitura. */
       abrir: portalProcedure
@@ -80,6 +94,7 @@ export function createPortalRouter(
           categoria: z.string().nullish(),
           descricao: z.string().nullish(),
           solicitacaoId: z.string().nullish(),
+          pastaId: z.string().nullish(),
         }))
         .mutation(({ input, ctx }) => arquivosService.enviar(ctx.portal, input, ctx.userId)),
     }),

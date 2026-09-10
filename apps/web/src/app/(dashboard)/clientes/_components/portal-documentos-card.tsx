@@ -50,6 +50,26 @@ function competenciaAtual(): string {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
+/**
+ * Competências oferecidas no seletor: 18 meses para trás e 2 para frente.
+ *
+ * Era um campo de texto pedindo "AAAAMM", que é formato de banco e não de
+ * gente: dava erro de digitação e obrigava a saber a convenção. Para trás
+ * cobre o ano fechado e a virada; para frente cobre a guia adiantada.
+ */
+function opcoesDeCompetencia(): Array<{ valor: string; rotulo: string }> {
+  const hoje = new Date()
+  const lista: Array<{ valor: string; rotulo: string }> = []
+  for (let i = 2; i >= -18; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1)
+    const valor = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`
+    lista.push({ valor, rotulo: `${MESES[d.getMonth()]} de ${d.getFullYear()}` })
+  }
+  return lista
+}
+
+interface PastaOpcao { id: string; caminho: string }
+
 interface Arquivo {
   id: string
   fileName: string
@@ -89,7 +109,11 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
   const [pedidoAberto, setPedidoAberto] = useState(false)
   const [pedido, setPedido] = useState(novoPedido)
   const [publicando, setPublicando] = useState<Arquivo | null>(null)
-  const [formPub, setFormPub] = useState({ competencia: competenciaAtual(), categoria: 'guias' })
+  const [formPub, setFormPub] = useState({
+    competencia: competenciaAtual(), categoria: 'guias', pastaId: '',
+  })
+  const [pastas, setPastas] = useState<PastaOpcao[]>([])
+  const competencias = useMemo(opcoesDeCompetencia, [])
 
   const carregar = useCallback(() => {
     if (!clienteId) { setCarregando(false); return }
@@ -97,9 +121,12 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
     Promise.all([
       (trpc.cliente as any).listArquivos.query({ clienteId }),
       (trpc.cliente as any).listarSolicitacoesPortal.query({ clienteId }),
+      (trpc.cliente as any).listarPastasPortal.query({ clienteId }),
     ])
-      .then(([a, s]: [Arquivo[], Solicitacao[]]) => { setArquivos(a); setSolicitacoes(s) })
-      .catch(() => { setArquivos([]); setSolicitacoes([]) })
+      .then(([a, s, p]: [Arquivo[], Solicitacao[], PastaOpcao[]]) => {
+        setArquivos(a); setSolicitacoes(s); setPastas(p)
+      })
+      .catch(() => { setArquivos([]); setSolicitacoes([]); setPastas([]) })
       .finally(() => setCarregando(false))
   }, [clienteId])
 
@@ -114,6 +141,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
         visivel: true,
         competencia: formPub.competencia,
         categoria: formPub.categoria || null,
+        pastaId: formPub.pastaId || null,
       })
       setPublicando(null)
       carregar()
@@ -336,6 +364,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
                           setFormPub({
                             competencia: a.competencia ?? competenciaAtual(),
                             categoria: a.categoria ?? 'guias',
+                            pastaId: '',
                           })
                           setPublicando(a)
                         }}
@@ -384,13 +413,16 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label className="text-[13px] font-semibold">Competência *</Label>
-                <Input
-                  value={formPub.competencia}
-                  onChange={e => setFormPub(f => ({ ...f, competencia: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                  placeholder="AAAAMM" className="mt-1.5 h-9 text-sm tabular-nums"
-                />
+                <Select value={formPub.competencia} onValueChange={v => setFormPub(f => ({ ...f, competencia: v }))}>
+                  <SelectTrigger className="mt-1.5 h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-h-[280px]">
+                    {competencias.map(c => (
+                      <SelectItem key={c.valor} value={c.valor} className="capitalize">{c.rotulo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  {rotuloCompetencia(formPub.competencia)} — é a pasta em que o cliente vai procurar.
+                  A que mês o documento se refere.
                 </p>
               </div>
               <div>
@@ -406,12 +438,34 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
                 </p>
               </div>
             </div>
+
+            {/* Pasta de destino. A navegação do cliente é por pasta desde que
+                ele passou a criar as suas — publicar sem escolher deixa o
+                arquivo na raiz, que é o comportamento esperado de "solto". */}
+            <div>
+              <Label className="text-[13px] font-semibold">Pasta no portal</Label>
+              <Select
+                value={formPub.pastaId || '__raiz__'}
+                onValueChange={v => setFormPub(f => ({ ...f, pastaId: v === '__raiz__' ? '' : v }))}
+              >
+                <SelectTrigger className="mt-1.5 h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-[280px]">
+                  <SelectItem value="__raiz__">Meus documentos (raiz)</SelectItem>
+                  {pastas.map(p => <SelectItem key={p.id} value={p.id}>{p.caminho}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {pastas.length === 0
+                  ? 'Este cliente ainda não criou pastas — o arquivo fica na raiz.'
+                  : 'Onde o cliente vai encontrar o arquivo.'}
+              </p>
+            </div>
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" type="button" onClick={() => setPublicando(null)} disabled={salvando}>
               Cancelar
             </Button>
-            <Button type="button" onClick={publicar} disabled={salvando || formPub.competencia.length !== 6}>
+            <Button type="button" onClick={publicar} disabled={salvando || !formPub.competencia}>
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Publicar'}
             </Button>
           </DialogFooter>
@@ -447,11 +501,14 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <Label className="text-[13px] font-semibold">Competência</Label>
-                <Input
-                  value={pedido.competencia}
-                  onChange={e => setPedido(p => ({ ...p, competencia: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                  placeholder="AAAAMM" className="mt-1.5 h-9 text-sm tabular-nums"
-                />
+                <Select value={pedido.competencia} onValueChange={v => setPedido(p => ({ ...p, competencia: v }))}>
+                  <SelectTrigger className="mt-1.5 h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-h-[280px]">
+                    {competencias.map(c => (
+                      <SelectItem key={c.valor} value={c.valor} className="capitalize">{c.rotulo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label className="text-[13px] font-semibold">Categoria</Label>
