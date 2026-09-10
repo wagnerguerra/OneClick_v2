@@ -49,6 +49,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const [vinculos, setVinculos] = useState<VinculoPortal[]>([])
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
+  /** Falhou a consulta? Distingue de "não tem empresa" — ver o efeito abaixo. */
+  const [erro, setErro] = useState<string | null>(null)
   const [abrirEmpresas, setAbrirEmpresas] = useState(false)
   const [abrirPerfil, setAbrirPerfil] = useState(false)
   const [escuro, setEscuro] = useState(false)
@@ -66,13 +68,18 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     ;(trpc.portal as any).meusClientes.query()
       .then((v: VinculoPortal[]) => {
         setVinculos(v)
+        setErro(null)
         const salvo = typeof window !== 'undefined' ? localStorage.getItem(CHAVE_CLIENTE) : null
         // Só aceita o salvo se ele ainda estiver entre os vínculos: acesso
         // revogado não pode continuar sendo a empresa "atual".
         const valido = v.find(x => x.clienteId === salvo)?.clienteId
         setClienteId(valido ?? v[0]?.clienteId ?? null)
       })
-      .catch(() => setVinculos([]))
+      // Engolir a falha aqui foi o que fez uma consulta BLOQUEADA aparecer como
+      // "nenhuma empresa vinculada" — e mandou procurar o problema no cadastro,
+      // que estava certo. Lista vazia e consulta que falhou são coisas
+      // diferentes e a tela precisa dizer qual das duas aconteceu.
+      .catch((e: Error) => setErro(e.message || 'Não foi possível carregar suas empresas.'))
       .finally(() => setCarregando(false))
   }, [])
 
@@ -106,6 +113,28 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f6f8fb] dark:bg-[#0b1220]">
         <Loader2 className="h-6 w-6 animate-spin text-[#1a6dff]" />
+      </div>
+    )
+  }
+
+  if (erro) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#f6f8fb] px-6 text-center dark:bg-[#0b1220]">
+        <Building2 className="h-10 w-10 text-muted-foreground/40" />
+        <h1 className="text-lg font-semibold">Não foi possível abrir o portal</h1>
+        <p className="max-w-md text-sm text-muted-foreground">{erro}</p>
+        <div className="mt-2 flex items-center gap-4">
+          <button type="button" onClick={() => window.location.reload()} className="text-sm text-[#1a6dff] hover:underline">
+            Tentar de novo
+          </button>
+          <button
+            type="button"
+            onClick={() => authClient.signOut().then(() => router.replace('/login'))}
+            className="text-sm text-muted-foreground hover:underline"
+          >
+            Sair
+          </button>
+        </div>
       </div>
     )
   }

@@ -77,12 +77,31 @@ describe('rotas que o externo precisa', () => {
     await expect(guard.canActivate(contexto('/api/portal/qualquer-coisa'))).resolves.toBe(true)
   })
 
-  it('libera o tRPC, que é gateado por dentro', async () => {
-    // Uma rota só atende procedure interna e de portal. Bloquear aqui mataria
-    // o portal junto; lá dentro, `assertUsuarioInterno` faz a separação.
+  it('libera o tRPC no caminho REAL da API — /trpc, sem /api', async () => {
+    // REGRESSÃO: a primeira versão liberava só `/api/trpc`, e o controller do
+    // tRPC é `@Controller()` + `@All('trpc/*path')` sem prefixo global. A rota
+    // real é `/trpc`, então NADA do portal passava: a área do cliente subia
+    // dizendo "nenhuma empresa vinculada", porque a própria consulta que lista
+    // as empresas vinha bloqueada.
+    //
+    // O teste que eu tinha escrito usava `/api/trpc` — codificou a minha
+    // suposição, não a rota. Por isso passava com o bug em pé.
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/trpc/portal.meusClientes'))).resolves.toBe(true)
+    expect(getSession).not.toHaveBeenCalled()
+  })
+
+  it('libera também o /api/trpc, para o dia de um prefixo global', async () => {
     getSession.mockResolvedValue(externo)
     await expect(guard.canActivate(contexto('/api/trpc/portal.convite.validar'))).resolves.toBe(true)
-    expect(getSession).not.toHaveBeenCalled()
+  })
+
+  it('continua barrando rota interna parecida com a do tRPC', async () => {
+    // `/trpc` libera por prefixo; isto garante que o prefixo não vira um buraco
+    // para qualquer caminho que comece parecido.
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/chat/events')))
+      .rejects.toBeInstanceOf(ForbiddenException)
   })
 })
 

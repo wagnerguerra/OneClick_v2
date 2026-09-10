@@ -35,12 +35,19 @@ const LIBERADOS = ['/api/auth', '/api/portal']
 /**
  * O tRPC é liberado aqui e gateado LÁ DENTRO.
  *
- * Uma única rota (`POST /api/trpc/<procedure>`) atende procedure interna e
- * procedure de portal. Bloquear no caminho mataria o portal junto; por isso o
- * gate do tRPC continua sendo o `assertUsuarioInterno`, chamado em toda
- * permission-procedure e no `protectedProcedure`.
+ * Uma única rota (`/trpc/<procedure>`) atende procedure interna e procedure de
+ * portal. Bloquear no caminho mataria o portal junto; por isso o gate do tRPC
+ * continua sendo o `assertUsuarioInterno`, chamado em toda permission-procedure
+ * e no `protectedProcedure`.
+ *
+ * ATENÇÃO ao prefixo: o controller do tRPC é `@Controller()` com
+ * `@All('trpc/*path')`, e a API não tem `setGlobalPrefix` — a rota real é
+ * `/trpc`, e NÃO `/api/trpc` como o resto dos controllers. Liberar só o
+ * `/api/trpc` bloqueava toda chamada do portal e derrubava a área do cliente
+ * inteira, com a tela dizendo "nenhuma empresa vinculada". Os dois ficam na
+ * lista para o dia em que a API ganhar prefixo global ou um proxy o adicionar.
  */
-const TRPC = '/api/trpc'
+const TRPC = ['/trpc', '/api/trpc']
 
 @Injectable()
 export class UsuarioExternoGuard implements CanActivate {
@@ -50,7 +57,7 @@ export class UsuarioExternoGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<Request>()
     const caminho = (req.originalUrl || req.url || '').split('?')[0] ?? ''
 
-    if (caminho.startsWith(TRPC)) return true
+    if (TRPC.some(p => caminho.startsWith(p))) return true
     if (LIBERADOS.some(p => caminho.startsWith(p))) return true
 
     // Sem cookie não há sessão a resolver — evita uma consulta por requisição
