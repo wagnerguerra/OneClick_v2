@@ -37,7 +37,7 @@ import { CertCadastroModal } from '@/components/certificado/cert-cadastro-modal'
 import { ParametrosContratoModal } from '@/components/contrato/parametros-contrato-modal'
 import { VerificarErpModal } from '@/components/contrato/verificar-erp-modal'
 import { OrcamentosTab } from './orcamentos-tab'
-import { InativarClienteModal } from './inativar-cliente-modal'
+import { InativarClienteModal, type ClienteVinculado } from './inativar-cliente-modal'
 import { ReativarClienteModal } from './reativar-cliente-modal'
 import { EVENT_BADGE_CLASS, INATIVAR_BTN_CLASS, ZONA_PERIGO_SURFACE_CLASS } from './cliente-status-ui'
 import { trpc } from '@/lib/trpc'
@@ -52,6 +52,7 @@ import { useBeneficioFiscalPerms } from '@/hooks/use-beneficio-fiscal'
 import { ServicosCard } from './servicos-card'
 import { ParticularidadesCard } from './particularidades-card'
 import { LegalizacaoCard } from './legalizacao-card'
+import { UsuariosPortalCard } from './usuarios-portal-card'
 import { CnpjFilialSelect } from './cnpj-filial-select'
 import { ContabilCard } from './contabil-card'
 import { ObrigacoesClienteSection } from './obrigacoes-cliente-section'
@@ -150,6 +151,9 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
   const [inativarDataInicial, setInativarDataInicial] = useState('')
   const [reativarAberto, setReativarAberto] = useState(false)
   function abrirInativar(dataInicial = '') { setInativarDataInicial(dataInicial); setInativarAberto(true) }
+  // Outros CNPJs ativos da mesma raiz (matriz + filiais). Buscados na abertura
+  // do modal, nao na montagem da ficha: e uma consulta que so serve aqui.
+  const [vinculadosInativar, setVinculadosInativar] = useState<ClienteVinculado[]>([])
   const [clienteLogo, setClienteLogo] = useState<string | null>(defaultValues?.logoUrl || null)
   const [chatMsg, setChatMsg] = useState('')
   const [chatAsCliente, setChatAsCliente] = useState(false)
@@ -369,6 +373,16 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
     } catch { /* silencioso */ }
   }
 
+  // A aba Servicos guarda o proprio estado (areas, responsaveis, pesos). O card
+  // registra aqui como salva-lo, e o "Salvar" do cabecalho passa a gravar os
+  // dois — era estranho ter dois botoes salvando partes diferentes da mesma
+  // ficha. Fica nulo enquanto a aba nao esta aberta: o Radix desmonta o
+  // conteudo das abas inativas.
+  const salvarServicosRef = useRef<(() => Promise<void>) | null>(null)
+  const registrarSalvarServicos = useCallback((fn: (() => Promise<void>) | null) => {
+    salvarServicosRef.current = fn
+  }, [])
+
   async function onSubmit(data: CreateClienteInput) {
     setSaving(true)
     setError(null)
@@ -379,6 +393,14 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
         router.push(`/clientes/${created.id}`)
       } else {
         await trpc.cliente.update.mutate({ id: clienteId!, data })
+        // Erro nos servicos nao pode ficar mudo: o cadastro ja foi gravado e so
+        // eles ficariam para tras — anunciar "salvo com sucesso" seria mentira.
+        try {
+          await salvarServicosRef.current?.()
+        } catch (e) {
+          await alerts.error('Servicos nao salvos', (e as Error).message || 'O cadastro foi salvo, mas os servicos contratados nao.')
+          return
+        }
         await alerts.success('Cliente atualizado', 'Os dados foram salvos com sucesso.')
       }
     } catch {
@@ -445,24 +467,58 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
     } finally { setAbrindoOffboarding(false) }
   }
 
-  async function inativarConfirmado(dataSaida: string, motivo: string, programadaPara: string | null) {
+  async function inativarConfirmado(dataSaida: string, motivo: string, programadaPara: string | null, idsExtras: string[] = []) {
     if (!clienteId) return
     await trpc.cliente.inativar.mutate({
       id: clienteId, dataSaida: dataSaida || undefined, motivo, programadaPara,
     })
+    // Vinculados escolhidos no modal. Um por vez, como no lote da listagem: nao
+    // ha endpoint em bloco, e falhar num deles nao pode derrubar os demais.
+    let extrasOk = 0
+    for (const outroId of idsExtras) {
+      try {
+        await trpc.cliente.inativar.mutate({ id: outroId, dataSaida: dataSaida || undefined, motivo, programadaPara })
+        extrasOk++
+      } catch { /* segue; o balanco vai no aviso */ }
+    }
+    // O que falhou precisa aparecer: quem escolheu "o grupo inteiro" sai da
+    // tela achando que o grupo inteiro saiu.
+    const sobrou = idsExtras.length - extrasOk
+    if (sobrou > 0) {
+      await alerts.error(
+        'Nem todos os vinculados foram inativados',
+        `${extrasOk} de ${idsExtras.length} vinculados foram processados. Verifique os ${sobrou} restantes na listagem.`,
+      )
+    }
     if (programadaPara) {
       // Agendado: o cliente segue ATIVO. Mexer no status aqui mentiria para
       // quem está com a ficha aberta.
       setValue('dataSaida', programadaPara, { shouldDirty: false })
       const dia = new Date(`${programadaPara}T00:00:00`).toLocaleDateString('pt-BR')
-      alerts.success('Inativação agendada', `O cliente continua ativo e será inativado em ${dia}.`)
+      alerts.success('Inativação agendada', extrasOk > 0
+        ? `Este cliente e mais ${extrasOk} vinculado(s) continuam ativos e serão inativados em ${dia}.`
+        : `O cliente continua ativo e será inativado em ${dia}.`)
       return
     }
     setValue('status', 'INATIVO', { shouldDirty: false })
     setValue('dataSaida', dataSaida, { shouldDirty: false })
     setMotivoInativado(motivo)
-    alerts.success('Cliente inativado', 'O cliente foi inativado.')
+    alerts.success('Cliente inativado', extrasOk > 0
+      ? `Este cliente e mais ${extrasOk} vinculado(s) foram inativados.`
+      : 'O cliente foi inativado.')
   }
+
+  // Busca os vinculados quando o modal de inativacao abre.
+  useEffect(() => {
+    if (!inativarAberto || !clienteId) { setVinculadosInativar([]); return }
+    const doc = watchedValues.documento || defaultValues?.documento || ''
+    ;(trpc.cliente as unknown as {
+      listMesmaRaiz: { query: (i: { clienteId: string; documento: string }) => Promise<ClienteVinculado[]> }
+    }).listMesmaRaiz.query({ clienteId, documento: doc })
+      .then(setVinculadosInativar)
+      .catch(() => setVinculadosInativar([]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inativarAberto, clienteId])
 
   const isEdit = mode === 'edit' && defaultValues?.code
 
@@ -870,7 +926,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
               </TabsContent>
               <TabsContent value="servicos" className="mt-0">
                 {isEdit && clienteId ? (
-                  <ServicosCard clienteId={clienteId} />
+                  <ServicosCard clienteId={clienteId} registrarSalvar={registrarSalvarServicos} />
                 ) : (
                   <PlaceholderTab icon={Briefcase} title="Serviços" description="Salve o cliente primeiro para gerenciar serviços contratados." />
                 )}
@@ -893,7 +949,8 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 <PlaceholderTab icon={MessageSquareQuote} title="Reclamações" description="Registro de reclamações e tratativas. Este módulo será implementado em breve." />
               </TabsContent>
               <TabsContent value="usuarios" className="mt-0">
-                <PlaceholderTab icon={Users} title="Usuários" description="Usuários vinculados ao cliente. Este módulo será implementado em breve." />
+                {/* Portal do Cliente, Fase 0 — deixou de ser placeholder. */}
+                <UsuariosPortalCard clienteId={clienteId} />
               </TabsContent>
               <TabsContent value="logs" className="mt-0">
                 {isEdit && clienteId ? <LogsTab clienteId={clienteId} /> : (
@@ -1020,6 +1077,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
         count={1}
         nome={defaultValues?.razaoSocial}
         initialDataSaida={inativarDataInicial}
+        vinculados={vinculadosInativar}
         onOpenChange={setInativarAberto}
         onConfirm={inativarConfirmado}
       />

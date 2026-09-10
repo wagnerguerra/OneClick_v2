@@ -30,6 +30,26 @@ SSH_KEY_PATH=/c/Users/wagner/.ssh/oneclick_deploy
 # Vou usar `sshpass` ou prompt interativo.
 # SSH_PASSWORD=
 
+# De onde vêm as imagens da API e do Web no deploy.
+#
+#   (ausente) ou local  → o Service Manager builda na própria VPS (padrão)
+#   ghcr                → puxa do ghcr.io a imagem daquele commit, buildada
+#                         pelo workflow build-images.yml no runner do GitHub
+#
+# Antes de ligar `ghcr`, duas coisas precisam existir na VPS:
+#   1. `docker login ghcr.io` com um PAT de escopo read:packages
+#      (pacote novo no ghcr nasce privado), ou o pacote tornado público;
+#   2. o bloco `build:` removido dos serviços api e web em
+#      /opt/oneclick/docker-compose.yml — a linha `image:` fica como está,
+#      porque o deploy reetiqueta a imagem baixada com o mesmo nome local.
+#
+# Com a flag, a ordem entre esses passos e a atualização do Service Manager
+# deixa de importar, e voltar atrás é apagar esta linha.
+# DEPLOY_IMAGES=ghcr
+#
+# Dono do pacote no ghcr. Sem isto, é inferido do GITHUB_REPO.
+# GHCR_OWNER=wagnerguerra
+
 # Docker Hub (pra push da imagem)
 # Crie token em https://hub.docker.com/settings/security (não use senha da conta)
 # DOCKER_HUB_USER=

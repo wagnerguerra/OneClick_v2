@@ -338,14 +338,14 @@ export default function ControleFeriasPage() {
       {/* Header padrão (como o /clientes): barra full-bleed, título + trilha, ações à direita */}
       <PageHeaderBar
         actions={<>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/controle-ferias/relatorios')}>
-            <BarChart3 className="h-4 w-4" />Relatórios
-          </Button>
           {podeEscrever && (
             <Button size="sm" className="gap-1.5" onClick={() => setAberta(true)}>
               <Plus className="h-4 w-4" />Novo Período
             </Button>
           )}
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/controle-ferias/relatorios')}>
+            <BarChart3 className="h-4 w-4" />Relatórios
+          </Button>
         </>}
       >
         <h1 className="truncate">Controle de Férias</h1>

@@ -22,6 +22,7 @@ export function useClientesPerms() {
   const canEditDetails = sub('edit_details')             // dados básicos, contatos, históricos, ocorrências, imports de cadastro
   const canManageServices = sub('manage_services')       // serviços contratados / parâmetros / copiar estrutura
   const canManageResponsible = sub('manage_responsible') // responsáveis pelas áreas
+  const canImportClients = sub('import_clients')         // importação em massa (planilha e legado)
   const canManageContracts = sub('manage_contracts')     // parâmetros de contrato
   const canManageCommercial = sub('manage_commercial')   // aba comercial
   const canEditTaxation = sub('edit_taxation')           // tributação
@@ -42,6 +43,7 @@ export function useClientesPerms() {
     isAdmin, canWrite, canDelete, canCreate,
     canManageActivitiesBenefits, canManageFiles, canEditCertificados,
     canEditDetails, canManageServices, canManageResponsible, canManageContracts, canManageCommercial,
+    canImportClients,
     canEditTaxation, canManageFiscal, canManageRegistration, canManageProtocolos, canManageClientUsers, canRenegotiation,
   }
 }

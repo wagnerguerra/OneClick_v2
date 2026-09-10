@@ -501,7 +501,7 @@ export default function HelpdeskPage() {
   return (
     <div className="flex flex-col gap-5 h-[calc(100vh-90px)]">
       {/* Topo — PADRAO_PAGINAS §1.1 (referência /clientes) */}
-      <PageHeaderBar className="shrink-0" actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0 shrink-0" actions={<>
           {/* Busca e filtros no header, como no /orcamentos */}
           <div className="relative">
             <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />

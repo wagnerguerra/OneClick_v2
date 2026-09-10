@@ -88,10 +88,10 @@ export default function AquisicoesPage() {
     <div className="space-y-6">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
+          <Button variant="success" size="sm" asChild><Link href="/aquisicoes/new"><Plus className="h-4 w-4" />Novo Pedido</Link></Button>
           <Button variant="outline" size="sm" asChild>
             <Link href="/aquisicoes/cotacoes"><FileSpreadsheet className="h-4 w-4" />Cotações</Link>
           </Button>
-          <Button variant="success" size="sm" asChild><Link href="/aquisicoes/new"><Plus className="h-4 w-4" />Novo Pedido</Link></Button>
           {podeConfigurar && (
             <Button variant="outline" size="icon-sm" asChild title="Configurações do módulo">
               <Link href="/aquisicoes/configuracoes"><Settings className="h-4 w-4" /></Link>

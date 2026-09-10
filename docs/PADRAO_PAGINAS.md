@@ -29,11 +29,12 @@ A ordem é sempre a mesma: **barra da página → filtros → card da tabela →
 
 ```tsx
 <PageHeaderBar
+  className="mb-0 sm:mb-0"        {/* só quando o wrapper usa flex+gap — ver abaixo */}
   actions={<>
-    {/* secundárias → menu ⋮ → primária, nesta ordem */}
+    {/* 1º a primária "+ Novo…", depois as secundárias, e o menu ⋮ por último */}
+    <Button size="sm" asChild className="gap-1.5"><Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link></Button>
     <Button variant="outline" size="sm" className="gap-1.5"><Settings2 className="h-4 w-4" />Opções</Button>
     <DropdownMenu>…<Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>…</DropdownMenu>
-    <Button size="sm" asChild className="gap-1.5"><Link href="/clientes/new"><Plus className="h-4 w-4" />Novo Cliente</Link></Button>
   </>}
 >
   <h1 className="truncate">Clientes</h1>
@@ -50,6 +51,31 @@ A ordem é sempre a mesma: **barra da página → filtros → card da tabela →
 O `<h1>` vai **puro** (o estilo vem do global). A trilha é sempre
 `Página inicial › Bloco › Módulo`. Subpágina acrescenta o próprio nome e ganha
 `<BackButton>` como **último** item das ações.
+
+#### A ordem das ações (09/09/2026)
+
+**O botão "+ Novo…" é sempre o primeiro da esquerda.** É a ação que se usa todo
+dia; ficava por último em nove telas, atrás de alternadores de visão, atalhos e
+botões que se usam uma vez por semestre. Depois dele vêm as secundárias e, por
+último, o menu `⋮` — que é onde mora tudo o que é raro (importações, varreduras,
+configurações).
+
+Botão primário usa o `variant` padrão do `Button` (o azul do tema). Não pinte a
+ação principal com a cor do módulo: a cor do módulo é para barra de progresso,
+checkbox e destaques internos, não para o botão que existe em todas as telas.
+
+#### O espaçamento (`mb-0 sm:mb-0`)
+
+A `PageHeaderBar` traz `mb-4 sm:mb-5` própria. Isso é o certo quando o wrapper
+da página usa `space-y-*`: ali o container é bloco, as margens **colapsam** e o
+espaço sai igual dos dois lados.
+
+Quando o wrapper é `flex flex-col gap-*`, margens **não** colapsam e o `gap`
+entra por cima — o espaço acima do primeiro bloco fica o dobro do que vem
+depois. Nesses casos passe `className="mb-0 sm:mb-0"`, deixando o `gap` como
+única fonte de espaçamento.
+
+Na dúvida: se o wrapper tem `gap-`, use `mb-0 sm:mb-0`.
 
 ### 1.2 Filtros
 Card colapsável com contador de filtros ativos e "Limpar". Fechado, a faixa
@@ -79,8 +105,119 @@ Um `<Card>` com três partes:
 - **Sem coluna Status** — situação é badge dentro da linha, gerenciada no form.
 - **Colunas somem antes de espremer** (`hidden md:table-cell`); ordem de sacrifício
   em [`PADRAO_RESPONSIVIDADE.md`](PADRAO_RESPONSIVIDADE.md) §6.
-- **Rodapé** com "Mostrando X a Y de Z registros" e a paginação numérica.
 - **Carregando** é spinner dentro da tabela; **vazio** é ícone + frase, no lugar da lista.
+
+### 1.4 Paginação — referência `/clientes`
+
+Duas metades, sempre no mesmo lugar: **"Exibir N registros" na barra de cima**,
+**contagem e navegação no rodapé**.
+
+```tsx
+{/* toolbar, à esquerda da busca */}
+<div className="flex items-center gap-2 text-xs text-muted-foreground">
+  <span className="hidden sm:inline">Exibir</span>
+  <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}>
+    <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+    <SelectContent>{[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
+  </Select>
+  <span className="hidden sm:inline">registros</span>
+</div>
+
+{/* rodapé do card */}
+<div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+  <p className="text-xs text-muted-foreground">
+    Mostrando <span className="font-medium">{startRecord}</span> a <span className="font-medium">{endRecord}</span> de <span className="font-medium">{total}</span> registros
+  </p>
+  {totalPages > 1 && (
+    <div className="flex items-center gap-1">
+      <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(1)}><ChevronsLeft className="h-3.5 w-3.5" /></Button>
+      <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+      {getPageNumbers().map(n => (
+        <Button key={n} variant={n === page ? 'soft' : 'outline'} size="icon-xs" className="text-xs" onClick={() => setPage(n)}>{n}</Button>
+      ))}
+      <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-3.5 w-3.5" /></Button>
+      <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(totalPages)}><ChevronsRight className="h-3.5 w-3.5" /></Button>
+    </div>
+  )}
+</div>
+```
+
+Regras:
+
+- **Opções fixas: 10 / 20 / 50 / 100.** Não invente outras.
+- **No máximo 5 números**, centrados na página atual — a janela desliza:
+  `start = max(1, page - 2)`, `end = min(totalPages, start + 4)`, e então
+  `start = max(1, end - 4)` para a janela não encolher no fim da lista.
+- **A navegação some quando só há uma página** (`totalPages > 1`). Setas
+  desabilitadas numa lista de dez linhas são ruído.
+- **Saltos para a primeira e a última** existem porque, com muitas páginas, ir
+  do fim ao começo de um em um é trabalho.
+- **Qualquer mudança de filtro, busca ou tamanho de página volta para a
+  página 1.** Sem isso, filtrar estando na página 3 deixa a tabela vazia com o
+  rodapé dizendo que há registros — e a pessoa conclui que o filtro quebrou.
+- **"Selecionar todos" marca a página, não a lista inteira.** Marcar 500 itens
+  dos quais 20 estão à vista, com uma ação em massa logo adiante, é o caminho
+  curto para excluir o que ninguém viu.
+- **Página vazia não some sozinha:** ao excluir o último registro de uma página,
+  volte para a anterior.
+
+**Server-side é o padrão** (`page`/`limit` no input, `total`/`totalPages` na
+resposta) — é o que `/clientes` faz. Paginar no cliente só quando a lista já
+vem inteira por outra razão legítima e o volume é pequeno (ex.: `/beneficios-fiscais`,
+com algumas dezenas de vínculos e busca server-side). O rodapé é idêntico nos
+dois casos; o que muda é de onde vêm `total` e a fatia.
+
+### 1.5 Altura travada — a página não rola, os registros rolam
+
+Referência: `/gestao-certificados` (e `/crm`, `/orcamentos`).
+
+A página ocupa a altura da janela e **não cresce**. O card da tabela toma o
+espaço que sobra, e a rolagem acontece **só na área de registros** — cabeçalho
+da tabela, barra de busca e rodapé de paginação ficam sempre à vista.
+
+```tsx
+{/* 1. a página trava na altura da janela */}
+<div className="flex h-[calc(100vh-98px)] flex-col gap-5">
+  <PageHeaderBar className="mb-0 sm:mb-0" …/>
+  <div className="grid shrink-0 …">{/* indicadores */}</div>
+
+  {/* 2. o card toma o resto */}
+  <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex shrink-0 …">{/* toolbar: Exibir + busca */}</div>
+
+    {/* 3. só isto rola */}
+    <div className="nice-scrollbar min-h-0 flex-1 overflow-y-auto">
+      <Table>…</Table>
+    </div>
+
+    <div className="flex shrink-0 …">{/* rodapé: contagem + paginação */}</div>
+  </Card>
+</div>
+```
+
+As três peças, e por que cada uma:
+
+- **`h-[calc(100vh-98px)]` no wrapper.** Os 98px são o cabeçalho do app mais o
+  respiro do `<main>`. É o mesmo número em `/crm`, `/orcamentos` e
+  `/gestao-certificados` — se mudar, muda nos quatro.
+- **`min-h-0 flex-1` no card e na área de rolagem.** O `flex-1` faz crescer; o
+  `min-h-0` é o que **permite encolher**. Sem ele, um filho flex não desce
+  abaixo da altura do próprio conteúdo, o card estica, e a rolagem volta para a
+  página — o sintoma é "apliquei tudo e continua rolando a tela inteira".
+- **`shrink-0` na toolbar, nos indicadores e no rodapé.** Sem isso eles cedem
+  altura antes da tabela e a busca vai sendo espremida conforme a lista cresce.
+
+Mais duas regras:
+
+- A área que rola leva **`nice-scrollbar`** — a barra nativa destoa do tema,
+  sobretudo no escuro (CLAUDE.md).
+- O wrapper precisa ser **`flex … gap-*`**, não `space-y-*`: `space-y` não
+  distribui altura, então o card nunca recebe o espaço restante. Trocando o
+  wrapper, entra também o `mb-0 sm:mb-0` no cabeçalho (§1.1).
+
+**Quando NÃO usar:** telas que não são uma lista só — as que empilham gráficos,
+seções ou vários cards abaixo da tabela. Ali travar a altura esconde conteúdo
+atrás de duas rolagens concorrentes, que é pior do que rolar a página.
 
 ---
 

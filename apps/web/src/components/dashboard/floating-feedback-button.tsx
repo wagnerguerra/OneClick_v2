@@ -6,7 +6,7 @@ import {
   Bug, X, Send, Loader2, Check, ExternalLink,
   ImagePlus, Paperclip, Plus, ChevronLeft, LifeBuoy, FileText, Search, Building2,
   CalendarPlus, Clock, Users, Video, Monitor, DoorOpen, MapPin,
-  Maximize2, Minimize2, ArrowLeftToLine, ArrowRightToLine,
+  Maximize2, Minimize2, ArrowLeftToLine, ArrowRightToLine, Trash2,
 } from 'lucide-react'
 import { Button, cn, RichEditor, Checkbox } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
@@ -398,6 +398,22 @@ export function FloatingFeedbackButton() {
 
                 {/* Footer */}
                 <div className="px-4 py-3 border-t border-border bg-muted/30 flex items-center justify-end gap-2">
+                  {/* #HLP0384 — o balão fica montado no layout, então sobrevive à
+                      navegação: dá para deixá-lo aberto no canto e continuar
+                      mexendo no sistema. O rascunho cobre o resto (fechar, F5).
+                      "Cancelar" só fecha e o rascunho continua; jogar fora é uma
+                      escolha explícita, e por isso o botão fica separado. */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mr-auto gap-1.5 text-muted-foreground hover:text-destructive"
+                    onClick={ticketForm.descartarRascunho}
+                    disabled={ticketForm.salvando || !ticketForm.temConteudo}
+                    title="Apagar o que foi digitado"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Descartar
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => setOpenAnimated(false)} disabled={ticketForm.salvando}>
                     Cancelar
                   </Button>

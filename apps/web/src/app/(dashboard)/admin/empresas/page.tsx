@@ -131,7 +131,7 @@ export default function AdminEmpresasPage() {
   return (
     <div className="flex flex-col gap-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           <Input
             placeholder="Buscar por nome…"
             value={search}

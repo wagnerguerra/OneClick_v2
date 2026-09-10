@@ -1,35 +1,52 @@
-name: Type-check (gate)
+name: Gate — tipos, testes e prose
 
 # ──────────────────────────────────────────────────────────────────────────
-# Gate de type-check: roda `pnpm typecheck` em cada PR pra `main` e falha se
-# houver erro de `tsc`. Era o gate que FALTAVA — sem ele os erros de tipo
-# acumulavam silenciosamente (o webpack da API remove o ForkTsChecker e o
-# `next build` roda com `ignoreBuildErrors`). Ver memória trpc-tipagem-e2e-gate.
+# Gate de qualidade do repositório. Roda três verificações que já existiam
+# soltas (`pnpm check:prose`, `pnpm typecheck`, `pnpm test`) e que, na prática,
+# só rodavam quando alguém lembrava.
 #
-# Ordem importa: o `apps/web` deriva o `AppRouter` do `dist-types` da API
-# (task `build:types`), que usa os tipos do `@saas/db` (Prisma Client). Por isso
-# geramos o Prisma Client (com .d.ts) ANTES; o turbo já ordena `build:types`
-# antes do `tsc` via `dependsOn: ["^build:types"]`.
+# POR QUE TAMBÉM EM `push` NA MAIN
+# O gate nascia só em `pull_request`. Mas o caminho que o código realmente
+# percorre até a produção é outro: o Service Manager publica com
+# `git push origin <sha>:refs/heads/main` — direto no trunk, usando o bypass de
+# admin do ruleset. Resultado: entre 27/08 e 08/09 o gate não rodou uma vez,
+# enquanto commits iam para produção. Com o `push` abaixo ele cobre os dois
+# caminhos. No push ele não bloqueia nada (o commit já saiu), mas o resultado
+# chega em minutos — junto com o deploy — em vez de aparecer como erro em prod.
 #
-# ⚠️  Pra BLOQUEAR o merge de fato, marque este check como obrigatório em
-#     GitHub → Settings → Branches → branch protection da `main` →
-#     "Require status checks to pass" → selecione "typecheck".
+# ORDEM DOS PASSOS
+# `check:prose` primeiro porque custa 9s e falha rápido. Depois o type-check e
+# os testes, ambos com `!cancelled()` para que um PR quebrado mostre TODAS as
+# falhas de uma vez, em vez de uma por push.
+#
+# O `apps/web` deriva o `AppRouter` do `dist-types` da API (task `build:types`),
+# que usa os tipos do `@saas/db` (Prisma Client). Por isso geramos o Prisma
+# Client (com .d.ts) ANTES; o turbo ordena `build:types` antes do `tsc` via
+# `dependsOn: ["^build:types"]`.
+#
+# Os testes não precisam de banco: `@saas/db` é mockado nos specs da API e o web
+# roda em jsdom. Nenhum serviço externo é necessário.
+#
+# O check publicado por este job chama-se **gate** — é esse o nome marcado como
+# obrigatório no ruleset da `main`.
 # ──────────────────────────────────────────────────────────────────────────
 
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
-# Cancela runs antigas do mesmo PR quando chega push novo.
+# Cancela runs antigas do mesmo ref quando chega push novo.
 concurrency:
-  group: typecheck-${{ github.ref }}
+  group: gate-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  typecheck:
+  gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       NODE_OPTIONS: --max-old-space-size=6144
       # `prisma generate` não conecta no banco, mas o schema referencia
@@ -51,5 +68,19 @@ jobs:
       - name: Gera Prisma Client (com .d.ts)
         run: pnpm --filter @saas/db db:generate
 
+      - name: Classe `prose` proibida (9s, falha rápido)
+        run: pnpm check:prose
+
       - name: Type-check (turbo → build:types → tsc)
+        if: ${{ !cancelled() }}
         run: pnpm typecheck
+
+      - name: Testes (jest na API + vitest no web)
+        if: ${{ !cancelled() }}
+        env:
+          # Heap padrao, nao os 6GB do job: `turbo test` dispara jest e vitest,
+          # cada um com seus workers. Foi exatamente essa soma que derrubou o
+          # gate em 11/08 com exit 134 (OOM) -- ver bf0d3ca8. Por isso tambem
+          # `--concurrency=1`, o mesmo remedio ja aplicado ao `pnpm typecheck`.
+          NODE_OPTIONS: ''
+        run: pnpm exec turbo test --concurrency=1

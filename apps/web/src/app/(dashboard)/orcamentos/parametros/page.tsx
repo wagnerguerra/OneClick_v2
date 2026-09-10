@@ -330,11 +330,11 @@ export default function ParametrosOrcamentosPage() {
     <div className="space-y-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-          <Button variant="outline" size="sm" onClick={() => fetchData()} className="gap-1.5" title="Atualizar">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
           <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={abrirNovo}>
             <Plus className="h-4 w-4" /> Novo Item
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => fetchData()} className="gap-1.5" title="Atualizar">
+            <RefreshCw className="h-4 w-4" />
           </Button>
           <BackButton href="/orcamentos" />
       </>}>

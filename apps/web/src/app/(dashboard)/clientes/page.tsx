@@ -14,7 +14,7 @@ import {
   Ban, RotateCcw, Building2, ExternalLink, Copy,
   Calculator, FileText, Users, Briefcase, ClipboardList, Wallet, Tag,
   ShieldCheck, ShieldAlert, ShieldX, ShieldOff,
-  CalendarClock, ClipboardCheck, BadgePercent, ArrowLeftRight,
+  CalendarClock, BadgePercent, ArrowLeftRight,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -34,7 +34,7 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
 import { IntegracoesModal } from './_components/integracoes-modal'
-import { InativarClienteModal } from './_components/inativar-cliente-modal'
+import { InativarClienteModal, type ClienteVinculado } from './_components/inativar-cliente-modal'
 import { ReativarClienteModal } from './_components/reativar-cliente-modal'
 import { STATUS_BADGE_CLASS, EX_CLIENTE_BADGE_CLASS, INATIVAR_BTN_CLASS, isExCliente } from './_components/cliente-status-ui'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
@@ -94,6 +94,17 @@ const TRIBUTACAO_LABELS: Record<string, string> = {
   LUCRO_REAL: 'Lucro Real', MEI: 'MEI', IMUNE: 'Imune', ISENTA: 'Isenta',
 }
 
+/**
+ * Rótulo curto, só para a legenda do indicador. "Lucro" some porque o cartão
+ * já se chama "Por tributação" — a palavra ocupava um terço da pílula sem
+ * distinguir nada, e era o que empurrava a legenda para além da largura do
+ * cartão. O nome inteiro continua no `title` de cada pílula.
+ */
+const TRIBUTACAO_LABELS_CURTO: Record<string, string> = {
+  SIMPLES_NACIONAL: 'Simples', LUCRO_PRESUMIDO: 'Presumido',
+  LUCRO_REAL: 'Real', MEI: 'MEI', IMUNE: 'Imune', ISENTA: 'Isenta',
+}
+
 /** Cor de cada regime na barra de distribuição. Sem regime fica cinza. */
 const TRIBUTACAO_CORES: Record<string, string> = {
   SIMPLES_NACIONAL: '#16a34a', LUCRO_PRESUMIDO: '#2563eb', LUCRO_REAL: '#9333ea',
@@ -145,7 +156,7 @@ export default function ClientesPage() {
   const { isMaster, isEmpresaMaster } = useUserPermissions()
   // Edição inline: cada campo tem a SUA permissão, igual ao backend. Gatear
   // tudo num flag só criaria campos que parecem editáveis e falham no save.
-  const { canCreate, canEditDetails, canManageCommercial, canEditTaxation, canManageFiscal, canManageResponsible } = useClientesPerms()
+  const { canCreate, canEditDetails, canManageCommercial, canEditTaxation, canManageFiscal, canManageResponsible, canImportClients } = useClientesPerms()
   const [search, setSearch] = useState(() => txt(salvos.search))
   // Inicia JÁ com o valor salvo: se começasse vazio, a primeira busca ignoraria
   // o texto restaurado e a lista piscaria sem filtro antes de corrigir.
@@ -258,7 +269,7 @@ export default function ClientesPage() {
   const [filterBeneficio, setFilterBeneficio] = useState(() => txt(salvos.beneficio))
   const [filterServico, setFilterServico] = useState(() => txt(salvos.servico))
   const [debouncedNumero, setDebouncedNumero] = useState(() => txt(salvos.numero))
-  const [stats, setStats] = useState<{ mensais: number; comServico: number; comBeneficio: number; entraram90d: number; sairam90d: number; porTributacao: Array<{ regime: string; total: number }> } | null>(null)
+  const [stats, setStats] = useState<{ mensais: number; comServico: number; comBeneficio: number; entraram90d: number; sairam90d: number; porTributacao: Array<{ regime: string; total: number }>; porArea: Array<{ area: string; total: number }> } | null>(null)
   const [filterOptions, setFilterOptions] = useState<{ grupos: (string | null)[]; cidades: (string | null)[]; estados: (string | null)[]; tipos: (string | null)[]; atividades: string[]; beneficios: string[]; areas: string[] }>({ grupos: [], cidades: [], estados: [], tipos: [], atividades: [], beneficios: [], areas: [] })
 
   useEffect(() => {
@@ -306,7 +317,9 @@ export default function ClientesPage() {
   // Inativação (#HLP0209/0211) — modal único (data de saída opcional + motivo).
   // `ids` cobre tanto a linha (1 id) quanto o lote (vários). A Lixeira foi
   // aposentada: inativo agora é status=INATIVO, visível pelo filtro "Inativo".
-  const [inativarAlvo, setInativarAlvo] = useState<{ ids: string[]; nome: string } | null>(null)
+  const [inativarAlvo, setInativarAlvo] = useState<{ ids: string[]; nome: string; documento?: string } | null>(null)
+  // Vinculados pelo CNPJ do alvo — so faz sentido inativando UM cliente.
+  const [vinculadosInativar, setVinculadosInativar] = useState<ClienteVinculado[]>([])
   const [reativarAlvo, setReativarAlvo] = useState<{ id: string; nome: string } | null>(null)
 
   // Importação legado
@@ -453,22 +466,37 @@ export default function ClientesPage() {
 
   // Abre o modal de inativação (linha ou lote). O modal cuida dos próprios
   // campos (data de saída opcional + motivo).
-  function openInativar(ids: string[], nome: string) {
+  function openInativar(ids: string[], nome: string, documento?: string) {
     if (ids.length === 0) return
-    setInativarAlvo({ ids, nome })
+    setInativarAlvo({ ids, nome, documento })
   }
 
+  // Busca os outros CNPJs ativos da mesma raiz ao abrir o modal para um unico
+  // cliente. No lote nao pergunta nada: quem escolheu o alcance foi o usuario,
+  // marcando as linhas.
+  useEffect(() => {
+    const alvo = inativarAlvo
+    if (!alvo || alvo.ids.length !== 1 || !alvo.documento) { setVinculadosInativar([]); return }
+    ;(trpc.cliente as unknown as {
+      listMesmaRaiz: { query: (i: { clienteId: string; documento: string }) => Promise<ClienteVinculado[]> }
+    }).listMesmaRaiz.query({ clienteId: alvo.ids[0]!, documento: alvo.documento })
+      .then(setVinculadosInativar)
+      .catch(() => setVinculadosInativar([]))
+  }, [inativarAlvo])
+
   // Confirma a inativação de 1..N clientes com a MESMA data de saída + motivo.
-  async function inativarConfirmado(dataSaida: string, motivo: string, programadaPara: string | null) {
+  async function inativarConfirmado(dataSaida: string, motivo: string, programadaPara: string | null, idsExtras: string[] = []) {
     if (!inativarAlvo) return
     let ok = 0
-    for (const id of inativarAlvo.ids) {
+    // Os vinculados escolhidos no modal entram na mesma fila do lote.
+    const alvos = [...inativarAlvo.ids, ...idsExtras]
+    for (const id of alvos) {
       try {
         await trpc.cliente.inativar.mutate({ id, dataSaida: dataSaida || undefined, motivo, programadaPara })
         ok++
       } catch { /* skip */ }
     }
-    const n = inativarAlvo.ids.length
+    const n = alvos.length
     if (programadaPara) {
       const dia = new Date(`${programadaPara}T00:00:00`).toLocaleDateString('pt-BR')
       await alerts.success(
@@ -527,6 +555,19 @@ export default function ClientesPage() {
     pessoal: UserCog,
     dp: UserCog,
   }
+  // Hex por área — só para a legenda de filtro por área do card de stats, que
+  // tinge o estado ativo via `color-mix` inline (valor CSS cru, não classe).
+  const AREA_COLOR: Record<string, string> = {
+    contabil: '#0284c7',
+    fiscal: '#475569',
+    trabalhista: '#16a34a',
+    societario: '#7c3aed',
+    legalizacao: '#e11d48',
+    administrativo: '#64748b',
+    financeiro: '#0891b2',
+    pessoal: '#ea580c',
+    dp: '#ea580c',
+  }
 
   function renderAreas(areas: string | null) {
     if (!areas) return <span className="text-muted-foreground">—</span>
@@ -582,9 +623,12 @@ export default function ClientesPage() {
   const hasActiveFilters = filterSituacao || (filterStatus !== 'ATIVO') || filterTributacao || filterGrupo || filterCidade || filterUf || filterNumero || filterTipo || filterAtividade || filterArea || filterBeneficio || filterServico || onlyMensal || onlyExCliente
 
   return (
-    <div className="flex flex-col gap-5">
+    // Altura travada na janela: o card da tabela toma o que sobra e so a area
+    // de registros rola. Assim cabecalho da tabela, busca e paginacao ficam
+    // sempre a vista — PADRAO_PAGINAS §1.5.
+    <div className="flex h-[calc(100vh-98px)] flex-col gap-5">
       {/* Header padrão (como o /crm): barra full-bleed, título + trilha, ações à direita */}
-      <PageHeaderBar
+      <PageHeaderBar className="mb-0 sm:mb-0"
         actions={<>
               {canCreate && (
                 <Button size="sm" asChild className="gap-1.5">
@@ -614,7 +658,11 @@ export default function ClientesPage() {
                       e foi a regra combinada para os relatórios do sistema. */}
                   <DropdownMenuItem onClick={() => router.push('/clientes/relatorios')}><BarChart3 className={cn('h-4 w-4', TEXT.emerald)} />Relatórios</DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExport} disabled={exporting}><FileDown className="h-4 w-4" />Exportar</DropdownMenuItem>
-                  {canEditDetails && (
+                  {/* Importação tem sub-permissão própria, não `edit_details`:
+                      cria cliente em massa, escreve por cima do que existe e não
+                      tem desfazer. Quem corrige um telefone não deveria, pelo
+                      mesmo direito, poder despejar uma planilha na base. */}
+                  {canImportClients && (
                     <>
                       <DropdownMenuItem onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar Excel/CSV</DropdownMenuItem>
                       <DropdownMenuItem onClick={handleLegacyImport} disabled={legacyImporting}>
@@ -662,10 +710,61 @@ export default function ClientesPage() {
           leva para os registros que ele conta, que é o que a pessoa quer fazer
           em seguida. */}
       {stats && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
+          {/* Mensais e "com serviço" no mesmo card: o segundo número só existe
+              em relação ao primeiro — 201 sozinho não diz nada, 201 de 203 diz
+              que a carteira está praticamente toda com serviço registrado.
+              Mesma forma do card de entradas/saídas, pelo mesmo motivo.
+
+              Div com dois botões dentro, e não um botão só: são dois filtros
+              independentes, e botão dentro de botão é HTML inválido. */}
+          <div
+            className={cn(
+              'flex items-center gap-3 rounded-xl border bg-card p-3 transition-all',
+              (onlyMensal || filterServico === '__com__') ? 'border-transparent ring-2 ring-cyan-600/60' : 'border-border',
+            )}
+          >
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+              style={{ backgroundColor: 'color-mix(in srgb, #0891b2 12%, transparent)', color: '#0891b2' }}
+            >
+              <CalendarClock className="h-[18px] w-[18px]" />
+            </span>
+            <span className="min-w-0">
+              <span className="flex items-baseline gap-1.5 leading-none">
+                <button
+                  type="button"
+                  onClick={() => toggleOnlyMensal()}
+                  aria-pressed={onlyMensal}
+                  title={onlyMensal ? 'Filtrando somente os mensais — clique para limpar' : 'Filtrar somente os mensais'}
+                  className={cn(
+                    'rounded px-0.5 text-lg font-bold tabular-nums transition-colors hover:bg-muted',
+                    onlyMensal ? 'text-cyan-600 dark:text-cyan-400' : 'text-foreground',
+                  )}
+                >
+                  {stats.mensais.toLocaleString('pt-BR')}
+                </button>
+                <span className="text-muted-foreground/40">/</span>
+                <button
+                  type="button"
+                  onClick={() => { setFilterServico(p => (p === '__com__' ? '' : '__com__')); setPage(1); setFiltersOpen(true) }}
+                  aria-pressed={filterServico === '__com__'}
+                  title={filterServico === '__com__' ? 'Filtrando quem tem serviço — clique para limpar' : 'Filtrar quem tem serviço contratado'}
+                  className={cn(
+                    'rounded px-0.5 text-lg font-bold tabular-nums transition-colors hover:bg-muted',
+                    filterServico === '__com__' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground',
+                  )}
+                >
+                  {stats.comServico.toLocaleString('pt-BR')}
+                </button>
+              </span>
+              <span className="mt-1 block truncate text-[11px] text-muted-foreground">
+                Mensais / com serviço
+              </span>
+            </span>
+          </div>
+
           {([
-            { k: 'mensais', label: 'Mensais', valor: stats.mensais, cor: '#0891b2', Icone: CalendarClock, dica: 'Filtrar somente os mensais', ligado: onlyMensal, aplicar: () => toggleOnlyMensal() },
-            { k: 'comServico', label: 'Com serviço', valor: stats.comServico, cor: '#16a34a', Icone: ClipboardCheck, dica: 'Filtrar quem tem serviço contratado', ligado: filterServico === '__com__', aplicar: () => { setFilterServico(p => (p === '__com__' ? '' : '__com__')); setPage(1); setFiltersOpen(true) } },
             { k: 'comBeneficio', label: 'Com benefício', valor: stats.comBeneficio, cor: '#9333ea', Icone: BadgePercent, dica: 'Filtrar quem tem benefício fiscal', ligado: filterBeneficio === '__com__', aplicar: () => { setFilterBeneficio(p => (p === '__com__' ? '' : '__com__')); setPage(1); setFiltersOpen(true) } },
           ] as const).map(({ k, label, valor, cor, Icone, dica, aplicar, ligado }) => (
             <button
@@ -770,24 +869,25 @@ export default function ClientesPage() {
                       ativo se distinguia só por um peso de fonte, e não dava
                       para saber por qual regime a tabela estava filtrada sem
                       procurar no campo de filtro lá embaixo. */}
-                  {/* Uma linha só. A pílula do ativo é mais larga que o rótulo
-                      solto que ela substitui, e com quatro regimes isso jogava
-                      o último para baixo — o cartão crescia de altura conforme
-                      o que estava filtrado. Espaçamento apertado resolve na
-                      largura de uso; em janela estreita, rola na horizontal em
-                      vez de quebrar. */}
-                  <div className="nice-scrollbar mt-2 flex flex-nowrap items-center gap-x-1.5 overflow-x-auto pb-0.5">
+                  {/* Quebra em vez de rolar. A barra de rolagem horizontal
+                      escondia regime atrás de um gesto que ninguém faz — e
+                      aparecia sempre, porque o cartão encolheu quando o
+                      indicador de serviços entrou na grade. Com o rótulo curto
+                      os quatro regimes cabem numa linha na largura de uso; se
+                      não couberem, descem, que é degradação visível. */}
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {stats.porTributacao.map(t => {
                       const ativoAqui = filterTributacao === t.regime
                       const cor = corTributacao(t.regime)
-                      const rotulo = TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'
+                      const rotulo = TRIBUTACAO_LABELS_CURTO[t.regime] ?? 'Sem info'
+                      const rotuloLongo = TRIBUTACAO_LABELS[t.regime] ?? 'Não informado'
                       return (
                         <button
                           key={t.regime}
                           type="button"
                           onClick={() => aplicarTributacao(t.regime)}
                           aria-pressed={ativoAqui}
-                          title={ativoAqui ? `Filtrando por ${rotulo} — clique para limpar` : `Filtrar por ${rotulo}`}
+                          title={ativoAqui ? `Filtrando por ${rotuloLongo} — clique para limpar` : `Filtrar por ${rotuloLongo}`}
                           className={cn(
                             'flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10.5px] transition-all',
                             ativoAqui
@@ -818,6 +918,62 @@ export default function ClientesPage() {
                 </>
               )
             })()}
+          </div>
+
+          {/* Por serviço contratado — mesma interação da tributação (clicar no
+              rótulo filtra a tabela), mas SEM barra empilhada, de propósito:
+              um cliente contrata várias áreas, então a soma passa do total de
+              mensais e uma barra de 100% mentiria sobre a proporção. Aqui cada
+              número é "quantos dos mensais têm este serviço" — leitura
+              independente, não fatia de bolo. */}
+          <div className="col-span-2 rounded-xl border border-border bg-card p-3 sm:col-span-3 xl:col-span-2">
+            {stats.porArea.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">Nenhum serviço contratado registrado.</p>
+            ) : (
+              <>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">Por serviço contratado</span>
+                  <span className="text-[11px] tabular-nums text-muted-foreground">{stats.mensais.toLocaleString('pt-BR')} mensais</span>
+                </div>
+                {/* Mesma anatomia da legenda de tributação — os dois cartões
+                    ficam lado a lado e qualquer diferença de espaçamento entre
+                    eles lê como desalinhamento. */}
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {stats.porArea.map(a => {
+                    const ativoAqui = filterArea === a.area
+                    const chave = a.area.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    const cor = AREA_COLOR[chave] || '#6b7280'
+                    const Icone = AREA_ICON[chave] ?? Tag
+                    return (
+                      <button
+                        key={a.area}
+                        type="button"
+                        onClick={() => { setFilterArea(p => (p === a.area ? '' : a.area)); setPage(1); setFiltersOpen(true) }}
+                        aria-pressed={ativoAqui}
+                        title={ativoAqui ? `Filtrando por ${a.area} — clique para limpar` : `Filtrar quem tem ${a.area}`}
+                        className={cn(
+                          'flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10.5px] transition-all',
+                          ativoAqui ? 'font-semibold shadow-sm' : 'border-transparent text-muted-foreground hover:bg-muted',
+                          // Com uma área escolhida, as outras recuam sem sumir:
+                          // continuam clicáveis para trocar de filtro.
+                          filterArea && !ativoAqui && 'opacity-45 hover:opacity-100',
+                        )}
+                        style={ativoAqui ? {
+                          color: cor,
+                          backgroundColor: `color-mix(in srgb, ${cor} 14%, transparent)`,
+                          borderColor: `color-mix(in srgb, ${cor} 45%, transparent)`,
+                        } : undefined}
+                      >
+                        <Icone className="h-2.5 w-2.5 shrink-0" style={{ color: cor }} />
+                        {a.area}
+                        <strong className={cn('font-semibold tabular-nums', !ativoAqui && 'text-foreground')}>{a.total}</strong>
+                        {ativoAqui && <X className="h-3 w-3 shrink-0 opacity-70" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1036,8 +1192,8 @@ export default function ClientesPage() {
       )}
 
       {/* DataTable */}
-      <Card>
-        <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">Exibir</span>
             <Select value={String(limit)} onValueChange={(v) => { setLimit(Number(v)); setPage(1) }}>
@@ -1046,11 +1202,17 @@ export default function ClientesPage() {
             </Select>
             <span className="hidden sm:inline">registros</span>
           </div>
-          <div className="w-full sm:w-auto sm:max-w-xs">
+          {/* Largura tripla (o input caia no tamanho intrinseco, ~185px). O teto
+              em 60% da linha impede que ele encoste no "Exibir N registros"
+              num notebook 1366. */}
+          <div className="w-full sm:w-[560px] sm:max-w-[60%]">
             <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
           </div>
         </div>
 
+        {/* `min-h-0` e o que permite este filho encolher abaixo do proprio
+            conteudo; sem ele o card estica e a rolagem volta para a pagina. */}
+        <div className="nice-scrollbar min-h-0 flex-1 overflow-y-auto">
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
@@ -1217,7 +1379,7 @@ export default function ClientesPage() {
                                 <RotateCcw className="h-4 w-4" />Reativar
                               </DropdownMenuItem>
                             ) : (
-                              <DropdownMenuItem onClick={() => openInativar([cliente.id], cliente.razaoSocial)}>
+                              <DropdownMenuItem onClick={() => openInativar([cliente.id], cliente.razaoSocial, cliente.documento)}>
                                 <Ban className="h-4 w-4" />Inativar
                               </DropdownMenuItem>
                             )}
@@ -1233,7 +1395,7 @@ export default function ClientesPage() {
                             <RotateCcw className="h-3.5 w-3.5" />
                           </Button>
                         ) : (
-                          <Button variant="soft-warning" size="icon-sm" title="Inativar" onClick={() => openInativar([cliente.id], cliente.razaoSocial)}>
+                          <Button variant="soft-warning" size="icon-sm" title="Inativar" onClick={() => openInativar([cliente.id], cliente.razaoSocial, cliente.documento)}>
                             <Ban className="h-3.5 w-3.5" />
                           </Button>
                         )}
@@ -1245,10 +1407,11 @@ export default function ClientesPage() {
             )}
           </TableBody>
         </Table>
+        </div>
 
         {/* Footer */}
         {data && (
-          <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex shrink-0 flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               {data.total === 0 ? (
                 'Mostrando 0 registros'
@@ -1290,6 +1453,7 @@ export default function ClientesPage() {
         open={!!inativarAlvo}
         count={inativarAlvo?.ids.length ?? 0}
         nome={inativarAlvo?.nome}
+        vinculados={vinculadosInativar}
         onOpenChange={o => { if (!o) setInativarAlvo(null) }}
         onConfirm={inativarConfirmado}
       />

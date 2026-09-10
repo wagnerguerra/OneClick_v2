@@ -146,7 +146,7 @@ export default function CusteioPage() {
   return (
     <div className="flex flex-col gap-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           <Input type="month" value={refMes} onChange={e => setRefMes(e.target.value)} className="h-9 w-[150px] text-sm" />
           <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={recalcular} disabled={recalculando || loading}>
             {recalculando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}

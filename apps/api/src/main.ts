@@ -68,7 +68,11 @@ async function bootstrap() {
   // Health check — usado pelo frontend pra detectar API fora do ar.
   // Sem auth, resposta minimal e rápida.
   express.get('/api/health', (_req: unknown, res: { json: (o: Record<string, unknown>) => void }) => {
-    res.json({ ok: true, ts: Date.now(), uptime: process.uptime() })
+    // `versao` = SHA do commit que gerou a imagem (build arg GIT_SHA). Nulo
+    // quando a imagem foi buildada a mao, sem o arg. Serve para conferir, de
+    // fora, que o deploy publicou o commit certo -- o checkout da VPS nao
+    // prova mais nada desde que a imagem passa a vir do registry.
+    res.json({ ok: true, ts: Date.now(), uptime: process.uptime(), versao: process.env.GIT_SHA || null })
   })
   const path = require('path')
   const fs = require('fs')

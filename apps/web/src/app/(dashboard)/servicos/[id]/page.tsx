@@ -14,7 +14,7 @@ import {
   Loader2, Save, Plus, Trash2, Edit, AlertCircle,
   Play, Pause, FileText, Layers, GitBranch, History, ListChecks,
   GripVertical, Clock, X, ChevronRight, ChevronDown, Network, Repeat, Zap, Type, Check, Search, Users,
-  Bell, Mail, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database,
+  Bell, Mail, CircleDollarSign, AlignLeft, Info, Settings, CalendarDays, Lock, Unlock, ShieldCheck, Database, HelpCircle,
   StickyNote, Link as LinkIcon, Paperclip,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -320,6 +320,14 @@ export default function ServicoDetailPage() {
   const [disponivelOrcamento, setDisponivelOrcamento] = useState(true)
   /** MENSAL = recorrente; EXTRA = pontual; FLUXO = item interno de outro serviço. */
   const [categoriaServico, setCategoriaServico] = useState<'MENSAL' | 'EXTRA' | 'FLUXO'>('EXTRA')
+  /**
+   * Tipo do NÓ no fluxo — ATIVIDADE ou PERGUNTA. Vive em `Servico.tipo`, que já
+   * existia e já é o que o editor visual usa para marcar o bloco de decisão.
+   * Entrou no "Tipo de cadastro" porque um serviço-pergunta como "Qual a
+   * tributação?" não é recorrente nem extraordinário — e, sem uma opção que o
+   * descrevesse, aparecia rotulado como "Serviço Extraordinário".
+   */
+  const [tipoNo, setTipoNo] = useState<'ATIVIDADE' | 'PERGUNTA'>('ATIVIDADE')
   /** Serviço de execução exclusivamente interna — não aparece no catálogo do orçamento.
    *  Mutuamente exclusivo com Recorrente/Extra/Fluxo (no UI é a 4ª pill do "Tipo de cadastro"). */
   const [ehServicoInterno, setEhServicoInterno] = useState(false)
@@ -428,6 +436,7 @@ export default function ServicoDetailPage() {
       setCategoriaServico(cat)
       setEhServicoInterno((s as any).ehServicoInterno === true)
       setEhObrigacaoAcessoria((s as any).ehObrigacaoAcessoria === true)
+      setTipoNo((s as any).tipo === 'PERGUNTA' ? 'PERGUNTA' : 'ATIVIDADE')
       setServicoPaiId(s.servicoPaiId ?? '')
       const filhos = ((s as any).subservicos ?? []).map((v: { filho: { id: string } }) => v.filho.id)
       setSubservicos(filhos)
@@ -677,8 +686,9 @@ export default function ServicoDetailPage() {
           disponivelOrcamento: ehServicoInterno || ehObrigacaoAcessoria || categoriaServico === 'FLUXO' ? false : disponivelOrcamento,
           ehServicoInterno,
           ehObrigacaoAcessoria,
-          recorrenteMensal: categoriaServico === 'MENSAL',
+          recorrenteMensal: tipoNo === 'PERGUNTA' ? false : categoriaServico === 'MENSAL',
           categoriaServico,
+          tipo: tipoNo,
           servicoPaiId: categoriaServico === 'FLUXO' ? (servicoPaiId || null) : null,
           textoPadrao: textoPadrao || null,
           atribuicaoResponsavel,
@@ -1356,25 +1366,32 @@ export default function ServicoDetailPage() {
                       {/* Tipo de cadastro */}
                       <div className="space-y-1.5">
                         <Label className="text-[13px] font-semibold">Tipo de cadastro</Label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                           {([
                             { v: 'MENSAL' as const, key: 'MENSAL',     label: 'Serviço Recorrente',     desc: 'Serviço que precisa ser executado com uma determinada recorrência', tone: 'sky'    as const, Icon: Repeat },
                             { v: 'EXTRA'  as const, key: 'EXTRA',      label: 'Serviço Extraordinário', desc: 'Pontual — cobrança por execução',                                    tone: 'amber'  as const, Icon: Zap },
                             { v: 'FLUXO'  as const, key: 'FLUXO',      label: 'Parte do Fluxo',         desc: 'Item interno de outro serviço',                                      tone: 'violet' as const, Icon: Network },
                             { v: 'EXTRA'  as const, key: 'INTERNO',    label: 'Serviço Interno',        desc: 'Serviço de execução interna',                                        tone: 'slate'  as const, Icon: Lock },
                             { v: 'MENSAL' as const, key: 'ACESSORIA',  label: 'Obrigação Acessória',  desc: 'Obrigações que são entregues com uma certa recorrência',             tone: 'rose'   as const, Icon: ShieldCheck },
+                            // Pergunta persiste em `Servico.tipo`, não em categoria.
+                            { v: 'FLUXO'  as const, key: 'PERGUNTA',   label: 'Pergunta',               desc: 'Ponto de decisão que ramifica a cadeia',                             tone: 'fuchsia' as const, Icon: HelpCircle },
                           ]).map(opt => {
-                            const active = opt.key === 'INTERNO'
-                              ? ehServicoInterno
-                              : opt.key === 'ACESSORIA'
-                                ? ehObrigacaoAcessoria
-                                : !ehServicoInterno && !ehObrigacaoAcessoria && categoriaServico === opt.v
+                            const active = opt.key === 'PERGUNTA'
+                              ? tipoNo === 'PERGUNTA'
+                              : tipoNo === 'PERGUNTA'
+                                ? false
+                                : opt.key === 'INTERNO'
+                                  ? ehServicoInterno
+                                  : opt.key === 'ACESSORIA'
+                                    ? ehObrigacaoAcessoria
+                                    : !ehServicoInterno && !ehObrigacaoAcessoria && categoriaServico === opt.v
                             const palette = {
                               sky:    { border: 'border-sky-500',    bg: 'bg-sky-50/60 dark:bg-sky-950/30',     hover: 'hover:border-sky-300',    icon: 'text-sky-600    dark:text-sky-300' },
                               amber:  { border: 'border-amber-500',  bg: 'bg-amber-50/60 dark:bg-amber-950/30', hover: 'hover:border-amber-300',  icon: 'text-amber-600  dark:text-amber-300' },
                               violet: { border: 'border-violet-500', bg: 'bg-violet-50/60 dark:bg-violet-950/30', hover: 'hover:border-violet-300', icon: 'text-violet-600 dark:text-violet-300' },
                               slate:  { border: 'border-slate-500',  bg: 'bg-slate-50/60 dark:bg-slate-900/30', hover: 'hover:border-slate-300',  icon: 'text-slate-600  dark:text-slate-300' },
                               rose:   { border: 'border-rose-500',   bg: 'bg-rose-50/60 dark:bg-rose-950/30',   hover: 'hover:border-rose-300',   icon: 'text-rose-600   dark:text-rose-300' },
+                              fuchsia:{ border: 'border-fuchsia-500', bg: 'bg-fuchsia-50/60 dark:bg-fuchsia-950/30', hover: 'hover:border-fuchsia-300', icon: 'text-fuchsia-600 dark:text-fuchsia-300' },
                             }[opt.tone]
                             const Icon = opt.Icon
                             return (
@@ -1382,19 +1399,31 @@ export default function ServicoDetailPage() {
                                 key={opt.key}
                                 type="button"
                                 onClick={() => {
-                                  if (opt.key === 'INTERNO') {
+                                  if (opt.key === 'PERGUNTA') {
+                                    // Pergunta não é vendida nem recorre: sai do
+                                    // catálogo e assume a categoria de fluxo, que
+                                    // é onde ela de fato vive.
+                                    setTipoNo('PERGUNTA')
+                                    setEhServicoInterno(false)
+                                    setEhObrigacaoAcessoria(false)
+                                    setCategoriaServico('FLUXO')
+                                    setDisponivelOrcamento(false)
+                                  } else if (opt.key === 'INTERNO') {
+                                    setTipoNo('ATIVIDADE')
                                     setEhServicoInterno(true)
                                     setEhObrigacaoAcessoria(false)
                                     setCategoriaServico('EXTRA')
                                     setDisponivelOrcamento(false)
                                     setServicoPaiId('')
                                   } else if (opt.key === 'ACESSORIA') {
+                                    setTipoNo('ATIVIDADE')
                                     setEhObrigacaoAcessoria(true)
                                     setEhServicoInterno(false)
                                     setCategoriaServico('MENSAL')
                                     setDisponivelOrcamento(false)
                                     setServicoPaiId('')
                                   } else {
+                                    setTipoNo('ATIVIDADE')
                                     setEhServicoInterno(false)
                                     setEhObrigacaoAcessoria(false)
                                     setCategoriaServico(opt.v)

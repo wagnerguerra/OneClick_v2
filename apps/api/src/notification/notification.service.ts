@@ -76,15 +76,21 @@ type CertGrupoDef = { id: string; where: Prisma.NotificationWhereInput; tipo: st
 const CERT_GRUPOS: Record<'vencido' | 'vencendo', CertGrupoDef> = {
   vencido: {
     id: 'agg:cert:vencido',
-    where: { origem: CERT_ORIGEM, OR: [{ link: { contains: 'estado=VENCIDO' } }, { link: { contains: 'estado=7D' } }] },
+    // So o balde VENCIDO. O 7D saiu daqui e foi para "vencendo": o titulo diz
+    // "vencidos", o link leva ao filtro VENCIDO — que nao mostra o que ainda
+    // vai vencer — e o numero contava os dois. Quem clicava em "13 vencidos"
+    // caia numa lista de 3 e concluia, com razao, que o sistema mente.
+    where: { origem: CERT_ORIGEM, link: { contains: 'estado=VENCIDO' } },
     tipo: 'error',
     link: '/gestao-certificados?filtro=VENCIDO',
     titulo: (n: number) => `${n} certificado${n === 1 ? '' : 's'} de cliente${n === 1 ? '' : 's'} vencido${n === 1 ? '' : 's'}`,
-    mensagem: 'Inclui os que vencem em até 7 dias. Abra a Gestão de Certificados para ver a lista.',
+    mensagem: 'Abra a Gestão de Certificados para ver a lista.',
   },
   vencendo: {
     id: 'agg:cert:vencendo',
-    where: { origem: CERT_ORIGEM, OR: [{ link: { contains: 'estado=30D' } }, { link: { contains: 'estado=60D' } }] },
+    // Recebeu o 7D, que antes contava como "vencido" sem estar vencido. A
+    // janela do rotulo (60 dias) e a mesma da aba "Vencendo" da tela.
+    where: { origem: CERT_ORIGEM, OR: [{ link: { contains: 'estado=7D' } }, { link: { contains: 'estado=30D' } }, { link: { contains: 'estado=60D' } }] },
     tipo: 'warning',
     link: '/gestao-certificados?filtro=VENCENDO',
     titulo: (n: number) => `${n} certificado${n === 1 ? '' : 's'} de cliente${n === 1 ? '' : 's'} vencendo`,

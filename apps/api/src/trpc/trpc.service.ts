@@ -38,6 +38,9 @@ import { OmieService } from '../cliente/omie.service'
 import { ContratoSyncService } from '../cliente/contrato-sync.service'
 import { createClienteRouter } from '../cliente/cliente.router'
 import { ClienteRelatorioService } from '../cliente/relatorio/relatorio.service'
+import { ClienteUsuarioService } from '../cliente/cliente-usuario.service'
+import { PortalConviteService } from '../portal/portal-convite.service'
+import { createPortalRouter } from '../portal/portal.router'
 import { StripeService } from '../stripe/stripe.service'
 import { createBillingRouter } from '../stripe/stripe.router'
 import { ColaboradorService } from '../colaborador/colaborador.service'
@@ -215,6 +218,7 @@ import { createSignatureRouter } from '../signature/signature.router'
 import { createNfseRouter } from '../nfse/nfse.router'
 import { createMinhasObrigacoesRouter } from '../minhas-obrigacoes/minhas-obrigacoes.router'
 import { AuthService } from '../auth/auth.service'
+import { resolverVinculo, atendeNivel, type PortalNivel } from '../portal/portal-escopo'
 
 /**
  * Estado de billing do tenant, calculado no createContext.
@@ -233,6 +237,8 @@ export interface TrpcContext {
   empresaId?: string
   isMaster?: boolean
   isEmpresaMaster?: boolean
+  /** Papel do usuário. `COLABORADOR_CLIENTE` = externo (Portal do Cliente). */
+  role?: string
   billingState?: BillingState
   trialEndsAt?: Date
 }
@@ -245,6 +251,27 @@ export interface TrpcContext {
  * createContext já devolve billingState='ACTIVE' pra ele.
  * A mensagem é um código legível pelo front (redireciona p/ a tela de planos).
  */
+/**
+ * Barra o usuário EXTERNO (Portal do Cliente) em procedure interna.
+ *
+ * A defesa primária do portal é o namespace `portal.*`, com escopo por cliente
+ * obrigatório. Esta é a segunda camada, e existe porque a primeira depende de
+ * quem escreve a procedure lembrar de usá-la: aqui, TODA procedure interna
+ * recusa quem é de fora, sem depender de lembrança.
+ *
+ * Na prática o externo já esbarraria na permissão por módulo — ele não tem
+ * linha em `user_permissions`. Mas `protectedProcedure` não checa módulo
+ * nenhum, e é justamente a que alguém usaria para uma consulta "inofensiva".
+ */
+export function assertUsuarioInterno(ctx: TrpcContext) {
+  if (ctx.role === 'COLABORADOR_CLIENTE') {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Esta área é do escritório. Usuários de cliente acessam pelo portal.',
+    })
+  }
+}
+
 export function assertTenantActive(ctx: TrpcContext) {
   if (ctx.billingState === 'TRIAL_EXPIRED') {
     throw new TRPCError({ code: 'FORBIDDEN', message: 'TRIAL_EXPIRED' })
@@ -325,6 +352,7 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   if (!ctx.userId) {
     throw new Error('Não autorizado')
   }
+  assertUsuarioInterno(ctx)
   return next({ ctx: { ...ctx, userId: ctx.userId } })
 })
 
@@ -338,6 +366,7 @@ export const masterProcedure = t.procedure.use(({ ctx, next }) => {
   if (!ctx.userId) {
     throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
   }
+  assertUsuarioInterno(ctx)
   if (!ctx.isMaster) {
     throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso restrito ao administrador da plataforma' })
   }
@@ -387,6 +416,7 @@ function createPermissionMiddleware(moduleSlug: string, action: 'canRead' | 'can
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     }
     assertTenantActive(ctx)
+    assertUsuarioInterno(ctx)
 
     // Master e EmpresaMaster têm acesso total
     if (ctx.isMaster || ctx.isEmpresaMaster) {
@@ -424,6 +454,74 @@ export function deleteProcedure(moduleSlug: string) {
 }
 
 /**
+ * Procedures do PORTAL DO CLIENTE — usuário externo, escopo por cliente.
+ *
+ * Todas as demais procedures deste arquivo isolam por empresa e tenant, porque
+ * foram escritas supondo um usuário INTERNO. O portal quebra essa premissa, e o
+ * isolamento que passa a valer é por CLIENTE.
+ *
+ * O ponto do desenho: o `clienteId` é lido do input pelo PRÓPRIO middleware e
+ * resolvido antes do handler rodar. Não é um parâmetro que o autor da procedure
+ * precisa lembrar de filtrar — quem esquecer não escreve um `where` frouxo,
+ * escreve uma procedure que nem chega ao handler. Num portal multiempresa, o
+ * filtro esquecido é o modo de falha mais comum e o mais caro: um cliente lendo
+ * os dados do outro.
+ *
+ * Uso:
+ *   portalProcedure.input(z.object({ clienteId: z.string() })).query(({ ctx }) =>
+ *     svc.listar(ctx.portal.clienteId))
+ *
+ * `ctx.portal` chega com o vínculo já resolvido — nível e áreas efetivas.
+ * A regra do namespace: nada em `portal.*` consulta dados de cliente sem passar
+ * por aqui, e nada chama service interno sem passar `ctx.portal.clienteId`.
+ */
+export const portalProcedure = t.procedure.use(async ({ ctx, getRawInput, next }) => {
+  if (!ctx.userId) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+  }
+  assertTenantActive(ctx)
+
+  // Master do escritório NÃO ganha passe livre aqui, ao contrário das
+  // permission-procedures. O portal é a visão do cliente: se um interno precisa
+  // olhar, olha pelo módulo interno, onde a ação fica na trilha certa.
+  const raw = (await getRawInput()) as { clienteId?: unknown } | null
+  const clienteId = raw?.clienteId
+  if (typeof clienteId !== 'string' || clienteId.length === 0) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'PORTAL_SEM_CLIENTE: toda chamada do portal precisa declarar o cliente.',
+    })
+  }
+
+  const vinculo = await resolverVinculo(ctx.userId, clienteId)
+  if (!vinculo) {
+    // Mesma resposta para "não existe", "não é seu" e "está inativo": distinguir
+    // diria a um curioso quais ids de cliente existem.
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Sem acesso a este cliente.' })
+  }
+
+  return next({ ctx: { ...ctx, userId: ctx.userId, portal: vinculo } })
+})
+
+/**
+ * Portal, exigindo um nível mínimo.
+ *
+ * `OPERACIONAL` para quem envia documento e abre chamado; `ADMINISTRADOR` para
+ * honorários, contrato e gestão dos próprios usuários.
+ */
+export function portalProcedureNivel(minimo: PortalNivel) {
+  return portalProcedure.use(({ ctx, next }) => {
+    if (!atendeNivel(ctx.portal, minimo)) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: `Esta ação exige o nível ${minimo} no portal.`,
+      })
+    }
+    return next({ ctx })
+  })
+}
+
+/**
  * Procedure que exige permissão de LEITURA em pelo menos UM dos módulos
  * listados. Útil quando um recurso é "filho lógico" de outro (ex.: sócios
  * vivem dentro do módulo de clientes; quem pode ler clientes deve poder
@@ -435,6 +533,7 @@ export function readProcedureAnyOf(...moduleSlugs: string[]) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     }
     assertTenantActive(ctx)
+    assertUsuarioInterno(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) {
       return next({ ctx: { ...ctx, userId: ctx.userId } })
     }
@@ -482,6 +581,7 @@ function createSocioMiddleware(action: 'canWrite' | 'canDelete') {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     }
     assertTenantActive(ctx)
+    assertUsuarioInterno(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) {
       return next({ ctx: { ...ctx, userId: ctx.userId } })
     }
@@ -524,6 +624,7 @@ function createSubPermissionMiddleware(moduleSlug: string, subKey: string, label
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     }
     assertTenantActive(ctx)
+    assertUsuarioInterno(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) {
       return next({ ctx: { ...ctx, userId: ctx.userId } })
     }
@@ -567,6 +668,7 @@ export function readSubAnyProcedure(moduleSlug: string, subKeys: string[], label
         throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
       }
       assertTenantActive(ctx)
+      assertUsuarioInterno(ctx)
       if (ctx.isMaster || ctx.isEmpresaMaster) {
         return next({ ctx: { ...ctx, userId: ctx.userId } })
       }
@@ -599,6 +701,7 @@ export function writeSubOrModuleWrite(subModule: string, subKey: string, altModu
   return t.procedure.use(async ({ ctx, next }) => {
     if (!ctx.userId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     assertTenantActive(ctx)
+    assertUsuarioInterno(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) return next({ ctx: { ...ctx, userId: ctx.userId } })
     const permissions = await getUserPermissions(ctx.userId)
     const subMod = permissions.find(p => p.moduleSlug === subModule)
@@ -623,6 +726,7 @@ export function readOrLiderProcedure(moduleSlug: string) {
   return t.procedure.use(async ({ ctx, next }) => {
     if (!ctx.userId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     assertTenantActive(ctx)
+    assertUsuarioInterno(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) return next({ ctx: { ...ctx, userId: ctx.userId } })
     if (await ehLiderDeSetor(ctx.userId)) return next({ ctx: { ...ctx, userId: ctx.userId } })
     const perms = await getUserPermissions(ctx.userId)
@@ -637,6 +741,7 @@ export function writeSubOrLiderProcedure(moduleSlug: string, subKey: string, lab
   return t.procedure.use(async ({ ctx, next }) => {
     if (!ctx.userId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
     assertTenantActive(ctx)
+    assertUsuarioInterno(ctx)
     if (ctx.isMaster || ctx.isEmpresaMaster) return next({ ctx: { ...ctx, userId: ctx.userId } })
     if (await ehLiderDeSetor(ctx.userId)) return next({ ctx: { ...ctx, userId: ctx.userId } })
     const perms = await getUserPermissions(ctx.userId)
@@ -669,6 +774,8 @@ export class TrpcService {
     @Inject(ClienteLogoService) private readonly clienteLogoService: ClienteLogoService,
     @Inject(SocioPerfisService) private readonly socioPerfisService: SocioPerfisService,
     @Inject(ClienteRelatorioService) private readonly clienteRelatorioService: ClienteRelatorioService,
+    @Inject(ClienteUsuarioService) private readonly clienteUsuarioService: ClienteUsuarioService,
+    @Inject(PortalConviteService) private readonly portalConviteService: PortalConviteService,
     @Inject(SincronizarResponsaveisService) private readonly sincronizarResponsaveisService: SincronizarResponsaveisService,
     @Inject(LegacyImportService) private readonly legacyImportService: LegacyImportService,
     @Inject(SciService) private readonly sciService: SciService,
@@ -820,7 +927,7 @@ export class TrpcService {
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
       adminTenant: createAdminTenantRouter(this.adminTenantService),
-      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService, this.clienteCapaService, this.dossieService, this.dossieBackfillService, this.clienteLogoService, this.socioPerfisService, this.clienteRelatorioService),
+      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService, this.clienteCapaService, this.dossieService, this.dossieBackfillService, this.clienteLogoService, this.socioPerfisService, this.clienteRelatorioService, this.clienteUsuarioService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
       fornecedor: createFornecedorRouter(this.fornecedorService),
@@ -846,6 +953,7 @@ export class TrpcService {
       sqlConsole: createSqlConsoleRouter(this.sqlConsoleService),
       nota: createNotaRouter(this.notaService),
       whatsapp: createWhatsappRouter(this.whatsappService, this.whatsappCloudService),
+      portal: createPortalRouter(this.portalConviteService),
       faq: createFaqRouter(this.faqService),
       servico: createServicoRouter(this.servicoService),
       processo: createProcessoRouter(this.processoService),

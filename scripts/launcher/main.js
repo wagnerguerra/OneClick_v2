@@ -2357,6 +2357,24 @@ function registerIpcHandlers() {
     return (r.stdout || '').replace(/\r?\n+$/, '')
   }
 
+  // SHA de um ref, ou '' se ele não existe.
+  //
+  // Existe porque `git rev-parse origin/<inexistente>` NÃO sai em branco: ele
+  // ecoa o próprio argumento no stdout ("origin/fix/minha-branch") e devolve
+  // 128. Como gitOutput ignora o código de saída, o chamador recebia uma string
+  // truthy que não é SHA nenhum — e o `merge-base --is-ancestor` seguinte
+  // falhava, o que era lido como "o remoto está à frente". O deploy de uma
+  // branch que só existe local então tentava mesclar um ref inexistente e
+  // morria em "not something we can merge".
+  //
+  // O `--verify --quiet` é o que faz o rev-parse calar e sair em branco.
+  function gitRefSha(ref, cwd) {
+    const r = spawnSync('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], {
+      cwd: cwd || projectRoot, encoding: 'utf8', windowsHide: true,
+    })
+    return r.status === 0 ? (r.stdout || '').replace(/\r?\n+$/, '') : ''
+  }
+
   // Branch default do repositório (trunk). Usa origin/HEAD; cai pra main/master.
   function detectDefaultBranch(cwd) {
     const ref = gitOutput(['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], cwd)
@@ -2830,6 +2848,121 @@ function registerIpcHandlers() {
     return r.status ?? 1
   }
 
+  // -- Imagens vindas do ghcr (build no CI) em vez de buildadas na VPS ------
+  //
+  // Ligado por DEPLOY_IMAGES=ghcr no .deploy.local. Fica DESLIGADO por padrao
+  // de proposito: a virada exige que a VPS ja tenha feito `docker login
+  // ghcr.io` e que o compose de producao tenha perdido o bloco `build:`. Com a
+  // flag, a ordem entre essas duas coisas e a atualizacao do Service Manager
+  // deixa de importar, e a volta atras e uma linha no .deploy.local.
+  //
+  // Motivo de existir: a VPS tem 2 vCPU e 7,8 GB, com o swap quase cheio e o
+  // disco em 78% -- so o cache de build do Docker ocupa 19 GB. O `next build`
+  // era o passo que saturava tudo isso a cada publicacao.
+
+  function ghcrDono(cfg) {
+    if (cfg && cfg.GHCR_OWNER) return cfg.GHCR_OWNER
+    const repo = deployGitHubRepo(cfg)            // "wagnerguerra/OneClick_v2"
+    return repo ? repo.split('/')[0] : null
+  }
+
+  function usaImagensDoGhcr(cfg) {
+    return String((cfg && cfg.DEPLOY_IMAGES) || '').toLowerCase() === 'ghcr'
+  }
+
+  // Espera o workflow de imagens concluir PARA AQUELE SHA.
+  //
+  // Por SHA e nao por `latest`: `latest` e uma corrida -- dois deploys proximos
+  // e voce publica a imagem do outro commit sem perceber. Esperar tambem nao e
+  // zelo, e obrigacao: o push acabou de acontecer, entao a imagem daquele
+  // commit quase certamente ainda nao existe quando o deploy chega aqui.
+  async function aguardaImagensDoSha(cfg, sha, emitir, nomeJob, tetoMs) {
+    const teto = tetoMs || 25 * 60 * 1000
+    const inicio = Date.now()
+    let anunciou = false
+    let runId = null
+    let runUrl = null
+
+    while (Date.now() - inicio < teto) {
+      // 1) Acha o run daquele commit (uma vez; depois so reconsulta os jobs).
+      if (!runId) {
+        const r = await githubJson(`/actions/workflows/build-images.yml/runs?head_sha=${sha}&per_page=1`, cfg)
+        if (!r.ok) return { ok: false, error: `Nao foi possivel consultar o build das imagens no GitHub: ${r.error}` }
+        const run = (r.data && r.data.workflow_runs && r.data.workflow_runs[0]) || null
+        if (run) { runId = run.id; runUrl = run.html_url }
+      }
+
+      // 2) Espera o JOB, nao o run.
+      //
+      // O run so termina quando API e Web terminam, e os dois quase nunca levam
+      // o mesmo tempo: num commit que so mexe no web, a imagem da API sai em ~30s
+      // (tudo cache) e o run leva ~4min30 por causa do web. Esperar o run fazia o
+      // passo "Imagem API" ficar 4 minutos parado esperando algo que ele nao usa.
+      if (runId) {
+        const j = await githubJson(`/actions/runs/${runId}/jobs?per_page=50`, cfg)
+        if (j.ok) {
+          const jobs = (j.data && j.data.jobs) || []
+          const job = jobs.find(x => x.name === nomeJob)
+          if (job && job.status === 'completed') {
+            if (job.conclusion === 'success') return { ok: true, url: job.html_url || runUrl }
+            return { ok: false, error: `O job "${nomeJob}" terminou como "${job.conclusion}". Veja ${job.html_url || runUrl}` }
+          }
+          // Run acabou e o job nem apareceu: cancelado, ou o nome mudou no
+          // workflow. Falhar aqui e melhor que esperar o teto inteiro.
+          if (!job && jobs.length > 0) {
+            const r2 = await githubJson(`/actions/runs/${runId}`, cfg)
+            if (r2.ok && r2.data && r2.data.status === 'completed') {
+              return { ok: false, error: `O build terminou sem o job "${nomeJob}" (nomes vistos: ${jobs.map(x => x.name).join(', ')}). Veja ${runUrl}` }
+            }
+          }
+          if (!anunciou && job) {
+            emitir(`- ${nomeJob} em andamento: ${job.html_url || runUrl}`)
+            anunciou = true
+          }
+        }
+      }
+
+      if (!anunciou && !runId) {
+        emitir('- Aguardando o GitHub criar o build das imagens para este commit...')
+        anunciou = true
+      }
+      // Primeiro minuto de 5 em 5s: um job em cache termina em ~30s, e um
+      // intervalo de 15s desperdicava metade disso so esperando a proxima
+      // pergunta. Depois relaxa, que ai o build e longo mesmo.
+      const rapido = Date.now() - inicio < 60 * 1000
+      await new Promise((resolver) => setTimeout(resolver, rapido ? 5000 : 15000))
+    }
+    return { ok: false, error: `O job "${nomeJob}" nao concluiu em 25 min. Veja a aba Actions no GitHub.` }
+  }
+
+  // Puxa a imagem do SHA e a REETIQUETA com o nome local que o compose ja usa.
+  //
+  // Reetiquetar em vez de apontar o compose para o ghcr porque
+  // `oneclick-api:latest` nao e usado so pelo compose: o passo que aplica o
+  // `prisma db push` roda `docker run --rm ... oneclick-api:latest`. Mantendo o
+  // nome, nada mais no deploy precisa mudar -- no compose de producao basta
+  // remover o bloco `build:`.
+  function puxaImagemDoGhcr(cfg, servico, sha, onLine) {
+    const dono = ghcrDono(cfg)
+    if (!dono) {
+      return Promise.resolve({ code: 1, stdout: '', stderr: 'GHCR_OWNER nao configurado e nao foi possivel inferir pelo GITHUB_REPO.' })
+    }
+    const remota = `ghcr.io/${dono}/oneclick-${servico}:${sha}`
+    const local = `oneclick-${servico}:latest`
+    return sshExec(
+      cfg,
+      `docker pull ${remota} 2>&1 && docker tag ${remota} ${local} 2>&1 && echo "reetiquetada como ${local}"`,
+      onLine,
+      600000,
+    )
+  }
+
+  // Progresso de camada do `docker pull` e ruido puro na tela do deploy.
+  function linhaDePullRelevante(linha) {
+    if (/^\s*$/.test(linha)) return false
+    return !/^[a-f0-9]{12}: (Pulling|Waiting|Downloading|Extracting|Verifying|Download complete|Pull complete|Already exists)/.test(linha)
+  }
+
   function deployCheckAbort(step, progress) {
     if (!deployAbortRequested) return
     const err = new Error('Deploy abortado pelo usuário')
@@ -2994,7 +3127,7 @@ function registerIpcHandlers() {
         targetSha = gitOutput(['rev-parse', 'HEAD'])
         coreDeployBranch = localBranch
       }
-      const remoteShaBeforePush = gitOutput(['rev-parse', `origin/${coreDeployBranch}`])
+      const remoteShaBeforePush = gitRefSha(`origin/${coreDeployBranch}`)
       if (!targetSha) targetSha = gitOutput(['rev-parse', 'HEAD'])
       if (!corePrTarget?.number && gitExitCode(['merge-base', '--is-ancestor', targetSha, 'HEAD']) !== 0) {
         return { ok: false, error: 'Commit selecionado não pertence ao histórico local.' }
@@ -3010,7 +3143,9 @@ function registerIpcHandlers() {
       // topo (HEAD) da própria branch de deploy.
       if (coreDeployBranch === localBranch) {
         await gitExec(['fetch', 'origin', coreDeployBranch], null, 30000)
-        const remoteBranchSha = gitOutput(['rev-parse', `origin/${coreDeployBranch}`])
+        // Branch que ainda não existe no origin devolve '' — nada a integrar, e o
+        // push adiante é que a cria.
+        const remoteBranchSha = gitRefSha(`origin/${coreDeployBranch}`)
         const headSha = gitOutput(['rev-parse', 'HEAD'])
         const remoteAhead = remoteBranchSha && gitExitCode(['merge-base', '--is-ancestor', remoteBranchSha, targetSha]) !== 0
         if (remoteAhead && targetSha === headSha) {
@@ -3062,25 +3197,42 @@ function registerIpcHandlers() {
       }
       deployEmit(25, 'pull', '✓ Código atualizado na VPS', 'ok')
 
-      // ─── Stage 3: Build API ────────────────────────
-      // IMPORTANTE: build api PRECEDE o db push porque o `prisma db push` usa
-      // a imagem `oneclick-api:latest` (que contém o schema.prisma). Se o build
-      // for depois, o db push acaba rodando com schema antigo e tabelas novas
-      // não são criadas.
-      deployEmit(30, 'build-api', '→ Gerando imagem da API...', 'info')
+      // ─── Stage 3: Imagem da API ───────────────────────
+      // IMPORTANTE: a imagem da API PRECEDE o db push porque o `prisma db push`
+      // roda `docker run ... oneclick-api:latest` (que contém o schema.prisma).
+      // Se viesse depois, o db push usaria schema antigo e tabelas novas não
+      // seriam criadas. Vale nos dois modos — buildando aqui ou puxando do
+      // ghcr, a imagem tem de existir antes.
       deployCheckAbort('build-api', 30)
       deployCurrentStep = 'build-api'
-      const buildApi = await sshExec(cfg, 'cd /opt/oneclick && docker compose build api 2>&1', (line) => {
-        if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
-          deployEmit(45, 'build-api', line, 'info')
+      let buildApi
+      if (usaImagensDoGhcr(cfg)) {
+        deployEmit(28, 'build-api', '→ Aguardando o build da imagem da API no GitHub...', 'info')
+        const espera = await aguardaImagensDoSha(cfg, targetSha, (m) => deployEmit(30, 'build-api', m, 'info'), 'build-api')
+        if (!espera.ok) {
+          deployEmit(50, 'build-api', `✗ ${espera.error}`, 'err')
+          deployRunning = false
+          return { ok: false, error: espera.error }
         }
-      })
-      if (buildApi.code !== 0) {
-        deployEmit(50, 'build-api', `✗ Geração da imagem da API falhou`, 'err')
-        deployRunning = false
-        return { ok: false, error: 'Geração da imagem da API falhou' }
+        deployEmit(35, 'build-api', '✓ Imagem da API pronta no GitHub', 'ok')
+        deployEmit(38, 'build-api', '→ Baixando a imagem da API do ghcr...', 'info')
+        buildApi = await puxaImagemDoGhcr(cfg, 'api', targetSha, (line) => {
+          if (linhaDePullRelevante(line)) deployEmit(45, 'build-api', line, 'info')
+        })
+      } else {
+        deployEmit(30, 'build-api', '→ Gerando imagem da API na VPS...', 'info')
+        buildApi = await sshExec(cfg, 'cd /opt/oneclick && docker compose build api 2>&1', (line) => {
+          if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
+            deployEmit(45, 'build-api', line, 'info')
+          }
+        })
       }
-      deployEmit(50, 'build-api', '✓ Imagem da API gerada', 'ok')
+      if (buildApi.code !== 0) {
+        deployEmit(50, 'build-api', `✗ Imagem da API não ficou pronta`, 'err')
+        deployRunning = false
+        return { ok: false, error: 'Imagem da API não ficou pronta' }
+      }
+      deployEmit(50, 'build-api', '✓ Imagem da API pronta', 'ok')
 
       // ─── Stage 4: Schema (se mudou) ────────────────
       // Roda APÓS o build api, usando a imagem recém-buildada (com schema novo).
@@ -3259,21 +3411,40 @@ function registerIpcHandlers() {
         deployEmit(68, 'sql', `✓ ${pendentes.length} SQL(s) aplicado(s)`, 'ok')
       }
 
-      // ─── Stage 5: Build Web ────────────────────────
-      deployEmit(70, 'build-web', '→ Gerando imagem do Web...', 'info')
+      // ─── Stage 5: Imagem do Web ───────────────────────
+      // Espera o job do WEB — o Stage 3 esperou só o da API, de propósito. Os
+      // dois correm no mesmo run e raramente levam o mesmo tempo; enquanto o web
+      // buildava, o deploy aproveitou para rodar o db push e os SQL. Quando
+      // chega aqui, normalmente já terminou.
       deployCheckAbort('build-web', 70)
       deployCurrentStep = 'build-web'
-      const buildWeb = await sshExec(cfg, 'cd /opt/oneclick && docker compose build web 2>&1', (line) => {
-        if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
-          deployEmit(78, 'build-web', line, 'info')
+      let buildWeb
+      if (usaImagensDoGhcr(cfg)) {
+        const esperaWeb = await aguardaImagensDoSha(cfg, targetSha, (m) => deployEmit(70, 'build-web', m, 'info'), 'build-web')
+        if (!esperaWeb.ok) {
+          deployEmit(85, 'build-web', `✗ ${esperaWeb.error}`, 'err')
+          deployRunning = false
+          return { ok: false, error: esperaWeb.error }
         }
-      })
-      if (buildWeb.code !== 0) {
-        deployEmit(85, 'build-web', `✗ Geração da imagem do Web falhou`, 'err')
-        deployRunning = false
-        return { ok: false, error: 'Geração da imagem do Web falhou' }
+        deployEmit(72, 'build-web', '✓ Imagem do Web pronta no GitHub', 'ok')
+        deployEmit(74, 'build-web', '→ Baixando a imagem do Web do ghcr...', 'info')
+        buildWeb = await puxaImagemDoGhcr(cfg, 'web', targetSha, (line) => {
+          if (linhaDePullRelevante(line)) deployEmit(78, 'build-web', line, 'info')
+        })
+      } else {
+        deployEmit(70, 'build-web', '→ Gerando imagem do Web na VPS...', 'info')
+        buildWeb = await sshExec(cfg, 'cd /opt/oneclick && docker compose build web 2>&1', (line) => {
+          if (!/^\s*$/.test(line) && !/exporting layers|exporting manifest|extracting|building cache/i.test(line)) {
+            deployEmit(78, 'build-web', line, 'info')
+          }
+        })
       }
-      deployEmit(85, 'build-web', '✓ Imagem do Web gerada', 'ok')
+      if (buildWeb.code !== 0) {
+        deployEmit(85, 'build-web', `✗ Imagem do Web não ficou pronta`, 'err')
+        deployRunning = false
+        return { ok: false, error: 'Imagem do Web não ficou pronta' }
+      }
+      deployEmit(85, 'build-web', '✓ Imagem do Web pronta', 'ok')
 
       // ─── Stage 6: Restart + Health check ───────────
       deployEmit(90, 'restart', '→ Reiniciando containers e verificando saúde...', 'info')
@@ -3367,7 +3538,7 @@ function registerIpcHandlers() {
         // Auto-integra o branch remoto do app antes do push (mesma lógica do core).
         if (appDeployBranch === appBranch) {
           await gitExec(['fetch', 'origin', appDeployBranch], null, 30000, appCwd)
-          const appRemoteSha = gitOutput(['rev-parse', `origin/${appDeployBranch}`], appCwd)
+          const appRemoteSha = gitRefSha(`origin/${appDeployBranch}`, appCwd)
           const appHeadSha = gitOutput(['rev-parse', 'HEAD'], appCwd)
           const appRemoteAhead = appRemoteSha && gitExitCode(['merge-base', '--is-ancestor', appRemoteSha, appTargetSha], appCwd) !== 0
           if (appRemoteAhead && appTargetSha === appHeadSha) {

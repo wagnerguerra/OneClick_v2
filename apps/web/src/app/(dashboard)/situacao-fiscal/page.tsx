@@ -650,7 +650,7 @@ export default function SituacaoFiscalPage() {
       )}
 
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           {!trashMode ? (
             <>
               <Button variant="success" size="sm" onClick={abrirConsulta} disabled={consultando} className="gap-1.5">

@@ -161,7 +161,7 @@ export default function ComercialPage() {
   return (
     <div className="flex flex-col gap-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           {refreshing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
           <Select value={periodo} onValueChange={setPeriodo}>
             <SelectTrigger className="w-[170px] h-8 text-xs">

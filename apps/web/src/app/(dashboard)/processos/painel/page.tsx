@@ -200,7 +200,7 @@ export default function PainelOperacionalPage() {
 
       {/* Header */}
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="tabular-nums">{execucoes.length} execuções</span>
           {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}

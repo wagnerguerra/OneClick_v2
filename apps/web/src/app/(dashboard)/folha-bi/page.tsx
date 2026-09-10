@@ -226,7 +226,7 @@ export default function FolhaBiPage() {
       {/* Header padrao do modulo — sem botoes: a acao mora junto do periodo que
           ela usa, do outro lado nao daria para ver o que sera buscado. */}
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar>
+      <PageHeaderBar className="mb-0 sm:mb-0">
         <h1 className="truncate">Espelho da Folha</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>

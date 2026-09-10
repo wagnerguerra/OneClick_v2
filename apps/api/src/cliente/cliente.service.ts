@@ -160,11 +160,17 @@ export interface ItemFarol {
   desconto: number
 }
 
+import { GatilhoFluxoService } from '../servico/gatilho-fluxo.service'
+
 @Injectable()
 export class ClienteService {
   constructor(
     @Inject(forwardRef(() => BiSyncEventsService))
     private readonly biSyncEvents: BiSyncEventsService,
+    // ServicoModule já entra por forwardRef no ClienteModule (a inativação
+    // agendada avança o fluxo de offboarding). O gatilho vem pela mesma porta.
+    @Inject(forwardRef(() => GatilhoFluxoService))
+    private readonly gatilhos: GatilhoFluxoService,
   ) {}
 
   // ============================================================
@@ -690,6 +696,112 @@ export class ClienteService {
    *
    * O agendamento NÃO mexe em status: o cliente segue ativo até o dia marcado.
    */
+  /**
+   * Registra que o cliente PEDIU para encerrar o contrato.
+   *
+   * É o estado que faltava entre ATIVO e a inativação. O cliente continua
+   * ativo — ninguém para de trabalhar por causa do pedido —, mas a cadeia de
+   * saída começa aqui, e não no dia em que alguém lembra de inativar.
+   *
+   * O fluxo é aberto pelo gatilho configurado, não por nome chumbado. E nasce
+   * aguardando confirmação: um pedido registrado por engano abriria distrato,
+   * convocaria as áreas e falaria com o cliente.
+   */
+  async solicitarEncerramento(
+    id: string,
+    input: { canal?: string | null; motivo: string; previstoPara?: string | null },
+    userId?: string,
+    isMaster?: boolean,
+    empresaId?: string,
+  ) {
+    const cliente = await prisma.cliente.findUniqueOrThrow({ where: { id } })
+    if (!isMaster && empresaId && cliente.empresaId !== empresaId) throw new Error('Acesso negado')
+    if (cliente.status === ('INATIVO' as never)) {
+      throw new Error('O cliente já está inativo — não há encerramento a solicitar.')
+    }
+
+    const previsto = parseOptionalDate(input.previstoPara)
+    const version = cliente.version + 1
+
+    const atualizado = await prisma.cliente.update({
+      where: { id },
+      data: {
+        encerramentoSolicitadoEm: new Date(),
+        encerramentoSolicitadoPor: userId || null,
+        encerramentoCanal: (input.canal ?? '').trim() || null,
+        encerramentoMotivo: input.motivo.trim(),
+        encerramentoPrevistoPara: previsto,
+        version,
+      },
+    })
+
+    // O gatilho roda FORA da transação de propósito: abrir a execução envolve
+    // template, etapas e passos, e uma falha ali não pode desfazer o registro
+    // do pedido — que é a informação que ninguém pode perder.
+    const resultado = await this.gatilhos.disparar('encerramento_solicitado', {
+      clienteId: id,
+      empresaId: cliente.empresaId,
+      userId: userId ?? null,
+    })
+
+    await prisma.clienteEvent.create({
+      data: {
+        clienteId: id, userId: userId || null, type: 'termination_requested', version,
+        changes: {
+          motivo: input.motivo.trim(),
+          canal: (input.canal ?? '').trim() || null,
+          previstoPara: previsto ? previsto.toISOString().slice(0, 10) : null,
+          // O que o gatilho fez — e o que deixou de fazer, com o porquê. "O
+          // fluxo não abriu" precisa ser pergunta com resposta.
+          fluxos: resultado.disparados.map(d => d.servicoNome),
+          fluxosIgnorados: resultado.ignorados.map(i => `${i.servicoNome}: ${i.motivo}`),
+        } as Prisma.InputJsonValue,
+      },
+    })
+
+    return { cliente: atualizado, fluxos: resultado }
+  }
+
+  /**
+   * Desfaz o pedido — o cliente voltou atrás, ou foi registro equivocado.
+   * Não mexe em execução já aberta: se a cadeia andou, quem a cancela é o
+   * gestor dela, com o histórico do fluxo preservado.
+   */
+  async cancelarSolicitacaoEncerramento(
+    id: string,
+    motivo?: string,
+    userId?: string,
+    isMaster?: boolean,
+    empresaId?: string,
+  ) {
+    const cliente = await prisma.cliente.findUniqueOrThrow({ where: { id } })
+    if (!isMaster && empresaId && cliente.empresaId !== empresaId) throw new Error('Acesso negado')
+    if (!cliente.encerramentoSolicitadoEm) throw new Error('Este cliente não tem pedido de encerramento em aberto.')
+
+    const version = cliente.version + 1
+    const atualizado = await prisma.$transaction(async (tx) => {
+      const c = await tx.cliente.update({
+        where: { id },
+        data: {
+          encerramentoSolicitadoEm: null,
+          encerramentoSolicitadoPor: null,
+          encerramentoCanal: null,
+          encerramentoMotivo: null,
+          encerramentoPrevistoPara: null,
+          version,
+        },
+      })
+      await tx.clienteEvent.create({
+        data: {
+          clienteId: id, userId: userId || null, type: 'termination_request_cancelled', version,
+          changes: { motivo: (motivo ?? '').trim() || null } as Prisma.InputJsonValue,
+        },
+      })
+      return c
+    })
+    return atualizado
+  }
+
   async inativar(
     id: string,
     dataSaida: string | undefined,
@@ -1009,7 +1121,7 @@ export class ClienteService {
     noventaDias.setHours(0, 0, 0, 0)
     noventaDias.setDate(noventaDias.getDate() - 90)
 
-    const [mensais, comServico, comBeneficio, entraram90d, sairam90d, tributacao] = await Promise.all([
+    const [mensais, comServico, comBeneficio, entraram90d, sairam90d, tributacao, areas] = await Promise.all([
       prisma.cliente.count({ where: mensalAtivo }),
       prisma.cliente.count({ where: { ...mensalAtivo, servicosContratados: { some: { contratado: true } } } }),
       // Benefício vive em `beneficiosFiscais` — `beneficios` é a relação antiga
@@ -1023,7 +1135,27 @@ export class ClienteService {
         where: { ...base, situacao: 'MENSAL' as never, dataSaida: { gte: noventaDias } },
       }),
       prisma.cliente.groupBy({ by: ['tributacao'], where: mensalAtivo, _count: { _all: true } }),
+      // Serviços contratados por área. Conta VÍNCULOS, não clientes: o mesmo
+      // cliente aparece em contábil e em fiscal, e é isso que se quer saber.
+      // Por consequência a soma passa do total de mensais — ver o comentário
+      // em `porArea` no retorno.
+      prisma.clienteAreaContratada.groupBy({
+        by: ['areaId'],
+        where: { contratado: true, cliente: mensalAtivo },
+        _count: { _all: true },
+      }),
     ])
+
+    // Nome da área numa segunda consulta em vez de `include` no groupBy (que o
+    // Prisma não permite). São meia dúzia de áreas — cabe num findMany só.
+    const nomesArea = new Map<string, string>()
+    if (areas.length > 0) {
+      const encontradas = await prisma.area.findMany({
+        where: { id: { in: areas.map(a => a.areaId) } },
+        select: { id: true, name: true },
+      })
+      for (const a of encontradas) nomesArea.set(a.id, a.name)
+    }
 
     return {
       mensais, comServico, comBeneficio, entraram90d, sairam90d,
@@ -1032,6 +1164,13 @@ export class ClienteService {
       // acionável (quem está sem tributação preenchida).
       porTributacao: tributacao
         .map(t => ({ regime: t.tributacao ?? '__sem__', total: t._count._all }))
+        .sort((a, b) => b.total - a.total),
+      // ATENÇÃO ao consumir: a soma de `porArea` é MAIOR que `mensais`, porque
+      // um cliente contrata várias áreas. Não é distribuição — é quantos
+      // mensais têm cada serviço. Barra empilhada de 100% aqui mentiria.
+      porArea: areas
+        .map(a => ({ area: nomesArea.get(a.areaId) ?? '—', total: a._count._all }))
+        .filter(a => a.area !== '—')
         .sort((a, b) => b.total - a.total),
     }
   }

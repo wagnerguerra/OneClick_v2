@@ -757,6 +757,16 @@ export default function MeusServicosPage() {
     <div className="flex flex-col gap-5 h-[calc(100vh-90px)]" suppressHydrationWarning>
       {/* ── Topo — PADRAO_PAGINAS §1.1, com as ações e a busca na barra ── */}
       <PageHeaderBar className="mb-0 shrink-0 sm:mb-0" actions={<>
+          {canCreate && (
+            <Button
+              size="sm"
+              onClick={abrirNovoServico}
+              style={{ backgroundColor: MODULE_COLOR }}
+              className="text-white gap-1.5"
+            >
+              <Plus className="h-4 w-4" /> Novo Serviço
+            </Button>
+          )}
           {/* Concluído, dispensado e cancelado saíram do painel: consulta deles
               é no /servicos › Execuções, com filtro por status. */}
           <Button variant="outline" size="sm" asChild className="gap-1.5">
@@ -805,16 +815,6 @@ export default function MeusServicosPage() {
           )}
           {/* Iniciar nova execução — quem tem permissão de leitura/escrita do módulo
               "servicos". Master também tem por padrão. */}
-          {canCreate && (
-            <Button
-              size="sm"
-              onClick={abrirNovoServico}
-              style={{ backgroundColor: MODULE_COLOR }}
-              className="text-white gap-1.5"
-            >
-              <Plus className="h-4 w-4" /> Novo Serviço
-            </Button>
-          )}
         </>}
       >
         <h1 className="truncate">Gerenciador de Serviços</h1>

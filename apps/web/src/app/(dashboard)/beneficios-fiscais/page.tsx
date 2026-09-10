@@ -5,6 +5,7 @@ import {
   Percent, Loader2, Plus, MoreVertical, Edit2, Trash2, Settings2,
   CheckCircle2, Clock, AlertTriangle, MinusCircle, Receipt,
   ChevronUp, ChevronDown, ChevronsUpDown, GitBranch,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label, cn, Checkbox, RichEditor,
@@ -98,6 +99,12 @@ export default function BeneficiosFiscaisPage() {
 
   const [filtroStatus, setFiltroStatus] = useState<Status | null>(null)
   const [busca, setBusca] = useState('')
+  // Paginacao no cliente: a lista ja vem inteira do servidor (51 vinculos hoje,
+  // e a busca e que e server-side). Paginar aqui e proporcional ao volume; se
+  // um dia crescer, o caminho e levar page/limit para o endpoint — o rodape
+  // continua o mesmo.
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
   type SortKey = 'cliente' | 'beneficio' | 'vencimento' | 'status'
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'cliente', dir: 'asc' })
   function toggleSort(key: SortKey) {
@@ -152,6 +159,35 @@ export default function BeneficiosFiscaisPage() {
       return r !== 0 ? r : a.clienteNome.localeCompare(b.clienteNome, 'pt-BR', { sensitivity: 'base' })
     })
   }, [vinculos, filtroStatus, sort])
+  const totalPages = Math.max(1, Math.ceil(visiveis.length / limit))
+  const pagina = useMemo(
+    () => visiveis.slice((page - 1) * limit, page * limit),
+    [visiveis, page, limit],
+  )
+  const startRecord = visiveis.length === 0 ? 0 : (page - 1) * limit + 1
+  const endRecord = Math.min(page * limit, visiveis.length)
+
+  // Volta para a primeira pagina quando o conjunto muda. Sem isto, filtrar
+  // estando na pagina 3 deixa a tabela vazia com o rodape dizendo que ha
+  // registros — a pessoa conclui que o filtro quebrou.
+  useEffect(() => { setPage(1) }, [filtroStatus, busca, limit])
+
+  // Pagina que ficou vazia depois de excluir em massa recua sozinha; sem isto
+  // a tela fica em branco e so o rodape denuncia que ha registros atras.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  /** Ate 5 numeros, centrados na pagina atual — mesma janela do /clientes. */
+  function getPageNumbers() {
+    const pages: number[] = []
+    let start = Math.max(1, page - 2)
+    const end = Math.min(totalPages, start + 4)
+    start = Math.max(1, end - 4)
+    for (let i = start; i <= end; i++) pages.push(i)
+    return pages
+  }
+
   const catalogoAtivo = useMemo(() => catalogo.filter(c => c.ativo), [catalogo])
 
   const podeSelecionar = canGerarOrcamento || canDelete
@@ -160,7 +196,10 @@ export default function BeneficiosFiscaisPage() {
   }
   function toggleSelTodos() {
     setSelecionados(prev => {
-      const ids = visiveis.map(v => v.id)
+      // Da pagina, nao da lista inteira: "selecionar todos" marcando 51 itens
+      // dos quais so 20 estao a vista e uma acao em massa logo adiante e o
+      // caminho curto para excluir o que ninguem viu.
+      const ids = pagina.map(v => v.id)
       const todos = ids.length > 0 && ids.every(id => prev.has(id))
       return todos ? new Set() : new Set(ids)
     })
@@ -254,17 +293,23 @@ export default function BeneficiosFiscaisPage() {
   }
 
   return (
-    <div className="space-y-5">
+    // Altura travada — PADRAO_PAGINAS §1.5. O wrapper deixa de ser `space-y` e
+    // passa a `flex ... gap`, que e o que permite o card crescer para o espaco
+    // restante; por isso tambem entra o `mb-0` no cabecalho.
+    <div className="flex h-[calc(100vh-98px)] flex-col gap-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
+          {/* "+ Novo" primeiro e no `variant` padrao do Button — a cor do
+              modulo fica para os destaques internos, nao para a acao principal
+              (docs/PADRAO_PAGINAS.md §1.1). */}
+          {canWrite && (
+            <Button size="sm" onClick={() => setVincModal({ _new: true })} className="gap-1.5">
+              <Plus className="h-4 w-4" />Novo benefício
+            </Button>
+          )}
           {canManageCatalogo && (
             <Button variant="outline" size="sm" onClick={() => setCatModalOpen(true)} className="gap-1.5">
               <Settings2 className="h-4 w-4" /> Catálogo
-            </Button>
-          )}
-          {canWrite && (
-            <Button size="sm" onClick={() => setVincModal({ _new: true })} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
-              <Plus className="h-4 w-4" /> Novo benefício
             </Button>
           )}
         </>}
@@ -279,51 +324,74 @@ export default function BeneficiosFiscaisPage() {
         </p>
       </PageHeaderBar>
 
-      {/* Filtros (pílulas) + busca — padrão /gestao-certificados */}
-      <div className="flex flex-wrap items-center gap-2 shrink-0">
+      {/* Indicadores — anatomia de /clientes: cartao proprio, icone tintado,
+          numero grande e anel na cor quando o filtro esta ligado. Continuam
+          sendo os filtros de status; a busca desceu para a barra da tabela. */}
+      <div className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         {([
-          { key: null as Status | null, label: 'Todos', count: dash.TOTAL, color: '#3b82f6', icon: Percent },
-          ...(['NO_PRAZO', 'VENCENDO', 'VENCIDO', 'SEM_DATA'] as Status[]).map(s => ({
-            key: s as Status | null, label: STATUS_CFG[s].label, count: dash[s], color: STATUS_CFG[s].color, icon: STATUS_CFG[s].icon,
+          { key: null as Status | null, label: 'Todos', count: dash.TOTAL, cor: '#94a3b8', Icone: Percent },
+          ...(['NO_PRAZO', 'VENCENDO', 'VENCIDO', 'SEM_DATA'] as Status[]).map(st => ({
+            key: st as Status | null, label: STATUS_CFG[st].label, count: dash[st], cor: STATUS_CFG[st].color, Icone: STATUS_CFG[st].icon,
           })),
         ]).map(f => {
-          const Icon = f.icon
-          const active = filtroStatus === f.key
+          const Icone = f.Icone
+          const ligado = filtroStatus === f.key
           return (
             <button
               key={f.label}
               type="button"
               onClick={() => setFiltroStatus(f.key)}
+              aria-pressed={ligado}
+              title={`Filtrar por ${f.label.toLowerCase()}`}
               className={cn(
-                'inline-flex items-center gap-2 h-8 px-3 rounded-md border text-xs font-medium transition-colors',
-                active ? 'border-foreground/20' : 'border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                'flex items-center gap-3 rounded-xl border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm',
+                ligado ? 'border-transparent ring-2' : 'border-border',
               )}
-              style={active ? { borderColor: f.color, backgroundColor: `${f.color}10`, color: f.color } : undefined}
+              style={ligado ? { boxShadow: `0 0 0 2px ${f.cor}` } : undefined}
             >
-              <Icon className="h-3.5 w-3.5" style={!active ? { color: f.color } : undefined} />
-              <span>{f.label}</span>
-              <Badge
-                variant="secondary"
-                className="text-[10px] px-1.5 py-0 h-4 ml-0.5 tabular-nums"
-                style={active ? { backgroundColor: `${f.color}20`, color: f.color } : undefined}
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `color-mix(in srgb, ${f.cor} 12%, transparent)`, color: f.cor }}
               >
-                {f.count}
-              </Badge>
+                <Icone className="h-[18px] w-[18px]" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-bold leading-none tabular-nums text-foreground">
+                  {f.count.toLocaleString('pt-BR')}
+                </span>
+                <span className="mt-1 block truncate text-[11px] text-muted-foreground">{f.label}</span>
+              </span>
             </button>
           )
         })}
-        <div className="ml-auto">
-          <Input
-            placeholder="Buscar por cliente ou benefício..."
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-            className="h-8 w-[280px] text-xs"
-          />
-        </div>
       </div>
 
       {/* Tabela */}
-      <Card className="overflow-hidden">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Busca na barra do card, como em /clientes — os tres estados
+            (carregando, vazio e com resultado) ja vivem dentro deste mesmo
+            card, entao ela nunca some junto com a tabela. */}
+        <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="hidden sm:inline">Exibir</span>
+            <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
+              <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <span className="hidden sm:inline">registros</span>
+          </div>
+          <div className="w-full sm:w-[420px]">
+            <Input
+              placeholder="Buscar por cliente ou benefício..."
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              className="h-8 w-full bg-card text-xs"
+            />
+          </div>
+        </div>
+
         {/* Barra de ações em massa — aparece quando há seleção */}
         {podeSelecionar && selecionados.size > 0 && (
           <div className="flex items-center justify-between gap-3 px-4 py-2 bg-fuchsia-50 dark:bg-fuchsia-950/20 border-b border-fuchsia-200 dark:border-fuchsia-900">
@@ -348,17 +416,18 @@ export default function BeneficiosFiscaisPage() {
           </div>
         )}
         {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          <div className="flex flex-1 justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : visiveis.length === 0 ? (
-          <div className="text-center py-12 text-sm text-muted-foreground">Nenhum benefício encontrado.</div>
+          <div className="flex-1 py-12 text-center text-sm text-muted-foreground">Nenhum benefício encontrado.</div>
         ) : (
+          <div className="nice-scrollbar min-h-0 flex-1 overflow-y-auto">
           <Table>
             <TableHeader>
               <TableRow className="whitespace-nowrap">
                 {podeSelecionar && (
                   <TableHead className="w-[44px]">
                     <Checkbox
-                      checked={visiveis.length > 0 && visiveis.every(v => selecionados.has(v.id))}
+                      checked={pagina.length > 0 && pagina.every(v => selecionados.has(v.id))}
                       onCheckedChange={toggleSelTodos}
                       aria-label="Selecionar todos"
                     />
@@ -371,7 +440,7 @@ export default function BeneficiosFiscaisPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visiveis.map(v => {
+              {pagina.map(v => {
                 const cfg = STATUS_CFG[v.status]
                 return (
                   <TableRow
@@ -449,6 +518,29 @@ export default function BeneficiosFiscaisPage() {
               })}
             </TableBody>
           </Table>
+          </div>
+        )}
+
+        {/* Rodape: contagem a esquerda, paginacao numerica a direita — mesmo
+            desenho do /clientes. Os saltos para primeira/ultima existem porque
+            com muitas paginas ir do fim ao comeco de um em um e trabalho. */}
+        {!loading && visiveis.length > 0 && (
+          <div className="flex shrink-0 flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Mostrando <span className="font-medium">{startRecord}</span> a <span className="font-medium">{endRecord}</span> de <span className="font-medium">{visiveis.length}</span> registros
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(1)}><ChevronsLeft className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+                {getPageNumbers().map(n => (
+                  <Button key={n} variant={n === page ? 'soft' : 'outline'} size="icon-xs" className="text-xs" onClick={() => setPage(n)}>{n}</Button>
+                ))}
+                <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(totalPages)}><ChevronsRight className="h-3.5 w-3.5" /></Button>
+              </div>
+            )}
+          </div>
         )}
       </Card>
 

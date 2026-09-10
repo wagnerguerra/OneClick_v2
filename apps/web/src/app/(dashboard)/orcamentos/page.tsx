@@ -818,6 +818,9 @@ export default function OrcamentosPage() {
           à esquerda e ações à direita */}
       <PageHeaderBar className="mb-0 sm:mb-0 shrink-0"
         actions={<>
+          <Button size="sm" className="gap-1.5" onClick={openCreateModal}>
+            <Plus className="h-4 w-4" /> Novo Orçamento
+          </Button>
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -921,9 +924,6 @@ export default function OrcamentosPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button size="sm" className="gap-1.5" onClick={openCreateModal}>
-            <Plus className="h-4 w-4" /> Novo Orçamento
-          </Button>
         </>}
       >
         <h1 className="truncate">Orçamentos</h1>

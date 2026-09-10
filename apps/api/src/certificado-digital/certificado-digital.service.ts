@@ -73,6 +73,30 @@ export class CertificadoDigitalService {
       }
     }
 
+    // ── So clientes mensais ATIVOS ───────────────────────────────────────
+    //
+    // A gestao de certificados existe para responder "o que precisa ser
+    // renovado". Cliente que saiu nao gera renovacao: dos 17 certificados
+    // vencidos da base, 10 eram de cliente inativo ou nao-mensal — mais da
+    // metade do numero mandava atras de trabalho que nao existe.
+    //
+    // Na fonte, e nao em cada filtro da tela, porque a regra vale para tudo
+    // que a pagina mostra: lista, contadores, busca e as abas de status.
+    //
+    // DUAS EXCECOES, ambas deliberadas:
+    //  - certificado SEM cliente (da propria empresa ou de um socio) fica: nao
+    //    e cliente que saiu, e documento da casa;
+    //  - quando se pede um cliente ESPECIFICO (`opts.clienteId`, que e como a
+    //    ficha do cliente lista os certificados dele), a regra nao se aplica —
+    //    ali a pessoa pediu aquele cliente, inativo ou nao, e esconder seria
+    //    responder outra pergunta.
+    if (!opts.clienteId) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        { OR: [{ clienteId: null }, { cliente: { status: 'ATIVO', situacao: 'MENSAL' } }] },
+      ]
+    }
+
     return prisma.certificadoDigital.findMany({
       where,
       select: {
@@ -130,21 +154,49 @@ export class CertificadoDigitalService {
 
   // ── KPIs ──────────────────────────────────────────────────
 
-  async getStats(empresaId?: string) {
-    const where: any = { arquivado: false }
+  /**
+   * O recorte da gestao de certificados, em UM lugar so.
+   *
+   * `list()` e `getStats()` precisam concordar: um alimenta a tabela e o outro
+   * as abas com os numeros, na mesma tela. Estavam separados, e divergiram —
+   * a aba dizia 12 vencidos e a tabela mostrava 3, porque so a listagem tinha
+   * aprendido a ignorar cliente inativo.
+   *
+   * - `arquivado: false`  — arquivo tem aba propria;
+   * - `status != RENOVADO` — versao antiga de um certificado renovado nao e um
+   *   certificado a mais; a listagem ja a escondia e o contador nao;
+   * - cliente mensal ATIVO, ou nenhum cliente (documento da propria casa).
+   */
+  private recorteGestao(empresaId?: string): any {
+    const where: any = {
+      arquivado: false,
+      status: { not: 'RENOVADO' },
+      OR: [{ clienteId: null }, { cliente: { status: 'ATIVO', situacao: 'MENSAL' } }],
+    }
     if (empresaId) where.empresaId = empresaId
+    return where
+  }
+
+  async getStats(empresaId?: string) {
+    const base = this.recorteGestao(empresaId)
     const agora = new Date()
     const em30 = new Date(agora.getTime() + 30 * 86400000)
     const em60 = new Date(agora.getTime() + 60 * 86400000)
 
-    const [ativos, vencendo60, vencendo30, vencidos, revogados] = await Promise.all([
-      prisma.certificadoDigital.count({ where: { ...where, status: 'ATIVO', expiraEm: { gt: em60 } } }),
-      prisma.certificadoDigital.count({ where: { ...where, status: 'ATIVO', expiraEm: { gt: em30, lte: em60 } } }),
-      prisma.certificadoDigital.count({ where: { ...where, status: 'ATIVO', expiraEm: { gt: agora, lte: em30 } } }),
-      prisma.certificadoDigital.count({ where: { ...where, status: { in: ['ATIVO', 'EXPIRADO'] }, expiraEm: { lte: agora } } }),
-      prisma.certificadoDigital.count({ where: { ...where, status: 'REVOGADO' } }),
+    // `AND` em vez de espalhar `status` no topo: o recorte ja usa `status` e
+    // `OR`, e sobrescrever qualquer um dos dois derrubaria o filtro de cliente
+    // sem erro nenhum — some do resultado e ninguem ve.
+    const com = (extra: any) => ({ ...base, AND: [...(base.AND ?? []), extra] })
+
+    const [total, ativos, vencendo60, vencendo30, vencidos, revogados] = await Promise.all([
+      prisma.certificadoDigital.count({ where: base }),
+      prisma.certificadoDigital.count({ where: com({ status: 'ATIVO', expiraEm: { gt: em60 } }) }),
+      prisma.certificadoDigital.count({ where: com({ status: 'ATIVO', expiraEm: { gt: em30, lte: em60 } }) }),
+      prisma.certificadoDigital.count({ where: com({ status: 'ATIVO', expiraEm: { gt: agora, lte: em30 } }) }),
+      prisma.certificadoDigital.count({ where: com({ status: { in: ['ATIVO', 'EXPIRADO'] }, expiraEm: { lte: agora } }) }),
+      prisma.certificadoDigital.count({ where: com({ status: 'REVOGADO' }) }),
     ])
-    return { ativos, vencendo60, vencendo30, vencidos, revogados }
+    return { total, ativos, vencendo60, vencendo30, vencidos, revogados }
   }
 
   // ── Cadastro (upload PFX + parse + cifra + storage) ───────
@@ -669,7 +721,19 @@ export class CertificadoDigitalService {
     // 4. Para cada cert, decide bucket + destinatários + cria/dedupe notificação
     let notificados = 0
 
+    // Mesma regra da listagem: certificado de cliente que saiu nao e pendencia
+    // de ninguem. Vale para todos os baldes — vencido e "vence em N dias" —,
+    // senao o sino cobraria renovacao que a tela nem mostra.
+    const mensaisAtivos = new Set(
+      (await prisma.cliente.findMany({
+        where: { id: { in: clienteIds }, status: 'ATIVO' as never, situacao: 'MENSAL' as never },
+        select: { id: true },
+      }).catch(() => [] as Array<{ id: string }>)).map(c => c.id),
+    )
+
     for (const cert of certs) {
+      // Sem cliente = documento da propria casa, continua valendo.
+      if (cert.clienteId && !mensaisAtivos.has(cert.clienteId)) continue
       const dias = Math.ceil((new Date(cert.expiraEm).getTime() - agora.getTime()) / 86400000)
       let bucket: 'VENCIDO' | '7D' | '30D' | '60D'
       let titulo: string

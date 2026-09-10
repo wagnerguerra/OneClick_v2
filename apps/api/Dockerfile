@@ -68,6 +68,18 @@ COPY --from=builder /app/packages/db/package.json ./packages/db/
 COPY --from=builder /app/packages/types ./packages/types
 
 ENV NODE_ENV=production
+
+# SHA do commit que gerou esta imagem. Chega como build arg do workflow que
+# builda no CI e fica vazio quando alguem builda a mao.
+#
+# Existe porque a pergunta "qual commit esta no ar?" deixou de ter resposta
+# obvia: desde que a imagem passou a vir do registry, o checkout da VPS e o
+# codigo que realmente roda sao duas coisas diferentes, e um pull da tag
+# errada nao daria nenhum sinal. Fica no fim do Dockerfile de proposito --
+# muda a cada commit, e antes das camadas pesadas invalidaria o cache inteiro.
+ARG GIT_SHA=""
+ENV GIT_SHA=$GIT_SHA
+
 EXPOSE 4000
 
 WORKDIR /app/apps/api

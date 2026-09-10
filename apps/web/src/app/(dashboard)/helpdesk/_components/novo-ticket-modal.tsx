@@ -1,6 +1,6 @@
 'use client'
 
-import { Loader2, Plus, Headphones } from 'lucide-react'
+import { Loader2, Plus, Headphones, Trash2 } from 'lucide-react'
 import {
   Button, Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
 } from '@saas/ui'
@@ -43,12 +43,27 @@ export function NovoTicketModal({ open, onOpenChange, onCreated, permitePriorida
           <DialogTitle>Novo Ticket</DialogTitle>
           <DialogDescription>
             Descreva o problema ou solicitação. A equipe da TI será notificada.
+            Se precisar sair para buscar alguma informação, o que já foi escrito fica salvo.
           </DialogDescription>
         </DialogHeaderIcon>
         <DialogBody>
           <TicketFormFields form={form} variant="modal" />
         </DialogBody>
-        <DialogFooter>
+        <DialogFooter className="sm:justify-between">
+          {/* Descartar fica separado do par Cancelar/Criar: "Cancelar" so fecha
+              e o rascunho continua la — quem quer jogar fora precisa dizer. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-muted-foreground hover:text-destructive"
+            onClick={form.descartarRascunho}
+            disabled={form.salvando || !form.temConteudo}
+            title="Apagar o que foi digitado"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Descartar
+          </Button>
+          <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={form.salvando}>
             Cancelar
           </Button>
@@ -61,6 +76,7 @@ export function NovoTicketModal({ open, onOpenChange, onCreated, permitePriorida
             {form.salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Criar ticket
           </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -7,12 +7,13 @@ import {
   Ban, Trash2, CheckCircle2, Clock, XCircle, FileLock,
   Upload, Lock, RefreshCw, History, DatabaseBackup, UploadCloud, X, FileCheck, Bell,
   Settings2, KeyRound,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, Label, cn, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { BADGE } from '@/lib/color-styles'
@@ -53,6 +54,8 @@ interface Certificado {
 }
 
 interface Stats {
+  /** Tudo que entra no recorte da gestão — a mesma base das demais contagens. */
+  total: number
   ativos: number
   vencendo60: number
   vencendo30: number
@@ -126,6 +129,11 @@ export default function GestaoCertificadosPage() {
   })()
   const [filtroStatus, setFiltroStatus] = useState<string>(filtroInicial)
   const [filtroBusca, setFiltroBusca] = useState('')
+  // Paginacao no cliente: a lista ja vem inteira (133 certificados no recorte
+  // da gestao) e o filtro por status/busca e local. Ver PADRAO_PAGINAS §1.4 —
+  // server-side e o padrao; aqui o volume nao justifica.
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
   // Anti-autofill do Chrome: o campo fica readonly sempre que NÃO está em foco
   // (é quando o autofill dispara — no load, ao tabular, na detecção de form).
   // Vira editável só enquanto o usuário digita. O browser nunca injeta e-mail.
@@ -211,6 +219,34 @@ export default function GestaoCertificadosPage() {
     }
     return out
   }, [items, arquivados, filtroStatus, filtroBusca])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / limit))
+  const pagina = useMemo(
+    () => filtered.slice((page - 1) * limit, page * limit),
+    [filtered, page, limit],
+  )
+  const startRecord = filtered.length === 0 ? 0 : (page - 1) * limit + 1
+  const endRecord = Math.min(page * limit, filtered.length)
+
+  // Volta a primeira pagina quando o conjunto muda — trocar de aba estando na
+  // pagina 3 deixaria a tabela vazia com o rodape dizendo que ha registros.
+  useEffect(() => { setPage(1) }, [filtroStatus, filtroBusca, limit])
+
+  // Pagina que ficou vazia depois de excluir/arquivar recua sozinha; sem isto
+  // a tela fica em branco e so o rodape denuncia que ha registros atras.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  /** Ate 5 numeros, centrados na pagina atual — mesma janela do /clientes. */
+  function getPageNumbers() {
+    const pages: number[] = []
+    let start = Math.max(1, page - 2)
+    const end = Math.min(totalPages, start + 4)
+    start = Math.max(1, end - 4)
+    for (let i = start; i <= end; i++) pages.push(i)
+    return pages
+  }
 
   // Config de reautenticação — carrega ao abrir a engrenagem.
   useEffect(() => {
@@ -406,87 +442,61 @@ export default function GestaoCertificadosPage() {
   return (
     <div className="flex flex-col gap-5 h-[calc(100vh-98px)]" suppressHydrationWarning>
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
-          {isAdmin && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setBulkImportOpen(true)}
-                className="gap-1.5"
-                title="Importar múltiplos PFX de uma vez (drag-and-drop)"
-              >
-                <UploadCloud className="h-4 w-4" /> Importar PFX em Lote
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setLegacyImportOpen(true)}
-                className="gap-1.5"
-                title="Importar certificados do OneClick V1"
-              >
-                <DatabaseBackup className="h-4 w-4" /> Importar do Legado
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBackfillObservacoes}
-                disabled={backfillando}
-                className="gap-1.5"
-                title="Atualiza as observações dos certificados já importados com a descrição/senha e o nome do arquivo do legado"
-              >
-                {backfillando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                {backfillando ? 'Atualizando...' : 'Atualizar Obs. do Legado'}
-              </Button>
-              </>
-          )}
-          {canDelete && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleVarrerDuplicatas}
-                disabled={varrendo}
-                className="gap-1.5"
-                title="Encontra e exclui certificados duplicados (mesmo número de série)"
-              >
-                {varrendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                {varrendo ? 'Varrendo...' : 'Limpar Duplicatas'}
-              </Button>
-          )}
-          {isAdmin && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAtualizarSino}
-                disabled={atualizandoSino}
-                className="gap-1.5"
-                title="Atualiza notificações no sino para certs vencidos e próximos do vencimento"
-              >
-                {atualizandoSino ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-                {atualizandoSino ? 'Atualizando...' : 'Atualizar Sino'}
-              </Button>
-            </>
-          )}
-          {canManageConfig && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setConfigOpen(true)}
-              className="gap-1.5"
-              title="Configurações de segurança (reautenticação para ver senha / baixar PFX)"
-            >
-              <Settings2 className="h-4 w-4" />
-            </Button>
-          )}
-          <Button
-            size="sm"
-            onClick={() => setNovoOpen(true)}
-            style={{ backgroundColor: MODULE_COLOR }}
-            className="text-white gap-1.5"
-          >
-            <Plus className="h-4 w-4" /> Novo Certificado
+      {/* `mb-0`: o wrapper da pagina ja separa os blocos com `gap-5`, e a
+          margem propria do cabecalho somava a ela — 40px em cima contra 20px
+          embaixo dos indicadores. Mesma correcao ja aplicada no /crm. */}
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
+          {/* O "Novo" vem primeiro, e o resto no menu de tres pontos — o mesmo
+              arranjo do /clientes. Eram seis botoes soltos disputando o
+              cabecalho, com a acao que se usa todo dia ("Novo Certificado") do
+              mesmo tamanho que a varredura de duplicatas, que se usa uma vez
+              por semestre. */}
+          <Button size="sm" onClick={() => setNovoOpen(true)} className="gap-1.5">
+            <Plus className="h-4 w-4" />Novo Certificado
           </Button>
+          {(isAdmin || canDelete || canManageConfig) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon-sm"><MoreVertical className="h-4 w-4" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                {isAdmin && (
+                  <>
+                    <DropdownMenuItem onClick={() => setBulkImportOpen(true)}>
+                      <UploadCloud className="h-4 w-4" />Importar PFX em Lote
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setLegacyImportOpen(true)}>
+                      <DatabaseBackup className="h-4 w-4" />Importar do Legado
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleBackfillObservacoes} disabled={backfillando}>
+                      {backfillando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      {backfillando ? 'Atualizando...' : 'Atualizar Obs. do Legado'}
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {canDelete && (
+                  <DropdownMenuItem onClick={handleVarrerDuplicatas} disabled={varrendo}>
+                    {varrendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    {varrendo ? 'Varrendo...' : 'Limpar Duplicatas'}
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={handleAtualizarSino} disabled={atualizandoSino}>
+                    {atualizandoSino ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                    {atualizandoSino ? 'Atualizando...' : 'Atualizar Sino'}
+                  </DropdownMenuItem>
+                )}
+                {canManageConfig && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setConfigOpen(true)}>
+                      <Settings2 className="h-4 w-4" />Configurações de segurança
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </>}
       >
         <h1 className="truncate">Certificados Digitais</h1>
@@ -499,77 +509,100 @@ export default function GestaoCertificadosPage() {
         </p>
       </PageHeaderBar>
 
-      {/* KPIs / Filtros */}
-      <div className="flex flex-wrap items-center gap-2 shrink-0">
-        {[
-          { key: '__all__', label: 'Todos', count: items.length, color: '#3b82f6', icon: FileLock },
-          { key: 'ATIVO', label: 'Vigentes', count: stats?.ativos ?? 0, color: '#10b981', icon: CheckCircle2 },
-          { key: 'VENCENDO', label: 'Vencendo', count: (stats?.vencendo60 ?? 0) + (stats?.vencendo30 ?? 0), color: '#f59e0b', icon: Clock },
-          { key: 'VENCIDO', label: 'Vencidos', count: stats?.vencidos ?? 0, color: '#ef4444', icon: XCircle },
-          { key: 'REVOGADO', label: 'Revogados', count: stats?.revogados ?? 0, color: '#a855f7', icon: Ban },
-          { key: 'ARQUIVADO', label: 'Arquivados', count: arquivados.length, color: '#64748b', icon: Archive },
-        ].map(f => {
-          const Icon = f.icon
-          const active = filtroStatus === f.key
+      {/* Indicadores — mesma anatomia dos de /clientes: cartao proprio com
+          icone tintado, numero grande e rotulo embaixo, e anel na cor quando o
+          filtro esta ligado. Eram pilhas pequenas em linha, formato que nao
+          aparece em nenhuma outra tela.
+
+          Continuam sendo filtros: clicar troca a aba de status. */}
+      <div className="grid grid-cols-2 gap-3 shrink-0 sm:grid-cols-3 xl:grid-cols-6">
+        {([
+          { key: '__all__',   label: 'Todos',      count: stats?.total ?? items.length, cor: '#3b82f6', Icone: FileLock },
+          { key: 'ATIVO',     label: 'Vigentes',   count: stats?.ativos ?? 0,           cor: '#10b981', Icone: CheckCircle2 },
+          { key: 'VENCENDO',  label: 'Vencendo',   count: (stats?.vencendo60 ?? 0) + (stats?.vencendo30 ?? 0), cor: '#f59e0b', Icone: Clock },
+          { key: 'VENCIDO',   label: 'Vencidos',   count: stats?.vencidos ?? 0,         cor: '#ef4444', Icone: XCircle },
+          { key: 'REVOGADO',  label: 'Revogados',  count: stats?.revogados ?? 0,        cor: '#a855f7', Icone: Ban },
+          { key: 'ARQUIVADO', label: 'Arquivados', count: arquivados.length,            cor: '#64748b', Icone: Archive },
+        ] as const).map(f => {
+          const Icone = f.Icone
+          const ligado = filtroStatus === f.key
           return (
             <button
               key={f.key}
               type="button"
               onClick={() => setFiltroStatus(f.key)}
+              aria-pressed={ligado}
+              title={`Filtrar por ${f.label.toLowerCase()}`}
               className={cn(
-                'inline-flex items-center gap-2 h-8 px-3 rounded-md border text-xs font-medium transition-colors',
-                // Arquivados fica encostado à direita, junto da barra de pesquisa.
-                f.key === 'ARQUIVADO' && 'ml-auto',
-                active
-                  ? 'border-foreground/20'
-                  : 'border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                'flex items-center gap-3 rounded-xl border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm',
+                ligado ? 'border-transparent ring-2' : 'border-border',
               )}
-              style={active ? { borderColor: f.color, backgroundColor: `${f.color}10`, color: f.color } : undefined}
+              style={ligado ? { boxShadow: `0 0 0 2px ${f.cor}` } : undefined}
             >
-              <Icon className="h-3.5 w-3.5" style={!active ? { color: f.color } : undefined} />
-              <span>{f.label}</span>
-              <Badge
-                variant="secondary"
-                className="text-[10px] px-1.5 py-0 h-4 ml-0.5 tabular-nums"
-                style={active ? { backgroundColor: `${f.color}20`, color: f.color } : undefined}
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `color-mix(in srgb, ${f.cor} 12%, transparent)`, color: f.cor }}
               >
-                {f.count}
-              </Badge>
+                <Icone className="h-[18px] w-[18px]" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-bold leading-none tabular-nums text-foreground">
+                  {f.count.toLocaleString('pt-BR')}
+                </span>
+                <span className="mt-1 block truncate text-[11px] text-muted-foreground">{f.label}</span>
+              </span>
             </button>
           )
         })}
-        <div>
-          <Input
-            type="search"
-            name={`cert-busca-${empresaIdAtual ?? 'x'}`}
-            autoComplete="off"
-            data-1p-ignore
-            data-lpignore="true"
-            readOnly={buscaReadonly}
-            onFocus={() => setBuscaReadonly(false)}
-            onBlur={() => setBuscaReadonly(true)}
-            placeholder="Buscar por titular, documento, cliente..."
-            value={filtroBusca}
-            onChange={e => setFiltroBusca(e.target.value)}
-            className="h-8 w-[280px] text-xs"
-          />
-        </div>
       </div>
 
-      {/* Tabela */}
-      {loading ? (
-        <Card className="flex-1 flex items-center justify-center py-16">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Carregando certificados...
+      {/* Tabela — UM card, com a busca na barra do topo, como em /clientes.
+          Os tres estados (carregando, vazio e com resultado) vivem dentro
+          dele: a busca some junto com a tabela se cada estado for um card
+          proprio, e quem digitou fica sem como apagar o que digitou. */}
+      <Card className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="hidden sm:inline">Exibir</span>
+            <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
+              <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[10, 20, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <span className="hidden sm:inline">registros</span>
           </div>
-        </Card>
-      ) : filtered.length === 0 ? (
-        <Card className="flex-1 flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <ShieldCheck className="h-10 w-10 opacity-30 mb-2" />
-          <p className="text-sm">Nenhum certificado encontrado neste filtro</p>
-        </Card>
-      ) : (
-        <Card className="flex-1 overflow-hidden flex flex-col">
+          <div className="w-full sm:w-[420px]">
+            <Input
+              type="search"
+              name={`cert-busca-${empresaIdAtual ?? 'x'}`}
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
+              readOnly={buscaReadonly}
+              onFocus={() => setBuscaReadonly(false)}
+              onBlur={() => setBuscaReadonly(true)}
+              placeholder="Buscar por titular, documento, cliente..."
+              value={filtroBusca}
+              onChange={e => setFiltroBusca(e.target.value)}
+              className="h-8 w-full bg-card text-xs"
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex flex-1 items-center justify-center py-16">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando certificados...
+            </div>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center py-16 text-muted-foreground">
+            <ShieldCheck className="mb-2 h-10 w-10 opacity-30" />
+            <p className="text-sm">Nenhum certificado encontrado neste filtro</p>
+          </div>
+        ) : (
+          <>
           {/* Barra de ações em massa — só aparece quando há seleção */}
           {canDelete && selecionados.size > 0 && (
             <div className="flex items-center justify-between gap-3 px-4 py-2 bg-fuchsia-50 dark:bg-fuchsia-950/20 border-b border-fuchsia-200 dark:border-fuchsia-900">
@@ -593,15 +626,19 @@ export default function GestaoCertificadosPage() {
               </div>
             </div>
           )}
-          <div className="overflow-y-auto nice-scrollbar">
+          {/* `flex-1 min-h-0` e o que faz SO esta area rolar: sem o `min-h-0`
+              um filho flex nao encolhe abaixo do proprio conteudo e o card
+              inteiro estica, levando a rolagem de volta para a pagina.
+              `nice-scrollbar` porque a barra nativa destoa do tema (CLAUDE.md). */}
+          <div className="nice-scrollbar min-h-0 flex-1 overflow-y-auto">
             <Table>
               <TableHeader>
                 <TableRow className="whitespace-nowrap">
                   {canDelete && (
                     <TableHead className="w-[44px]">
                       <Checkbox
-                        checked={filtered.length > 0 && filtered.every(c => selecionados.has(c.id))}
-                        onCheckedChange={() => toggleSelecionarTodos(filtered.map(c => c.id))}
+                        checked={pagina.length > 0 && pagina.every(c => selecionados.has(c.id))}
+                        onCheckedChange={() => toggleSelecionarTodos(pagina.map(c => c.id))}
                         aria-label="Selecionar todos"
                       />
                     </TableHead>
@@ -617,7 +654,7 @@ export default function GestaoCertificadosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(c => (
+                {pagina.map(c => (
                   <TableRow
                     key={c.id}
                     className={cn(
@@ -684,8 +721,27 @@ export default function GestaoCertificadosPage() {
               </TableBody>
             </Table>
           </div>
-        </Card>
-      )}
+
+          {/* Rodape: contagem a esquerda, paginacao a direita — PADRAO_PAGINAS §1.4 */}
+          <div className="flex shrink-0 flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Mostrando <span className="font-medium">{startRecord}</span> a <span className="font-medium">{endRecord}</span> de <span className="font-medium">{filtered.length}</span> registros
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(1)}><ChevronsLeft className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+                {getPageNumbers().map(n => (
+                  <Button key={n} variant={n === page ? 'soft' : 'outline'} size="icon-xs" className="text-xs" onClick={() => setPage(n)}>{n}</Button>
+                ))}
+                <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(totalPages)}><ChevronsRight className="h-3.5 w-3.5" /></Button>
+              </div>
+            )}
+          </div>
+          </>
+        )}
+      </Card>
 
       {/* ── Modais ── */}
       <CertCadastroModal

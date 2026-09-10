@@ -393,6 +393,9 @@ export default function UsuariosPage() {
       {/* Barra da página — PADRAO_PAGINAS §1.1 (referência /clientes) */}
       <PageHeaderBar
         actions={<>
+          <Button size="sm" asChild className="gap-1.5">
+            <Link href="/usuarios/new"><Plus className="h-4 w-4" />Novo Usuário</Link>
+          </Button>
           <Button variant="outline" size="sm" asChild className="gap-1.5">
             <Link href="/usuarios/permissoes"><ShieldCheck className="h-4 w-4" />Permissões em massa</Link>
           </Button>
@@ -417,9 +420,6 @@ export default function UsuariosPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" asChild className="gap-1.5">
-            <Link href="/usuarios/new"><Plus className="h-4 w-4" />Novo Usuário</Link>
-          </Button>
         </>}
       >
         <h1 className="truncate">Usuários</h1>

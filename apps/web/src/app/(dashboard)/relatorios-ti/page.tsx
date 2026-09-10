@@ -511,7 +511,7 @@ export default function RelatoriosTiPage() {
   return (
     <div className="flex flex-col gap-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           {podeCurar && (
             <Button variant="outline" size="sm" className="gap-1.5"
               onClick={() => { setNovidadesOpen(true); void carregarNovidades() }}>

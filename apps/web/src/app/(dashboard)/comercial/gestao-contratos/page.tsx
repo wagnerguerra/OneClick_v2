@@ -307,7 +307,7 @@ export default function GestaoContratosPage() {
   return (
     <div className="flex flex-col gap-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
-      <PageHeaderBar actions={<>
+      <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={exportarCsv} disabled={loading || total === 0}>
             <FileDown className="h-4 w-4" /> CSV
           </Button>
