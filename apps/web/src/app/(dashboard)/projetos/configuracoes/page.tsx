@@ -1,16 +1,15 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Archive, Loader2, Play, Check, AlertCircle,
+  Archive, Loader2, Play, Check, AlertCircle,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card,
+  Button, Input, Label, Card, Switch,
 } from '@saas/ui'
-import { cn } from '@saas/ui'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
@@ -26,7 +25,6 @@ interface Config {
 }
 
 export default function ProjetosConfiguracoesPage() {
-  const router = useRouter()
   const { isMaster, permissions } = useUserPermissions()
   const projetosPerm = permissions.find((p) => p.moduleSlug === 'projetos')
   const canWrite = isMaster || projetosPerm?.canWrite === true
@@ -115,14 +113,7 @@ export default function ProjetosConfiguracoesPage() {
       {/* Header */}
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-        <Button
-          variant="outline" size="icon"
-          onClick={() => router.push('/projetos')}
-          title="Voltar pra Projetos"
-          className="h-9 w-9"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <BackButton href="/projetos" title="Voltar pra Projetos" />
       </>}>
         <h1 className="truncate">Configurações</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -157,24 +148,13 @@ export default function ProjetosConfiguracoesPage() {
                   Esconde da lista projetos que ficaram com status <strong>Concluído</strong> por mais de X dias.
                 </p>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={habilitado}
-                onClick={() => toggleHabilitado(!habilitado)}
+              <Switch
+                checked={habilitado}
+                onCheckedChange={toggleHabilitado}
                 disabled={!canWrite || saving === 'habilitado'}
-                className={cn(
-                  'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                  habilitado ? 'bg-emerald-500' : 'bg-muted',
-                )}
-              >
-                <span
-                  className={cn(
-                    'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow ring-0 transition-transform',
-                    habilitado ? 'translate-x-5' : 'translate-x-0',
-                  )}
-                />
-              </button>
+                accentColor="#10b981"
+                aria-label="Auto-arquivar projetos concluídos"
+              />
             </div>
 
             <div className={`p-4 space-y-4 ${!habilitado ? 'opacity-50 pointer-events-none' : ''}`}>

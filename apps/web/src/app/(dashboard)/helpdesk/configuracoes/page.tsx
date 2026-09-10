@@ -3,12 +3,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Mail, Loader2, Bell, Clock, Inbox, Users, AlertTriangle,
+  Mail, Loader2, Bell, Clock, Inbox, Users, AlertTriangle,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card, Switch,
+  Input, Label, Card, Switch,
 } from '@saas/ui'
 import { EmailChipsInput } from '@/components/ui/email-chips-input'
+import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -125,14 +126,7 @@ export default function HelpdeskConfiguracoesPage() {
       {/* Header */}
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-        <Button
-          variant="outline" size="icon"
-          onClick={() => router.push('/helpdesk')}
-          title="Voltar pra HelpDesk"
-          className="h-9 w-9"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <BackButton href="/helpdesk" title="Voltar pra HelpDesk" />
       </>}>
         <h1 className="truncate">Configurações do HelpDesk</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">

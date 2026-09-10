@@ -23,10 +23,11 @@ import {
   MessageSquare, Paperclip, Download, FileText, Image as ImageIcon, Send, AlertOctagon, Gauge,
 } from 'lucide-react'
 import {
-  Button, Input, Card, Badge, cn,
+  Button, Input, Card, Badge, Checkbox, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Label,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { TEXT } from '@/lib/color-styles'
 import { AnexosDropzone, type AnexoStaged } from '../../../helpdesk/_components/anexos-dropzone'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -331,7 +332,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
               ? 'Cada entrega vira uma rodada; o que os envolvidos apontam fica registrado nela.'
               : <>
                   {rodadas.length} rodada(s) · {totalAbertos} apontamento(s) em aberto
-                  {totalTravadas > 0 && <> · <span className="font-semibold text-rose-600 dark:text-rose-400">{totalTravadas} travada(s)</span></>}
+                  {totalTravadas > 0 && <> · <span className={cn('font-semibold', TEXT.rose)}>{totalTravadas} travada(s)</span></>}
                 </>}
           </p>
         </div>
@@ -571,11 +572,11 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                                 className="h-9 max-w-[260px] text-sm"
                               />
                               <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                                <input
-                                  type="checkbox"
+                                <Checkbox
                                   checked={draft.impeditivo}
-                                  onChange={e => setRascunho(st => ({ ...st, [r.id]: { ...draft, impeditivo: e.target.checked } }))}
-                                  className="h-3.5 w-3.5 accent-rose-600"
+                                  onCheckedChange={v => setRascunho(st => ({ ...st, [r.id]: { ...draft, impeditivo: v === true } }))}
+                                  accentColor="#e11d48"
+                                  className="h-3.5 w-3.5"
                                 />
                                 Impediu a rodada
                               </label>

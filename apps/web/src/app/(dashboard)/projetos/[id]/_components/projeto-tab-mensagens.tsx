@@ -87,7 +87,7 @@ export function ProjetoTabMensagens({ projetoId, projetoCor, canWrite }: Props) 
       )}
 
       {/* Lista (cronológica decrescente) */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="nice-scrollbar flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando...

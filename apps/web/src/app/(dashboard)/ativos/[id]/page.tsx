@@ -14,6 +14,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
+import { TEXT, BADGE, BORDER } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -26,12 +27,13 @@ import {
 
 const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
 
+// Deriva da fonte unica (BADGE) — traz o dark:text-<c>-400 do helper.
 const STATUS_CHIP_CLS: Record<string, string> = {
-  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800',
-  amber:   'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800',
-  slate:   'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-950/30 dark:text-slate-300 dark:border-slate-800',
-  sky:     'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300 dark:border-sky-800',
-  rose:    'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800',
+  emerald: BADGE.emerald,
+  amber:   BADGE.amber,
+  slate:   BADGE.slate,
+  sky:     BADGE.sky,
+  rose:    BADGE.rose,
 }
 
 function fmtBRL(v: number | string | null | undefined): string {
@@ -245,7 +247,7 @@ export default function AtivoDetalhePage() {
               <FileText className="h-3.5 w-3.5" /> Termo
             </Button>
           </Link>
-          <Button size="sm" variant="outline" onClick={handleDelete} className="gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-800 dark:hover:bg-rose-950/30">
+          <Button size="sm" variant="outline" onClick={handleDelete} className={cn('gap-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30', TEXT.rose, BORDER.rose)}>
             <Trash2 className="h-3.5 w-3.5" /> Baixar
           </Button>
           <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}>
@@ -282,13 +284,13 @@ export default function AtivoDetalhePage() {
         </div>
       </PageHeaderBar>
 
-      {/* Faixa das abas — mantém a cor do módulo (TI cyan, rgb 34, 211, 238 com alpha .18). */}
+      {/* Faixa das abas — mantém a cor do módulo (TI), 18% sobre o fundo. */}
       <div className="relative -mx-4 sm:-mx-6 mb-4 sm:mb-5 overflow-hidden group/cover"
-           style={{ backgroundColor: 'rgba(34, 211, 238, .18)' }}>
+           style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 18%, transparent)` }}>
 
         {/* Tabs principais (pills com slide) — padrão das demais páginas de detalhe.
             Classes !-prefixadas vencem as regras globais de [role="tablist"]. */}
-        <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto flex justify-center">
+        <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto nice-scrollbar flex justify-center">
           <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
             <TabsTrigger value="identificacao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
               <FileText className="h-3.5 w-3.5" /> Identificação
@@ -376,12 +378,12 @@ export default function AtivoDetalhePage() {
               <div className="col-span-12 space-y-1.5">
                 <Label className="text-[13px] font-semibold">Descrição</Label>
                 <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3}
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+                  className="w-full rounded-md px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
               </div>
               <div className="col-span-12 space-y-1.5">
                 <Label className="text-[13px] font-semibold">Observações</Label>
                 <textarea value={observacoes} onChange={e => setObservacoes(e.target.value)} rows={2}
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+                  className="w-full rounded-md px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
               </div>
             </div>
           </Card>
@@ -540,7 +542,7 @@ export default function AtivoDetalhePage() {
               ) : ativo.movimentacoes.map((m: any) => (
                 <div key={m.id} className="flex items-start gap-3 pb-3 border-b last:border-0">
                   <div className="h-7 w-7 rounded-full bg-sky-100 dark:bg-sky-950/30 flex items-center justify-center shrink-0 mt-0.5">
-                    <History className="h-3.5 w-3.5 text-sky-600" />
+                    <History className={cn('h-3.5 w-3.5', TEXT.sky)} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -752,7 +754,7 @@ function ManutencaoEditor({ ativoId, initial, fornecedores, users, onCancel, onS
           <Label className="text-[13px] font-semibold">Descrição *</Label>
           <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={2}
             placeholder="Detalhes do serviço executado..."
-            className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm resize-y" />
+            className="w-full rounded-md px-3 py-2 text-sm resize-y" />
         </div>
         <div className="col-span-12 sm:col-span-3 space-y-1.5">
           <Label className="text-[13px] font-semibold">Início</Label>
@@ -787,7 +789,7 @@ function ManutencaoEditor({ ativoId, initial, fornecedores, users, onCancel, onS
         <div className="col-span-12 space-y-1.5">
           <Label className="text-[13px] font-semibold">Observações</Label>
           <textarea value={observacoes} onChange={e => setObservacoes(e.target.value)} rows={2}
-            className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm resize-y" />
+            className="w-full rounded-md px-3 py-2 text-sm resize-y" />
         </div>
       </div>
       <div className="flex justify-end gap-2 pt-2 border-t">
@@ -901,7 +903,7 @@ function AnexosTab({ ativoId, anexos, onChanged }: {
             const meta = ANEXO_TIPO_META[a.tipo as AtivoAnexoTipo]
             return (
               <div key={a.id} className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-1.5">
-                <Paperclip className="h-3.5 w-3.5 text-sky-600 shrink-0" />
+                <Paperclip className={cn('h-3.5 w-3.5 shrink-0', TEXT.sky)} />
                 <span className={cn('inline-flex items-center px-1.5 py-0 rounded-full text-[9px] font-semibold border shrink-0', STATUS_CHIP_CLS[meta.cor])}>
                   {meta.label}
                 </span>

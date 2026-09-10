@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import {
   Button, Card, Input, Label, cn, Checkbox,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Sheet, SheetContent, SheetTitle, SheetDescription,
   RichEditor, RichContent,
@@ -1036,12 +1037,14 @@ export default function RelatoriosTiPage() {
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-12 space-y-1.5 sm:col-span-4">
                 <Label className="text-[13px] font-semibold">Natureza</Label>
-                <select value={novTipo} onChange={e => setNovTipo(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
-                  <option value="NOVO">Novo</option>
-                  <option value="MELHORIA">Melhoria</option>
-                  <option value="CORRECAO">Correção</option>
-                </select>
+                <Select value={novTipo} onValueChange={setNovTipo}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NOVO">Novo</SelectItem>
+                    <SelectItem value="MELHORIA">Melhoria</SelectItem>
+                    <SelectItem value="CORRECAO">Correção</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="col-span-12 space-y-1.5 sm:col-span-8">
                 <Label className="text-[13px] font-semibold">Módulo (opcional)</Label>
@@ -1064,7 +1067,7 @@ export default function RelatoriosTiPage() {
               <Label className="text-[13px] font-semibold">Descrição</Label>
               <textarea value={novDescricao} onChange={e => setNovDescricao(e.target.value)}
                 rows={4} placeholder="Uma ou duas frases, em linguagem de quem usa."
-                className="nice-scrollbar w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
+                className="nice-scrollbar w-full rounded-md px-3 py-2 text-sm" />
               {/* Texto puro, e não editor rico: o widget é uma lista compacta, e
                   formatação ali viraria ruído. */}
             </div>
@@ -1103,11 +1106,13 @@ export default function RelatoriosTiPage() {
           <DialogBody className="max-h-[65vh] space-y-4 overflow-y-auto">
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Área da equipe</Label>
-              <select value={cfgAreaId} onChange={e => setCfgAreaId(e.target.value)}
-                className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
-                <option value="">— nenhuma —</option>
-                {areas.map(ar => <option key={ar.id} value={ar.id}>{ar.name}</option>)}
-              </select>
+              <Select value={cfgAreaId || '__none__'} onValueChange={v => setCfgAreaId(v === '__none__' ? '' : v)}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— nenhuma —</SelectItem>
+                  {areas.map(ar => <SelectItem key={ar.id} value={ar.id}>{ar.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <p className="text-[11px] text-muted-foreground">
                 Quem está nesta área é cobrado pelo relatório diário, e quem a lidera comanda o
                 painel — sem precisar de permissão marcada.

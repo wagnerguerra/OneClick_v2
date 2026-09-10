@@ -315,7 +315,7 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
                           value={a.titulo}
                           onChange={e => setAchados(l => l.map(x =>
                             x.chave === a.chave ? { ...x, titulo: e.target.value } : x))}
-                          className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+                          className="h-9 w-full rounded-md px-2 text-sm"
                         />
                         {/* O caminho de origem embaixo: dois arquivos podem gerar
                             o mesmo título, e sem ele as linhas ficam idênticas. */}

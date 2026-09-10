@@ -856,7 +856,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                         onBlur={() => { if (!savingTituloInline) void salvarTituloInline() }}
                         disabled={savingTituloInline}
                         maxLength={200}
-                        className="h-9 text-sm w-full max-w-md rounded-md border border-border bg-background px-2.5 font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+                        className="h-9 text-sm w-full max-w-md rounded-md px-2.5 font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
                         placeholder="Título do ticket"
                       />
                       {savingTituloInline && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />}
@@ -927,7 +927,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
           {/* `justify-center` num container que rola corta a primeira aba quando
               elas não cabem — e o pedaço cortado não volta com a rolagem. Centraliza
               só quando sobra espaço (`sm:justify-center`). */}
-          <div className="relative z-10 flex justify-start overflow-x-auto px-4 pb-2 sm:justify-center sm:px-6">
+          <div className="relative z-10 flex justify-start overflow-x-auto nice-scrollbar px-4 pb-2 sm:justify-center sm:px-6">
             <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
               <TabsTrigger value="conversa" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-700 dark:data-[state=active]:!text-cyan-300 gap-1.5">
                 <MessageSquare className="h-3.5 w-3.5" /> Conversação
@@ -1006,7 +1006,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
               {/* Conteúdo da descrição + anexos enviados na solicitação */}
               <CardContent className="px-5 py-4">
                 <RichContent
-                  className="text-sm leading-relaxed [&_a]:text-cyan-600"
+                  className="text-sm leading-relaxed [&_a]:text-cyan-600 dark:[&_a]:text-cyan-400"
                   html={linkifyHelpdesk(ticket.descricao)}
                 />
                 <AnexoThumbs anexos={anexosIniciais} onOpen={setAnexoPreview} />
@@ -1019,7 +1019,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
               <Card className="border-l-4 border-l-emerald-500 bg-emerald-50/40 dark:bg-emerald-900/20">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                     <h3 className="text-sm font-semibold">Como foi seu atendimento?</h3>
                   </div>
                   {/* R5.2 — texto muda se o ticket já foi concluído sem avaliação
@@ -1056,7 +1056,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                     onChange={e => setCsatComentario(e.target.value)}
                     placeholder="Comentário opcional sobre o atendimento..."
                     rows={2}
-                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="w-full rounded-md px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
                   <Button
                     size="sm"
@@ -1133,7 +1133,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                 )}
               >
                 <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-2">
-                  <Bot className="h-4 w-4 text-violet-600" />
+                  <Bot className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                   <h3 className="font-semibold text-sm">Plano de resolução — IA</h3>
                   {ticket.aiPlanoStatus === 'pendente' && (
                     <Badge variant="outline" className="ml-auto bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300">
@@ -1346,7 +1346,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                           sem elas, parágrafos ficavam colados e a linha em
                           branco digitada pelo autor sumia. */}
                       <RichContent
-                        className="text-sm [&_a]:text-cyan-600"
+                        className="text-sm [&_a]:text-cyan-600 dark:[&_a]:text-cyan-400"
                         html={linkifyHelpdesk(msg.conteudo)}
                       />
                       {/* Anexos vinculados a esta mensagem — abrem no visualizador inline */}
@@ -1495,13 +1495,13 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                   {ticket.eventos.map(ev => (
                     <div key={ev.id} className="flex items-start gap-3 px-4 py-3">
                       <div className="shrink-0 mt-0.5">
-                        {ev.tipo === 'criado' && <FileText className="h-4 w-4 text-cyan-600" />}
-                        {ev.tipo === 'atribuido' && <UserCog className="h-4 w-4 text-cyan-600" />}
-                        {ev.tipo === 'status_alterado' && <Layers className="h-4 w-4 text-cyan-600" />}
-                        {ev.tipo === 'mensagem_publica' && <MessageSquare className="h-4 w-4 text-cyan-600" />}
-                        {ev.tipo === 'nota_interna' && <Lock className="h-4 w-4 text-amber-600" />}
-                        {ev.tipo === 'anexo_adicionado' && <Paperclip className="h-4 w-4 text-cyan-600" />}
-                        {ev.tipo === 'csat_recebido' && <Star className="h-4 w-4 text-emerald-600" />}
+                        {ev.tipo === 'criado' && <FileText className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />}
+                        {ev.tipo === 'atribuido' && <UserCog className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />}
+                        {ev.tipo === 'status_alterado' && <Layers className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />}
+                        {ev.tipo === 'mensagem_publica' && <MessageSquare className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />}
+                        {ev.tipo === 'nota_interna' && <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                        {ev.tipo === 'anexo_adicionado' && <Paperclip className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />}
+                        {ev.tipo === 'csat_recebido' && <Star className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
                         {!['criado','atribuido','status_alterado','mensagem_publica','nota_interna','anexo_adicionado','csat_recebido'].includes(ev.tipo) && (
                           <History className="h-4 w-4 text-muted-foreground" />
                         )}
@@ -1543,7 +1543,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
               <Card className="border-l-4 border-l-slate-400 dark:border-l-slate-500">
                 <CardContent className="p-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <Bot className="h-4 w-4 text-violet-600 shrink-0" />
+                    <Bot className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
                     <p className="text-sm font-semibold">Triagem IA</p>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
@@ -1945,7 +1945,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                       readOnly
                       value={promptCli}
                       onClick={e => (e.target as HTMLTextAreaElement).select()}
-                      className="w-full font-mono text-[11px] rounded-md border border-input bg-muted/30 px-3 py-2 min-h-[280px] max-h-[420px] overflow-auto"
+                      className="nice-scrollbar w-full font-mono text-[11px] rounded-md px-3 py-2 min-h-[280px] max-h-[420px] overflow-auto"
                     />
                     <div className="flex justify-end">
                       <Button
@@ -2068,7 +2068,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                             </summary>
                             <div className="px-2 py-1.5 border-t border-border space-y-1">
                               <p className="text-muted-foreground italic">{arq.motivo}</p>
-                              <pre className="bg-muted/30 p-2 rounded text-[10px] overflow-auto max-h-[300px] whitespace-pre">{arq.conteudo}</pre>
+                              <pre className="nice-scrollbar bg-muted/30 p-2 rounded text-[10px] overflow-auto max-h-[300px] whitespace-pre">{arq.conteudo}</pre>
                             </div>
                           </details>
                         ))}
@@ -2098,7 +2098,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                         </div>
                         <div
                           ref={thinkingScrollRef}
-                          className="bg-card border border-border rounded p-2 max-h-[280px] overflow-auto text-[11px] font-mono whitespace-pre-wrap text-foreground/80"
+                          className="nice-scrollbar bg-card border border-border rounded p-2 max-h-[280px] overflow-auto text-[11px] font-mono whitespace-pre-wrap text-foreground/80"
                         >
                           {thinkingTexto || <span className="text-muted-foreground italic">aguardando primeiros chunks…</span>}
                         </div>
@@ -2148,7 +2148,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
               onChange={e => setRejeitarMotivo(e.target.value)}
               rows={4}
               placeholder="Ex.: plano não considera caso X, arquivo Y está obsoleto, abordagem perigosa..."
-              className="w-full text-sm rounded-md border border-input bg-background px-3 py-2 mt-1.5"
+              className="w-full text-sm rounded-md px-3 py-2 mt-1.5"
               maxLength={500}
             />
             <p className="text-[10px] text-muted-foreground mt-1">{rejeitarMotivo.length}/500</p>
@@ -2279,7 +2279,7 @@ function AnexoLightbox({ anexo, onClose }: { anexo: Anexo | null; onClose: () =>
           {anexo.mimeType && <span className="text-[11px] text-muted-foreground shrink-0">{anexo.mimeType}</span>}
           <button onClick={onClose} className="ml-auto p-1 rounded hover:bg-muted text-muted-foreground" title="Fechar (Esc)"><X className="h-4 w-4" /></button>
         </div>
-        <div className="flex-1 overflow-auto p-3 min-h-[300px]"><AnexoPreview anexo={anexo} /></div>
+        <div className="nice-scrollbar flex-1 overflow-auto p-3 min-h-[300px]"><AnexoPreview anexo={anexo} /></div>
       </div>
     </div>,
     document.body,

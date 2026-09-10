@@ -17,12 +17,14 @@ import {
   CartesianGrid, Tooltip, Legend, Cell, PieChart, Pie,
 } from 'recharts'
 import { BackButton } from '@/components/ui/back-button'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { fmtDateBR } from '@/lib/date'
 import { USER_PERMISSIONS_REFRESH_EVENT } from '@/hooks/use-user-permissions'
 import { HELPDESK_STATUS_COR } from '../_lib/status-styles'
+import { TEXT } from '@/lib/color-styles'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import {
   HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE_LABELS, HELPDESK_TIPO_LABELS,
@@ -599,7 +601,7 @@ export default function HelpdeskIndicadoresPage() {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} className="fill-muted-foreground" tickLine={false} />
                     <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" tickLine={false} axisLine={false} allowDecimals={false} />
-                    <Tooltip content={<ChartTooltip />} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
                     <Bar dataKey="value" name="Tickets" radius={[4, 4, 0, 0]}>
                       {data.porPrioridade.map(p => <Cell key={p.prioridade} fill={HELPDESK_PRIORIDADE_COLORS[p.prioridade]} />)}
                     </Bar>
@@ -621,7 +623,7 @@ export default function HelpdeskIndicadoresPage() {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} className="fill-muted-foreground" tickLine={false} />
                     <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" tickLine={false} axisLine={false} allowDecimals={false} />
-                    <Tooltip content={<ChartTooltip />} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
                     <Bar dataKey="value" name="Respostas" radius={[4, 4, 0, 0]}>
                       {data.csatDist.map(c => <Cell key={c.nota} fill={CSAT_COR[c.nota] ?? '#94a3b8'} />)}
                     </Bar>
@@ -690,7 +692,7 @@ export default function HelpdeskIndicadoresPage() {
                             </span>
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">{t.responsavel ?? '—'}</TableCell>
-                          <TableCell className="text-right text-sm tabular-nums text-rose-600">{formatHoras(atrasoH)}</TableCell>
+                          <TableCell className={cn('text-right text-sm tabular-nums', TEXT.rose)}>{formatHoras(atrasoH)}</TableCell>
                         </TableRow>
                       )
                     })}
@@ -763,9 +765,9 @@ export default function HelpdeskIndicadoresPage() {
                             <Badge
                               variant="outline"
                               className={
-                                a.slaPct >= 90 ? 'border-emerald-300 text-emerald-600 dark:border-emerald-800'
-                                  : a.slaPct >= 70 ? 'border-amber-300 text-amber-600 dark:border-amber-800'
-                                  : 'border-rose-300 text-rose-600 dark:border-rose-800'
+                                a.slaPct >= 90 ? 'border-emerald-300 text-emerald-600 dark:border-emerald-800 dark:text-emerald-400'
+                                  : a.slaPct >= 70 ? 'border-amber-300 text-amber-600 dark:border-amber-800 dark:text-amber-400'
+                                  : 'border-rose-300 text-rose-600 dark:border-rose-800 dark:text-rose-400'
                               }
                             >
                               {a.slaPct}%
@@ -846,24 +848,4 @@ function Kpi({ label, value, sub, icon: Icon, tone }: {
 
 function Empty() {
   return <div className="py-12 text-center text-xs text-muted-foreground">Sem dados no período.</div>
-}
-
-// Tooltip custom com tokens de tema (dark-mode safe)
-function ChartTooltip({ active, payload, label }: {
-  active?: boolean
-  payload?: Array<{ name?: string; value?: number | string; color?: string; payload?: { name?: string } }>
-  label?: string | number
-}) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-md">
-      {(label !== undefined && label !== '') && <p className="mb-1 font-medium text-foreground">{label}</p>}
-      {payload.map((p, i) => (
-        <p key={i} className="flex items-center gap-1.5 text-muted-foreground">
-          {p.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />}
-          {p.name ?? p.payload?.name}: <span className="font-semibold text-foreground tabular-nums">{p.value}</span>
-        </p>
-      ))}
-    </div>
-  )
 }

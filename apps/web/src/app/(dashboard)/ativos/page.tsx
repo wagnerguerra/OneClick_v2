@@ -8,23 +8,25 @@ import {
   ClipboardCheck, Printer, AlertTriangle,
 } from 'lucide-react'
 import {
-  Button, Input, Card, cn,
+  Button, Input, Card, cn, Checkbox,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
+import { TEXT, BADGE } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
 import { ATIVO_STATUS_META, calcularValorDepreciado, type AtivoStatus } from '@saas/types'
 
+// Deriva da fonte unica (BADGE) — herda o pastel + os pares dark do helper.
 const STATUS_CHIP_CLS: Record<string, string> = {
-  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800',
-  amber:   'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800',
-  slate:   'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-950/30 dark:text-slate-300 dark:border-slate-800',
-  sky:     'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300 dark:border-sky-800',
-  rose:    'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800',
+  emerald: BADGE.emerald,
+  amber:   BADGE.amber,
+  slate:   BADGE.slate,
+  sky:     BADGE.sky,
+  rose:    BADGE.rose,
 }
 
 function fmtBRL(v: number | string | null | undefined): string {
@@ -206,7 +208,7 @@ export default function AtivosPage() {
               placeholder="Tag, nome, fabricante, serial..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="h-8 pl-8 w-full sm:w-[260px] text-xs bg-card"
+              className="h-8 pl-8 w-full sm:w-[260px] text-xs"
             />
           </div>
         </div>
@@ -252,15 +254,19 @@ export default function AtivosPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="hidden sm:table-cell w-[36px]">
-                <input
-                  type="checkbox"
-                  checked={data.length > 0 && data.every(a => selectedIds.has(a.id))}
-                  ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && !data.every(a => selectedIds.has(a.id)) }}
-                  onChange={e => {
-                    if (e.target.checked) setSelectedIds(new Set([...selectedIds, ...data.map(a => a.id)]))
+                <Checkbox
+                  checked={
+                    data.length > 0 && data.every(a => selectedIds.has(a.id))
+                      ? true
+                      : selectedIds.size > 0 && !data.every(a => selectedIds.has(a.id))
+                        ? 'indeterminate'
+                        : false
+                  }
+                  onCheckedChange={v => {
+                    if (v === true) setSelectedIds(new Set([...selectedIds, ...data.map(a => a.id)]))
                     else setSelectedIds(new Set([...selectedIds].filter(id => !data.find(a => a.id === id))))
                   }}
-                  className="h-3.5 w-3.5 cursor-pointer accent-sky-600"
+                  className="h-3.5 w-3.5 cursor-pointer"
                 />
               </TableHead>
               <TableHead className="w-[88px]">Tag</TableHead>
@@ -303,15 +309,14 @@ export default function AtivosPage() {
               return (
                 <TableRow key={a.id} className="hover:bg-muted/40">
                   <TableCell className="hidden sm:table-cell">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={selectedIds.has(a.id)}
-                      onChange={e => {
+                      onCheckedChange={v => {
                         const next = new Set(selectedIds)
-                        if (e.target.checked) next.add(a.id); else next.delete(a.id)
+                        if (v === true) next.add(a.id); else next.delete(a.id)
                         setSelectedIds(next)
                       }}
-                      className="h-3.5 w-3.5 cursor-pointer accent-sky-600"
+                      className="h-3.5 w-3.5 cursor-pointer"
                     />
                   </TableCell>
                   <TableCell>
@@ -339,7 +344,7 @@ export default function AtivosPage() {
                     {a.responsavel ? (
                       <div className="text-[12px] font-medium truncate" title={a.responsavel.name}>{a.responsavel.name}</div>
                     ) : a.cliente ? (
-                      <div className="text-[12px] text-sky-600 truncate" title={a.cliente.razaoSocial}>
+                      <div className={cn('text-[12px] truncate', TEXT.sky)} title={a.cliente.razaoSocial}>
                         🤝 {a.cliente.nomeFantasia ?? a.cliente.razaoSocial}
                       </div>
                     ) : a.area ? (
@@ -368,10 +373,10 @@ export default function AtivosPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="border border-foreground/15 shadow-lg">
                         <DropdownMenuItem asChild>
-                          <Link href={`/ativos/${a.id}`}><Pencil className="h-3.5 w-3.5 mr-2 text-sky-600" /> Abrir</Link>
+                          <Link href={`/ativos/${a.id}`}><Pencil className={cn('h-3.5 w-3.5 mr-2', TEXT.sky)} /> Abrir</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDelete(a.id, a.tag)} className="focus:[&_svg]:text-white">
-                          <Trash2 className="h-3.5 w-3.5 mr-2 text-rose-600" /> Baixar
+                          <Trash2 className={cn('h-3.5 w-3.5 mr-2', TEXT.rose)} /> Baixar
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -415,16 +420,12 @@ function KpiCard({ icon: Icon, label, value, color }: {
   value: string
   color: 'sky' | 'emerald' | 'amber' | 'slate' | 'rose'
 }) {
-  const map: Record<string, string> = {
-    sky:     'text-sky-700 bg-sky-50 dark:bg-sky-950/30 dark:text-sky-300',
-    emerald: 'text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300',
-    amber:   'text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300',
-    slate:   'text-slate-700 bg-slate-50 dark:bg-slate-950/30 dark:text-slate-300',
-    rose:    'text-rose-700 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-300',
-  }
+  // Cor do box do ícone deriva da fonte única (BADGE). O box não tem `border`
+  // (largura), então a cor de borda que vem no BADGE é inerte aqui — fica só o
+  // bg+texto, igual ao map literal de antes, mas single-source.
   return (
     <div className="flex items-center gap-2 rounded-md border bg-card p-2.5">
-      <div className={cn('h-9 w-9 rounded-md flex items-center justify-center', map[color])}>
+      <div className={cn('h-9 w-9 rounded-md flex items-center justify-center', BADGE[color])}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">

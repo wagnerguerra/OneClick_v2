@@ -1108,7 +1108,7 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
             {HELPDESK_PRIORIDADE_LABELS[ticket.prioridade]}
           </span>
           {prazoAtrasado && (
-            <span className="ml-auto inline-flex items-center gap-0.5 text-[9px] text-rose-600 font-semibold">
+            <span className={cn('ml-auto inline-flex items-center gap-0.5 text-[9px] font-semibold', TEXT.rose)}>
               <AlertTriangle className="h-2.5 w-2.5" /> SLA
             </span>
           )}
@@ -1344,7 +1344,7 @@ function TicketRow({ ticket, onUnarchive, onArchive, currentUserId, onCancelar, 
           {podeCancelar && (
             <DropdownMenuItem
               onClick={() => onCancelar!(ticket)}
-              className="gap-2 text-rose-600 focus:text-rose-600"
+              className={cn('gap-2 focus:text-rose-600 dark:focus:text-rose-400', TEXT.rose)}
             >
               <XCircle className="h-3.5 w-3.5" />
               Cancelar
