@@ -238,7 +238,7 @@ export default function EmpresasPage() {
             <span className="hidden sm:inline">registros</span>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 

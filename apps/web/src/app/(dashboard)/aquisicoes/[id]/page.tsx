@@ -268,7 +268,7 @@ export default function PedidoDetalhePage() {
           <DialogHeaderIcon icon={Ban} color="rose"><DialogTitle>Reprovar pedido #{c.code}</DialogTitle></DialogHeaderIcon>
           <DialogBody>
             <Label>Motivo da reprovação *</Label>
-            <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3} className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" placeholder="Descreva o motivo..." />
+            <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3} className="mt-1.5 w-full rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" placeholder="Descreva o motivo..." />
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setReprovarOpen(false)}>Cancelar</Button>
@@ -341,7 +341,7 @@ function AvaliarModal({ compra, onClose, onDone }: { compra: Compra; onClose: ()
                 </div>}
           </div>
           <label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked={melhoria} onChange={(e) => setMelhoria(e.target.checked)} className="h-4 w-4" />Abrir oportunidade de melhoria</label>
-          {melhoria && <textarea value={melhoriaObs} onChange={(e) => setMelhoriaObs(e.target.value)} rows={2} placeholder="Descrição da melhoria/não conformidade..." className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20" />}
+          {melhoria && <textarea value={melhoriaObs} onChange={(e) => setMelhoriaObs(e.target.value)} rows={2} placeholder="Descrição da melhoria/não conformidade..." className="w-full rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20" />}
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>

@@ -720,7 +720,7 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
         <select
           value={periodo}
           onChange={(e) => setPeriodo(e.target.value as PeriodoPreset)}
-          className="h-8 rounded-md border border-border bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="h-8 rounded-md px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {(Object.keys(PERIODO_LABEL) as PeriodoPreset[]).map((p) => (
             <option key={p} value={p}>{PERIODO_LABEL[p]}</option>
@@ -732,7 +732,7 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
         <select
           value={statusFiltro}
           onChange={(e) => setStatusFiltro(e.target.value as typeof statusFiltro)}
-          className="h-8 rounded-md border border-border bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="h-8 rounded-md px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <option value="todos">Todos</option>
           <option value="completed">Concluído</option>
@@ -1007,7 +1007,7 @@ function CertPicker({ certsA1, certA1Ativo, selectedId, onSelect, aviso }: {
       <select
         value={selectedId ?? ''}
         onChange={(e) => onSelect(e.target.value || null)}
-        className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="h-9 w-full rounded-md px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <option value="">Automático — maior validade ({certA1Ativo.descricao} · {certA1Ativo.expiraEm})</option>
         {certsA1.map((c) => (

@@ -507,7 +507,7 @@ export default function ProcessoDetalhePage() {
                               value={respostaObs[exec.id] ?? ''}
                               onChange={e => setRespostaObs(prev => ({ ...prev, [exec.id]: e.target.value }))}
                               placeholder="Adicione contexto da decisão (opcional)"
-                              className="w-full text-sm border rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-orange-400"
+                              className="w-full text-sm rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-orange-400"
                             />
                           </div>
                           <div className="flex justify-end">
@@ -640,7 +640,7 @@ export default function ProcessoDetalhePage() {
               onChange={e => setSkipMotivo(e.target.value)}
               rows={3}
               placeholder="Ex: cliente já tem o serviço com outro fornecedor."
-              className="w-full mt-1.5 rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="w-full mt-1.5 rounded-md px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </DialogBody>
           <DialogFooter>
@@ -670,7 +670,7 @@ export default function ProcessoDetalhePage() {
               onChange={e => setCancelMotivo(e.target.value)}
               rows={3}
               placeholder="Descreva por que o processo está sendo cancelado..."
-              className="w-full mt-1.5 rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="w-full mt-1.5 rounded-md px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </DialogBody>
           <DialogFooter>

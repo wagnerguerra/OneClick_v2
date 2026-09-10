@@ -141,7 +141,7 @@ export default function TabelasRegistrosPage() {
             </Select>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar pelo nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar pelo nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 

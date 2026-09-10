@@ -68,7 +68,7 @@ export default function BeneficiosPage() {
       {!selId && (
         <PageHeaderBar actions={<>
             <Select value={empresaId} onValueChange={v => { setEmpresaId(v); setSelId(null) }}>
-              <SelectTrigger className="h-9 w-auto gap-1 rounded-md border px-3 text-sm">
+              <SelectTrigger className="h-9 w-auto gap-1 rounded-md px-3 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -146,7 +146,7 @@ function CompetenciasList({ competencias, loading, empresaId, podeGerir, onOpen,
           <div className="grid grid-cols-12 gap-3 items-end">
             <div className="col-span-6 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Mês</Label>
               <Select value={String(form.mes)} onValueChange={v => setForm(f => ({ ...f, mes: +v }))}>
-                <SelectTrigger className="h-9 w-full rounded-md border px-2 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 w-full rounded-md px-2 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>{MESES.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}</SelectContent>
               </Select></div>
             <div className="col-span-6 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Ano</Label><Input type="number" className="h-9 text-sm" value={form.ano} onChange={e => setForm(f => ({ ...f, ano: +e.target.value }))} /></div>
@@ -471,7 +471,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
             <div className="flex items-center justify-between gap-2 flex-wrap">
               {setores.length > 1 ? (
                 <Select value={filtroSetor || '__all__'} onValueChange={v => setFiltroSetor(v === '__all__' ? '' : v)}>
-                  <SelectTrigger className="h-9 w-auto gap-1 rounded-md border px-3 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9 w-auto gap-1 rounded-md px-3 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">Todos os setores ({itens.length})</SelectItem>
                     {setores.map(s => <SelectItem key={s} value={s}>{s} ({itens.filter(i => i.setor === s).length})</SelectItem>)}

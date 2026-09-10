@@ -640,7 +640,7 @@ function Matriz({ m, empresa, refNum, onConfig, nonce }: { m: any; empresa: numb
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             Esquema
             <Select value={selEsq != null ? String(selEsq) : ''} onValueChange={(v) => setSelEsq(Number(v))}>
-              <SelectTrigger className="h-8 w-auto gap-1 rounded-lg border px-2 text-xs text-foreground">
+              <SelectTrigger className="h-8 w-auto gap-1 rounded-lg px-2 text-xs text-foreground">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1375,7 +1375,7 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
     <div key={g.id} className={cn('group flex items-center gap-1 rounded px-1.5 py-1', sub && 'ml-4', g.id === selGrupo ? 'bg-muted/50' : 'hover:bg-muted/30')}>
       {renId === g.id ? (
         <>
-          <input autoFocus value={renNome} onChange={(e) => setRenNome(e.target.value)} className="flex-1 rounded border border-border bg-background px-1 py-0.5" />
+          <input autoFocus value={renNome} onChange={(e) => setRenNome(e.target.value)} className="flex-1 rounded px-1 py-0.5" />
           <button onClick={() => run(async () => { await trpc.folhaBi.grupoRename.mutate({ id: g.id, nome: renNome.trim() || g.nome }); setRenId(null) })} className="text-[11px] text-foreground">ok</button>
         </>
       ) : (
@@ -1423,10 +1423,10 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
               </button>
             ))}
             <div className="mt-2 space-y-1 border-t border-border pt-2">
-              <input value={novoEsq} onChange={(e) => setNovoEsq(e.target.value)} placeholder="Novo esquema…" className="w-full rounded border border-border bg-background px-1.5 py-1" />
+              <input value={novoEsq} onChange={(e) => setNovoEsq(e.target.value)} placeholder="Novo esquema…" className="w-full rounded px-1.5 py-1" />
               <div className="flex gap-1">
                 <Select value={novoEsqEscopo} onValueChange={(v) => setNovoEsqEscopo(v as any)}>
-                  <SelectTrigger className="flex-1 rounded border px-1 py-1">
+                  <SelectTrigger className="flex-1 rounded px-1 py-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1452,7 +1452,7 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
                 {subsOf(tp.id).map((s: any) => grupoRow(s, true))}
                 {addPai === tp.id ? (
                   <div className="ml-4 flex gap-1 py-1">
-                    <input autoFocus value={addNome} onChange={(e) => setAddNome(e.target.value)} placeholder="nome do subgrupo" className="flex-1 rounded border border-border bg-background px-1.5 py-1" />
+                    <input autoFocus value={addNome} onChange={(e) => setAddNome(e.target.value)} placeholder="nome do subgrupo" className="flex-1 rounded px-1.5 py-1" />
                     <button onClick={() => addNome.trim() && run(async () => { await trpc.folhaBi.grupoCreate.mutate({ esquemaId: selEsq!, parentId: tp.id, nome: addNome.trim() }); setAddNome(''); setAddPai(undefined) })} className="rounded bg-muted/60 px-2">add</button>
                   </div>
                 ) : <button onClick={() => { setAddPai(tp.id); setAddNome('') }} className="ml-4 py-0.5 text-[11px] text-muted-foreground hover:text-foreground">+ subgrupo</button>}
@@ -1460,7 +1460,7 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
             ))}
             {addPai === null ? (
               <div className="mt-1 flex gap-1">
-                <input autoFocus value={addNome} onChange={(e) => setAddNome(e.target.value)} placeholder="nome do grupo de topo" className="flex-1 rounded border border-border bg-background px-1.5 py-1" />
+                <input autoFocus value={addNome} onChange={(e) => setAddNome(e.target.value)} placeholder="nome do grupo de topo" className="flex-1 rounded px-1.5 py-1" />
                 <button onClick={() => addNome.trim() && run(async () => { await trpc.folhaBi.grupoCreate.mutate({ esquemaId: selEsq!, parentId: null, nome: addNome.trim() }); setAddNome(''); setAddPai(undefined) })} className="rounded bg-muted/60 px-2">add</button>
               </div>
             ) : <button onClick={() => { setAddPai(null); setAddNome('') }} className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"><Plus className="h-3 w-3" /> grupo de topo</button>}
@@ -1481,7 +1481,7 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
                 ))}
                 <div className="mt-2 border-t border-border pt-2">
                   <div className="flex gap-1">
-                    <input value={busca} onChange={(e) => setBusca(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') buscarClasses() }} placeholder="buscar classe (cód/desc)…" className="flex-1 rounded border border-border bg-background px-1.5 py-1" />
+                    <input value={busca} onChange={(e) => setBusca(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') buscarClasses() }} placeholder="buscar classe (cód/desc)…" className="flex-1 rounded px-1.5 py-1" />
                     <button onClick={buscarClasses} className="rounded bg-muted/60 px-2 text-foreground">buscar</button>
                   </div>
                   <div className="nice-scrollbar mt-1 max-h-48 overflow-y-auto">
@@ -2128,7 +2128,7 @@ function Selecao({ label, value, onChange, className, children }: {
     <label className="mb-0 flex min-w-[92px] flex-col gap-1">
       <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className={cn('h-9 rounded-lg border px-2.5 text-sm text-foreground', className)}>
+        <SelectTrigger className={cn('h-9 rounded-lg px-2.5 text-sm text-foreground', className)}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>{items}</SelectContent>

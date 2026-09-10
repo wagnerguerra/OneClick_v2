@@ -146,7 +146,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
               <div className="col-span-12 space-y-1.5 sm:col-span-7">
                 <Label className="text-[13px] font-semibold">Cliente</Label>
                 <select value={clienteId} onChange={e => setClienteId(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
+                  className="h-9 w-full rounded-md px-2 text-sm">
                   <option value="">— não identificado —</option>
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.razaoSocial}</option>)}
                 </select>
@@ -154,7 +154,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
               <div className="col-span-12 space-y-1.5 sm:col-span-5">
                 <Label className="text-[13px] font-semibold">Canal</Label>
                 <select value={canal} onChange={e => setCanal(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
+                  className="h-9 w-full rounded-md px-2 text-sm">
                   <option value="">— não informado —</option>
                   {CANAIS.map(c => <option key={c.v} value={c.v}>{c.t}</option>)}
                 </select>
@@ -193,7 +193,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
           <div className="space-y-1.5">
             <Label className="text-[13px] font-semibold">Área envolvida</Label>
             <select value={areaId} onChange={e => setAreaId(e.target.value)}
-              className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
+              className="h-9 w-full rounded-md px-2 text-sm">
               <option value="">— nenhuma —</option>
               {areas.map(ar => <option key={ar.id} value={ar.id}>{ar.name}</option>)}
             </select>

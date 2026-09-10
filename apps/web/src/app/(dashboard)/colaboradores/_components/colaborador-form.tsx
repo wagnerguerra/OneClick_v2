@@ -218,7 +218,7 @@ export function ColaboradorForm({
                   {mode === 'edit' && defaultValues?.code !== undefined && (
                     <div className="col-span-2">
                       <Label>ID</Label>
-                      <Input value={defaultValues.code} disabled className="bg-muted mt-1.5" />
+                      <Input value={defaultValues.code} disabled className="mt-1.5" />
                     </div>
                   )}
                   <div className={mode === 'edit' ? 'col-span-10' : 'col-span-12'}>

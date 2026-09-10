@@ -82,9 +82,9 @@ export function IndicadoresDashboard() {
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1.5 rounded-md border bg-muted/20 px-2 py-1">
           <CalendarDays className="h-4 w-4 text-muted-foreground" />
-          <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} className="h-8 w-[140px] text-xs bg-card border-0" />
+          <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} className="h-8 w-[140px] text-xs" />
           <span className="text-xs text-muted-foreground">até</span>
-          <Input type="date" value={dataFim} min={dataInicio} onChange={e => setDataFim(e.target.value)} className="h-8 w-[140px] text-xs bg-card border-0" />
+          <Input type="date" value={dataFim} min={dataInicio} onChange={e => setDataFim(e.target.value)} className="h-8 w-[140px] text-xs" />
           <Button size="sm" onClick={consultar} disabled={loading} className="h-8 gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}>
             <CalendarDays className="h-3.5 w-3.5" /> Consultar
           </Button>

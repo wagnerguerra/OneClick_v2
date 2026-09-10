@@ -73,7 +73,7 @@ export function FolhaLancamentosTab({ clienteId }: { clienteId: string }) {
             <p className="text-xs text-muted-foreground h-8 flex items-center">Nenhuma importação disponível</p>
           ) : (
             <Select value={selectedId} onValueChange={setSelectedId}>
-              <SelectTrigger className="h-8 w-full rounded-md border px-3 py-1 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-full rounded-md px-3 py-1 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {importacoes.map(imp => (
                   <SelectItem key={imp.id} value={imp.id} className="text-xs">{imp.competencia} — {imp.status} ({imp.totalLancamentos} lanç.)</SelectItem>
@@ -89,7 +89,7 @@ export function FolhaLancamentosTab({ clienteId }: { clienteId: string }) {
         <div>
           <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Tipo</label>
           <Select value={tipoFiltro} onValueChange={v => setTipoFiltro(v as 'TODOS' | 'DEBITO' | 'CREDITO')}>
-            <SelectTrigger className="h-8 w-auto min-w-[110px] rounded border px-2 text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-auto min-w-[110px] rounded px-2 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="TODOS" className="text-xs">Todos</SelectItem>
               <SelectItem value="DEBITO" className="text-xs">Débitos</SelectItem>

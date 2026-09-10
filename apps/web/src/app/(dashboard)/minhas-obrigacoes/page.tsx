@@ -233,7 +233,7 @@ export default function MinhasObrigacoesPage() {
                 placeholder="Buscar obrigação ou cliente..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-8 pl-8 text-xs bg-card"
+                className="h-8 pl-8 text-xs"
               />
             </div>
           </div>

@@ -999,7 +999,7 @@ export default function MeuPerfilPage() {
 
                   <div className="col-span-12 space-y-1.5">
                     <Label className="text-[13px] font-semibold">E-mail</Label>
-                    <Input value={profile.email} disabled className="h-9 text-sm bg-muted/40" />
+                    <Input value={profile.email} disabled className="h-9 text-sm" />
                     <p className="text-[10px] text-muted-foreground">Usado para login. Solicite a um administrador para alterar.</p>
                   </div>
 
@@ -1047,7 +1047,7 @@ export default function MeuPerfilPage() {
                       onChange={e => setField('bio', e.target.value.slice(0, 500))}
                       rows={3}
                       placeholder="Conte um pouco sobre você — área de atuação, interesses..."
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                      className="w-full rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-y"
                     />
                     <p className="text-[10px] text-muted-foreground text-right">{form.bio.length}/500</p>
                   </div>
@@ -1239,7 +1239,7 @@ export default function MeuPerfilPage() {
                     placeholder="Buscar cliente ou CNPJ..."
                     value={carteiraSearch}
                     onChange={(e) => setCarteiraSearch(e.target.value)}
-                    className="h-8 pl-8 text-xs bg-card"
+                    className="h-8 pl-8 text-xs"
                   />
                 </div>
               </div>

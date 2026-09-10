@@ -299,7 +299,7 @@ export default function CrmFunilPage() {
                   <Label className="text-[12px] font-semibold">Incorporar no site (botão de chat)</Label>
                   <p className="text-[11px] text-muted-foreground">Cole este código antes do <code>&lt;/body&gt;</code> do seu site — ele adiciona um botão flutuante de chat que abre este atendimento{cfg.roteador ? ' (Recepção — a IA identifica a trilha)' : ''}.</p>
                   <div className="flex flex-wrap items-start gap-2">
-                    <textarea className="h-16 text-[11px] font-mono flex-1 min-w-[240px] rounded-md border border-input bg-card px-2 py-1.5 resize-none" value={embedSnippet} readOnly onFocus={e => e.currentTarget.select()} placeholder="Salve a campanha para gerar o código" />
+                    <textarea className="h-16 text-[11px] font-mono flex-1 min-w-[240px] rounded-md px-2 py-1.5 resize-none" value={embedSnippet} readOnly onFocus={e => e.currentTarget.select()} placeholder="Salve a campanha para gerar o código" />
                     <Button variant="outline" size="sm" onClick={copiarEmbed} disabled={!cfg.slug} className="gap-1.5"><Copy className="h-4 w-4" /> Copiar código</Button>
                   </div>
                 </div>
@@ -314,7 +314,7 @@ export default function CrmFunilPage() {
                   <div className="space-y-1.5">
                     <Label className="text-[13px] font-semibold">Quando encaminhar para esta trilha (usado pela Recepção)</Label>
                     <p className="text-[11px] text-muted-foreground">Uma frase-gatilho pra IA da Recepção reconhecer e rotear pra cá. Ex.: &quot;Empresa querendo economizar com benefícios/incentivos fiscais (ICMS, créditos).&quot;</p>
-                    <textarea className="w-full min-h-[60px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.descricaoRoteamento ?? ''} onChange={e => upd({ descricaoRoteamento: e.target.value })} placeholder="Deixe em branco se esta trilha não deve receber leads pela Recepção." />
+                    <textarea className="w-full min-h-[60px] rounded-md px-3 py-2 text-sm" value={cfg.descricaoRoteamento ?? ''} onChange={e => upd({ descricaoRoteamento: e.target.value })} placeholder="Deixe em branco se esta trilha não deve receber leads pela Recepção." />
                   </div>
                 )}
 
@@ -322,13 +322,13 @@ export default function CrmFunilPage() {
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Trilha de atendimento (foco desta campanha)</Label>
                   <p className="text-[11px] text-muted-foreground">O que a IA deve descobrir e como conduzir, voltado ao tema da campanha. Ex.: "Foque em recuperação de créditos e incentivos fiscais; descubra regime tributário, faturamento e se já houve apuração."</p>
-                  <textarea className="w-full min-h-[140px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.trilhaPrompt} onChange={e => upd({ trilhaPrompt: e.target.value })} placeholder="Deixe em branco para usar a trilha padrão." />
+                  <textarea className="w-full min-h-[140px] rounded-md px-3 py-2 text-sm" value={cfg.trilhaPrompt} onChange={e => upd({ trilhaPrompt: e.target.value })} placeholder="Deixe em branco para usar a trilha padrão." />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Rubrica de pontuação (pesos)</Label>
                   <p className="text-[11px] text-muted-foreground">Critérios e pesos (0–100 total) para qualificar o lead desta campanha.</p>
-                  <textarea className="w-full min-h-[100px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.rubrica} onChange={e => upd({ rubrica: e.target.value })} placeholder="Deixe em branco para usar a rubrica padrão." />
+                  <textarea className="w-full min-h-[100px] rounded-md px-3 py-2 text-sm" value={cfg.rubrica} onChange={e => upd({ rubrica: e.target.value })} placeholder="Deixe em branco para usar a rubrica padrão." />
                 </div>
 
                 <div className="grid grid-cols-12 gap-3">
@@ -349,7 +349,7 @@ export default function CrmFunilPage() {
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Regras de finalização</Label>
                   <p className="text-[11px] text-muted-foreground">Como a IA encerra conforme a temperatura. Ex.: "Quente → convide para agendar; morno → ofereça WhatsApp; frio → agradeça."</p>
-                  <textarea className="w-full min-h-[100px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.regrasFinalizacao ?? ''} onChange={e => upd({ regrasFinalizacao: e.target.value })} placeholder="Deixe em branco para usar o padrão." />
+                  <textarea className="w-full min-h-[100px] rounded-md px-3 py-2 text-sm" value={cfg.regrasFinalizacao ?? ''} onChange={e => upd({ regrasFinalizacao: e.target.value })} placeholder="Deixe em branco para usar o padrão." />
                 </div>
 
                 <div className="grid grid-cols-12 gap-3">
@@ -367,11 +367,11 @@ export default function CrmFunilPage() {
 
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Mensagem de boas-vindas</Label>
-                  <textarea className="w-full min-h-[60px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.mensagemBoasVindas ?? ''} onChange={e => upd({ mensagemBoasVindas: e.target.value })} />
+                  <textarea className="w-full min-h-[60px] rounded-md px-3 py-2 text-sm" value={cfg.mensagemBoasVindas ?? ''} onChange={e => upd({ mensagemBoasVindas: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold">Aviso de privacidade (LGPD)</Label>
-                  <textarea className="w-full min-h-[50px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={cfg.avisoLgpd ?? ''} onChange={e => upd({ avisoLgpd: e.target.value })} />
+                  <textarea className="w-full min-h-[50px] rounded-md px-3 py-2 text-sm" value={cfg.avisoLgpd ?? ''} onChange={e => upd({ avisoLgpd: e.target.value })} />
                 </div>
                 </fieldset>
               </div>

@@ -295,8 +295,8 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
                           value={a.autorId}
                           onChange={e => setAchados(l => l.map(x =>
                             x.chave === a.chave ? { ...x, autorId: e.target.value } : x))}
-                          className={cn('h-9 w-full rounded-md border bg-background px-2 text-sm',
-                            a.autorId ? 'border-border' : 'border-amber-400')}
+                          className={cn('h-9 w-full rounded-md px-2 text-sm',
+                            a.autorId ? '' : 'border-amber-400')}
                         >
                           <option value="">— escolha —</option>
                           {pessoas.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}

@@ -407,7 +407,7 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
                 {mode === 'edit' && defaultValues?.code !== undefined && (
                   <div className="space-y-1.5">
                     <Label>ID</Label>
-                    <Input value={defaultValues.code} disabled className="bg-muted" />
+                    <Input value={defaultValues.code} disabled />
                   </div>
                 )}
                 <div className={`space-y-1.5 ${mode === 'create' ? 'sm:col-span-2' : ''}`}>

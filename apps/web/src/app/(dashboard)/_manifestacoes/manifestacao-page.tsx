@@ -115,7 +115,7 @@ export function ManifestacaoPage({ config }: { config: Config }) {
               placeholder="Buscar por texto ou protocolo..." className="h-9 pl-8 text-sm" />
           </div>
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}
-            className="h-9 rounded-md border border-border bg-background px-2 text-sm">
+            className="h-9 rounded-md px-2 text-sm">
             <option value="">Todas as situações</option>
             {config.status.map(s => (
               <option key={s} value={s}>{STATUS_LABEL[s]?.texto ?? s}</option>

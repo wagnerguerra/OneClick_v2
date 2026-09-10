@@ -3641,7 +3641,7 @@ export default function OrcamentoDetailPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Mensagem</Label>
-              <textarea className="w-full min-h-[160px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={emailCorpo} onChange={e => setEmailCorpo(e.target.value)} placeholder="Escreva a mensagem para o cliente..." />
+              <textarea className="w-full min-h-[160px] rounded-md px-3 py-2 text-sm" value={emailCorpo} onChange={e => setEmailCorpo(e.target.value)} placeholder="Escreva a mensagem para o cliente..." />
             </div>
           </DialogBody>
           <DialogFooter>

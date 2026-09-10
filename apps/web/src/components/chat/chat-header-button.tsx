@@ -1640,7 +1640,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
                               }}
                               autoFocus
                               rows={2}
-                              className="text-foreground rounded px-2 py-1 text-sm resize-none bg-background w-[260px]"
+                              className="text-foreground rounded px-2 py-1 text-sm resize-none w-[260px]"
                             />
                             <div className="flex justify-end gap-1">
                               <button type="button" onClick={() => setEditandoId(null)} className="text-[10px] opacity-70 hover:opacity-100">Cancelar</button>
@@ -1847,7 +1847,7 @@ function ChatView({ conversa, meuId, onMessageSent }: {
           onKeyDown={onKey}
           rows={1}
           placeholder="Mensagem… (digite @ pra mencionar)"
-          className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 max-h-24"
+          className="flex-1 resize-none rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 max-h-24"
         />
         <Button size="sm" onClick={enviar} disabled={enviando || (!texto.trim() && anexosPendentes.length === 0)}
           className="h-8 w-8 p-0 bg-sky-500 hover:bg-sky-600 text-white">

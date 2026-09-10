@@ -60,10 +60,11 @@ export function UserMultiPicker({ users, value, onChange, placeholder, disabled,
     <div ref={ref} className="relative w-full">
       <button
         type="button"
+        role="combobox"
         disabled={disabled}
         onClick={() => !disabled && setOpen((o) => !o)}
         className={cn(
-          'flex min-h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-sm gap-1 flex-wrap',
+          'flex min-h-9 w-full items-center justify-between rounded-md border border-input px-2 py-1 text-sm gap-1 flex-wrap',
           'focus:outline-none focus:ring-1 focus:ring-ring',
           disabled && 'cursor-not-allowed opacity-60',
         )}

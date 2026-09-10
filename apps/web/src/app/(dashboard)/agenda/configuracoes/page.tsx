@@ -1224,7 +1224,7 @@ export default function AgendaConfiguracoesPage() {
                         onChange={e => setTplField('headerHtml', e.target.value)}
                         rows={12}
                         placeholder="HTML do cabeçalho — use as variáveis acima ({{saudacao}}, {{nomePrimeiro}}, {{diaNum}}…)"
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="w-full rounded-md px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       />
                     </div>
 
@@ -1285,7 +1285,7 @@ export default function AgendaConfiguracoesPage() {
                             onChange={e => setTplField('eventoLinhaHtml', e.target.value)}
                             rows={14}
                             placeholder="HTML do card — ex.: <table>…{{evento.titulo}}…</table>"
-                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            className="w-full rounded-md px-3 py-2 text-xs font-mono resize-y focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                           />
                         </>
                       )}

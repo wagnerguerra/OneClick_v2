@@ -124,7 +124,7 @@ export default function AquisicoesPage() {
             </Select>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por nº ou fornecedor..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar por nº ou fornecedor..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 

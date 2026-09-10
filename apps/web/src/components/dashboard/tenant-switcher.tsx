@@ -113,7 +113,7 @@ export function TenantSwitcher() {
               value={busca}
               onChange={e => setBusca(e.target.value)}
               placeholder="Buscar empresa..."
-              className="h-8 w-full rounded border border-border bg-background px-2 text-xs"
+              className="h-8 w-full rounded px-2 text-xs"
             />
           </div>
           <div className="nice-scrollbar max-h-72 overflow-y-auto py-1">

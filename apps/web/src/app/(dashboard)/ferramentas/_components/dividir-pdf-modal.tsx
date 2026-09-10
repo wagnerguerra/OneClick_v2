@@ -265,7 +265,7 @@ export function DividirPdfModal({ onClose }: { onClose: () => void }) {
                     <input
                       value={texto} onChange={(e) => digitar(e.target.value)} disabled={dividindo}
                       placeholder="ex.: 1-3, 7, 12"
-                      className="h-9 min-w-[180px] flex-1 rounded-md border border-border bg-background px-3 text-sm"
+                      className="h-9 min-w-[180px] flex-1 rounded-md px-3 text-sm"
                     />
                     <span className="text-[12px] text-muted-foreground">
                       {escolhidas.size === 0

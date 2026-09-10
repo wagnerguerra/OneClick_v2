@@ -147,7 +147,7 @@ export default function NFSePage() {
               placeholder="Buscar cliente, CNPJ..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              className="h-8 pl-8 w-full sm:w-[280px] text-xs bg-card"
+              className="h-8 pl-8 w-full sm:w-[280px] text-xs"
             />
           </div>
         </div>

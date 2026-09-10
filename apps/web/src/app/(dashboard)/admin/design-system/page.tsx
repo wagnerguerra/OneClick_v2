@@ -797,7 +797,7 @@ function TablesSection() {
     </div>
     <div className="relative">
       <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-      <Input placeholder="Buscar..." className="h-8 pl-8 w-full sm:w-[260px] text-xs bg-card" />
+      <Input placeholder="Buscar..." className="h-8 pl-8 w-full sm:w-[260px] text-xs" />
     </div>
   </div>
 
@@ -860,7 +860,7 @@ function TablesSection() {
             </div>
             <div className="relative">
               <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input placeholder="Buscar..." className="h-8 pl-8 w-[200px] text-xs bg-card" />
+              <Input placeholder="Buscar..." className="h-8 pl-8 w-[200px] text-xs" />
             </div>
           </div>
           <Table>
@@ -962,7 +962,7 @@ function FormsSection() {
   </div>
   <div className="col-span-12 space-y-1.5">
     <Label className="text-[13px] font-semibold">Observações</Label>
-    <textarea className="w-full text-sm rounded-md border border-input px-3 py-2 min-h-[80px]" />
+    <textarea className="w-full text-sm rounded-md px-3 py-2 min-h-[80px]" />
   </div>
 </div>`}
       >

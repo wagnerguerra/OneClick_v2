@@ -142,7 +142,7 @@ export default function ChatDesktopLoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seu@email.com"
-              className="w-full h-10 rounded-md border border-border bg-card px-3 pl-9 text-[13px] placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/60"
+              className="w-full h-10 rounded-md px-3 pl-9 text-[13px] placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/60"
             />
           </div>
         </div>
@@ -169,7 +169,7 @@ export default function ChatDesktopLoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full h-10 rounded-md border border-border bg-card px-3 pl-9 pr-10 text-[13px] placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/60"
+              className="w-full h-10 rounded-md px-3 pl-9 pr-10 text-[13px] placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/60"
             />
             <button
               type="button"

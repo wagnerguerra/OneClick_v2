@@ -411,7 +411,7 @@ export default function ParametrosOrcamentosPage() {
               placeholder="Buscar por nome..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="h-8 text-xs bg-card"
+              className="h-8 text-xs"
             />
           </div>
         </div>

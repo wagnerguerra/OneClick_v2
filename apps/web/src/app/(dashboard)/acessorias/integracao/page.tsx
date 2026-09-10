@@ -814,7 +814,7 @@ function MappingPanel() {
             value={filter}
             onChange={e => setFilter(e.target.value)}
             placeholder="Filtrar por nome da obrigação"
-            className="h-9 text-sm pl-9 bg-card"
+            className="h-9 text-sm pl-9"
           />
         </div>
         <span className="text-xs text-muted-foreground tabular-nums shrink-0">

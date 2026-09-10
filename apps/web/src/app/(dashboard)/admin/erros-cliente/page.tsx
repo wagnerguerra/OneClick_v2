@@ -352,7 +352,7 @@ export default function ErrosClientePage() {
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="Mensagem, URL, stack..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 pl-8 w-full sm:w-[260px] text-xs bg-card" />
+            <Input placeholder="Mensagem, URL, stack..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 pl-8 w-full sm:w-[260px] text-xs" />
           </div>
         </div>
 
@@ -469,7 +469,7 @@ export default function ErrosClientePage() {
                               value={notesById[e.id]?.notas ?? ''}
                               onChange={(ev) => setNotaLocal(e.id, ev.target.value)}
                               placeholder="Cole aqui o que descobriu sobre o bug, qual foi o fix, commit, contexto, etc. Salva automaticamente em 800ms."
-                              className="w-full min-h-[80px] text-[11px] font-mono bg-card border border-border rounded p-2 resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                              className="w-full min-h-[80px] text-[11px] font-mono rounded p-2 resize-y focus:outline-none focus:ring-1 focus:ring-ring"
                               disabled={!notesById[e.id]?.carregado}
                             />
                           </div>

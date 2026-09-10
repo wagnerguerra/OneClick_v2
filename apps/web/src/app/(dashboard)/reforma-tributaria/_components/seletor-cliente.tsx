@@ -83,8 +83,9 @@ export function SeletorCliente({ selecionado, onSelecionar }: {
       {selecionado && !aberto ? (
         <button
           type="button"
+          role="combobox"
           onClick={() => { setAberto(true); setBusca('') }}
-          className="flex h-10 w-full items-center gap-2 rounded-lg border border-border bg-card px-3 text-left transition-colors hover:bg-muted/40"
+          className="flex h-10 w-full items-center gap-2 rounded-lg border border-border px-3 text-left transition-colors hover:bg-muted/40"
         >
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-foreground">{selecionado.razaoSocial}</p>

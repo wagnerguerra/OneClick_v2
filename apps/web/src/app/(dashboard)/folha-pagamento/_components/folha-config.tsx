@@ -167,7 +167,7 @@ function FiliaisSection({ clienteId, filiais, onReload }: { clienteId: string; f
               <div className="flex gap-2 mt-1">
                 <Input value={novoSetor.nome} onChange={e => setNovoSetor({ ...novoSetor, nome: e.target.value })} placeholder="Nome do setor" className="h-7 text-xs flex-1" />
                 <Select value={novoSetor.tipo} onValueChange={v => setNovoSetor({ ...novoSetor, tipo: v === 'CUSTO' ? 'CUSTO' : 'DESPESA' })}>
-                  <SelectTrigger className="h-7 w-auto min-w-[110px] rounded border px-2 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-7 w-auto min-w-[110px] rounded px-2 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="DESPESA" className="text-xs">DESPESA</SelectItem>
                     <SelectItem value="CUSTO" className="text-xs">CUSTO</SelectItem>
@@ -223,7 +223,7 @@ function EventosSection({ clienteId, eventos, onReload }: { clienteId: string; e
       <div className="flex items-center gap-3">
         <Input placeholder="Buscar código ou descrição..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs max-w-xs" />
         <Select value={tipoFiltro} onValueChange={v => setTipoFiltro(v as 'TODOS' | 'PROVENTO' | 'DESCONTO')}>
-          <SelectTrigger className="h-8 w-auto min-w-[120px] rounded border px-2 text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 w-auto min-w-[120px] rounded px-2 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="TODOS" className="text-xs">Todos</SelectItem>
             <SelectItem value="PROVENTO" className="text-xs">Proventos</SelectItem>

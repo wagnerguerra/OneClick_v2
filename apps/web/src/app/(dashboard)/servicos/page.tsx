@@ -1537,7 +1537,7 @@ export default function ServicosPage() {
               </Select>
             </div>
             <div className="max-w-xs w-full sm:w-auto">
-              <Input placeholder="Buscar por serviço ou cliente..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+              <Input placeholder="Buscar por serviço ou cliente..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs" />
             </div>
           </div>
 

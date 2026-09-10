@@ -540,7 +540,7 @@ export default function ConfiguracoesPage() {
         <div className="flex" style={{ borderRadius: '0.25rem', overflow: 'hidden' }}>
           {field.type === 'textarea' ? (
             <textarea
-              className="w-full min-h-[80px] rounded border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground focus:border-[#5ea3cb] focus:outline-none"
+              className="w-full min-h-[80px] rounded px-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none"
               placeholder={field.placeholder || field.key}
               value={values[field.key] === '__CLEAR__' ? '' : (values[field.key] || '')}
               onChange={(e) => setValues(prev => ({ ...prev, [field.key]: e.target.value }))}
@@ -860,7 +860,7 @@ export default function ConfiguracoesPage() {
 
                         <textarea
                           className={cn(
-                            'w-full rounded border border-input bg-popover text-popover-foreground px-3 py-2 text-xs font-mono placeholder:text-muted-foreground focus:border-orange-400 focus:outline-none',
+                            'w-full rounded text-popover-foreground px-3 py-2 text-xs font-mono placeholder:text-muted-foreground focus:outline-none',
                             expandedConsole ? 'min-h-[200px]' : 'min-h-[120px]'
                           )}
                           placeholder={`Digite sua query SQL aqui...\nEx: SELECT * FROM clientes WHERE id = {{cliente_id}}\nUse {{variavel}} para criar templates reutilizáveis`}
@@ -970,7 +970,7 @@ export default function ConfiguracoesPage() {
                                           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                             <input
                                               autoFocus
-                                              className="flex-1 min-w-0 h-6 px-1.5 text-xs border border-orange-300 rounded bg-background focus:outline-none focus:border-orange-500"
+                                              className="flex-1 min-w-0 h-6 px-1.5 text-xs rounded focus:outline-none"
                                               value={editingQueryName}
                                               onChange={(e) => setEditingQueryName(e.target.value)}
                                               onKeyDown={(e) => {

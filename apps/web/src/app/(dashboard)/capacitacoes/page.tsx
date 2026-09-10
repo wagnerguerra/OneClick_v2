@@ -179,7 +179,7 @@ export default function CapacitacoesPage() {
             </Select>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por título, instrutor..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar por título, instrutor..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 

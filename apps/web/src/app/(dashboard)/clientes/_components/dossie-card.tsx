@@ -838,7 +838,7 @@ export function DossieCard({ clienteId, podeAtualizar, semCartao = false }: {
                               onChange={e => setUrlNova(e.target.value)}
                               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void adicionarPerfil(socio.id) } }}
                               placeholder="https://instagram.com/perfil"
-                              className="h-8 min-w-[220px] flex-1 rounded-md border border-border bg-background px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              className="h-8 min-w-[220px] flex-1 rounded-md px-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
                             />
                             <Button
                               size="sm" variant="outline" className="h-8"

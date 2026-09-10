@@ -307,7 +307,7 @@ export default function GruposPage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar por nome do grupo ou serviço incluído"
-              className="h-9 text-sm pl-9 bg-card"
+              className="h-9 text-sm pl-9"
             />
           </div>
           <span className="text-xs text-muted-foreground tabular-nums shrink-0">

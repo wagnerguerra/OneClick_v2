@@ -382,7 +382,7 @@ export function OrcamentoIaSection({ orcamentoId, onAplicar }: {
           placeholder="Peça uma análise ou ajuste no texto…  (Enter envia, Shift+Enter quebra linha)"
           rows={1}
           disabled={streaming}
-          className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 max-h-32"
+          className="flex-1 resize-none rounded-md px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 max-h-32"
         />
         <Button size="icon" onClick={() => enviar(input)} disabled={streaming || (!input.trim() && anexos.length === 0)} className="shrink-0 text-white" style={{ backgroundColor: MOD }}>
           {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

@@ -457,7 +457,7 @@ export default function PainelEntregasPage() {
             </Select>
           </div>
           <Input value={busca} onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar cliente, obrigação ou competência..." className="h-8 bg-card text-xs lg:w-80" />
+            placeholder="Buscar cliente, obrigação ou competência..." className="h-8 text-xs lg:w-80" />
         </div>
 
         {loading ? (

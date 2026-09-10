@@ -666,7 +666,7 @@ function OrcamentoRequestForm({
                   onChange={(e) => { setBusca(e.target.value); setDropdownOpen(true) }}
                   onFocus={() => { if (resultados.length) setDropdownOpen(true) }}
                   placeholder="Buscar cliente ou digitar o nome..."
-                  className="w-full h-9 rounded-md border border-border bg-background pl-8 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full h-9 rounded-md pl-8 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
                 {buscando && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />}
               </div>
@@ -701,7 +701,7 @@ function OrcamentoRequestForm({
             <input
               value={contatos} onChange={e => setContatos(e.target.value)}
               placeholder="Nome do contato"
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md px-3 text-sm"
             />
           </div>
           <div className="col-span-12 sm:col-span-7 space-y-1.5">
@@ -709,7 +709,7 @@ function OrcamentoRequestForm({
             <input
               type="email" value={emailContato} onChange={e => setEmailContato(e.target.value)}
               placeholder="contato@empresa.com.br"
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md px-3 text-sm"
             />
           </div>
         </div>
@@ -723,7 +723,7 @@ function OrcamentoRequestForm({
                 <label className="text-[13px] font-semibold text-foreground">Tipo</label>
                 <select
                   value={tipo} onChange={e => setTipo(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+                  className="h-9 w-full rounded-md px-2 text-sm"
                 >
                   <option value="SERVICO_EXTRA">Serviço Extra</option>
                   <option value="SERVICO_MENSAL">Serviço Mensal</option>
@@ -734,7 +734,7 @@ function OrcamentoRequestForm({
                 <div className="flex">
                   <input
                     type="number" min={1} value={validadeDias} onChange={e => setValidadeDias(e.target.value)}
-                    className="h-9 w-full rounded-l-md border border-border bg-background px-3 text-sm"
+                    className="h-9 w-full rounded-l-md px-3 text-sm"
                   />
                   <span className="inline-flex h-9 items-center rounded-r-md border border-l-0 border-border bg-muted px-2 text-xs text-muted-foreground">
                     dias
@@ -748,7 +748,7 @@ function OrcamentoRequestForm({
               <input
                 value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)}
                 placeholder="Ex.: 30 dias"
-                className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                className="h-9 w-full rounded-md px-3 text-sm"
               />
             </div>
 
@@ -758,7 +758,7 @@ function OrcamentoRequestForm({
                 <input
                   type="number" min={0} max={100} step="0.01" value={descontoPct}
                   onChange={e => setDescontoPct(e.target.value)} placeholder="0"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 w-full rounded-md px-3 text-sm"
                 />
               </div>
               <div className="col-span-6 space-y-1.5">
@@ -766,7 +766,7 @@ function OrcamentoRequestForm({
                 <input
                   type="number" min={0} step="0.01" value={descontoValor}
                   onChange={e => setDescontoValor(e.target.value)} placeholder="0,00"
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-9 w-full rounded-md px-3 text-sm"
                 />
               </div>
             </div>
@@ -996,21 +996,21 @@ function EventoRequestForm({
         {/* Título */}
         <div className="space-y-1.5">
           <label className="text-[13px] font-semibold text-foreground">Título</label>
-          <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Nome do evento" className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+          <input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Nome do evento" className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
         </div>
 
         {/* Tipo + Data */}
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
             <label className="text-[13px] font-semibold text-foreground">Tipo</label>
-            <select value={tipoId} onChange={e => setTipoId(e.target.value)} className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+            <select value={tipoId} onChange={e => setTipoId(e.target.value)} className="w-full h-9 rounded-md px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
               <option value="" disabled>Selecione…</option>
               {tipos.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
             <label className="text-[13px] font-semibold text-foreground">Data</label>
-            <input type="date" value={data} onChange={e => setData(e.target.value)} className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            <input type="date" value={data} onChange={e => setData(e.target.value)} className="w-full h-9 rounded-md px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
           </div>
         </div>
 
@@ -1058,7 +1058,7 @@ function EventoRequestForm({
                   </label>
                 </div>
                 {sala === 'Outro' && (
-                  <input value={local} onChange={e => setLocal(e.target.value)} placeholder="Qual local?" className="w-full h-8 rounded-md border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  <input value={local} onChange={e => setLocal(e.target.value)} placeholder="Qual local?" className="w-full h-8 rounded-md px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20" />
                 )}
                 {/* Arrumar a sala — só quando uma sala cadastrada é escolhida */}
                 {salaId && (
@@ -1074,7 +1074,7 @@ function EventoRequestForm({
             {needsLink && (
               <div className="space-y-1.5">
                 <label className="text-[12px] font-medium text-foreground">Link da reunião *</label>
-                <input value={link} onChange={e => setLink(e.target.value)} placeholder="https://meet.google.com/..." className="w-full h-8 rounded-md border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                <input value={link} onChange={e => setLink(e.target.value)} placeholder="https://meet.google.com/..." className="w-full h-8 rounded-md px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             )}
 
@@ -1088,7 +1088,7 @@ function EventoRequestForm({
             {needsGaragem && garagem && (
               <div className="space-y-1">
                 <label className="text-[12px] font-medium text-foreground">Vagas *</label>
-                <input type="number" min={1} value={vagas ?? ''} onChange={e => setVagas(Number(e.target.value) || undefined)} className="h-8 w-20 rounded-md border border-border bg-background px-2 text-xs" />
+                <input type="number" min={1} value={vagas ?? ''} onChange={e => setVagas(Number(e.target.value) || undefined)} className="h-8 w-20 rounded-md px-2 text-xs" />
               </div>
             )}
 
@@ -1112,9 +1112,9 @@ function EventoRequestForm({
           </div>
           {!diaInteiro && (
             <div className="flex items-center gap-2">
-              <input type="time" value={horaInicio} onChange={e => { setHoraInicio(e.target.value); if (e.target.value >= horaFim) { const [h, m] = e.target.value.split(':'); setHoraFim(`${String((Number(h) + 1) % 24).padStart(2, '0')}:${m}`) } }} className="h-9 rounded-md border border-border bg-background px-2 text-sm flex-1" />
+              <input type="time" value={horaInicio} onChange={e => { setHoraInicio(e.target.value); if (e.target.value >= horaFim) { const [h, m] = e.target.value.split(':'); setHoraFim(`${String((Number(h) + 1) % 24).padStart(2, '0')}:${m}`) } }} className="h-9 rounded-md px-2 text-sm flex-1" />
               <span className="text-muted-foreground text-sm">—</span>
-              <input type="time" value={horaFim} onChange={e => setHoraFim(e.target.value)} className="h-9 rounded-md border border-border bg-background px-2 text-sm flex-1" />
+              <input type="time" value={horaFim} onChange={e => setHoraFim(e.target.value)} className="h-9 rounded-md px-2 text-sm flex-1" />
             </div>
           )}
         </div>
@@ -1134,7 +1134,7 @@ function EventoRequestForm({
           )}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <input value={buscaUser} onChange={e => { setBuscaUser(e.target.value); setUserDropdown(true) }} onFocus={() => setUserDropdown(true)} placeholder="Adicionar participante..." className="w-full h-9 rounded-md border border-border bg-background pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            <input value={buscaUser} onChange={e => { setBuscaUser(e.target.value); setUserDropdown(true) }} onFocus={() => setUserDropdown(true)} placeholder="Adicionar participante..." className="w-full h-9 rounded-md pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
             {userDropdown && usuariosFiltrados.length > 0 && (
               <div className="absolute z-10 mt-1 w-full max-h-40 overflow-auto rounded-md border border-border bg-popover shadow-lg">
                 {usuariosFiltrados.map(u => (
@@ -1148,7 +1148,7 @@ function EventoRequestForm({
         {/* Descrição */}
         <div className="space-y-1.5">
           <label className="text-[13px] font-semibold text-foreground">Descrição</label>
-          <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3} placeholder="Detalhes do evento (opcional)..." className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+          <textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={3} placeholder="Detalhes do evento (opcional)..." className="w-full rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
         </div>
       </div>
 

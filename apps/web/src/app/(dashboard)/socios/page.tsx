@@ -130,7 +130,7 @@ export default function SociosPage() {
             <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1) }}><SelectTrigger className="h-8 w-[60px] text-xs"><SelectValue /></SelectTrigger><SelectContent>{PAGE_SIZES.map(s => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}</SelectContent></Select>
             <span className="hidden sm:inline">registros</span>
           </div>
-          <div className="max-w-xs w-full sm:w-auto"><Input placeholder="Buscar por nome, CPF ou e-mail..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs bg-card" /></div>
+          <div className="max-w-xs w-full sm:w-auto"><Input placeholder="Buscar por nome, CPF ou e-mail..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-xs" /></div>
         </div>
 
         <Table className="table-fixed">

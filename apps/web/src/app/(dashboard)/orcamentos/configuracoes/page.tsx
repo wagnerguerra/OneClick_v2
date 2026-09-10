@@ -784,7 +784,7 @@ function IaSugestoesTab() {
               <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" disabled={i === itens.length - 1} onClick={() => mover(i, 1)} title="Descer"><ArrowDown className="h-3.5 w-3.5" /></Button>
               <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" onClick={() => remover(i)} title="Remover"><Trash2 className="h-3.5 w-3.5" /></Button>
             </div>
-            <textarea className="w-full min-h-[64px] rounded-md border border-input bg-card px-3 py-2 text-sm" value={it.prompt} onChange={e => upd(i, { prompt: e.target.value })} placeholder="Instrução enviada à IA ao clicar neste botão…" />
+            <textarea className="w-full min-h-[64px] rounded-md px-3 py-2 text-sm" value={it.prompt} onChange={e => upd(i, { prompt: e.target.value })} placeholder="Instrução enviada à IA ao clicar neste botão…" />
           </div>
         ))}
       </div>

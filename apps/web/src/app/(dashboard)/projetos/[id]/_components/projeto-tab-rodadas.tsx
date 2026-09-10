@@ -562,7 +562,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                               value={draft.texto}
                               onChange={e => setRascunho(st => ({ ...st, [r.id]: { ...draft, texto: e.target.value } }))}
                               placeholder="O que foi apontado nesta rodada?"
-                              className="min-h-[60px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              className="min-h-[60px] w-full rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                             />
                             <div className="flex flex-wrap items-center gap-2">
                               <Input
@@ -621,7 +621,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                               value={fala.texto}
                               onChange={e => setConversa(st => ({ ...st, [r.id]: { ...fala, texto: e.target.value } }))}
                               placeholder="Escreva uma mensagem sobre esta rodada…"
-                              className="min-h-[60px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              className="min-h-[60px] w-full rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                             />
                             <div className="flex flex-wrap items-center gap-2">
                               <Input

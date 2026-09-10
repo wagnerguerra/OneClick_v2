@@ -253,7 +253,7 @@ export default function WhatsappPage() {
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() } }}
                     placeholder={interna ? 'Escreva uma nota interna…' : 'Digite uma mensagem…'}
                     rows={1}
-                    className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-ring max-h-32"
+                    className="flex-1 resize-none rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-ring max-h-32"
                   />
                   <Button onClick={enviar} disabled={enviando || !texto.trim()} className="text-white gap-1.5 shrink-0" style={{ background: MODULE_COLOR }}>
                     {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

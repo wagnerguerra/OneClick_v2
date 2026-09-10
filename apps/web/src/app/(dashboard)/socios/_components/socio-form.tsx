@@ -242,7 +242,7 @@ export function SocioForm({ mode, socioId, title, description, defaultValues }: 
               {activeTab === 'pessoal' && (
                 <div className="grid grid-cols-12 gap-4">
                   {isEdit && defaultValues?.code !== undefined && (
-                    <div className="col-span-2"><Label>ID</Label><Input value={defaultValues.code} disabled className="bg-muted mt-1.5" /></div>
+                    <div className="col-span-2"><Label>ID</Label><Input value={defaultValues.code} disabled className="mt-1.5" /></div>
                   )}
                   <div className={isEdit ? 'col-span-10' : 'col-span-12'}>
                     <Label htmlFor="nomeCompleto">Nome Completo *</Label>

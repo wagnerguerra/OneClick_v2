@@ -355,9 +355,10 @@ export default function AgendaDisponibilidadePage() {
           <div ref={searchRef} className="relative max-w-md">
             <button
               type="button"
+              role="combobox"
               onClick={() => setSearchOpen(o => !o)}
               className={cn(
-                'flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-sm',
+                'flex h-9 w-full items-center justify-between rounded-md border border-input px-3 py-1 text-sm',
                 'focus:outline-none focus:ring-1 focus:ring-ring',
               )}
             >

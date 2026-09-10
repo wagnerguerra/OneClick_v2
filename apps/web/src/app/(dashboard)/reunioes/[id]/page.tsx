@@ -322,7 +322,7 @@ export default function ReuniaoDetalhePage() {
             <div className="flex items-start gap-2 mb-4">
               <textarea value={msgTexto} onChange={(e) => setMsgTexto(e.target.value)} rows={2}
                 placeholder="Escreva uma interação..."
-                className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                className="flex-1 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
               <Button type="button" size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 mt-0.5"
                 disabled={enviandoMsg || !msgTexto.trim()} onClick={enviarMensagem}>
                 {enviandoMsg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}Enviar
@@ -461,7 +461,7 @@ export default function ReuniaoDetalhePage() {
               <div className="col-span-12 sm:col-span-7">
                 <Label className="text-[13px] font-semibold">Responsável</Label>
                 <select value={acaoResponsavelId} onChange={(e) => setAcaoResponsavelId(e.target.value)}
-                  className="mt-1.5 flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                  className="mt-1.5 flex h-9 w-full rounded-md px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
                   <option value="">Sem responsável</option>
                   {usuarios.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>

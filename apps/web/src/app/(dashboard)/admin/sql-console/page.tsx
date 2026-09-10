@@ -187,7 +187,7 @@ export default function SqlConsolePage() {
             <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-2.5 py-1.5 focus-within:ring-1 focus-within:ring-ring">
               <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <input value={filtro} onChange={e => setFiltro(e.target.value)} placeholder="Filtrar tabela ou campo"
-                className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-muted-foreground/70" />
+                className="flex-1 text-[13px] focus:outline-none placeholder:text-muted-foreground/70" />
             </div>
           </div>
           <div className="flex-1 overflow-auto py-1.5">

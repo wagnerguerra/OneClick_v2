@@ -211,7 +211,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
               <div className="space-y-1.5 rounded-lg border border-border p-2.5">
                 <textarea value={novaMsg} onChange={e => setNovaMsg(e.target.value)} rows={2}
                   placeholder="Escrever..."
-                  className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                  className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
                 <div className="flex flex-wrap items-center gap-3">
                   <label className="flex cursor-pointer items-center gap-1.5 text-[12px]">
                     <input type="checkbox" checked={msgInterna} className="h-3.5 w-3.5"
@@ -243,7 +243,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                   O que foi dito a quem reclamou agora, antes de apurar.
                 </p>
                 <textarea value={textoFluxo} onChange={e => setTextoFluxo(e.target.value)} rows={3}
-                  className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                  className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
                 <div className="flex justify-end">
                   <Button variant="success" size="sm" disabled={salvando || !textoFluxo.trim()}
                     onClick={async () => {
@@ -284,7 +284,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                     <p className="text-[12px] font-semibold">Causa</p>
                     <textarea value={causa} onChange={e => setCausa(e.target.value)} rows={3}
                       placeholder="O que levou a isso acontecer."
-                      className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                      className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
                   </div>
                 )}
 
@@ -294,13 +294,13 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                       <p className="text-[12px] font-semibold">Justificativa</p>
                       <textarea value={justificativa} onChange={e => setJustificativa(e.target.value)} rows={3}
                         placeholder="Por que a reclamação não procede."
-                        className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                        className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
                     </div>
                     <div className="space-y-1.5">
                       <p className="text-[12px] font-semibold">Retorno final</p>
                       <textarea value={retornoFinal} onChange={e => setRetornoFinal(e.target.value)} rows={3}
                         placeholder="O que foi devolvido a quem reclamou."
-                        className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                        className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
                     </div>
                   </>
                 )}
@@ -338,7 +338,7 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
                   A causa foi tratada. Escreva a posição final entregue a quem reclamou.
                 </p>
                 <textarea value={retornoFinal} onChange={e => setRetornoFinal(e.target.value)} rows={3}
-                  className="nice-scrollbar w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" />
+                  className="nice-scrollbar w-full rounded-md px-2.5 py-1.5 text-sm" />
                 <div className="flex justify-end">
                   <Button variant="success" size="sm" disabled={salvando || !retornoFinal.trim()}
                     onClick={async () => {

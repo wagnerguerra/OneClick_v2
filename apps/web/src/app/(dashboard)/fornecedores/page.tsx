@@ -194,7 +194,7 @@ export default function FornecedoresPage() {
               <span className="hidden sm:inline">{incluirInativos ? 'Ocultar inativos' : 'Mostrar inativos'}</span>
             </Button>
             <div className="max-w-xs w-full sm:w-auto">
-              <Input placeholder="Buscar por nome, CNPJ ou e-mail..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+              <Input placeholder="Buscar por nome, CNPJ ou e-mail..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
             </div>
           </div>
         </div>

@@ -1401,7 +1401,7 @@ export default function CrmPage() {
                           type="text"
                           autoFocus
                           defaultValue={detail.titulo}
-                          className="w-full bg-background text-base font-semibold outline-none border border-border rounded px-2 py-1 -mx-2"
+                          className="w-full text-base font-semibold outline-none rounded px-2 py-1 -mx-2"
                           onBlur={e => {
                             const newTitle = e.target.value.trim()
                             if (newTitle && newTitle !== detail.titulo) saveDetail({ titulo: newTitle })

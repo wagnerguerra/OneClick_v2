@@ -520,7 +520,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                 Cole a lista de clientes. Formato: <code className="bg-muted px-1 rounded text-[10px]">documento;razao_social;email;telefone;cidade;estado</code> (uma por linha). Separadores aceitos: <code className="bg-muted px-1 rounded text-[10px]">;</code> <code className="bg-muted px-1 rounded text-[10px]">,</code> <code className="bg-muted px-1 rounded text-[10px]">tab</code>
               </p>
               <textarea
-                className="w-full h-40 rounded-md border bg-card px-3 py-2 text-xs font-mono resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full h-40 rounded-md px-3 py-2 text-xs font-mono resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="12345678000100;Empresa Exemplo;email@ex.com;11999990000;Sao Paulo;SP"
                 value={importText}
                 onChange={e => setImportText(e.target.value)}

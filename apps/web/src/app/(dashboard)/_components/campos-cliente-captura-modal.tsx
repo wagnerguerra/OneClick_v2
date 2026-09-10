@@ -207,7 +207,7 @@ export function CamposClienteCapturaModal({ execPassoId, onConfirmar, onCancelar
                       onChange={e => setValores(v => ({ ...v, [c.campoChave]: e.target.value }))}
                       rows={3}
                       placeholder={def?.placeholder}
-                      className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="w-full rounded-md px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     />
                   ) : def?.tipo === 'SELECT' ? (
                     <Select value={String(valor) || undefined} onValueChange={v => setValores(vs => ({ ...vs, [c.campoChave]: v }))}>
@@ -320,7 +320,7 @@ function ParticularidadesAreasField({ itens, onChange }: {
             onChange={e => setTexto(idx, e.target.value)}
             placeholder="Particularidades / observações desta área..."
             rows={2}
-            className="w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 text-[12px] resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="w-full rounded-md px-2.5 py-1.5 text-[12px] resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
       ))}

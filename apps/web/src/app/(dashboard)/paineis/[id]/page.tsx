@@ -23,7 +23,7 @@ import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 const VISUAL_LABEL: Record<string, string> = {
   kpi: 'Indicador (KPI)', donut: 'Rosca', bar: 'Barras', line: 'Linha', table: 'Tabela', list: 'Lista',
 }
-const inputCls = 'h-9 text-sm w-full rounded-md border border-border bg-background px-3'
+const inputCls = 'h-9 text-sm w-full rounded-md px-3'
 
 export default function PainelEditorPage() {
   const params = useParams()

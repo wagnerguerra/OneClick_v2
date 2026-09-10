@@ -194,11 +194,11 @@ export default function RelatoriosAgendaPage() {
           <Card><CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1.5">
               <label className="text-[13px] font-semibold">De</label>
-              <input type="date" value={dataInicio} max={dataFim} onChange={e => setDataInicio(e.target.value)} className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400" />
+              <input type="date" value={dataInicio} max={dataFim} onChange={e => setDataInicio(e.target.value)} className="h-9 w-full rounded-md px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400" />
             </div>
             <div className="space-y-1.5">
               <label className="text-[13px] font-semibold">Até</label>
-              <input type="date" value={dataFim} min={dataInicio} onChange={e => setDataFim(e.target.value)} className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400" />
+              <input type="date" value={dataFim} min={dataInicio} onChange={e => setDataFim(e.target.value)} className="h-9 w-full rounded-md px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400" />
             </div>
             <div className="space-y-1.5">
               <label className="text-[13px] font-semibold">Usuário</label>

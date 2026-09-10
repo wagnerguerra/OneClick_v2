@@ -70,7 +70,7 @@ export function ProjetoTabMensagens({ projetoId, projetoCor, canWrite }: Props) 
             <textarea
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
-              className="flex-1 min-h-[60px] rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="flex-1 min-h-[60px] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               placeholder="Escreva uma mensagem ao time..."
             />
             <Button

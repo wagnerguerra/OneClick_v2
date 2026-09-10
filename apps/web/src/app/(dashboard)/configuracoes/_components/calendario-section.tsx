@@ -566,7 +566,7 @@ export function CalendarioSection() {
                 placeholder="Buscar feriado..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-8 pl-8 text-xs bg-card"
+                className="h-8 pl-8 text-xs"
               />
             </div>
           </div>
@@ -844,7 +844,7 @@ export function CalendarioSection() {
                 value={formObservacao}
                 onChange={(e) => setFormObservacao(e.target.value)}
                 placeholder="Lei municipal, decreto estadual, fonte oficial..."
-                className="w-full min-h-[70px] rounded-[4px] border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full min-h-[70px] rounded-[4px] px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
           </DialogBody>

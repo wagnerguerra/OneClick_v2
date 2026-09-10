@@ -517,7 +517,7 @@ export default function AgendaPage() {
                     value={editandoAnotacaoTexto}
                     onChange={e => setEditandoAnotacaoTexto(e.target.value)}
                     rows={2}
-                    className="w-full text-sm rounded-md border border-border bg-background px-2 py-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
+                    className="w-full text-sm rounded-md px-2 py-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
                   />
                   <div className="flex justify-end gap-1.5">
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditandoAnotacaoId(null); setEditandoAnotacaoTexto('') }}>Cancelar</Button>
@@ -1618,8 +1618,9 @@ export default function AgendaPage() {
                   <div ref={filtroPartRef} className="relative w-full">
                     <button
                       type="button"
+                      role="combobox"
                       onClick={() => setFiltroPartOpen(o => !o)}
-                      className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="flex h-8 w-full items-center justify-between rounded-md border border-input px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <span className="text-muted-foreground truncate">
                         {filtroParticipantes.length === 0 ? 'Todos os participantes' : 'Adicionar participante...'}
@@ -2789,9 +2790,10 @@ export default function AgendaPage() {
                         <div ref={tipoSearchRef} className="relative w-full">
                           <button
                             type="button"
+                            role="combobox"
                             onClick={() => setTipoSearchOpen(o => !o)}
                             className={cn(
-                              'flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-xs',
+                              'flex h-8 w-full items-center justify-between rounded-md border border-input px-2 py-1 text-xs',
                               'focus:outline-none focus:ring-1 focus:ring-ring',
                             )}
                           >
@@ -3294,9 +3296,10 @@ export default function AgendaPage() {
                         <div ref={partSearchRef} className="relative w-full">
                           <button
                             type="button"
+                            role="combobox"
                             onClick={() => setPartSearchOpen(o => !o)}
                             className={cn(
-                              'flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-xs',
+                              'flex h-8 w-full items-center justify-between rounded-md border border-input px-2 py-1 text-xs',
                               'focus:outline-none focus:ring-1 focus:ring-ring',
                             )}
                           >
@@ -3527,8 +3530,9 @@ export default function AgendaPage() {
                     <div ref={opBuscaRef} className="relative w-full">
                       <button
                         type="button"
+                        role="combobox"
                         onClick={() => { setOpBuscaOpen(o => !o); setOpBuscaQuery('') }}
-                        className="flex h-8 w-full items-center justify-between rounded-md border border-dashed border-input bg-transparent px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring hover:border-violet-500/50"
+                        className="flex h-8 w-full items-center justify-between rounded-md border border-dashed border-input px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring hover:border-violet-500/50"
                       >
                         <span className="text-muted-foreground truncate flex items-center gap-1.5">
                           <Plus className="h-3.5 w-3.5" />

@@ -3197,7 +3197,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
                     value={pergRespFixoId}
                     onChange={e => setPergRespFixoId(e.target.value)}
                     disabled={!podeEditar || pergSalvando}
-                    className="w-full h-8 text-xs leading-none border rounded px-2 py-0 bg-background appearance-auto focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    className="w-full h-8 text-xs leading-none rounded px-2 py-0 appearance-auto focus:outline-none focus:ring-2 focus:ring-amber-400"
                   >
                     <option value="">— Selecione o usuário —</option>
                     {pergUsuarios.map(u => (
@@ -3215,7 +3215,7 @@ function PreviewPopover({ node, triggerRect, onClose, onOpenServico, isRoot, onC
                     value={pergArea}
                     onChange={e => setPergArea(e.target.value)}
                     disabled={!podeEditar || pergSalvando}
-                    className="w-full h-8 text-xs leading-none border rounded px-2 py-0 bg-background appearance-auto focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    className="w-full h-8 text-xs leading-none rounded px-2 py-0 appearance-auto focus:outline-none focus:ring-2 focus:ring-amber-400"
                   >
                     <option value="">— Selecione a área —</option>
                     {pergAreas.map(a => (

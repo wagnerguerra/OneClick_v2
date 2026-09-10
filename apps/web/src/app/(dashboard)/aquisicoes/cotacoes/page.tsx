@@ -137,7 +137,7 @@ export default function CotacoesPage() {
             </Select>
           </div>
           <div className="sm:w-72">
-            <Input placeholder="Buscar por nº ou título..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar por nº ou título..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 

@@ -183,7 +183,7 @@ export default function NaoConformidadesPage() {
             </Select>
           </div>
           <div className="max-w-xs w-full sm:w-auto">
-            <Input placeholder="Buscar por fato gerador ou cliente..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs bg-card" />
+            <Input placeholder="Buscar por fato gerador ou cliente..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs" />
           </div>
         </div>
 

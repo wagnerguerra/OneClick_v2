@@ -220,7 +220,7 @@ export function QaSection() {
                   <div className="space-y-1 pt-1">
                     <Label className="text-[11px] font-semibold">Notas de tratamento</Label>
                     <textarea
-                      className="w-full min-h-[56px] rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs"
+                      className="w-full min-h-[56px] rounded-md px-2.5 py-1.5 text-xs"
                       value={notasDraft[item.id] ?? item.notas ?? ''}
                       onChange={e => setNotasDraft(d => ({ ...d, [item.id]: e.target.value }))}
                       onBlur={() => void salvarNotas(item.id)}
@@ -270,7 +270,7 @@ export function QaSection() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Descrição</Label>
-              <textarea className="w-full min-h-[70px] rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={novo.descricao} onChange={e => setNovo(n => ({ ...n, descricao: e.target.value }))} />
+              <textarea className="w-full min-h-[70px] rounded-md px-3 py-2 text-sm" value={novo.descricao} onChange={e => setNovo(n => ({ ...n, descricao: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] font-semibold">Arquivo (referência)</Label>
