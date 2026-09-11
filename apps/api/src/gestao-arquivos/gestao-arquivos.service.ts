@@ -122,6 +122,18 @@ export class GestaoArquivosService {
     return cliente
   }
 
+  /**
+   * Identificação do cliente, para o cabeçalho da tela.
+   *
+   * Consulta própria e minúscula em vez de carona no `listar`: o cabeçalho
+   * precisa do nome uma vez, e a listagem é refeita a cada navegação de pasta
+   * — carregar o cliente junto repetiria o mesmo dado a cada clique.
+   */
+  async resumoCliente(clienteId: string, ctx: ContextoInterno) {
+    const cliente = await this.exigirAlcance(clienteId, ctx)
+    return { id: cliente.id, razaoSocial: cliente.razaoSocial }
+  }
+
   /** Conteúdo de uma pasta: subpastas e arquivos, com o destaque de "novo". */
   async listar(input: { clienteId: string; pastaId?: string | null }, ctx: ContextoInterno) {
     await this.exigirAlcance(input.clienteId, ctx)

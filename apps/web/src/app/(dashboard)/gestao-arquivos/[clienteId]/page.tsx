@@ -62,6 +62,7 @@ export default function GestaoArquivosClientePage() {
   const { permissions, isMaster, isEmpresaMaster } = useUserPermissions()
 
   const [aba, setAba] = useState<Aba>('explorador')
+  const [nomeCliente, setNomeCliente] = useState<string | null>(null)
   const [log, setLog] = useState<LinhaLog[]>([])
   const [excluidos, setExcluidos] = useState<Excluido[]>([])
   const [aExcluir, setAExcluir] = useState<{ id: string; fileName: string } | null>(null)
@@ -80,6 +81,15 @@ export default function GestaoArquivosClientePage() {
   }, [permissions, isMaster, isEmpresaMaster])
 
   const fontes = useFontesDoEscritorio(clienteId, podeExcluir)
+
+  // O cabeçalho dizia "Arquivos do cliente" e o caminho terminava na palavra
+  // "Cliente", sem nunca dizer qual — com várias abas abertas, todas ficavam
+  // iguais. Agora é o nome, como nas demais telas de detalhe.
+  useEffect(() => {
+    ;(trpc as any).gestaoArquivos.resumoCliente.query({ clienteId })
+      .then((c: { razaoSocial: string }) => setNomeCliente(c.razaoSocial))
+      .catch(() => setNomeCliente(null))
+  }, [clienteId])
 
   useEffect(() => {
     if (aba !== 'trilha') return
@@ -138,13 +148,19 @@ export default function GestaoArquivosClientePage() {
           </Button>
         }
       >
-        <h1 className="truncate">Arquivos do cliente</h1>
+        <h1 className="truncate">{nomeCliente ?? 'Arquivos do cliente'}</h1>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Link href="/dashboard" className="hover:text-foreground transition-colors">Página inicial</Link>
           <span className="text-muted-foreground/50">›</span>
-          <Link href="/gestao-arquivos" className="hover:text-foreground transition-colors">Gestão de Arquivos</Link>
+          <span>Administrativo</span>
           <span className="text-muted-foreground/50">›</span>
-          <span>Cliente</span>
+          <Link href="/gestao-arquivos" className="hover:text-foreground transition-colors">Gestão de Arquivos</Link>
+          {nomeCliente && (
+            <>
+              <span className="text-muted-foreground/50">›</span>
+              <span className="truncate">{nomeCliente}</span>
+            </>
+          )}
         </p>
       </PageHeaderBar>
 

@@ -63,6 +63,11 @@ export function createGestaoArquivosRouter(
     /** Clientes com usuário no portal, já recortados por responsabilidade. */
     listarClientes: readProcedure(MODULE).query(({ ctx }) => service.listarClientes(contexto(ctx))),
 
+    /** Nome do cliente, para o cabeçalho da tela de detalhe. */
+    resumoCliente: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input, ctx }) => service.resumoCliente(input.clienteId, contexto(ctx))),
+
     listar: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string(), pastaId: z.string().nullish() }))
       .query(({ input, ctx }) => service.listar(input, contexto(ctx))),
@@ -171,6 +176,16 @@ export function createGestaoArquivosRouter(
     driveListar: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string(), subPastaId: z.string().nullish() }))
       .query(({ input, ctx }) => driveService.listarDoCliente(input, contexto(ctx))),
+
+    /**
+      * Contagem de arquivos no Drive, por cliente.
+      *
+      * Separada da listagem porque caminha a árvore do Drive: a lista aparece
+      * na hora e estes números chegam depois.
+      */
+    driveContagem: readProcedure(MODULE)
+      .input(z.object({ clienteIds: z.array(z.string()).max(300) }))
+      .query(({ input, ctx }) => driveService.contarNoDrive(input.clienteIds, contexto(ctx))),
 
     /** Arrastar e soltar no Drive. `destinoId` nulo leva para a raiz. */
     driveMover: writeProcedure(MODULE)

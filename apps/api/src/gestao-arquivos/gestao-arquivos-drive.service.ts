@@ -624,6 +624,79 @@ export class GestaoArquivosDriveService {
     }
   }
 
+  /**
+   * Quantos arquivos cada cliente tem no Drive.
+   *
+   * Chamada à parte da listagem, de propósito. O Drive não tem consulta
+   * "descendentes de": só dá para listar os filhos diretos de uma pasta, então
+   * contar o acervo exige caminhar a árvore — e os arquivos moram em subpastas
+   * (2025, 2026, …), não na raiz. Fazer isso para N clientes durante o
+   * carregamento da lista deixaria a tela parada esperando o Google.
+   *
+   * Então a lista aparece na hora com o que o banco sabe, e estes números
+   * chegam depois. Um número que demora é melhor que uma tela que trava, e
+   * ambos são melhores que o zero que aparecia antes.
+   *
+   * Dois limites seguram o custo: `TETO_PASTAS` corta a caminhada em árvores
+   * absurdas, e a concorrência limitada evita disparar centenas de chamadas ao
+   * Google de uma vez e levar 429. Quando o teto é atingido, o retorno diz
+   * `parcial: true` — a tela mostra "200+" em vez de mentir um total exato.
+   */
+  async contarNoDrive(clienteIds: string[], ctx: ContextoInterno) {
+    const escopo = await resolverEscopo(ctx)
+    const clientes = await prisma.cliente.findMany({
+      where: {
+        id: { in: clienteIds.slice(0, 300) },
+        ...filtroDeCliente(escopo, ctx),
+        portalDriveFolderId: { not: null },
+      },
+      select: { id: true, portalDriveFolderId: true },
+    })
+    if (clientes.length === 0) return []
+
+    const LOTE = 4
+    const saida: Array<{ clienteId: string; arquivos: number; parcial: boolean }> = []
+
+    for (let i = 0; i < clientes.length; i += LOTE) {
+      const fatia = clientes.slice(i, i + LOTE)
+      const resultados = await Promise.all(
+        fatia.map(async c => {
+          try {
+            const r = await this.caminharContando(c.portalDriveFolderId!)
+            return { clienteId: c.id, ...r }
+          } catch {
+            // Falha em um cliente não derruba a contagem dos outros: a coluna
+            // dele fica sem número, o resto da tela funciona.
+            return null
+          }
+        }),
+      )
+      for (const r of resultados) if (r) saida.push(r)
+    }
+
+    return saida
+  }
+
+  /** Percorre a pasta somando arquivos, com teto de pastas visitadas. */
+  private async caminharContando(raiz: string): Promise<{ arquivos: number; parcial: boolean }> {
+    const TETO_PASTAS = 200
+    let arquivos = 0
+    let visitadas = 0
+    const fila: string[] = [raiz]
+
+    while (fila.length > 0 && visitadas < TETO_PASTAS) {
+      const atual = fila.shift()!
+      visitadas++
+      const itens = await drive.listFolderContents(atual, { limit: 1000 })
+      for (const i of itens) {
+        if (i.isFolder) fila.push(i.id)
+        else arquivos++
+      }
+    }
+
+    return { arquivos, parcial: fila.length > 0 }
+  }
+
   /** A pasta do cliente, ou erro quando o escritório ainda não vinculou uma. */
   private async raizDoCliente(clienteId: string): Promise<string> {
     const cliente = await prisma.cliente.findUnique({

@@ -52,6 +52,13 @@ export default function GestaoArquivosPage() {
   const [search, setSearch] = useState('')
   const [soComNovos, setSoComNovos] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
+  /**
+   * Contagem do Drive, por cliente. Chega depois da lista de propósito: o
+   * Drive não tem consulta "descendentes de", então contar exige caminhar a
+   * árvore, e esperar por isso deixaria a tela parada.
+   */
+  const [drive, setDrive] = useState<Record<string, { arquivos: number; parcial: boolean }>>({})
+  const [contandoDrive, setContandoDrive] = useState(false)
 
   const podeConfigurar = useMemo(() => {
     if (isMaster || isEmpresaMaster) return true
@@ -68,6 +75,24 @@ export default function GestaoArquivosPage() {
   }, [])
 
   useEffect(() => { carregar() }, [carregar])
+
+  useEffect(() => {
+    if (clientes.length === 0) return
+    let cancelado = false
+    setContandoDrive(true)
+    ;(trpc as any).gestaoArquivos.driveContagem
+      .query({ clienteIds: clientes.map(c => c.id) })
+      .then((d: Array<{ clienteId: string; arquivos: number; parcial: boolean }>) => {
+        if (cancelado) return
+        const mapa: Record<string, { arquivos: number; parcial: boolean }> = {}
+        for (const r of d) mapa[r.clienteId] = { arquivos: r.arquivos, parcial: r.parcial }
+        setDrive(mapa)
+      })
+      // Falhar a contagem não quebra a tela: a coluna fica com o número local.
+      .catch(() => undefined)
+      .finally(() => { if (!cancelado) setContandoDrive(false) })
+    return () => { cancelado = true }
+  }, [clientes])
 
   // Busca é local de propósito: a lista é o conjunto de clientes com portal, que
   // é pequeno por natureza (um subconjunto da carteira). Paginar no servidor
@@ -202,7 +227,15 @@ export default function GestaoArquivosPage() {
                   </TableCell>
                   <TableCell className="text-center">
                     <span className="inline-flex items-center gap-1 text-sm tabular-nums text-muted-foreground">
-                      <FileText className="h-3.5 w-3.5" /> {c.arquivos}
+                      <FileText className="h-3.5 w-3.5" />
+                      {/* Soma das duas origens. Enquanto o Drive não respondeu,
+                          mostra o que o banco já sabe com um giro ao lado — um
+                          número menor por um instante é melhor que um traço. */}
+                      {c.arquivos + (drive[c.id]?.arquivos ?? 0)}
+                      {drive[c.id]?.parcial && '+'}
+                      {contandoDrive && !drive[c.id] && (
+                        <Loader2 className="h-3 w-3 animate-spin opacity-50" />
+                      )}
                     </span>
                   </TableCell>
                   <TableCell className="text-center">
