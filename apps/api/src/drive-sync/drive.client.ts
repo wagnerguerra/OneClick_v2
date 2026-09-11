@@ -1,3 +1,4 @@
+import type { Readable } from 'stream'
 import { google, drive_v3 } from 'googleapis'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
@@ -143,6 +144,47 @@ export class DriveClient {
       webViewLink: res.data.webViewLink ?? '',
       mimeType: res.data.mimeType ?? '',
     }
+  }
+
+  /**
+   * Metadados de um arquivo, para servir o conteúdo com o tipo certo.
+   *
+   * Sem o `mimeType`, o proxy entregaria tudo como octet-stream e o navegador
+   * baixaria em vez de exibir — o que mata a ideia de pré-visualizar.
+   */
+  async getFileMeta(fileId: string): Promise<{
+    id: string; name: string; mimeType: string; size: number
+  }> {
+    const drive = this.drive()
+    const res = await drive.files.get({
+      fileId,
+      fields: 'id, name, mimeType, size',
+      supportsAllDrives: true,
+    })
+    return {
+      id: res.data.id ?? '',
+      name: res.data.name ?? '',
+      mimeType: res.data.mimeType ?? 'application/octet-stream',
+      size: Number(res.data.size ?? 0),
+    }
+  }
+
+  /**
+   * Baixa o conteúdo de um arquivo como stream.
+   *
+   * É o que permite servir o arquivo do Drive pela NOSSA API. O caminho óbvio
+   * — jogar o `webViewLink` num iframe — não funciona: aquele link exige que o
+   * NAVEGADOR de quem olha tenha acesso ao arquivo, e quem tem acesso é a
+   * conta do escritório, não o usuário. Passando por aqui, a permissão volta a
+   * ser a nossa: o sistema confere quem pode ver e só então entrega os bytes.
+   */
+  async downloadStream(fileId: string): Promise<Readable> {
+    const drive = this.drive()
+    const r = await drive.files.get(
+      { fileId, alt: 'media', supportsAllDrives: true },
+      { responseType: 'stream' },
+    )
+    return r.data as unknown as Readable
   }
 
   /**

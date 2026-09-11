@@ -19,6 +19,8 @@ const listSubfolders = jest.fn()
 const listFolderContents = jest.fn()
 const getFolderInfo = jest.fn()
 const getParents = jest.fn()
+const getFileMeta = jest.fn()
+const downloadStream = jest.fn()
 
 jest.mock('../drive-sync/drive.client', () => ({
   DriveClient: class {
@@ -32,6 +34,8 @@ jest.mock('../drive-sync/drive.client', () => ({
     listFolderContents = listFolderContents
     getFolderInfo = getFolderInfo
     getParents = getParents
+    getFileMeta = getFileMeta
+    downloadStream = downloadStream
   },
 }))
 
@@ -58,6 +62,8 @@ beforeEach(() => {
     id: RAIZ, name: 'Clientes', mimeType: 'application/vnd.google-apps.folder', webViewLink: '',
   })
   getParents.mockResolvedValue([])
+  getFileMeta.mockResolvedValue({ id: 'f1', name: 'guia.pdf', mimeType: 'application/pdf', size: 1024 })
+  downloadStream.mockResolvedValue({ pipe: jest.fn(), on: jest.fn() })
 })
 
 describe('salvarConfig', () => {
@@ -179,5 +185,37 @@ describe('listarDoCliente', () => {
     listFolderContents.mockRejectedValue(new Error('ECONNRESET'))
     await expect(svc.listarDoCliente({ clienteId: 'cli-1' }, master))
       .rejects.toThrow(/não foi possível falar com o google drive/i)
+  })
+})
+
+describe('abrirArquivo (o proxy que serve os bytes)', () => {
+  it('recusa arquivo que não está dentro da pasta do cliente', async () => {
+    // O ataque direto: pedir um fileId qualquer da conta do escritório por uma
+    // rota que só deveria servir arquivo de UM cliente.
+    getParents.mockResolvedValue(['pasta-de-outro-cliente'])
+    await expect(svc.abrirArquivo({ clienteId: 'cli-1', fileId: 'alheio' }, master))
+      .rejects.toThrow(/não encontrado/i)
+    expect(downloadStream).not.toHaveBeenCalled()
+  })
+
+  it('serve o arquivo que está na pasta do cliente, com nome e tipo', async () => {
+    getParents.mockResolvedValue(['pasta-do-cliente'])
+    await expect(svc.abrirArquivo({ clienteId: 'cli-1', fileId: 'f1' }, master))
+      .resolves.toMatchObject({ nome: 'guia.pdf', mimeType: 'application/pdf', tamanho: 1024 })
+  })
+
+  it('cliente sem pasta vinculada não serve nada', async () => {
+    cliente.findFirst.mockResolvedValue({ portalDriveFolderId: null })
+    await expect(svc.abrirArquivo({ clienteId: 'cli-1', fileId: 'f1' }, master))
+      .rejects.toThrow(/não encontrado/i)
+    expect(downloadStream).not.toHaveBeenCalled()
+  })
+
+  it('quem não alcança o cliente não alcança os bytes', async () => {
+    clienteAreaContratada.findMany.mockResolvedValue([])
+    await expect(
+      svc.abrirArquivo({ clienteId: 'cli-9', fileId: 'f1' }, { userId: 'u2', isMaster: false, empresaId: 'emp-1' }),
+    ).rejects.toThrow(/não encontrado/i)
+    expect(downloadStream).not.toHaveBeenCalled()
   })
 })

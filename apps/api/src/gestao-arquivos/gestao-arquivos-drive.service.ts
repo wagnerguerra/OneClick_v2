@@ -270,6 +270,53 @@ export class GestaoArquivosDriveService {
   }
 
   /**
+   * Entrega o conteúdo de um arquivo do Drive, conferindo o acesso antes.
+   *
+   * Esta é a peça que faz a permissão ser NOSSA. O `webViewLink` do Drive não
+   * serve para exibir dentro do sistema: ele exige que o navegador de quem
+   * olha tenha acesso ao arquivo, e quem tem é a conta do escritório. Passando
+   * por aqui, o sistema confere o escopo do módulo e a contenção na pasta do
+   * cliente, e só então abre o stream.
+   */
+  async abrirArquivo(
+    input: { clienteId: string; fileId: string },
+    ctx: ContextoInterno,
+  ): Promise<{ stream: NodeJS.ReadableStream; nome: string; mimeType: string; tamanho: number }> {
+    const escopo = await resolverEscopo(ctx)
+    if (!alcancaCliente(escopo, input.clienteId)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Arquivo não encontrado.' })
+    }
+
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: input.clienteId, ...filtroDeCliente(escopo, ctx) },
+      select: { portalDriveFolderId: true },
+    })
+    if (!cliente?.portalDriveFolderId) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Arquivo não encontrado.' })
+    }
+
+    // O arquivo tem de estar DENTRO da pasta do cliente. Sem esta checagem, um
+    // id de arquivo qualquer da conta do escritório — inclusive de outro
+    // cliente — seria servido por esta rota.
+    const dentro = await this.dentroDaPastaDoCliente(input.fileId, cliente.portalDriveFolderId)
+    if (!dentro) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Arquivo não encontrado.' })
+    }
+
+    try {
+      const meta = await drive.getFileMeta(input.fileId)
+      const stream = await drive.downloadStream(input.fileId)
+      return { stream, nome: meta.name, mimeType: meta.mimeType, tamanho: meta.size }
+    } catch (e) {
+      this.logger.warn(`Falha ao baixar ${input.fileId} do Drive: ${String(e)}`)
+      throw new TRPCError({
+        code: 'BAD_GATEWAY',
+        message: 'Não foi possível baixar o arquivo do Drive.',
+      })
+    }
+  }
+
+  /**
    * A pasta pedida descende da pasta do cliente?
    *
    * Sobe a cadeia de pais pela API. O teto de 10 níveis segura tanto ciclo

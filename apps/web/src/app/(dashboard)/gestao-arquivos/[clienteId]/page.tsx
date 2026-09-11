@@ -4,11 +4,10 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Folder, FileText, Loader2, ChevronRight, Trash2, RotateCcw, History,
-  ArrowLeft, Download, Sparkles, ShieldAlert, Home, HardDrive, ExternalLink,
+  FolderTree, FileText, Loader2, Trash2, RotateCcw, History, ArrowLeft,
 } from 'lucide-react'
 import {
-  Button, Badge, Card, Input, Label,
+  Button, Card, Input, Label,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
@@ -16,32 +15,11 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { Explorador } from '../_components/explorador'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
 const MODULE = 'gestao-arquivos'
-
-interface Arquivo {
-  id: string
-  fileName: string
-  fileSize: number | null
-  mimeType: string | null
-  competencia: string | null
-  categoria: string | null
-  origem: string
-  visivelParaCliente: boolean
-  criadoEm: string
-  enviadoPor: string | null
-  lidoPeloCliente: string | null
-  novo: boolean
-}
-
-interface Conteudo {
-  caminho: Array<{ id: string; nome: string }>
-  pastas: Array<{ id: string; nome: string }>
-  arquivos: Arquivo[]
-}
 
 interface LinhaLog {
   id: string
@@ -63,28 +41,13 @@ interface Excluido {
   excluidoPor: { name: string } | null
 }
 
-interface ItemDrive {
-  id: string
-  nome: string
-  isPasta: boolean
-  tamanho: number
-  modificadoEm: string
-  link: string
-}
-
-type Aba = 'arquivos' | 'drive' | 'trilha' | 'lixeira'
+type Aba = 'explorador' | 'trilha' | 'lixeira'
 
 const ROTULO_EVENTO: Record<string, string> = {
   ABRIU: 'abriu',
+  ENVIOU: 'enviou',
   EXCLUIU: 'excluiu',
   RESTAUROU: 'restaurou',
-}
-
-function tamanho(bytes: number | null): string {
-  if (!bytes) return '—'
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
 function dataHora(v: string): string {
@@ -92,31 +55,20 @@ function dataHora(v: string): string {
   return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
-function rotuloCompetencia(c: string | null): string | null {
-  if (!c || c.length !== 6) return null
-  const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-  return `${meses[Number(c.slice(4, 6)) - 1] ?? '??'}/${c.slice(0, 4)}`
-}
-
 export default function GestaoArquivosClientePage() {
   const params = useParams<{ clienteId: string }>()
   const clienteId = params.clienteId
   const { permissions, isMaster, isEmpresaMaster } = useUserPermissions()
 
-  const [aba, setAba] = useState<Aba>('arquivos')
-  const [pastaId, setPastaId] = useState<string | null>(null)
-  const [conteudo, setConteudo] = useState<Conteudo | null>(null)
+  const [aba, setAba] = useState<Aba>('explorador')
   const [log, setLog] = useState<LinhaLog[]>([])
   const [excluidos, setExcluidos] = useState<Excluido[]>([])
-  const [loading, setLoading] = useState(true)
-  const [erro, setErro] = useState<string | null>(null)
-  const [drive, setDrive] = useState<{ vinculada: boolean; nome: string | null; itens: ItemDrive[] } | null>(null)
-  const [driveTrilha, setDriveTrilha] = useState<Array<{ id: string; nome: string }>>([])
-  const [driveErro, setDriveErro] = useState<string | null>(null)
-  const [driveCarregando, setDriveCarregando] = useState(false)
-  const [aExcluir, setAExcluir] = useState<Arquivo | null>(null)
+  const [aExcluir, setAExcluir] = useState<{ id: string; fileName: string } | null>(null)
   const [motivo, setMotivo] = useState('')
   const [processando, setProcessando] = useState(false)
+  // Muda a cada exclusão/restauração para o explorador recarregar a pasta
+  // aberta — sem isto o arquivo excluído continuaria na lista até o F5.
+  const [versao, setVersao] = useState(0)
 
   const podeExcluir = useMemo(() => {
     if (isMaster || isEmpresaMaster) return true
@@ -126,85 +78,18 @@ export default function GestaoArquivosClientePage() {
     })
   }, [permissions, isMaster, isEmpresaMaster])
 
-  const carregar = useCallback(() => {
-    setLoading(true)
-    setErro(null)
-    ;(trpc as any).gestaoArquivos.listar.query({ clienteId, pastaId })
-      .then((d: Conteudo) => setConteudo(d))
-      .catch((e: unknown) => {
-        setConteudo(null)
-        setErro(e instanceof Error ? e.message : 'Não foi possível carregar.')
-      })
-      .finally(() => setLoading(false))
-  }, [clienteId, pastaId])
-
-  useEffect(() => { if (aba === 'arquivos') carregar() }, [aba, carregar])
-
   useEffect(() => {
     if (aba !== 'trilha') return
     ;(trpc as any).gestaoArquivos.listarLog.query({ clienteId })
       .then((d: LinhaLog[]) => setLog(d)).catch(() => setLog([]))
-  }, [aba, clienteId])
+  }, [aba, clienteId, versao])
 
   const carregarLixeira = useCallback(() => {
     ;(trpc as any).gestaoArquivos.listarExcluidos.query({ clienteId })
       .then((d: Excluido[]) => setExcluidos(d)).catch(() => setExcluidos([]))
   }, [clienteId])
 
-  useEffect(() => { if (aba === 'lixeira') carregarLixeira() }, [aba, carregarLixeira])
-
-  const carregarDrive = useCallback((subPastaId: string | null) => {
-    setDriveCarregando(true)
-    setDriveErro(null)
-    ;(trpc as any).gestaoArquivos.driveListar.query({ clienteId, subPastaId })
-      .then((d: { vinculada: boolean; nome: string | null; itens: ItemDrive[] }) => setDrive(d))
-      .catch((e: unknown) => {
-        setDrive(null)
-        setDriveErro(e instanceof Error ? e.message : 'Não foi possível abrir o Drive.')
-      })
-      .finally(() => setDriveCarregando(false))
-  }, [clienteId])
-
-  useEffect(() => {
-    if (aba !== 'drive') return
-    // Volta à raiz do cliente ao entrar na aba: manter a trilha de uma visita
-    // anterior faria a tela abrir numa subpasta sem o usuário pedir.
-    setDriveTrilha([])
-    carregarDrive(null)
-  }, [aba, carregarDrive])
-
-  function entrarNaPastaDrive(item: ItemDrive) {
-    setDriveTrilha(t => [...t, { id: item.id, nome: item.nome }])
-    carregarDrive(item.id)
-  }
-
-  function voltarNoDrive(indice: number) {
-    // -1 = raiz do cliente.
-    const nova = indice < 0 ? [] : driveTrilha.slice(0, indice + 1)
-    setDriveTrilha(nova)
-    carregarDrive(nova.length ? nova[nova.length - 1]!.id : null)
-  }
-
-  /**
-   * Abre o arquivo. A chamada marca o visto e registra na trilha ANTES de
-   * levar o usuário ao arquivo — se o registro falhar, nada abre, e é o certo:
-   * um módulo cuja promessa é rastrear não pode entregar o documento sem deixar
-   * rastro.
-   */
-  async function abrir(a: Arquivo) {
-    try {
-      const r = await (trpc as any).gestaoArquivos.abrir.mutate({ arquivoId: a.id })
-      // Otimista: o servidor já gravou, então o destaque sai da tela sem
-      // precisar recarregar a listagem inteira.
-      setConteudo(c => c && {
-        ...c,
-        arquivos: c.arquivos.map(x => (x.id === a.id ? { ...x, novo: false } : x)),
-      })
-      window.open(resolveAssetUrl(r.url), '_blank', 'noopener,noreferrer')
-    } catch (e) {
-      alerts.error(e instanceof Error ? e.message : 'Não foi possível abrir o arquivo.')
-    }
-  }
+  useEffect(() => { if (aba === 'lixeira') carregarLixeira() }, [aba, carregarLixeira, versao])
 
   async function confirmarExclusao() {
     if (!aExcluir) return
@@ -217,7 +102,7 @@ export default function GestaoArquivosClientePage() {
       alerts.success('Arquivo excluído. Ele fica na lixeira e pode ser restaurado.')
       setAExcluir(null)
       setMotivo('')
-      carregar()
+      setVersao(v => v + 1)
     } catch (e) {
       alerts.error(e instanceof Error ? e.message : 'Não foi possível excluir.')
     } finally {
@@ -229,21 +114,20 @@ export default function GestaoArquivosClientePage() {
     try {
       await (trpc as any).gestaoArquivos.restaurar.mutate({ arquivoId: id })
       alerts.success('Arquivo restaurado.')
-      carregarLixeira()
+      setVersao(v => v + 1)
     } catch (e) {
       alerts.error(e instanceof Error ? e.message : 'Não foi possível restaurar.')
     }
   }
 
-  const abas: Array<{ chave: Aba; rotulo: string; icone: typeof Folder }> = [
-    { chave: 'arquivos', rotulo: 'Arquivos', icone: Folder },
-    { chave: 'drive', rotulo: 'Google Drive', icone: HardDrive },
+  const abas: Array<{ chave: Aba; rotulo: string; icone: typeof FolderTree }> = [
+    { chave: 'explorador', rotulo: 'Explorador', icone: FolderTree },
     { chave: 'trilha', rotulo: 'Trilha', icone: History },
     { chave: 'lixeira', rotulo: 'Lixeira', icone: Trash2 },
   ]
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeaderBar
         actions={
           <Button variant="outline" size="sm" className="gap-1.5" asChild>
@@ -284,211 +168,13 @@ export default function GestaoArquivosClientePage() {
         })}
       </div>
 
-      {aba === 'arquivos' && (
-        <Card className="p-4">
-          {/* Trilha de pastas */}
-          <div className="mb-3 flex flex-wrap items-center gap-1 text-xs">
-            <button
-              type="button"
-              onClick={() => setPastaId(null)}
-              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <Home className="h-3.5 w-3.5" /> Raiz
-            </button>
-            {(conteudo?.caminho ?? []).map(p => (
-              <span key={p.id} className="flex items-center gap-1">
-                <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
-                <button
-                  type="button"
-                  onClick={() => setPastaId(p.id)}
-                  className="rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  {p.nome}
-                </button>
-              </span>
-            ))}
-          </div>
-
-          {loading && (
-            <div className="flex h-40 items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          )}
-
-          {!loading && erro && (
-            <div className="flex h-40 flex-col items-center justify-center gap-2 text-center">
-              <ShieldAlert className="h-6 w-6 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{erro}</p>
-            </div>
-          )}
-
-          {!loading && !erro && conteudo && (
-            <>
-              {conteudo.pastas.length > 0 && (
-                <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {conteudo.pastas.map(p => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setPastaId(p.id)}
-                      className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
-                    >
-                      <Folder className="h-4 w-4 shrink-0" style={{ color: MODULE_COLOR }} />
-                      <span className="truncate text-[13px] font-medium text-foreground">{p.nome}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {conteudo.arquivos.length === 0 && conteudo.pastas.length === 0 && (
-                <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-                  Esta pasta está vazia.
-                </div>
-              )}
-
-              <div className="divide-y divide-border">
-                {conteudo.arquivos.map(a => (
-                  <div key={a.id} className="flex items-center gap-3 py-2.5">
-                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <button
-                      type="button"
-                      onClick={() => abrir(a)}
-                      className="min-w-0 flex-1 text-left"
-                    >
-                      <p className="flex items-center gap-1.5 truncate text-[13px] font-medium text-foreground">
-                        <span className="truncate">{a.fileName}</span>
-                        {a.novo && (
-                          <Badge
-                            className="shrink-0 gap-1 text-white"
-                            style={{ backgroundColor: MODULE_COLOR }}
-                          >
-                            <Sparkles className="h-3 w-3" /> Novo
-                          </Badge>
-                        )}
-                      </p>
-                      <p className="truncate text-[11px] text-muted-foreground">
-                        {a.origem === 'CLIENTE' ? 'Enviado pelo cliente' : 'Publicado pelo escritório'}
-                        {a.enviadoPor ? ` · ${a.enviadoPor}` : ''}
-                        {' · '}{dataHora(a.criadoEm)}
-                        {' · '}{tamanho(a.fileSize)}
-                        {rotuloCompetencia(a.competencia) ? ` · ${rotuloCompetencia(a.competencia)}` : ''}
-                      </p>
-                    </button>
-
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button variant="soft-info" size="icon-sm" onClick={() => abrir(a)} title="Abrir">
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      {podeExcluir && (
-                        <Button
-                          variant="soft-destructive"
-                          size="icon-sm"
-                          onClick={() => { setAExcluir(a); setMotivo('') }}
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </Card>
-      )}
-
-      {aba === 'drive' && (
-        <Card className="p-4">
-          {/* Trilha dentro do Drive. A raiz é a pasta DO CLIENTE, não a do
-              escritório — de propósito: subir além dela mostraria pasta alheia. */}
-          <div className="mb-3 flex flex-wrap items-center gap-1 text-xs">
-            <button
-              type="button"
-              onClick={() => voltarNoDrive(-1)}
-              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <HardDrive className="h-3.5 w-3.5" /> {drive?.nome ?? 'Pasta do cliente'}
-            </button>
-            {driveTrilha.map((p, i) => (
-              <span key={p.id} className="flex items-center gap-1">
-                <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
-                <button
-                  type="button"
-                  onClick={() => voltarNoDrive(i)}
-                  className="rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  {p.nome}
-                </button>
-              </span>
-            ))}
-          </div>
-
-          {driveCarregando && (
-            <div className="flex h-40 items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          )}
-
-          {!driveCarregando && driveErro && (
-            <div className="flex h-40 flex-col items-center justify-center gap-2 text-center">
-              <ShieldAlert className="h-6 w-6 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{driveErro}</p>
-            </div>
-          )}
-
-          {!driveCarregando && !driveErro && drive && !drive.vinculada && (
-            <div className="flex h-40 flex-col items-center justify-center gap-1.5 text-center">
-              <HardDrive className="h-6 w-6 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Este cliente ainda não tem pasta do Drive vinculada.
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                O vínculo é feito nas configurações do módulo, na aba Google Drive.
-              </p>
-            </div>
-          )}
-
-          {!driveCarregando && !driveErro && drive?.vinculada && drive.itens.length === 0 && (
-            <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-              Esta pasta está vazia no Drive.
-            </div>
-          )}
-
-          {!driveCarregando && !driveErro && drive?.vinculada && drive.itens.length > 0 && (
-            <div className="divide-y divide-border">
-              {drive.itens.map(item => (
-                <div key={item.id} className="flex items-center gap-3 py-2.5">
-                  {item.isPasta
-                    ? <Folder className="h-4 w-4 shrink-0" style={{ color: MODULE_COLOR }} />
-                    : <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                  <button
-                    type="button"
-                    onClick={() => { if (item.isPasta) entrarNaPastaDrive(item) }}
-                    className={cn('min-w-0 flex-1 text-left', !item.isPasta && 'cursor-default')}
-                  >
-                    <p className="truncate text-[13px] font-medium text-foreground">{item.nome}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">
-                      {item.isPasta ? 'Pasta' : tamanho(item.tamanho)}
-                      {item.modificadoEm ? ` · ${dataHora(item.modificadoEm)}` : ''}
-                    </p>
-                  </button>
-                  {item.link && (
-                    <a
-                      href={item.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      title="Abrir no Google Drive"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+      {aba === 'explorador' && (
+        <Explorador
+          key={versao}
+          clienteId={clienteId}
+          podeExcluir={podeExcluir}
+          onExcluir={a => { setAExcluir(a); setMotivo('') }}
+        />
       )}
 
       {aba === 'trilha' && (
