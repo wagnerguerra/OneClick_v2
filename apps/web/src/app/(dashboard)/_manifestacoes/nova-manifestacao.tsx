@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { Plus, Loader2, EyeOff, Building2, User as UserIcon } from 'lucide-react'
 import {
-  Button, Input, Label, cn,
+  Button, Input, Label, Checkbox, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   RichEditor,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -119,7 +120,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
           <DialogDescription>{config.subtitulo}</DialogDescription>
         </DialogHeaderIcon>
 
-        <DialogBody className="max-h-[68vh] space-y-4 overflow-y-auto">
+        <DialogBody className="space-y-4">
           {/* Origem — a novidade em relação ao legado, onde cada tipo tinha um
               lado só e não havia como registrar o contrário. */}
           <div className="grid gap-2 sm:grid-cols-2">
@@ -145,19 +146,25 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
             <div className="grid grid-cols-12 gap-3 rounded-lg border border-border bg-muted/20 p-3">
               <div className="col-span-12 space-y-1.5 sm:col-span-7">
                 <Label className="text-[13px] font-semibold">Cliente</Label>
-                <select value={clienteId} onChange={e => setClienteId(e.target.value)}
-                  className="h-9 w-full rounded-md px-2 text-sm">
-                  <option value="">— não identificado —</option>
-                  {clientes.map(c => <option key={c.id} value={c.id}>{c.razaoSocial}</option>)}
-                </select>
+                <Select value={clienteId || '__none__'}
+                  onValueChange={v => setClienteId(v === '__none__' ? '' : v)}>
+                  <SelectTrigger className="h-9 w-full text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— não identificado —</SelectItem>
+                    {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="col-span-12 space-y-1.5 sm:col-span-5">
                 <Label className="text-[13px] font-semibold">Canal</Label>
-                <select value={canal} onChange={e => setCanal(e.target.value)}
-                  className="h-9 w-full rounded-md px-2 text-sm">
-                  <option value="">— não informado —</option>
-                  {CANAIS.map(c => <option key={c.v} value={c.v}>{c.t}</option>)}
-                </select>
+                <Select value={canal || '__none__'}
+                  onValueChange={v => setCanal(v === '__none__' ? '' : v)}>
+                  <SelectTrigger className="h-9 w-full text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— não informado —</SelectItem>
+                    {CANAIS.map(c => <SelectItem key={c.v} value={c.v}>{c.t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="col-span-12 space-y-1.5 sm:col-span-4">
                 <Label className="text-[13px] font-semibold">Quem falou</Label>
@@ -192,11 +199,14 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
 
           <div className="space-y-1.5">
             <Label className="text-[13px] font-semibold">Área envolvida</Label>
-            <select value={areaId} onChange={e => setAreaId(e.target.value)}
-              className="h-9 w-full rounded-md px-2 text-sm">
-              <option value="">— nenhuma —</option>
-              {areas.map(ar => <option key={ar.id} value={ar.id}>{ar.name}</option>)}
-            </select>
+            <Select value={areaId || '__none__'}
+              onValueChange={v => setAreaId(v === '__none__' ? '' : v)}>
+              <SelectTrigger className="h-9 w-full text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— nenhuma —</SelectItem>
+                {areas.map(ar => <SelectItem key={ar.id} value={ar.id}>{ar.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
 
           {config.pedeElogiados && (
@@ -220,8 +230,8 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
                   const marcado = elogiadosIds.includes(p.id)
                   return (
                     <label key={p.id} className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 hover:bg-muted/30">
-                      <input type="checkbox" checked={marcado} className="h-4 w-4"
-                        onChange={() => setElogiadosIds(l => marcado ? l.filter(x => x !== p.id) : [...l, p.id])} />
+                      <Checkbox checked={marcado}
+                        onCheckedChange={() => setElogiadosIds(l => marcado ? l.filter(x => x !== p.id) : [...l, p.id])} />
                       <span className="text-[13px]">{p.name}</span>
                     </label>
                   )
@@ -237,8 +247,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
 
           {config.temMural && (
             <label className="flex cursor-pointer items-center gap-2 text-[13px]">
-              <input type="checkbox" checked={publica} className="h-4 w-4"
-                onChange={e => setPublica(e.target.checked)} />
+              <Checkbox checked={publica} onCheckedChange={v => setPublica(v === true)} />
               Pedir que apareça no mural, visível a todos
             </label>
           )}
@@ -248,8 +257,8 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
           <div className={cn('rounded-lg border p-3 transition-colors',
             anonima ? 'border-slate-400 bg-slate-50 dark:bg-slate-900/40' : 'border-border')}>
             <label className="flex cursor-pointer items-start gap-2.5">
-              <input type="checkbox" checked={anonima} className="mt-0.5 h-4 w-4"
-                onChange={e => setAnonima(e.target.checked)} />
+              <Checkbox checked={anonima} className="mt-0.5"
+                onCheckedChange={v => setAnonima(v === true)} />
               <span>
                 <span className="flex items-center gap-1.5 text-[13px] font-semibold">
                   <EyeOff className="h-3.5 w-3.5" /> Registrar sem me identificar

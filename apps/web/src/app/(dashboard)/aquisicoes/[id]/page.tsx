@@ -161,7 +161,7 @@ export default function PedidoDetalhePage() {
       </PageHeaderBar>
 
       {c.status === 'REPROVADO' && c.motivoReprovacao && (
-        <Card className="p-3 border-rose-300 bg-rose-50 dark:bg-rose-950/20 text-sm text-rose-700 dark:text-rose-400"><strong>Reprovado:</strong> {c.motivoReprovacao}</Card>
+        <Card className={cn('p-3 text-sm', BADGE.rose)}><strong>Reprovado:</strong> {c.motivoReprovacao}</Card>
       )}
 
       {/* Conteúdo + coluna lateral, no mesmo grid da tela do cliente. */}

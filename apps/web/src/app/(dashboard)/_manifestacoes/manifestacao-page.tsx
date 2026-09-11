@@ -8,6 +8,7 @@ import {
 import {
   Button, Card, Input, Label, Badge, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
   RichEditor,
 } from '@saas/ui'
@@ -115,13 +116,16 @@ export function ManifestacaoPage({ config }: { config: Config }) {
             <Input value={busca} onChange={e => setBusca(e.target.value)}
               placeholder="Buscar por texto ou protocolo..." className="h-9 pl-8 text-sm" />
           </div>
-          <select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}
-            className="h-9 rounded-md px-2 text-sm">
-            <option value="">Todas as situações</option>
-            {config.status.map(s => (
-              <option key={s} value={s}>{STATUS_LABEL[s]?.texto ?? s}</option>
-            ))}
-          </select>
+          <Select value={status || '__all__'}
+            onValueChange={v => { setStatus(v === '__all__' ? '' : v); setPage(1) }}>
+            <SelectTrigger className="h-9 w-[190px] text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todas as situações</SelectItem>
+              {config.status.map(s => (
+                <SelectItem key={s} value={s}>{STATUS_LABEL[s]?.texto ?? s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <span className="text-xs tabular-nums text-muted-foreground">{total} registro(s)</span>
         </div>
 

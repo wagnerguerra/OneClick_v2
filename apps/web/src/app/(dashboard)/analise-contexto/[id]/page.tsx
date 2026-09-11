@@ -23,7 +23,7 @@ import {
   ANALISE_CONTEXTO_ACAO_TIPO_LABEL, TIPOS_POR_ANALISE,
 } from '@saas/types'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
-import { BADGE } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { MODULE_COLOR, ANALISE_BADGE, TIPO_BADGE, riscoClasse, dataBR } from '../shared'
 
 interface Acao {
@@ -303,7 +303,7 @@ export default function AnaliseContextoDetalhePage() {
                         </div>
                         <RichContent className={cn('text-sm mt-1 [&_p]:my-0.5', a.concluida && 'text-muted-foreground')} html={a.descricao} />
                         {a.concluida && (
-                          <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
+                          <p className={cn('text-[11px] mt-1', TEXT.emerald)}>
                             Concluída{a.finalizadoPorNome ? ` por ${a.finalizadoPorNome}` : ''}{a.finalizadoEm ? ` em ${dataBR(a.finalizadoEm)}` : ''}
                           </p>
                         )}

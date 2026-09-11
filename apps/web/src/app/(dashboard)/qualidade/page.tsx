@@ -7,7 +7,7 @@ import {
   ThumbsUp, MessageSquare, Lightbulb, FileText, ThumbsDown,
 } from 'lucide-react'
 import { Card, cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { NC_SITUACAO_LABEL } from '@saas/types'
@@ -35,15 +35,15 @@ function ReguaPills({ r }: { r: Regua }) {
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       <span className={cn('rounded-md px-2 py-1 text-xs font-semibold tabular-nums',
-        r.vencidas > 0 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' : 'bg-muted text-muted-foreground')}>
+        r.vencidas > 0 ? BADGE.rose : 'bg-muted text-muted-foreground')}>
         {r.vencidas} vencidas
       </span>
       <span className={cn('rounded-md px-2 py-1 text-xs font-semibold tabular-nums',
-        r.hoje > 0 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-muted text-muted-foreground')}>
+        r.hoje > 0 ? BADGE.amber : 'bg-muted text-muted-foreground')}>
         {r.hoje} hoje
       </span>
       <span className={cn('rounded-md px-2 py-1 text-xs font-semibold tabular-nums',
-        r.aVencer > 0 ? 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300' : 'bg-muted text-muted-foreground')}>
+        r.aVencer > 0 ? BADGE.sky : 'bg-muted text-muted-foreground')}>
         {r.aVencer} em 7 dias
       </span>
     </div>

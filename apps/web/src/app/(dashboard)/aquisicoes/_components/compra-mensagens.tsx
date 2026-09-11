@@ -13,7 +13,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl } from '@/lib/api-url'
+import { UserAvatar } from '@/components/ui/user-avatar'
 
 /**
  * Mensagens do pedido no mesmo padrão das mensagens do orçamento: avatar,
@@ -27,6 +27,9 @@ import { resolveAssetUrl } from '@/lib/api-url'
  */
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+// Borda do balão = a cor do módulo amaciada (~50%), acompanhando a var editável
+// no design-system em vez de um literal âmbar.
+const MODULE_BORDER = `color-mix(in srgb, ${MODULE_COLOR} 50%, transparent)`
 
 export interface MensagemRow {
   id: string; texto: string; createdAt: string; updatedAt?: string | null
@@ -78,7 +81,6 @@ function MensagemItem({ msg, currentUserId, respostas = [], onExcluir, onEditar,
 }) {
   const html = useMemo(() => sanitizeInlineTextColors(comoHtml(msg.texto)), [msg.texto])
   const nome = msg.autor?.name ?? 'Usuário'
-  const iniciais = nome.split(' ').map((n) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?'
   // "Editada" sai do updatedAt: o modelo não tem campo próprio, e um segundo de
   // folga evita marcar como editada a mensagem recém-criada.
   const editada = msg.updatedAt && new Date(msg.updatedAt).getTime() - new Date(msg.createdAt).getTime() > 1000
@@ -109,21 +111,11 @@ function MensagemItem({ msg, currentUserId, respostas = [], onExcluir, onEditar,
 
   return (
     <div className={cn('group flex items-start', isReply ? 'gap-3' : 'gap-5')}>
-      {msg.autor?.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={resolveAssetUrl(msg.autor.image)}
-          alt={nome}
-          className={cn(avatar, 'rounded-full object-cover shrink-0 ring-2 ring-background shadow-sm mt-0.5')}
-        />
-      ) : (
-        <div
-          className={cn(avatar, 'rounded-full shrink-0 flex items-center justify-center text-white font-bold ring-2 ring-background shadow-sm mt-0.5')}
-          style={{ backgroundColor: MODULE_COLOR }}
-        >
-          {iniciais}
-        </div>
-      )}
+      <UserAvatar
+        user={{ name: nome, image: msg.autor?.image }}
+        bgColor={MODULE_COLOR}
+        className={cn(avatar, 'shrink-0 ring-2 ring-background shadow-sm mt-0.5')}
+      />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2 mb-1">
@@ -165,7 +157,7 @@ function MensagemItem({ msg, currentUserId, respostas = [], onExcluir, onEditar,
         {/* Balão com a cauda angular no canto superior esquerdo — mesmo desenho
             das mensagens do orçamento, com a borda na cor do módulo. */}
         <div className="relative">
-          <div className="relative -ml-px bg-muted/60 dark:bg-muted/30 rounded-2xl rounded-tl-none px-4 py-3 border border-amber-300/50 dark:border-amber-700/40">
+          <div className="relative -ml-px bg-muted/60 dark:bg-muted/30 rounded-2xl rounded-tl-none px-4 py-3 border" style={{ borderColor: MODULE_BORDER }}>
             {editando ? (
               <div className="space-y-2">
                 <RichEditor value={texto} onChange={setTexto} placeholder="Edite o conteúdo da mensagem..." />
@@ -185,7 +177,7 @@ function MensagemItem({ msg, currentUserId, respostas = [], onExcluir, onEditar,
           <svg className="absolute pointer-events-none overflow-visible" style={{ left: -11, top: 0 }} width="14" height="14" viewBox="0 0 14 14" aria-hidden>
             <path d="M 0 0 L 14 0 L 14 14 L 12 14 L 12 13 Z" className="fill-card" />
             <path d="M 0 0 L 14 0 L 14 14 L 12 14 L 12 13 Z" className="fill-muted/60 dark:fill-muted/30" />
-            <path d="M 12 13 L 0 0 L 13 0" className="stroke-amber-300/50 dark:stroke-amber-700/40" fill="none" strokeWidth="1" strokeLinejoin="miter" />
+            <path d="M 12 13 L 0 0 L 13 0" style={{ stroke: MODULE_BORDER }} fill="none" strokeWidth="1" strokeLinejoin="miter" />
           </svg>
         </div>
 

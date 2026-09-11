@@ -21,7 +21,7 @@ import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import { masks } from '@/lib/masks'
 import { STATUS_COTACAO_LABELS } from '@saas/types'
-import { BADGE } from '@/lib/color-styles'
+import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 const brl = (v: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -185,10 +185,10 @@ export default function CotacaoDetalhePage() {
       </PageHeaderBar>
 
       {convertida && (
-        <Card className="border-emerald-300 bg-emerald-50 p-3 text-sm dark:bg-emerald-950/20">
+        <Card className={cn('p-3 text-sm', SURFACE.emerald)}>
           <div className="flex flex-wrap items-center gap-2">
-            <Check className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-emerald-800 dark:text-emerald-400">Cotação convertida. Pedidos gerados:</span>
+            <Check className={cn('h-4 w-4 shrink-0', TEXT.emerald)} />
+            <span className={TEXT.emerald}>Cotação convertida. Pedidos gerados:</span>
             {c.pedidosGerados.map((p) => (
               <Link key={p.id} href={`/aquisicoes/${p.id}`}
                 className="inline-flex items-center gap-1 rounded bg-card px-2 py-0.5 text-[12px] font-medium hover:bg-muted">
@@ -503,7 +503,7 @@ function FornecedorCard({ f, bloqueado, cotacaoId, acao }: {
         </div>
         {f.enviadoEm && <Badge variant="secondary" className="text-[10px]">enviado {new Date(f.enviadoEm).toLocaleDateString('pt-BR')}</Badge>}
         {f.respondidoEm
-          ? <Badge className="bg-emerald-100 text-emerald-700 text-[10px] dark:bg-emerald-950/40 dark:text-emerald-400">respondeu</Badge>
+          ? <Badge variant="outline" className={cn('text-[10px]', BADGE.emerald)}>respondeu</Badge>
           : <Badge variant="outline" className="text-[10px]">sem resposta</Badge>}
         {!bloqueado && (
           <Button variant="soft-destructive" size="icon-sm" title="Remover da cotação"
@@ -674,7 +674,7 @@ function ApuracaoTab({ cotacao, bloqueado, acao, onChange }: {
                           itens {brl(u.subtotal)} + frete {brl(u.frete)}
                         </span>
                         {!u.completo && (
-                          <span className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-500">
+                          <span className={cn('mt-0.5 flex items-center gap-1 text-[10px]', TEXT.amber)}>
                             <AlertTriangle className="h-3 w-3 shrink-0" />
                             não atende {u.itensNaoAtendidos.length}
                           </span>
@@ -762,7 +762,7 @@ function CelulaPreco({ item, forn, preco, venceu, ehMenor, bloqueado, onChange }
           'min-w-0 flex-1 rounded px-1 py-0.5 text-left text-sm tabular-nums',
           !bloqueado && 'hover:bg-muted',
           indisponivel && 'text-muted-foreground line-through',
-          ehMenor && !indisponivel && 'font-semibold text-emerald-700 dark:text-emerald-400',
+          ehMenor && !indisponivel && cn('font-semibold', TEXT.emerald),
         )}
         title={indisponivel ? 'Fornecedor não atende este item' : 'Lançar o preço unitário'}
       >
@@ -850,9 +850,9 @@ function ComparativoPainel({ cotacao, bloqueado, acao }: {
               <p className={cn(
                 'mt-3 rounded border px-2 py-1.5 text-xs',
                 economiaDividindo > 0
-                  ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400'
+                  ? BADGE.emerald
                   : economiaDividindo < 0
-                    ? 'border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950/20 dark:text-amber-400'
+                    ? BADGE.amber
                     : 'border-border bg-muted/40 text-muted-foreground',
               )}>
                 {economiaDividindo > 0
@@ -915,7 +915,7 @@ function EnviarModal({ cotacao, onClose, onDone }: { cotacao: Cotacao; onClose: 
           </p>
 
           {comEmail.length === 0 ? (
-            <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-400">
+            <p className={cn('rounded border px-3 py-2 text-xs', BADGE.amber)}>
               Nenhum fornecedor convidado tem e-mail cadastrado. Cadastre o e-mail no fornecedor ou baixe o PDF e envie por fora.
             </p>
           ) : (
