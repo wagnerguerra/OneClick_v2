@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { DriveClient } from '../drive-sync/drive.client'
+import { atendeNivel, type VinculoPortal } from '../portal/portal-escopo'
 import {
   resolverEscopo,
   filtroDeCliente,
@@ -313,6 +314,106 @@ export class GestaoArquivosDriveService {
         code: 'BAD_GATEWAY',
         message: 'Não foi possível baixar o arquivo do Drive.',
       })
+    }
+  }
+
+  // ── Lado do CLIENTE (Portal) ──────────────────────────────────────────────
+
+  /**
+   * O cliente pode ver a pasta do Drive dele?
+   *
+   * Só ADMINISTRADOR. O motivo é concreto e não é excesso de zelo: os arquivos
+   * do Drive **não têm categoria**, e é a categoria que o portal usa para
+   * separar por área (`CATEGORIA_EXIGE_AREA`). Mostrar a pasta inteira para um
+   * OPERACIONAL de área fiscal entregaria a folha de pagamento junto — a
+   * separação que o portal promete deixaria de valer justamente onde não há
+   * como aplicá-la.
+   *
+   * O ADMINISTRADOR é o sócio/diretor do cliente, que já "vê tudo do portal"
+   * por definição do próprio enum. Nele a regra não abre exceção nenhuma.
+   */
+  podeVerDriveNoPortal(vinculo: VinculoPortal): boolean {
+    return atendeNivel(vinculo, 'ADMINISTRADOR')
+  }
+
+  /** Conteúdo da pasta do Drive, para o portal do cliente. */
+  async listarParaPortal(
+    vinculo: VinculoPortal,
+    subPastaId?: string | null,
+  ): Promise<{ vinculada: boolean; nome: string | null; itens: ItemDrive[]; motivo?: string }> {
+    if (!this.podeVerDriveNoPortal(vinculo)) {
+      return {
+        vinculada: false,
+        nome: null,
+        itens: [],
+        motivo: 'A pasta do Google Drive é visível apenas para administradores do cliente.',
+      }
+    }
+
+    const cliente = await prisma.cliente.findUnique({
+      where: { id: vinculo.clienteId },
+      select: { portalDriveFolderId: true, portalDriveFolderNome: true },
+    })
+    if (!cliente?.portalDriveFolderId) {
+      return { vinculada: false, nome: null, itens: [] }
+    }
+
+    const alvo = subPastaId ?? cliente.portalDriveFolderId
+    if (alvo !== cliente.portalDriveFolderId) {
+      const dentro = await this.dentroDaPastaDoCliente(alvo, cliente.portalDriveFolderId)
+      if (!dentro) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta não encontrada.' })
+    }
+
+    try {
+      const itens = await drive.listFolderContents(alvo)
+      return {
+        vinculada: true,
+        nome: cliente.portalDriveFolderNome,
+        itens: itens.map(i => ({
+          id: i.id,
+          nome: i.name,
+          isPasta: i.isFolder,
+          tamanho: i.size,
+          modificadoEm: i.modifiedTime,
+          // O link direto do Drive NÃO vai para o cliente: ele só abriria para
+          // quem tem a pasta compartilhada no Google, e o objetivo aqui é
+          // justamente que o acesso não dependa disso.
+          link: '',
+        })),
+      }
+    } catch (e) {
+      this.logger.warn(`Falha ao listar pasta ${alvo} para o portal: ${String(e)}`)
+      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível falar com o Google Drive agora.' })
+    }
+  }
+
+  /** Entrega o conteúdo de um arquivo do Drive para o portal do cliente. */
+  async abrirArquivoParaPortal(
+    vinculo: VinculoPortal,
+    fileId: string,
+  ): Promise<{ stream: NodeJS.ReadableStream; nome: string; mimeType: string; tamanho: number }> {
+    if (!this.podeVerDriveNoPortal(vinculo)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Arquivo não encontrado.' })
+    }
+
+    const cliente = await prisma.cliente.findUnique({
+      where: { id: vinculo.clienteId },
+      select: { portalDriveFolderId: true },
+    })
+    if (!cliente?.portalDriveFolderId) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Arquivo não encontrado.' })
+    }
+
+    const dentro = await this.dentroDaPastaDoCliente(fileId, cliente.portalDriveFolderId)
+    if (!dentro) throw new TRPCError({ code: 'NOT_FOUND', message: 'Arquivo não encontrado.' })
+
+    try {
+      const meta = await drive.getFileMeta(fileId)
+      const stream = await drive.downloadStream(fileId)
+      return { stream, nome: meta.name, mimeType: meta.mimeType, tamanho: meta.size }
+    } catch (e) {
+      this.logger.warn(`Falha ao baixar ${fileId} para o portal: ${String(e)}`)
+      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível baixar o arquivo.' })
     }
   }
 

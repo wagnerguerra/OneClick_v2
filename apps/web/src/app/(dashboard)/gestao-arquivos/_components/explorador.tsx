@@ -1,37 +1,33 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Folder, FolderOpen, FileText, FileImage, FileSpreadsheet, FileArchive,
-  ChevronRight, Loader2, HardDrive, Server, Trash2, Download, ExternalLink,
+  ChevronRight, Loader2, Server, Trash2, Download, ExternalLink,
   Sparkles, PanelRightClose, PanelRightOpen, RefreshCw, Eye,
 } from 'lucide-react'
 import { Button, Badge, cn } from '@saas/ui'
-import { trpc } from '@/lib/trpc'
-import { alerts } from '@/lib/alerts'
-import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
-
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
 
 /**
  * Explorador de arquivos no modelo do Windows Explorer.
  *
  * Três painéis: árvore à esquerda, conteúdo da pasta no meio, pré-visualização
- * à direita. As duas origens — os arquivos do sistema e o Google Drive —
- * aparecem como "unidades" na mesma árvore, porque para quem trabalha elas são
- * a mesma coisa (o acervo do cliente) e só por acidente de infraestrutura moram
- * em lugares diferentes. Antes eram duas abas, e comparar o que estava num lado
- * com o que estava no outro exigia trocar de aba e perder o contexto.
+ * à direita, com divisória arrastável entre os dois últimos.
+ *
+ * Não sabe de onde vêm os arquivos: recebe as "unidades" como adaptadores. É o
+ * que permite a MESMA tela servir o escritório (arquivos do sistema + Drive do
+ * cliente) e o portal do cliente (documentos dele + a pasta dele no Drive) —
+ * rotas e permissões diferentes, mesma forma.
  */
 
-export type Fonte = 'local' | 'drive'
+export type Fonte = string
 
-interface PastaNo {
+export interface PastaNo {
   id: string | null
   nome: string
 }
 
-interface ArquivoItem {
+export interface ArquivoItem {
   id: string
   nome: string
   tamanho: number | null
@@ -42,9 +38,10 @@ interface ArquivoItem {
   link: string | null
 }
 
-interface Conteudo {
+export interface Conteudo {
   pastas: PastaNo[]
   arquivos: ArquivoItem[]
+  /** Mensagem a exibir no lugar da lista (não vinculado, sem permissão, etc). */
   indisponivel?: string | null
 }
 
@@ -54,10 +51,26 @@ interface EstadoNo {
   filhos: PastaNo[] | null
 }
 
-const RAIZES: Array<{ fonte: Fonte; nome: string; icone: typeof Server }> = [
-  { fonte: 'local', nome: 'Arquivos do sistema', icone: Server },
-  { fonte: 'drive', nome: 'Google Drive', icone: HardDrive },
-]
+export interface FonteExplorador {
+  chave: Fonte
+  nome: string
+  icone: typeof Server
+  buscar: (id: string | null) => Promise<Conteudo>
+  /**
+   * Chamado ao selecionar um arquivo. Devolve a URL para pré-visualizar (ou
+   * null quando não há como) e é onde cada lado faz o que lhe cabe — marcar
+   * como lido, registrar na trilha.
+   */
+  selecionar: (a: ArquivoItem) => Promise<string | null>
+  /** Exclusão só existe onde faz sentido; no Drive, por ora, em lugar nenhum. */
+  permiteExcluir?: boolean
+}
+
+/** Largura da pré-visualização, lembrada entre sessões. */
+const CHAVE_LARGURA = 'gestao-arquivos:largura-preview'
+const LARGURA_PADRAO = 320
+const LARGURA_MIN = 260
+const LARGURA_MAX = 900
 
 function chave(fonte: Fonte, id: string | null) {
   return `${fonte}:${id ?? '__raiz__'}`
@@ -78,7 +91,7 @@ function dataLegivel(v: string | null): string {
 }
 
 /** Tipo pela extensão quando o mime não veio — o Drive nem sempre manda. */
-function tipoDoArquivo(nome: string, mime: string | null): 'imagem' | 'pdf' | 'planilha' | 'texto' | 'zip' | 'outro' {
+export function tipoDoArquivo(nome: string, mime: string | null): 'imagem' | 'pdf' | 'planilha' | 'texto' | 'zip' | 'outro' {
   const m = (mime ?? '').toLowerCase()
   const ext = nome.toLowerCase().split('.').pop() ?? ''
   if (m.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) return 'imagem'
@@ -104,7 +117,7 @@ function IconeArquivo({ nome, mime, className }: { nome: string; mime: string | 
  * a cada clique, o que perde o estado de expansão e faz a lista piscar.
  */
 function LinhaArvore({
-  fonte, pasta, nivel, caminho, nos, selecionada, onAlternar, onAbrir,
+  fonte, pasta, nivel, caminho, nos, selecionada, fontes, cor, onAlternar, onAbrir,
 }: {
   fonte: Fonte
   pasta: PastaNo
@@ -112,6 +125,8 @@ function LinhaArvore({
   caminho: PastaNo[]
   nos: Record<string, EstadoNo>
   selecionada: { fonte: Fonte; id: string | null }
+  fontes: FonteExplorador[]
+  cor: string
   onAlternar: (fonte: Fonte, id: string | null) => void
   onAbrir: (fonte: Fonte, id: string | null, caminho: PastaNo[]) => void
 }) {
@@ -120,7 +135,7 @@ function LinhaArvore({
   const ativa = selecionada.fonte === fonte && selecionada.id === pasta.id
   const ehUnidade = pasta.id === null
   const IconeNo = ehUnidade
-    ? (RAIZES.find(r => r.fonte === fonte)?.icone ?? Server)
+    ? (fontes.find(f => f.chave === fonte)?.icone ?? Server)
     : (estado?.expandido ? FolderOpen : Folder)
 
   return (
@@ -147,7 +162,7 @@ function LinhaArvore({
           onClick={() => onAbrir(fonte, pasta.id, caminho)}
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
         >
-          <IconeNo className="h-4 w-4 shrink-0" style={{ color: ehUnidade ? MODULE_COLOR : undefined }} />
+          <IconeNo className="h-4 w-4 shrink-0" style={{ color: ehUnidade ? cor : undefined }} />
           <span className="truncate">{pasta.nome}</span>
         </button>
       </div>
@@ -161,6 +176,8 @@ function LinhaArvore({
           caminho={[...caminho, f]}
           nos={nos}
           selecionada={selecionada}
+          fontes={fontes}
+          cor={cor}
           onAlternar={onAlternar}
           onAbrir={onAbrir}
         />
@@ -178,14 +195,25 @@ function LinhaArvore({
 }
 
 export function Explorador({
-  clienteId, podeExcluir, onExcluir,
+  fontes, cor, altura = 'h-[calc(100vh-260px)]', onExcluir, onPastaAtual, acoes,
 }: {
-  clienteId: string
-  podeExcluir: boolean
-  onExcluir: (arquivo: { id: string; fileName: string }) => void
+  fontes: FonteExplorador[]
+  cor: string
+  altura?: string
+  onExcluir?: (arquivo: { id: string; fileName: string }) => void
+  /**
+   * Avisa qual pasta está aberta. Quem monta a tela precisa disso para saber
+   * ONDE criar pasta ou enviar arquivo — a navegação mora aqui dentro, e sem
+   * este aviso o botão de enviar mandaria sempre para a raiz.
+   */
+  onPastaAtual?: (fonte: Fonte, id: string | null) => void
+  /** Botões extras na barra da lista (enviar, nova pasta). */
+  acoes?: React.ReactNode
 }) {
   const [nos, setNos] = useState<Record<string, EstadoNo>>({})
-  const [selecionada, setSelecionada] = useState<{ fonte: Fonte; id: string | null }>({ fonte: 'local', id: null })
+  const [selecionada, setSelecionada] = useState<{ fonte: Fonte; id: string | null }>(
+    { fonte: fontes[0]?.chave ?? '', id: null },
+  )
   const [conteudo, setConteudo] = useState<Conteudo | null>(null)
   const [carregandoConteudo, setCarregandoConteudo] = useState(false)
   const [arquivoSel, setArquivoSel] = useState<ArquivoItem | null>(null)
@@ -193,46 +221,29 @@ export function Explorador({
   const [previewCarregando, setPreviewCarregando] = useState(false)
   const [painelAberto, setPainelAberto] = useState(true)
   const [trilha, setTrilha] = useState<PastaNo[]>([])
+  const [largura, setLargura] = useState(LARGURA_PADRAO)
+  const [arrastando, setArrastando] = useState(false)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
-  /**
-   * Uma chamada só serve a árvore e o painel do meio: as duas precisam do mesmo
-   * conteúdo, e separá-las dobraria as idas ao Drive sem ganhar nada.
-   */
-  const buscar = useCallback(async (fonte: Fonte, id: string | null): Promise<Conteudo> => {
-    if (fonte === 'local') {
-      const d = await (trpc as any).gestaoArquivos.listar.query({ clienteId, pastaId: id })
-      return {
-        pastas: d.pastas.map((p: { id: string; nome: string }) => ({ id: p.id, nome: p.nome })),
-        arquivos: d.arquivos.map((a: any) => ({
-          id: a.id,
-          nome: a.fileName,
-          tamanho: a.fileSize,
-          mimeType: a.mimeType,
-          modificadoEm: a.criadoEm,
-          origem: a.origem,
-          novo: Boolean(a.novo),
-          link: null,
-        })),
+  // Lê a largura salva depois da montagem, não na inicialização do estado: no
+  // SSR não existe `localStorage`, e ler ali faria o HTML do servidor divergir
+  // do primeiro render do cliente.
+  useEffect(() => {
+    try {
+      const salvo = Number(window.localStorage.getItem(CHAVE_LARGURA))
+      if (Number.isFinite(salvo) && salvo >= LARGURA_MIN) {
+        setLargura(Math.min(salvo, LARGURA_MAX))
       }
-    }
-    const d = await (trpc as any).gestaoArquivos.driveListar.query({ clienteId, subPastaId: id })
-    if (!d.vinculada) {
-      return { pastas: [], arquivos: [], indisponivel: 'Este cliente ainda não tem pasta do Drive vinculada. O vínculo é feito nas configurações do módulo.' }
-    }
-    return {
-      pastas: d.itens.filter((i: any) => i.isPasta).map((i: any) => ({ id: i.id, nome: i.nome })),
-      arquivos: d.itens.filter((i: any) => !i.isPasta).map((i: any) => ({
-        id: i.id,
-        nome: i.nome,
-        tamanho: i.tamanho,
-        mimeType: null,
-        modificadoEm: i.modificadoEm,
-        origem: 'DRIVE',
-        novo: false,
-        link: i.link,
-      })),
-    }
-  }, [clienteId])
+    } catch { /* navegador sem storage: fica no padrão */ }
+  }, [])
+
+  const fonteAtual = fontes.find(f => f.chave === selecionada.fonte) ?? fontes[0]
+
+  const buscar = useCallback(async (fonte: Fonte, id: string | null): Promise<Conteudo> => {
+    const f = fontes.find(x => x.chave === fonte)
+    if (!f) return { pastas: [], arquivos: [] }
+    return f.buscar(id)
+  }, [fontes])
 
   const abrirPasta = useCallback(async (fonte: Fonte, id: string | null, novaTrilha: PastaNo[]) => {
     setSelecionada({ fonte, id })
@@ -251,7 +262,14 @@ export function Explorador({
     }
   }, [buscar])
 
-  useEffect(() => { abrirPasta('local', null, []) }, [abrirPasta])
+  const primeira = fontes[0]?.chave
+  useEffect(() => { if (primeira) abrirPasta(primeira, null, []) }, [primeira, abrirPasta])
+
+  // Efeito, e não chamada dentro de `abrirPasta`: avisar durante o clique
+  // dispararia um `setState` do pai no meio do render deste componente.
+  useEffect(() => {
+    onPastaAtual?.(selecionada.fonte, selecionada.id)
+  }, [selecionada, onPastaAtual])
 
   /** Expande/recolhe um nó da árvore sem mudar o painel do meio. */
   const alternar = useCallback(async (fonte: Fonte, id: string | null) => {
@@ -274,59 +292,91 @@ export function Explorador({
     }
   }, [nos, buscar])
 
+  // ── Divisória arrastável ──────────────────────────────────────────────────
+  // Os ouvintes ficam no `window`, e não na divisória: o ponteiro anda mais
+  // rápido que o re-render, sai de cima do elemento e o arrasto travaria no
+  // meio do caminho.
+  useEffect(() => {
+    if (!arrastando) return
+
+    function mover(e: MouseEvent) {
+      const caixa = containerRef.current?.getBoundingClientRect()
+      if (!caixa) return
+      const nova = caixa.right - e.clientX
+      setLargura(Math.max(LARGURA_MIN, Math.min(LARGURA_MAX, nova)))
+    }
+    function soltar() {
+      setArrastando(false)
+    }
+
+    window.addEventListener('mousemove', mover)
+    window.addEventListener('mouseup', soltar)
+    // Sem isto o arrasto seleciona o texto da lista, e o cursor pisca entre a
+    // seta e o "I" de texto durante o movimento.
+    const anterior = document.body.style.userSelect
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'col-resize'
+
+    return () => {
+      window.removeEventListener('mousemove', mover)
+      window.removeEventListener('mouseup', soltar)
+      document.body.style.userSelect = anterior
+      document.body.style.cursor = ''
+    }
+  }, [arrastando])
+
+  // Persiste ao SOLTAR, não a cada pixel: gravar durante o arrasto escreveria
+  // no localStorage dezenas de vezes por segundo sem nenhum ganho.
+  useEffect(() => {
+    if (arrastando) return
+    try { window.localStorage.setItem(CHAVE_LARGURA, String(Math.round(largura))) } catch { /* sem storage */ }
+  }, [arrastando, largura])
+
   /**
-   * Selecionar um arquivo já conta como abrir: marca como visto e entra na
-   * trilha. É o comportamento honesto — a pré-visualização mostra o documento,
-   * então dizer que ninguém o viu seria falso justamente no registro que existe
-   * para responder "quem viu isto?".
+   * Selecionar um arquivo já conta como abrir: cada fonte decide o que isso
+   * significa (marcar como lido, registrar na trilha) e devolve a URL.
    */
   async function selecionarArquivo(a: ArquivoItem) {
     setArquivoSel(a)
     setPreviewUrl(null)
     setPainelAberto(true)
-    const tipo = tipoDoArquivo(a.nome, a.mimeType)
-    const previsualizavel = tipo === 'imagem' || tipo === 'pdf' || tipo === 'texto'
-
-    if (selecionada.fonte === 'drive') {
-      if (previsualizavel) {
-        setPreviewUrl(`${getApiUrl()}/api/gestao-arquivos/drive/${clienteId}/${a.id}`)
-      }
-      return
-    }
-
+    if (!fonteAtual) return
     setPreviewCarregando(true)
     try {
-      const r = await (trpc as any).gestaoArquivos.abrir.mutate({ arquivoId: a.id })
-      if (previsualizavel) setPreviewUrl(resolveAssetUrl(r.url))
-      // O destaque sai da lista sem recarregar: o servidor já gravou o visto.
-      setConteudo(c => c && { ...c, arquivos: c.arquivos.map(x => (x.id === a.id ? { ...x, novo: false } : x)) })
-    } catch (e) {
-      alerts.error(e instanceof Error ? e.message : 'Não foi possível abrir o arquivo.')
+      const url = await fonteAtual.selecionar(a)
+      setPreviewUrl(url)
+      if (a.novo) {
+        setConteudo(c => c && { ...c, arquivos: c.arquivos.map(x => (x.id === a.id ? { ...x, novo: false } : x)) })
+      }
+    } catch {
+      setPreviewUrl(null)
     } finally {
       setPreviewCarregando(false)
     }
   }
 
-  function urlDeDownload(a: ArquivoItem): string | null {
-    if (selecionada.fonte === 'drive') return `${getApiUrl()}/api/gestao-arquivos/drive/${clienteId}/${a.id}`
-    return previewUrl
-  }
-
   const tipoSel = arquivoSel ? tipoDoArquivo(arquivoSel.nome, arquivoSel.mimeType) : null
+  const previsualizavel = tipoSel === 'imagem' || tipoSel === 'pdf' || tipoSel === 'texto'
+  const podeExcluirAqui = Boolean(onExcluir && fonteAtual?.permiteExcluir)
 
   return (
-    <div className="flex h-[calc(100vh-260px)] min-h-[420px] overflow-hidden rounded-lg border border-border bg-card">
+    <div
+      ref={containerRef}
+      className={cn('flex min-h-[420px] overflow-hidden rounded-lg border border-border bg-card', altura)}
+    >
       {/* ── Árvore ─────────────────────────────────────────────── */}
       <div className="w-[240px] shrink-0 overflow-y-auto nice-scrollbar border-r border-border bg-muted/20 p-2">
-        {RAIZES.map(r => (
+        {fontes.map(f => (
           <LinhaArvore
-            key={r.fonte}
-            fonte={r.fonte}
-            pasta={{ id: null, nome: r.nome }}
+            key={f.chave}
+            fonte={f.chave}
+            pasta={{ id: null, nome: f.nome }}
             nivel={0}
             caminho={[]}
             nos={nos}
             selecionada={selecionada}
+            fontes={fontes}
+            cor={cor}
             onAlternar={alternar}
             onAbrir={abrirPasta}
           />
@@ -336,9 +386,7 @@ export function Explorador({
       {/* ── Conteúdo da pasta ──────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-1.5 border-b border-border px-3 py-2 text-xs">
-          <span className="shrink-0 text-muted-foreground">
-            {RAIZES.find(r => r.fonte === selecionada.fonte)?.nome}
-          </span>
+          <span className="shrink-0 text-muted-foreground">{fonteAtual?.nome}</span>
           {trilha.map(p => (
             <span key={p.id ?? 'r'} className="flex min-w-0 items-center gap-1.5">
               <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground/50" />
@@ -346,6 +394,7 @@ export function Explorador({
             </span>
           ))}
           <div className="ml-auto flex shrink-0 items-center gap-1">
+            {acoes}
             <Button
               variant="ghost"
               size="icon-sm"
@@ -400,12 +449,11 @@ export function Explorador({
                   <tr
                     key={p.id}
                     className="cursor-pointer border-b border-border/50 hover:bg-muted/40"
-                    onDoubleClick={() => abrirPasta(selecionada.fonte, p.id, [...trilha, p])}
                     onClick={() => abrirPasta(selecionada.fonte, p.id, [...trilha, p])}
                   >
                     <td className="px-3 py-1.5">
                       <div className="flex min-w-0 items-center gap-2">
-                        <Folder className="h-4 w-4 shrink-0" style={{ color: MODULE_COLOR }} />
+                        <Folder className="h-4 w-4 shrink-0" style={{ color: cor }} />
                         <span className="truncate font-medium">{p.nome}</span>
                       </div>
                     </td>
@@ -429,7 +477,7 @@ export function Explorador({
                         <IconeArquivo nome={a.nome} mime={a.mimeType} className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <span className="truncate">{a.nome}</span>
                         {a.novo && (
-                          <Badge className="shrink-0 gap-1 text-white" style={{ backgroundColor: MODULE_COLOR }}>
+                          <Badge className="shrink-0 gap-1 text-white" style={{ backgroundColor: cor }}>
                             <Sparkles className="h-3 w-3" /> Novo
                           </Badge>
                         )}
@@ -442,11 +490,11 @@ export function Explorador({
                       {dataLegivel(a.modificadoEm)}
                     </td>
                     <td className="px-2 py-1.5 text-right">
-                      {podeExcluir && selecionada.fonte === 'local' && (
+                      {podeExcluirAqui && (
                         <Button
                           variant="soft-destructive"
                           size="icon-sm"
-                          onClick={e => { e.stopPropagation(); onExcluir({ id: a.id, fileName: a.nome }) }}
+                          onClick={e => { e.stopPropagation(); onExcluir!({ id: a.id, fileName: a.nome }) }}
                           title="Excluir"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -461,9 +509,35 @@ export function Explorador({
         </div>
       </div>
 
+      {/* ── Divisória ──────────────────────────────────────────── */}
+      {painelAberto && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionar a pré-visualização"
+          tabIndex={0}
+          onMouseDown={e => { e.preventDefault(); setArrastando(true) }}
+          // Teclado: quem não usa mouse também precisa ajustar. As setas movem
+          // de 20 em 20 — grosso o bastante para chegar rápido, fino o bastante
+          // para acertar.
+          onKeyDown={e => {
+            if (e.key === 'ArrowLeft') { e.preventDefault(); setLargura(l => Math.min(LARGURA_MAX, l + 20)) }
+            if (e.key === 'ArrowRight') { e.preventDefault(); setLargura(l => Math.max(LARGURA_MIN, l - 20)) }
+          }}
+          className={cn(
+            'hidden w-1.5 shrink-0 cursor-col-resize border-l border-border transition-colors lg:block',
+            'hover:bg-muted focus:outline-none focus-visible:bg-muted',
+            arrastando && 'bg-muted',
+          )}
+        />
+      )}
+
       {/* ── Pré-visualização ───────────────────────────────────── */}
       {painelAberto && (
-        <div className="hidden w-[320px] shrink-0 flex-col border-l border-border bg-muted/10 lg:flex">
+        <div
+          className="hidden shrink-0 flex-col bg-muted/10 lg:flex"
+          style={{ width: `${largura}px` }}
+        >
           {!arquivoSel && (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
               <Eye className="h-7 w-7 text-muted-foreground/40" />
@@ -478,16 +552,16 @@ export function Explorador({
               <div className="flex min-h-[200px] flex-1 items-center justify-center overflow-hidden border-b border-border bg-background/50 p-2">
                 {previewCarregando && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
 
-                {!previewCarregando && previewUrl && tipoSel === 'imagem' && (
+                {!previewCarregando && previewUrl && previsualizavel && tipoSel === 'imagem' && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={previewUrl} alt={arquivoSel.nome} className="max-h-full max-w-full object-contain" />
                 )}
 
-                {!previewCarregando && previewUrl && (tipoSel === 'pdf' || tipoSel === 'texto') && (
+                {!previewCarregando && previewUrl && previsualizavel && tipoSel !== 'imagem' && (
                   <iframe src={previewUrl} title={arquivoSel.nome} className="h-full w-full border-0" />
                 )}
 
-                {!previewCarregando && !previewUrl && (
+                {!previewCarregando && (!previewUrl || !previsualizavel) && (
                   <div className="flex flex-col items-center gap-2 text-center">
                     <IconeArquivo nome={arquivoSel.nome} mime={arquivoSel.mimeType} className="h-10 w-10 text-muted-foreground/50" />
                     <p className="px-4 text-[11px] text-muted-foreground">
@@ -497,13 +571,13 @@ export function Explorador({
                 )}
               </div>
 
-              <div className="space-y-2.5 p-3">
+              <div className="space-y-2.5 overflow-y-auto nice-scrollbar p-3">
                 <div>
                   <p className="break-words text-[13px] font-semibold text-foreground">{arquivoSel.nome}</p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {selecionada.fonte === 'drive' ? 'Google Drive' : (
-                      arquivoSel.origem === 'CLIENTE' ? 'Enviado pelo cliente' : 'Publicado pelo escritório'
-                    )}
+                    {arquivoSel.origem === 'DRIVE' ? 'Google Drive'
+                      : arquivoSel.origem === 'CLIENTE' ? 'Enviado pelo cliente'
+                      : 'Publicado pelo escritório'}
                   </p>
                 </div>
 
@@ -519,9 +593,9 @@ export function Explorador({
                 </dl>
 
                 <div className="flex flex-col gap-1.5 pt-1">
-                  {urlDeDownload(arquivoSel) && (
+                  {previewUrl && (
                     <Button variant="outline" size="sm" className="w-full gap-1.5" asChild>
-                      <a href={urlDeDownload(arquivoSel)!} target="_blank" rel="noopener noreferrer">
+                      <a href={previewUrl} target="_blank" rel="noopener noreferrer">
                         <Download className="h-4 w-4" /> Abrir arquivo
                       </a>
                     </Button>
@@ -533,12 +607,12 @@ export function Explorador({
                       </a>
                     </Button>
                   )}
-                  {podeExcluir && selecionada.fonte === 'local' && (
+                  {podeExcluirAqui && (
                     <Button
                       variant="soft-destructive"
                       size="sm"
                       className="w-full gap-1.5"
-                      onClick={() => onExcluir({ id: arquivoSel.id, fileName: arquivoSel.nome })}
+                      onClick={() => onExcluir!({ id: arquivoSel.id, fileName: arquivoSel.nome })}
                     >
                       <Trash2 className="h-4 w-4" /> Excluir
                     </Button>

@@ -7,7 +7,7 @@
  * rota cuja única finalidade é abrir a pasta de UM cliente.
  */
 
-const cliente = { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() }
+const cliente = { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), findUnique: jest.fn() }
 const gestaoArquivosDrive = { findUnique: jest.fn(), upsert: jest.fn() }
 const clienteAreaContratada = { findMany: jest.fn() }
 
@@ -216,6 +216,70 @@ describe('abrirArquivo (o proxy que serve os bytes)', () => {
     await expect(
       svc.abrirArquivo({ clienteId: 'cli-9', fileId: 'f1' }, { userId: 'u2', isMaster: false, empresaId: 'emp-1' }),
     ).rejects.toThrow(/não encontrado/i)
+    expect(downloadStream).not.toHaveBeenCalled()
+  })
+})
+
+describe('lado do PORTAL (o cliente olhando a própria pasta)', () => {
+  const admin = { clienteId: 'cli-1', nivel: 'ADMINISTRADOR' as const, areas: ['fiscal'] }
+  const operacional = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'] }
+  const consulta = { clienteId: 'cli-1', nivel: 'CONSULTA' as const, areas: ['fiscal'] }
+
+  beforeEach(() => {
+    cliente.findUnique.mockResolvedValue({
+      portalDriveFolderId: 'pasta-do-cliente', portalDriveFolderNome: 'ACME',
+    })
+  })
+
+  it('só ADMINISTRADOR enxerga a pasta do Drive', () => {
+    // Os arquivos do Drive não têm categoria, e é a categoria que o portal usa
+    // para separar por área. Liberar para o OPERACIONAL de área fiscal
+    // entregaria a folha de pagamento junto.
+    expect(svc.podeVerDriveNoPortal(admin)).toBe(true)
+    expect(svc.podeVerDriveNoPortal(operacional)).toBe(false)
+    expect(svc.podeVerDriveNoPortal(consulta)).toBe(false)
+  })
+
+  it('quem não pode recebe explicação, não erro', async () => {
+    const r = await svc.listarParaPortal(operacional)
+    expect(r.vinculada).toBe(false)
+    expect(r.motivo).toMatch(/apenas para administradores/i)
+    expect(listFolderContents).not.toHaveBeenCalled()
+  })
+
+  it('administrador vê o conteúdo da própria pasta', async () => {
+    listFolderContents.mockResolvedValue([
+      { id: 'f1', name: 'guia.pdf', mimeType: 'application/pdf', size: 10, modifiedTime: '', webViewLink: 'https://drive/...', isFolder: false },
+    ])
+    const r = await svc.listarParaPortal(admin)
+    expect(r.vinculada).toBe(true)
+    expect(listFolderContents).toHaveBeenCalledWith('pasta-do-cliente')
+    // O link direto do Drive NÃO vai para o cliente: ele só abriria para quem
+    // tem a pasta compartilhada no Google, que é justamente o que o desenho
+    // quer deixar de exigir.
+    expect(r.itens[0]!.link).toBe('')
+  })
+
+  it('subpasta fora da pasta do cliente é recusada também no portal', async () => {
+    getParents.mockResolvedValue(['pasta-de-outro'])
+    await expect(svc.listarParaPortal(admin, 'alheia')).rejects.toThrow(/não encontrada/i)
+  })
+
+  it('OPERACIONAL não baixa arquivo do Drive nem sabendo o id', async () => {
+    getParents.mockResolvedValue(['pasta-do-cliente'])
+    await expect(svc.abrirArquivoParaPortal(operacional, 'f1')).rejects.toThrow(/não encontrado/i)
+    expect(downloadStream).not.toHaveBeenCalled()
+  })
+
+  it('administrador baixa arquivo que está dentro da pasta dele', async () => {
+    getParents.mockResolvedValue(['pasta-do-cliente'])
+    await expect(svc.abrirArquivoParaPortal(admin, 'f1'))
+      .resolves.toMatchObject({ nome: 'guia.pdf', mimeType: 'application/pdf' })
+  })
+
+  it('administrador NÃO baixa arquivo de fora da pasta dele', async () => {
+    getParents.mockResolvedValue(['pasta-de-outro-cliente'])
+    await expect(svc.abrirArquivoParaPortal(admin, 'alheio')).rejects.toThrow(/não encontrado/i)
     expect(downloadStream).not.toHaveBeenCalled()
   })
 })

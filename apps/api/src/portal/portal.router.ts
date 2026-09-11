@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { router, publicProcedure, portalSessaoProcedure, portalProcedure } from '../trpc/trpc.service'
 import type { PortalArquivosService } from './portal-arquivos.service'
+import type { GestaoArquivosDriveService } from '../gestao-arquivos/gestao-arquivos-drive.service'
 import type { ConviteValido } from './portal-tipos'
 import { listarVinculos } from './portal-escopo'
 
@@ -36,6 +37,7 @@ interface ConviteApi {
 export function createPortalRouter(
   conviteService: ConviteApi,
   arquivosService: PortalArquivosService,
+  driveService: GestaoArquivosDriveService,
 ) {
   return router({
     /**
@@ -65,6 +67,19 @@ export function createPortalRouter(
       abrirPasta: portalProcedure
         .input(z.object({ clienteId: z.string(), pastaId: z.string().nullish() }))
         .query(({ input, ctx }) => arquivosService.abrirPasta(ctx.portal, input.pastaId)),
+
+      /**
+       * A pasta do cliente no Google Drive do escritório.
+       *
+       * Só ADMINISTRADOR enxerga — ver `podeVerDriveNoPortal`. Não é excesso
+       * de zelo: os arquivos do Drive não têm categoria, e é a categoria que o
+       * portal usa para separar por área. Para quem não pode, devolve
+       * `vinculada: false` com o motivo, em vez de erro — a aba simplesmente
+       * explica que não está disponível.
+       */
+      drive: portalProcedure
+        .input(z.object({ clienteId: z.string(), subPastaId: z.string().nullish() }))
+        .query(({ input, ctx }) => driveService.listarParaPortal(ctx.portal, input.subPastaId)),
 
       criarPasta: portalProcedure
         .input(z.object({

@@ -17,6 +17,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { Explorador } from '../_components/explorador'
+import { useFontesDoEscritorio } from '../_components/fontes-escritorio'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
 const MODULE = 'gestao-arquivos'
@@ -77,6 +78,8 @@ export default function GestaoArquivosClientePage() {
       return x.moduleSlug === MODULE && x.canDelete === true
     })
   }, [permissions, isMaster, isEmpresaMaster])
+
+  const fontes = useFontesDoEscritorio(clienteId, podeExcluir)
 
   useEffect(() => {
     if (aba !== 'trilha') return
@@ -171,8 +174,8 @@ export default function GestaoArquivosClientePage() {
       {aba === 'explorador' && (
         <Explorador
           key={versao}
-          clienteId={clienteId}
-          podeExcluir={podeExcluir}
+          fontes={fontes}
+          cor={MODULE_COLOR}
           onExcluir={a => { setAExcluir(a); setMotivo('') }}
         />
       )}

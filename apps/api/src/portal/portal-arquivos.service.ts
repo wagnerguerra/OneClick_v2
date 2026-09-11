@@ -255,6 +255,11 @@ export class PortalArquivosService {
       where: {
         clienteId: vinculo.clienteId,
         visivelParaCliente: true,
+        // Excluído pelo escritório some daqui também. A exclusão é lógica (o
+        // registro continua na tabela, para a lixeira e para a auditoria), então
+        // sem este filtro o arquivo seguiria aparecendo para o cliente depois de
+        // apagado — e continuaria baixável.
+        excluidoEm: null,
         pastaId: pastaId ?? null,
         ...this.filtroDeCategoria(vinculo),
       },
@@ -294,7 +299,12 @@ export class PortalArquivosService {
     const arquivo = await prisma.clienteArquivo.findFirst({
       // `clienteId` no where, e não um findUnique por id: sem ele, um id
       // adivinhado devolveria arquivo de outro cliente.
-      where: { id: arquivoId, clienteId: vinculo.clienteId, visivelParaCliente: true },
+      where: {
+        id: arquivoId,
+        clienteId: vinculo.clienteId,
+        visivelParaCliente: true,
+        excluidoEm: null,
+      },
       select: { id: true, fileUrl: true, fileName: true, categoria: true, lidoEm: true },
     })
     if (!arquivo || !this.categoriaLiberada(vinculo, arquivo.categoria)) {

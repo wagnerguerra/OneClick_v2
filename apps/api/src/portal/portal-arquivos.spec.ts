@@ -346,3 +346,20 @@ describe('pendências', () => {
       .toEqual({ clienteId: 'cli-1', situacao: 'PENDENTE' })
   })
 })
+
+describe('arquivo excluído pelo escritório', () => {
+  it('some da listagem do cliente', async () => {
+    // A exclusão é lógica — a linha continua na tabela para a lixeira e para a
+    // auditoria. Sem o filtro, o arquivo seguiria na tela do cliente depois de
+    // apagado.
+    await svc.listar(vinculo())
+    const w = arg<{ where: Record<string, unknown> }>(arquivo.findMany).where
+    expect(w.excluidoEm).toBeNull()
+  })
+
+  it('e não abre nem com o id na mão', async () => {
+    await svc.abrir(vinculo(), 'a1', 'u1').catch(() => undefined)
+    const w = arg<{ where: Record<string, unknown> }>(arquivo.findFirst).where
+    expect(w.excluidoEm).toBeNull()
+  })
+})
