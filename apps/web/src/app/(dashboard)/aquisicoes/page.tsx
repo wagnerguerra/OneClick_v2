@@ -18,16 +18,17 @@ import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
 import { STATUS_COMPRA_LABELS } from '@saas/types'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { BADGE } from '@/lib/color-styles'
 
 const PAGE_SIZES = [10, 20, 50]
 
 const STATUS_COLORS: Record<string, string> = {
-  NOVO: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/40 dark:text-slate-300 dark:border-slate-700',
-  AGUARDANDO_APROVACAO: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800',
-  APROVADO: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800',
-  REPROVADO: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800',
-  RECEBIDO: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-800',
-  AVALIADO: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
+  NOVO: BADGE.slate,
+  AGUARDANDO_APROVACAO: BADGE.amber,
+  APROVADO: BADGE.sky,
+  REPROVADO: BADGE.rose,
+  RECEBIDO: BADGE.indigo,
+  AVALIADO: BADGE.emerald,
   CANCELADO: 'bg-muted text-muted-foreground border-border',
 }
 const STATUS_OPCOES = ['NOVO', 'AGUARDANDO_APROVACAO', 'APROVADO', 'REPROVADO', 'RECEBIDO', 'AVALIADO']

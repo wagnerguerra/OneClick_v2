@@ -13,6 +13,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import { TEXT, BADGE, SURFACE } from '@/lib/color-styles'
 import { UserMultiPicker } from '@/components/user-multi-picker'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -187,7 +188,7 @@ export default function CapacitacaoDetalhePage() {
                 {CAPACITACAO_STATUS_LABEL[c.status as keyof typeof CAPACITACAO_STATUS_LABEL] ?? c.status}
               </Badge>
               {vencida && (
-                <Badge variant="outline" className="text-[11px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800">
+                <Badge variant="outline" className={cn('text-[11px]', BADGE.rose)}>
                   <AlertTriangle className="h-3 w-3 mr-0.5" />Avaliação vencida
                 </Badge>
               )}
@@ -220,7 +221,7 @@ export default function CapacitacaoDetalhePage() {
             {editandoParticipantes ? (
               <div className="space-y-3">
                 <UserMultiPicker users={usuarios} value={novosParticipantes} onChange={setNovosParticipantes}
-                  placeholder="Escolha os participantes" accentClass="bg-amber-500 border-amber-500" />
+                  placeholder="Escolha os participantes" accentClass="bg-[var(--mod-qualidade,#fbbf24)] border-[var(--mod-qualidade,#fbbf24)]" />
                 {/* Quem já confirmou não sai por edição — a confirmação é um
                     fato, e apagá-la reescreveria a história da capacitação. */}
                 <p className="text-[11px] text-muted-foreground">
@@ -242,14 +243,14 @@ export default function CapacitacaoDetalhePage() {
                   return (
                     <div key={p.id} className={cn(
                       'flex items-center gap-2 rounded-md border p-2 text-xs',
-                      p.confirmado ? 'border-emerald-300/60 bg-emerald-50/40 dark:border-emerald-800/50 dark:bg-emerald-950/10' : 'border-border bg-muted/20',
+                      p.confirmado ? SURFACE.emerald : 'border-border bg-muted/20',
                     )}>
                       <span className="flex-1 truncate">
                         {nomeDe(p)}
                         {!p.usuarioId && <span className="text-muted-foreground"> · do sistema antigo</span>}
                       </span>
                       {p.confirmado ? (
-                        <span className="text-emerald-700 dark:text-emerald-400 shrink-0" title={`Confirmou em ${dataBR(p.confirmadoEm)}`}>
+                        <span className={cn(TEXT.emerald, 'shrink-0')} title={`Confirmou em ${dataBR(p.confirmadoEm)}`}>
                           <Check className="h-3.5 w-3.5" />
                         </span>
                       ) : (euMesmo || podeGerenciar) && p.usuarioId ? (
@@ -266,7 +267,7 @@ export default function CapacitacaoDetalhePage() {
               </div>
             )}
             {souParticipante && !souParticipante.confirmado && (
-              <p className="mt-3 text-[11px] text-amber-700 dark:text-amber-400">
+              <p className={cn('mt-3 text-[11px]', TEXT.amber)}>
                 Você está inscrito nesta capacitação e ainda não confirmou presença.
               </p>
             )}
@@ -280,9 +281,7 @@ export default function CapacitacaoDetalhePage() {
                 <h4 className="text-[13px] font-semibold text-foreground">Avaliação de eficácia</h4>
                 {c.objetivosAtingidos != null && (
                   <Badge variant="outline" className={cn('text-[10px]',
-                    c.objetivosAtingidos
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800'
-                      : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800')}>
+                    c.objetivosAtingidos ? BADGE.emerald : BADGE.rose)}>
                     {c.objetivosAtingidos ? 'Objetivos atingidos' : 'Objetivos não atingidos'}
                   </Badge>
                 )}

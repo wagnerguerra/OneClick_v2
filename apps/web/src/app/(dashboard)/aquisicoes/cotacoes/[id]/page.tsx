@@ -21,6 +21,7 @@ import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import { masks } from '@/lib/masks'
 import { STATUS_COTACAO_LABELS } from '@saas/types'
+import { BADGE } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 const brl = (v: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -32,11 +33,11 @@ const COTACAO_TABS = [
 ] as const
 
 const STATUS_COLORS: Record<string, string> = {
-  RASCUNHO: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  ENVIADA: 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400',
-  APURACAO: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
-  CONVERTIDA: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-  CANCELADA: 'bg-muted text-muted-foreground',
+  RASCUNHO: BADGE.slate,
+  ENVIADA: BADGE.sky,
+  APURACAO: BADGE.amber,
+  CONVERTIDA: BADGE.emerald,
+  CANCELADA: 'bg-muted text-muted-foreground border-border',
 }
 
 interface Preco { cotacaoFornecedorId: string; valorUnitario: number | null; disponivel: boolean; observacoes: string | null }
@@ -175,7 +176,7 @@ export default function CotacaoDetalhePage() {
           <span>Cotações</span>
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-          <Badge className={cn('text-[11px]', STATUS_COLORS[c.status])}>{STATUS_COTACAO_LABELS[c.status] ?? c.status}</Badge>
+          <Badge variant="outline" className={cn('text-[11px]', STATUS_COLORS[c.status])}>{STATUS_COTACAO_LABELS[c.status] ?? c.status}</Badge>
           <span>
             {c.titulo || 'sem título'}
             {c.solicitanteNome ? ` · ${c.solicitanteNome}` : ''}
@@ -186,7 +187,7 @@ export default function CotacaoDetalhePage() {
       {convertida && (
         <Card className="border-emerald-300 bg-emerald-50 p-3 text-sm dark:bg-emerald-950/20">
           <div className="flex flex-wrap items-center gap-2">
-            <Check className="h-4 w-4 shrink-0 text-emerald-600" />
+            <Check className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
             <span className="text-emerald-800 dark:text-emerald-400">Cotação convertida. Pedidos gerados:</span>
             {c.pedidosGerados.map((p) => (
               <Link key={p.id} href={`/aquisicoes/${p.id}`}
@@ -200,7 +201,7 @@ export default function CotacaoDetalhePage() {
 
       <Card className="overflow-hidden">
         <div className="flex min-h-[500px]">
-          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {COTACAO_TABS.map((t) => {
                 const Icon = t.icon
@@ -607,7 +608,7 @@ function ApuracaoTab({ cotacao, bloqueado, acao, onChange }: {
 
       <ComparativoPainel cotacao={cotacao} bloqueado={bloqueado} acao={acao} />
 
-      <div className="mt-5 overflow-x-auto">
+      <div className="mt-5 overflow-x-auto nice-scrollbar">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-muted/40">

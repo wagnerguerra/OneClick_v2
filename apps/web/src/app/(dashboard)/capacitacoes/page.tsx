@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BADGE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { CAPACITACAO_STATUS_LABEL, CAPACITACAO_AMBITO_LABEL } from '@saas/types'
@@ -22,12 +23,12 @@ const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
 const PAGE_SIZES = [10, 20, 50]
 
 export const STATUS_COLORS: Record<string, string> = {
-  SOLICITADA: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800',
-  AGUARDANDO_AUTORIZACAO: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800',
-  AUTORIZADA: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-800',
-  AVALIADA: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
+  SOLICITADA: BADGE.sky,
+  AGUARDANDO_AUTORIZACAO: BADGE.amber,
+  AUTORIZADA: BADGE.indigo,
+  AVALIADA: BADGE.emerald,
   FINALIZADA: 'bg-muted text-muted-foreground border-border',
-  CANCELADA: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800',
+  CANCELADA: BADGE.rose,
 }
 const STATUS_OPCOES = ['SOLICITADA', 'AGUARDANDO_AUTORIZACAO', 'AUTORIZADA', 'AVALIADA', 'FINALIZADA', 'CANCELADA']
 
@@ -224,13 +225,13 @@ export default function CapacitacoesPage() {
                       </Badge>
                       {/* Derivado no backend — a tela só compõe. */}
                       {c.avaliacaoVencida && (
-                        <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800"
+                        <Badge variant="outline" className={cn('text-[10px]', BADGE.rose)}
                           title={`Prazo de avaliação venceu em ${dataBR(c.prazoAvaliacao)}`}>
                           <AlertTriangle className="h-3 w-3 mr-0.5" />Avaliação vencida
                         </Badge>
                       )}
                       {c.objetivosAtingidos === false && (
-                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+                        <Badge variant="outline" className={cn('text-[10px]', BADGE.amber)}>
                           Objetivos não atingidos
                         </Badge>
                       )}

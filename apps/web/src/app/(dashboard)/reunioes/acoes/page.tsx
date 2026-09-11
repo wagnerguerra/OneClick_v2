@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BADGE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { BackButton } from '@/components/ui/back-button'
@@ -171,9 +172,7 @@ export default function AcoesReunioesPage() {
                     <TableCell>
                       {a.prazo ? (
                         <Badge variant="outline" className={cn('text-[10px] tabular-nums',
-                          vencida
-                            ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800'
-                            : 'bg-muted text-muted-foreground border-border')}>
+                          vencida ? BADGE.rose : 'bg-muted text-muted-foreground border-border')}>
                           {vencida && <AlertTriangle className="h-3 w-3 mr-0.5" />}{dataBR(a.prazo)}
                         </Badge>
                       ) : <span className="text-xs text-muted-foreground">—</span>}

@@ -14,6 +14,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { ManifestacaoDetalhe } from './manifestacao-detalhe'
 import { NovaManifestacaoModal } from './nova-manifestacao'
@@ -23,14 +24,14 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 
 /** Rótulo e cor de cada situação — os três tipos compartilham a paleta. */
 export const STATUS_LABEL: Record<string, { texto: string; classe: string }> = {
-  RECEBIDA: { texto: 'Recebida', classe: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' },
-  RESPONDIDA: { texto: 'Respondida', classe: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300' },
-  ENCERRADA: { texto: 'Encerrada', classe: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
-  AGUARDANDO_RETORNO: { texto: 'Aguardando retorno', classe: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
-  AGUARDANDO_ANALISE: { texto: 'Aguardando análise', classe: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' },
-  REGISTRAR_EFICACIA: { texto: 'Registrar eficácia', classe: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' },
-  NAO_PROCEDENTE: { texto: 'Não procedente', classe: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' },
-  FINALIZADA: { texto: 'Finalizada', classe: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+  RECEBIDA: { texto: 'Recebida', classe: BADGE.sky },
+  RESPONDIDA: { texto: 'Respondida', classe: BADGE.violet },
+  ENCERRADA: { texto: 'Encerrada', classe: BADGE.emerald },
+  AGUARDANDO_RETORNO: { texto: 'Aguardando retorno', classe: BADGE.amber },
+  AGUARDANDO_ANALISE: { texto: 'Aguardando análise', classe: BADGE.sky },
+  REGISTRAR_EFICACIA: { texto: 'Registrar eficácia', classe: BADGE.indigo },
+  NAO_PROCEDENTE: { texto: 'Não procedente', classe: BADGE.slate },
+  FINALIZADA: { texto: 'Finalizada', classe: BADGE.emerald },
 }
 
 /**
@@ -239,10 +240,10 @@ function Farol({ prazo }: { prazo: string }) {
   const faltam = Math.round((so(new Date(prazo)) - so(new Date())) / dia)
 
   const cor = faltam < 0
-    ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
+    ? BADGE.rose
     : faltam <= 1
-      ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-      : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+      ? BADGE.amber
+      : BADGE.emerald
 
   const texto = faltam < 0
     ? `venceu há ${Math.abs(faltam)}d`
@@ -285,7 +286,7 @@ function ProtocoloEntregue({ protocolo, onClose }: { protocolo: string | null; o
         <DialogBody className="space-y-3 text-center">
           <p className="select-all font-mono text-2xl font-bold tracking-wider">{protocolo}</p>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={copiar}>
-            {copiado ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+            {copiado ? <Check className={cn('h-3.5 w-3.5', TEXT.emerald)} /> : <Copy className="h-3.5 w-3.5" />}
             {copiado ? 'Copiado' : 'Copiar código'}
           </Button>
           <p className="text-[12px] text-muted-foreground">

@@ -16,14 +16,15 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { BADGE } from '@/lib/color-styles'
 import { MELHORIA_STATUS_LABEL, STATUS_COMPRA_LABELS } from '@saas/types'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 
 const STATUS_COLORS: Record<string, string> = {
-  REGISTRADA: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800',
-  IMPLEMENTADA: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
-  CANCELADA: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800',
+  REGISTRADA: BADGE.sky,
+  IMPLEMENTADA: BADGE.emerald,
+  CANCELADA: BADGE.rose,
 }
 
 interface Row {

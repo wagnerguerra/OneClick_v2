@@ -11,6 +11,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
+import { SURFACE } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -170,7 +171,7 @@ export default function TabelaRegistroDetalhePage() {
               return (
                 <div key={v.id} className={cn(
                   'rounded-lg border p-3 transition-colors',
-                  ehVigente ? 'border-amber-300/70 bg-amber-50/40 dark:border-amber-700/50 dark:bg-amber-950/10' : 'border-border bg-muted/20',
+                  ehVigente ? SURFACE.amber : 'border-border bg-muted/20',
                 )}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold tabular-nums">Versão {v.versao}</span>

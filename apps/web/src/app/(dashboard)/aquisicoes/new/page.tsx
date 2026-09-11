@@ -98,7 +98,7 @@ export default function NovoPedidoPage() {
       {/* Card único — todas as abas do pedido nas pills laterais */}
       <Card className="overflow-hidden">
         <div className="flex min-h-[450px]">
-          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {NOVO_TABS.map((t) => {
                 const Icon = t.icon

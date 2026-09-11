@@ -233,7 +233,16 @@ export default function AtivoDetalhePage() {
 
   return (
     <div className="space-y-0 pb-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-0"
+        // Cor da aba ativa = cor do módulo (var, editável no design-system),
+        // porém theme-adaptativa: mistura com o foreground → escurece no claro
+        // (contraste sobre a barra clara) e clareia no dark. O color-mix mora no
+        // style inline (seguro); a classe arbitrária só referencia a var.
+        style={{ ['--mod-accent']: 'color-mix(in srgb, var(--mod-ti, #22d3ee) 70%, var(--color-foreground))' } as React.CSSProperties}
+      >
 
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar className="mb-0" actions={<>
@@ -292,27 +301,27 @@ export default function AtivoDetalhePage() {
             Classes !-prefixadas vencem as regras globais de [role="tablist"]. */}
         <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto nice-scrollbar flex justify-center">
           <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
-            <TabsTrigger value="identificacao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="identificacao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <FileText className="h-3.5 w-3.5" /> Identificação
             </TabsTrigger>
-            <TabsTrigger value="aquisicao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="aquisicao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <Coins className="h-3.5 w-3.5" /> Aquisição
             </TabsTrigger>
-            <TabsTrigger value="atribuicao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="atribuicao" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <Shield className="h-3.5 w-3.5" /> Atribuição
             </TabsTrigger>
-            <TabsTrigger value="manutencoes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="manutencoes" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <Wrench className="h-3.5 w-3.5" /> Manutenções
               {(ativo.manutencoes?.length ?? 0) > 0 && <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{ativo.manutencoes.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="anexos" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="anexos" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <Paperclip className="h-3.5 w-3.5" /> Anexos
               {(ativo.anexos?.length ?? 0) > 0 && <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{ativo.anexos.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="tickets" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="tickets" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <AlertCircle className="h-3.5 w-3.5" /> Tickets
             </TabsTrigger>
-            <TabsTrigger value="historico" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-cyan-400 gap-1.5">
+            <TabsTrigger value="historico" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-[var(--mod-accent)] dark:data-[state=active]:!bg-transparent gap-1.5">
               <History className="h-3.5 w-3.5" /> Histórico
             </TabsTrigger>
           </SlidingTabsList>

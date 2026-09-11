@@ -17,14 +17,15 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { STATUS_COTACAO_LABELS } from '@saas/types'
+import { BADGE } from '@/lib/color-styles'
 
 const PAGE_SIZES = [10, 20, 50]
 
 const STATUS_COLORS: Record<string, string> = {
-  RASCUNHO: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/40 dark:text-slate-300 dark:border-slate-700',
-  ENVIADA: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800',
-  APURACAO: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800',
-  CONVERTIDA: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
+  RASCUNHO: BADGE.slate,
+  ENVIADA: BADGE.sky,
+  APURACAO: BADGE.amber,
+  CONVERTIDA: BADGE.emerald,
   CANCELADA: 'bg-muted text-muted-foreground border-border',
 }
 const STATUS_OPCOES = ['RASCUNHO', 'ENVIADA', 'APURACAO', 'CONVERTIDA', 'CANCELADA']

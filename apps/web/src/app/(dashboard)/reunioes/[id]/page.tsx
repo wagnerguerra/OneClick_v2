@@ -9,9 +9,10 @@ import {
 import {
   Button, Input, Label, Card, Badge, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   RichEditor, RichContent,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BADGE, SURFACE } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
@@ -193,7 +194,7 @@ export default function ReuniaoDetalhePage() {
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <div className="min-w-0">
               {pendentes.length > 0 && (
-                <Badge variant="outline" className="text-[11px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+                <Badge variant="outline" className={cn('text-[11px]', BADGE.amber)}>
                   {pendentes.length} ação{pendentes.length === 1 ? '' : 'ões'} pendente{pendentes.length === 1 ? '' : 's'}
                 </Badge>
               )}
@@ -274,9 +275,9 @@ export default function ReuniaoDetalhePage() {
                     <div key={a.id} className={cn(
                       'rounded-md border p-3 text-sm',
                       a.status === 'CONCLUIDA'
-                        ? 'border-emerald-300/60 bg-emerald-50/40 dark:border-emerald-800/50 dark:bg-emerald-950/10'
+                        ? SURFACE.emerald
                         : vencida
-                          ? 'border-rose-300/60 bg-rose-50/40 dark:border-rose-800/50 dark:bg-rose-950/10'
+                          ? SURFACE.rose
                           : 'border-border bg-muted/20',
                     )}>
                       <div className="flex items-start justify-between gap-2">
@@ -460,11 +461,13 @@ export default function ReuniaoDetalhePage() {
             <div className="grid grid-cols-12 gap-4">
               <div className="col-span-12 sm:col-span-7">
                 <Label className="text-[13px] font-semibold">Responsável</Label>
-                <select value={acaoResponsavelId} onChange={(e) => setAcaoResponsavelId(e.target.value)}
-                  className="mt-1.5 flex h-9 w-full rounded-md px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="">Sem responsável</option>
-                  {usuarios.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
+                <Select value={acaoResponsavelId || '__none__'} onValueChange={(v) => setAcaoResponsavelId(v === '__none__' ? '' : v)}>
+                  <SelectTrigger className="h-9 text-sm mt-1.5"><SelectValue placeholder="Sem responsável" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem responsável</SelectItem>
+                    {usuarios.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="col-span-12 sm:col-span-5">
                 <Label className="text-[13px] font-semibold">Prazo</Label>

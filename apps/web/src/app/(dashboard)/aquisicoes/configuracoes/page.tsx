@@ -6,7 +6,7 @@ import {
   ShieldCheck, ClipboardList, Loader2, Plus, Trash2, Pencil, X, Check,
   AlertTriangle,
 } from 'lucide-react'
-import { Button, Card, Input, Avatar, AvatarImage, AvatarFallback, Badge, cn } from '@saas/ui'
+import { Button, Card, Input, Avatar, AvatarImage, AvatarFallback, Badge, Switch, cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -74,7 +74,7 @@ export default function AquisicoesConfiguracoesPage() {
 
       <Card className="overflow-hidden">
         <div className="flex min-h-[450px]">
-          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <div className="space-y-1">
               {CONFIG_TABS.map((t) => {
                 const Icon = t.icon
@@ -186,24 +186,14 @@ function AprovadoresTab() {
               {u.implicito ? (
                 <Badge variant="secondary" className="shrink-0 text-[10px]">aprova sempre</Badge>
               ) : (
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={u.aprovador}
+                <Switch
+                  checked={u.aprovador}
                   disabled={salvando === u.id}
-                  onClick={() => alternar(u)}
-                  className={cn(
-                    'relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-60',
-                    u.aprovador ? '' : 'bg-muted-foreground/30',
-                  )}
-                  style={u.aprovador ? { backgroundColor: MODULE_COLOR } : undefined}
+                  onCheckedChange={() => alternar(u)}
+                  accentColor={MODULE_COLOR}
+                  className="shrink-0"
                   title={u.aprovador ? 'Remover como aprovador' : 'Tornar aprovador'}
-                >
-                  <span className={cn(
-                    'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all',
-                    u.aprovador ? 'left-[18px]' : 'left-0.5',
-                  )} />
-                </button>
+                />
               )}
             </div>
           ))}

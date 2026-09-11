@@ -23,6 +23,7 @@ import {
   ANALISE_CONTEXTO_ACAO_TIPO_LABEL, TIPOS_POR_ANALISE,
 } from '@saas/types'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
+import { BADGE } from '@/lib/color-styles'
 import { MODULE_COLOR, ANALISE_BADGE, TIPO_BADGE, riscoClasse, dataBR } from '../shared'
 
 interface Acao {
@@ -351,9 +352,7 @@ export default function AnaliseContextoDetalhePage() {
             </div>
             {r.avaliado ? (
               <div className="space-y-2">
-                <Badge variant="outline" className={cn('text-[11px]', r.eficaz
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800'
-                  : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800')}>
+                <Badge variant="outline" className={cn('text-[11px]', r.eficaz ? BADGE.emerald : BADGE.rose)}>
                   {r.eficaz ? 'Tratamento eficaz' : 'Tratamento não eficaz'}
                 </Badge>
                 {r.avaliacao && <RichContent className="text-sm [&_p]:my-1" html={r.avaliacao} />}

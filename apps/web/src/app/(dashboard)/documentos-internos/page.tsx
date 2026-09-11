@@ -13,6 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { BADGE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { alerts } from '@/lib/alerts'
@@ -23,12 +24,12 @@ const PAGE_SIZES = [10, 20, 50]
 
 /** As cores vêm do próprio v1 (`sgq_doc_sit.cor`), traduzidas para o tema. */
 export const SITUACAO_COLORS: Record<string, string> = {
-  NOVO: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800',
-  EM_APROVACAO: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800',
-  APROVADO: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
+  NOVO: BADGE.sky,
+  EM_APROVACAO: BADGE.amber,
+  APROVADO: BADGE.emerald,
   SUBSTITUIDO: 'bg-muted text-muted-foreground border-border',
-  CANCELADO: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800',
-  REJEITADO: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800',
+  CANCELADO: BADGE.rose,
+  REJEITADO: BADGE.rose,
 }
 const SITUACAO_OPCOES = ['NOVO', 'EM_APROVACAO', 'APROVADO', 'SUBSTITUIDO', 'CANCELADO', 'REJEITADO']
 
