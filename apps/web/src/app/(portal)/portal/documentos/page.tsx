@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   FolderPlus, Upload, Loader2, Clock, AlertCircle, Inbox, ArrowUpFromLine, X, Trash2,
+  CheckCircle2, Info,
 } from 'lucide-react'
 import { cn } from '@saas/ui'
 
@@ -48,6 +49,47 @@ function diasAte(prazo: string): number {
   return Math.round((d.getTime() - hoje.getTime()) / 86_400_000)
 }
 
+/**
+ * Faixa de aviso do portal.
+ *
+ * Sucesso some sozinho em 4s; erro FICA até alguém fechar. Um erro que
+ * desaparece é um erro que ninguém leu — e aqui ele costuma significar que o
+ * arquivo não chegou, que é justamente o que a pessoa precisa saber.
+ */
+function FaixaDeAviso({ aviso, onFechar }: {
+  aviso: { tipo: 'sucesso' | 'erro' | 'info'; texto: string }
+  onFechar: () => void
+}) {
+  useEffect(() => {
+    if (aviso.tipo === 'erro') return
+    const t = window.setTimeout(onFechar, 4000)
+    return () => window.clearTimeout(t)
+  }, [aviso, onFechar])
+
+  const estilo = {
+    sucesso: 'border-[#bfe3cd] bg-[#eefaf2] text-[#1c7a45] dark:border-[#1e3b2b] dark:bg-[#122019] dark:text-[#6fcf97]',
+    erro: 'border-[#f0c9b4] bg-[#fdf0e6] text-[#c2510f] dark:border-[#4a2c17] dark:bg-[#2a1a10] dark:text-[#e09a6a]',
+    info: 'border-[#dbe7fb] bg-[#f2f7ff] text-[#0b4fd0] dark:border-[#1b2739] dark:bg-[#16233a] dark:text-[#7db0ff]',
+  }[aviso.tipo]
+
+  const Icone = aviso.tipo === 'sucesso' ? CheckCircle2 : aviso.tipo === 'erro' ? AlertCircle : Info
+
+  return (
+    <div className={cn('anim-descer flex items-center gap-2.5 rounded-lg border px-4 py-2.5', estilo)}>
+      <Icone className="h-4 w-4 shrink-0" />
+      <p className="min-w-0 flex-1 text-[13px]">{aviso.texto}</p>
+      <button
+        type="button"
+        onClick={onFechar}
+        className="shrink-0 rounded p-0.5 opacity-60 transition-opacity hover:opacity-100"
+        aria-label="Fechar aviso"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  )
+}
+
 export default function PortalDocumentosPage() {
   const { clienteId, vinculo } = usePortal()
   // Permissão explícita do usuário, não mais deduzida do nível: o escritório
@@ -57,7 +99,14 @@ export default function PortalDocumentosPage() {
 
   const [pendencias, setPendencias] = useState<Solicitacao[]>([])
   const [enviando, setEnviando] = useState<string | null>(null)
-  const [aviso, setAviso] = useState<string | null>(null)
+  /**
+   * Aviso com tipo.
+   *
+   * Era texto solto numa faixa azul: "Arquivo enviado" e "Falha ao enviar"
+   * saíam idênticos, e a diferença entre deu certo e deu errado ficava só nas
+   * palavras. Cor, ícone e permanência agora dizem antes da leitura.
+   */
+  const [aviso, setAviso] = useState<{ tipo: 'sucesso' | 'erro' | 'info'; texto: string } | null>(null)
   const [criandoPasta, setCriandoPasta] = useState(false)
   const [nomeNovaPasta, setNomeNovaPasta] = useState('')
   /** Arquivo aguardando confirmação de exclusão. */
@@ -98,10 +147,10 @@ export default function PortalDocumentosPage() {
       })
       setNomeNovaPasta('')
       setCriandoPasta(false)
-      setAviso(null)
+      setAviso({ tipo: 'sucesso', texto: `Pasta "${nome}" criada.` })
       setVersao(v => v + 1)
     } catch (e) {
-      setAviso((e as Error).message)
+      setAviso({ tipo: 'erro', texto: (e as Error).message })
     }
   }
 
@@ -110,11 +159,11 @@ export default function PortalDocumentosPage() {
     setExcluindo(true)
     try {
       await (trpc.portal as any).arquivos.driveExcluir.mutate({ clienteId, itemId: aExcluir.id })
-      setAviso(`"${aExcluir.fileName}" foi para a lixeira.`)
+      setAviso({ tipo: 'sucesso', texto: `"${aExcluir.fileName}" foi para a lixeira.` })
       setAExcluir(null)
       setVersao(v => v + 1)
     } catch (e) {
-      setAviso((e as Error).message)
+      setAviso({ tipo: 'erro', texto: (e as Error).message })
     } finally {
       setExcluindo(false)
     }
@@ -160,10 +209,13 @@ export default function PortalDocumentosPage() {
           .mutate({ clienteId, solicitacaoId: alvo.id })
           .catch(() => undefined)
       }
-      setAviso(alvo ? `Pendência "${alvo.titulo}" resolvida.` : 'Arquivo enviado.')
+      setAviso({
+        tipo: 'sucesso',
+        texto: alvo ? `Pendência "${alvo.titulo}" resolvida.` : `"${file.name}" enviado.`,
+      })
       setVersao(v => v + 1)
     } catch (e) {
-      setAviso((e as Error).message)
+      setAviso({ tipo: 'erro', texto: (e as Error).message })
     } finally {
       setEnviando(null)
       if (inputRef.current) inputRef.current.value = ''
@@ -206,14 +258,10 @@ export default function PortalDocumentosPage() {
         ) : undefined}
       />
 
-      {aviso && (
-        <p className="rounded-lg border border-[#dbe7fb] bg-[#f2f7ff] px-4 py-2.5 text-[13px] text-[#0b4fd0] dark:border-[#1b2739] dark:bg-[#16233a] dark:text-[#7db0ff]">
-          {aviso}
-        </p>
-      )}
+      {aviso && <FaixaDeAviso aviso={aviso} onFechar={() => setAviso(null)} />}
 
       {criandoPasta && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#e6ebf2] bg-white p-3 dark:border-[#1b2739] dark:bg-[#0e1726]">
+        <div className="anim-descer flex flex-wrap items-center gap-2 rounded-xl border border-[#e6ebf2] bg-white p-3 dark:border-[#1b2739] dark:bg-[#0e1726]">
           <FolderPlus className="h-4 w-4 shrink-0 text-[#1a6dff]" />
           <input
             autoFocus
@@ -310,11 +358,13 @@ export default function PortalDocumentosPage() {
           texto diz para onde o arquivo vai: "excluir" que some para sempre e
           "excluir" que volta por 30 dias pesam diferente na mão de quem clica. */}
       {aExcluir && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#f0c9b4] bg-[#fdf0e6] p-3 dark:border-[#4a2c17] dark:bg-[#2a1a10]">
+        <div className="anim-descer flex flex-wrap items-center gap-3 rounded-xl border border-[#f0c9b4] bg-[#fdf0e6] p-3 dark:border-[#4a2c17] dark:bg-[#2a1a10]">
           <AlertCircle className="h-4 w-4 shrink-0 text-[#d97b34]" />
           <p className="min-w-0 flex-1 text-[13px] text-slate-900 dark:text-slate-100">
             Excluir <span className="font-semibold">{aExcluir.fileName}</span>?
-            <span className="text-slate-600 dark:text-slate-400"> Vai para a lixeira e volta por 30 dias.</span>
+            <span className="text-slate-600 dark:text-slate-400">
+              {' '}Vai para a lixeira do Google Drive e volta por 30 dias.
+            </span>
           </p>
           <button
             type="button"
@@ -337,11 +387,11 @@ export default function PortalDocumentosPage() {
       )}
 
       <Explorador
-        key={versao}
         fontes={fontes}
         cor={COR_PORTAL}
         altura="h-[calc(100vh-290px)]"
         onPastaAtual={aoMudarPasta}
+        recarregar={versao}
         onExcluir={a => { setAviso(null); setAExcluir(a) }}
       />
     </div>

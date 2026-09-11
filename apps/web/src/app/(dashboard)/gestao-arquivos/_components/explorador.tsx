@@ -296,7 +296,7 @@ function FilaDeEnvio({ fila, onFechar }: { fila: EnvioEmCurso[]; onFechar: () =>
   const terminou = concluidos + comErro === fila.length
 
   return (
-    <div className="absolute bottom-3 right-3 z-30 w-[320px] overflow-hidden rounded-lg border border-border bg-card shadow-lg">
+    <div className="anim-subir absolute bottom-3 right-3 z-30 w-[320px] overflow-hidden rounded-lg border border-border bg-card shadow-lg">
       <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
         <UploadCloud className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-foreground">
@@ -353,7 +353,7 @@ function FilaDeEnvio({ fila, onFechar }: { fila: EnvioEmCurso[]; onFechar: () =>
 }
 
 export function Explorador({
-  fontes, cor, altura = 'h-[calc(100vh-260px)]', onExcluir, onPastaAtual, acoes,
+  fontes, cor, altura = 'h-[calc(100vh-260px)]', onExcluir, onPastaAtual, recarregar, acoes,
 }: {
   fontes: FonteExplorador[]
   cor: string
@@ -365,6 +365,16 @@ export function Explorador({
    * este aviso o botão de enviar mandaria sempre para a raiz.
    */
   onPastaAtual?: (fonte: Fonte, id: string | null) => void
+  /**
+   * Mude este número para recarregar a pasta ABERTA.
+   *
+   * Existe porque a alternativa que estava em uso — `key={versao}` na tela de
+   * fora — remonta o componente inteiro, e remontar zera a navegação: excluir
+   * um arquivo dentro de "2026" devolvia a pessoa à raiz. O estado da
+   * navegação mora aqui, então quem precisa recarregar avisa, em vez de
+   * destruir.
+   */
+  recarregar?: number
   /** Botões extras na barra da lista (enviar, nova pasta). */
   acoes?: React.ReactNode
 }) {
@@ -430,6 +440,19 @@ export function Explorador({
 
   const primeira = fontes[0]?.chave
   useEffect(() => { if (primeira) abrirPasta(primeira, null, []) }, [primeira, abrirPasta])
+
+  // A montagem já carrega pelo efeito acima; recarregar também na primeira
+  // passada faria duas idas ao Drive a cada abertura da tela.
+  const primeiraRecarga = useRef(true)
+  useEffect(() => {
+    if (primeiraRecarga.current) { primeiraRecarga.current = false; return }
+    abrirPasta(selecionada.fonte, selecionada.id, trilha)
+    // `selecionada` e `trilha` de propósito fora das dependências: o efeito
+    // dispara com a MUDANÇA DE `recarregar`, e usa a pasta que estiver aberta
+    // naquele instante. Incluí-los faria a pasta recarregar sozinha a cada
+    // navegação, dobrando as chamadas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recarregar])
 
   // Efeito, e não chamada dentro de `abrirPasta`: avisar durante o clique
   // dispararia um `setState` do pai no meio do render deste componente.
@@ -713,7 +736,7 @@ export function Explorador({
         >
           {alvoEnvio === selecionada.id && (
             <div
-              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+              className="anim-entrar pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
               style={{ backgroundColor: `color-mix(in srgb, ${cor} 8%, transparent)` }}
             >
               <span
@@ -744,7 +767,13 @@ export function Explorador({
           )}
 
           {!carregandoConteudo && conteudo && !conteudo.indisponivel && (
-            <table className="w-full table-fixed text-[13px]">
+            <table
+              // `key` na trilha faz a tabela reanimar a cada pasta aberta: sem
+              // isso o React reaproveita o nó e a troca acontece sem nada
+              // indicando que o conteúdo mudou.
+              key={`${selecionada.fonte}:${selecionada.id ?? 'raiz'}`}
+              className="anim-entrar w-full table-fixed text-[13px]"
+            >
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
                   <th className="w-[48%] px-3 py-1.5 text-left font-semibold">Nome</th>

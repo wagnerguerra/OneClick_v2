@@ -189,9 +189,9 @@ export default function GestaoArquivosClientePage() {
 
       {aba === 'explorador' && (
         <Explorador
-          key={versao}
           fontes={fontes}
           cor={MODULE_COLOR}
+          recarregar={versao}
           onExcluir={a => { setAExcluir(a); setMotivo('') }}
         />
       )}
