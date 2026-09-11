@@ -71,6 +71,26 @@ export interface FonteExplorador {
    * `destinoId` nulo é a raiz da unidade.
    */
   mover?: (itemId: string, destinoId: string | null) => Promise<void>
+  /**
+   * Recebe arquivos arrastados do computador. Ausente = a unidade não aceita
+   * envio, e a área nem sinaliza que aceitaria.
+   *
+   * `pastaId` nulo é a raiz da unidade.
+   */
+  enviar?: (arquivos: File[], pastaId: string | null) => Promise<void>
+}
+
+/**
+ * O arrasto traz arquivos do computador?
+ *
+ * `dataTransfer.types` é o único sinal disponível durante o `dragover` — o
+ * conteúdo em si só aparece no `drop`, e a decisão de destacar a área precisa
+ * ser tomada antes. Distinguir isto de um arrasto interno importa: o mesmo
+ * `onDrop` atende os dois, e confundi-los faria soltar um PDF do desktop
+ * tentar "mover" um item que não existe.
+ */
+function trazArquivos(e: React.DragEvent): boolean {
+  return Array.from(e.dataTransfer.types).includes('Files')
 }
 
 /** Largura da pré-visualização, lembrada entre sessões. */
@@ -125,7 +145,8 @@ function IconeArquivo({ nome, mime, className }: { nome: string; mime: string | 
  */
 function LinhaArvore({
   fonte, pasta, nivel, caminho, nos, selecionada, fontes, cor,
-  arrastado, alvo, onAlvo, onSoltar, onAlternar, onAbrir,
+  arrastado, alvo, alvoEnvio, podeReceber, onAlvo, onAlvoEnvio, onSoltar, onArquivos,
+  onAlternar, onAbrir,
 }: {
   fonte: Fonte
   pasta: PastaNo
@@ -137,8 +158,12 @@ function LinhaArvore({
   cor: string
   arrastado: { id: string; nome: string } | null
   alvo: string | null | undefined
+  alvoEnvio: string | null | undefined
+  podeReceber: boolean
   onAlvo: (id: string | null | undefined) => void
+  onAlvoEnvio: (id: string | null | undefined) => void
   onSoltar: (destinoId: string | null) => void
+  onArquivos: (arquivos: File[], pastaId: string | null) => void
   onAlternar: (fonte: Fonte, id: string | null) => void
   onAbrir: (fonte: Fonte, id: string | null, caminho: PastaNo[]) => void
 }) {
@@ -157,18 +182,32 @@ function LinhaArvore({
         // outra e a traz de volta para o topo — o caso do print que originou
         // isto, com 2025 criada dentro de 2026.
         onDragOver={e => {
-          if (arrastado && arrastado.id !== pasta.id) { e.preventDefault(); onAlvo(pasta.id) }
+          if (trazArquivos(e)) {
+            if (!podeReceber) return
+            e.preventDefault()
+            onAlvoEnvio(pasta.id)
+          } else if (arrastado && arrastado.id !== pasta.id) {
+            e.preventDefault()
+            onAlvo(pasta.id)
+          }
         }}
-        onDragLeave={() => onAlvo(undefined)}
-        onDrop={e => { e.preventDefault(); onSoltar(pasta.id) }}
+        onDragLeave={() => { onAlvo(undefined); onAlvoEnvio(undefined) }}
+        onDrop={e => {
+          e.preventDefault()
+          const arquivos = Array.from(e.dataTransfer.files ?? [])
+          if (arquivos.length > 0) onArquivos(arquivos, pasta.id)
+          else onSoltar(pasta.id)
+        }}
         className={cn(
           'group flex items-center gap-1 rounded-md py-1 pr-1.5 text-[13px] transition-colors',
           ativa ? 'bg-muted font-medium text-foreground' : 'text-foreground/80 hover:bg-muted/50',
-          arrastado && alvo === pasta.id && 'ring-1 ring-inset',
+          ((arrastado && alvo === pasta.id) || alvoEnvio === pasta.id) && 'ring-1 ring-inset',
         )}
         style={{
           paddingLeft: `${nivel * 12 + 4}px`,
-          ...(arrastado && alvo === pasta.id ? { boxShadow: `inset 0 0 0 1px ${cor}` } : {}),
+          ...((arrastado && alvo === pasta.id) || alvoEnvio === pasta.id
+            ? { boxShadow: `inset 0 0 0 1px ${cor}` }
+            : {}),
         }}
       >
         <button
@@ -204,8 +243,12 @@ function LinhaArvore({
           cor={cor}
           arrastado={arrastado}
           alvo={alvo}
+          alvoEnvio={alvoEnvio}
+          podeReceber={podeReceber}
           onAlvo={onAlvo}
+          onAlvoEnvio={onAlvoEnvio}
           onSoltar={onSoltar}
+          onArquivos={onArquivos}
           onAlternar={onAlternar}
           onAbrir={onAbrir}
         />
@@ -255,6 +298,9 @@ export function Explorador({
   const [item, setItem] = useState<{ id: string; nome: string } | null>(null)
   const [alvo, setAlvo] = useState<string | null | undefined>(undefined)
   const [movendo, setMovendo] = useState(false)
+  /** Pasta sob o ponteiro durante um arrasto de arquivos do computador. */
+  const [alvoEnvio, setAlvoEnvio] = useState<string | null | undefined>(undefined)
+  const [enviando, setEnviando] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   // Lê a largura salva depois da montagem, não na inicialização do estado: no
@@ -417,7 +463,29 @@ export function Explorador({
     }
   }
 
+  /**
+   * Recebe os arquivos soltos e manda para a pasta indicada.
+   *
+   * Recarrega a pasta ABERTA no fim, não a de destino: se a pessoa soltou numa
+   * pasta da árvore que não é a que está vendo, o conteúdo à vista não mudou —
+   * recarregar outra coisa faria a tela pular sem motivo.
+   */
+  async function receberArquivos(arquivos: File[], pastaId: string | null) {
+    setAlvoEnvio(undefined)
+    if (arquivos.length === 0 || !fonteAtual?.enviar) return
+    setEnviando(true)
+    try {
+      await fonteAtual.enviar(arquivos, pastaId)
+      await abrirPasta(selecionada.fonte, selecionada.id, trilha)
+    } catch (e) {
+      setConteudo(c => c && { ...c, indisponivel: e instanceof Error ? e.message : 'Não foi possível enviar.' })
+    } finally {
+      setEnviando(false)
+    }
+  }
+
   const podeArrastar = Boolean(fonteAtual?.mover)
+  const podeReceber = Boolean(fonteAtual?.enviar)
 
   const tipoSel = arquivoSel ? tipoDoArquivo(arquivoSel.nome, arquivoSel.mimeType) : null
   const previsualizavel = tipoSel === 'imagem' || tipoSel === 'pdf' || tipoSel === 'texto'
@@ -443,8 +511,12 @@ export function Explorador({
             cor={cor}
             arrastado={item}
             alvo={alvo}
+            alvoEnvio={alvoEnvio}
+            podeReceber={podeReceber}
             onAlvo={setAlvo}
+            onAlvoEnvio={setAlvoEnvio}
             onSoltar={soltarEm}
+            onArquivos={receberArquivos}
             onAlternar={alternar}
             onAbrir={abrirPasta}
           />
@@ -467,7 +539,9 @@ export function Explorador({
             </span>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-1">
-            {movendo && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+            {(movendo || enviando) && (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            )}
             {acoes}
             <Button
               variant="ghost"
@@ -488,7 +562,53 @@ export function Explorador({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto nice-scrollbar">
+        <div
+          // A área toda recebe, não só as linhas: o espaço vazio abaixo da
+          // lista é justamente onde a mão vai quando se arrasta um arquivo
+          // para "esta pasta". Serve aos dois arrastos — arquivo do computador
+          // envia; item interno move para a pasta aberta.
+          onDragOver={e => {
+            if (trazArquivos(e)) {
+              if (!podeReceber) return
+              e.preventDefault()
+              setAlvoEnvio(selecionada.id)
+            } else if (item) {
+              e.preventDefault()
+              setAlvo(selecionada.id)
+            }
+          }}
+          onDragLeave={e => {
+            // Só limpa quando o ponteiro sai da área inteira, e não ao cruzar
+            // a fronteira entre as linhas de dentro dela.
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return
+            setAlvoEnvio(undefined)
+            setAlvo(undefined)
+          }}
+          onDrop={e => {
+            e.preventDefault()
+            const arquivos = Array.from(e.dataTransfer.files ?? [])
+            if (arquivos.length > 0) receberArquivos(arquivos, selecionada.id)
+            else soltarEm(selecionada.id)
+          }}
+          className={cn(
+            'relative min-h-0 flex-1 overflow-y-auto nice-scrollbar',
+            alvoEnvio === selecionada.id && 'ring-1 ring-inset',
+          )}
+          style={alvoEnvio === selecionada.id ? { boxShadow: `inset 0 0 0 2px ${cor}` } : undefined}
+        >
+          {alvoEnvio === selecionada.id && (
+            <div
+              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+              style={{ backgroundColor: `color-mix(in srgb, ${cor} 8%, transparent)` }}
+            >
+              <span
+                className="rounded-lg px-3 py-1.5 text-[13px] font-semibold text-white"
+                style={{ backgroundColor: cor }}
+              >
+                Soltar para enviar {trilha.length > 0 ? `em ${trilha[trilha.length - 1]!.nome}` : 'aqui'}
+              </span>
+            </div>
+          )}
           {carregandoConteudo && (
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

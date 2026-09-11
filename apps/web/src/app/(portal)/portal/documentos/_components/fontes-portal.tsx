@@ -55,12 +55,35 @@ export function useFontesDoPortal(clienteId: string, podeEditar: boolean): Fonte
       // Pela NOSSA API: o cliente não precisa de conta Google, e o acesso morre
       // junto com o vínculo no cadastro.
       selecionar: async a => `${getApiUrl()}/api/portal/drive/${clienteId}/${a.id}`,
-      // Só quem pode editar reorganiza. Sem a função, o arrastar nem começa —
-      // melhor do que deixar arrastar e recusar no fim.
+      // Só quem pode editar reorganiza e envia. Sem as funções, o arrastar nem
+      // começa e a área não se oferece como destino — melhor do que deixar
+      // arrastar e recusar no fim.
       ...(podeEditar
         ? {
             mover: async (itemId: string, destinoId: string | null) => {
               await (trpc.portal as any).arquivos.driveMover.mutate({ clienteId, itemId, destinoId })
+            },
+            enviar: async (arquivos: File[], pastaId: string | null) => {
+              // Sequencial, não em paralelo: são uploads inteiros de arquivo, e
+              // disparar dez de uma vez disputa a banda do próprio usuário e
+              // castiga justamente quem tem conexão pior.
+              for (const file of arquivos) {
+                const form = new FormData()
+                form.append('file', file)
+                const up = await fetch(`${getApiUrl()}/api/upload`, {
+                  method: 'POST', body: form, credentials: 'include',
+                })
+                if (!up.ok) throw new Error(`Falha ao enviar "${file.name}". Tente de novo.`)
+                const { url } = await up.json() as { url: string }
+
+                await (trpc.portal as any).arquivos.driveEnviar.mutate({
+                  clienteId,
+                  fileName: file.name,
+                  fileUrl: url,
+                  pastaId,
+                  mimeType: file.type || null,
+                })
+              }
             },
           }
         : {}),
