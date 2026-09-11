@@ -18,13 +18,20 @@ import type { FonteExplorador, Conteudo } from '@/app/(dashboard)/gestao-arquivo
  * O que o escritório publica pelo módulo interno continua existindo e continua
  * chegando ao cliente; o que mudou é onde os bytes ficam.
  */
-export function useFontesDoPortal(clienteId: string, podeEditar: boolean): FonteExplorador[] {
+export function useFontesDoPortal(
+  clienteId: string,
+  // As três permissões viajam juntas porque decidem coisas diferentes, e
+  // amarrar uma na outra foi exatamente o erro que fez a exclusão sumir da
+  // tela mesmo concedida: `permiteExcluir` estava lendo `podeEditar`.
+  perms: { podeEditar: boolean; podeExcluir: boolean },
+): FonteExplorador[] {
+  const { podeEditar, podeExcluir } = perms
   return useMemo(() => [
     {
       chave: 'drive',
       nome: 'Meus arquivos',
       icone: HardDrive,
-      permiteExcluir: podeEditar,
+      permiteExcluir: podeExcluir,
       buscar: async (id): Promise<Conteudo> => {
         const d = await (trpc.portal as any).arquivos.drive.query({ clienteId, subPastaId: id })
         if (!d.vinculada) {
@@ -89,5 +96,5 @@ export function useFontesDoPortal(clienteId: string, podeEditar: boolean): Fonte
           }
         : {}),
     },
-  ], [clienteId, podeEditar])
+  ], [clienteId, podeEditar, podeExcluir])
 }

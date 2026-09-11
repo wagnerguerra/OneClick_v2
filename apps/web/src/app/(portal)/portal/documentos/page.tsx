@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  FolderPlus, Upload, Loader2, Clock, AlertCircle, Inbox, ArrowUpFromLine, X,
+  FolderPlus, Upload, Loader2, Clock, AlertCircle, Inbox, ArrowUpFromLine, X, Trash2,
 } from 'lucide-react'
 import { cn } from '@saas/ui'
 
@@ -53,12 +53,16 @@ export default function PortalDocumentosPage() {
   // Permissão explícita do usuário, não mais deduzida do nível: o escritório
   // decide por pessoa quem envia e quem só lê.
   const podeEditar = Boolean(vinculo?.podeEditar)
+  const podeExcluir = Boolean(vinculo?.podeExcluir)
 
   const [pendencias, setPendencias] = useState<Solicitacao[]>([])
   const [enviando, setEnviando] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [criandoPasta, setCriandoPasta] = useState(false)
   const [nomeNovaPasta, setNomeNovaPasta] = useState('')
+  /** Arquivo aguardando confirmação de exclusão. */
+  const [aExcluir, setAExcluir] = useState<{ id: string; fileName: string } | null>(null)
+  const [excluindo, setExcluindo] = useState(false)
   /** Onde criar pasta e enviar arquivo — vem do explorador. */
   const [atual, setAtual] = useState<{ fonte: Fonte; id: string | null }>({ fonte: 'documentos', id: null })
   // Remonta o explorador depois de enviar ou criar pasta, para a lista refletir
@@ -69,7 +73,7 @@ export default function PortalDocumentosPage() {
   /** Solicitação que o envio vai resolver, quando veio de uma pendência. */
   const alvoRef = useRef<Solicitacao | null>(null)
 
-  const fontes = useFontesDoPortal(clienteId ?? '', podeEditar)
+  const fontes = useFontesDoPortal(clienteId ?? '', { podeEditar, podeExcluir })
 
   const carregarPendencias = useCallback(async () => {
     if (!clienteId) return
@@ -98,6 +102,21 @@ export default function PortalDocumentosPage() {
       setVersao(v => v + 1)
     } catch (e) {
       setAviso((e as Error).message)
+    }
+  }
+
+  async function confirmarExclusao() {
+    if (!aExcluir) return
+    setExcluindo(true)
+    try {
+      await (trpc.portal as any).arquivos.driveExcluir.mutate({ clienteId, itemId: aExcluir.id })
+      setAviso(`"${aExcluir.fileName}" foi para a lixeira.`)
+      setAExcluir(null)
+      setVersao(v => v + 1)
+    } catch (e) {
+      setAviso((e as Error).message)
+    } finally {
+      setExcluindo(false)
     }
   }
 
@@ -286,12 +305,44 @@ export default function PortalDocumentosPage() {
       )}
 
       {/* 2. O acervo. */}
+      {/* Confirmação inline, no vocabulário do portal — não há sistema de
+          modais aqui, e introduzir um só para isto seria desproporcional. O
+          texto diz para onde o arquivo vai: "excluir" que some para sempre e
+          "excluir" que volta por 30 dias pesam diferente na mão de quem clica. */}
+      {aExcluir && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#f0c9b4] bg-[#fdf0e6] p-3 dark:border-[#4a2c17] dark:bg-[#2a1a10]">
+          <AlertCircle className="h-4 w-4 shrink-0 text-[#d97b34]" />
+          <p className="min-w-0 flex-1 text-[13px] text-slate-900 dark:text-slate-100">
+            Excluir <span className="font-semibold">{aExcluir.fileName}</span>?
+            <span className="text-slate-600 dark:text-slate-400"> Vai para a lixeira e volta por 30 dias.</span>
+          </p>
+          <button
+            type="button"
+            onClick={confirmarExclusao}
+            disabled={excluindo}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#c2510f] px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-[#a34410] disabled:opacity-60"
+          >
+            {excluindo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Excluir
+          </button>
+          <button
+            type="button"
+            onClick={() => setAExcluir(null)}
+            disabled={excluindo}
+            className="shrink-0 rounded-lg px-3 py-2 text-[13px] font-semibold text-slate-600 hover:bg-white/60 dark:text-slate-400 dark:hover:bg-white/5"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
       <Explorador
         key={versao}
         fontes={fontes}
         cor={COR_PORTAL}
         altura="h-[calc(100vh-290px)]"
         onPastaAtual={aoMudarPasta}
+        onExcluir={a => { setAviso(null); setAExcluir(a) }}
       />
     </div>
   )
