@@ -1,0 +1,122 @@
+import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
+import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
+import { GestaoArquivosService } from './gestao-arquivos.service'
+import {
+  GestaoArquivosNotificacaoService,
+  EVENTOS_NOTIFICAVEIS,
+} from './gestao-arquivos-notificacao.service'
+import type { ContextoInterno } from './gestao-arquivos-escopo'
+
+const MODULE = 'gestao-arquivos'
+
+/**
+ * O "ler" versus "ler e excluir" do lado do escritório sai do `UserPermission`
+ * que já existe: `canRead` abre o módulo, `canDelete` libera a exclusão. Não
+ * criamos sub-permissão nova porque a coluna certa já estava lá — uma chave em
+ * `subPermissions` seria um segundo lugar para dizer a mesma coisa, e dois
+ * lugares divergem.
+ */
+const eventoSchema = z.enum(EVENTOS_NOTIFICAVEIS)
+
+/** O contexto tRPC recortado para o que o escopo do módulo precisa. */
+function contexto(ctx: {
+  userId?: string
+  role?: string
+  isMaster?: boolean
+  isEmpresaMaster?: boolean
+  empresaId?: string
+}): ContextoInterno {
+  if (!ctx.userId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+  return {
+    userId: ctx.userId,
+    role: ctx.role,
+    isMaster: ctx.isMaster,
+    isEmpresaMaster: ctx.isEmpresaMaster,
+    empresaId: ctx.empresaId,
+  }
+}
+
+export function createGestaoArquivosRouter(
+  service: GestaoArquivosService,
+  notificacao: GestaoArquivosNotificacaoService,
+) {
+  return router({
+    /** Clientes com usuário no portal, já recortados por responsabilidade. */
+    listarClientes: readProcedure(MODULE).query(({ ctx }) => service.listarClientes(contexto(ctx))),
+
+    listar: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string(), pastaId: z.string().nullish() }))
+      .query(({ input, ctx }) => service.listar(input, contexto(ctx))),
+
+    /**
+     * Abrir é `readProcedure` embora escreva (marca o visto e loga): a ação do
+     * usuário é ler o arquivo, e exigir `canWrite` para isso impediria de ler
+     * quem só tem leitura — exatamente o nível que o módulo promete.
+     */
+    abrir: readProcedure(MODULE)
+      .input(z.object({ arquivoId: z.string() }))
+      .mutation(({ input, ctx }) => service.abrir(input.arquivoId, contexto(ctx))),
+
+    excluir: deleteProcedure(MODULE)
+      .input(z.object({ arquivoId: z.string(), motivo: z.string().max(500).nullish() }))
+      .mutation(({ input, ctx }) => service.excluir(input, contexto(ctx))),
+
+    restaurar: deleteProcedure(MODULE)
+      .input(z.object({ arquivoId: z.string() }))
+      .mutation(({ input, ctx }) => service.restaurar(input.arquivoId, contexto(ctx))),
+
+    listarExcluidos: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input, ctx }) => service.listarExcluidos(input.clienteId, contexto(ctx))),
+
+    listarLog: readProcedure(MODULE)
+      .input(z.object({
+        clienteId: z.string(),
+        evento: z.string().nullish(),
+        limite: z.number().min(1).max(500).optional(),
+      }))
+      .query(({ input, ctx }) => service.listarLog(input, contexto(ctx))),
+
+    // ── Administração do módulo ────────────────────────────────────────────
+
+    listarRegras: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string().nullish() }))
+      .query(({ input, ctx }) => {
+        const c = contexto(ctx)
+        if (!c.empresaId) return []
+        return notificacao.listarRegras(c.empresaId, input.clienteId ?? null)
+      }),
+
+    salvarRegra: writeProcedure(MODULE)
+      .input(z.object({
+        clienteId: z.string().nullish(),
+        evento: eventoSchema,
+        ativo: z.boolean(),
+        notificaResponsavel: z.boolean(),
+        notificaSubstituto: z.boolean(),
+        notificaCoordenador: z.boolean(),
+        notificaDiretor: z.boolean(),
+        emailsExtras: z.string().max(2000).nullish(),
+      }))
+      .mutation(({ input, ctx }) => {
+        const c = contexto(ctx)
+        if (!c.empresaId) {
+          // Sem empresa não há a quem aplicar a regra. Falha explícita em vez
+          // de gravar numa empresa arbitrária.
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Usuário sem empresa vinculada.' })
+        }
+        return notificacao.salvarRegra({ ...input, empresaId: c.empresaId })
+      }),
+
+    removerExcecao: writeProcedure(MODULE)
+      .input(z.object({ clienteId: z.string(), evento: eventoSchema }))
+      .mutation(({ input, ctx }) => {
+        const c = contexto(ctx)
+        if (!c.empresaId) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Usuário sem empresa vinculada.' })
+        }
+        return notificacao.removerExcecao(c.empresaId, input.clienteId, input.evento)
+      }),
+  })
+}

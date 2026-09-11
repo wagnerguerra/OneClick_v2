@@ -3,6 +3,7 @@ import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 
 import { atendeNivel, podeNaArea, type VinculoPortal } from './portal-escopo'
+import { GestaoArquivosNotificacaoService } from '../gestao-arquivos/gestao-arquivos-notificacao.service'
 
 /**
  * Porta-arquivos do Portal do Cliente.
@@ -68,6 +69,53 @@ export interface ArquivoDoPortal {
 
 @Injectable()
 export class PortalArquivosService {
+  constructor(private readonly notificacao: GestaoArquivosNotificacaoService) {}
+
+  /**
+   * Registra um ato do CLIENTE na mesma trilha que a Gestão de Arquivos lê.
+   *
+   * É a mesma tabela dos eventos do escritório, separada só pelo campo `lado`.
+   * Duas trilhas dariam duas versões da mesma história, e a pergunta que o log
+   * existe para responder — "quem mexeu neste arquivo?" — precisa de uma.
+   *
+   * Nunca lança: o arquivo já foi enviado ou aberto quando isto roda, e falhar
+   * o registro não pode desfazer o que o usuário acabou de fazer. O que se
+   * perde é uma linha de auditoria; o que se ganharia lançando é um erro na
+   * cara do cliente por algo que ele não causou nem pode resolver.
+   */
+  private async registrar(e: {
+    clienteId: string
+    arquivoId?: string | null
+    arquivoNome?: string | null
+    pastaId?: string | null
+    evento: string
+    userId: string
+  }) {
+    try {
+      const [usuario, pasta] = await Promise.all([
+        prisma.user.findUnique({ where: { id: e.userId }, select: { name: true } }),
+        e.pastaId
+          ? prisma.portalPasta.findFirst({ where: { id: e.pastaId }, select: { nome: true } })
+          : Promise.resolve(null),
+      ])
+      await prisma.arquivoLog.create({
+        data: {
+          clienteId: e.clienteId,
+          arquivoId: e.arquivoId ?? null,
+          arquivoNome: e.arquivoNome ?? null,
+          pastaId: e.pastaId ?? null,
+          pastaCaminho: pasta?.nome ?? null,
+          evento: e.evento,
+          lado: 'CLIENTE',
+          usuarioId: e.userId,
+          usuarioNome: usuario?.name ?? null,
+        },
+      })
+    } catch {
+      /* auditoria não derruba a operação do usuário */
+    }
+  }
+
   /**
    * O conteúdo de uma pasta: subpastas, arquivos e o caminho até a raiz.
    *
@@ -253,12 +301,34 @@ export class PortalArquivosService {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Arquivo não encontrado.' })
     }
 
-    if (!arquivo.lidoEm) {
+    const primeiraAbertura = !arquivo.lidoEm
+    if (primeiraAbertura) {
       await prisma.clienteArquivo.update({
         where: { id: arquivo.id },
         data: { lidoEm: new Date(), lidoPorId: userId },
       })
     }
+
+    await this.registrar({
+      clienteId: vinculo.clienteId,
+      arquivoId: arquivo.id,
+      arquivoNome: arquivo.fileName,
+      evento: 'ABRIU',
+      userId,
+    })
+
+    // Só na PRIMEIRA abertura: o recibo de leitura responde "o cliente viu?".
+    // Reabrir não é notícia, e avisar a cada abertura transformaria o evento de
+    // maior volume do módulo numa enxurrada.
+    if (primeiraAbertura) {
+      await this.notificacao.disparar({
+        evento: 'ARQUIVO_LIDO',
+        clienteId: vinculo.clienteId,
+        assunto: `Cliente abriu — ${arquivo.fileName}`,
+        corpo: `O cliente abriu o arquivo "${arquivo.fileName}" pela primeira vez.`,
+      }).catch(() => undefined)
+    }
+
     return { fileUrl: arquivo.fileUrl, fileName: arquivo.fileName }
   }
 
@@ -343,6 +413,25 @@ export class PortalArquivosService {
       }
       return criado
     })
+
+    await this.registrar({
+      clienteId: vinculo.clienteId,
+      arquivoId: arquivo.id,
+      arquivoNome: arquivo.fileName,
+      pastaId: input.pastaId ?? null,
+      evento: 'ENVIOU',
+      userId,
+    })
+
+    // O evento principal do módulo: sem este aviso, o documento que o cliente
+    // acabou de mandar só é descoberto se alguém do escritório abrir o portal
+    // por conta própria.
+    await this.notificacao.disparar({
+      evento: 'ARQUIVO_ENVIADO',
+      clienteId: vinculo.clienteId,
+      assunto: `Novo arquivo do cliente — ${arquivo.fileName}`,
+      corpo: `O cliente enviou o arquivo "${arquivo.fileName}" pelo portal.`,
+    }).catch(() => undefined)
 
     return arquivo
   }

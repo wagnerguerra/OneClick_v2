@@ -17,12 +17,16 @@ const pasta = {
   findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), delete: jest.fn(),
 }
 const tx = { clienteArquivo: arquivo, portalSolicitacao: solicitacao }
+const arquivoLog = { create: jest.fn() }
+const user = { findUnique: jest.fn() }
 
 jest.mock('@saas/db', () => ({
   prisma: {
     clienteArquivo: arquivo,
     portalSolicitacao: solicitacao,
     portalPasta: pasta,
+    arquivoLog,
+    user,
     $transaction: (fn: (t: unknown) => unknown) => fn(tx),
   },
 }))
@@ -30,7 +34,13 @@ jest.mock('@saas/db', () => ({
 import { PortalArquivosService } from './portal-arquivos.service'
 import type { VinculoPortal } from './portal-escopo'
 
-const svc = new PortalArquivosService()
+/**
+ * O serviço passou a avisar por e-mail (Gestão de Arquivos) ao enviar e ao
+ * abrir. O dublê registra as chamadas sem mandar nada — o que estes testes
+ * verificam é o porta-arquivos, e o conteúdo do aviso tem os testes dele.
+ */
+const notificacao = { disparar: jest.fn().mockResolvedValue(true) }
+const svc = new PortalArquivosService(notificacao as never)
 
 const vinculo = (over: Partial<VinculoPortal> = {}): VinculoPortal => ({
   clienteId: 'cli-1', nivel: 'OPERACIONAL', areas: ['fiscal', 'contabil', 'pessoal'], ...over,
@@ -62,6 +72,9 @@ beforeEach(() => {
   pasta.findMany.mockResolvedValue([])
   pasta.findFirst.mockResolvedValue({ id: 'p1', nome: 'Contratos', paiId: null })
   pasta.create.mockResolvedValue({ id: 'nova', nome: 'Contratos' })
+  arquivoLog.create.mockResolvedValue({ id: 'log-1' })
+  user.findUnique.mockResolvedValue({ name: 'Fulano do Cliente' })
+  notificacao.disparar.mockResolvedValue(true)
 })
 
 describe('o recorte que toda consulta carrega', () => {
@@ -264,6 +277,55 @@ describe('enviar', () => {
     await expect(svc.enviar(vinculo(), { ...base, solicitacaoId: 'de-outro' }, 'u1'))
       .rejects.toThrow(/não está mais aberta/i)
     expect(arquivo.create).not.toHaveBeenCalled()
+  })
+})
+
+describe('trilha e aviso (Gestão de Arquivos)', () => {
+  it('envio do cliente avisa o escritório — é o evento principal do módulo', async () => {
+    // Sem este disparo, o documento que o cliente acabou de mandar só é
+    // descoberto se alguém do escritório abrir o portal por conta própria.
+    arquivo.create.mockResolvedValue({ id: 'a9', fileName: 'nota.pdf' })
+    await svc.enviar(vinculo(), { fileName: 'nota.pdf', fileUrl: '/u/nota.pdf' }, 'u1')
+    expect(notificacao.disparar).toHaveBeenCalledWith(
+      expect.objectContaining({ evento: 'ARQUIVO_ENVIADO', clienteId: 'cli-1' }),
+    )
+  })
+
+  it('envio entra na trilha marcado como lado CLIENTE', async () => {
+    // O `lado` é o que separa o ato do cliente do ato do escritório na mesma
+    // tabela. Sem ele, a trilha diria que alguém do escritório enviou.
+    arquivo.create.mockResolvedValue({ id: 'a9', fileName: 'nota.pdf' })
+    await svc.enviar(vinculo(), { fileName: 'nota.pdf', fileUrl: '/u/nota.pdf' }, 'u1')
+    const d = arg<{ data: Record<string, unknown> }>(arquivoLog.create).data
+    expect(d).toMatchObject({ clienteId: 'cli-1', evento: 'ENVIOU', lado: 'CLIENTE', usuarioId: 'u1' })
+  })
+
+  it('primeira abertura avisa; reabrir não', async () => {
+    // Recibo de leitura responde "o cliente viu?". Reabrir não é notícia, e
+    // avisar toda vez transformaria o evento de maior volume numa enxurrada.
+    arquivo.findFirst.mockResolvedValue({
+      id: 'a1', fileUrl: '/u/g.pdf', fileName: 'g.pdf', categoria: 'guias', lidoEm: null,
+    })
+    await svc.abrir(vinculo(), 'a1', 'u1')
+    expect(notificacao.disparar).toHaveBeenCalledWith(
+      expect.objectContaining({ evento: 'ARQUIVO_LIDO' }),
+    )
+
+    notificacao.disparar.mockClear()
+    arquivo.findFirst.mockResolvedValue({
+      id: 'a1', fileUrl: '/u/g.pdf', fileName: 'g.pdf', categoria: 'guias', lidoEm: new Date(),
+    })
+    await svc.abrir(vinculo(), 'a1', 'u1')
+    expect(notificacao.disparar).not.toHaveBeenCalled()
+  })
+
+  it('falha ao gravar a trilha não derruba o envio do cliente', async () => {
+    // O arquivo já foi enviado quando o log roda. Perder uma linha de auditoria
+    // é ruim; devolver erro ao cliente por algo que ele não causou é pior.
+    arquivo.create.mockResolvedValue({ id: 'a9', fileName: 'nota.pdf' })
+    arquivoLog.create.mockRejectedValue(new Error('banco fora'))
+    await expect(svc.enviar(vinculo(), { fileName: 'nota.pdf', fileUrl: '/u/n.pdf' }, 'u1'))
+      .resolves.toMatchObject({ id: 'a9' })
   })
 })
 

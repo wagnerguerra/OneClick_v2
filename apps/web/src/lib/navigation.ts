@@ -79,8 +79,7 @@ import {
   Sparkles,
   Smartphone,
   Info,
-  type LucideIcon,
-} from 'lucide-react'
+  type LucideIcon, FolderOpen,} from 'lucide-react'
 
 export interface NavItem {
   label: string
@@ -176,6 +175,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Agenda Corporativa', href: '/agenda', icon: Calendar },
       { label: 'Coleta e Recebimento', href: '/coleta-documentos', icon: FolderInput },
+      { label: 'Gestão de Arquivos', href: '/gestao-arquivos', icon: FolderOpen },
       { label: 'Contatos', href: '/contatos', icon: Phone },
       { label: 'Gerenciador de Serviços', href: '/meus-servicos', icon: ListChecks },
       { label: 'Minhas Obrigações', href: '/minhas-obrigacoes', icon: ClipboardCheck },

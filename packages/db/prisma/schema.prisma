@@ -300,6 +300,9 @@ model User {
   // Chat interno
   chatParticipacoes      ChatParticipante[]            @relation("ChatParticipanteUser")
   // Gestão de Ativos
+  arquivosExcluidos      ClienteArquivo[]              @relation("ArquivoExcluidoPor")
+  arquivoVisualizacoes   ArquivoVisualizacao[]
+  arquivoLogs            ArquivoLog[]                  @relation("ArquivoLogUsuario")
   ativosResponsavel      Ativo[]                       @relation("AtivoResponsavel")
   ativoMovimentacoes     AtivoMovimentacao[]
   ativoManutencoes       AtivoManutencao[]             @relation("AtivoManutencaoResponsavel")
@@ -581,6 +584,7 @@ model Empresa {
   helpdeskCategorias   HelpdeskCategoria[]
   helpdeskTickets      HelpdeskTicket[]
   signatureTemplate    EmpresaSignatureTemplate?
+  notificacoesArquivos GestaoArquivosNotificacao[]
 
   @@map("empresas")
 }
@@ -690,6 +694,15 @@ model ClienteUsuario {
   nivel     PortalNivel @default(OPERACIONAL)
   areas     String[]    @default([])
   ativo     Boolean     @default(true)
+
+  /// Pode excluir arquivos do próprio porta-arquivos.
+  ///
+  /// Separado do `nivel` porque as duas coisas não andam juntas: um
+  /// ADMINISTRADOR do cliente costuma poder tudo, mas há escritório que não
+  /// quer NINGUÉM do lado de fora apagando documento — e há OPERACIONAL que
+  /// precisa corrigir o próprio envio errado. Default `false`: quem ganha o
+  /// poder de apagar, ganha por ato deliberado.
+  podeExcluir Boolean @default(false) @map("pode_excluir")
 
   /// Quem criou o vínculo. Pode ser um usuário INTERNO (escritório cadastrando
   /// o primeiro administrador) ou o próprio administrador do cliente.
@@ -1005,6 +1018,8 @@ model Cliente {
   solicitacoesPortal      PortalSolicitacao[]
   pastasPortal            PortalPasta[]
   usuariosPortal          ClienteUsuario[]
+  arquivoLogs             ArquivoLog[]
+  notificacoesArquivos    GestaoArquivosNotificacao[]
   contatos                ClienteContato[]
   inscricoes              ClienteInscricao[]
   contratoParams          ClienteContratoParam[]
@@ -1151,15 +1166,133 @@ model ClienteArquivo {
   /// Pasta onde o arquivo aparece no portal. `null` = raiz.
   pastaId String? @map("pasta_id")
 
+  // ── Gestão de Arquivos (lado do escritório) ───────────────────────────
+  /// Exclusão é LÓGICA, nunca `DELETE`.
+  ///
+  /// São documentos fiscais e trabalhistas de terceiros: guia paga, folha
+  /// fechada, contrato assinado. Apagar de verdade transforma um clique errado
+  /// em perda definitiva de documento do cliente — e o log de quem excluiu não
+  /// serve de nada se o arquivo não pode voltar. Toda leitura filtra por
+  /// `excluidoEm: null`; restaurar é limpar estes dois campos.
+  excluidoEm   DateTime? @map("excluido_em")
+  excluidoPorId String?  @map("excluido_por_id")
+
   cliente     Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   user        User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   solicitacao PortalSolicitacao? @relation(fields: [solicitacaoId], references: [id], onDelete: SetNull)
   pasta       PortalPasta?       @relation(fields: [pastaId], references: [id], onDelete: SetNull)
+  excluidoPor User?              @relation("ArquivoExcluidoPor", fields: [excluidoPorId], references: [id], onDelete: SetNull)
+  visualizacoes ArquivoVisualizacao[]
 
   @@index([clienteId, competencia])
   @@index([clienteId, pastaId])
   @@index([solicitacaoId])
   @@map("cliente_arquivos")
+}
+
+/// Quem, do escritório, já abriu este arquivo.
+///
+/// É tabela por usuário, e não uma coluna `visto_em` no arquivo, por uma razão
+/// concreta: um cliente costuma ter responsáveis diferentes por área. Se o
+/// fiscal abre a folha de pagamento e isso apaga o destaque para todo mundo, a
+/// pessoa do trabalhista nunca fica sabendo que o documento chegou — o aviso
+/// morre em quem não era o destinatário.
+///
+/// Não se confunde com `ClienteArquivo.lidoEm`, que é o recibo do CLIENTE
+/// abrindo o que o escritório publicou. Aqui é o inverso: o escritório abrindo
+/// o que o cliente mandou.
+model ArquivoVisualizacao {
+  id        String   @id @default(cuid())
+  arquivoId String   @map("arquivo_id")
+  userId    String   @map("user_id")
+  vistoEm   DateTime @default(now()) @map("visto_em")
+
+  arquivo ClienteArquivo @relation(fields: [arquivoId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([arquivoId, userId])
+  @@index([userId])
+  @@map("arquivo_visualizacoes")
+}
+
+/// Trilha de auditoria do porta-arquivos: quem, quando, onde e o quê.
+///
+/// Campos denormalizados de propósito (`arquivoNome`, `pastaCaminho`): o log
+/// precisa continuar legível depois que o arquivo for excluído ou a pasta
+/// renomeada. Um log que só guarda ids vira uma lista de códigos mortos
+/// exatamente no dia em que alguém precisa dele para entender o que houve.
+model ArquivoLog {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+
+  /// Nulo quando o evento é de pasta, ou quando o arquivo sumiu de vez.
+  arquivoId   String? @map("arquivo_id")
+  arquivoNome String? @map("arquivo_nome")
+
+  /// Caminho legível ("Contratos / Aditivos"). `null` = raiz.
+  pastaId      String? @map("pasta_id")
+  pastaCaminho String? @map("pasta_caminho")
+
+  /// ABRIU, BAIXOU, ENVIOU, PUBLICOU, DESPUBLICOU, EXCLUIU, RESTAUROU,
+  /// CRIOU_PASTA, EXCLUIU_PASTA. Texto e não enum: a lista cresce com o uso.
+  evento String
+
+  /// ESCRITORIO ou CLIENTE — de que lado veio o ato. Não dá para deduzir do
+  /// usuário depois, porque o vínculo dele pode mudar ou ser removido.
+  lado String @default("ESCRITORIO")
+
+  usuarioId   String? @map("usuario_id")
+  usuarioNome String? @map("usuario_nome")
+  detalhe     String? @db.Text
+  ip          String?
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuario User?   @relation("ArquivoLogUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([clienteId, criadoEm])
+  @@index([arquivoId])
+  @@index([usuarioId])
+  @@map("arquivo_logs")
+}
+
+/// Quem recebe e-mail quando algo acontece no porta-arquivos.
+///
+/// `clienteId` nulo é a regra PADRÃO da empresa; uma linha com cliente
+/// preenchido sobrepõe a padrão para aquele cliente. Assim a configuração
+/// normal é feita uma vez, e a exceção ("neste cliente o diretor também quer
+/// saber") não obriga a cadastrar todos os outros.
+///
+/// Cuidado de banco: em Postgres `NULL != NULL`, então o `@@unique` abaixo NÃO
+/// impede duas linhas padrão para o mesmo evento. O índice parcial que resolve
+/// isso está no SQL de deploy.
+model GestaoArquivosNotificacao {
+  id        String  @id @default(cuid())
+  empresaId String  @map("empresa_id")
+  clienteId String? @map("cliente_id")
+
+  /// ARQUIVO_ENVIADO, ARQUIVO_EXCLUIDO, SOLICITACAO_VENCIDA, ARQUIVO_LIDO.
+  evento String
+  ativo  Boolean @default(true)
+
+  notificaResponsavel Boolean @default(true) @map("notifica_responsavel")
+  notificaSubstituto  Boolean @default(false) @map("notifica_substituto")
+  notificaCoordenador Boolean @default(false) @map("notifica_coordenador")
+  notificaDiretor     Boolean @default(false) @map("notifica_diretor")
+
+  /// Endereços avulsos, separados por ponto e vírgula.
+  emailsExtras String? @map("emails_extras")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  empresa Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, clienteId, evento])
+  @@index([empresaId])
+  @@map("gestao_arquivos_notificacoes")
 }
 
 /// Pasta do porta-arquivos, no modelo do Drive.
