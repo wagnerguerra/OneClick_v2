@@ -1732,6 +1732,24 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => usuarios().areasDisponiveis(input.clienteId)),
 
+    /** Outras empresas do mesmo grupo, para SUGERIR ao conceder acesso. */
+    empresasDoGrupoCliente: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => usuarios().empresasDoGrupo(input.clienteId)),
+
+    /** Todas as empresas que uma pessoa do portal alcança. */
+    acessosDoUsuarioPortal: readProcedure(MODULE)
+      .input(z.object({ userId: z.string() }))
+      .query(({ input, ctx }) => usuarios().acessosDaPessoa(input.userId, {
+        isMaster: ctx.isMaster, empresaId: ctx.empresaId,
+      })),
+
+    revogarAcessosPortal: writeSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
+      .input(z.object({ userId: z.string(), clienteIds: z.array(z.string()).min(1).max(100) }))
+      .mutation(({ input, ctx }) => usuarios().revogarAcessos(input, {
+        isMaster: ctx.isMaster, empresaId: ctx.empresaId,
+      })),
+
     vincularUsuarioPortal: writeSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
       .input(z.object({
         clienteId: z.string(),
@@ -1743,6 +1761,12 @@ export function createClienteRouter(
         podeEditar: z.boolean().optional(),
         podeExcluir: z.boolean().optional(),
         telefone: z.string().nullish(),
+        /**
+         * Outras empresas do MESMO GRUPO que recebem o mesmo acesso.
+         * O serviço confere cada uma contra o grupo do cliente principal — a
+         * lista chega pelo cliente HTTP e por si só não vale nada.
+         */
+        clientesAdicionais: z.array(z.string()).max(20).optional(),
       }))
       .mutation(({ input, ctx }) => usuarios().vincular(input, {
         userId: ctx.userId, tenantId: ctx.tenantId,
