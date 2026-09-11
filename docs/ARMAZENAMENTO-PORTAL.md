@@ -112,9 +112,14 @@ Para backup interno isso nunca importou. Para guardar documento de cliente, impo
 - **Suspensão é unilateral e sem SLA.** Conta de consumidor suspensa por suspeita
   automatizada não tem suporte com prazo. O fallback local cobre a *escrita*; não cobre o
   acervo já lá dentro.
-- **O refresh token é frágil.** Em app publicado o token dura, mas em app ainda em
-  "Testing" no Google Cloud Console ele **expira em 7 dias**. Vale conferir o status do
-  consent screen antes de depender disso no caminho principal.
+- ~~**O refresh token é frágil.**~~ **Verificado em 11/09/2026 — não se aplica aqui.**
+  A regra é real (app em "Testing" no Google Cloud Console tem refresh token de 7 dias),
+  mas o nosso já está publicado. Prova: `/opt/oneclick/.env` — onde mora o
+  `GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN` — não é editado desde **13/08** (29 dias), o
+  `credentials.json` desde **22/05**, o log da API não tem uma única ocorrência de
+  `invalid_grant` ou `unauthorized_client`, e o DriveSync varreu pastas do Drive com
+  sucesso minutos antes desta verificação. Um token de 7 dias teria quebrado quatro
+  vezes nesse intervalo.
 
 **Recomendação original:** que a conta fosse **Workspace da empresa** (Business
 Standard, 2 TB por usuário). O código não muda — é o mesmo OAuth. Muda o contrato, a
@@ -128,10 +133,31 @@ Duas consequências práticas dessa escolha, que valem virar regra de implementa
    ambiente (`GOOGLE_DRIVE_OAUTH_*`), e tem de continuar assim — nenhum `@gmail.com`
    escrito em código, nenhum ID de pasta fixo. Migrar então vira trocar credencial e
    mover pastas, não reescrever.
-2. **O status do consent screen sai do "vale conferir" e vira pré-requisito.** Se o app
-   estiver em "Testing" no Google Cloud Console, o refresh token expira em 7 dias e o
-   armazenamento principal cai sozinho toda semana. Enquanto era backup, dava para não
-   notar; como caminho principal, não dá. Verificar antes do passo 3.
+2. ~~O status do consent screen precisa ser verificado~~ — **verificado, está
+   publicado** (seção 4.1). Não há prazo pendurado no token.
+
+### 4.1-bis Sobre "fazer um cron para renovar o token"
+
+A ideia apareceu como solução para o item acima. Não é necessária — e não funcionaria.
+
+**Não é necessária** porque nada expira hoje (acima). **Não funcionaria** porque há dois
+tokens diferentes e o cron não alcança nenhum dos dois:
+
+| | Quem renova | Prazo |
+|---|---|---|
+| *Access token* | a própria biblioteca `googleapis`, a cada chamada | ~1 h |
+| *Refresh token* | **uma pessoa**, na tela de consentimento do Google | não expira (app publicado) |
+
+O access token já se renova sozinho — é o que o `DriveClient` faz em toda chamada, sem
+cron nenhum. O refresh token, quando morre, só volta com alguém clicando "Permitir" numa
+janela do Google: é o desenho do OAuth, e automatizar isso significaria roteirizar um
+navegador com a senha da conta guardada em algum lugar — frágil e pior que o problema.
+
+**O que vale automatizar é a vigilância, não a renovação.** `drive.client.ts` já tem
+`resolveOAuthUserEmail()`, que faz uma chamada autenticada barata e devolve o e-mail da
+conta. Um job diário chamando isso e alertando quando falhar transforma uma morte
+silenciosa — em que o armazenamento principal cai e ninguém percebe até o cliente
+reclamar — em um aviso. É pequeno, e é a versão útil da ideia.
 
 ### 4.2 Os 2 TB não estão vazios
 
@@ -208,8 +234,39 @@ sozinho — cabe uma limpeza periódica no mesmo cron, guardando as N últimas.
 ### 5.3 Mandar o backup para fora da VPS ⏳ pendente
 
 Backup no mesmo disco do que ele protege não sobrevive ao cenário que justifica existir.
-Mandar para o Drive é uso legítimo da conta atual — é literalmente para isso que ela
-existe. Ficou para depois; não competia com a urgência de disco.
+Destino decidido em 11/09: **a mesma conta Google**, que o Wagner já usa para backup da
+rede. É o uso certo dela.
+
+Antes de ligar, três coisas que a inspeção da VPS levantou.
+
+**1. O dump do banco não é criptografado.** `backup-db.sh` roda `pg_dump -Fc` direto para
+`/var/backups/oneclick/*.dump` — 138 MB por dia, 7 dias, sem `openssl` em lugar nenhum.
+Hoje isso é tolerável porque o arquivo nunca sai da VPS. Mandado para o Drive, vira o
+banco inteiro em claro — todos os clientes, todos os usuários, os hashes de senha — dentro
+de uma conta Gmail pessoal. **Tem de ser cifrado antes de subir**, e o padrão já está
+escrito: é o mesmo `openssl enc -aes-256-cbc -pbkdf2 -iter 100000` do `backup-system.sh`.
+
+**2. A passphrase só existe na VPS.** `/etc/oneclick/backup.passphrase` (40 bytes, root,
+600) não entra em backup nenhum — e está certo assim, guardar a chave dentro do cofre não
+serviria de nada. Mas a consequência é que, se a VPS morrer, as cópias no Drive ficam
+**indecifráveis** — ou seja, o backup externo falha exatamente no cenário que justifica
+existir.
+
+> Isso não é tarefa de código: alguém precisa copiar essa passphrase para um gerenciador
+> de senhas ou um papel no cofre, **antes** de o backup externo valer alguma coisa.
+
+**3. A ordem importa, por causa do tamanho.** O backup de sistema tem 3,5 GB/dia, e ~99%
+disso são os uploads (seção 1). Subir isso todo dia é 105 GB/mês no Drive, para guardar
+sete vezes o mesmo acervo. Mas depois da migração de armazenamento os arquivos já estarão
+no Drive e sairão do backup — que encolhe para alguns MB.
+
+Então o caminho barato é o inverso do óbvio:
+
+| Quando | O quê |
+|---|---|
+| agora | dump do banco (138 MB/dia), **cifrado**, para o Drive — alto valor, baixo custo |
+| agora | passphrase para fora da VPS (ação humana) |
+| depois da migração | backup de sistema, já reduzido a MB, para o Drive |
 
 ---
 
