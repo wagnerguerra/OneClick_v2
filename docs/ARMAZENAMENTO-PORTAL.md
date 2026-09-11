@@ -239,12 +239,48 @@ rede. É o uso certo dela.
 
 Antes de ligar, três coisas que a inspeção da VPS levantou.
 
-**1. O dump do banco não é criptografado.** `backup-db.sh` roda `pg_dump -Fc` direto para
-`/var/backups/oneclick/*.dump` — 138 MB por dia, 7 dias, sem `openssl` em lugar nenhum.
-Hoje isso é tolerável porque o arquivo nunca sai da VPS. Mandado para o Drive, vira o
-banco inteiro em claro — todos os clientes, todos os usuários, os hashes de senha — dentro
-de uma conta Gmail pessoal. **Tem de ser cifrado antes de subir**, e o padrão já está
-escrito: é o mesmo `openssl enc -aes-256-cbc -pbkdf2 -iter 100000` do `backup-system.sh`.
+**1. ~~O dump do banco não é criptografado.~~ ✅ Resolvido em 11/09/2026.**
+
+`backup-db.sh` rodava `pg_dump -Fc` direto para `/var/backups/oneclick/*.dump` — 138 MB
+por dia, 7 dias, sem `openssl` em lugar nenhum. Tolerável enquanto o arquivo nunca saía da
+VPS; mandado para o Drive, seria o banco inteiro em claro — todos os clientes, todos os
+usuários, os hashes de senha — dentro de uma conta Gmail pessoal.
+
+O que mudou (original em `backup-db.sh.bak-20260911`):
+
+- **O dump vai por pipe direto para o `openssl`**, com o mesmo AES-256 do
+  `backup-system.sh` e a mesma passphrase. Não é "gerar e depois cifrar": o SQL em claro
+  **nunca é gravado em disco**, nem por um instante. O `set -o pipefail` que já existia é
+  o que garante que uma falha do `pg_dump` derrube o pipe, em vez de produzir um `.enc`
+  bem-formado cifrando um dump truncado.
+- **O backup é verificado antes de ser dado como bom.** Backup que não restaura é pior que
+  backup nenhum, porque dá falsa confiança. A checagem decifra e roda
+  `pg_restore -f /dev/null`, que lê o arquivo **inteiro**. Foi uma escolha deliberada
+  sobre o `pg_restore -l`, que parece equivalente e não é: o `-l` lê só o TOC do começo do
+  arquivo e daria OK num dump truncado pela metade (e, por sair cedo, ainda fecharia o
+  pipe e faria o `openssl` levar SIGPIPE, virando falso negativo com `pipefail`). Custa
+  ~3s em 133 MB. Falhou, o arquivo é removido e o script sai com erro.
+- **A rotação passou a usar o glob `oneclick-*.dump*`.** Com `*.dump` ela nunca mais
+  encontraria os `.dump.enc` e o diretório cresceria para sempre — o tipo de erro que só
+  aparece semanas depois, quando o disco enche.
+- **Os 8 dumps que já existiam em claro foram cifrados e os originais removidos**, com o
+  `mtime` preservado (`touch -r`) para a rotação continuar contando os 7 dias pelas datas
+  certas, e com cada `.enc` verificado antes de o `.dump` ser apagado. Não sobrou nenhum
+  texto claro em `/var/backups`; os arquivos estão `-rw-------`.
+
+Rodado de ponta a ponta: 20s (18s dump+cifra, 3s verificação). Conferido depois que o
+arquivo mais antigo (04/09) decifra, abre e traz `clientes`, `users`, `helpdesk_tickets` e
+`cliente_arquivos`. A passphrase errada é rejeitada com
+`input file does not appear to be a valid archive`.
+
+Restore está documentado no cabeçalho do próprio script:
+
+```bash
+openssl enc -aes-256-cbc -d -pbkdf2 -iter 100000 \
+  -in oneclick-AAAAMMDD-HHMMSS.dump.enc \
+  -pass file:/etc/oneclick/backup.passphrase \
+  | docker exec -i n8n-postgres-1 pg_restore -U postgres -d oneclick --clean --if-exists
+```
 
 **2. A passphrase só existe na VPS.** `/etc/oneclick/backup.passphrase` (40 bytes, root,
 600) não entra em backup nenhum — e está certo assim, guardar a chave dentro do cofre não
@@ -262,11 +298,21 @@ no Drive e sairão do backup — que encolhe para alguns MB.
 
 Então o caminho barato é o inverso do óbvio:
 
-| Quando | O quê |
-|---|---|
-| agora | dump do banco (138 MB/dia), **cifrado**, para o Drive — alto valor, baixo custo |
-| agora | passphrase para fora da VPS (ação humana) |
-| depois da migração | backup de sistema, já reduzido a MB, para o Drive |
+| Quando | O quê | Estado |
+|---|---|---|
+| agora | cifrar o dump do banco | ✅ feito |
+| agora | passphrase para fora da VPS | ⏳ **ação humana — só o Wagner** |
+| agora | subir o dump cifrado (138 MB/dia) para o Drive | ⏳ pendente |
+| depois da migração | backup de sistema, já reduzido a MB, para o Drive | ⏳ pendente |
+
+### 5.4 Uma ressalva que ficou maior
+
+`/opt/oneclick/scripts/` **não é versionado em repo nenhum** — vive só na VPS. Isso era
+uma inconveniência quando os scripts eram simples; agora que eles carregam a criptografia
+e a verificação do backup, é um ponto único de falha com o agravante de que o único lugar
+onde eles estão salvos é... o backup que eles mesmos produzem. Vale trazer `backup-db.sh`
+e `backup-system.sh` para o repo (sem segredo nenhum dentro, que os dois leem de arquivo)
+e deixar a VPS com uma cópia.
 
 ---
 
