@@ -21,6 +21,7 @@ const getFolderInfo = jest.fn()
 const getParents = jest.fn()
 const getFileMeta = jest.fn()
 const downloadStream = jest.fn()
+const moveFile = jest.fn()
 
 jest.mock('../drive-sync/drive.client', () => ({
   DriveClient: class {
@@ -36,6 +37,7 @@ jest.mock('../drive-sync/drive.client', () => ({
     getParents = getParents
     getFileMeta = getFileMeta
     downloadStream = downloadStream
+    moveFile = moveFile
   },
 }))
 
@@ -64,6 +66,7 @@ beforeEach(() => {
   getParents.mockResolvedValue([])
   getFileMeta.mockResolvedValue({ id: 'f1', name: 'guia.pdf', mimeType: 'application/pdf', size: 1024 })
   downloadStream.mockResolvedValue({ pipe: jest.fn(), on: jest.fn() })
+  moveFile.mockResolvedValue(undefined)
 })
 
 describe('salvarConfig', () => {
@@ -312,5 +315,90 @@ describe('lado do PORTAL (o cliente olhando a própria pasta)', () => {
     getParents.mockResolvedValue(['pasta-de-outro-cliente'])
     await expect(svc.abrirArquivoParaPortal(completo, 'alheio')).rejects.toThrow(/não encontrado/i)
     expect(downloadStream).not.toHaveBeenCalled()
+  })
+})
+
+describe('mover (arrastar e soltar)', () => {
+  const base = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'] }
+  const completo = { ...base, podeVer: true, podeEditar: true, podeExcluir: true }
+  const soLeitura = { ...base, podeVer: true, podeEditar: false, podeExcluir: false }
+
+  beforeEach(() => {
+    cliente.findUnique.mockResolvedValue({
+      portalDriveFolderId: 'pasta-do-cliente', portalDriveFolderNome: 'ACME',
+    })
+  })
+
+  it('sem podeEditar não move nada', async () => {
+    await expect(svc.moverParaPortal(soLeitura, 'f1', null)).rejects.toThrow(/não tem permissão/i)
+    expect(moveFile).not.toHaveBeenCalled()
+  })
+
+  it('a raiz do cliente não se move', async () => {
+    // É a pasta que o escritório configurou; tirá-la do lugar quebraria o
+    // vínculo para todo mundo daquele cliente.
+    await expect(svc.moverParaPortal(completo, 'pasta-do-cliente', null))
+      .rejects.toThrow(/não pode ser movida/i)
+    expect(moveFile).not.toHaveBeenCalled()
+  })
+
+  it('não move item de fora da pasta do cliente', async () => {
+    getParents.mockResolvedValue(['pasta-de-outro'])
+    await expect(svc.moverParaPortal(completo, 'alheio', null)).rejects.toThrow(/não encontrado/i)
+    expect(moveFile).not.toHaveBeenCalled()
+  })
+
+  it('não move para destino fora da pasta do cliente', async () => {
+    // `dentroDaPastaDoCliente` é chamado primeiro para o item (passa) e depois
+    // para o destino (falha).
+    getParents
+      .mockResolvedValueOnce(['pasta-do-cliente'])
+      .mockResolvedValue(['pasta-de-outro'])
+    await expect(svc.moverParaPortal(completo, 'f1', 'destino-alheio'))
+      .rejects.toThrow(/destino não encontrada/i)
+    expect(moveFile).not.toHaveBeenCalled()
+  })
+
+  it('recusa mover uma pasta para dentro de si mesma', async () => {
+    await expect(svc.moverParaPortal(completo, 'p1', 'p1'))
+      .rejects.toThrow(/dentro dela mesma/i)
+    expect(moveFile).not.toHaveBeenCalled()
+  })
+
+  it('recusa mover uma pasta para dentro de uma subpasta dela', async () => {
+    // O estrago é silencioso: no Drive o ramo não é apagado, apenas deixa de
+    // ter caminho até a raiz — some da tela sem nada dizer que sumiu.
+    getParents.mockImplementation(async (id: string) => {
+      if (id === 'pai') return ['pasta-do-cliente']   // item está no cliente
+      if (id === 'filha') return ['pai']              // destino desce do item
+      return ['pasta-do-cliente']
+    })
+    await expect(svc.moverParaPortal(completo, 'pai', 'filha'))
+      .rejects.toThrow(/subpasta dela/i)
+    expect(moveFile).not.toHaveBeenCalled()
+  })
+
+  it('mover para onde já está não chama o Drive', async () => {
+    getParents.mockResolvedValue(['pasta-do-cliente'])
+    await expect(svc.moverParaPortal(completo, 'f1', null))
+      .resolves.toEqual({ ok: true, semMudanca: true })
+    expect(moveFile).not.toHaveBeenCalled()
+  })
+
+  it('move trocando os pais de uma vez', async () => {
+    // `addParents` sem `removeParents` deixaria o item nos dois lugares.
+    getParents.mockImplementation(async (id: string) => {
+      if (id === 'destino') return ['pasta-do-cliente']
+      return ['pasta-antiga']
+    })
+    // A cadeia do item sobe: pasta-antiga -> ... precisa chegar na raiz.
+    getParents.mockImplementation(async (id: string) => {
+      if (id === 'f1') return ['pasta-antiga']
+      if (id === 'pasta-antiga') return ['pasta-do-cliente']
+      if (id === 'destino') return ['pasta-do-cliente']
+      return []
+    })
+    await svc.moverParaPortal(completo, 'f1', 'destino')
+    expect(moveFile).toHaveBeenCalledWith('f1', 'destino', 'pasta-antiga')
   })
 })

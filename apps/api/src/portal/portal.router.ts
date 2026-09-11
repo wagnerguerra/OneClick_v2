@@ -112,6 +112,16 @@ export function createPortalRouter(
         .input(z.object({ clienteId: z.string(), itemId: z.string() }))
         .mutation(({ input, ctx }) => driveService.excluirParaPortal(ctx.portal, input.itemId)),
 
+      /** Arrastar e soltar: `destinoId` nulo leva para a raiz do cliente. */
+      driveMover: portalProcedure
+        .input(z.object({
+          clienteId: z.string(),
+          itemId: z.string(),
+          destinoId: z.string().nullable(),
+        }))
+        .mutation(({ input, ctx }) =>
+          driveService.moverParaPortal(ctx.portal, input.itemId, input.destinoId)),
+
       criarPasta: portalProcedure
         .input(z.object({
           clienteId: z.string(),

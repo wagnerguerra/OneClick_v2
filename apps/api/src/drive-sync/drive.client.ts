@@ -167,6 +167,24 @@ export class DriveClient {
   }
 
   /**
+   * Move um item de uma pasta para outra.
+   *
+   * No Drive não existe "mover": existe trocar os pais. `addParents` sem
+   * `removeParents` deixaria o item nos DOIS lugares ao mesmo tempo — o Drive
+   * permite isso e a nossa árvore não, então os dois andam sempre juntos.
+   */
+  async moveFile(fileId: string, novoPaiId: string, paiAtualId: string): Promise<void> {
+    const drive = this.drive()
+    await drive.files.update({
+      fileId,
+      addParents: novoPaiId,
+      removeParents: paiAtualId,
+      fields: 'id, parents',
+      supportsAllDrives: true,
+    })
+  }
+
+  /**
    * Manda um item para a lixeira do Drive.
    *
    * `trashed: true` e não `files.delete`: a exclusão definitiva é irreversível

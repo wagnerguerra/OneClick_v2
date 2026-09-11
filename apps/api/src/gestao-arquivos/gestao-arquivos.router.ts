@@ -172,6 +172,15 @@ export function createGestaoArquivosRouter(
       .input(z.object({ clienteId: z.string(), subPastaId: z.string().nullish() }))
       .query(({ input, ctx }) => driveService.listarDoCliente(input, contexto(ctx))),
 
+    /** Arrastar e soltar no Drive. `destinoId` nulo leva para a raiz. */
+    driveMover: writeProcedure(MODULE)
+      .input(z.object({
+        clienteId: z.string(),
+        itemId: z.string(),
+        destinoId: z.string().nullable(),
+      }))
+      .mutation(({ input, ctx }) => driveService.moverParaEscritorio(input, contexto(ctx))),
+
     removerExcecao: writeProcedure(MODULE)
       .input(z.object({ clienteId: z.string(), evento: eventoSchema }))
       .mutation(({ input, ctx }) => {

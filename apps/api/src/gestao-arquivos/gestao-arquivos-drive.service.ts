@@ -534,6 +534,96 @@ export class GestaoArquivosDriveService {
     }
   }
 
+  /**
+   * Move um item para outra pasta dentro do Drive do cliente.
+   *
+   * Quatro recusas, e nenhuma é decorativa:
+   *
+   *  - o item tem de estar dentro da pasta do cliente. Sem isso, um id colado
+   *    na requisição moveria arquivo de outro cliente para cá.
+   *  - o destino também. Senão o item sairia do alcance do dono dele — para
+   *    dentro da pasta de outro cliente, no pior caso.
+   *  - a raiz do cliente não se move: é a pasta que o escritório configurou.
+   *  - e o destino não pode ser descendente do próprio item. Mover uma pasta
+   *    para dentro de si mesma desliga o ramo inteiro da árvore: no Drive ele
+   *    não é apagado, apenas deixa de ter caminho até a raiz, e some da tela
+   *    sem nada dizer que sumiu.
+   */
+  async moverParaPortal(vinculo: VinculoPortal, itemId: string, destinoId: string | null) {
+    if (!vinculo.podeEditar) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para mover arquivos.' })
+    }
+    return this.mover(vinculo.clienteId, itemId, destinoId)
+  }
+
+  /** Mesmo movimento, pelo lado do escritório. O escopo já foi conferido. */
+  async moverParaEscritorio(
+    input: { clienteId: string; itemId: string; destinoId: string | null },
+    ctx: ContextoInterno,
+  ) {
+    const escopo = await resolverEscopo(ctx)
+    if (!alcancaCliente(escopo, input.clienteId)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
+    }
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: input.clienteId, ...filtroDeCliente(escopo, ctx) },
+      select: { id: true },
+    })
+    if (!cliente) throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
+    return this.mover(input.clienteId, input.itemId, input.destinoId)
+  }
+
+  private async mover(clienteId: string, itemId: string, destinoId: string | null) {
+    const raiz = await this.raizDoCliente(clienteId)
+    const destino = destinoId ?? raiz
+
+    if (itemId === raiz) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Esta pasta não pode ser movida.' })
+    }
+    if (itemId === destino) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Uma pasta não pode ser movida para dentro dela mesma.' })
+    }
+
+    const dentroItem = await this.dentroDaPastaDoCliente(itemId, raiz)
+    if (!dentroItem) throw new TRPCError({ code: 'NOT_FOUND', message: 'Item não encontrado.' })
+
+    if (destino !== raiz) {
+      const dentroDestino = await this.dentroDaPastaDoCliente(destino, raiz)
+      if (!dentroDestino) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta de destino não encontrada.' })
+
+      // O destino desce do próprio item? Então o movimento é para dentro de si.
+      const cicla = await this.dentroDaPastaDoCliente(destino, itemId)
+      if (cicla) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Não dá para mover uma pasta para dentro de uma subpasta dela.',
+        })
+      }
+    }
+
+    let paiAtual: string
+    try {
+      const pais = await drive.getParents(itemId)
+      if (pais.length === 0) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Este item não está em nenhuma pasta.' })
+      }
+      paiAtual = pais[0]!
+    } catch (e) {
+      if (e instanceof TRPCError) throw e
+      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível falar com o Google Drive agora.' })
+    }
+
+    if (paiAtual === destino) return { ok: true, semMudanca: true }
+
+    try {
+      await drive.moveFile(itemId, destino, paiAtual)
+      return { ok: true, semMudanca: false }
+    } catch (e) {
+      this.logger.warn(`Falha ao mover ${itemId} no Drive: ${String(e)}`)
+      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível mover o item no Drive.' })
+    }
+  }
+
   /** A pasta do cliente, ou erro quando o escritório ainda não vinculou uma. */
   private async raizDoCliente(clienteId: string): Promise<string> {
     const cliente = await prisma.cliente.findUnique({

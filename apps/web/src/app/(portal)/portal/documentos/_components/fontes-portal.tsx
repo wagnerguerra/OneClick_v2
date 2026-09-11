@@ -55,6 +55,15 @@ export function useFontesDoPortal(clienteId: string, podeEditar: boolean): Fonte
       // Pela NOSSA API: o cliente não precisa de conta Google, e o acesso morre
       // junto com o vínculo no cadastro.
       selecionar: async a => `${getApiUrl()}/api/portal/drive/${clienteId}/${a.id}`,
+      // Só quem pode editar reorganiza. Sem a função, o arrastar nem começa —
+      // melhor do que deixar arrastar e recusar no fim.
+      ...(podeEditar
+        ? {
+            mover: async (itemId: string, destinoId: string | null) => {
+              await (trpc.portal as any).arquivos.driveMover.mutate({ clienteId, itemId, destinoId })
+            },
+          }
+        : {}),
     },
   ], [clienteId, podeEditar])
 }

@@ -82,6 +82,9 @@ export function useFontesDoEscritorio(clienteId: string, podeExcluir: boolean): 
       // O arquivo vem pela NOSSA API, não pelo link do Drive: o link só abriria
       // para quem tem a pasta compartilhada no Google.
       selecionar: async a => `${getApiUrl()}/api/gestao-arquivos/drive/${clienteId}/${a.id}`,
+      mover: async (itemId, destinoId) => {
+        await (trpc as any).gestaoArquivos.driveMover.mutate({ clienteId, itemId, destinoId })
+      },
     },
   ], [clienteId, podeExcluir])
 }

@@ -64,6 +64,13 @@ export interface FonteExplorador {
   selecionar: (a: ArquivoItem) => Promise<string | null>
   /** Exclusão só existe onde faz sentido; no Drive, por ora, em lugar nenhum. */
   permiteExcluir?: boolean
+  /**
+   * Move um item para outra pasta. Ausente = a unidade não se reorganiza, e o
+   * arrastar nem começa.
+   *
+   * `destinoId` nulo é a raiz da unidade.
+   */
+  mover?: (itemId: string, destinoId: string | null) => Promise<void>
 }
 
 /** Largura da pré-visualização, lembrada entre sessões. */
@@ -117,7 +124,8 @@ function IconeArquivo({ nome, mime, className }: { nome: string; mime: string | 
  * a cada clique, o que perde o estado de expansão e faz a lista piscar.
  */
 function LinhaArvore({
-  fonte, pasta, nivel, caminho, nos, selecionada, fontes, cor, onAlternar, onAbrir,
+  fonte, pasta, nivel, caminho, nos, selecionada, fontes, cor,
+  arrastado, alvo, onAlvo, onSoltar, onAlternar, onAbrir,
 }: {
   fonte: Fonte
   pasta: PastaNo
@@ -127,6 +135,10 @@ function LinhaArvore({
   selecionada: { fonte: Fonte; id: string | null }
   fontes: FonteExplorador[]
   cor: string
+  arrastado: { id: string; nome: string } | null
+  alvo: string | null | undefined
+  onAlvo: (id: string | null | undefined) => void
+  onSoltar: (destinoId: string | null) => void
   onAlternar: (fonte: Fonte, id: string | null) => void
   onAbrir: (fonte: Fonte, id: string | null, caminho: PastaNo[]) => void
 }) {
@@ -141,11 +153,23 @@ function LinhaArvore({
   return (
     <div>
       <div
+        // A unidade (raiz) também recebe: é como se tira uma pasta de dentro de
+        // outra e a traz de volta para o topo — o caso do print que originou
+        // isto, com 2025 criada dentro de 2026.
+        onDragOver={e => {
+          if (arrastado && arrastado.id !== pasta.id) { e.preventDefault(); onAlvo(pasta.id) }
+        }}
+        onDragLeave={() => onAlvo(undefined)}
+        onDrop={e => { e.preventDefault(); onSoltar(pasta.id) }}
         className={cn(
           'group flex items-center gap-1 rounded-md py-1 pr-1.5 text-[13px] transition-colors',
           ativa ? 'bg-muted font-medium text-foreground' : 'text-foreground/80 hover:bg-muted/50',
+          arrastado && alvo === pasta.id && 'ring-1 ring-inset',
         )}
-        style={{ paddingLeft: `${nivel * 12 + 4}px` }}
+        style={{
+          paddingLeft: `${nivel * 12 + 4}px`,
+          ...(arrastado && alvo === pasta.id ? { boxShadow: `inset 0 0 0 1px ${cor}` } : {}),
+        }}
       >
         <button
           type="button"
@@ -178,6 +202,10 @@ function LinhaArvore({
           selecionada={selecionada}
           fontes={fontes}
           cor={cor}
+          arrastado={arrastado}
+          alvo={alvo}
+          onAlvo={onAlvo}
+          onSoltar={onSoltar}
           onAlternar={onAlternar}
           onAbrir={onAbrir}
         />
@@ -223,6 +251,10 @@ export function Explorador({
   const [trilha, setTrilha] = useState<PastaNo[]>([])
   const [largura, setLargura] = useState(LARGURA_PADRAO)
   const [arrastando, setArrastando] = useState(false)
+  /** Item sendo arrastado, e a pasta sob o ponteiro. */
+  const [item, setItem] = useState<{ id: string; nome: string } | null>(null)
+  const [alvo, setAlvo] = useState<string | null | undefined>(undefined)
+  const [movendo, setMovendo] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   // Lê a largura salva depois da montagem, não na inicialização do estado: no
@@ -355,6 +387,38 @@ export function Explorador({
     }
   }
 
+  /**
+   * Solta o item na pasta de destino.
+   *
+   * `destinoId` `undefined` significa "nenhum alvo válido" e vira um não-ato;
+   * `null` é a raiz da unidade, que é um destino legítimo. São coisas
+   * diferentes, e colapsá-las num só valor faria soltar no vazio mandar tudo
+   * para a raiz.
+   */
+  async function soltarEm(destinoId: string | null | undefined) {
+    const arrastado = item
+    setItem(null)
+    setAlvo(undefined)
+    if (!arrastado || destinoId === undefined || !fonteAtual?.mover) return
+    if (arrastado.id === destinoId) return
+
+    setMovendo(true)
+    try {
+      await fonteAtual.mover(arrastado.id, destinoId)
+      // Recarrega a pasta aberta e limpa a árvore: mover muda a estrutura, e
+      // um cache de filhos de antes do movimento mostraria o item nos dois
+      // lugares até alguém apertar atualizar.
+      setNos({})
+      await abrirPasta(selecionada.fonte, selecionada.id, trilha)
+    } catch (e) {
+      setConteudo(c => c && { ...c, indisponivel: e instanceof Error ? e.message : 'Não foi possível mover.' })
+    } finally {
+      setMovendo(false)
+    }
+  }
+
+  const podeArrastar = Boolean(fonteAtual?.mover)
+
   const tipoSel = arquivoSel ? tipoDoArquivo(arquivoSel.nome, arquivoSel.mimeType) : null
   const previsualizavel = tipoSel === 'imagem' || tipoSel === 'pdf' || tipoSel === 'texto'
   const podeExcluirAqui = Boolean(onExcluir && fonteAtual?.permiteExcluir)
@@ -377,6 +441,10 @@ export function Explorador({
             selecionada={selecionada}
             fontes={fontes}
             cor={cor}
+            arrastado={item}
+            alvo={alvo}
+            onAlvo={setAlvo}
+            onSoltar={soltarEm}
             onAlternar={alternar}
             onAbrir={abrirPasta}
           />
@@ -393,7 +461,13 @@ export function Explorador({
               <span className="truncate text-foreground">{p.nome}</span>
             </span>
           ))}
+          {item && (
+            <span className="ml-3 truncate text-[11px] text-muted-foreground">
+              Movendo <span className="font-medium text-foreground">{item.nome}</span> — solte numa pasta
+            </span>
+          )}
           <div className="ml-auto flex shrink-0 items-center gap-1">
+            {movendo && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
             {acoes}
             <Button
               variant="ghost"
@@ -448,7 +522,20 @@ export function Explorador({
                 {conteudo.pastas.map(p => (
                   <tr
                     key={p.id}
-                    className="cursor-pointer border-b border-border/50 hover:bg-muted/40"
+                    draggable={podeArrastar}
+                    onDragStart={() => setItem({ id: p.id!, nome: p.nome })}
+                    onDragEnd={() => { setItem(null); setAlvo(undefined) }}
+                    // `preventDefault` no dragOver é o que autoriza a soltura —
+                    // sem ele o navegador recusa o drop e nada acontece.
+                    onDragOver={e => { if (podeArrastar && item && item.id !== p.id) { e.preventDefault(); setAlvo(p.id) } }}
+                    onDragLeave={() => setAlvo(a => (a === p.id ? undefined : a))}
+                    onDrop={e => { e.preventDefault(); soltarEm(p.id) }}
+                    className={cn(
+                      'cursor-pointer border-b border-border/50 hover:bg-muted/40',
+                      alvo === p.id && 'ring-1 ring-inset',
+                      item?.id === p.id && 'opacity-40',
+                    )}
+                    style={alvo === p.id ? { boxShadow: `inset 0 0 0 1px ${cor}` } : undefined}
                     onClick={() => abrirPasta(selecionada.fonte, p.id, [...trilha, p])}
                   >
                     <td className="px-3 py-1.5">
@@ -466,9 +553,13 @@ export function Explorador({
                 {conteudo.arquivos.map(a => (
                   <tr
                     key={a.id}
+                    draggable={podeArrastar}
+                    onDragStart={() => setItem({ id: a.id, nome: a.nome })}
+                    onDragEnd={() => { setItem(null); setAlvo(undefined) }}
                     className={cn(
                       'cursor-pointer border-b border-border/50 hover:bg-muted/40',
                       arquivoSel?.id === a.id && 'bg-muted',
+                      item?.id === a.id && 'opacity-40',
                     )}
                     onClick={() => selecionarArquivo(a)}
                   >
