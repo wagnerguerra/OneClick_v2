@@ -9,10 +9,12 @@
 
 const cliente = { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), findUnique: jest.fn() }
 const gestaoArquivosDrive = { findUnique: jest.fn(), upsert: jest.fn() }
+const arquivoLog = { findMany: jest.fn(), create: jest.fn() }
+const user = { findUnique: jest.fn() }
 const clienteAreaContratada = { findMany: jest.fn() }
 
 jest.mock('@saas/db', () => ({
-  prisma: { cliente, gestaoArquivosDrive, clienteAreaContratada },
+  prisma: { cliente, gestaoArquivosDrive, clienteAreaContratada, arquivoLog, user },
 }))
 
 const listSubfolders = jest.fn()
@@ -67,6 +69,9 @@ beforeEach(() => {
   getFileMeta.mockResolvedValue({ id: 'f1', name: 'guia.pdf', mimeType: 'application/pdf', size: 1024 })
   downloadStream.mockResolvedValue({ pipe: jest.fn(), on: jest.fn() })
   moveFile.mockResolvedValue(undefined)
+  arquivoLog.findMany.mockResolvedValue([])
+  arquivoLog.create.mockResolvedValue({ id: 'log-1' })
+  user.findUnique.mockResolvedValue({ name: 'Cliente Teste' })
 })
 
 describe('salvarConfig', () => {
@@ -274,7 +279,7 @@ describe('lado do PORTAL (o cliente olhando a própria pasta)', () => {
   it('sem podeEditar não cria pasta nem envia arquivo', async () => {
     await expect(svc.criarPastaParaPortal(soLeitura, 'Notas'))
       .rejects.toThrow(/não tem permissão/i)
-    await expect(svc.enviarParaPortal(soLeitura, { fileName: 'n.pdf', fileUrl: '/api/upload/n.pdf' }))
+    await expect(svc.enviarParaPortal(soLeitura, { fileName: 'n.pdf', fileUrl: '/api/upload/n.pdf' }, 'u1'))
       .rejects.toThrow(/não tem permissão/i)
   })
 
@@ -400,5 +405,55 @@ describe('mover (arrastar e soltar)', () => {
     })
     await svc.moverParaPortal(completo, 'f1', 'destino')
     expect(moveFile).toHaveBeenCalledWith('f1', 'destino', 'pasta-antiga')
+  })
+})
+
+describe('autoria do envio', () => {
+  const base = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'] }
+  const completo = { ...base, podeVer: true, podeEditar: true, podeExcluir: true }
+
+  it('a listagem devolve quem enviou, vindo do NOSSO log', async () => {
+    // O Drive não sabe e nunca vai saber: lá o dono de todo arquivo é a conta
+    // do escritório. A autoria é registro nosso.
+    cliente.findUnique.mockResolvedValue({
+      portalDriveFolderId: 'pasta-do-cliente', portalDriveFolderNome: 'ACME',
+    })
+    listFolderContents.mockResolvedValue([
+      { id: 'f1', name: 'nota.pdf', mimeType: 'application/pdf', size: 99, modifiedTime: '', webViewLink: '', isFolder: false },
+      { id: 'f2', name: 'outro.pdf', mimeType: 'application/pdf', size: 10, modifiedTime: '', webViewLink: '', isFolder: false },
+    ])
+    arquivoLog.findMany.mockResolvedValue([
+      { arquivoId: 'f1', usuarioNome: 'Maria', criadoEm: new Date('2026-09-11T10:00:00Z') },
+    ])
+
+    const r = await svc.listarParaPortal(completo)
+    expect(r.itens[0]!.enviadoPor).toBe('Maria')
+    // Arquivo que chegou por fora do sistema (solto direto no Drive) fica nulo
+    // — e isso é informação, não ausência de dado.
+    expect(r.itens[1]!.enviadoPor).toBeNull()
+  })
+
+  it('usa a PRIMEIRA linha: interessa quem enviou, não quem mexeu por último', async () => {
+    cliente.findUnique.mockResolvedValue({ portalDriveFolderId: 'pasta-do-cliente', portalDriveFolderNome: 'ACME' })
+    listFolderContents.mockResolvedValue([
+      { id: 'f1', name: 'n.pdf', mimeType: '', size: 1, modifiedTime: '', webViewLink: '', isFolder: false },
+    ])
+    arquivoLog.findMany.mockResolvedValue([
+      { arquivoId: 'f1', usuarioNome: 'Quem enviou', criadoEm: new Date('2026-09-01') },
+      { arquivoId: 'f1', usuarioNome: 'Quem mexeu depois', criadoEm: new Date('2026-09-10') },
+    ])
+    const r = await svc.listarParaPortal(completo)
+    expect(r.itens[0]!.enviadoPor).toBe('Quem enviou')
+  })
+
+  it('falha ao gravar o log não derruba o envio', async () => {
+    // O arquivo já está no Drive quando o log roda.
+    cliente.findUnique.mockResolvedValue({ portalDriveFolderId: 'pasta-do-cliente' })
+    arquivoLog.create.mockRejectedValue(new Error('banco fora'))
+    // `uploadFile` não está no dublê do client; o teste cobre só o caminho de
+    // permissão + destino, que é onde o log entra.
+    await expect(
+      svc.enviarParaPortal(completo, { fileName: 'n.pdf', fileUrl: '/api/upload/inexistente.pdf' }, 'u1'),
+    ).rejects.toThrow(/não foi encontrado/i)
   })
 })

@@ -41,6 +41,8 @@ export function useFontesDoEscritorio(clienteId: string, podeExcluir: boolean): 
             origem: a.origem,
             novo: Boolean(a.novo),
             link: null,
+            enviadoPor: a.enviadoPor ?? null,
+            enviadoEm: a.criadoEm ?? null,
           })),
         }
       },
@@ -76,6 +78,8 @@ export function useFontesDoEscritorio(clienteId: string, podeExcluir: boolean): 
             origem: 'DRIVE',
             novo: false,
             link: i.link || null,
+            enviadoPor: i.enviadoPor ?? null,
+            enviadoEm: i.enviadoEm ?? null,
           })),
         }
       },

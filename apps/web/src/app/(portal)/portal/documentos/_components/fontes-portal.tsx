@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { HardDrive } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
+import { enviarComProgresso } from '@/lib/enviar-com-progresso'
 import type { FonteExplorador, Conteudo } from '@/app/(dashboard)/gestao-arquivos/_components/explorador'
 
 /**
@@ -49,6 +50,8 @@ export function useFontesDoPortal(clienteId: string, podeEditar: boolean): Fonte
             origem: 'DRIVE',
             novo: false,
             link: null,
+            enviadoPor: i.enviadoPor ?? null,
+            enviadoEm: i.enviadoEm ?? null,
           })),
         }
       },
@@ -63,27 +66,25 @@ export function useFontesDoPortal(clienteId: string, podeEditar: boolean): Fonte
             mover: async (itemId: string, destinoId: string | null) => {
               await (trpc.portal as any).arquivos.driveMover.mutate({ clienteId, itemId, destinoId })
             },
-            enviar: async (arquivos: File[], pastaId: string | null) => {
-              // Sequencial, não em paralelo: são uploads inteiros de arquivo, e
-              // disparar dez de uma vez disputa a banda do próprio usuário e
-              // castiga justamente quem tem conexão pior.
-              for (const file of arquivos) {
-                const form = new FormData()
-                form.append('file', file)
-                const up = await fetch(`${getApiUrl()}/api/upload`, {
-                  method: 'POST', body: form, credentials: 'include',
-                })
-                if (!up.ok) throw new Error(`Falha ao enviar "${file.name}". Tente de novo.`)
-                const { url } = await up.json() as { url: string }
+            enviar: async (
+              file: File,
+              pastaId: string | null,
+              onProgresso: (pct: number) => void,
+            ) => {
+              // O upload até o nosso servidor é o trecho longo e é o que a
+              // barra acompanha. O empurrão para o Drive vem depois e é rápido
+              // — os 100% só aparecem quando o arquivo está LÁ, não quando
+              // chegou aqui. Barra cheia com arquivo ainda a caminho é mentira.
+              const { url } = await enviarComProgresso(file, onProgresso)
 
-                await (trpc.portal as any).arquivos.driveEnviar.mutate({
-                  clienteId,
-                  fileName: file.name,
-                  fileUrl: url,
-                  pastaId,
-                  mimeType: file.type || null,
-                })
-              }
+              await (trpc.portal as any).arquivos.driveEnviar.mutate({
+                clienteId,
+                fileName: file.name,
+                fileUrl: url,
+                pastaId,
+                mimeType: file.type || null,
+              })
+              onProgresso(100)
             },
           }
         : {}),

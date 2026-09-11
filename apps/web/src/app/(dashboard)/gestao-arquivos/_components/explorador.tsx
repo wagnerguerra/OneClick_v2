@@ -5,6 +5,7 @@ import {
   Folder, FolderOpen, FileText, FileImage, FileSpreadsheet, FileArchive,
   ChevronRight, Loader2, Server, Trash2, Download, ExternalLink,
   Sparkles, PanelRightClose, PanelRightOpen, RefreshCw, Eye,
+  CheckCircle2, AlertCircle, X, UploadCloud,
 } from 'lucide-react'
 import { Button, Badge, cn } from '@saas/ui'
 
@@ -36,6 +37,18 @@ export interface ArquivoItem {
   origem: string | null
   novo: boolean
   link: string | null
+  /** Quem mandou pelo sistema, e quando. Nulo = chegou por fora. */
+  enviadoPor?: string | null
+  enviadoEm?: string | null
+}
+
+/** Um arquivo na fila de envio. */
+interface EnvioEmCurso {
+  nome: string
+  tamanho: number
+  progresso: number
+  situacao: 'enviando' | 'concluido' | 'erro'
+  erro?: string
 }
 
 export interface Conteudo {
@@ -72,12 +85,15 @@ export interface FonteExplorador {
    */
   mover?: (itemId: string, destinoId: string | null) => Promise<void>
   /**
-   * Recebe arquivos arrastados do computador. Ausente = a unidade não aceita
-   * envio, e a área nem sinaliza que aceitaria.
+   * Recebe UM arquivo do computador, reportando o progresso.
+   *
+   * Um por vez, e não a lista inteira, porque a fila e a barra vivem aqui: o
+   * explorador precisa saber em qual arquivo está e a que altura, e isso se
+   * perde se a fonte engolir o laço.
    *
    * `pastaId` nulo é a raiz da unidade.
    */
-  enviar?: (arquivos: File[], pastaId: string | null) => Promise<void>
+  enviar?: (arquivo: File, pastaId: string | null, onProgresso: (pct: number) => void) => Promise<void>
 }
 
 /**
@@ -265,6 +281,77 @@ function LinhaArvore({
   )
 }
 
+/**
+ * Fila de envio, no canto inferior direito.
+ *
+ * Flutua sobre o explorador em vez de empurrar o conteúdo: quem está enviando
+ * continua navegando, e uma barra que desloca a lista faria o item sob o
+ * ponteiro fugir no meio do clique.
+ */
+function FilaDeEnvio({ fila, onFechar }: { fila: EnvioEmCurso[]; onFechar: () => void }) {
+  if (fila.length === 0) return null
+
+  const concluidos = fila.filter(f => f.situacao === 'concluido').length
+  const comErro = fila.filter(f => f.situacao === 'erro').length
+  const terminou = concluidos + comErro === fila.length
+
+  return (
+    <div className="absolute bottom-3 right-3 z-30 w-[320px] overflow-hidden rounded-lg border border-border bg-card shadow-lg">
+      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
+        <UploadCloud className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-foreground">
+          {terminou
+            ? (comErro > 0
+                ? `${concluidos} enviado(s), ${comErro} com erro`
+                : `${concluidos} arquivo(s) enviado(s)`)
+            : `Enviando ${concluidos + 1} de ${fila.length}`}
+        </span>
+        <button
+          type="button"
+          onClick={onFechar}
+          className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          aria-label="Fechar"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="max-h-[220px] overflow-y-auto nice-scrollbar">
+        {fila.map((f, i) => (
+          <div key={`${f.nome}-${i}`} className="border-b border-border/50 px-3 py-2 last:border-b-0">
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">{f.nome}</span>
+              {f.situacao === 'concluido' && (
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              )}
+              {f.situacao === 'erro' && (
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
+              )}
+              {f.situacao === 'enviando' && (
+                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                  {f.progresso}%
+                </span>
+              )}
+            </div>
+
+            {f.situacao === 'enviando' && (
+              <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full transition-[width] duration-150 ease-out"
+                  style={{ width: `${f.progresso}%`, backgroundColor: 'var(--mod-administrativo, #38bdf8)' }}
+                />
+              </div>
+            )}
+            {f.situacao === 'erro' && (
+              <p className="mt-0.5 text-[11px] text-rose-600 dark:text-rose-400">{f.erro}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function Explorador({
   fontes, cor, altura = 'h-[calc(100vh-260px)]', onExcluir, onPastaAtual, acoes,
 }: {
@@ -301,6 +388,7 @@ export function Explorador({
   /** Pasta sob o ponteiro durante um arrasto de arquivos do computador. */
   const [alvoEnvio, setAlvoEnvio] = useState<string | null | undefined>(undefined)
   const [enviando, setEnviando] = useState(false)
+  const [fila, setFila] = useState<EnvioEmCurso[]>([])
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   // Lê a largura salva depois da montagem, não na inicialização do estado: no
@@ -472,16 +560,42 @@ export function Explorador({
    */
   async function receberArquivos(arquivos: File[], pastaId: string | null) {
     setAlvoEnvio(undefined)
-    if (arquivos.length === 0 || !fonteAtual?.enviar) return
+    const enviarUm = fonteAtual?.enviar
+    if (arquivos.length === 0 || !enviarUm) return
+
+    // A fila é reiniciada a cada soltura: mostrar os envios de cinco minutos
+    // atrás junto com os de agora só confunde quem está olhando.
+    const inicio = arquivos.map(a => ({
+      nome: a.name, tamanho: a.size, progresso: 0, situacao: 'enviando' as const,
+    }))
+    setFila(inicio)
     setEnviando(true)
-    try {
-      await fonteAtual.enviar(arquivos, pastaId)
-      await abrirPasta(selecionada.fonte, selecionada.id, trilha)
-    } catch (e) {
-      setConteudo(c => c && { ...c, indisponivel: e instanceof Error ? e.message : 'Não foi possível enviar.' })
-    } finally {
-      setEnviando(false)
+
+    for (let i = 0; i < arquivos.length; i++) {
+      try {
+        await enviarUm(arquivos[i]!, pastaId, pct => {
+          setFila(f => f.map((x, j) => (j === i ? { ...x, progresso: pct } : x)))
+        })
+        setFila(f => f.map((x, j) => (j === i ? { ...x, progresso: 100, situacao: 'concluido' } : x)))
+      } catch (e) {
+        // Um arquivo que falha não interrompe os outros: quem soltou dez não
+        // deve perder nove por causa do terceiro.
+        setFila(f => f.map((x, j) => (j === i
+          ? { ...x, situacao: 'erro', erro: e instanceof Error ? e.message : 'falhou' }
+          : x)))
+      }
     }
+
+    setEnviando(false)
+    await abrirPasta(selecionada.fonte, selecionada.id, trilha)
+
+    // Some sozinha só se TUDO deu certo. Erro fica na tela até alguém fechar,
+    // senão o aviso passa despercebido e o arquivo nunca chegou.
+    setFila(f => {
+      if (f.some(x => x.situacao === 'erro')) return f
+      window.setTimeout(() => setFila([]), 2500)
+      return f
+    })
   }
 
   const podeArrastar = Boolean(fonteAtual?.mover)
@@ -494,8 +608,9 @@ export function Explorador({
   return (
     <div
       ref={containerRef}
-      className={cn('flex min-h-[420px] overflow-hidden rounded-lg border border-border bg-card', altura)}
+      className={cn('relative flex min-h-[420px] overflow-hidden rounded-lg border border-border bg-card', altura)}
     >
+      <FilaDeEnvio fila={fila} onFechar={() => setFila([])} />
       {/* ── Árvore ─────────────────────────────────────────────── */}
       <div className="w-[240px] shrink-0 overflow-y-auto nice-scrollbar border-r border-border bg-muted/20 p-2">
         {fontes.map(f => (
@@ -698,7 +813,12 @@ export function Explorador({
                       {tamanhoLegivel(a.tamanho)}
                     </td>
                     <td className="hidden px-3 py-1.5 text-muted-foreground md:table-cell">
-                      {dataLegivel(a.modificadoEm)}
+                      <span className="block truncate">{dataLegivel(a.enviadoEm ?? a.modificadoEm)}</span>
+                      {a.enviadoPor && (
+                        <span className="block truncate text-[11px] text-muted-foreground/70">
+                          por {a.enviadoPor}
+                        </span>
+                      )}
                     </td>
                     <td className="px-2 py-1.5 text-right">
                       {podeExcluirAqui && (
@@ -800,6 +920,20 @@ export function Explorador({
                   <div className="flex justify-between gap-2">
                     <dt className="text-muted-foreground">Modificado</dt>
                     <dd className="tabular-nums text-foreground">{dataLegivel(arquivoSel.modificadoEm)}</dd>
+                  </div>
+                  {arquivoSel.enviadoEm && (
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Enviado em</dt>
+                      <dd className="tabular-nums text-foreground">{dataLegivel(arquivoSel.enviadoEm)}</dd>
+                    </div>
+                  )}
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-muted-foreground">Enviado por</dt>
+                    <dd className="min-w-0 truncate text-right text-foreground">
+                      {/* "Fora do sistema" é informação, não lacuna: o arquivo
+                          foi solto direto na pasta do Drive. */}
+                      {arquivoSel.enviadoPor ?? 'fora do sistema'}
+                    </dd>
                   </div>
                 </dl>
 

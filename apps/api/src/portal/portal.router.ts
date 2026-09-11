@@ -106,7 +106,7 @@ export function createPortalRouter(
           pastaId: z.string().nullish(),
           mimeType: z.string().nullish(),
         }))
-        .mutation(({ input, ctx }) => driveService.enviarParaPortal(ctx.portal, input)),
+        .mutation(({ input, ctx }) => driveService.enviarParaPortal(ctx.portal, input, ctx.userId)),
 
       driveExcluir: portalProcedure
         .input(z.object({ clienteId: z.string(), itemId: z.string() }))

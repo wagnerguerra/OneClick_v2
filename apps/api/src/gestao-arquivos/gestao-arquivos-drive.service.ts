@@ -37,6 +37,18 @@ export interface ItemDrive {
   tamanho: number
   modificadoEm: string
   link: string
+  /**
+   * Quem enviou pelo sistema, e quando.
+   *
+   * Não vem do Drive: lá o dono de TODO arquivo é a conta do escritório, então
+   * a API do Google não sabe — e nunca vai saber — que foi o fulano da empresa
+   * do cliente quem mandou. O dado é nosso, gravado no `ArquivoLog` no momento
+   * do envio. `null` significa "chegou por fora do sistema" (alguém soltou
+   * direto na pasta do Drive), que é uma informação legítima e diferente de
+   * "não sabemos".
+   */
+  enviadoPor: string | null
+  enviadoEm: string | null
 }
 
 @Injectable()
@@ -250,6 +262,7 @@ export class GestaoArquivosDriveService {
 
     try {
       const itens = await drive.listFolderContents(alvo)
+      const autoria = await this.autoriaDe(itens.filter(i => !i.isFolder).map(i => i.id))
       return {
         vinculada: true,
         nome: cliente.portalDriveFolderNome,
@@ -261,6 +274,8 @@ export class GestaoArquivosDriveService {
           tamanho: i.size,
           modificadoEm: i.modifiedTime,
           link: i.webViewLink,
+          enviadoPor: autoria.get(i.id)?.nome ?? null,
+          enviadoEm: autoria.get(i.id)?.em.toISOString() ?? null,
         })),
       }
     } catch (e) {
@@ -369,6 +384,7 @@ export class GestaoArquivosDriveService {
 
     try {
       const itens = await drive.listFolderContents(alvo)
+      const autoria = await this.autoriaDe(itens.filter(i => !i.isFolder).map(i => i.id))
       return {
         vinculada: true,
         nome: cliente.portalDriveFolderNome,
@@ -382,6 +398,8 @@ export class GestaoArquivosDriveService {
           // quem tem a pasta compartilhada no Google, e o objetivo aqui é
           // justamente que o acesso não dependa disso.
           link: '',
+          enviadoPor: autoria.get(i.id)?.nome ?? null,
+          enviadoEm: autoria.get(i.id)?.em.toISOString() ?? null,
         })),
       }
     } catch (e) {
@@ -466,6 +484,7 @@ export class GestaoArquivosDriveService {
   async enviarParaPortal(
     vinculo: VinculoPortal,
     input: { fileName: string; fileUrl: string; pastaId?: string | null; mimeType?: string | null },
+    userId: string,
   ) {
     if (!vinculo.podeEditar) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para enviar arquivos.' })
@@ -498,6 +517,17 @@ export class GestaoArquivosDriveService {
       // Só remove depois do sucesso: se o Drive falhar, o arquivo continua no
       // disco e a tentativa seguinte não exige reenviar.
       fs.unlink(caminho, () => undefined)
+
+      await this.registrarEnvio({
+        clienteId: vinculo.clienteId,
+        arquivoId: enviado.id,
+        arquivoNome: enviado.name,
+        pastaId: destino,
+        userId,
+        lado: 'CLIENTE',
+        tamanho: enviado.size,
+      })
+
       return { id: enviado.id, nome: enviado.name }
     } catch (e) {
       this.logger.warn(`Falha ao subir arquivo para o Drive: ${String(e)}`)
@@ -695,6 +725,64 @@ export class GestaoArquivosDriveService {
     }
 
     return { arquivos, parcial: fila.length > 0 }
+  }
+
+  /**
+   * Quem enviou cada um destes arquivos, pelo nosso log.
+   *
+   * Uma consulta para o lote inteiro, não uma por arquivo: a listagem de uma
+   * pasta com 200 itens viraria 200 idas ao banco.
+   */
+  private async autoriaDe(ids: string[]): Promise<Map<string, { nome: string | null; em: Date }>> {
+    if (ids.length === 0) return new Map()
+    const logs = await prisma.arquivoLog.findMany({
+      where: { arquivoId: { in: ids }, evento: 'ENVIOU' },
+      // Mais antigo primeiro: interessa quem ENVIOU, não quem mexeu por último.
+      orderBy: { criadoEm: 'asc' },
+      select: { arquivoId: true, usuarioNome: true, criadoEm: true },
+    })
+    const mapa = new Map<string, { nome: string | null; em: Date }>()
+    for (const l of logs) {
+      if (l.arquivoId && !mapa.has(l.arquivoId)) {
+        mapa.set(l.arquivoId, { nome: l.usuarioNome, em: l.criadoEm })
+      }
+    }
+    return mapa
+  }
+
+  /** Registra o envio. Sem isto, "quem mandou este arquivo?" não tem resposta. */
+  private async registrarEnvio(e: {
+    clienteId: string
+    arquivoId: string
+    arquivoNome: string
+    pastaId: string
+    userId: string
+    lado: 'CLIENTE' | 'ESCRITORIO'
+    tamanho?: number | null
+  }) {
+    try {
+      const usuario = await prisma.user.findUnique({
+        where: { id: e.userId },
+        select: { name: true },
+      })
+      await prisma.arquivoLog.create({
+        data: {
+          clienteId: e.clienteId,
+          arquivoId: e.arquivoId,
+          arquivoNome: e.arquivoNome,
+          pastaId: e.pastaId,
+          evento: 'ENVIOU',
+          lado: e.lado,
+          usuarioId: e.userId,
+          usuarioNome: usuario?.name ?? null,
+          detalhe: e.tamanho ? `${e.tamanho} bytes` : null,
+        },
+      })
+    } catch {
+      // O arquivo já está no Drive quando isto roda. Perder a linha de
+      // auditoria é ruim; devolver erro para quem acabou de enviar com sucesso
+      // é pior.
+    }
   }
 
   /** A pasta do cliente, ou erro quando o escritório ainda não vinculou uma. */
