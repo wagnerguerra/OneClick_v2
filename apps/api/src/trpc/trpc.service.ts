@@ -352,7 +352,12 @@ export const router = t.router
 export const publicProcedure = t.procedure
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   if (!ctx.userId) {
-    throw new Error('Não autorizado')
+    // TRPCError, e não `new Error`: um Error cru o tRPC classifica como
+    // INTERNAL_SERVER_ERROR e devolve 500. Como 314 rotas passam por aqui,
+    // uma sessão expirada derrubava a aplicação inteira com 500 em vez de
+    // devolver 401 — e o front, sem conseguir distinguir "faça login de novo"
+    // de "o servidor quebrou", mostrava erro em tudo em vez de redirecionar.
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
   }
   assertUsuarioInterno(ctx)
   return next({ ctx: { ...ctx, userId: ctx.userId } })
