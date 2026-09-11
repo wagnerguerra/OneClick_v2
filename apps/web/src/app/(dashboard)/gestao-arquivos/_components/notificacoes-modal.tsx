@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, Save, Mail } from 'lucide-react'
+import { Loader2, Save, Mail, Settings2, HardDrive } from 'lucide-react'
 import {
   Button, Checkbox, Switch, Input, Label,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
@@ -9,6 +9,8 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { cn } from '@saas/ui'
+import { DriveConfigPanel } from './drive-config-panel'
 
 /**
  * Administração das notificações do módulo.
@@ -70,7 +72,12 @@ function regraVazia(evento: string): Regra {
   }
 }
 
-export function NotificacoesModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+type AbaConfig = 'notificacoes' | 'drive'
+
+export function NotificacoesModal({
+  open, onClose, podeAdministrar = false,
+}: { open: boolean; onClose: () => void; podeAdministrar?: boolean }) {
+  const [aba, setAba] = useState<AbaConfig>('notificacoes')
   const [regras, setRegras] = useState<Record<string, Regra>>({})
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
@@ -129,15 +136,41 @@ export function NotificacoesModal({ open, onClose }: { open: boolean; onClose: (
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose() }}>
       <DialogContent className="max-w-2xl">
-        <DialogHeaderIcon icon={Mail} color="slate">
-          <DialogTitle>Notificações por e-mail</DialogTitle>
+        <DialogHeaderIcon icon={Settings2} color="slate">
+          <DialogTitle>Configurações do módulo</DialogTitle>
           <DialogDescription>
-            Regra padrão do escritório. Vale para todos os clientes.
+            Avisos por e-mail e a pasta do Google Drive do escritório.
           </DialogDescription>
         </DialogHeaderIcon>
 
+        <div className="flex gap-1.5 px-6">
+          {([
+            { chave: 'notificacoes' as const, rotulo: 'Notificações', icone: Mail },
+            { chave: 'drive' as const, rotulo: 'Google Drive', icone: HardDrive },
+          ]).map(a => {
+            const Icone = a.icone
+            return (
+              <button
+                key={a.chave}
+                type="button"
+                onClick={() => setAba(a.chave)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-lg border px-3 h-8 text-xs font-medium transition-colors',
+                  aba === a.chave
+                    ? 'bg-muted border-border text-foreground'
+                    : 'bg-card border-border text-muted-foreground hover:bg-muted/50',
+                )}
+              >
+                <Icone className="h-3.5 w-3.5" /> {a.rotulo}
+              </button>
+            )
+          })}
+        </div>
+
         <DialogBody className="max-h-[60vh] overflow-y-auto nice-scrollbar">
-          {loading ? (
+          {aba === 'drive' ? (
+            <DriveConfigPanel podeAdministrar={podeAdministrar} />
+          ) : loading ? (
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
@@ -197,11 +230,17 @@ export function NotificacoesModal({ open, onClose }: { open: boolean; onClose: (
         </DialogBody>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={salvando}>Cancelar</Button>
-          <Button onClick={salvar} disabled={salvando || loading} className="gap-1.5">
-            {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Salvar
+          <Button variant="outline" onClick={onClose} disabled={salvando}>
+            {aba === 'drive' ? 'Fechar' : 'Cancelar'}
           </Button>
+          {/* A aba do Drive salva em cada ação (conectar, vincular), então não
+              tem um "Salvar" no rodapé — teria de salvar o quê? */}
+          {aba === 'notificacoes' && (
+            <Button onClick={salvar} disabled={salvando || loading} className="gap-1.5">
+              {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

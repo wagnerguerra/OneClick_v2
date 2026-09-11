@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
 import { GestaoArquivosService } from './gestao-arquivos.service'
+import { GestaoArquivosDriveService } from './gestao-arquivos-drive.service'
 import {
   GestaoArquivosNotificacaoService,
   EVENTOS_NOTIFICAVEIS,
@@ -37,9 +38,26 @@ function contexto(ctx: {
   }
 }
 
+/**
+ * Quem administra o módulo.
+ *
+ * `masterProcedure` não serve: ela é do master GLOBAL da plataforma, e a pasta
+ * do Drive é configuração DO TENANT — usá-la deixaria o dono do escritório sem
+ * poder apontar a própria pasta. Então é o master global OU o dono do tenant.
+ */
+function exigirAdmin(ctx: { isMaster?: boolean; isEmpresaMaster?: boolean }) {
+  if (!ctx.isMaster && !ctx.isEmpresaMaster) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Só o administrador do escritório configura a pasta do Drive.',
+    })
+  }
+}
+
 export function createGestaoArquivosRouter(
   service: GestaoArquivosService,
   notificacao: GestaoArquivosNotificacaoService,
+  driveService: GestaoArquivosDriveService,
 ) {
   return router({
     /** Clientes com usuário no portal, já recortados por responsabilidade. */
@@ -108,6 +126,51 @@ export function createGestaoArquivosRouter(
         }
         return notificacao.salvarRegra({ ...input, empresaId: c.empresaId })
       }),
+
+    // ── Google Drive ───────────────────────────────────────────────────────
+
+    driveConfig: readProcedure(MODULE).query(({ ctx }) => {
+      const c = contexto(ctx)
+      if (!c.empresaId) return null
+      return driveService.obterConfig(c.empresaId)
+    }),
+
+    driveSalvarConfig: writeProcedure(MODULE)
+      .input(z.object({ pasta: z.string().min(10).max(500) }))
+      .mutation(({ input, ctx }) => {
+        exigirAdmin(ctx)
+        const c = contexto(ctx)
+        if (!c.empresaId) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Usuário sem empresa vinculada.' })
+        }
+        return driveService.salvarConfig(c.empresaId, input.pasta)
+      }),
+
+    /** Subpastas da raiz, com o de-para de cliente já resolvido. */
+    driveListarSubpastas: readProcedure(MODULE).query(({ ctx }) => {
+      exigirAdmin(ctx)
+      const c = contexto(ctx)
+      if (!c.empresaId) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Usuário sem empresa vinculada.' })
+      }
+      return driveService.listarSubpastas(c.empresaId)
+    }),
+
+    driveVincularCliente: writeProcedure(MODULE)
+      .input(z.object({ clienteId: z.string(), folderId: z.string().nullable() }))
+      .mutation(({ input, ctx }) => {
+        exigirAdmin(ctx)
+        return driveService.vincularCliente(input, contexto(ctx))
+      }),
+
+    /**
+     * Conteúdo da pasta do cliente. `readProcedure`, e não admin: quem enxerga
+     * o cliente no módulo enxerga os arquivos dele — o recorte é o do escopo,
+     * conferido dentro do serviço.
+     */
+    driveListar: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string(), subPastaId: z.string().nullish() }))
+      .query(({ input, ctx }) => driveService.listarDoCliente(input, contexto(ctx))),
 
     removerExcecao: writeProcedure(MODULE)
       .input(z.object({ clienteId: z.string(), evento: eventoSchema }))

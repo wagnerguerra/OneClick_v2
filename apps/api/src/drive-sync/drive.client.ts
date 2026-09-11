@@ -145,6 +145,84 @@ export class DriveClient {
     }
   }
 
+  /**
+   * Os pais de um item no Drive.
+   *
+   * Serve para confirmar que uma pasta descende de outra — a trava que impede
+   * a Gestão de Arquivos de listar qualquer pasta da conta a partir de um id
+   * colado à mão. O Drive permite múltiplos pais historicamente, então devolve
+   * lista, ainda que hoje na prática seja sempre um.
+   */
+  async getParents(fileId: string): Promise<string[]> {
+    const drive = this.drive()
+    const res = await drive.files.get({
+      fileId,
+      fields: 'parents',
+      supportsAllDrives: true,
+    })
+    return res.data.parents ?? []
+  }
+
+  /**
+   * Lista as SUBPASTAS de uma pasta.
+   *
+   * `listFilesInFolder` não serve para isso: ele não pede `mimeType`, então
+   * pasta e arquivo voltam indistinguíveis. No Drive, pasta é um arquivo com
+   * mimeType `application/vnd.google-apps.folder` — a distinção está só aí.
+   *
+   * Usado pela Gestão de Arquivos para o master escolher qual subpasta é de
+   * qual cliente.
+   */
+  async listSubfolders(folderId: string, opts?: { limit?: number }): Promise<
+    Array<{ id: string; name: string; webViewLink: string; modifiedTime: string }>
+  > {
+    const drive = this.drive()
+    const res = await drive.files.list({
+      q: `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: 'files(id, name, webViewLink, modifiedTime)',
+      orderBy: 'name',
+      pageSize: Math.min(opts?.limit ?? 200, 1000),
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    })
+    return (res.data.files ?? []).map(f => ({
+      id: f.id ?? '',
+      name: f.name ?? '',
+      webViewLink: f.webViewLink ?? '',
+      modifiedTime: f.modifiedTime ?? '',
+    }))
+  }
+
+  /**
+   * Conteúdo de uma pasta: subpastas e arquivos, com o mimeType para separar.
+   *
+   * Existe além do `listFilesInFolder` porque aquele foi feito para a ingestão
+   * de XML — devolve só arquivo, sem tipo, ordenado por modificação. Aqui a
+   * tela precisa navegar, então precisa das duas coisas e do tipo.
+   */
+  async listFolderContents(folderId: string, opts?: { limit?: number }): Promise<
+    Array<{ id: string; name: string; mimeType: string; size: number; modifiedTime: string; webViewLink: string; isFolder: boolean }>
+  > {
+    const drive = this.drive()
+    const res = await drive.files.list({
+      q: `'${folderId}' in parents and trashed = false`,
+      fields: 'files(id, name, mimeType, size, modifiedTime, webViewLink)',
+      orderBy: 'folder,name',
+      pageSize: Math.min(opts?.limit ?? 300, 1000),
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    })
+    return (res.data.files ?? []).map(f => ({
+      id: f.id ?? '',
+      name: f.name ?? '',
+      mimeType: f.mimeType ?? '',
+      size: Number(f.size ?? 0),
+      modifiedTime: f.modifiedTime ?? '',
+      webViewLink: f.webViewLink ?? '',
+      isFolder: f.mimeType === 'application/vnd.google-apps.folder',
+    }))
+  }
+
   /** Lista arquivos de uma pasta. Default: últimos 50 modificados. */
   async listFilesInFolder(folderId: string, opts?: {
     nameContains?: string; limit?: number

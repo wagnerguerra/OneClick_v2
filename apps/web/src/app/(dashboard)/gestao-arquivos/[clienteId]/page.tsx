@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Folder, FileText, Loader2, ChevronRight, Trash2, RotateCcw, History,
-  ArrowLeft, Download, Sparkles, ShieldAlert, Home,
+  ArrowLeft, Download, Sparkles, ShieldAlert, Home, HardDrive, ExternalLink,
 } from 'lucide-react'
 import {
   Button, Badge, Card, Input, Label,
@@ -63,7 +63,16 @@ interface Excluido {
   excluidoPor: { name: string } | null
 }
 
-type Aba = 'arquivos' | 'trilha' | 'lixeira'
+interface ItemDrive {
+  id: string
+  nome: string
+  isPasta: boolean
+  tamanho: number
+  modificadoEm: string
+  link: string
+}
+
+type Aba = 'arquivos' | 'drive' | 'trilha' | 'lixeira'
 
 const ROTULO_EVENTO: Record<string, string> = {
   ABRIU: 'abriu',
@@ -101,6 +110,10 @@ export default function GestaoArquivosClientePage() {
   const [excluidos, setExcluidos] = useState<Excluido[]>([])
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [drive, setDrive] = useState<{ vinculada: boolean; nome: string | null; itens: ItemDrive[] } | null>(null)
+  const [driveTrilha, setDriveTrilha] = useState<Array<{ id: string; nome: string }>>([])
+  const [driveErro, setDriveErro] = useState<string | null>(null)
+  const [driveCarregando, setDriveCarregando] = useState(false)
   const [aExcluir, setAExcluir] = useState<Arquivo | null>(null)
   const [motivo, setMotivo] = useState('')
   const [processando, setProcessando] = useState(false)
@@ -139,6 +152,38 @@ export default function GestaoArquivosClientePage() {
   }, [clienteId])
 
   useEffect(() => { if (aba === 'lixeira') carregarLixeira() }, [aba, carregarLixeira])
+
+  const carregarDrive = useCallback((subPastaId: string | null) => {
+    setDriveCarregando(true)
+    setDriveErro(null)
+    ;(trpc as any).gestaoArquivos.driveListar.query({ clienteId, subPastaId })
+      .then((d: { vinculada: boolean; nome: string | null; itens: ItemDrive[] }) => setDrive(d))
+      .catch((e: unknown) => {
+        setDrive(null)
+        setDriveErro(e instanceof Error ? e.message : 'Não foi possível abrir o Drive.')
+      })
+      .finally(() => setDriveCarregando(false))
+  }, [clienteId])
+
+  useEffect(() => {
+    if (aba !== 'drive') return
+    // Volta à raiz do cliente ao entrar na aba: manter a trilha de uma visita
+    // anterior faria a tela abrir numa subpasta sem o usuário pedir.
+    setDriveTrilha([])
+    carregarDrive(null)
+  }, [aba, carregarDrive])
+
+  function entrarNaPastaDrive(item: ItemDrive) {
+    setDriveTrilha(t => [...t, { id: item.id, nome: item.nome }])
+    carregarDrive(item.id)
+  }
+
+  function voltarNoDrive(indice: number) {
+    // -1 = raiz do cliente.
+    const nova = indice < 0 ? [] : driveTrilha.slice(0, indice + 1)
+    setDriveTrilha(nova)
+    carregarDrive(nova.length ? nova[nova.length - 1]!.id : null)
+  }
 
   /**
    * Abre o arquivo. A chamada marca o visto e registra na trilha ANTES de
@@ -192,6 +237,7 @@ export default function GestaoArquivosClientePage() {
 
   const abas: Array<{ chave: Aba; rotulo: string; icone: typeof Folder }> = [
     { chave: 'arquivos', rotulo: 'Arquivos', icone: Folder },
+    { chave: 'drive', rotulo: 'Google Drive', icone: HardDrive },
     { chave: 'trilha', rotulo: 'Trilha', icone: History },
     { chave: 'lixeira', rotulo: 'Lixeira', icone: Trash2 },
   ]
@@ -348,6 +394,99 @@ export default function GestaoArquivosClientePage() {
                 ))}
               </div>
             </>
+          )}
+        </Card>
+      )}
+
+      {aba === 'drive' && (
+        <Card className="p-4">
+          {/* Trilha dentro do Drive. A raiz é a pasta DO CLIENTE, não a do
+              escritório — de propósito: subir além dela mostraria pasta alheia. */}
+          <div className="mb-3 flex flex-wrap items-center gap-1 text-xs">
+            <button
+              type="button"
+              onClick={() => voltarNoDrive(-1)}
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <HardDrive className="h-3.5 w-3.5" /> {drive?.nome ?? 'Pasta do cliente'}
+            </button>
+            {driveTrilha.map((p, i) => (
+              <span key={p.id} className="flex items-center gap-1">
+                <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
+                <button
+                  type="button"
+                  onClick={() => voltarNoDrive(i)}
+                  className="rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  {p.nome}
+                </button>
+              </span>
+            ))}
+          </div>
+
+          {driveCarregando && (
+            <div className="flex h-40 items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {!driveCarregando && driveErro && (
+            <div className="flex h-40 flex-col items-center justify-center gap-2 text-center">
+              <ShieldAlert className="h-6 w-6 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">{driveErro}</p>
+            </div>
+          )}
+
+          {!driveCarregando && !driveErro && drive && !drive.vinculada && (
+            <div className="flex h-40 flex-col items-center justify-center gap-1.5 text-center">
+              <HardDrive className="h-6 w-6 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Este cliente ainda não tem pasta do Drive vinculada.
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                O vínculo é feito nas configurações do módulo, na aba Google Drive.
+              </p>
+            </div>
+          )}
+
+          {!driveCarregando && !driveErro && drive?.vinculada && drive.itens.length === 0 && (
+            <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+              Esta pasta está vazia no Drive.
+            </div>
+          )}
+
+          {!driveCarregando && !driveErro && drive?.vinculada && drive.itens.length > 0 && (
+            <div className="divide-y divide-border">
+              {drive.itens.map(item => (
+                <div key={item.id} className="flex items-center gap-3 py-2.5">
+                  {item.isPasta
+                    ? <Folder className="h-4 w-4 shrink-0" style={{ color: MODULE_COLOR }} />
+                    : <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                  <button
+                    type="button"
+                    onClick={() => { if (item.isPasta) entrarNaPastaDrive(item) }}
+                    className={cn('min-w-0 flex-1 text-left', !item.isPasta && 'cursor-default')}
+                  >
+                    <p className="truncate text-[13px] font-medium text-foreground">{item.nome}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {item.isPasta ? 'Pasta' : tamanho(item.tamanho)}
+                      {item.modificadoEm ? ` · ${dataHora(item.modificadoEm)}` : ''}
+                    </p>
+                  </button>
+                  {item.link && (
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title="Abrir no Google Drive"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </Card>
       )}

@@ -225,7 +225,11 @@ export default function GestaoArquivosPage() {
       </Card>
 
       {configOpen && (
-        <NotificacoesModal open={configOpen} onClose={() => setConfigOpen(false)} />
+        <NotificacoesModal
+          open={configOpen}
+          onClose={() => setConfigOpen(false)}
+          podeAdministrar={isMaster || isEmpresaMaster}
+        />
       )}
     </div>
   )

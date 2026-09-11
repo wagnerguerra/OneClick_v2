@@ -585,6 +585,7 @@ model Empresa {
   helpdeskTickets      HelpdeskTicket[]
   signatureTemplate    EmpresaSignatureTemplate?
   notificacoesArquivos GestaoArquivosNotificacao[]
+  driveArquivos        GestaoArquivosDrive?
 
   @@map("empresas")
 }
@@ -965,6 +966,16 @@ model Cliente {
   // CRM
   isLead Boolean @default(false) @map("is_lead")
 
+  // Google Drive — pasta do cliente exibida na Gestão de Arquivos.
+  //
+  // Campo SEPARADO do `driveFolderId` logo abaixo, de propósito. Aquele
+  // alimenta a ingestão automática de XML, que varre a pasta recursivamente e
+  // importa o que encontra; apontá-lo para a pasta geral do cliente faria o
+  // sync engolir XMLs que ninguém mandou importar. São dois usos diferentes da
+  // mesma conta do Drive, e misturá-los faz uma tela mexer na outra sem avisar.
+  portalDriveFolderId   String? @map("portal_drive_folder_id")
+  portalDriveFolderNome String? @map("portal_drive_folder_nome")
+
   // Google Drive — pasta vinculada do cliente para ingestão automática de XML
   driveFolderId   String?   @map("drive_folder_id")
   driveFolderName String?   @map("drive_folder_name")
@@ -1267,6 +1278,32 @@ model ArquivoLog {
 /// Cuidado de banco: em Postgres `NULL != NULL`, então o `@@unique` abaixo NÃO
 /// impede duas linhas padrão para o mesmo evento. O índice parcial que resolve
 /// isso está no SQL de deploy.
+/// Pasta raiz do Google Drive que a Gestão de Arquivos lista.
+///
+/// Uma por empresa, apontada pelo master. As pastas dos clientes são as
+/// SUBPASTAS dela — é assim que o escritório já organiza o Drive hoje (uma
+/// pasta por cliente dentro de uma pasta guarda-chuva), então o módulo se
+/// encaixa no que existe em vez de pedir uma reorganização.
+model GestaoArquivosDrive {
+  id        String  @id @default(cuid())
+  empresaId String  @unique @map("empresa_id")
+
+  /// ID da pasta no Drive, extraído da URL que o master cola.
+  pastaRaizId   String  @map("pasta_raiz_id")
+  /// Nome resolvido pela API na hora de salvar — serve de confirmação visual
+  /// de que o ID colado é mesmo a pasta que a pessoa pensou.
+  pastaRaizNome String? @map("pasta_raiz_nome")
+
+  ativo Boolean @default(true)
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@map("gestao_arquivos_drive")
+}
+
 model GestaoArquivosNotificacao {
   id        String  @id @default(cuid())
   empresaId String  @map("empresa_id")

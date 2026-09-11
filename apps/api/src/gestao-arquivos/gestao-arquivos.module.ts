@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { GestaoArquivosService } from './gestao-arquivos.service'
 import { GestaoArquivosNotificacaoService } from './gestao-arquivos-notificacao.service'
+import { GestaoArquivosDriveService } from './gestao-arquivos-drive.service'
 
 /**
  * Gestão de Arquivos (bloco Administrativo).
@@ -10,7 +11,7 @@ import { GestaoArquivosNotificacaoService } from './gestao-arquivos-notificacao.
  * `TrpcService` os injeta para montar o router.
  */
 @Module({
-  providers: [GestaoArquivosService, GestaoArquivosNotificacaoService],
-  exports: [GestaoArquivosService, GestaoArquivosNotificacaoService],
+  providers: [GestaoArquivosService, GestaoArquivosNotificacaoService, GestaoArquivosDriveService],
+  exports: [GestaoArquivosService, GestaoArquivosNotificacaoService, GestaoArquivosDriveService],
 })
 export class GestaoArquivosModule {}

@@ -126,3 +126,34 @@ WHERE NOT EXISTS (
   SELECT 1 FROM gestao_arquivos_notificacoes g
   WHERE g.empresa_id = e.id AND g.cliente_id IS NULL AND g.evento = v.evento
 );
+
+-- ── Google Drive ────────────────────────────────────────────────────────────
+-- O escritório já mantém no Drive uma pasta guarda-chuva com uma subpasta por
+-- cliente. O master aponta a raiz aqui; as pastas dos clientes são as
+-- subpastas dela.
+CREATE TABLE IF NOT EXISTS gestao_arquivos_drive (
+  id              text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  empresa_id      text NOT NULL UNIQUE REFERENCES empresas(id) ON DELETE CASCADE,
+  pasta_raiz_id   text NOT NULL,
+  pasta_raiz_nome text,
+  ativo           boolean NOT NULL DEFAULT true,
+  criado_em       timestamp(3) NOT NULL DEFAULT NOW(),
+  atualizado_em   timestamp(3) NOT NULL DEFAULT NOW()
+);
+
+-- Pasta do cliente no Drive, para a Gestão de Arquivos.
+--
+-- SEPARADA de `clientes.drive_folder_id`, que existe desde antes e alimenta a
+-- ingestão automática de XML: aquele é varrido recursivamente e tudo que for
+-- XML entra no sistema. Apontá-lo para a pasta geral do cliente faria o sync
+-- engolir nota que ninguém mandou importar. Dois usos da mesma conta do Drive,
+-- duas colunas — misturar faria uma tela mexer na outra sem avisar.
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_drive_folder_id   text;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_drive_folder_nome text;
+
+-- Uma pasta não pode servir a dois clientes: o estrago seria documento de um
+-- aparecendo na tela do outro. Parcial porque a esmagadora maioria dos
+-- clientes não tem pasta vinculada, e NULL não deve colidir com NULL.
+CREATE UNIQUE INDEX IF NOT EXISTS clientes_portal_drive_folder_key
+  ON clientes (empresa_id, portal_drive_folder_id)
+  WHERE portal_drive_folder_id IS NOT NULL;

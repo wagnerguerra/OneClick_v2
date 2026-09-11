@@ -44,6 +44,7 @@ import { PortalArquivosService } from '../portal/portal-arquivos.service'
 import { PortalEscritorioService } from '../portal/portal-escritorio.service'
 import { GestaoArquivosService } from '../gestao-arquivos/gestao-arquivos.service'
 import { GestaoArquivosNotificacaoService } from '../gestao-arquivos/gestao-arquivos-notificacao.service'
+import { GestaoArquivosDriveService } from '../gestao-arquivos/gestao-arquivos-drive.service'
 import { createGestaoArquivosRouter } from '../gestao-arquivos/gestao-arquivos.router'
 import { createPortalRouter } from '../portal/portal.router'
 import { StripeService } from '../stripe/stripe.service'
@@ -812,6 +813,7 @@ export class TrpcService {
     @Inject(PortalEscritorioService) private readonly portalEscritorioService: PortalEscritorioService,
     @Inject(GestaoArquivosService) private readonly gestaoArquivosService: GestaoArquivosService,
     @Inject(GestaoArquivosNotificacaoService) private readonly gestaoArquivosNotificacaoService: GestaoArquivosNotificacaoService,
+    @Inject(GestaoArquivosDriveService) private readonly gestaoArquivosDriveService: GestaoArquivosDriveService,
     @Inject(SincronizarResponsaveisService) private readonly sincronizarResponsaveisService: SincronizarResponsaveisService,
     @Inject(LegacyImportService) private readonly legacyImportService: LegacyImportService,
     @Inject(SciService) private readonly sciService: SciService,
@@ -990,7 +992,7 @@ export class TrpcService {
       nota: createNotaRouter(this.notaService),
       whatsapp: createWhatsappRouter(this.whatsappService, this.whatsappCloudService),
       portal: createPortalRouter(this.portalConviteService, this.portalArquivosService),
-      gestaoArquivos: createGestaoArquivosRouter(this.gestaoArquivosService, this.gestaoArquivosNotificacaoService),
+      gestaoArquivos: createGestaoArquivosRouter(this.gestaoArquivosService, this.gestaoArquivosNotificacaoService, this.gestaoArquivosDriveService),
       faq: createFaqRouter(this.faqService),
       servico: createServicoRouter(this.servicoService),
       processo: createProcessoRouter(this.processoService),
