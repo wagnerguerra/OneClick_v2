@@ -43,7 +43,9 @@ const notificacao = { disparar: jest.fn().mockResolvedValue(true) }
 const svc = new PortalArquivosService(notificacao as never)
 
 const vinculo = (over: Partial<VinculoPortal> = {}): VinculoPortal => ({
-  clienteId: 'cli-1', nivel: 'OPERACIONAL', areas: ['fiscal', 'contabil', 'pessoal'], ...over,
+  clienteId: 'cli-1', nivel: 'OPERACIONAL', areas: ['fiscal', 'contabil', 'pessoal'],
+  podeVer: true, podeEditar: true, podeExcluir: false,
+  ...over,
 })
 
 /** Primeiro argumento da chamada, tipado. */
@@ -154,9 +156,12 @@ describe('pastas', () => {
     expect(r.caminho.map(c => c.nome)).toEqual(['Contratos', 'Aditivos'])
   })
 
-  it('CONSULTA não cria pasta', async () => {
-    await expect(svc.criarPasta(vinculo({ nivel: 'CONSULTA' }), { nome: 'X' }, 'u1'))
-      .rejects.toThrow(/somente leitura/i)
+  it('sem podeEditar não cria pasta', async () => {
+    // A regra era o NÍVEL (CONSULTA não escrevia). Virou permissão por usuário,
+    // porque o escritório precisa poder dar e tirar isso de alguém sem mexer no
+    // nível, que governa outras partes do portal.
+    await expect(svc.criarPasta(vinculo({ podeEditar: false }), { nome: 'X' }, 'u1'))
+      .rejects.toThrow(/não tem permissão/i)
     expect(pasta.create).not.toHaveBeenCalled()
   })
 
@@ -177,13 +182,20 @@ describe('pastas', () => {
     // O cascade do banco levaria as subpastas e o SetNull soltaria os arquivos
     // na raiz — as duas perdas sem ninguém perceber.
     pasta.findFirst.mockResolvedValue({ id: 'p1', _count: { filhas: 0, arquivos: 2 } })
-    await expect(svc.excluirPasta(vinculo(), 'p1')).rejects.toThrow(/nao esta vazia|não está vazia/i)
+    await expect(svc.excluirPasta(vinculo({ podeExcluir: true }), 'p1'))
+      .rejects.toThrow(/nao esta vazia|não está vazia/i)
     expect(pasta.delete).not.toHaveBeenCalled()
   })
 
-  it('apaga pasta vazia', async () => {
+  it('sem podeExcluir não apaga nem pasta vazia', async () => {
     pasta.findFirst.mockResolvedValue({ id: 'p1', _count: { filhas: 0, arquivos: 0 } })
-    await svc.excluirPasta(vinculo(), 'p1')
+    await expect(svc.excluirPasta(vinculo(), 'p1')).rejects.toThrow(/não tem permissão/i)
+    expect(pasta.delete).not.toHaveBeenCalled()
+  })
+
+  it('com podeExcluir, apaga pasta vazia', async () => {
+    pasta.findFirst.mockResolvedValue({ id: 'p1', _count: { filhas: 0, arquivos: 0 } })
+    await svc.excluirPasta(vinculo({ podeExcluir: true }), 'p1')
     expect(pasta.delete).toHaveBeenCalledWith({ where: { id: 'p1' } })
   })
 })
@@ -230,10 +242,15 @@ describe('abrir — download e recibo de leitura', () => {
 describe('enviar', () => {
   const base = { fileName: 'extrato.pdf', fileUrl: '/api/upload/e.pdf' }
 
-  it('nível CONSULTA não envia', async () => {
-    await expect(svc.enviar(vinculo({ nivel: 'CONSULTA' }), base, 'u1'))
-      .rejects.toThrow(/somente leitura/i)
+  it('sem podeEditar não envia', async () => {
+    await expect(svc.enviar(vinculo({ podeEditar: false }), base, 'u1'))
+      .rejects.toThrow(/não tem permissão/i)
     expect(arquivo.create).not.toHaveBeenCalled()
+  })
+
+  it('sem podeVer, a listagem vem vazia em vez de erro', async () => {
+    // Permissão negada não é falha do sistema: a pasta aparece sem conteúdo.
+    await expect(svc.listar(vinculo({ podeVer: false }))).resolves.toEqual([])
   })
 
   it('recusa pasta de destino de outro cliente', async () => {

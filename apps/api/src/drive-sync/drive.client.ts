@@ -147,6 +147,42 @@ export class DriveClient {
   }
 
   /**
+   * Cria uma pasta dentro de outra.
+   *
+   * No Drive, pasta é um arquivo com mimeType de pasta — daí o `files.create`
+   * sem mídia nenhuma.
+   */
+  async createFolder(nome: string, parentId: string): Promise<{ id: string; name: string }> {
+    const drive = this.drive()
+    const res = await drive.files.create({
+      requestBody: {
+        name: nome,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentId],
+      },
+      fields: 'id, name',
+      supportsAllDrives: true,
+    })
+    return { id: res.data.id ?? '', name: res.data.name ?? nome }
+  }
+
+  /**
+   * Manda um item para a lixeira do Drive.
+   *
+   * `trashed: true` e não `files.delete`: a exclusão definitiva é irreversível
+   * e some com o arquivo do cliente para sempre. Na lixeira ele volta por 30
+   * dias, que é a mesma escolha que fizemos do lado de cá com o `excluidoEm`.
+   */
+  async trashFile(fileId: string): Promise<void> {
+    const drive = this.drive()
+    await drive.files.update({
+      fileId,
+      requestBody: { trashed: true },
+      supportsAllDrives: true,
+    })
+  }
+
+  /**
    * Metadados de um arquivo, para servir o conteúdo com o tipo certo.
    *
    * Sem o `mimeType`, o proxy entregaria tudo como octet-stream e o navegador

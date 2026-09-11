@@ -1,60 +1,41 @@
 'use client'
 
 import { useMemo } from 'react'
-import { FolderOpen, HardDrive } from 'lucide-react'
+import { HardDrive } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
-import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
+import { getApiUrl } from '@/lib/api-url'
 import type { FonteExplorador, Conteudo } from '@/app/(dashboard)/gestao-arquivos/_components/explorador'
 
 /**
- * As "unidades" do explorador no PORTAL DO CLIENTE.
+ * A "unidade" do explorador no PORTAL DO CLIENTE: a pasta dele no Google Drive.
  *
- * Mesma forma das do escritório, rotas e permissões diferentes: aqui tudo passa
- * por `portalProcedure`, que resolve o vínculo do usuário externo antes do
- * handler. O componente do explorador é o mesmo — o que muda é só o adaptador.
+ * Uma só, de propósito. O acervo local (`cliente_arquivos`) saiu da vista do
+ * cliente: com o Drive como destino dos envios, manter as duas origens lado a
+ * lado deixaria o cliente escolhendo entre dois lugares para a mesma coisa — e
+ * a metade que o escritório não usa apareceria sempre vazia.
+ *
+ * O que o escritório publica pelo módulo interno continua existindo e continua
+ * chegando ao cliente; o que mudou é onde os bytes ficam.
  */
-export function useFontesDoPortal(clienteId: string): FonteExplorador[] {
+export function useFontesDoPortal(clienteId: string, podeEditar: boolean): FonteExplorador[] {
   return useMemo(() => [
     {
-      chave: 'documentos',
-      nome: 'Meus documentos',
-      icone: FolderOpen,
-      buscar: async (id): Promise<Conteudo> => {
-        const d = await (trpc.portal as any).arquivos.abrirPasta.query({ clienteId, pastaId: id })
-        return {
-          pastas: (d.pastas ?? []).map((p: { id: string; nome: string }) => ({ id: p.id, nome: p.nome })),
-          arquivos: (d.arquivos ?? []).map((a: any) => ({
-            id: a.id,
-            nome: a.fileName,
-            tamanho: a.fileSize ?? null,
-            mimeType: a.mimeType ?? null,
-            modificadoEm: a.criadoEm ?? null,
-            origem: a.origem ?? null,
-            novo: false,
-            link: null,
-          })),
-        }
-      },
-      selecionar: async a => {
-        const r = await (trpc.portal as any).arquivos.abrir.mutate({ clienteId, arquivoId: a.id })
-        return resolveAssetUrl(r.fileUrl)
-      },
-    },
-    {
       chave: 'drive',
-      nome: 'Google Drive',
+      nome: 'Meus arquivos',
       icone: HardDrive,
+      permiteExcluir: podeEditar,
       buscar: async (id): Promise<Conteudo> => {
         const d = await (trpc.portal as any).arquivos.drive.query({ clienteId, subPastaId: id })
         if (!d.vinculada) {
           return {
             pastas: [],
             arquivos: [],
-            // `motivo` explica quando o acesso existe mas o nível não alcança;
-            // sem ele, a mensagem genérica diria "não há pasta" para quem na
-            // verdade só não tem permissão, o que confunde quem for perguntar.
+            // `motivo` explica quando o acesso existe mas a permissão não
+            // alcança; sem ele, a mensagem genérica diria "não há pasta" para
+            // quem na verdade só não foi autorizado, o que confunde quem for
+            // perguntar ao escritório.
             indisponivel: d.motivo
-              ?? 'O escritório ainda não vinculou uma pasta do Google Drive a esta empresa.',
+              ?? 'O escritório ainda não vinculou uma pasta de arquivos a esta empresa.',
           }
         }
         return {
@@ -75,5 +56,5 @@ export function useFontesDoPortal(clienteId: string): FonteExplorador[] {
       // junto com o vínculo no cadastro.
       selecionar: async a => `${getApiUrl()}/api/portal/drive/${clienteId}/${a.id}`,
     },
-  ], [clienteId])
+  ], [clienteId, podeEditar])
 }

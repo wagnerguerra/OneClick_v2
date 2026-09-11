@@ -696,13 +696,20 @@ model ClienteUsuario {
   areas     String[]    @default([])
   ativo     Boolean     @default(true)
 
-  /// Pode excluir arquivos do próprio porta-arquivos.
+  /// Porta-arquivos: o que este usuário faz com arquivos e pastas.
   ///
-  /// Separado do `nivel` porque as duas coisas não andam juntas: um
-  /// ADMINISTRADOR do cliente costuma poder tudo, mas há escritório que não
-  /// quer NINGUÉM do lado de fora apagando documento — e há OPERACIONAL que
-  /// precisa corrigir o próprio envio errado. Default `false`: quem ganha o
-  /// poder de apagar, ganha por ato deliberado.
+  /// Trio explícito, e não derivado do `nivel`, porque as duas coisas não andam
+  /// juntas: há ADMINISTRADOR de cliente que o escritório não quer deixar
+  /// apagar nada, e há OPERACIONAL que precisa corrigir o próprio envio errado.
+  /// O `nivel` continua valendo para o RESTO do portal (contrato, honorários);
+  /// aqui quem manda são estes campos.
+  ///
+  /// `podeVer` também é o que governa a pasta do Google Drive. Vale registrar a
+  /// consequência: arquivo do Drive não tem categoria, então o recorte por
+  /// `areas` NÃO se aplica lá — quem tem `podeVer` enxerga a pasta inteira do
+  /// cliente. É por isso que a permissão é por usuário e não automática.
+  podeVer     Boolean @default(true) @map("pode_ver")
+  podeEditar  Boolean @default(false) @map("pode_editar")
   podeExcluir Boolean @default(false) @map("pode_excluir")
 
   /// Quem criou o vínculo. Pode ser um usuário INTERNO (escritório cadastrando

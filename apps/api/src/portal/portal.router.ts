@@ -81,6 +81,37 @@ export function createPortalRouter(
         .input(z.object({ clienteId: z.string(), subPastaId: z.string().nullish() }))
         .query(({ input, ctx }) => driveService.listarParaPortal(ctx.portal, input.subPastaId)),
 
+      /**
+       * Escrita no Drive do cliente.
+       *
+       * Cada uma confere a própria permissão dentro do serviço, e não aqui: a
+       * `portalProcedure` resolve o vínculo, mas quem sabe o que "editar"
+       * significa para arquivo é o serviço. Deixar a checagem no router
+       * significaria repeti-la em toda rota nova e esquecê-la em uma delas.
+       */
+      driveCriarPasta: portalProcedure
+        .input(z.object({
+          clienteId: z.string(),
+          nome: z.string().min(1).max(120),
+          paiId: z.string().nullish(),
+        }))
+        .mutation(({ input, ctx }) =>
+          driveService.criarPastaParaPortal(ctx.portal, input.nome, input.paiId)),
+
+      driveEnviar: portalProcedure
+        .input(z.object({
+          clienteId: z.string(),
+          fileName: z.string().min(1).max(255),
+          fileUrl: z.string().min(1),
+          pastaId: z.string().nullish(),
+          mimeType: z.string().nullish(),
+        }))
+        .mutation(({ input, ctx }) => driveService.enviarParaPortal(ctx.portal, input)),
+
+      driveExcluir: portalProcedure
+        .input(z.object({ clienteId: z.string(), itemId: z.string() }))
+        .mutation(({ input, ctx }) => driveService.excluirParaPortal(ctx.portal, input.itemId)),
+
       criarPasta: portalProcedure
         .input(z.object({
           clienteId: z.string(),
@@ -119,6 +150,11 @@ export function createPortalRouter(
       pendentes: portalProcedure
         .input(z.object({ clienteId: z.string() }))
         .query(({ ctx }) => arquivosService.solicitacoesPendentes(ctx.portal)),
+
+      marcarAtendida: portalProcedure
+        .input(z.object({ clienteId: z.string(), solicitacaoId: z.string() }))
+        .mutation(({ input, ctx }) =>
+          arquivosService.marcarSolicitacaoAtendida(ctx.portal, input.solicitacaoId, ctx.userId)),
     }),
 
     /**

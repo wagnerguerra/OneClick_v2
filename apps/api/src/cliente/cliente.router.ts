@@ -1739,6 +1739,9 @@ export function createClienteRouter(
         email: z.string().email(),
         nivel: z.enum(['ADMINISTRADOR', 'OPERACIONAL', 'CONSULTA']),
         areas: z.array(z.string()).default([]),
+        podeVer: z.boolean().optional(),
+        podeEditar: z.boolean().optional(),
+        podeExcluir: z.boolean().optional(),
         telefone: z.string().nullish(),
       }))
       .mutation(({ input, ctx }) => usuarios().vincular(input, {
@@ -1751,6 +1754,9 @@ export function createClienteRouter(
         nivel: z.enum(['ADMINISTRADOR', 'OPERACIONAL', 'CONSULTA']).optional(),
         areas: z.array(z.string()).optional(),
         ativo: z.boolean().optional(),
+        podeVer: z.boolean().optional(),
+        podeEditar: z.boolean().optional(),
+        podeExcluir: z.boolean().optional(),
       }))
       .mutation(({ input }) => usuarios().atualizar(input)),
 

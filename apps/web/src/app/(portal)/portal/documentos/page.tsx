@@ -49,7 +49,9 @@ function diasAte(prazo: string): number {
 
 export default function PortalDocumentosPage() {
   const { clienteId, vinculo } = usePortal()
-  const podeEditar = vinculo?.nivel !== 'CONSULTA'
+  // Permissão explícita do usuário, não mais deduzida do nível: o escritório
+  // decide por pessoa quem envia e quem só lê.
+  const podeEditar = Boolean(vinculo?.podeEditar)
 
   const [pendencias, setPendencias] = useState<Solicitacao[]>([])
   const [enviando, setEnviando] = useState<string | null>(null)
@@ -66,7 +68,7 @@ export default function PortalDocumentosPage() {
   /** Solicitação que o envio vai resolver, quando veio de uma pendência. */
   const alvoRef = useRef<Solicitacao | null>(null)
 
-  const fontes = useFontesDoPortal(clienteId ?? '')
+  const fontes = useFontesDoPortal(clienteId ?? '', podeEditar)
 
   const carregarPendencias = useCallback(async () => {
     if (!clienteId) return
@@ -82,17 +84,12 @@ export default function PortalDocumentosPage() {
     setAtual({ fonte, id })
   }, [])
 
-  // Criar pasta e enviar só valem no acervo do sistema: a pasta do Drive é
-  // espelho de leitura, e gravar lá exigiria decidir antes o que acontece com
-  // o arquivo quando o vínculo da pasta mudar.
-  const noAcervoLocal = atual.fonte === 'documentos'
-
   async function criarPasta() {
     const nome = nomeNovaPasta.trim()
     if (!nome) return
     try {
-      await (trpc.portal as any).arquivos.criarPasta.mutate({
-        clienteId, nome, paiId: noAcervoLocal ? atual.id : null,
+      await (trpc.portal as any).arquivos.driveCriarPasta.mutate({
+        clienteId, nome, paiId: atual.id,
       })
       setNomeNovaPasta('')
       setCriandoPasta(false)
@@ -123,19 +120,26 @@ export default function PortalDocumentosPage() {
       if (!up.ok) throw new Error('Falha ao enviar o arquivo. Tente de novo.')
       const { url } = await up.json() as { url: string }
 
-      await (trpc.portal as any).arquivos.enviar.mutate({
+      // O arquivo cai na pasta que está aberta. `atual.id` nulo = raiz da
+      // pasta do cliente.
+      await (trpc.portal as any).arquivos.driveEnviar.mutate({
         clienteId,
         fileName: file.name,
         fileUrl: url,
-        fileSize: file.size,
+        pastaId: atual.id,
         mimeType: file.type || null,
-        // Envio livre cai na pasta aberta (quando é do acervo local); envio que
-        // resolve pendência herda a competência e a categoria do pedido.
-        pastaId: noAcervoLocal ? atual.id : null,
-        competencia: alvo?.competencia ?? null,
-        categoria: alvo?.categoria ?? null,
-        solicitacaoId: alvo?.id ?? null,
       })
+
+      // A pendência é fechada em chamada separada porque o arquivo agora vive
+      // no Drive: não há `ClienteArquivo` para carregar o `solicitacaoId` como
+      // antes. Se o fechamento falhar, o arquivo já chegou — o cliente não
+      // reenvia, o escritório vê o documento e a pendência fica para baixar na
+      // mão, que é o lado certo de falhar.
+      if (alvo) {
+        await (trpc.portal as any).solicitacoes.marcarAtendida
+          .mutate({ clienteId, solicitacaoId: alvo.id })
+          .catch(() => undefined)
+      }
       setAviso(alvo ? `Pendência "${alvo.titulo}" resolvida.` : 'Arquivo enviado.')
       setVersao(v => v + 1)
     } catch (e) {
@@ -169,8 +173,7 @@ export default function PortalDocumentosPage() {
             <button
               type="button"
               onClick={() => { setCriandoPasta(true); setNomeNovaPasta('') }}
-              disabled={!noAcervoLocal}
-              title={noAcervoLocal ? undefined : 'Pastas novas são criadas em Meus documentos.'}
+
               className="inline-flex items-center gap-2 rounded-lg border border-[#dbe7fb] bg-white px-3.5 py-2 text-[13px] font-semibold text-[#1a6dff] hover:bg-[#f2f7ff] disabled:opacity-50 dark:border-[#1b2739] dark:bg-[#0e1726] dark:hover:bg-[#16233a]"
             >
               <FolderPlus className="h-4 w-4" /> Nova pasta
@@ -178,8 +181,7 @@ export default function PortalDocumentosPage() {
             <button
               type="button"
               onClick={() => escolherArquivo()}
-              disabled={enviando !== null || !noAcervoLocal}
-              title={noAcervoLocal ? undefined : 'Os envios vão para Meus documentos.'}
+              disabled={enviando !== null}
               className="inline-flex items-center gap-2 rounded-lg bg-[#1a6dff] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#0b4fd0] disabled:opacity-60"
             >
               {enviando === 'livre'

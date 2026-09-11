@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { TRPCError } from '@trpc/server'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { prisma } from '@saas/db'
 import { DriveClient } from '../drive-sync/drive.client'
-import { atendeNivel, type VinculoPortal } from '../portal/portal-escopo'
+import type { VinculoPortal } from '../portal/portal-escopo'
 import {
   resolverEscopo,
   filtroDeCliente,
@@ -322,18 +324,19 @@ export class GestaoArquivosDriveService {
   /**
    * O cliente pode ver a pasta do Drive dele?
    *
-   * Só ADMINISTRADOR. O motivo é concreto e não é excesso de zelo: os arquivos
-   * do Drive **não têm categoria**, e é a categoria que o portal usa para
-   * separar por área (`CATEGORIA_EXIGE_AREA`). Mostrar a pasta inteira para um
-   * OPERACIONAL de área fiscal entregaria a folha de pagamento junto — a
-   * separação que o portal promete deixaria de valer justamente onde não há
-   * como aplicá-la.
+   * Permissão explícita do usuário, não o `nivel`. A versão anterior desta
+   * regra liberava só o ADMINISTRADOR, porque arquivo do Drive **não tem
+   * categoria** e o recorte por área (`CATEGORIA_EXIGE_AREA`) não tem como se
+   * aplicar lá. A trava resolvia esse risco e criava outro: com o portal
+   * listando só o Drive, quem não fosse admin abria uma tela vazia.
    *
-   * O ADMINISTRADOR é o sócio/diretor do cliente, que já "vê tudo do portal"
-   * por definição do próprio enum. Nele a regra não abre exceção nenhuma.
+   * A resposta passou a ser o escritório decidir usuário a usuário — que é o
+   * que ele já faz hoje ao escolher com quem compartilha a pasta por e-mail. A
+   * consequência continua valendo e está registrada no schema: quem tem
+   * `podeVer` enxerga a pasta INTEIRA do cliente, sem filtro de área.
    */
   podeVerDriveNoPortal(vinculo: VinculoPortal): boolean {
-    return atendeNivel(vinculo, 'ADMINISTRADOR')
+    return vinculo.podeVer
   }
 
   /** Conteúdo da pasta do Drive, para o portal do cliente. */
@@ -346,7 +349,7 @@ export class GestaoArquivosDriveService {
         vinculada: false,
         nome: null,
         itens: [],
-        motivo: 'A pasta do Google Drive é visível apenas para administradores do cliente.',
+        motivo: 'Seu usuário não tem permissão para ver os arquivos. Fale com o escritório contábil.',
       }
     }
 
@@ -415,6 +418,135 @@ export class GestaoArquivosDriveService {
       this.logger.warn(`Falha ao baixar ${fileId} para o portal: ${String(e)}`)
       throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível baixar o arquivo.' })
     }
+  }
+
+  /**
+   * Cria uma pasta dentro da pasta do cliente.
+   *
+   * `paiId` nulo cria na raiz do cliente. Como em todo o resto, o destino é
+   * conferido contra a pasta dele antes de qualquer escrita: sem isso, um id
+   * trocado na requisição criaria pasta dentro do Drive de outro.
+   */
+  async criarPastaParaPortal(vinculo: VinculoPortal, nome: string, paiId?: string | null) {
+    if (!vinculo.podeEditar) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para criar pastas.' })
+    }
+    const raiz = await this.raizDoCliente(vinculo.clienteId)
+    const destino = paiId ?? raiz
+    if (destino !== raiz) {
+      const dentro = await this.dentroDaPastaDoCliente(destino, raiz)
+      if (!dentro) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta não encontrada.' })
+    }
+
+    const limpo = nome.trim()
+    if (!limpo) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Informe o nome da pasta.' })
+    // O Drive aceita barra no nome, e isso confunde qualquer caminho montado
+    // depois: "Notas/2026" pareceria dois níveis para quem lê.
+    if (limpo.indexOf('/') >= 0 || limpo.indexOf('\\') >= 0) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'O nome da pasta não pode conter barras.' })
+    }
+
+    try {
+      const criada = await drive.createFolder(limpo, destino)
+      return { id: criada.id, nome: criada.name }
+    } catch (e) {
+      this.logger.warn(`Falha ao criar pasta no Drive: ${String(e)}`)
+      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível criar a pasta no Drive.' })
+    }
+  }
+
+  /**
+   * Sobe um arquivo já recebido pelo `/api/upload` para a pasta do cliente.
+   *
+   * Dois passos porque o upload em si continua sendo o endpoint de sempre: o
+   * navegador manda o arquivo, a API grava em `uploads/`, e só então ele é
+   * empurrado para o Drive. O arquivo local é apagado depois — mantê-lo
+   * duplicaria o acervo e desfaria a razão de usar o Drive.
+   */
+  async enviarParaPortal(
+    vinculo: VinculoPortal,
+    input: { fileName: string; fileUrl: string; pastaId?: string | null; mimeType?: string | null },
+  ) {
+    if (!vinculo.podeEditar) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para enviar arquivos.' })
+    }
+    const raiz = await this.raizDoCliente(vinculo.clienteId)
+    const destino = input.pastaId ?? raiz
+    if (destino !== raiz) {
+      const dentro = await this.dentroDaPastaDoCliente(destino, raiz)
+      if (!dentro) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta não encontrada.' })
+    }
+
+    // Só o nome do arquivo entra no caminho. `fileUrl` vem do cliente HTTP, e
+    // um "../../etc/passwd" ali viraria leitura de arquivo do servidor.
+    const base = path.join(process.cwd(), 'uploads')
+    const caminho = path.join(base, path.basename(input.fileUrl))
+    if (!caminho.startsWith(base)) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Arquivo inválido.' })
+    }
+    if (!fs.existsSync(caminho)) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'O arquivo enviado não foi encontrado. Tente de novo.' })
+    }
+
+    try {
+      const enviado = await drive.uploadFile({
+        folderId: destino,
+        filename: input.fileName,
+        filePath: caminho,
+        mimeType: input.mimeType ?? undefined,
+      })
+      // Só remove depois do sucesso: se o Drive falhar, o arquivo continua no
+      // disco e a tentativa seguinte não exige reenviar.
+      fs.unlink(caminho, () => undefined)
+      return { id: enviado.id, nome: enviado.name }
+    } catch (e) {
+      this.logger.warn(`Falha ao subir arquivo para o Drive: ${String(e)}`)
+      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível enviar o arquivo ao Drive.' })
+    }
+  }
+
+  /**
+   * Manda um item da pasta do cliente para a lixeira do Drive.
+   *
+   * Lixeira, e não exclusão definitiva: o item volta por 30 dias. Mesma escolha
+   * do `excluidoEm` do lado de cá, pelo mesmo motivo — documento fiscal apagado
+   * por engano não pode virar perda definitiva.
+   */
+  async excluirParaPortal(vinculo: VinculoPortal, itemId: string) {
+    if (!vinculo.podeExcluir) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para excluir.' })
+    }
+    const raiz = await this.raizDoCliente(vinculo.clienteId)
+    // A própria pasta do cliente não vai para a lixeira pelo portal: seria o
+    // cliente apagando a raiz que o escritório configurou.
+    if (itemId === raiz) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Esta pasta não pode ser excluída.' })
+    }
+    const dentro = await this.dentroDaPastaDoCliente(itemId, raiz)
+    if (!dentro) throw new TRPCError({ code: 'NOT_FOUND', message: 'Item não encontrado.' })
+
+    try {
+      await drive.trashFile(itemId)
+      return { ok: true }
+    } catch (e) {
+      this.logger.warn(`Falha ao excluir ${itemId} no Drive: ${String(e)}`)
+      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível excluir no Drive.' })
+    }
+  }
+
+  /** A pasta do cliente, ou erro quando o escritório ainda não vinculou uma. */
+  private async raizDoCliente(clienteId: string): Promise<string> {
+    const cliente = await prisma.cliente.findUnique({
+      where: { id: clienteId },
+      select: { portalDriveFolderId: true },
+    })
+    if (!cliente?.portalDriveFolderId) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Esta empresa ainda não tem uma pasta do Drive vinculada.',
+      })
+    }
+    return cliente.portalDriveFolderId
   }
 
   /**

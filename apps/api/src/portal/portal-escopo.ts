@@ -34,6 +34,16 @@ export interface VinculoPortal {
   clienteId: string
   nivel: PortalNivel
   /**
+   * Permissões do porta-arquivos, por usuário.
+   *
+   * Viajam no vínculo, e não são consultadas onde forem usadas, pelo mesmo
+   * motivo das `areas`: quem recebe um `VinculoPortal` recebe TUDO que decide
+   * acesso, e não precisa lembrar de ir buscar mais nada.
+   */
+  podeVer: boolean
+  podeEditar: boolean
+  podeExcluir: boolean
+  /**
    * Áreas em que a pessoa pode operar — JÁ interseccionadas com as que o
    * cliente contratou. Ver `intersecaoAreas`.
    */
@@ -83,6 +93,9 @@ export async function resolverVinculo(userId: string, clienteId: string): Promis
       nivel: true,
       areas: true,
       ativo: true,
+      podeVer: true,
+      podeEditar: true,
+      podeExcluir: true,
       cliente: {
         select: {
           status: true,
@@ -103,6 +116,9 @@ export async function resolverVinculo(userId: string, clienteId: string): Promis
   return {
     clienteId: vinculo.clienteId,
     nivel: vinculo.nivel as PortalNivel,
+    podeVer: vinculo.podeVer,
+    podeEditar: vinculo.podeEditar,
+    podeExcluir: vinculo.podeExcluir,
     areas: intersecaoAreas(
       vinculo.areas,
       vinculo.cliente.servicosContratados.map(a => a.areaId),
@@ -137,6 +153,9 @@ export async function listarVinculos(
       clienteId: true,
       nivel: true,
       areas: true,
+      podeVer: true,
+      podeEditar: true,
+      podeExcluir: true,
       cliente: {
         select: {
           razaoSocial: true,
@@ -153,6 +172,9 @@ export async function listarVinculos(
   return vinculos.map(v => ({
     clienteId: v.clienteId,
     nivel: v.nivel as PortalNivel,
+    podeVer: v.podeVer,
+    podeEditar: v.podeEditar,
+    podeExcluir: v.podeExcluir,
     areas: intersecaoAreas(v.areas, v.cliente.servicosContratados.map(a => a.areaId)),
     razaoSocial: v.cliente.razaoSocial,
     escritorio: v.cliente.empresa

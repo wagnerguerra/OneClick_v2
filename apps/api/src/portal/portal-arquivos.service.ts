@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 
-import { atendeNivel, podeNaArea, type VinculoPortal } from './portal-escopo'
+import { podeNaArea, type VinculoPortal } from './portal-escopo'
 import { GestaoArquivosNotificacaoService } from '../gestao-arquivos/gestao-arquivos-notificacao.service'
 
 /**
@@ -188,8 +188,8 @@ export class PortalArquivosService {
     input: { nome: string; paiId?: string | null },
     userId: string,
   ) {
-    if (!atendeNivel(vinculo, 'OPERACIONAL')) {
-      throw new TRPCError({ code: 'FORBIDDEN', message: 'Seu acesso e somente leitura.' })
+    if (!vinculo.podeEditar) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para enviar arquivos ou criar pastas.' })
     }
     const nome = input.nome.trim()
     if (nome.length < 1) {
@@ -231,8 +231,8 @@ export class PortalArquivosService {
    * Exigir o esvaziamento antes torna a perda impossivel por acidente.
    */
   async excluirPasta(vinculo: VinculoPortal, pastaId: string) {
-    if (!atendeNivel(vinculo, 'OPERACIONAL')) {
-      throw new TRPCError({ code: 'FORBIDDEN', message: 'Seu acesso e somente leitura.' })
+    if (!vinculo.podeExcluir) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para excluir.' })
     }
     const pasta = await prisma.portalPasta.findFirst({
       where: { id: pastaId, clienteId: vinculo.clienteId },
@@ -251,6 +251,11 @@ export class PortalArquivosService {
 
   /** Arquivos de uma pasta. `null` = raiz. */
   async listar(vinculo: VinculoPortal, pastaId?: string | null): Promise<ArquivoDoPortal[]> {
+    // Sem `podeVer`, a lista vem vazia em vez de lançar: a tela mostra a pasta
+    // sem conteúdo, que é o que a permissão significa. Um erro apareceria como
+    // falha do sistema para quem apenas não foi autorizado.
+    if (!vinculo.podeVer) return []
+
     const arquivos = await prisma.clienteArquivo.findMany({
       where: {
         clienteId: vinculo.clienteId,
@@ -296,6 +301,9 @@ export class PortalArquivosService {
    * senão "lido em" viraria "aberto pela última vez", que é outra informação.
    */
   async abrir(vinculo: VinculoPortal, arquivoId: string, userId: string) {
+    if (!vinculo.podeVer) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Arquivo não encontrado.' })
+    }
     const arquivo = await prisma.clienteArquivo.findFirst({
       // `clienteId` no where, e não um findUnique por id: sem ele, um id
       // adivinhado devolveria arquivo de outro cliente.
@@ -364,8 +372,8 @@ export class PortalArquivosService {
     },
     userId: string,
   ) {
-    if (!atendeNivel(vinculo, 'OPERACIONAL')) {
-      throw new TRPCError({ code: 'FORBIDDEN', message: 'Seu acesso é somente leitura.' })
+    if (!vinculo.podeEditar) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para enviar arquivos ou criar pastas.' })
     }
     if (input.categoria && !this.categoriaLiberada(vinculo, input.categoria)) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem acesso a esta área.' })
@@ -444,6 +452,31 @@ export class PortalArquivosService {
     }).catch(() => undefined)
 
     return arquivo
+  }
+
+  /**
+   * Fecha uma pendência, sem passar por um arquivo nosso.
+   *
+   * Existe porque o envio do cliente passou a ir para o Google Drive: não há
+   * mais um `ClienteArquivo` carregando o `solicitacaoId` para fechar a
+   * pendência de carona, como acontecia quando o arquivo era gravado aqui.
+   *
+   * `updateMany` com `situacao: PENDENTE` no where faz o trabalho de duas
+   * checagens ao mesmo tempo — pendência de outro cliente e pendência já
+   * fechada simplesmente não casam, e o count vem zero.
+   */
+  async marcarSolicitacaoAtendida(vinculo: VinculoPortal, solicitacaoId: string, userId: string) {
+    if (!vinculo.podeEditar) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para isto.' })
+    }
+    const r = await prisma.portalSolicitacao.updateMany({
+      where: { id: solicitacaoId, clienteId: vinculo.clienteId, situacao: 'PENDENTE' },
+      data: { situacao: 'ATENDIDA', atendidaEm: new Date(), atendidaPor: userId },
+    })
+    if (r.count === 0) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Esta solicitação não está mais aberta.' })
+    }
+    return { ok: true }
   }
 
   /** O que o escritório está esperando deste cliente. */

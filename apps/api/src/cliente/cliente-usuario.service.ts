@@ -33,6 +33,15 @@ export interface VincularInput {
   email: string
   nome: string
   nivel: PortalNivel
+
+  /**
+   * Permissões do porta-arquivos. Ausentes = os defaults do schema (vê, não
+   * edita, não exclui) — quem ganha poder de escrever ou apagar ganha por ato
+   * deliberado, nunca por omissão do formulário.
+   */
+  podeVer?: boolean
+  podeEditar?: boolean
+  podeExcluir?: boolean
   /** Ids de `Area`. Validados contra o que o cliente contratou. */
   areas: string[]
   telefone?: string | null
@@ -50,6 +59,9 @@ export class ClienteUsuarioService {
       select: {
         id: true,
         nivel: true,
+        podeVer: true,
+        podeEditar: true,
+        podeExcluir: true,
         areas: true,
         ativo: true,
         criadoEm: true,
@@ -154,7 +166,12 @@ export class ClienteUsuarioService {
       const vinculo = jaVinculado
         ? await prisma.clienteUsuario.update({
             where: { id: jaVinculado.id },
-            data: { ativo: true, nivel: input.nivel as never, areas },
+            data: {
+              ativo: true, nivel: input.nivel as never, areas,
+              ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
+              ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
+              ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
+            },
           })
         : await prisma.clienteUsuario.create({
             data: {
@@ -162,6 +179,9 @@ export class ClienteUsuarioService {
               clienteId: input.clienteId,
               nivel: input.nivel as never,
               areas,
+              ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
+              ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
+              ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
               criadoPorId: ctx.userId,
             },
           })
@@ -210,6 +230,9 @@ export class ClienteUsuarioService {
           clienteId: input.clienteId,
           nivel: input.nivel as never,
           areas,
+          ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
+          ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
+          ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
           criadoPorId: ctx.userId,
         },
         select: { id: true },
@@ -235,7 +258,10 @@ export class ClienteUsuarioService {
 
   /** Muda nível, áreas ou liga/desliga o acesso. */
   async atualizar(
-    input: { id: string; nivel?: PortalNivel; areas?: string[]; ativo?: boolean },
+    input: {
+      id: string; nivel?: PortalNivel; areas?: string[]; ativo?: boolean
+      podeVer?: boolean; podeEditar?: boolean; podeExcluir?: boolean
+    },
   ) {
     const atual = await prisma.clienteUsuario.findUnique({
       where: { id: input.id },
@@ -257,6 +283,9 @@ export class ClienteUsuarioService {
       where: { id: input.id },
       data: {
         ...(input.nivel ? { nivel: input.nivel as never } : {}),
+        ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
+        ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
+        ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
         ...(areas ? { areas } : {}),
         ...(input.ativo != null ? { ativo: input.ativo } : {}),
       },

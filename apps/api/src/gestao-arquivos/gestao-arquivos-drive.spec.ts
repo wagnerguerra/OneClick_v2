@@ -221,9 +221,12 @@ describe('abrirArquivo (o proxy que serve os bytes)', () => {
 })
 
 describe('lado do PORTAL (o cliente olhando a própria pasta)', () => {
-  const admin = { clienteId: 'cli-1', nivel: 'ADMINISTRADOR' as const, areas: ['fiscal'] }
-  const operacional = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'] }
-  const consulta = { clienteId: 'cli-1', nivel: 'CONSULTA' as const, areas: ['fiscal'] }
+  // O que decide não é mais o NÍVEL, e sim a permissão por usuário. Os nomes
+  // abaixo são só apelidos dos três perfis que interessam.
+  const base = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'] }
+  const completo = { ...base, podeVer: true, podeEditar: true, podeExcluir: true }
+  const soLeitura = { ...base, podeVer: true, podeEditar: false, podeExcluir: false }
+  const semAcesso = { ...base, podeVer: false, podeEditar: false, podeExcluir: false }
 
   beforeEach(() => {
     cliente.findUnique.mockResolvedValue({
@@ -231,27 +234,27 @@ describe('lado do PORTAL (o cliente olhando a própria pasta)', () => {
     })
   })
 
-  it('só ADMINISTRADOR enxerga a pasta do Drive', () => {
-    // Os arquivos do Drive não têm categoria, e é a categoria que o portal usa
-    // para separar por área. Liberar para o OPERACIONAL de área fiscal
-    // entregaria a folha de pagamento junto.
-    expect(svc.podeVerDriveNoPortal(admin)).toBe(true)
-    expect(svc.podeVerDriveNoPortal(operacional)).toBe(false)
-    expect(svc.podeVerDriveNoPortal(consulta)).toBe(false)
+  it('quem enxerga é quem tem podeVer, independente do nível', () => {
+    // A regra antiga era o nível (só ADMINISTRADOR). Trocou para permissão por
+    // usuário: com o portal listando só o Drive, amarrar ao nível deixava todo
+    // não-admin com a tela vazia.
+    expect(svc.podeVerDriveNoPortal(completo)).toBe(true)
+    expect(svc.podeVerDriveNoPortal(soLeitura)).toBe(true)
+    expect(svc.podeVerDriveNoPortal(semAcesso)).toBe(false)
   })
 
   it('quem não pode recebe explicação, não erro', async () => {
-    const r = await svc.listarParaPortal(operacional)
+    const r = await svc.listarParaPortal(semAcesso)
     expect(r.vinculada).toBe(false)
-    expect(r.motivo).toMatch(/apenas para administradores/i)
+    expect(r.motivo).toMatch(/não tem permissão/i)
     expect(listFolderContents).not.toHaveBeenCalled()
   })
 
-  it('administrador vê o conteúdo da própria pasta', async () => {
+  it('quem pode ver recebe o conteúdo da própria pasta', async () => {
     listFolderContents.mockResolvedValue([
       { id: 'f1', name: 'guia.pdf', mimeType: 'application/pdf', size: 10, modifiedTime: '', webViewLink: 'https://drive/...', isFolder: false },
     ])
-    const r = await svc.listarParaPortal(admin)
+    const r = await svc.listarParaPortal(soLeitura)
     expect(r.vinculada).toBe(true)
     expect(listFolderContents).toHaveBeenCalledWith('pasta-do-cliente')
     // O link direto do Drive NÃO vai para o cliente: ele só abriria para quem
@@ -262,24 +265,52 @@ describe('lado do PORTAL (o cliente olhando a própria pasta)', () => {
 
   it('subpasta fora da pasta do cliente é recusada também no portal', async () => {
     getParents.mockResolvedValue(['pasta-de-outro'])
-    await expect(svc.listarParaPortal(admin, 'alheia')).rejects.toThrow(/não encontrada/i)
+    await expect(svc.listarParaPortal(completo, 'alheia')).rejects.toThrow(/não encontrada/i)
   })
 
-  it('OPERACIONAL não baixa arquivo do Drive nem sabendo o id', async () => {
+  it('sem podeEditar não cria pasta nem envia arquivo', async () => {
+    await expect(svc.criarPastaParaPortal(soLeitura, 'Notas'))
+      .rejects.toThrow(/não tem permissão/i)
+    await expect(svc.enviarParaPortal(soLeitura, { fileName: 'n.pdf', fileUrl: '/api/upload/n.pdf' }))
+      .rejects.toThrow(/não tem permissão/i)
+  })
+
+  it('sem podeExcluir não manda nada para a lixeira', async () => {
+    await expect(svc.excluirParaPortal(soLeitura, 'f1')).rejects.toThrow(/não tem permissão/i)
+  })
+
+  it('nem quem pode excluir apaga a raiz configurada pelo escritório', async () => {
+    // Seria o cliente removendo a própria pasta do Drive do escritório.
+    await expect(svc.excluirParaPortal(completo, 'pasta-do-cliente'))
+      .rejects.toThrow(/não pode ser excluída/i)
+  })
+
+  it('não exclui item de fora da pasta do cliente', async () => {
+    getParents.mockResolvedValue(['pasta-de-outro'])
+    await expect(svc.excluirParaPortal(completo, 'alheio')).rejects.toThrow(/não encontrado/i)
+  })
+
+  it('criar pasta recusa nome com barra', async () => {
+    // Barra no nome faria "Notas/2026" parecer dois níveis para quem lê.
+    await expect(svc.criarPastaParaPortal(completo, 'Notas/2026'))
+      .rejects.toThrow(/não pode conter barras/i)
+  })
+
+  it('sem podeVer não baixa arquivo nem sabendo o id', async () => {
     getParents.mockResolvedValue(['pasta-do-cliente'])
-    await expect(svc.abrirArquivoParaPortal(operacional, 'f1')).rejects.toThrow(/não encontrado/i)
+    await expect(svc.abrirArquivoParaPortal(semAcesso, 'f1')).rejects.toThrow(/não encontrado/i)
     expect(downloadStream).not.toHaveBeenCalled()
   })
 
-  it('administrador baixa arquivo que está dentro da pasta dele', async () => {
+  it('quem pode ver baixa arquivo que está dentro da pasta dele', async () => {
     getParents.mockResolvedValue(['pasta-do-cliente'])
-    await expect(svc.abrirArquivoParaPortal(admin, 'f1'))
+    await expect(svc.abrirArquivoParaPortal(soLeitura, 'f1'))
       .resolves.toMatchObject({ nome: 'guia.pdf', mimeType: 'application/pdf' })
   })
 
-  it('administrador NÃO baixa arquivo de fora da pasta dele', async () => {
+  it('nem quem pode ver baixa arquivo de fora da pasta dele', async () => {
     getParents.mockResolvedValue(['pasta-de-outro-cliente'])
-    await expect(svc.abrirArquivoParaPortal(admin, 'alheio')).rejects.toThrow(/não encontrado/i)
+    await expect(svc.abrirArquivoParaPortal(completo, 'alheio')).rejects.toThrow(/não encontrado/i)
     expect(downloadStream).not.toHaveBeenCalled()
   })
 })

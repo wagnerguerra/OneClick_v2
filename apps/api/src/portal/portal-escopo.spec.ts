@@ -28,7 +28,9 @@ import {
 } from './portal-escopo'
 
 const vinculo = (over: Partial<VinculoPortal> = {}): VinculoPortal => ({
-  clienteId: 'cli-1', nivel: 'OPERACIONAL', areas: ['fiscal'], ...over,
+  clienteId: 'cli-1', nivel: 'OPERACIONAL', areas: ['fiscal'],
+  podeVer: true, podeEditar: true, podeExcluir: false,
+  ...over,
 })
 
 /** Resposta do prisma para um vínculo saudável. */

@@ -48,6 +48,9 @@ interface UsuarioPortal {
   nivel: PortalNivel
   areas: string[]
   ativo: boolean
+  podeVer: boolean
+  podeEditar: boolean
+  podeExcluir: boolean
   criadoEm: string
   user: {
     id: string; name: string; email: string; telefone: string | null
@@ -61,7 +64,27 @@ const formVazio = () => ({
   nome: '', email: '', telefone: '',
   nivel: 'OPERACIONAL' as PortalNivel,
   areas: [] as string[],
+  // Vê por padrão; escrever e apagar começam desligados. Um formulário que
+  // nasce com poder de exclusão marcado transforma distração em documento
+  // perdido.
+  podeVer: true,
+  podeEditar: false,
+  podeExcluir: false,
 })
+
+/**
+ * O que a pessoa faz com os arquivos do porta-arquivos.
+ *
+ * Separado do NÍVEL de propósito: o nível diz o que ela alcança no portal
+ * (contrato, honorários); isto diz o que ela faz com arquivo. As duas coisas
+ * não andam juntas — há sócio do cliente que o escritório não quer deixar
+ * apagar nada, e há operacional que precisa corrigir o próprio envio.
+ */
+const PERMISSOES: Array<{ campo: 'podeVer' | 'podeEditar' | 'podeExcluir'; rotulo: string; ajuda: string }> = [
+  { campo: 'podeVer', rotulo: 'Ver arquivos', ajuda: 'Abre a pasta e baixa o que está nela.' },
+  { campo: 'podeEditar', rotulo: 'Enviar e criar pastas', ajuda: 'Manda documento e organiza em pastas.' },
+  { campo: 'podeExcluir', rotulo: 'Excluir', ajuda: 'Manda para a lixeira, de onde volta por 30 dias.' },
+]
 
 export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
   const { canManageClientUsers } = useClientesPerms()
@@ -97,6 +120,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
         clienteId, nome: form.nome.trim(), email: form.email.trim(),
         telefone: form.telefone.trim() || null,
         nivel: form.nivel, areas: form.areas,
+        podeVer: form.podeVer, podeEditar: form.podeEditar, podeExcluir: form.podeExcluir,
       }) as { criouUsuario: boolean; convite: { enviado: boolean } | null }
       setNovoAberto(false)
       setForm(formVazio())
@@ -133,6 +157,9 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
     try {
       await (trpc.cliente as any).atualizarUsuarioPortal.mutate({
         id: editando.id, nivel: editando.nivel, areas: editando.areas, ativo: editando.ativo,
+        podeVer: editando.podeVer,
+        podeEditar: editando.podeEditar,
+        podeExcluir: editando.podeExcluir,
       })
       setEditando(null)
       carregar()
@@ -354,6 +381,10 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
               areas={areas} selecionadas={form.areas}
               onToggle={id => setForm(f => ({ ...f, areas: alternarArea(f.areas, id) }))}
             />
+            <CampoPermissoes
+              valores={form}
+              onToggle={(campo, v) => setForm(f => ({ ...f, [campo]: v }))}
+            />
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" type="button" onClick={() => setNovoAberto(false)} disabled={salvando}>
@@ -381,6 +412,14 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
               areas={areas}
               selecionadas={editando?.areas ?? []}
               onToggle={id => setEditando(u => (u ? { ...u, areas: alternarArea(u.areas, id) } : u))}
+            />
+            <CampoPermissoes
+              valores={{
+                podeVer: editando?.podeVer ?? false,
+                podeEditar: editando?.podeEditar ?? false,
+                podeExcluir: editando?.podeExcluir ?? false,
+              }}
+              onToggle={(campo, v) => setEditando(u => (u ? { ...u, [campo]: v } : u))}
             />
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -423,6 +462,45 @@ function CampoNivel({ valor, onChange }: { valor: PortalNivel; onChange: (v: Por
       </Select>
       <p className="mt-1 text-[11px] text-muted-foreground">
         {NIVEIS.find(n => n.valor === valor)?.descricao}
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Permissões do porta-arquivos.
+ *
+ * Vale um aviso na própria tela, e não só no código: a pasta do Google Drive
+ * não é classificada por área, então quem recebe "Ver arquivos" enxerga a
+ * pasta INTEIRA do cliente — as áreas liberadas acima não recortam o que está
+ * lá. Quem concede precisa saber disso na hora de conceder, não depois.
+ */
+function CampoPermissoes({ valores, onToggle }: {
+  valores: { podeVer: boolean; podeEditar: boolean; podeExcluir: boolean }
+  onToggle: (campo: 'podeVer' | 'podeEditar' | 'podeExcluir', v: boolean) => void
+}) {
+  return (
+    <div>
+      <Label className="text-[13px] font-semibold">Arquivos</Label>
+      <div className="mt-1.5 space-y-1.5 rounded-lg border border-border p-2.5">
+        {PERMISSOES.map(p => (
+          <label key={p.campo} className="flex cursor-pointer items-start gap-2">
+            <input
+              type="checkbox"
+              checked={valores[p.campo]}
+              onChange={e => onToggle(p.campo, e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-border"
+            />
+            <span className="min-w-0">
+              <span className="block text-[13px] text-foreground">{p.rotulo}</span>
+              <span className="block text-[11px] text-muted-foreground">{p.ajuda}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        A pasta de arquivos não é separada por área: quem pode ver enxerga tudo
+        o que estiver nela.
       </p>
     </div>
   )

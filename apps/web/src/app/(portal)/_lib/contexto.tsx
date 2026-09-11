@@ -23,6 +23,14 @@ export interface VinculoPortal {
   razaoSocial: string
   nivel: 'ADMINISTRADOR' | 'OPERACIONAL' | 'CONSULTA'
   areas: string[]
+  /**
+   * O que esta pessoa faz com arquivos. Vem do vínculo, não do nível: o
+   * escritório concede um a um, e a tela usa para decidir o que oferecer —
+   * botão que a API vai recusar é pior do que botão ausente.
+   */
+  podeVer: boolean
+  podeEditar: boolean
+  podeExcluir: boolean
   /** Acompanha o cliente ATIVO: trocar de empresa pode trocar de escritório. */
   escritorio: MarcaDoEscritorio | null
 }
