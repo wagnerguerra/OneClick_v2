@@ -9,6 +9,7 @@ import { cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 import { usePortal } from '../../_lib/contexto'
+import { PortalPageHeader } from '../../_components/portal-page-header'
 import { Explorador, type Fonte } from '@/app/(dashboard)/gestao-arquivos/_components/explorador'
 import { useFontesDoPortal } from './_components/fontes-portal'
 
@@ -151,7 +152,7 @@ export default function PortalDocumentosPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <input
         ref={inputRef}
         type="file"
@@ -159,21 +160,14 @@ export default function PortalDocumentosPage() {
         onChange={e => { const f = e.target.files?.[0]; if (f) enviar(f) }}
       />
 
-      <section className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-[24px] font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            Documentos
-          </h1>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            Guias e relatórios que o escritório publica, e os arquivos que você envia.
-          </p>
-        </div>
-        {podeEditar && (
-          <div className="flex items-center gap-2">
+      <PortalPageHeader
+        titulo="Documentos"
+        subtitulo="Guias e relatórios que o escritório publica, e os arquivos que você envia."
+        acoes={podeEditar ? (
+          <>
             <button
               type="button"
               onClick={() => { setCriandoPasta(true); setNomeNovaPasta('') }}
-
               className="inline-flex items-center gap-2 rounded-lg border border-[#dbe7fb] bg-white px-3.5 py-2 text-[13px] font-semibold text-[#1a6dff] hover:bg-[#f2f7ff] disabled:opacity-50 dark:border-[#1b2739] dark:bg-[#0e1726] dark:hover:bg-[#16233a]"
             >
               <FolderPlus className="h-4 w-4" /> Nova pasta
@@ -189,9 +183,9 @@ export default function PortalDocumentosPage() {
                 : <Upload className="h-4 w-4" />}
               Enviar arquivo
             </button>
-          </div>
-        )}
-      </section>
+          </>
+        ) : undefined}
+      />
 
       {aviso && (
         <p className="rounded-lg border border-[#dbe7fb] bg-[#f2f7ff] px-4 py-2.5 text-[13px] text-[#0b4fd0] dark:border-[#1b2739] dark:bg-[#16233a] dark:text-[#7db0ff]">
@@ -296,7 +290,7 @@ export default function PortalDocumentosPage() {
         key={versao}
         fontes={fontes}
         cor={COR_PORTAL}
-        altura="h-[calc(100vh-340px)]"
+        altura="h-[calc(100vh-290px)]"
         onPastaAtual={aoMudarPasta}
       />
     </div>
