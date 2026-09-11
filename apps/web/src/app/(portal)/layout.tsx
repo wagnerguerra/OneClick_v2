@@ -176,7 +176,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           Horizontal, no topo. É a diferença estrutural em relação ao sistema
           interno, que é todo organizado por uma sidebar de módulos. */}
       <header className="sticky top-0 z-40 border-b border-[#e6ebf2] bg-white/90 backdrop-blur dark:border-[#1b2739] dark:bg-[#0e1726]/90">
-        <div className="mx-auto flex h-16 max-w-[1180px] items-center gap-3 px-5">
+        {/* Largura total, como o resto do portal. A faixa de 1180px servia
+            enquanto as telas eram texto e cards; o porta-arquivos e os painéis
+            que vieram depois usam colunas lado a lado, e espremê-los numa
+            coluna central desperdiçava metade do monitor. Header, conteúdo e
+            rodapé mudam JUNTOS — deixar um deles centrado faria o menu
+            desalinhar do conteúdo logo abaixo. */}
+        <div className="flex h-16 w-full items-center gap-3 px-5 sm:px-7">
           {/* A marca é a do ESCRITÓRIO, não do produto. Quem entra aqui é
               cliente da Central Contábil — ele não tem relação com o nome do
               sistema, e ver a logo de quem o atende é o que faz a página
@@ -347,14 +353,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         className="pointer-events-none h-40 w-full bg-gradient-to-b from-[#e8f1ff] to-transparent dark:from-[#101b2e]"
       />
 
-      <main className="mx-auto -mt-40 w-full max-w-[1180px] flex-1 px-5 pb-16 pt-8">
+      <main className="-mt-40 w-full flex-1 px-5 pb-16 pt-8 sm:px-7">
         {clienteId
           ? <PortalContexto.Provider value={{ clienteId, vinculo: atual }}>{children}</PortalContexto.Provider>
           : null}
       </main>
 
       <footer className="mt-auto border-t border-[#e6ebf2] bg-white py-5 dark:border-[#1b2739] dark:bg-[#0e1726]">
-        <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-3 px-5 text-[12px] text-slate-500">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-5 text-[12px] text-slate-500 sm:px-7">
           <span>{escritorio?.nome ?? 'Portal do cliente'} · {atual?.razaoSocial}</span>
           <span>Dúvidas sobre o acesso? Fale com o seu escritório contábil.</span>
         </div>
