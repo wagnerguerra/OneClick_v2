@@ -116,10 +116,22 @@ Para backup interno isso nunca importou. Para guardar documento de cliente, impo
   "Testing" no Google Cloud Console ele **expira em 7 dias**. Vale conferir o status do
   consent screen antes de depender disso no caminho principal.
 
-**Recomendação:** se os arquivos de cliente forem para o Drive, que seja uma conta
-**Workspace da empresa** (Business Standard, 2 TB por usuário). O código não muda — é o
-mesmo OAuth. Muda o contrato, a titularidade e a capacidade de administrar. Para backup
-interno, a conta atual segue ótima.
+**Recomendação original:** que a conta fosse **Workspace da empresa** (Business
+Standard, 2 TB por usuário). O código não muda — é o mesmo OAuth. Muda o contrato, a
+titularidade e a capacidade de administrar.
+
+> **Decisão do Wagner, 11/09/2026:** começar com a conta atual mesmo, e migrar para o
+> Workspace depois. Risco conhecido e aceito.
+
+Duas consequências práticas dessa escolha, que valem virar regra de implementação:
+1. **A conta não pode ficar chumbada em lugar nenhum.** Ela já vem de variável de
+   ambiente (`GOOGLE_DRIVE_OAUTH_*`), e tem de continuar assim — nenhum `@gmail.com`
+   escrito em código, nenhum ID de pasta fixo. Migrar então vira trocar credencial e
+   mover pastas, não reescrever.
+2. **O status do consent screen sai do "vale conferir" e vira pré-requisito.** Se o app
+   estiver em "Testing" no Google Cloud Console, o refresh token expira em 7 dias e o
+   armazenamento principal cai sozinho toda semana. Enquanto era backup, dava para não
+   notar; como caminho principal, não dá. Verificar antes do passo 3.
 
 ### 4.2 Os 2 TB não estão vazios
 
@@ -144,39 +156,78 @@ deixar acontecer por omissão.
 
 ---
 
-## 5. O que fazer antes, e que é barato
+## 5. Limpeza — executada em 11/09/2026
 
-Independentemente da decisão sobre o Drive, três coisas destravam disco agora:
+Duas das três providências já foram aplicadas na VPS. Resultado medido:
 
-1. **Tirar os uploads do backup diário do sistema, ou reduzir a retenção.** É de longe o
-   maior ganho: os uploads são 4,2 G e os backups deles são 25 G. Cair de 7 para 3 cópias
-   libera ~14 GB hoje; separar uploads (semanal) de configs (diário) libera mais. Vale
-   pensar junto: 7 cópias diárias de um acervo que quase não muda é caro e não protege
-   muito mais que 3.
-2. **`docker image prune`** — 1,6 GB recuperáveis, imediato e sem risco.
-3. **Mandar o backup para fora da VPS.** Backup no mesmo disco do que ele protege não
-   sobrevive ao cenário que justifica existir. Mandar para o Drive é uso legítimo da conta
-   atual — é literalmente para isso que ela existe.
+```
+antes:  /dev/sda1  96G  61G usados  36G livres  63%
+depois: /dev/sda1  96G  45G usados  51G livres  47%
+```
 
-Só isso devolve algo em torno de 15–20 GB e compra meses de folga, com horas de trabalho
-em vez de semanas.
+**16 GB devolvidos**, sem reiniciar container: a API respondeu HTTP 200 logo depois, e
+`oneclick-api`/`oneclick-web` seguiram com as mesmas 15h de uptime.
+
+### 5.1 Retenção do backup de sistema: 7 → 3 ✅
+
+`/opt/oneclick/scripts/backup-system.sh` teve a rotação trocada por uma variável
+`RETENCAO=3`, com o motivo comentado no próprio script. Backup do original em
+`backup-system.sh.bak-20260911`; `bash -n` passou.
+
+Os 4 mais antigos foram removidos na hora (05, 06, 07 e 08/09), mantendo 09, 10 e 11 —
+`/var/backups/oneclick-system` caiu de **25 G para 11 G**.
+
+O número 3 é uma ponte, não um destino: assim que os arquivos saírem para o Drive, os
+uploads deixam de entrar no backup e a retenção pode voltar a subir sem custo. Enquanto
+isso, são 3 dias de histórico em vez de 7 — a contrapartida assumida.
+
+> Nota: `/opt/oneclick/scripts/` **não é versionado neste repo**, vive só na VPS. O deploy
+> não sobrescreve a alteração, e o próprio backup preserva a pasta em `configs/scripts`.
+
+### 5.2 Imagens Docker ✅
+
+`docker image prune` devolveu **0 B** — não havia imagem dangling. O espaço recuperável
+que o `docker system df` apontava estava em imagens **com tag**: 18 builds do CI
+(`ghcr.io/wagnerguerra/oneclick-{api,web}:<sha>`) acumuladas em ~2 dias, nenhuma em uso
+por container.
+
+`prune -a` resolveria, mas apaga tudo que não está rodando — inclusive a imagem de
+rollback. Em vez disso foram removidos os 7 pares mais antigos por `docker rmi`,
+preservando dois:
+
+| Tag | Papel |
+|---|---|
+| `40cd2742…` | **no ar** — mesmo image ID de `oneclick-api:latest` / `oneclick-web:latest` |
+| `6b674bae…` | rollback imediato |
+
+Todas continuam no ghcr, então o que foi removido volta com um `pull`.
+
+Vale observar que 18 imagens em 2 dias é a taxa normal de acúmulo do CI. Isso reaparece
+sozinho — cabe uma limpeza periódica no mesmo cron, guardando as N últimas.
+
+### 5.3 Mandar o backup para fora da VPS ⏳ pendente
+
+Backup no mesmo disco do que ele protege não sobrevive ao cenário que justifica existir.
+Mandar para o Drive é uso legítimo da conta atual — é literalmente para isso que ela
+existe. Ficou para depois; não competia com a urgência de disco.
 
 ---
 
 ## 6. Recomendação
 
-**Fazer, com duas condições e em ordem.**
+**Fazer.** O desenho está certo: Drive como principal, disco como fallback, download
+por proxy e permissão vinda do nosso cadastro. A integração já existe e já roda. A medição
+confirma que o problema é real e chega antes do que parece.
 
-O desenho está certo: Drive como principal, disco como fallback, download por proxy e
-permissão vinda do nosso cadastro. A integração já existe e já roda. A medição confirma
-que o problema é real e chega antes do que parece.
+Estado das duas condições que este documento levantou:
 
-As condições:
-
-1. **Os itens da seção 5 primeiro.** São horas, não semanas, e resolvem a urgência. Fazer
-   a migração sob pressão de disco é a pior hora para fazê-la.
-2. **Conta Workspace da empresa para arquivo de cliente**, não a conta pessoal. A conta
-   atual continua sendo a de backup interno. Mesmo código, contrato diferente.
+1. ~~Limpar disco antes de migrar~~ — **feito** em 11/09 (seção 5). Os 51 GB livres tiram
+   a pressão de prazo: dá para fazer a migração com calma, e não é mais ela que segura o
+   portal.
+2. ~~Conta Workspace antes de guardar arquivo de cliente~~ — **adiado por decisão do
+   Wagner** (seção 4.1). Segue com a conta atual; migra depois. O que isso cobra é
+   disciplina na implementação: credencial e pasta sempre por configuração, e o consent
+   screen verificado antes de o Drive virar caminho principal.
 
 Ordem sugerida:
 
