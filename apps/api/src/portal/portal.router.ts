@@ -112,6 +112,22 @@ export function createPortalRouter(
         .input(z.object({ clienteId: z.string(), itemId: z.string() }))
         .mutation(({ input, ctx }) => driveService.excluirParaPortal(ctx.portal, input.itemId)),
 
+      /**
+       * A lixeira do cliente.
+       *
+       * Não é a lixeira do Google inteira — aquela é da conta do escritório e
+       * mistura todos os clientes. É o que foi excluído de dentro da pasta
+       * DESTE cliente, que o Drive permite perguntar porque o item excluído
+       * mantém os pais.
+       */
+      driveLixeira: portalProcedure
+        .input(z.object({ clienteId: z.string() }))
+        .query(({ ctx }) => driveService.lixeiraParaPortal(ctx.portal)),
+
+      driveRestaurar: portalProcedure
+        .input(z.object({ clienteId: z.string(), itemId: z.string() }))
+        .mutation(({ input, ctx }) => driveService.restaurarParaPortal(ctx.portal, input.itemId)),
+
       /** Arrastar e soltar: `destinoId` nulo leva para a raiz do cliente. */
       driveMover: portalProcedure
         .input(z.object({

@@ -24,6 +24,9 @@ const getParents = jest.fn()
 const getFileMeta = jest.fn()
 const downloadStream = jest.fn()
 const moveFile = jest.fn()
+const listTrashedInFolder = jest.fn()
+const untrashFile = jest.fn()
+const deleteFilePermanently = jest.fn()
 
 jest.mock('../drive-sync/drive.client', () => ({
   DriveClient: class {
@@ -40,6 +43,9 @@ jest.mock('../drive-sync/drive.client', () => ({
     getFileMeta = getFileMeta
     downloadStream = downloadStream
     moveFile = moveFile
+    listTrashedInFolder = listTrashedInFolder
+    untrashFile = untrashFile
+    deleteFilePermanently = deleteFilePermanently
   },
 }))
 
@@ -69,6 +75,9 @@ beforeEach(() => {
   getFileMeta.mockResolvedValue({ id: 'f1', name: 'guia.pdf', mimeType: 'application/pdf', size: 1024 })
   downloadStream.mockResolvedValue({ pipe: jest.fn(), on: jest.fn() })
   moveFile.mockResolvedValue(undefined)
+  listTrashedInFolder.mockResolvedValue([])
+  untrashFile.mockResolvedValue(undefined)
+  deleteFilePermanently.mockResolvedValue(undefined)
   arquivoLog.findMany.mockResolvedValue([])
   arquivoLog.create.mockResolvedValue({ id: 'log-1' })
   user.findUnique.mockResolvedValue({ name: 'Cliente Teste' })
@@ -455,5 +464,83 @@ describe('autoria do envio', () => {
     await expect(
       svc.enviarParaPortal(completo, { fileName: 'n.pdf', fileUrl: '/api/upload/inexistente.pdf' }, 'u1'),
     ).rejects.toThrow(/não foi encontrado/i)
+  })
+})
+
+describe('lixeira do Drive', () => {
+  const base = { clienteId: 'cli-1', nivel: 'OPERACIONAL' as const, areas: ['fiscal'] }
+  const comExcluir = { ...base, podeVer: true, podeEditar: true, podeExcluir: true }
+  const semExcluir = { ...base, podeVer: true, podeEditar: true, podeExcluir: false }
+  const master = { userId: 'u1', isMaster: true, empresaId: 'emp-1' }
+
+  beforeEach(() => {
+    cliente.findUnique.mockResolvedValue({ portalDriveFolderId: 'pasta-do-cliente' })
+    cliente.findFirst.mockResolvedValue({ id: 'cli-1', portalDriveFolderId: 'pasta-do-cliente' })
+  })
+
+  it('sem podeExcluir não vê a lixeira', async () => {
+    await expect(svc.lixeiraParaPortal(semExcluir)).rejects.toThrow(/não tem permissão/i)
+    expect(listTrashedInFolder).not.toHaveBeenCalled()
+  })
+
+  it('lista o que foi excluído de dentro da pasta do cliente', async () => {
+    // A lixeira do Google é uma só, da conta do escritório. O recorte por
+    // cliente só existe porque o Drive mantém os pais do item excluído.
+    listSubfolders.mockResolvedValue([])
+    listTrashedInFolder.mockResolvedValue([
+      { id: 'f1', name: 'guia.pdf', mimeType: 'application/pdf', size: 10, trashedTime: '2026-09-11T10:00:00Z', isFolder: false },
+    ])
+    const r = await svc.lixeiraParaPortal(comExcluir)
+    expect(listTrashedInFolder).toHaveBeenCalledWith('pasta-do-cliente')
+    expect(r[0]!.nome).toBe('guia.pdf')
+  })
+
+  it('não desce em pasta que está na lixeira', async () => {
+    // Restaurar a pasta traz o conteúdo junto; descer nela listaria os filhos
+    // como se cada um tivesse sido excluído por si.
+    listSubfolders.mockResolvedValue([])
+    listTrashedInFolder.mockResolvedValue([
+      { id: 'p9', name: '2024', mimeType: 'application/vnd.google-apps.folder', size: 0, trashedTime: '', isFolder: true },
+    ])
+    const r = await svc.lixeiraParaPortal(comExcluir)
+    expect(r).toHaveLength(1)
+    expect(listTrashedInFolder).toHaveBeenCalledTimes(1)
+  })
+
+  it('não restaura item que nunca foi deste cliente', async () => {
+    getParents.mockResolvedValue(['pasta-de-outro'])
+    await expect(svc.restaurarParaPortal(comExcluir, 'alheio')).rejects.toThrow(/não encontrado/i)
+    expect(untrashFile).not.toHaveBeenCalled()
+  })
+
+  it('restaura o que está dentro da pasta do cliente', async () => {
+    getParents.mockResolvedValue(['pasta-do-cliente'])
+    await expect(svc.restaurarParaPortal(comExcluir, 'f1')).resolves.toEqual({ ok: true })
+    expect(untrashFile).toHaveBeenCalledWith('f1')
+  })
+
+  it('sem podeExcluir não restaura', async () => {
+    await expect(svc.restaurarParaPortal(semExcluir, 'f1')).rejects.toThrow(/não tem permissão/i)
+    expect(untrashFile).not.toHaveBeenCalled()
+  })
+
+  it('apagar de vez recusa a raiz configurada pelo escritório', async () => {
+    await expect(svc.excluirDefinitivo({ clienteId: 'cli-1', itemId: 'pasta-do-cliente' }, master))
+      .rejects.toThrow(/não pode ser excluída/i)
+    expect(deleteFilePermanently).not.toHaveBeenCalled()
+  })
+
+  it('apagar de vez recusa item de fora da pasta do cliente', async () => {
+    getParents.mockResolvedValue(['pasta-de-outro'])
+    await expect(svc.excluirDefinitivo({ clienteId: 'cli-1', itemId: 'alheio' }, master))
+      .rejects.toThrow(/não encontrado/i)
+    expect(deleteFilePermanently).not.toHaveBeenCalled()
+  })
+
+  it('apagar de vez funciona dentro da pasta do cliente', async () => {
+    getParents.mockResolvedValue(['pasta-do-cliente'])
+    await expect(svc.excluirDefinitivo({ clienteId: 'cli-1', itemId: 'f1' }, master))
+      .resolves.toEqual({ ok: true })
+    expect(deleteFilePermanently).toHaveBeenCalledWith('f1')
   })
 })

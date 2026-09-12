@@ -187,6 +187,24 @@ export function createGestaoArquivosRouter(
       .input(z.object({ clienteIds: z.array(z.string()).max(300) }))
       .query(({ input, ctx }) => driveService.contarNoDrive(input.clienteIds, contexto(ctx))),
 
+    /** O que foi excluído de dentro da pasta deste cliente no Drive. */
+    driveLixeira: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input, ctx }) => driveService.lixeiraParaEscritorio(input.clienteId, contexto(ctx))),
+
+    driveRestaurar: writeProcedure(MODULE)
+      .input(z.object({ clienteId: z.string(), itemId: z.string() }))
+      .mutation(({ input, ctx }) => driveService.restaurarParaEscritorio(input, contexto(ctx))),
+
+    /**
+     * Apaga de vez. `deleteProcedure` e só do lado do escritório: não tem
+     * volta nem por suporte do Google, e o guardião do documento é quem
+     * responde por isso.
+     */
+    driveExcluirDefinitivo: deleteProcedure(MODULE)
+      .input(z.object({ clienteId: z.string(), itemId: z.string() }))
+      .mutation(({ input, ctx }) => driveService.excluirDefinitivo(input, contexto(ctx))),
+
     /** Arrastar e soltar no Drive. `destinoId` nulo leva para a raiz. */
     driveMover: writeProcedure(MODULE)
       .input(z.object({
