@@ -31,12 +31,23 @@ import { PortalContexto, type VinculoPortal } from './_lib/contexto'
  * abrir conexão com esses canais.
  */
 
-/** Item de menu. `emBreve` some da barra e vira aviso na tela de destino. */
+/**
+ * Itens do menu.
+ *
+ * `modulo` amarra o item à liberação que o master faz em /admin/empresas: sem
+ * o módulo liberado para a empresa, o item some da barra. Início não tem
+ * módulo — é a porta de entrada, e esconder a porta deixaria a pessoa presa
+ * numa tela sem saída.
+ *
+ * Esconder é só metade: as rotas também recusam, via `portalModuloProcedure`.
+ * Menu escondido com rota aberta seria uma liberação que qualquer URL
+ * digitada contorna.
+ */
 const NAV = [
   { href: '/portal', rotulo: 'Início', icone: LayoutGrid },
-  { href: '/portal/documentos', rotulo: 'Documentos', icone: FolderOpen },
-  { href: '/portal/obrigacoes', rotulo: 'Obrigações', icone: CalendarCheck, emBreve: true },
-  { href: '/portal/chamados', rotulo: 'Atendimento', icone: LifeBuoy, emBreve: true },
+  { href: '/portal/documentos', rotulo: 'Documentos', icone: FolderOpen, modulo: 'documentos' },
+  { href: '/portal/obrigacoes', rotulo: 'Obrigações', icone: CalendarCheck, modulo: 'obrigacoes' },
+  { href: '/portal/chamados', rotulo: 'Atendimento', icone: LifeBuoy, modulo: 'chamados', emBreve: true },
 ] as const
 
 /** Guarda a empresa escolhida — o diretor de grupo troca e espera continuar nela. */
@@ -105,6 +116,18 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const atual = useMemo(
     () => vinculos.find(v => v.clienteId === clienteId) ?? null,
     [vinculos, clienteId],
+  )
+
+  /**
+   * Módulos liberados para a empresa do cliente ativo.
+   *
+   * Enquanto a lista não chegou, o conjunto fica vazio e o menu mostra só
+   * Início. Piscar os itens e escondê-los depois seria pior: a pessoa clicaria
+   * no que está prestes a sumir.
+   */
+  const modulosLiberados = useMemo(
+    () => new Set(atual?.modulos ?? []),
+    [atual],
   )
 
   // A marca segue o cliente ativo. O primeiro vínculo é o reserva para o
@@ -224,7 +247,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           </Link>
 
           <nav className="ml-4 hidden items-center gap-1 md:flex">
-            {NAV.map(item => {
+            {NAV.filter(item => !('modulo' in item) || modulosLiberados.has(item.modulo)).map(item => {
               const ativo = pathname === item.href
               return (
                 <Link

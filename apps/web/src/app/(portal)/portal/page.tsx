@@ -32,45 +32,53 @@ interface Recurso {
   /** Fundo do chip do ícone — a linguagem visual da referência. */
   cor: string
   href?: string
+  /**
+   * Módulo a que este card pertence.
+   *
+   * Card de módulo que o escritório não liberou some da home — prometer aqui
+   * o que o menu esconde e a rota recusa seria anunciar uma porta que não
+   * existe. Pendências não tem: ela vive dentro de Documentos.
+   */
+  modulo?: string
 }
 
 const RECURSOS: Recurso[] = [
   {
     titulo: 'Documentos',
     descricao: 'Baixe guias e relatórios, e envie suas notas e extratos — organizados em pastas.',
-    icone: FolderOpen, cor: 'bg-[#eaf1ff] text-[#1a6dff]', href: '/portal/documentos',
+    icone: FolderOpen, cor: 'bg-[#eaf1ff] text-[#1a6dff]', href: '/portal/documentos', modulo: 'documentos',
   },
   {
     titulo: 'Pendências',
     descricao: 'O que o escritório está esperando de você, com prazo. Resolve ao anexar.',
     // As pendências vivem dentro de Documentos: sem o arquivo ao lado, uma
     // tela só de cobrança não resolve nada.
-    icone: Clock, cor: 'bg-[#fdf0e6] text-[#d97b34]', href: '/portal/documentos',
+    icone: Clock, cor: 'bg-[#fdf0e6] text-[#d97b34]', href: '/portal/documentos', modulo: 'documentos',
   },
   {
     titulo: 'Obrigações do mês',
     descricao: 'O calendário das entregas da sua empresa e a situação de cada uma.',
-    icone: CalendarCheck, cor: 'bg-[#e9f6ee] text-[#1f9254]',
+    icone: CalendarCheck, cor: 'bg-[#e9f6ee] text-[#1f9254]', href: '/portal/obrigacoes', modulo: 'obrigacoes',
   },
   {
     titulo: 'Certidões',
     descricao: 'Situação e PDF da última emissão de cada certidão negativa.',
-    icone: FileCheck2, cor: 'bg-[#eef0fd] text-[#5b62d6]',
+    icone: FileCheck2, cor: 'bg-[#eef0fd] text-[#5b62d6]', modulo: 'certidoes',
   },
   {
     titulo: 'Certificado digital',
     descricao: 'Titular, validade e aviso de vencimento do certificado da empresa.',
-    icone: ShieldCheck, cor: 'bg-[#fdeef5] text-[#c2477f]',
+    icone: ShieldCheck, cor: 'bg-[#fdeef5] text-[#c2477f]', modulo: 'certificado',
   },
   {
     titulo: 'Notas fiscais',
     descricao: 'As notas capturadas da sua empresa, com XML e DANFE.',
-    icone: Receipt, cor: 'bg-[#e8f4f7] text-[#2b7f95]',
+    icone: Receipt, cor: 'bg-[#e8f4f7] text-[#2b7f95]', modulo: 'notas',
   },
   {
     titulo: 'Atendimento',
     descricao: 'Abra um chamado e acompanhe as respostas sem depender do WhatsApp.',
-    icone: LifeBuoy, cor: 'bg-[#f2eefd] text-[#7c4dd1]',
+    icone: LifeBuoy, cor: 'bg-[#f2eefd] text-[#7c4dd1]', modulo: 'chamados',
   },
 ]
 
@@ -115,6 +123,16 @@ function Sobrancelha({ children }: { children: React.ReactNode }) {
 export default function PortalInicioPage() {
   const { vinculo } = usePortal()
   const semArea = !vinculo || vinculo.areas.length === 0
+
+  /**
+   * Só os cards de módulos liberados.
+   *
+   * O "em breve" continua existindo para o que está liberado mas ainda não
+   * tem tela: são coisas diferentes. Um módulo desligado pelo escritório não
+   * deve nem ser mencionado; um ligado sem tela é promessa em construção.
+   */
+  const liberados = new Set(vinculo?.modulos ?? [])
+  const visiveis = RECURSOS.filter(r => !r.modulo || liberados.has(r.modulo))
 
   return (
     <div className="flex flex-col gap-14 pb-4">
@@ -214,7 +232,7 @@ export default function PortalInicioPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {RECURSOS.map(r => {
+          {visiveis.map(r => {
             const conteudo = (
               <>
                 <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${r.cor}`}>

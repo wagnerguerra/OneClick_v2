@@ -63,6 +63,23 @@ A `UsuarioExternoGuard` fecha a porta, mas a raiz continua lá. Avaliar deixar o
 externo com `empresaId` nulo — mais seguro, e provavelmente quebra menos do que
 parece, já que ele não usa nada interno.
 
+### Filtro de categoria do porta-arquivos compara nome com ID
+**Onde:** `portal-arquivos.service.ts`, `CATEGORIA_EXIGE_AREA` + `podeNaArea`.
+
+`CATEGORIA_EXIGE_AREA` passa NOMES de área (`'pessoal'`, `'fiscal'`) para o
+`podeNaArea`, que compara com `vinculo.areas` — e aquelas são **IDs**. A
+comparação nunca casa, então toda categoria da lista fica permanentemente
+bloqueada: arquivo com categoria `guias`, `folha`, `notas` ou `contabil` não
+aparece para cliente nenhum.
+
+Impacto hoje é zero — o portal lista só o Drive, e o acervo local saiu da
+vista do cliente. Mas se ele voltar à tela, o escritório publica a guia e o
+cliente não vê.
+
+Conserto: mapear nome → `areaId` na carga, ou trocar as chaves de
+`CATEGORIA_EXIGE_AREA` por ids. O módulo de Obrigações já faz o certo (compara
+`servico.areaId` com `vinculo.areas`) e serve de referência.
+
 ### Inverter a guarda para lista de permissão
 **Onde:** `usuario-externo.guard.ts`.
 

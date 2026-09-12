@@ -31,6 +31,8 @@ export interface VinculoPortal {
   podeVer: boolean
   podeEditar: boolean
   podeExcluir: boolean
+  /** Módulos que o master liberou para a empresa deste cliente. */
+  modulos: string[]
   /** Acompanha o cliente ATIVO: trocar de empresa pode trocar de escritório. */
   escritorio: MarcaDoEscritorio | null
 }
