@@ -586,6 +586,7 @@ model Empresa {
   signatureTemplate    EmpresaSignatureTemplate?
   notificacoesArquivos GestaoArquivosNotificacao[]
   driveArquivos        GestaoArquivosDrive?
+  portalModulos        PortalModuloEmpresa[]
 
   @@map("empresas")
 }
@@ -1309,6 +1310,38 @@ model GestaoArquivosDrive {
   empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
 
   @@map("gestao_arquivos_drive")
+}
+
+/// Quais módulos do Portal do Cliente estão liberados numa empresa.
+///
+/// Guarda só as EXCEÇÕES: ausência de linha significa "vale o padrão do
+/// módulo", declarado no catálogo em `portal-modulos.ts`. O contrário —
+/// exigir linha para tudo — quebraria o portal de quem já usa no instante do
+/// deploy, porque Documentos deixaria de existir até alguém ir ligar.
+///
+/// É por EMPRESA e não por tenant, e isso não é atalho: `Empresa` não tem
+/// `tenantId` no schema, e as empresas em operação estão todas sem tenant (o
+/// único tenant cadastrado aponta para um sandbox sem cliente nenhum). O
+/// portal é escopado por cliente → empresa; um gate por tenant não alcançaria
+/// cliente algum hoje.
+model PortalModuloEmpresa {
+  id        String  @id @default(cuid())
+  empresaId String  @map("empresa_id")
+  /// Slug do módulo: documentos, obrigacoes, chamados, certidoes, ...
+  modulo    String
+  liberado  Boolean @default(true)
+
+  /// Quem mexeu por último — a liberação de módulo é decisão comercial, e
+  /// "quem liberou isto?" é pergunta que aparece.
+  alteradoPorId String?  @map("alterado_por_id")
+  criadoEm      DateTime @default(now()) @map("criado_em")
+  atualizadoEm  DateTime @updatedAt @map("atualizado_em")
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, modulo])
+  @@index([empresaId])
+  @@map("portal_modulos_empresa")
 }
 
 model GestaoArquivosNotificacao {

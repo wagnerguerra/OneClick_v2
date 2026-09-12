@@ -1,4 +1,5 @@
 import { prisma } from '@saas/db'
+import { resolverLiberados } from './portal-modulos'
 
 /**
  * Escopo do usuário externo — a peça que impede um cliente de ler o outro.
@@ -44,6 +45,14 @@ export interface VinculoPortal {
   podeEditar: boolean
   podeExcluir: boolean
   /**
+   * Módulos que o master liberou para a empresa dona deste cliente.
+   *
+   * Viaja no vínculo pelo mesmo motivo das áreas e das permissões: quem recebe
+   * um `VinculoPortal` recebe TUDO que decide acesso, e não precisa lembrar de
+   * ir buscar mais nada antes de responder.
+   */
+  modulos: string[]
+  /**
    * Áreas em que a pessoa pode operar — JÁ interseccionadas com as que o
    * cliente contratou. Ver `intersecaoAreas`.
    */
@@ -70,6 +79,17 @@ export function atendeNivel(vinculo: VinculoPortal, minimo: PortalNivel): boolea
 export function intersecaoAreas(concedidas: string[], contratadas: string[]): string[] {
   const contratadasSet = new Set(contratadas)
   return concedidas.filter(a => contratadasSet.has(a))
+}
+
+/**
+ * O módulo está liberado para a empresa deste cliente?
+ *
+ * Esconder o item do menu não basta: a URL é digitável, e uma rota que
+ * responde a quem não deveria ver o módulo transforma a liberação num pedido
+ * de gentileza. O gate mora aqui e é chamado pelas rotas.
+ */
+export function moduloLiberado(vinculo: VinculoPortal, slug: string): boolean {
+  return vinculo.modulos.includes(slug)
 }
 
 /** A pessoa pode operar nesta área? */
@@ -99,6 +119,7 @@ export async function resolverVinculo(userId: string, clienteId: string): Promis
       cliente: {
         select: {
           status: true,
+          empresaId: true,
           servicosContratados: {
             where: { contratado: true },
             select: { areaId: true },
@@ -113,12 +134,23 @@ export async function resolverVinculo(userId: string, clienteId: string): Promis
   // um ex-cliente aos próprios documentos é decisão comercial, não default.
   if (vinculo.cliente.status !== 'ATIVO') return null
 
+  // Sem empresa não há liberação a consultar, e o catálogo padrão é o que
+  // vale — cliente órfão de empresa é anomalia de cadastro, não motivo para
+  // derrubar o portal dele.
+  const excecoes = vinculo.cliente.empresaId
+    ? await prisma.portalModuloEmpresa.findMany({
+      where: { empresaId: vinculo.cliente.empresaId },
+      select: { modulo: true, liberado: true },
+    })
+    : []
+
   return {
     clienteId: vinculo.clienteId,
     nivel: vinculo.nivel as PortalNivel,
     podeVer: vinculo.podeVer,
     podeEditar: vinculo.podeEditar,
     podeExcluir: vinculo.podeExcluir,
+    modulos: [...resolverLiberados(excecoes)],
     areas: intersecaoAreas(
       vinculo.areas,
       vinculo.cliente.servicosContratados.map(a => a.areaId),
@@ -159,6 +191,7 @@ export async function listarVinculos(
       cliente: {
         select: {
           razaoSocial: true,
+          empresaId: true,
           servicosContratados: { where: { contratado: true }, select: { areaId: true } },
           empresa: {
             select: { razaoSocial: true, nomeFantasia: true, logoUrl: true, logoDarkUrl: true },
@@ -169,12 +202,30 @@ export async function listarVinculos(
     orderBy: { cliente: { razaoSocial: 'asc' } },
   })
 
+  // As exceções de TODAS as empresas envolvidas, numa consulta. O diretor de
+  // um grupo pode ter clientes em empresas diferentes, e uma consulta por
+  // vínculo transformaria o seletor de empresa em N idas ao banco.
+  const empresaIds = [...new Set(vinculos.map(v => v.cliente.empresaId).filter((e): e is string => !!e))]
+  const todas = empresaIds.length > 0
+    ? await prisma.portalModuloEmpresa.findMany({
+      where: { empresaId: { in: empresaIds } },
+      select: { empresaId: true, modulo: true, liberado: true },
+    })
+    : []
+  const porEmpresa = new Map<string, Array<{ modulo: string; liberado: boolean }>>()
+  for (const e of todas) {
+    const lista = porEmpresa.get(e.empresaId) ?? []
+    lista.push({ modulo: e.modulo, liberado: e.liberado })
+    porEmpresa.set(e.empresaId, lista)
+  }
+
   return vinculos.map(v => ({
     clienteId: v.clienteId,
     nivel: v.nivel as PortalNivel,
     podeVer: v.podeVer,
     podeEditar: v.podeEditar,
     podeExcluir: v.podeExcluir,
+    modulos: [...resolverLiberados(porEmpresa.get(v.cliente.empresaId ?? '') ?? [])],
     areas: intersecaoAreas(v.areas, v.cliente.servicosContratados.map(a => a.areaId)),
     razaoSocial: v.cliente.razaoSocial,
     escritorio: v.cliente.empresa

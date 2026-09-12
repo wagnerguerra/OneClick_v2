@@ -45,6 +45,8 @@ const svc = new PortalArquivosService(notificacao as never)
 const vinculo = (over: Partial<VinculoPortal> = {}): VinculoPortal => ({
   clienteId: 'cli-1', nivel: 'OPERACIONAL', areas: ['fiscal', 'contabil', 'pessoal'],
   podeVer: true, podeEditar: true, podeExcluir: false,
+  // Nos testes, todos os módulos liberados: o gate tem spec própria.
+  modulos: ['documentos', 'obrigacoes'],
   ...over,
 })
 

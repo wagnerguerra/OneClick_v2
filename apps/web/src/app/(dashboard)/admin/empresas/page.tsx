@@ -14,6 +14,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { ModulosDoPortalCard } from './_components/modulos-portal-card'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -49,6 +50,7 @@ export default function AdminEmpresasPage() {
   const [rows, setRows] = useState<TenantRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [aba, setAba] = useState<'tenants' | 'portal'>('tenants')
   const [extendTarget, setExtendTarget] = useState<TenantRow | null>(null)
   const [extendDias, setExtendDias] = useState(7)
   const [saving, setSaving] = useState(false)
@@ -131,12 +133,16 @@ export default function AdminEmpresasPage() {
     <div className="flex flex-col gap-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
-          <Input
-            placeholder="Buscar por nome…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-9 w-56 text-sm"
-          />
+          {/* A busca só serve à lista de tenants; na aba do portal ela não
+              teria o que filtrar e confundiria mais do que ajudaria. */}
+          {aba === 'tenants' && (
+            <Input
+              placeholder="Buscar por nome…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-9 w-56 text-sm"
+            />
+          )}
         </>}
       >
         <h1 className="truncate">Empresas (tenants)</h1>
@@ -149,6 +155,30 @@ export default function AdminEmpresasPage() {
         </p>
       </PageHeaderBar>
 
+      <div className="flex items-center gap-1.5">
+        {([
+          { chave: 'tenants' as const, rotulo: 'Tenants' },
+          { chave: 'portal' as const, rotulo: 'Portal do cliente' },
+        ]).map(a => (
+          <button
+            key={a.chave}
+            type="button"
+            onClick={() => setAba(a.chave)}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-lg border px-3 h-9 text-xs font-medium transition-colors',
+              aba === a.chave
+                ? 'bg-muted border-border text-foreground'
+                : 'bg-card border-border text-muted-foreground hover:bg-muted/50',
+            )}
+          >
+            {a.rotulo}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'portal' && <ModulosDoPortalCard />}
+
+      {aba === 'tenants' && (
       <Card>
         <div className="overflow-x-auto">
           <table className="w-full table-fixed text-sm">
@@ -221,6 +251,7 @@ export default function AdminEmpresasPage() {
           </table>
         </div>
       </Card>
+      )}
 
       {/* Modal estender trial */}
       <Dialog open={!!extendTarget} onOpenChange={(o) => !o && setExtendTarget(null)}>

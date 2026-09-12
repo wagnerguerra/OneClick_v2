@@ -43,6 +43,7 @@ import { PortalConviteService } from '../portal/portal-convite.service'
 import { PortalArquivosService } from '../portal/portal-arquivos.service'
 import { PortalEscritorioService } from '../portal/portal-escritorio.service'
 import { PortalObrigacoesService } from '../portal/portal-obrigacoes.service'
+import { PortalModulosService } from '../portal/portal-modulos.service'
 import { GestaoArquivosService } from '../gestao-arquivos/gestao-arquivos.service'
 import { GestaoArquivosNotificacaoService } from '../gestao-arquivos/gestao-arquivos-notificacao.service'
 import { GestaoArquivosDriveService } from '../gestao-arquivos/gestao-arquivos-drive.service'
@@ -516,6 +517,32 @@ export const portalProcedure = t.procedure.use(async ({ ctx, getRawInput, next }
 })
 
 /**
+ * Portal, com um MÓDULO exigido.
+ *
+ * Existe como procedure, e não como checagem no corpo de cada rota, por um
+ * motivo prático: espalhada, a checagem é esquecida na próxima rota nova, e o
+ * esquecimento não aparece em teste nenhum — a rota simplesmente responde a
+ * quem não devia. Aqui, uma rota nova só existe depois de declarar a que
+ * módulo pertence.
+ *
+ *     listar: portalModuloProcedure('obrigacoes')
+ *       .input(...)
+ *       .query(({ ctx }) => svc.listar(ctx.portal))
+ *
+ * `NOT_FOUND` e não `FORBIDDEN`: para quem não tem o módulo, ele não existe.
+ * Um 403 confirmaria que a funcionalidade está lá, apenas desligada — que é
+ * justamente o que a liberação por empresa quer manter privado.
+ */
+export function portalModuloProcedure(slug: string) {
+  return portalProcedure.use(({ ctx, next }) => {
+    if (!ctx.portal.modulos.includes(slug)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Recurso não disponível.' })
+    }
+    return next({ ctx })
+  })
+}
+
+/**
  * Portal, SEM cliente definido.
  *
  * Para o que existe antes da escolha da empresa: descobrir quais clientes esta
@@ -813,6 +840,7 @@ export class TrpcService {
     @Inject(PortalArquivosService) private readonly portalArquivosService: PortalArquivosService,
     @Inject(PortalEscritorioService) private readonly portalEscritorioService: PortalEscritorioService,
     @Inject(PortalObrigacoesService) private readonly portalObrigacoesService: PortalObrigacoesService,
+    @Inject(PortalModulosService) private readonly portalModulosService: PortalModulosService,
     @Inject(GestaoArquivosService) private readonly gestaoArquivosService: GestaoArquivosService,
     @Inject(GestaoArquivosNotificacaoService) private readonly gestaoArquivosNotificacaoService: GestaoArquivosNotificacaoService,
     @Inject(GestaoArquivosDriveService) private readonly gestaoArquivosDriveService: GestaoArquivosDriveService,
@@ -966,7 +994,7 @@ export class TrpcService {
       nfse: createNfseRouter(this.nfseDistService),
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
-      adminTenant: createAdminTenantRouter(this.adminTenantService),
+      adminTenant: createAdminTenantRouter(this.adminTenantService, this.portalModulosService),
       cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService, this.clienteCapaService, this.dossieService, this.dossieBackfillService, this.clienteLogoService, this.socioPerfisService, this.clienteRelatorioService, this.clienteUsuarioService, this.portalEscritorioService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
