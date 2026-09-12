@@ -171,7 +171,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     // o rodapé para baixo quando é longo, e o rodapé encosta na base quando é
     // curto. Sem isso ele flutuava no meio da tela em página com pouca coisa,
     // como a de documentos de um cliente novo.
-    <div className="flex min-h-screen flex-col bg-[#f6f8fb] dark:bg-[#0b1220]">
+    // `data-portal-root` é o gancho da rolagem suave no globals.css. Atributo
+    // em vez de classe porque não estiliza nada por si: marca "a casca do
+    // portal está no ar", e quem lê isso é uma regra de escopo.
+    <div data-portal-root className="flex min-h-screen flex-col bg-[#f6f8fb] dark:bg-[#0b1220]">
       {/* ── Navbar ────────────────────────────────────────────────────────
           Horizontal, no topo. É a diferença estrutural em relação ao sistema
           interno, que é todo organizado por uma sidebar de módulos. */}
@@ -355,7 +358,24 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
       <main className="-mt-40 w-full flex-1 px-5 pb-16 pt-8 sm:px-7">
         {clienteId
-          ? <PortalContexto.Provider value={{ clienteId, vinculo: atual }}>{children}</PortalContexto.Provider>
+          ? (
+            <PortalContexto.Provider value={{ clienteId, vinculo: atual }}>
+              {/*
+                A `key` no caminho é o que faz a animação rodar de novo a cada
+                página: sem ela o React reaproveita o nó e a troca acontece sem
+                nada indicando que a tela mudou — o conteúdo simplesmente vira
+                outro.
+
+                Trocar de EMPRESA também entra na chave. Sem isso, escolher
+                outra empresa no seletor deixaria a tela idêntica enquanto os
+                dados por baixo mudam, que é o momento em que confirmar a troca
+                mais importa.
+              */}
+              <div key={`${pathname}:${clienteId}`} className="anim-pagina">
+                {children}
+              </div>
+            </PortalContexto.Provider>
+          )
           : null}
       </main>
 

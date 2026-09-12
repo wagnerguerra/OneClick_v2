@@ -164,6 +164,28 @@
   .anim-subir, .anim-descer, .anim-entrar { animation: none; }
 }
 
+/* ── Portal do cliente: rolagem e troca de página ────────────────────────
+   A rolagem suave fica presa ao portal, e não global, de propósito: o sistema
+   interno tem telas com listas longas e âncoras internas onde a rolagem
+   animada atrapalha mais do que ajuda. O `:has()` liga a regra só enquanto a
+   casca do portal está montada — sem JS mexendo na tag `html`.
+
+   A transição de página é curta de propósito (.18s). Numa ferramenta de
+   trabalho, animação de entrada longa é tempo que a pessoa espera para ler o
+   que já está pronto. */
+html:has([data-portal-root]) { scroll-behavior: smooth; }
+
+@keyframes paginaEntra {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.anim-pagina { animation: paginaEntra .18s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  html:has([data-portal-root]) { scroll-behavior: auto; }
+  .anim-pagina { animation: none; }
+}
+
 /* Baralho de cards vinculados (agenda): carta "deslizando" pra frente ao trocar */
 @keyframes deckCardForward {
   0%   { opacity: 0; transform: translateY(14px) scale(0.975); }
