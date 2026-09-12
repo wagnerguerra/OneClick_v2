@@ -50,7 +50,7 @@ const RECURSOS: Recurso[] = [
   {
     titulo: 'Obrigações do mês',
     descricao: 'O calendário das entregas da sua empresa e a situação de cada uma.',
-    icone: CalendarCheck, cor: 'bg-[#e9f6ee] text-[#1f9254]',
+    icone: CalendarCheck, cor: 'bg-[#e9f6ee] text-[#1f9254]', href: '/portal/obrigacoes',
   },
   {
     titulo: 'Certidões',

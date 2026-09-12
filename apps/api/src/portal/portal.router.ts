@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { router, publicProcedure, portalSessaoProcedure, portalProcedure } from '../trpc/trpc.service'
 import type { PortalArquivosService } from './portal-arquivos.service'
 import type { GestaoArquivosDriveService } from '../gestao-arquivos/gestao-arquivos-drive.service'
+import type { PortalObrigacoesService } from './portal-obrigacoes.service'
 import type { ConviteValido } from './portal-tipos'
 import { listarVinculos } from './portal-escopo'
 
@@ -38,6 +39,7 @@ export function createPortalRouter(
   conviteService: ConviteApi,
   arquivosService: PortalArquivosService,
   driveService: GestaoArquivosDriveService,
+  obrigacoesService: PortalObrigacoesService,
 ) {
   return router({
     /**
@@ -172,6 +174,28 @@ export function createPortalRouter(
     }),
 
     /** O que o escritório está esperando deste cliente. */
+    /**
+     * Obrigações da empresa do cliente.
+     *
+     * Leitura pura, sem gate de permissão de arquivo: `podeVer` governa o
+     * porta-arquivos, e usá-lo aqui amarraria duas coisas sem relação — quem
+     * não pode baixar documento ainda precisa saber se o imposto foi entregue.
+     * O recorte que vale é o de ÁREA, dentro do serviço.
+     */
+    obrigacoes: router({
+      listar: portalProcedure
+        .input(z.object({ clienteId: z.string(), competencia: z.string().nullish() }))
+        .query(({ input, ctx }) => obrigacoesService.listar(ctx.portal, { competencia: input.competencia })),
+
+      competencias: portalProcedure
+        .input(z.object({ clienteId: z.string() }))
+        .query(({ ctx }) => obrigacoesService.competencias(ctx.portal)),
+
+      resumo: portalProcedure
+        .input(z.object({ clienteId: z.string(), competencia: z.string().nullish() }))
+        .query(({ input, ctx }) => obrigacoesService.resumo(ctx.portal, input.competencia)),
+    }),
+
     solicitacoes: router({
       pendentes: portalProcedure
         .input(z.object({ clienteId: z.string() }))

@@ -35,7 +35,7 @@ import { PortalContexto, type VinculoPortal } from './_lib/contexto'
 const NAV = [
   { href: '/portal', rotulo: 'Início', icone: LayoutGrid },
   { href: '/portal/documentos', rotulo: 'Documentos', icone: FolderOpen },
-  { href: '/portal/obrigacoes', rotulo: 'Obrigações', icone: CalendarCheck, emBreve: true },
+  { href: '/portal/obrigacoes', rotulo: 'Obrigações', icone: CalendarCheck },
   { href: '/portal/chamados', rotulo: 'Atendimento', icone: LifeBuoy, emBreve: true },
 ] as const
 
