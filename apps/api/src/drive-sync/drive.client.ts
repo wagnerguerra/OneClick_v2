@@ -167,6 +167,58 @@ export class DriveClient {
   }
 
   /**
+   * Itens NA LIXEIRA que ainda apontam para esta pasta.
+   *
+   * No Drive, item excluído mantém os pais — é por isso que dá para perguntar
+   * "o que foi jogado fora de dentro desta pasta". Sem essa propriedade não
+   * haveria como montar uma lixeira por cliente: a lixeira do Google é uma só,
+   * da conta inteira, misturando todos os clientes.
+   */
+  async listTrashedInFolder(folderId: string, opts?: { limit?: number }): Promise<
+    Array<{ id: string; name: string; mimeType: string; size: number; trashedTime: string; isFolder: boolean }>
+  > {
+    const drive = this.drive()
+    const res = await drive.files.list({
+      q: `'${folderId}' in parents and trashed = true`,
+      fields: 'files(id, name, mimeType, size, trashedTime)',
+      orderBy: 'name',
+      pageSize: Math.min(opts?.limit ?? 200, 1000),
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    })
+    return (res.data.files ?? []).map(f => ({
+      id: f.id ?? '',
+      name: f.name ?? '',
+      mimeType: f.mimeType ?? '',
+      size: Number(f.size ?? 0),
+      trashedTime: f.trashedTime ?? '',
+      isFolder: f.mimeType === 'application/vnd.google-apps.folder',
+    }))
+  }
+
+  /** Tira um item da lixeira, de volta para a pasta de onde saiu. */
+  async untrashFile(fileId: string): Promise<void> {
+    const drive = this.drive()
+    await drive.files.update({
+      fileId,
+      requestBody: { trashed: false },
+      supportsAllDrives: true,
+    })
+  }
+
+  /**
+   * Apaga de vez. Não há volta — nem pela lixeira, nem por suporte do Google.
+   *
+   * Existe porque a alternativa é esperar 30 dias pelo expurgo automático, e
+   * há caso legítimo de querer o documento fora agora (arquivo enviado para o
+   * cliente errado, por exemplo). Quem chama precisa ter certeza.
+   */
+  async deleteFilePermanently(fileId: string): Promise<void> {
+    const drive = this.drive()
+    await drive.files.delete({ fileId, supportsAllDrives: true })
+  }
+
+  /**
    * Move um item de uma pasta para outra.
    *
    * No Drive não existe "mover": existe trocar os pais. `addParents` sem

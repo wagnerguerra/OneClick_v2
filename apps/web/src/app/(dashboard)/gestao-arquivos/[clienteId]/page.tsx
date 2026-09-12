@@ -33,6 +33,15 @@ interface LinhaLog {
   criadoEm: string
 }
 
+interface NaLixeiraDoDrive {
+  id: string
+  nome: string
+  isPasta: boolean
+  tamanho: number
+  excluidoEm: string
+  caminho: string
+}
+
 interface Excluido {
   id: string
   fileName: string
@@ -65,6 +74,8 @@ export default function GestaoArquivosClientePage() {
   const [nomeCliente, setNomeCliente] = useState<string | null>(null)
   const [log, setLog] = useState<LinhaLog[]>([])
   const [excluidos, setExcluidos] = useState<Excluido[]>([])
+  const [lixeiraDrive, setLixeiraDrive] = useState<NaLixeiraDoDrive[]>([])
+  const [processandoDrive, setProcessandoDrive] = useState<string | null>(null)
   const [aExcluir, setAExcluir] = useState<{ id: string; fileName: string } | null>(null)
   const [motivo, setMotivo] = useState('')
   const [processando, setProcessando] = useState(false)
@@ -100,7 +111,54 @@ export default function GestaoArquivosClientePage() {
   const carregarLixeira = useCallback(() => {
     ;(trpc as any).gestaoArquivos.listarExcluidos.query({ clienteId })
       .then((d: Excluido[]) => setExcluidos(d)).catch(() => setExcluidos([]))
+    // A lixeira do Drive é consulta separada porque mora em outro lugar: lá o
+    // item excluído fica na lixeira da CONTA do escritório, e o recorte por
+    // cliente só existe porque o Drive preserva os pais do item.
+    ;(trpc as any).gestaoArquivos.driveLixeira.query({ clienteId })
+      .then((d: NaLixeiraDoDrive[]) => setLixeiraDrive(d)).catch(() => setLixeiraDrive([]))
   }, [clienteId])
+
+  async function restaurarNoDrive(item: NaLixeiraDoDrive) {
+    setProcessandoDrive(item.id)
+    try {
+      await (trpc as any).gestaoArquivos.driveRestaurar.mutate({ clienteId, itemId: item.id })
+      alerts.success('Restaurado', `"${item.nome}" voltou para a pasta de onde saiu.`)
+      setLixeiraDrive(l => l.filter(x => x.id !== item.id))
+      setVersao(v => v + 1)
+    } catch (e) {
+      alerts.error('Não foi possível restaurar', (e as Error).message)
+    } finally { setProcessandoDrive(null) }
+  }
+
+  async function apagarDeVez(item: NaLixeiraDoDrive) {
+    // Confirmação dupla de propósito: não há volta nem por suporte do Google,
+    // e o botão fica ao lado de "Restaurar".
+    const ok = await alerts.confirm({
+      title: 'Apagar em definitivo?',
+      text: `"${item.nome}" será apagado do Google Drive para sempre. Não há como recuperar `
+        + 'depois — nem pela lixeira, nem pelo suporte do Google.',
+      icon: 'warning',
+      confirmText: 'Apagar para sempre',
+    })
+    if (!ok) return
+
+    setProcessandoDrive(item.id)
+    try {
+      await (trpc as any).gestaoArquivos.driveExcluirDefinitivo.mutate({ clienteId, itemId: item.id })
+      alerts.success('Apagado', `"${item.nome}" não existe mais.`)
+      setLixeiraDrive(l => l.filter(x => x.id !== item.id))
+    } catch (e) {
+      alerts.error('Não foi possível apagar', (e as Error).message)
+    } finally { setProcessandoDrive(null) }
+  }
+
+  /** Quantos dias faltam para o Google apagar sozinho. */
+  function diasRestantes(excluidoEm: string): number | null {
+    if (!excluidoEm) return null
+    const saiu = new Date(excluidoEm)
+    if (Number.isNaN(saiu.getTime())) return null
+    return Math.max(0, Math.ceil((saiu.getTime() + 30 * 86_400_000 - Date.now()) / 86_400_000))
+  }
 
   useEffect(() => { if (aba === 'lixeira') carregarLixeira() }, [aba, carregarLixeira, versao])
 
@@ -226,11 +284,74 @@ export default function GestaoArquivosClientePage() {
 
       {aba === 'lixeira' && (
         <Card className="p-4">
-          {excluidos.length === 0 ? (
+          {/* Duas origens, duas lixeiras. Juntá-las numa lista só esconderia
+              que uma volta com um clique nosso e a outra tem prazo do Google. */}
+          {lixeiraDrive.length > 0 && (
+            <div className="mb-4">
+              <p className="mb-2 text-[13px] font-semibold text-foreground">Google Drive</p>
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                O Google apaga sozinho depois de 30 dias. Até lá, dá para restaurar.
+              </p>
+              <div className="divide-y divide-border rounded-lg border border-border">
+                {lixeiraDrive.map(i => {
+                  const dias = diasRestantes(i.excluidoEm)
+                  return (
+                    <div key={i.id} className="flex items-center gap-3 px-3 py-2.5">
+                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground/60" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-medium text-muted-foreground line-through">
+                          {i.nome}
+                        </p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          estava em {i.caminho}
+                          {dias !== null && (
+                            <span className={dias <= 5 ? ' font-semibold text-amber-600 dark:text-amber-400' : ''}>
+                              {' · '}{dias === 0 ? 'some hoje' : `some em ${dias} dia(s)`}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => restaurarNoDrive(i)}
+                          disabled={processandoDrive !== null}
+                        >
+                          {processandoDrive === i.id
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <RotateCcw className="h-4 w-4" />}
+                          Restaurar
+                        </Button>
+                        {podeExcluir && (
+                          <Button
+                            variant="soft-destructive"
+                            size="icon-sm"
+                            onClick={() => apagarDeVez(i)}
+                            disabled={processandoDrive !== null}
+                            title="Apagar em definitivo"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {lixeiraDrive.length > 0 && excluidos.length > 0 && (
+            <p className="mb-2 text-[13px] font-semibold text-foreground">Arquivos do sistema</p>
+          )}
+
+          {excluidos.length === 0 && lixeiraDrive.length === 0 ? (
             <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
               Nenhum arquivo excluído.
             </div>
-          ) : (
+          ) : excluidos.length === 0 ? null : (
             <div className="divide-y divide-border">
               {excluidos.map(e => (
                 <div key={e.id} className="flex items-center gap-3 py-2.5">

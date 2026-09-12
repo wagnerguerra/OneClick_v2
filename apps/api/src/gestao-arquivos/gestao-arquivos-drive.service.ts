@@ -785,6 +785,165 @@ export class GestaoArquivosDriveService {
     }
   }
 
+  // ── Lixeira ───────────────────────────────────────────────────────────────
+
+  /**
+   * O que foi para a lixeira, de dentro da pasta deste cliente.
+   *
+   * A lixeira do Google é UMA SÓ, da conta do escritório, misturando todos os
+   * clientes — mostrar aquilo para um cliente seria mostrar o dele junto com o
+   * dos outros. O que torna a separação possível é o Drive manter os pais do
+   * item excluído: dá para perguntar "o que foi jogado fora de dentro desta
+   * pasta".
+   *
+   * Como a pergunta é por pasta, a árvore precisa ser percorrida — com o mesmo
+   * teto da contagem, pela mesma razão.
+   */
+  private async lixeiraDe(raiz: string) {
+    const TETO_PASTAS = 200
+    const achados: Array<{
+      id: string; nome: string; isPasta: boolean; tamanho: number
+      excluidoEm: string; caminho: string
+    }> = []
+
+    const fila: Array<{ id: string; caminho: string }> = [{ id: raiz, caminho: '' }]
+    let visitadas = 0
+
+    while (fila.length > 0 && visitadas < TETO_PASTAS) {
+      const atual = fila.shift()!
+      visitadas++
+
+      const [naLixeira, vivas] = await Promise.all([
+        drive.listTrashedInFolder(atual.id),
+        drive.listSubfolders(atual.id),
+      ])
+
+      for (const i of naLixeira) {
+        achados.push({
+          id: i.id,
+          nome: i.name,
+          isPasta: i.isFolder,
+          tamanho: i.size,
+          excluidoEm: i.trashedTime,
+          caminho: atual.caminho || 'raiz',
+        })
+      }
+      // Só desce em pastas VIVAS: uma pasta na lixeira já apareceu acima como
+      // item, e restaurá-la traz o conteúdo junto. Descer nela listaria os
+      // filhos como se tivessem sido excluídos um a um.
+      for (const p of vivas) {
+        fila.push({ id: p.id, caminho: atual.caminho ? `${atual.caminho} / ${p.name}` : p.name })
+      }
+    }
+
+    achados.sort((a, b) => (b.excluidoEm ?? '').localeCompare(a.excluidoEm ?? ''))
+    return achados
+  }
+
+  /** Lixeira para o PORTAL. Quem pode excluir pode ver o que excluiu. */
+  async lixeiraParaPortal(vinculo: VinculoPortal) {
+    if (!vinculo.podeExcluir) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para ver a lixeira.' })
+    }
+    const raiz = await this.raizDoCliente(vinculo.clienteId)
+    try {
+      return await this.lixeiraDe(raiz)
+    } catch (e) {
+      this.logger.warn(`Falha ao listar a lixeira: ${String(e)}`)
+      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível falar com o Google Drive agora.' })
+    }
+  }
+
+  /** Lixeira para o ESCRITÓRIO. O escopo do módulo é conferido antes. */
+  async lixeiraParaEscritorio(clienteId: string, ctx: ContextoInterno) {
+    const escopo = await resolverEscopo(ctx)
+    if (!alcancaCliente(escopo, clienteId)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
+    }
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: clienteId, ...filtroDeCliente(escopo, ctx) },
+      select: { portalDriveFolderId: true },
+    })
+    if (!cliente?.portalDriveFolderId) return []
+    try {
+      return await this.lixeiraDe(cliente.portalDriveFolderId)
+    } catch (e) {
+      this.logger.warn(`Falha ao listar a lixeira: ${String(e)}`)
+      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível falar com o Google Drive agora.' })
+    }
+  }
+
+  /**
+   * Tira um item da lixeira.
+   *
+   * A checagem de contenção usa a cadeia de pais, que o Drive preserva mesmo
+   * com o item na lixeira — é o que impede restaurar, por um id colado à mão,
+   * algo que nunca foi deste cliente.
+   */
+  async restaurarDaLixeira(clienteId: string, itemId: string) {
+    const raiz = await this.raizDoCliente(clienteId)
+    const dentro = await this.dentroDaPastaDoCliente(itemId, raiz)
+    if (!dentro) throw new TRPCError({ code: 'NOT_FOUND', message: 'Item não encontrado na lixeira.' })
+
+    try {
+      await drive.untrashFile(itemId)
+      return { ok: true }
+    } catch (e) {
+      this.logger.warn(`Falha ao restaurar ${itemId}: ${String(e)}`)
+      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível restaurar o item.' })
+    }
+  }
+
+  async restaurarParaPortal(vinculo: VinculoPortal, itemId: string) {
+    if (!vinculo.podeExcluir) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Você não tem permissão para restaurar.' })
+    }
+    return this.restaurarDaLixeira(vinculo.clienteId, itemId)
+  }
+
+  async restaurarParaEscritorio(
+    input: { clienteId: string; itemId: string },
+    ctx: ContextoInterno,
+  ) {
+    const escopo = await resolverEscopo(ctx)
+    if (!alcancaCliente(escopo, input.clienteId)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
+    }
+    return this.restaurarDaLixeira(input.clienteId, input.itemId)
+  }
+
+  /**
+   * Apaga de vez — SÓ pelo lado do escritório.
+   *
+   * Não é falta de confiança no cliente: é que o escritório é o guardião do
+   * documento fiscal, e a exclusão definitiva não tem volta nem por suporte do
+   * Google. Do lado de fora, o pior que acontece é o arquivo ficar na lixeira
+   * até o expurgo dos 30 dias; do lado de dentro, alguém responde por isso.
+   */
+  async excluirDefinitivo(
+    input: { clienteId: string; itemId: string },
+    ctx: ContextoInterno,
+  ) {
+    const escopo = await resolverEscopo(ctx)
+    if (!alcancaCliente(escopo, input.clienteId)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
+    }
+    const raiz = await this.raizDoCliente(input.clienteId)
+    if (input.itemId === raiz) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Esta pasta não pode ser excluída.' })
+    }
+    const dentro = await this.dentroDaPastaDoCliente(input.itemId, raiz)
+    if (!dentro) throw new TRPCError({ code: 'NOT_FOUND', message: 'Item não encontrado.' })
+
+    try {
+      await drive.deleteFilePermanently(input.itemId)
+      return { ok: true }
+    } catch (e) {
+      this.logger.warn(`Falha ao apagar ${input.itemId} de vez: ${String(e)}`)
+      throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível apagar o item.' })
+    }
+  }
+
   /** A pasta do cliente, ou erro quando o escritório ainda não vinculou uma. */
   private async raizDoCliente(clienteId: string): Promise<string> {
     const cliente = await prisma.cliente.findUnique({

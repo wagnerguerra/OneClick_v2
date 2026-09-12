@@ -13,6 +13,7 @@ import { usePortal } from '../../_lib/contexto'
 import { PortalPageHeader } from '../../_components/portal-page-header'
 import { Explorador, type Fonte } from '@/app/(dashboard)/gestao-arquivos/_components/explorador'
 import { useFontesDoPortal } from './_components/fontes-portal'
+import { LixeiraDoPortal } from './_components/lixeira-portal'
 
 /**
  * Porta-arquivos do cliente.
@@ -112,6 +113,7 @@ export default function PortalDocumentosPage() {
   /** Arquivo aguardando confirmação de exclusão. */
   const [aExcluir, setAExcluir] = useState<{ id: string; fileName: string } | null>(null)
   const [excluindo, setExcluindo] = useState(false)
+  const [naLixeira, setNaLixeira] = useState(false)
   /** Onde criar pasta e enviar arquivo — vem do explorador. */
   const [atual, setAtual] = useState<{ fonte: Fonte; id: string | null }>({ fonte: 'documentos', id: null })
   // Remonta o explorador depois de enviar ou criar pasta, para a lista refletir
@@ -159,7 +161,10 @@ export default function PortalDocumentosPage() {
     setExcluindo(true)
     try {
       await (trpc.portal as any).arquivos.driveExcluir.mutate({ clienteId, itemId: aExcluir.id })
-      setAviso({ tipo: 'sucesso', texto: `"${aExcluir.fileName}" foi para a lixeira.` })
+      setAviso({
+        tipo: 'sucesso',
+        texto: `"${aExcluir.fileName}" foi para a lixeira. Dá para restaurar por 30 dias.`,
+      })
       setAExcluir(null)
       setVersao(v => v + 1)
     } catch (e) {
@@ -236,6 +241,20 @@ export default function PortalDocumentosPage() {
         subtitulo="Guias e relatórios que o escritório publica, e os arquivos que você envia."
         acoes={podeEditar ? (
           <>
+            {podeExcluir && (
+              <button
+                type="button"
+                onClick={() => { setNaLixeira(v => !v); setAviso(null) }}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-lg border px-3.5 py-2 text-[13px] font-semibold transition-colors',
+                  naLixeira
+                    ? 'border-[#1a6dff] bg-[#eaf1ff] text-[#1a6dff] dark:border-[#1b2739] dark:bg-[#16233a]'
+                    : 'border-[#dbe7fb] bg-white text-slate-600 hover:bg-[#f2f7ff] dark:border-[#1b2739] dark:bg-[#0e1726] dark:text-slate-400 dark:hover:bg-[#16233a]',
+                )}
+              >
+                <Trash2 className="h-4 w-4" /> {naLixeira ? 'Voltar aos arquivos' : 'Lixeira'}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => { setCriandoPasta(true); setNomeNovaPasta('') }}
@@ -386,14 +405,28 @@ export default function PortalDocumentosPage() {
         </div>
       )}
 
-      <Explorador
-        fontes={fontes}
-        cor={COR_PORTAL}
-        altura="h-[calc(100vh-290px)]"
-        onPastaAtual={aoMudarPasta}
-        recarregar={versao}
-        onExcluir={a => { setAviso(null); setAExcluir(a) }}
-      />
+      {naLixeira ? (
+        <LixeiraDoPortal
+          clienteId={clienteId ?? ''}
+          altura="h-[calc(100vh-290px)]"
+          onRestaurado={nome => {
+            setAviso({ tipo: 'sucesso', texto: `"${nome}" foi restaurado.` })
+            // A pasta aberta pode ter recebido o item de volta; recarregar
+            // deixa a lista certa quando a pessoa voltar para ela.
+            setVersao(v => v + 1)
+          }}
+          onErro={msg => setAviso({ tipo: 'erro', texto: msg })}
+        />
+      ) : (
+        <Explorador
+          fontes={fontes}
+          cor={COR_PORTAL}
+          altura="h-[calc(100vh-290px)]"
+          onPastaAtual={aoMudarPasta}
+          recarregar={versao}
+          onExcluir={a => { setAviso(null); setAExcluir(a) }}
+        />
+      )}
     </div>
   )
 }
