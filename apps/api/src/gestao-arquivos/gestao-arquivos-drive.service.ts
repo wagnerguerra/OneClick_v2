@@ -12,6 +12,7 @@ import {
   clienteDaEmpresa,
   type ContextoInterno,
 } from './gestao-arquivos-escopo'
+import { GestaoArquivosNotificacaoService } from './gestao-arquivos-notificacao.service'
 
 /**
  * Google Drive dentro da Gestão de Arquivos.
@@ -54,6 +55,8 @@ export interface ItemDrive {
 @Injectable()
 export class GestaoArquivosDriveService {
   private readonly logger = new Logger(GestaoArquivosDriveService.name)
+
+  constructor(private readonly notificacao: GestaoArquivosNotificacaoService) {}
 
   /** Config da empresa, ou null se o master ainda não apontou a pasta raiz. */
   async obterConfig(empresaId: string) {
@@ -518,7 +521,7 @@ export class GestaoArquivosDriveService {
       // disco e a tentativa seguinte não exige reenviar.
       fs.unlink(caminho, () => undefined)
 
-      await this.registrarEnvio({
+      const enviadoPor = await this.registrarEnvio({
         clienteId: vinculo.clienteId,
         arquivoId: enviado.id,
         arquivoNome: enviado.name,
@@ -528,11 +531,81 @@ export class GestaoArquivosDriveService {
         tamanho: enviado.size,
       })
 
+      // O `.catch` não é decoração: esta chamada está DENTRO do try cujo catch
+      // responde "Não foi possível enviar o arquivo ao Drive". Neste ponto o
+      // arquivo já está lá. Deixar uma falha de aviso escorrer para aquele
+      // catch faria a tela mentir e a pessoa reenviar, duplicando o arquivo.
+      await this.avisarEnvioDoCliente({
+        clienteId: vinculo.clienteId,
+        arquivoNome: enviado.name,
+        tamanho: enviado.size,
+        enviadoPor,
+        pastaId: destino,
+        raiz,
+      }).catch(() => undefined)
+
       return { id: enviado.id, nome: enviado.name }
     } catch (e) {
       this.logger.warn(`Falha ao subir arquivo para o Drive: ${String(e)}`)
       throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível enviar o arquivo ao Drive.' })
     }
+  }
+
+  /**
+   * Avisa o escritório de que o cliente mandou um arquivo.
+   *
+   * Este aviso EXISTIA e não saía. O disparo de `ARQUIVO_ENVIADO` ficou no
+   * caminho antigo (`portal-arquivos.service`, o que gravava `ClienteArquivo`)
+   * quando o envio do cliente migrou para o Drive; o caminho novo só gravava a
+   * auditoria. O efeito era o módulo prometer notificação e nunca notificar —
+   * o arquivo só era descoberto quando alguém abria o portal por conta própria.
+   *
+   * O endereço sai da PASTA: `areaDaPasta` resolve a área mapeada, herdando
+   * árvore acima. Com área, avisa quem responde por ela neste cliente. Sem
+   * área — pasta que ninguém mapeou — cai no fallback de `destinatarios`,
+   * que abre para todos os responsáveis mais a coordenação.
+   *
+   * Quem chama blinda com `.catch`: o arquivo neste ponto já está no Drive, e
+   * transformar um envio bem-sucedido em erro de tela por causa de SMTP seria
+   * trocar um problema pequeno por um grande — a pessoa reenviaria.
+   */
+  private async avisarEnvioDoCliente(e: {
+    clienteId: string
+    arquivoNome: string
+    tamanho?: number | null
+    enviadoPor: string | null
+    pastaId: string
+    raiz: string
+  }) {
+    // Quem responde por cem clientes precisa saber de QUAL deles, antes de
+    // saber o nome do arquivo. Por isso a razão social entra no assunto.
+    const cliente = await prisma.cliente.findUnique({
+      where: { id: e.clienteId },
+      select: { razaoSocial: true },
+    }).catch(() => null)
+
+    // Resolver a área nunca derruba o aviso: falhar aqui devolve `null`, que é
+    // o fallback — e o fallback avisa gente demais, não gente de menos.
+    const areaId = await this.areaDaPasta(e.clienteId, e.pastaId, e.raiz).catch(() => null)
+
+    const quem = e.enviadoPor ? `Enviado por ${e.enviadoPor}.` : ''
+    const tamanho = e.tamanho ? ` (${Math.max(1, Math.round(e.tamanho / 1024))} KB)` : ''
+
+    await this.notificacao.disparar({
+      evento: 'ARQUIVO_ENVIADO',
+      clienteId: e.clienteId,
+      // Sempre com `roteamento`, mesmo quando a área saiu nula: é ele que diz
+      // "isto é um arquivo, e a classificação falhou" — e é isso que liga o
+      // fallback. Omitir aqui calaria a coordenação justamente no caso em que
+      // ninguém mais sabe de quem o arquivo é.
+      roteamento: { areaId },
+      assunto: `Novo arquivo de ${cliente?.razaoSocial ?? 'cliente'} — ${e.arquivoNome}`,
+      corpo: [
+        `O cliente enviou "${e.arquivoNome}"${tamanho} pelo portal.`,
+        quem,
+        'O arquivo está na pasta do cliente, em Gestão de Arquivos.',
+      ].filter(Boolean).join('\n'),
+    })
   }
 
   /**
@@ -750,7 +823,14 @@ export class GestaoArquivosDriveService {
     return mapa
   }
 
-  /** Registra o envio. Sem isto, "quem mandou este arquivo?" não tem resposta. */
+  /**
+   * Registra o envio. Sem isto, "quem mandou este arquivo?" não tem resposta.
+   *
+   * Devolve o nome de quem enviou porque já o consultou — o aviso por e-mail
+   * quer o mesmo dado, e uma segunda consulta diria a mesma coisa. `null` tanto
+   * para usuário sem nome quanto para falha do registro: em ambos o aviso sai
+   * sem a autoria, que é melhor do que não sair.
+   */
   private async registrarEnvio(e: {
     clienteId: string
     arquivoId: string
@@ -759,7 +839,7 @@ export class GestaoArquivosDriveService {
     userId: string
     lado: 'CLIENTE' | 'ESCRITORIO'
     tamanho?: number | null
-  }) {
+  }): Promise<string | null> {
     try {
       const usuario = await prisma.user.findUnique({
         where: { id: e.userId },
@@ -778,10 +858,12 @@ export class GestaoArquivosDriveService {
           detalhe: e.tamanho ? `${e.tamanho} bytes` : null,
         },
       })
+      return usuario?.name ?? null
     } catch {
       // O arquivo já está no Drive quando isto roda. Perder a linha de
       // auditoria é ruim; devolver erro para quem acabou de enviar com sucesso
       // é pior.
+      return null
     }
   }
 
@@ -960,19 +1042,214 @@ export class GestaoArquivosDriveService {
   }
 
   /**
-   * A pasta pedida descende da pasta do cliente?
+   * O caminho de uma pasta até a raiz do cliente, de baixo para cima.
    *
-   * Sobe a cadeia de pais pela API. O teto de 10 níveis segura tanto ciclo
-   * quanto uma árvore absurda — e, se não confirmar em 10 saltos, a resposta é
-   * "não", que é o lado seguro de errar.
+   * Devolve `[alvo, pai, avô, …]` terminando na raiz, ou `null` quando o alvo
+   * não descende dela. O teto de 10 níveis segura tanto ciclo quanto uma
+   * árvore absurda — e não confirmar em 10 saltos devolve `null`, que é o lado
+   * seguro de errar.
+   *
+   * Uma subida só responde às DUAS perguntas que a pasta levanta: "isto é do
+   * cliente?" (a trava de contenção) e "de que área isto é?" (a herança do
+   * mapa). Cada salto é uma chamada à API do Google, então subir duas vezes
+   * dobraria o custo do envio para reencontrar exatamente o mesmo caminho.
    */
-  private async dentroDaPastaDoCliente(alvo: string, raizDoCliente: string): Promise<boolean> {
+  private async cadeiaAteRaiz(alvo: string, raizDoCliente: string): Promise<string[] | null> {
+    if (alvo === raizDoCliente) return [raizDoCliente]
+    const caminho: string[] = [alvo]
     let atual: string | null = alvo
     for (let i = 0; atual && i < 10; i++) {
       const pais: string[] = await drive.getParents(atual).catch(() => [])
-      if (pais.includes(raizDoCliente)) return true
+      if (pais.includes(raizDoCliente)) return [...caminho, raizDoCliente]
       atual = pais[0] ?? null
+      if (atual) caminho.push(atual)
     }
-    return false
+    return null
+  }
+
+  /**
+   * A pasta pedida descende da pasta do cliente?
+   *
+   * Continua sendo a trava de contenção de todas as rotas; só a subida saiu
+   * daqui para `cadeiaAteRaiz`, que responde o mesmo e um pouco mais.
+   */
+  private async dentroDaPastaDoCliente(alvo: string, raizDoCliente: string): Promise<boolean> {
+    if (alvo === raizDoCliente) return false
+    return (await this.cadeiaAteRaiz(alvo, raizDoCliente)) !== null
+  }
+
+  // ── Mapa de pasta → área ──────────────────────────────────────────────────
+
+  /**
+   * Tudo que a tela do mapa precisa, numa chamada só.
+   *
+   * O mapa, as áreas que ESTE cliente contratou (as opções legítimas do
+   * seletor) e a raiz dele no Drive. Vêm juntos porque a tela não funciona com
+   * um pedaço: sem as opções não há o que escolher, e sem a raiz o explorador
+   * não sabe a que pasta o nível de cima corresponde. Três consultas em
+   * sequência, do navegador, mostrariam a tela montando aos pedaços.
+   *
+   * `pastaNome` vem da coluna e não do Drive: a tela lista dezenas de pastas, e
+   * uma ida à API por linha a tornaria lenta para exibir algo que muda
+   * raramente. Quem renomeia no Drive vê o nome antigo aqui até remapear.
+   */
+  async listarMapaDeAreas(clienteId: string, ctx: ContextoInterno) {
+    const escopo = await resolverEscopo(ctx)
+    if (!alcancaCliente(escopo, clienteId)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
+    }
+
+    const [cliente, mapa, contratadas] = await Promise.all([
+      prisma.cliente.findUnique({
+        where: { id: clienteId },
+        select: { portalDriveFolderId: true },
+      }),
+      prisma.gestaoArquivosPastaArea.findMany({
+        where: { clienteId },
+        select: { pastaId: true, pastaNome: true, areaId: true },
+      }),
+      // Só a área CONTRATADA é opção: oferecer as outras produziria um mapa
+      // que nunca acha responsável, e o arquivo cairia calado no fallback.
+      prisma.clienteAreaContratada.findMany({
+        where: { clienteId, contratado: true, dataEncerramento: null },
+        select: { areaId: true, area: { select: { name: true } } },
+        orderBy: { area: { name: 'asc' } },
+      }),
+    ])
+
+    return {
+      raizId: cliente?.portalDriveFolderId ?? null,
+      areas: contratadas.map(c => ({ id: c.areaId, nome: c.area.name })),
+      mapa: mapa.map(m => ({ pastaId: m.pastaId, pastaNome: m.pastaNome, areaId: m.areaId })),
+    }
+  }
+
+  /**
+   * Aponta (ou reaponta) a área de uma pasta do cliente.
+   *
+   * A pasta precisa estar DENTRO da pasta do cliente. Sem essa trava, um id
+   * qualquer do Drive entraria no mapa e o aviso de um cliente passaria a ser
+   * decidido por uma pasta de outro — ou pela pasta de backup do escritório.
+   *
+   * A área precisa ser CONTRATADA por este cliente: mapear para uma área que
+   * ele não contratou produz um mapa que nunca acha responsável, e o arquivo
+   * cairia calado no fallback sem ninguém entender por quê.
+   */
+  async definirAreaDaPasta(
+    input: { clienteId: string; pastaId: string; areaId: string },
+    ctx: ContextoInterno,
+  ) {
+    const escopo = await resolverEscopo(ctx)
+    if (!alcancaCliente(escopo, input.clienteId)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
+    }
+
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: input.clienteId, ...filtroDeCliente(escopo, ctx) },
+      select: { id: true, empresaId: true, portalDriveFolderId: true },
+    })
+    if (!cliente?.empresaId) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
+    }
+    const raiz = cliente.portalDriveFolderId
+    if (!raiz) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Vincule a pasta do Drive deste cliente antes de mapear áreas.',
+      })
+    }
+
+    if (input.pastaId !== raiz && !(await this.dentroDaPastaDoCliente(input.pastaId, raiz))) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta não encontrada.' })
+    }
+
+    const contratada = await prisma.clienteAreaContratada.findFirst({
+      where: {
+        clienteId: input.clienteId, areaId: input.areaId,
+        contratado: true, dataEncerramento: null,
+      },
+      select: { area: { select: { name: true } } },
+    })
+    if (!contratada) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Este cliente não tem essa área contratada.',
+      })
+    }
+
+    const info = await drive.getFolderInfo(input.pastaId).catch(() => null)
+
+    return prisma.gestaoArquivosPastaArea.upsert({
+      where: { clienteId_pastaId: { clienteId: input.clienteId, pastaId: input.pastaId } },
+      create: {
+        empresaId: cliente.empresaId,
+        clienteId: input.clienteId,
+        pastaId: input.pastaId,
+        areaId: input.areaId,
+        pastaNome: info?.name ?? null,
+        definidoPorId: ctx.userId,
+      },
+      update: {
+        areaId: input.areaId,
+        pastaNome: info?.name ?? undefined,
+        definidoPorId: ctx.userId,
+      },
+      select: { id: true, pastaId: true, pastaNome: true, areaId: true },
+    })
+  }
+
+  /**
+   * Tira uma pasta do mapa.
+   *
+   * Não é o mesmo que mapear para "nenhuma": a pasta volta a HERDAR da pasta
+   * acima. Só quando nenhum ancestral está mapeado é que ela fica sem área e
+   * cai no fallback.
+   */
+  async removerAreaDaPasta(input: { clienteId: string; pastaId: string }, ctx: ContextoInterno) {
+    const escopo = await resolverEscopo(ctx)
+    if (!alcancaCliente(escopo, input.clienteId)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
+    }
+    // `deleteMany` e não `delete`: a linha pode já não existir (dois cliques,
+    // duas abas), e "já não está mapeada" é sucesso, não erro.
+    await prisma.gestaoArquivosPastaArea.deleteMany({
+      where: { clienteId: input.clienteId, pastaId: input.pastaId },
+    })
+    return { ok: true }
+  }
+
+  /**
+   * De que área do escritório é esta pasta.
+   *
+   * A área não está no arquivo: está na PASTA, e é herdada árvore acima.
+   * `Fiscal/2026/Janeiro` é Fiscal sem que ninguém precise mapear cada mês —
+   * o mapa cobre o topo, e o resto vem de graça. O mapeamento mais FUNDO vence,
+   * porque é o mais específico: quem mapeou `Fiscal/Notas` para outra área quis
+   * dizer exatamente isso.
+   *
+   * `null` significa "não sabemos", e é resposta comum e legítima: é a pasta
+   * que o cliente criou por conta ("2026"), num escritório que ainda não
+   * mapeou nada. Quem chama trata isso como fallback, nunca como erro.
+   *
+   * Sem mapa nenhum para o cliente, sai antes de tocar no Drive — o custo de
+   * ter a funcionalidade desligada é uma consulta ao banco.
+   */
+  async areaDaPasta(clienteId: string, pastaId: string, raizDoCliente: string): Promise<string | null> {
+    const mapa = await prisma.gestaoArquivosPastaArea.findMany({
+      where: { clienteId },
+      select: { pastaId: true, areaId: true },
+    }).catch(() => [])
+    if (mapa.length === 0) return null
+
+    const porPasta = new Map(mapa.map(m => [m.pastaId, m.areaId]))
+    if (porPasta.has(pastaId)) return porPasta.get(pastaId) ?? null
+
+    const caminho = await this.cadeiaAteRaiz(pastaId, raizDoCliente)
+    if (!caminho) return null
+    for (const id of caminho) {
+      const area = porPasta.get(id)
+      if (area) return area
+    }
+    return null
   }
 }

@@ -185,6 +185,32 @@ export function createGestaoArquivosRouter(
       }),
 
     /**
+     * O mapa de pasta → área deste cliente.
+     *
+     * É o que faz o aviso de arquivo novo ter endereço: sem mapa, o envio do
+     * cliente acorda o responsável de TODAS as áreas contratadas, e em pouco
+     * tempo ninguém lê nenhum.
+     *
+     * `readProcedure` e não admin, como a listagem: quem enxerga o cliente no
+     * módulo enxerga como ele está configurado. Já ESCREVER o mapa exige a
+     * sub-permissão de configuração — é decisão que muda para quem o e-mail
+     * vai, e não deve estar na mão de quem só opera arquivos. Não exige admin
+     * porque o mapa é por cliente: o gestor que responde por uma carteira sabe
+     * melhor que o master qual pasta é de qual área.
+     */
+    driveMapaAreas: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input, ctx }) => driveService.listarMapaDeAreas(input.clienteId, contexto(ctx))),
+
+    driveDefinirAreaDaPasta: writeSubProcedure(MODULE, SUB_CONFIGURAR, 'mapear a área de uma pasta')
+      .input(z.object({ clienteId: z.string(), pastaId: z.string(), areaId: z.string() }))
+      .mutation(({ input, ctx }) => driveService.definirAreaDaPasta(input, contexto(ctx))),
+
+    driveRemoverAreaDaPasta: writeSubProcedure(MODULE, SUB_CONFIGURAR, 'remover a área de uma pasta')
+      .input(z.object({ clienteId: z.string(), pastaId: z.string() }))
+      .mutation(({ input, ctx }) => driveService.removerAreaDaPasta(input, contexto(ctx))),
+
+    /**
      * Conteúdo da pasta do cliente. `readProcedure`, e não admin: quem enxerga
      * o cliente no módulo enxerga os arquivos dele — o recorte é o do escopo,
      * conferido dentro do serviço.
