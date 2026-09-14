@@ -12,6 +12,9 @@
  *
  *   1. RECENTES — sem nada digitado, as últimas páginas abertas. É o atalho de
  *      quem vai e volta entre duas telas o dia inteiro, que é o uso mais comum.
+ *      Passa pelo MESMO filtro de permissão das Páginas: a trilha mora no
+ *      `localStorage`, que não sabe de sessão nem de permissão, então é na
+ *      exibição que a permissão de hoje vale (ver `busca-global-recentes.ts`).
  *   2. PÁGINAS — a navegação que ESTE usuário pode ver, do mesmo filtro da
  *      sidebar (`useNavegacaoPermitida`). Oferecer página que ele não pode
  *      abrir seria pior que não achar nada.
@@ -22,11 +25,16 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter, usePathname } from 'next/navigation'
 import { Search, CornerDownLeft, Clock, FileText, Handshake, Loader2 } from 'lucide-react'
 import { cn } from '@saas/ui'
 import { useNavegacaoPermitida } from '@/hooks/use-navegacao-permitida'
+import { useSession } from '@/lib/auth-client'
 import { trpc } from '@/lib/trpc'
+import {
+  type Recente, lerRecentes, registrarRecente, filtrarPermitidos,
+} from './busca-global-recentes'
 
 type Achado = {
   chave: string
@@ -37,30 +45,11 @@ type Achado = {
   icone: typeof Search
 }
 
-const CHAVE_RECENTES = 'busca-global-recentes'
-const MAX_RECENTES = 6
 const MIN_LETRAS_REGISTRO = 3
 
 /** Sem acento e sem caixa: quem digita "orcamento" quer achar "Orçamentos". */
 function normalizar(v: string): string {
   return v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
-}
-
-function lerRecentes(): Array<{ titulo: string; href: string }> {
-  try {
-    const cru = localStorage.getItem(CHAVE_RECENTES)
-    return cru ? (JSON.parse(cru) as Array<{ titulo: string; href: string }>) : []
-  } catch {
-    // Navegador com storage bloqueado: a paleta funciona igual, só sem histórico.
-    return []
-  }
-}
-
-export function registrarRecente(titulo: string, href: string) {
-  try {
-    const atual = lerRecentes().filter(r => r.href !== href)
-    localStorage.setItem(CHAVE_RECENTES, JSON.stringify([{ titulo, href }, ...atual].slice(0, MAX_RECENTES)))
-  } catch { /* idem */ }
 }
 
 /**
@@ -77,9 +66,11 @@ export function registrarRecente(titulo: string, href: string) {
 export function RegistradorDeRecentes() {
   const pathname = usePathname()
   const { grupos } = useNavegacaoPermitida()
+  const { data: session } = useSession()
+  const userId = session?.user?.id ?? null
 
   useEffect(() => {
-    if (!pathname || pathname === '/dashboard') return
+    if (!pathname || pathname === '/dashboard' || !userId) return
     let titulo = ''
     let melhor = 0
     for (const g of grupos) {
@@ -92,20 +83,22 @@ export function RegistradorDeRecentes() {
         }
       }
     }
-    if (titulo) registrarRecente(titulo, pathname)
-  }, [pathname, grupos])
+    if (titulo) registrarRecente(userId, titulo, pathname)
+  }, [pathname, grupos, userId])
 
   return null
 }
 
 export function BuscaGlobal() {
   const router = useRouter()
-  const { grupos } = useNavegacaoPermitida()
+  const { grupos, carregando } = useNavegacaoPermitida()
+  const { data: session } = useSession()
+  const userId = session?.user?.id ?? null
 
   const [aberto, setAberto] = useState(false)
   const [termo, setTermo] = useState('')
   const [selecionado, setSelecionado] = useState(0)
-  const [recentes, setRecentes] = useState<Array<{ titulo: string; href: string }>>([])
+  const [recentes, setRecentes] = useState<Recente[]>([])
   const [clientes, setClientes] = useState<Achado[]>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
   const campoRef = useRef<HTMLInputElement>(null)
@@ -145,12 +138,12 @@ export function BuscaGlobal() {
     setTermo('')
     setSelecionado(0)
     setClientes([])
-    setRecentes(lerRecentes())
+    setRecentes(lerRecentes(userId))
     // O foco vai para o campo no quadro seguinte — antes disso o input ainda
     // não está montado.
     const t = setTimeout(() => campoRef.current?.focus(), 30)
     return () => clearTimeout(t)
-  }, [aberto])
+  }, [aberto, userId])
 
   // Registro de verdade: só a partir de três letras, com folga entre teclas.
   useEffect(() => {
@@ -185,7 +178,19 @@ export function BuscaGlobal() {
   const resultados = useMemo<Achado[]>(() => {
     const alvo = normalizar(termo)
     if (!alvo) {
-      return recentes.map(r => ({
+      // O MESMO filtro das Páginas vale para os Recentes.
+      //
+      // Era aqui o vazamento: Páginas saía de `useNavegacaoPermitida`, mas
+      // Recentes vinha direto do `localStorage`, sem passar por permissão
+      // nenhuma. Um usuário só com Gestão de Arquivos abria o Ctrl+K e via
+      // Usuários, Clientes e HelpDesk — o rastro de outra sessão no mesmo
+      // navegador, ou de uma permissão que ele já teve.
+      //
+      // Enquanto as permissões não chegam, `paginas` está vazia e nada é
+      // oferecido: no escuro, não mostrar é a resposta certa.
+      if (carregando) return []
+      const permitidos = paginas.map(p => p.href)
+      return filtrarPermitidos(recentes, permitidos).map(r => ({
         chave: `recente-${r.href}`, titulo: r.titulo,
         href: r.href, grupo: 'Recentes' as const, icone: Clock,
       }))
@@ -194,17 +199,17 @@ export function BuscaGlobal() {
     // Página primeiro: é resposta instantânea e local. O cliente vem depois,
     // porque depende de ida ao servidor e chega alguns décimos mais tarde.
     return [...paginas.filter(casa), ...clientes]
-  }, [termo, paginas, clientes, recentes])
+  }, [termo, paginas, clientes, recentes, carregando])
 
   // A seleção volta ao topo quando a lista muda — manter o índice antigo
   // apontaria para outro item.
   useEffect(() => { setSelecionado(0) }, [resultados.length])
 
   const abrir = useCallback((a: Achado) => {
-    registrarRecente(a.titulo, a.href)
+    registrarRecente(userId, a.titulo, a.href)
     setAberto(false)
     router.push(a.href)
-  }, [router])
+  }, [router, userId])
 
   function aoTeclarNaLista(e: React.KeyboardEvent) {
     if (e.key === 'ArrowDown') { e.preventDefault(); setSelecionado(i => Math.min(i + 1, resultados.length - 1)) }
@@ -237,7 +242,21 @@ export function BuscaGlobal() {
         </kbd>
       </button>
 
-      {aberto && (
+      {/*
+        A paleta vai para o `document.body`, não para onde o componente mora.
+
+        O gatilho vive dentro do `<header>`, que tem `z-30` e `backdrop-blur-sm`
+        — e `backdrop-filter` abre um contexto de empilhamento. Dentro dele o
+        `z-[100]` do overlay não vale contra a página: vale contra os irmãos do
+        header, e o conjunto inteiro disputa a página no nível 30. Por isso o
+        escurecimento cobria o conteúdo mas passava POR BAIXO da sidebar (z-40),
+        do rail de tarefas (z-40) e do botão flutuante (z-50) — metade da tela
+        escura, metade clara.
+
+        Fora do header, no body, `fixed inset-0` volta a ser a viewport inteira
+        e o z-index volta a significar o que diz.
+      */}
+      {aberto && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-[100] flex items-start justify-center bg-black/40 p-4 pt-[12vh] backdrop-blur-[2px]"
           onClick={() => setAberto(false)}
@@ -321,7 +340,8 @@ export function BuscaGlobal() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )
