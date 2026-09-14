@@ -2344,6 +2344,22 @@ function registerIpcHandlers() {
       '-p', cfg.SSH_PORT || '22',
       '-o', 'StrictHostKeyChecking=accept-new',
       '-o', 'ConnectTimeout=10',
+      // ConnectTimeout cobre so o aperto de mao INICIAL. Depois de conectado,
+      // se a sessao TCP emudecer — NAT expirando, perda de pacote, troca de
+      // rota — o cliente ssh espera para sempre: o processo nao sai, o `close`
+      // nunca chega, e quem chamou so descobre no proprio timeout do passo.
+      //
+      // Em 14/09/2026 isso custou um deploy: o `docker pull` do web terminou
+      // em 9 segundos (o dockerd registrou a imagem baixada e reetiquetada) e
+      // o ssh ficou pendurado os 600s inteiros do limite, terminando em
+      // "Imagem do Web nao ficou pronta" — mensagem que mandou procurar o
+      // problema no ghcr, onde nao havia problema nenhum.
+      //
+      // Com estes dois, uma sessao morta e detectada em ~60s (4 sondas de 15s)
+      // e o ssh sai com erro de verdade. Tambem mantem viva a sessao ociosa
+      // durante um comando longo e silencioso, que e o caso do pull.
+      '-o', 'ServerAliveInterval=15',
+      '-o', 'ServerAliveCountMax=4',
       `${cfg.SSH_USER || 'root'}@${cfg.SSH_HOST}`,
     ]
   }
@@ -2751,6 +2767,38 @@ function registerIpcHandlers() {
     }
   }
 
+  /**
+   * Resumo legivel do comando remoto, para o aviso de silencio.
+   *
+   * O comando inteiro nao serve: ele tem `&&`, redirecionamentos e um sha de 40
+   * caracteres, e o operador precisa e saber O QUE esta rodando. Reconhece os
+   * poucos comandos que o deploy usa e, fora deles, devolve o primeiro par de
+   * palavras — que ja diz mais do que nada.
+   */
+  function resumoDoComando(cmd) {
+    const c = String(cmd || '')
+    if (/docker pull/.test(c)) {
+      const m = c.match(/docker pull \S*oneclick-(\w+)/)
+      if (!m) return 'download de imagem'
+      return `download da imagem ${m[1] === 'api' ? 'da API' : 'do Web'}`
+    }
+    if (/prisma db push/.test(c)) return 'prisma db push'
+    if (/docker compose (up|restart)/.test(c)) return 'restart dos containers'
+    if (/docker compose build/.test(c)) return 'build de imagem na VPS'
+    if (/psql/.test(c)) return 'execucao de SQL'
+    if (/git (fetch|reset|pull)/.test(c)) return 'atualizacao do codigo na VPS'
+    return c.trim().split(/\s+/).slice(0, 2).join(' ') || 'comando remoto'
+  }
+
+  // Silencio que ainda e normal, e silencio que merece explicacao. O primeiro
+  // aviso e cedo porque o objetivo e o operador NUNCA ficar sem saber o que a
+  // tela esta esperando; a repeticao e espacada para nao virar ruido.
+  const SSH_SILENCIO_1O_MS = 25000
+  const SSH_SILENCIO_REPETE_MS = 30000
+  // Acima disto, o keepalive ja teria derrubado uma sessao morta (4x15s), entao
+  // o silencio prova que a conexao esta viva e o comando e que demora.
+  const SSH_CONEXAO_PROVADA_MS = 70000
+
   // timeoutMs (opcional): se o comando SSH estalar (ex: psql preso em lock), mata em
   // vez de pendurar o deploy pra sempre. Sem timeoutMs = sem corte (builds longos).
   function sshExec(cfg, remoteCmd, onLine, timeoutMs) {
@@ -2765,22 +2813,66 @@ function registerIpcHandlers() {
         timedOut = true
         try { proc.kill('SIGKILL') } catch {}
       }, timeoutMs) : null
+
+      /**
+       * Vigia do silencio: diz ao operador o que a tela esta esperando.
+       *
+       * Um comando remoto longo nao escreve nada enquanto trabalha, e do lado
+       * de ca isso e indistinguivel de uma trava. Sem este aviso o operador
+       * ficava olhando uma barra parada sem saber se esperava 10 segundos ou
+       * 10 minutos — foi o que aconteceu no deploy de 14/09/2026.
+       *
+       * So fala durante o deploy: `sshExec` tambem atende consultas rapidas de
+       * status, e avisar ali seria ruido.
+       */
+      const inicio = Date.now()
+      let ultimoSinal = inicio
+      let ultimoAviso = 0
+      const vigia = setInterval(() => {
+        if (!deployRunning) return
+        const agora = Date.now()
+        const calado = agora - ultimoSinal
+        if (calado < SSH_SILENCIO_1O_MS) return
+        if (agora - ultimoAviso < SSH_SILENCIO_REPETE_MS) return
+        ultimoAviso = agora
+        const seg = Math.round((agora - inicio) / 1000)
+        const oque = resumoDoComando(remoteCmd)
+        const prova = calado >= SSH_CONEXAO_PROVADA_MS
+          ? ' A conexao com a VPS responde (keepalive ativo), entao e demora, nao queda.'
+          : ''
+        const limite = timeoutMs ? ` Limite deste passo: ${Math.round(timeoutMs / 1000)}s.` : ''
+        deployEmit(undefined, deployCurrentStep, `· ${oque}: ${seg}s sem saida.${prova}${limite}`, 'warn')
+      }, 5000)
+
+      function sinal() { ultimoSinal = Date.now() }
+
       proc.stdout.on('data', (d) => {
         const s = d.toString()
+        sinal()
         stdoutBuf += s
         if (onLine) s.split(/\r?\n/).filter(Boolean).forEach(onLine)
       })
       proc.stderr.on('data', (d) => {
         const s = d.toString()
+        sinal()
         stderrBuf += s
         if (onLine) s.split(/\r?\n/).filter(Boolean).forEach(l => onLine(l))
       })
       proc.on('close', (code) => {
         if (timer) clearTimeout(timer)
+        clearInterval(vigia)
+        if (timedOut && deployRunning) {
+          // A mensagem do passo diz "nao ficou pronta"; esta diz o que de fato
+          // aconteceu. Sem ela, o operador procura o problema no lugar errado.
+          deployEmit(undefined, deployCurrentStep,
+            `✗ ${resumoDoComando(remoteCmd)} passou de ${Math.round((timeoutMs || 0) / 1000)}s e foi interrompido pelo Service Manager.`,
+            'err')
+        }
         resolve({ code: timedOut ? 124 : code, stdout: stdoutBuf, stderr: stderrBuf, timedOut })
       })
       proc.on('error', (err) => {
         if (timer) clearTimeout(timer)
+        clearInterval(vigia)
         resolve({ code: 1, error: err.message, stdout: stdoutBuf, stderr: stderrBuf, timedOut })
       })
     })
@@ -2961,6 +3053,22 @@ function registerIpcHandlers() {
   function linhaDePullRelevante(linha) {
     if (/^\s*$/.test(linha)) return false
     return !/^[a-f0-9]{12}: (Pulling|Waiting|Downloading|Extracting|Verifying|Download complete|Pull complete|Already exists)/.test(linha)
+  }
+
+  /**
+   * O motivo REAL de um passo SSH ter falhado.
+   *
+   * "A imagem nao ficou pronta" e verdade sobre o resultado e mentira sobre a
+   * causa: em 14/09/2026 a imagem estava pronta, baixada e reetiquetada, e o
+   * que falhou foi a sessao SSH ficar pendurada ate o limite. Dez minutos de
+   * investigacao foram gastos no ghcr por causa da mensagem.
+   */
+  function motivoDaFalhaSsh(res, padrao) {
+    if (res && res.timedOut) {
+      return `${padrao} — o comando na VPS passou do tempo limite e foi interrompido. Se o log acima mostrou a imagem baixada, foi a conexao SSH que travou: re-tente o Publicar.`
+    }
+    const err = (res && (res.stderr || res.error || '')).trim()
+    return err ? `${padrao}: ${err.slice(0, 200)}` : padrao
   }
 
   function deployCheckAbort(step, progress) {
@@ -3228,9 +3336,10 @@ function registerIpcHandlers() {
         })
       }
       if (buildApi.code !== 0) {
-        deployEmit(50, 'build-api', `✗ Imagem da API não ficou pronta`, 'err')
+        const motivo = motivoDaFalhaSsh(buildApi, 'Imagem da API não ficou pronta')
+        deployEmit(50, 'build-api', `✗ ${motivo}`, 'err')
         deployRunning = false
-        return { ok: false, error: 'Imagem da API não ficou pronta' }
+        return { ok: false, error: motivo }
       }
       deployEmit(50, 'build-api', '✓ Imagem da API pronta', 'ok')
 
@@ -3440,9 +3549,10 @@ function registerIpcHandlers() {
         })
       }
       if (buildWeb.code !== 0) {
-        deployEmit(85, 'build-web', `✗ Imagem do Web não ficou pronta`, 'err')
+        const motivo = motivoDaFalhaSsh(buildWeb, 'Imagem do Web não ficou pronta')
+        deployEmit(85, 'build-web', `✗ ${motivo}`, 'err')
         deployRunning = false
-        return { ok: false, error: 'Imagem do Web não ficou pronta' }
+        return { ok: false, error: motivo }
       }
       deployEmit(85, 'build-web', '✓ Imagem do Web pronta', 'ok')
 

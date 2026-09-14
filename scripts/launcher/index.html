@@ -5627,7 +5627,7 @@
       hintEl.textContent = 'Deploy em andamento... (0s)'
       deployState._lastEventAt = t0  // qualquer evento IPC reseta isso
       deployState._currentStep = null  // step ativo (com spinner + detail aparente)
-      deployState._waitMessageShown = false  // controla "Aguarde..." (uma vez só)
+      deployState._waitMessageAt = 0  // segundos do ultimo aviso de silencio
       deployAppendLog(`▶ Pipeline iniciada (commitMessage=${commitMessage ? '"' + commitMessage.slice(0, 40) + '"' : 'nenhuma'})`, 'info')
 
       const tickTimer = setInterval(() => {
@@ -5644,19 +5644,34 @@
             const detail = stepEl.querySelector('.step-detail')
             if (detail) detail.textContent = `aguarde… (${sinceLastEvent}s)`
           }
-          // Loga UMA vez, sem spammar. E NAO culpa a VPS: desde que as imagens
-          // vem do registry, os passos mais demorados sao esperar o build no
-          // GitHub e baixar a imagem — nos dois, nenhum comando SSH esta em
-          // curso. Dizer "VPS demorando a responder" ali mandava procurar o
-          // problema no lugar errado. O limite subiu de 30s para 60s pelo mesmo
-          // motivo: um build de imagem leva minutos, e isso e o normal.
-          if (sinceLastEvent >= 60 && !deployState._waitMessageShown) {
+          // NAO culpa a VPS: desde que as imagens vem do registry, os passos
+          // mais demorados sao esperar o build no GitHub e baixar a imagem —
+          // nos dois, nenhum comando SSH esta em curso. Dizer "VPS demorando a
+          // responder" ali mandava procurar o problema no lugar errado. O
+          // limite e 60s pelo mesmo motivo: um build de imagem leva minutos, e
+          // isso e o normal.
+          //
+          // Antes falava UMA vez e calava para sempre. Em 14/09/2026 um passo
+          // ficou 10 minutos parado e o log teve exatamente uma linha sobre
+          // isso, aos 60s: quem olhava nao tinha como saber se ainda andava.
+          // Agora repete a cada minuto e vai ficando mais explicito, porque a
+          // pergunta do operador muda com o tempo — aos 60s e "demora?", aos
+          // 5 minutos e "travou?".
+          if (sinceLastEvent >= 60 && sinceLastEvent - (deployState._waitMessageAt || 0) >= 60) {
+            deployState._waitMessageAt = sinceLastEvent
             const rot = ROTULO_DO_PASSO[deployState._currentStep] || deployState._currentStep
-            deployAppendLog(`· ${rot}: ${sinceLastEvent}s sem novidade — passo longo, aguarde…`, 'warn')
-            deployState._waitMessageShown = true
+            const min = Math.floor(sinceLastEvent / 60)
+            if (sinceLastEvent < 240) {
+              deployAppendLog(`· ${rot}: ${sinceLastEvent}s sem novidade — passo longo, aguarde…`, 'warn')
+            } else {
+              deployAppendLog(
+                `· ${rot}: ${min} min sem novidade. O passo tem tempo limite proprio e o Service Manager o interrompe sozinho quando estourar — nao e preciso fechar o app. Para desistir agora, use Abortar.`,
+                'warn',
+              )
+            }
           }
         } else if (sinceLastEvent < 5) {
-          deployState._waitMessageShown = false
+          deployState._waitMessageAt = 0
         }
       }, 1000)
       deployState._tickTimer = tickTimer
@@ -5821,7 +5836,7 @@
         if (!ev) return
         // Reseta heartbeat — chegou evento, pipeline está viva
         deployState._lastEventAt = Date.now()
-        deployState._waitMessageShown = false
+        deployState._waitMessageAt = 0
 
         // Atualiza barra
         if (typeof ev.progress === 'number') {
