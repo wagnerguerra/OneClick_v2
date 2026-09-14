@@ -46,6 +46,8 @@ type Achado = {
 }
 
 const MIN_LETRAS_REGISTRO = 3
+/** Espelha `paleta-out` no globals.css. */
+const SAIDA_MS = 130
 
 /** Sem acento e sem caixa: quem digita "orcamento" quer achar "Orçamentos". */
 function normalizar(v: string): string {
@@ -96,6 +98,9 @@ export function BuscaGlobal() {
   const userId = session?.user?.id ?? null
 
   const [aberto, setAberto] = useState(false)
+  // Continua no DOM enquanto a animação de saída roda: desmontar no clique
+  // faria a paleta sumir seca, sem fechamento nenhum.
+  const [naTela, setNaTela] = useState(false)
   const [termo, setTermo] = useState('')
   const [selecionado, setSelecionado] = useState(0)
   const [recentes, setRecentes] = useState<Recente[]>([])
@@ -120,6 +125,20 @@ export function BuscaGlobal() {
     }
     return saida
   }, [grupos])
+
+  /**
+   * Mantém a paleta montada até a saída terminar.
+   *
+   * `SAIDA_MS` acompanha a duração de `paleta-out` no globals.css — os dois
+   * precisam bater, senão ou o painel some antes de terminar o gesto, ou fica
+   * um retângulo invisível segurando o clique depois de fechado.
+   */
+  useEffect(() => {
+    if (aberto) { setNaTela(true); return }
+    if (!naTela) return
+    const t = setTimeout(() => setNaTela(false), SAIDA_MS)
+    return () => clearTimeout(t)
+  }, [aberto, naTela])
 
   // ⌘K / Ctrl+K abre de qualquer lugar; Esc fecha.
   useEffect(() => {
@@ -256,13 +275,21 @@ export function BuscaGlobal() {
         Fora do header, no body, `fixed inset-0` volta a ser a viewport inteira
         e o z-index volta a significar o que diz.
       */}
-      {aberto && typeof document !== 'undefined' && createPortal(
+      {naTela && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[100] flex items-start justify-center bg-black/40 p-4 pt-[12vh] backdrop-blur-[2px]"
+          data-state={aberto ? 'open' : 'closed'}
+          className={cn(
+            'dialog-overlay fixed inset-0 z-[100] flex items-start justify-center bg-black/40 p-4 pt-[12vh] backdrop-blur-[2px]',
+            // Já fechada e ainda saindo: deixa de interceptar o clique. Sem
+            // isso sobra um retângulo invisível de 130ms comendo o próximo
+            // clique da pessoa.
+            !aberto && 'pointer-events-none',
+          )}
           onClick={() => setAberto(false)}
         >
           <div
-            className="w-full max-w-[672px] overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
+            data-state={aberto ? 'open' : 'closed'}
+            className="paleta-painel w-full max-w-[672px] overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
             onClick={e => e.stopPropagation()}
             onKeyDown={aoTeclarNaLista}
           >
