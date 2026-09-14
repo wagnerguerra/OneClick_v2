@@ -449,6 +449,7 @@ model Area {
   manifestacoes      Manifestacao[]
   reunioes           Reuniao[]
   melhorias          Melhoria[]
+  pastasArquivos     GestaoArquivosPastaArea[]
 
   @@map("areas")
 }
@@ -586,6 +587,7 @@ model Empresa {
   signatureTemplate    EmpresaSignatureTemplate?
   notificacoesArquivos GestaoArquivosNotificacao[]
   driveArquivos        GestaoArquivosDrive?
+  pastaAreasArquivos   GestaoArquivosPastaArea[]
   portalModulos        PortalModuloEmpresa[]
 
   @@map("empresas")
@@ -1039,6 +1041,7 @@ model Cliente {
   usuariosPortal          ClienteUsuario[]
   arquivoLogs             ArquivoLog[]
   notificacoesArquivos    GestaoArquivosNotificacao[]
+  pastaAreasArquivos      GestaoArquivosPastaArea[]
   contatos                ClienteContato[]
   inscricoes              ClienteInscricao[]
   contratoParams          ClienteContratoParam[]
@@ -1342,6 +1345,55 @@ model PortalModuloEmpresa {
   @@unique([empresaId, modulo])
   @@index([empresaId])
   @@map("portal_modulos_empresa")
+}
+
+/// A que área do escritório pertence uma pasta do cliente.
+///
+/// Existe para responder "quem precisa saber deste arquivo?". Sem isto, o
+/// aviso de arquivo novo vai para o responsável de TODAS as áreas contratadas
+/// — o contábil recebe e-mail de nota fiscal, o fiscal recebe de folha, e em
+/// pouco tempo ninguém lê nenhum.
+///
+/// O mapa é na PASTA e não no arquivo, por dois motivos. O cliente organiza
+/// por tempo ("2025", "2026") e não por departamento: perguntar a ele se um
+/// extrato é contábil ou fiscal é pedir que aprenda o organograma do
+/// escritório, e uma resposta errada rotearia para a pessoa errada em
+/// silêncio. E a pasta é configuração do escritório, feita uma vez, que o
+/// cliente nunca vê.
+///
+/// `pastaId` é o ID NO DRIVE, não um `PortalPasta`: o envio do cliente passou
+/// a ir direto para o Drive, e é o id de lá que chega na hora de avisar.
+///
+/// A ausência de linha é legítima e comum — é a pasta sem área, que cai no
+/// destino de fallback. Por isso o mapa não precisa estar completo para o
+/// módulo funcionar.
+model GestaoArquivosPastaArea {
+  id        String @id @default(cuid())
+  empresaId String @map("empresa_id")
+  clienteId String @map("cliente_id")
+  pastaId   String @map("pasta_id")
+  areaId    String @map("area_id")
+
+  /// Nome da pasta no momento em que foi mapeada. Só para a tela mostrar o
+  /// mapa sem uma ida ao Drive por linha — o Drive continua sendo a verdade
+  /// sobre o nome atual.
+  pastaNome String? @map("pasta_nome")
+
+  definidoPorId String?  @map("definido_por_id")
+  criadoEm      DateTime @default(now()) @map("criado_em")
+  atualizadoEm  DateTime @updatedAt @map("atualizado_em")
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  area    Area    @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  /// Uma pasta tem no máximo uma área. O `clienteId` entra na chave porque é
+  /// por ele que o mapa é carregado, e a unicidade só do `pastaId` deixaria
+  /// passar a mesma pasta atribuída a dois clientes por engano de vínculo.
+  @@unique([clienteId, pastaId])
+  @@index([clienteId])
+  @@index([empresaId])
+  @@map("gestao_arquivos_pasta_area")
 }
 
 model GestaoArquivosNotificacao {
