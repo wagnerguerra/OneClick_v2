@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
+import {
+  router, readProcedure, writeProcedure, deleteSubProcedure, writeSubProcedure,
+} from '../trpc/trpc.service'
 import { GestaoArquivosService } from './gestao-arquivos.service'
 import { GestaoArquivosDriveService } from './gestao-arquivos-drive.service'
 import {
@@ -19,6 +21,20 @@ const MODULE = 'gestao-arquivos'
  * lugares divergem.
  */
 const eventoSchema = z.enum(EVENTOS_NOTIFICAVEIS)
+
+/**
+ * Exclusão e configuração são SUB-permissões, não `canDelete`/`canWrite`.
+ *
+ * A intenção original era usar as colunas que `UserPermission` já tem. O modelo
+ * suportava, mas a TELA não: o interruptor do módulo liga canRead, canWrite e
+ * canDelete de uma vez, então "ler" e "ler e excluir" ficariam indistinguíveis
+ * na mão de quem concede — a promessa do módulo existiria só no banco.
+ *
+ * A sub-permissão é o mecanismo que a tela de permissões oferece para separar
+ * os dois, e é assim que a Agenda já faz com `delete_eventos`.
+ */
+const SUB_EXCLUIR = 'excluir_arquivos'
+const SUB_CONFIGURAR = 'configurar'
 
 /** O contexto tRPC recortado para o que o escopo do módulo precisa. */
 function contexto(ctx: {
@@ -81,11 +97,11 @@ export function createGestaoArquivosRouter(
       .input(z.object({ arquivoId: z.string() }))
       .mutation(({ input, ctx }) => service.abrir(input.arquivoId, contexto(ctx))),
 
-    excluir: deleteProcedure(MODULE)
+    excluir: deleteSubProcedure(MODULE, SUB_EXCLUIR, 'excluir arquivos')
       .input(z.object({ arquivoId: z.string(), motivo: z.string().max(500).nullish() }))
       .mutation(({ input, ctx }) => service.excluir(input, contexto(ctx))),
 
-    restaurar: deleteProcedure(MODULE)
+    restaurar: deleteSubProcedure(MODULE, SUB_EXCLUIR, 'restaurar arquivos')
       .input(z.object({ arquivoId: z.string() }))
       .mutation(({ input, ctx }) => service.restaurar(input.arquivoId, contexto(ctx))),
 
@@ -111,7 +127,7 @@ export function createGestaoArquivosRouter(
         return notificacao.listarRegras(c.empresaId, input.clienteId ?? null)
       }),
 
-    salvarRegra: writeProcedure(MODULE)
+    salvarRegra: writeSubProcedure(MODULE, SUB_CONFIGURAR, 'configurar notificações')
       .input(z.object({
         clienteId: z.string().nullish(),
         evento: eventoSchema,
@@ -140,7 +156,7 @@ export function createGestaoArquivosRouter(
       return driveService.obterConfig(c.empresaId)
     }),
 
-    driveSalvarConfig: writeProcedure(MODULE)
+    driveSalvarConfig: writeSubProcedure(MODULE, SUB_CONFIGURAR, 'configurar a pasta do Drive')
       .input(z.object({ pasta: z.string().min(10).max(500) }))
       .mutation(({ input, ctx }) => {
         exigirAdmin(ctx)
@@ -161,7 +177,7 @@ export function createGestaoArquivosRouter(
       return driveService.listarSubpastas(c.empresaId)
     }),
 
-    driveVincularCliente: writeProcedure(MODULE)
+    driveVincularCliente: writeSubProcedure(MODULE, SUB_CONFIGURAR, 'vincular pasta do Drive')
       .input(z.object({ clienteId: z.string(), folderId: z.string().nullable() }))
       .mutation(({ input, ctx }) => {
         exigirAdmin(ctx)
@@ -192,16 +208,16 @@ export function createGestaoArquivosRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input, ctx }) => driveService.lixeiraParaEscritorio(input.clienteId, contexto(ctx))),
 
-    driveRestaurar: writeProcedure(MODULE)
+    driveRestaurar: deleteSubProcedure(MODULE, SUB_EXCLUIR, 'restaurar da lixeira do Drive')
       .input(z.object({ clienteId: z.string(), itemId: z.string() }))
       .mutation(({ input, ctx }) => driveService.restaurarParaEscritorio(input, contexto(ctx))),
 
     /**
-     * Apaga de vez. `deleteProcedure` e só do lado do escritório: não tem
-     * volta nem por suporte do Google, e o guardião do documento é quem
-     * responde por isso.
+     * Apaga de vez. Exige a sub-permissão de exclusão e só existe do lado do
+     * escritório: não tem volta nem por suporte do Google, e o guardião do
+     * documento é quem responde por isso.
      */
-    driveExcluirDefinitivo: deleteProcedure(MODULE)
+    driveExcluirDefinitivo: deleteSubProcedure(MODULE, SUB_EXCLUIR, 'apagar arquivo em definitivo')
       .input(z.object({ clienteId: z.string(), itemId: z.string() }))
       .mutation(({ input, ctx }) => driveService.excluirDefinitivo(input, contexto(ctx))),
 
@@ -214,7 +230,7 @@ export function createGestaoArquivosRouter(
       }))
       .mutation(({ input, ctx }) => driveService.moverParaEscritorio(input, contexto(ctx))),
 
-    removerExcecao: writeProcedure(MODULE)
+    removerExcecao: writeSubProcedure(MODULE, SUB_CONFIGURAR, 'configurar notificações')
       .input(z.object({ clienteId: z.string(), evento: eventoSchema }))
       .mutation(({ input, ctx }) => {
         const c = contexto(ctx)

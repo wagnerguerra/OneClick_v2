@@ -62,8 +62,10 @@ export default function GestaoArquivosPage() {
 
   const podeConfigurar = useMemo(() => {
     if (isMaster || isEmpresaMaster) return true
-    return permissions.some(p => (p as { moduleSlug?: string; canWrite?: boolean }).moduleSlug === MODULE
-      && (p as { canWrite?: boolean }).canWrite === true)
+    return permissions.some(p => {
+      const x = p as { moduleSlug?: string; subPermissions?: Record<string, boolean> }
+      return x.moduleSlug === MODULE && x.subPermissions?.configurar === true
+    })
   }, [permissions, isMaster, isEmpresaMaster])
 
   const carregar = useCallback(() => {

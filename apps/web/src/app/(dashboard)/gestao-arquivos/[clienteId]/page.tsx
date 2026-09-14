@@ -85,9 +85,13 @@ export default function GestaoArquivosClientePage() {
 
   const podeExcluir = useMemo(() => {
     if (isMaster || isEmpresaMaster) return true
+    // A sub-permissão, e não `canDelete`: o interruptor do módulo na tela de
+    // permissões liga canRead/canWrite/canDelete de uma vez, então `canDelete`
+    // não distingue quem pode apagar de quem só pode ler. É a mesma chave que
+    // o `deleteSubProcedure` exige do outro lado.
     return permissions.some(p => {
-      const x = p as { moduleSlug?: string; canDelete?: boolean }
-      return x.moduleSlug === MODULE && x.canDelete === true
+      const x = p as { moduleSlug?: string; subPermissions?: Record<string, boolean> }
+      return x.moduleSlug === MODULE && x.subPermissions?.excluir_arquivos === true
     })
   }, [permissions, isMaster, isEmpresaMaster])
 
