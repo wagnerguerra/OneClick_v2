@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
+import { NotificationService } from '../notification/notification.service'
 
 /**
  * Quem recebe e-mail quando algo acontece no porta-arquivos.
@@ -21,6 +22,9 @@ export const EVENTOS_NOTIFICAVEIS = [
 
 export type EventoNotificavel = (typeof EVENTOS_NOTIFICAVEIS)[number]
 
+/** O mesmo slug que o `readProcedure` do router exige. */
+const MODULE_SLUG = 'gestao-arquivos'
+
 const CARGOS_COORDENACAO: ReadonlySet<string> = new Set(['COORDENADOR', 'GESTOR'])
 const CARGOS_DIRETORIA: ReadonlySet<string> = new Set(['DIRETOR'])
 
@@ -28,7 +32,10 @@ const CARGOS_DIRETORIA: ReadonlySet<string> = new Set(['DIRETOR'])
 export class GestaoArquivosNotificacaoService {
   private readonly logger = new Logger(GestaoArquivosNotificacaoService.name)
 
-  constructor(private readonly email: EmailService) {}
+  constructor(
+    private readonly email: EmailService,
+    private readonly notificacoes: NotificationService,
+  ) {}
 
   /**
    * Regra vigente para um evento neste cliente.
@@ -82,17 +89,48 @@ export class GestaoArquivosNotificacaoService {
     clienteId: string,
     roteamento?: { areaId: string | null },
   ): Promise<string[]> {
+    const { usuarios, extras } = await this.resolverDestinatarios(evento, clienteId, roteamento)
+    return [...new Set([...usuarios.map(u => u.email), ...extras])]
+  }
+
+  /**
+   * As mesmas pessoas, com o ID junto do e-mail.
+   *
+   * O sino precisa do `userId` e o e-mail precisa do endereco, e os dois tem
+   * de chegar a QUEM MESMO — nao a dois conjuntos que se parecem. Resolver uma
+   * vez e distribuir e o que impede o aviso aparecer no sino de um e na caixa
+   * de outro no dia em que alguem mexer numa das duas consultas.
+   *
+   * Os `emailsExtras` da regra ficam de fora dos `usuarios` porque nao SAO
+   * usuarios: sao enderecos avulsos, sem ninguem a quem acender um sino.
+   */
+  private async resolverDestinatarios(
+    evento: EventoNotificavel,
+    clienteId: string,
+    roteamento?: { areaId: string | null },
+  ): Promise<{ usuarios: Array<{ id: string; email: string }>; extras: string[]; empresaId: string | null }> {
+    const vazio = { usuarios: [], extras: [], empresaId: null }
     const regra = await this.regraVigente(evento, clienteId)
-    if (!regra || !regra.ativo) return []
+    if (!regra || !regra.ativo) return vazio
 
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteId },
       select: { empresaId: true },
     })
-    if (!cliente?.empresaId) return []
+    if (!cliente?.empresaId) return vazio
     const empresaId = cliente.empresaId
 
-    const emails = new Set<string>()
+    // Chaveado por id: a mesma pessoa e responsavel de uma area e substituta de
+    // outra o tempo todo, e sem isto receberia o aviso duas vezes.
+    const porId = new Map<string, { id: string; email: string }>()
+    const juntar = (u: { id: string; email: string | null; isActive: boolean } | null | undefined) => {
+      // O `u.id` e a chave: sem ele duas pessoas distintas virariam uma so,
+      // e o aviso sumiria para alguem sem nenhum erro aparecer. Prisma sempre
+      // devolve o id — a guarda existe porque a consequencia de nao ter e
+      // silenciosa, e foi assim que um dublê de teste sem id mascarou o caso.
+      if (!u?.id || !u.isActive || !u.email) return
+      porId.set(u.id, { id: u.id, email: u.email })
+    }
     const areaId = roteamento?.areaId ?? null
     /**
      * Arquivo que o roteamento não soube classificar: o aviso ABRE em vez de
@@ -121,17 +159,13 @@ export class GestaoArquivosNotificacaoService {
           ...(areaId ? { areaId } : {}),
         },
         select: {
-          responsavel: { select: { email: true, isActive: true } },
-          substituto: { select: { email: true, isActive: true } },
+          responsavel: { select: { id: true, email: true, isActive: true } },
+          substituto: { select: { id: true, email: true, isActive: true } },
         },
       })
       for (const a of areas) {
-        if (regra.notificaResponsavel && a.responsavel?.isActive && a.responsavel.email) {
-          emails.add(a.responsavel.email)
-        }
-        if (regra.notificaSubstituto && a.substituto?.isActive && a.substituto.email) {
-          emails.add(a.substituto.email)
-        }
+        if (regra.notificaResponsavel) juntar(a.responsavel)
+        if (regra.notificaSubstituto) juntar(a.substituto)
       }
     }
 
@@ -140,19 +174,58 @@ export class GestaoArquivosNotificacaoService {
     if (regra.notificaDiretor) cargos.push(...CARGOS_DIRETORIA)
     if (cargos.length > 0) {
       const chefia = await prisma.user.findMany({
+        // `empresaId` aqui não é enfeite: sem ele, "todo COORDENADOR" seria
+        // todo coordenador de TODOS os escritórios, e o arquivo de um cliente
+        // da Central acenderia o sino de outro tenant.
         where: { empresaId, isActive: true, role: { in: cargos as never[] } },
-        select: { email: true },
+        select: { id: true, email: true },
       })
-      for (const u of chefia) if (u.email) emails.add(u.email)
+      for (const u of chefia) juntar({ ...u, isActive: true })
     }
 
     // Endereços avulsos: separados por ; ou , porque quem digita usa os dois.
+    const extras = new Set<string>()
     for (const extra of (regra.emailsExtras ?? '').split(/[;,]/)) {
       const e = extra.trim()
-      if (e.includes('@')) emails.add(e)
+      if (e.includes('@')) extras.add(e)
     }
 
-    return [...emails]
+    return { usuarios: [...porId.values()], extras: [...extras], empresaId }
+  }
+
+  /**
+   * Dos destinatários, quem pode mesmo ABRIR o módulo.
+   *
+   * O e-mail vai para quem a regra mandou, e isso está certo: e-mail é aviso,
+   * chega fora do sistema e não dá acesso a nada. O sino é diferente — ele
+   * mora dentro do sistema e leva a uma tela. Mandar alguém para uma tela que
+   * vai recusá-lo é prometer o que não se cumpre, e o título do aviso carrega
+   * a razão social do cliente para alguém que talvez não devesse vê-la.
+   *
+   * Ser responsável por uma área NÃO concede o módulo: `resolverEscopo` decide
+   * QUAIS clientes a pessoa vê, mas quem abre a porta é o `canRead` de
+   * `gestao-arquivos` no `UserPermission`, conferido pelo `readProcedure`. São
+   * dois portões, e só olhar o primeiro deixaria passar quem o segundo barra.
+   */
+  private async comAcessoAoModulo(
+    usuarios: Array<{ id: string; email: string }>,
+  ): Promise<Array<{ id: string; email: string }>> {
+    if (usuarios.length === 0) return []
+    const ids = usuarios.map(u => u.id)
+    const [donos, permitidos] = await Promise.all([
+      // Master e dono do tenant não têm linha em `UserPermission` — abrem tudo
+      // por cargo. Exigir a linha deles calaria justamente quem mais precisa.
+      prisma.user.findMany({
+        where: { id: { in: ids }, OR: [{ isMaster: true }, { isEmpresaMaster: true }] },
+        select: { id: true },
+      }),
+      prisma.userPermission.findMany({
+        where: { userId: { in: ids }, moduleSlug: MODULE_SLUG, canRead: true },
+        select: { userId: true },
+      }),
+    ])
+    const ok = new Set([...donos.map(d => d.id), ...permitidos.map(p => p.userId)])
+    return usuarios.filter(u => ok.has(u.id))
   }
 
   /**
@@ -176,10 +249,30 @@ export class GestaoArquivosNotificacaoService {
      * `destinatarios`, onde a diferença entre os dois está explicada.
      */
     roteamento?: { areaId: string | null }
+    /**
+     * Para onde o sino leva. Ausente = o aviso sai só por e-mail.
+     *
+     * Um sino que não leva a lugar nenhum obriga a pessoa a procurar o arquivo
+     * pelo menu depois de já saber que ele chegou — e aí o aviso custa mais do
+     * que informa.
+     */
+    linkNoSino?: string | null
   }): Promise<boolean> {
     try {
-      const para = await this.destinatarios(input.evento, input.clienteId, input.roteamento)
+      const { usuarios, extras, empresaId } = await this.resolverDestinatarios(
+        input.evento, input.clienteId, input.roteamento,
+      )
+      const para = [...new Set([...usuarios.map(u => u.email), ...extras])]
       if (para.length === 0) return false
+
+      // O sino ANTES do e-mail, e sem esperar por ele.
+      //
+      // O e-mail depende de SMTP, que é o único dos dois que sai da nossa mão:
+      // se ele demorar ou falhar, o aviso no sino já está gravado e a pessoa vê
+      // do mesmo jeito. Na ordem inversa, uma fila de SMTP travada engoliria os
+      // dois canais de uma vez, que é justamente o que ter dois canais deveria
+      // impedir.
+      await this.acenderSino(usuarios, empresaId, input)
 
       const html = input.corpo
         .split('\n')
@@ -192,6 +285,40 @@ export class GestaoArquivosNotificacaoService {
         `Falha ao notificar ${input.evento} do cliente ${input.clienteId}: ${String(err)}`,
       )
       return false
+    }
+  }
+
+  /**
+   * Acende o sino de quem é usuário do sistema E alcança o módulo.
+   *
+   * Os `emailsExtras` da regra não entram: são endereços avulsos, muitas vezes
+   * de fora do escritório, e não há sino a acender para eles.
+   *
+   * Nunca lança. O sino é o canal auxiliar; derrubar o e-mail — que é o canal
+   * que o módulo prometeu — porque a gravação da notificação falhou seria
+   * trocar um aviso a menos por dois.
+   */
+  private async acenderSino(
+    usuarios: Array<{ id: string; email: string }>,
+    empresaId: string | null,
+    input: { evento: EventoNotificavel; assunto: string; corpo: string; linkNoSino?: string | null },
+  ): Promise<void> {
+    if (usuarios.length === 0 || !input.linkNoSino) return
+    try {
+      const podem = await this.comAcessoAoModulo(usuarios)
+      if (podem.length === 0) return
+      await this.notificacoes.criarParaUsers(podem.map(u => u.id), {
+        titulo: input.assunto,
+        // O corpo do e-mail tem várias linhas e um fecho; no sino cabe a
+        // primeira, que é a que diz o que aconteceu.
+        mensagem: input.corpo.split('\n')[0] ?? null,
+        tipo: input.evento === 'ARQUIVO_EXCLUIDO' ? 'warning' : 'info',
+        link: input.linkNoSino,
+        origem: MODULE_SLUG,
+        empresaId,
+      })
+    } catch (err) {
+      this.logger.warn(`Falha ao acender o sino de ${input.evento}: ${String(err)}`)
     }
   }
 

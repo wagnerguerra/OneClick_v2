@@ -599,6 +599,11 @@ export class GestaoArquivosDriveService {
       // fallback. Omitir aqui calaria a coordenação justamente no caso em que
       // ninguém mais sabe de quem o arquivo é.
       roteamento: { areaId },
+      // O sino leva direto à pasta do cliente. Sem o link ele avisaria que
+      // chegou algo e deixaria a pessoa procurar pelo menu — custo maior que a
+      // informação. `acenderSino` ainda confere quem pode ABRIR esta tela: ser
+      // responsável pela área não concede o módulo.
+      linkNoSino: `/gestao-arquivos/${e.clienteId}`,
       assunto: `Novo arquivo de ${cliente?.razaoSocial ?? 'cliente'} — ${e.arquivoNome}`,
       corpo: [
         `O cliente enviou "${e.arquivoNome}"${tamanho} pelo portal.`,
