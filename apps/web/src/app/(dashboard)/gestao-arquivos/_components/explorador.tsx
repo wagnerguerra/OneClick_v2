@@ -94,24 +94,6 @@ export interface FonteExplorador {
    * `pastaId` nulo é a raiz da unidade.
    */
   enviar?: (arquivo: File, pastaId: string | null, onProgresso: (pct: number) => void) => Promise<void>
-  /**
-   * A área do escritório a que cada pasta pertence.
-   *
-   * Ausente = esta unidade não roteia aviso nenhum, e a coluna some. É o caso
-   * dos arquivos do sistema e, sobretudo, do portal: quem é o responsável
-   * interno por uma pasta é assunto do escritório, e não do cliente que a vê.
-   *
-   * `mapa` traz só o que foi mapeado EXPLICITAMENTE, com `null` na chave
-   * representando a raiz da unidade. A herança é calculada aqui, a partir da
-   * trilha por onde se desceu — o que dá a resposta exata sem uma consulta por
-   * linha listada.
-   */
-  areas?: {
-    opcoes: Array<{ id: string; nome: string }>
-    mapa: Map<string, string>
-    editavel: boolean
-    definir: (pastaId: string | null, areaId: string | null) => Promise<void>
-  }
 }
 
 /**
@@ -161,115 +143,6 @@ export function tipoDoArquivo(nome: string, mime: string | null): 'imagem' | 'pd
   if (m.startsWith('text/') || ['txt', 'xml', 'json', 'log'].includes(ext)) return 'texto'
   if (['zip', 'rar', '7z'].includes(ext)) return 'zip'
   return 'outro'
-}
-
-/**
- * A área de uma pasta, e como trocá-la.
- *
- * Mostra a área com peso diferente conforme a origem: mapeada AQUI aparece
- * firme, herdada de cima aparece apagada. A distinção é o que torna a herança
- * compreensível — sem ela, "Fiscal" em cinco pastas seguidas pareceria cinco
- * decisões, quando é uma só, tomada lá em cima.
- *
- * "Herdar da pasta acima" não é o mesmo que "nenhuma área": remove o
- * mapeamento e a pasta volta a seguir o pai. Só quando nenhum ancestral está
- * mapeado é que o arquivo fica sem área e cai no fallback do aviso.
- */
-function SeletorDeArea({
-  areas, pastaId, herdada, cor,
-}: {
-  areas: NonNullable<FonteExplorador['areas']>
-  pastaId: string | null
-  herdada: string | null
-  cor: string
-}) {
-  const [aberto, setAberto] = useState(false)
-  const [salvando, setSalvando] = useState(false)
-  const caixaRef = useRef<HTMLDivElement>(null)
-
-  const propria = areas.mapa.get(pastaId ?? '__raiz__') ?? null
-  const vigente = propria ?? herdada
-  const nome = areas.opcoes.find(o => o.id === vigente)?.nome ?? null
-
-  useEffect(() => {
-    if (!aberto) return
-    function fora(e: MouseEvent) {
-      if (!caixaRef.current?.contains(e.target as Node)) setAberto(false)
-    }
-    document.addEventListener('mousedown', fora)
-    return () => document.removeEventListener('mousedown', fora)
-  }, [aberto])
-
-  async function escolher(areaId: string | null) {
-    setAberto(false)
-    setSalvando(true)
-    try {
-      await areas.definir(pastaId, areaId)
-    } finally {
-      setSalvando(false)
-    }
-  }
-
-  if (!areas.editavel) {
-    return nome
-      ? <span className={cn('text-[11px]', propria ? 'text-foreground' : 'text-muted-foreground/70')}>{nome}</span>
-      : <span className="text-[11px] text-muted-foreground/50">—</span>
-  }
-
-  return (
-    // `stopPropagation` no contêiner inteiro: a linha da pasta navega ao ser
-    // clicada, e escolher a área não pode entrar na pasta junto.
-    <div ref={caixaRef} className="relative" onClick={e => e.stopPropagation()}>
-      <button
-        type="button"
-        onClick={() => setAberto(a => !a)}
-        disabled={salvando}
-        title={propria ? 'Área desta pasta' : nome ? 'Herdada da pasta acima' : 'Sem área definida'}
-        className={cn(
-          'inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors',
-          propria
-            ? 'border-transparent font-medium text-foreground'
-            : 'border-dashed border-border text-muted-foreground/70 hover:text-foreground',
-        )}
-        style={propria ? { backgroundColor: `color-mix(in srgb, ${cor} 14%, transparent)` } : undefined}
-      >
-        {salvando && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
-        <span className="truncate">{nome ?? 'definir área'}</span>
-      </button>
-
-      {aberto && (
-        <div className="absolute right-0 top-full z-20 mt-1 min-w-[200px] overflow-hidden rounded-md border border-border bg-popover py-1 shadow-lg">
-          {areas.opcoes.length === 0 && (
-            <p className="px-3 py-2 text-[11px] text-muted-foreground">
-              Este cliente não tem área contratada. Contrate uma na aba Serviços do cliente.
-            </p>
-          )}
-          {areas.opcoes.map(o => (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => escolher(o.id)}
-              className={cn(
-                'block w-full px-3 py-1.5 text-left text-[12px] transition-colors hover:bg-muted',
-                o.id === propria && 'font-semibold',
-              )}
-            >
-              {o.nome}
-            </button>
-          ))}
-          {propria && (
-            <button
-              type="button"
-              onClick={() => escolher(null)}
-              className="mt-1 block w-full border-t border-border px-3 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-muted"
-            >
-              Herdar da pasta acima
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  )
 }
 
 function IconeArquivo({ nome, mime, className }: { nome: string; mime: string | null; className?: string }) {
@@ -752,38 +625,6 @@ export function Explorador({
 
   const podeArrastar = Boolean(fonteAtual?.mover)
   const podeReceber = Boolean(fonteAtual?.enviar)
-  const areas = fonteAtual?.areas
-
-  /**
-   * A área que vale NESTE nível, herdada de cima.
-   *
-   * Sai da trilha por onde se desceu, do mais fundo para a raiz: é exatamente
-   * o caminho que o servidor percorre no Drive na hora de avisar, só que aqui
-   * ele já está na mão — navegar até uma pasta é ter a lista dos ancestrais
-   * dela. Calcular assim dá a resposta exata sem uma consulta por linha
-   * listada, que é o que tornaria a tela lenta.
-   *
-   * É a herança de quem ESTÁ sendo listado: as pastas filhas herdam daqui, e
-   * os arquivos desta pasta também.
-   */
-  const areaDoNivel = (() => {
-    if (!areas) return null
-    for (let i = trilha.length - 1; i >= 0; i--) {
-      const a = areas.mapa.get(trilha[i]!.id ?? '__raiz__')
-      if (a) return a
-    }
-    return areas.mapa.get('__raiz__') ?? null
-  })()
-
-  /** A área herdada pela PASTA ATUAL, ignorando o que ela própria declara. */
-  const areaHerdadaPelaAtual = (() => {
-    if (!areas) return null
-    for (let i = trilha.length - 2; i >= 0; i--) {
-      const a = areas.mapa.get(trilha[i]!.id ?? '__raiz__')
-      if (a) return a
-    }
-    return trilha.length > 0 ? (areas.mapa.get('__raiz__') ?? null) : null
-  })()
 
   const tipoSel = arquivoSel ? tipoDoArquivo(arquivoSel.nome, arquivoSel.mimeType) : null
   const previsualizavel = tipoSel === 'imagem' || tipoSel === 'pdf' || tipoSel === 'texto'
@@ -857,22 +698,6 @@ export function Explorador({
               </button>
             </span>
           ))}
-          {/* A área da pasta em que se ESTÁ.
-              A coluna da listagem resolve as pastas filhas, mas não esta —
-              e é justamente nela que a pessoa está olhando quando decide.
-              Sem isto seria preciso subir um nível para classificar a pasta
-              aberta, que é o contrário do que a navegação sugere. */}
-          {areas && (
-            <span className="ml-2 flex shrink-0 items-center gap-1.5">
-              <span className="text-[11px] text-muted-foreground">área:</span>
-              <SeletorDeArea
-                areas={areas}
-                pastaId={selecionada.id}
-                herdada={areaHerdadaPelaAtual}
-                cor={cor}
-              />
-            </span>
-          )}
           {item && (
             <span className="ml-3 truncate text-[11px] text-muted-foreground">
               Movendo <span className="font-medium text-foreground">{item.nome}</span> — solte numa pasta
@@ -978,12 +803,9 @@ export function Explorador({
             >
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
-                  <th className={cn('px-3 py-1.5 text-left font-semibold', areas ? 'w-[36%]' : 'w-[48%]')}>Nome</th>
-                  {areas && (
-                    <th className="hidden w-[18%] px-3 py-1.5 text-left font-semibold sm:table-cell">Área</th>
-                  )}
-                  <th className="hidden w-[14%] px-3 py-1.5 text-right font-semibold sm:table-cell">Tamanho</th>
-                  <th className="hidden w-[22%] px-3 py-1.5 text-left font-semibold md:table-cell">Modificado</th>
+                  <th className="w-[48%] px-3 py-1.5 text-left font-semibold">Nome</th>
+                  <th className="hidden w-[16%] px-3 py-1.5 text-right font-semibold sm:table-cell">Tamanho</th>
+                  <th className="hidden w-[26%] px-3 py-1.5 text-left font-semibold md:table-cell">Modificado</th>
                   <th className="w-[10%] px-3 py-1.5" />
                 </tr>
               </thead>
@@ -1013,21 +835,12 @@ export function Explorador({
                         <span className="truncate font-medium">{p.nome}</span>
                       </div>
                     </td>
-                    {areas && (
-                      <td className="hidden px-3 py-1.5 sm:table-cell">
-                        <SeletorDeArea areas={areas} pastaId={p.id} herdada={areaDoNivel} cor={cor} />
-                      </td>
-                    )}
                     <td className="hidden px-3 py-1.5 text-right text-muted-foreground sm:table-cell">—</td>
                     <td className="hidden px-3 py-1.5 text-muted-foreground md:table-cell">—</td>
                     <td />
                   </tr>
                 ))}
 
-                {/* Arquivo não tem área própria: ele herda a da pasta onde está,
-                    que é o que a coluna mostra apagada. Mapear arquivo a
-                    arquivo seria devolver ao cliente a classificação que a
-                    pasta existe para evitar. */}
                 {conteudo.arquivos.map(a => (
                   <tr
                     key={a.id}
@@ -1052,13 +865,6 @@ export function Explorador({
                         )}
                       </div>
                     </td>
-                    {areas && (
-                      <td className="hidden px-3 py-1.5 sm:table-cell">
-                        <span className="text-[11px] text-muted-foreground/70">
-                          {areas.opcoes.find(o => o.id === areaDoNivel)?.nome ?? '—'}
-                        </span>
-                      </td>
-                    )}
                     <td className="hidden px-3 py-1.5 text-right tabular-nums text-muted-foreground sm:table-cell">
                       {tamanhoLegivel(a.tamanho)}
                     </td>

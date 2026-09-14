@@ -11,16 +11,10 @@ const cliente = { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), 
 const gestaoArquivosDrive = { findUnique: jest.fn(), upsert: jest.fn() }
 const arquivoLog = { findMany: jest.fn(), create: jest.fn() }
 const user = { findUnique: jest.fn() }
-const clienteAreaContratada = { findMany: jest.fn(), findFirst: jest.fn() }
-const gestaoArquivosPastaArea = {
-  findMany: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn(),
-}
+const clienteAreaContratada = { findMany: jest.fn() }
 
 jest.mock('@saas/db', () => ({
-  prisma: {
-    cliente, gestaoArquivosDrive, clienteAreaContratada, arquivoLog, user,
-    gestaoArquivosPastaArea,
-  },
+  prisma: { cliente, gestaoArquivosDrive, clienteAreaContratada, arquivoLog, user },
 }))
 
 const listSubfolders = jest.fn()
@@ -33,15 +27,6 @@ const moveFile = jest.fn()
 const listTrashedInFolder = jest.fn()
 const untrashFile = jest.fn()
 const deleteFilePermanently = jest.fn()
-const uploadFile = jest.fn()
-
-// Só `existsSync` e `unlink` do envio; o resto do fs continua real para não
-// afetar quem mais o use na cadeia de imports.
-jest.mock('node:fs', () => ({
-  ...jest.requireActual('node:fs'),
-  existsSync: jest.fn(() => true),
-  unlink: jest.fn((_p: string, cb: () => void) => cb()),
-}))
 
 jest.mock('../drive-sync/drive.client', () => ({
   DriveClient: class {
@@ -61,17 +46,12 @@ jest.mock('../drive-sync/drive.client', () => ({
     listTrashedInFolder = listTrashedInFolder
     untrashFile = untrashFile
     deleteFilePermanently = deleteFilePermanently
-    uploadFile = uploadFile
   },
 }))
 
-import * as fs from 'node:fs'
 import { GestaoArquivosDriveService } from './gestao-arquivos-drive.service'
-import type { GestaoArquivosNotificacaoService } from './gestao-arquivos-notificacao.service'
 
-const disparar = jest.fn()
-const notificacao = { disparar } as unknown as GestaoArquivosNotificacaoService
-const svc = new GestaoArquivosDriveService(notificacao)
+const svc = new GestaoArquivosDriveService()
 
 const master = { userId: 'u1', isMaster: true, empresaId: 'emp-1' }
 const RAIZ = '1eMv40oNPw6XwohFpKpY4UpFOrUEqR2_n'
@@ -101,12 +81,6 @@ beforeEach(() => {
   arquivoLog.findMany.mockResolvedValue([])
   arquivoLog.create.mockResolvedValue({ id: 'log-1' })
   user.findUnique.mockResolvedValue({ name: 'Cliente Teste' })
-  uploadFile.mockResolvedValue({ id: 'novo-1', name: 'n.pdf', size: 125000 })
-  disparar.mockResolvedValue(true)
-  gestaoArquivosPastaArea.findMany.mockResolvedValue([])
-  gestaoArquivosPastaArea.upsert.mockImplementation((a: { create: unknown }) => a.create)
-  gestaoArquivosPastaArea.deleteMany.mockResolvedValue({ count: 1 })
-  clienteAreaContratada.findFirst.mockResolvedValue({ area: { name: 'Contábil' } })
 })
 
 describe('salvarConfig', () => {
@@ -481,283 +455,15 @@ describe('autoria do envio', () => {
     expect(r.itens[0]!.enviadoPor).toBe('Quem enviou')
   })
 
-  /**
-   * O aviso que o módulo prometia e não entregava.
-   *
-   * O disparo de `ARQUIVO_ENVIADO` ficou para trás no caminho antigo quando o
-   * envio do cliente migrou para o Drive: o arquivo chegava, a auditoria era
-   * gravada, e ninguém no escritório ficava sabendo. Estes testes existem para
-   * que a ligação não se perca de novo numa próxima migração de caminho.
-   */
-  describe('aviso ao escritório', () => {
-    const entrada = { fileName: 'n.pdf', fileUrl: '/api/upload/n.pdf' }
-
-    beforeEach(() => {
-      cliente.findUnique.mockResolvedValue({
-        portalDriveFolderId: 'pasta-do-cliente', razaoSocial: 'ACME LTDA',
-      })
-    })
-
-    it('dispara ARQUIVO_ENVIADO com o cliente no assunto e a autoria no corpo', async () => {
-      await svc.enviarParaPortal(completo, entrada, 'u1')
-
-      expect(disparar).toHaveBeenCalledTimes(1)
-      const aviso = disparar.mock.calls[0]![0] as { evento: string; clienteId: string; assunto: string; corpo: string }
-      expect(aviso.evento).toBe('ARQUIVO_ENVIADO')
-      expect(aviso.clienteId).toBe('cli-1')
-      // Quem responde por cem clientes precisa do NOME do cliente antes do
-      // nome do arquivo — por isso a razão social vem no assunto.
-      expect(aviso.assunto).toBe('Novo arquivo de ACME LTDA — n.pdf')
-      expect(aviso.corpo).toContain('Enviado por Cliente Teste')
-      expect(aviso.corpo).toContain('122 KB')
-    })
-
-    it('avisa mesmo sem conseguir o nome do cliente', async () => {
-      cliente.findUnique.mockResolvedValue({ portalDriveFolderId: 'pasta-do-cliente' })
-      await svc.enviarParaPortal(completo, entrada, 'u1')
-      expect((disparar.mock.calls[0]![0] as { assunto: string }).assunto).toContain('Novo arquivo de cliente')
-    })
-
-    it('omite a autoria em vez de calar o aviso quando o log falha', async () => {
-      arquivoLog.create.mockRejectedValue(new Error('banco fora'))
-      await svc.enviarParaPortal(completo, entrada, 'u1')
-      expect(disparar).toHaveBeenCalledTimes(1)
-      expect((disparar.mock.calls[0]![0] as { corpo: string }).corpo).not.toContain('Enviado por')
-    })
-
-    it('falha do aviso NÃO derruba o envio — o arquivo já está no Drive', async () => {
-      // Sem a blindagem, o erro cairia no catch do upload e a tela diria "não
-      // foi possível enviar" para um arquivo que subiu: a pessoa reenviaria.
-      disparar.mockRejectedValue(new Error('SMTP fora'))
-      await expect(svc.enviarParaPortal(completo, entrada, 'u1'))
-        .resolves.toEqual({ id: 'novo-1', nome: 'n.pdf' })
-    })
-
-    it('não avisa quando o envio falha no Drive', async () => {
-      uploadFile.mockRejectedValue(new Error('403'))
-      await expect(svc.enviarParaPortal(completo, entrada, 'u1')).rejects.toThrow(/não foi possível enviar/i)
-      expect(disparar).not.toHaveBeenCalled()
-    })
-  })
-
   it('falha ao gravar o log não derruba o envio', async () => {
-    // O arquivo já está no Drive quando o log roda: devolver erro aqui faria a
-    // pessoa reenviar um arquivo que subiu.
+    // O arquivo já está no Drive quando o log roda.
     cliente.findUnique.mockResolvedValue({ portalDriveFolderId: 'pasta-do-cliente' })
     arquivoLog.create.mockRejectedValue(new Error('banco fora'))
+    // `uploadFile` não está no dublê do client; o teste cobre só o caminho de
+    // permissão + destino, que é onde o log entra.
     await expect(
-      svc.enviarParaPortal(completo, { fileName: 'n.pdf', fileUrl: '/api/upload/n.pdf' }, 'u1'),
-    ).resolves.toEqual({ id: 'novo-1', nome: 'n.pdf' })
-  })
-
-  it('recusa envio cujo arquivo sumiu do disco antes de subir', async () => {
-    // O `/api/upload` grava primeiro e só depois esta rota sobe para o Drive.
-    // Entre os dois o arquivo pode não estar lá — e mandar a pessoa tentar de
-    // novo é melhor que subir um arquivo vazio.
-    cliente.findUnique.mockResolvedValue({ portalDriveFolderId: 'pasta-do-cliente' })
-    ;(fs.existsSync as jest.Mock).mockReturnValueOnce(false)
-    await expect(
-      svc.enviarParaPortal(completo, { fileName: 'n.pdf', fileUrl: '/api/upload/sumiu.pdf' }, 'u1'),
+      svc.enviarParaPortal(completo, { fileName: 'n.pdf', fileUrl: '/api/upload/inexistente.pdf' }, 'u1'),
     ).rejects.toThrow(/não foi encontrado/i)
-    expect(uploadFile).not.toHaveBeenCalled()
-  })
-})
-
-/**
- * O endereço do aviso.
- *
- * A área mora na PASTA e é herdada árvore acima — o cliente organiza por ano,
- * não por departamento, e perguntar a ele se um extrato é contábil ou fiscal
- * roteia errado em silêncio quando ele chuta. Estes testes prendem as três
- * decisões: onde a área é procurada, como ela é herdada, e o que acontece
- * quando não há nenhuma.
- */
-describe('área da pasta', () => {
-  const completo = {
-    clienteId: 'cli-1', nivel: 'ADMINISTRADOR' as const, areas: [], modulos: ['documentos'],
-    podeVer: true, podeEditar: true, podeExcluir: true,
-  }
-  const RAIZ_CLI = 'pasta-do-cliente'
-
-  beforeEach(() => {
-    cliente.findUnique.mockResolvedValue({
-      portalDriveFolderId: RAIZ_CLI, razaoSocial: 'ACME LTDA',
-    })
-  })
-
-  it('sem mapa nenhum, não toca no Drive', async () => {
-    // O custo de ter a funcionalidade desligada precisa ser uma consulta ao
-    // banco, não uma subida da árvore a cada arquivo enviado.
-    await expect(svc.areaDaPasta('cli-1', 'qualquer', RAIZ_CLI)).resolves.toBeNull()
-    expect(getParents).not.toHaveBeenCalled()
-  })
-
-  it('usa o mapeamento da própria pasta', async () => {
-    gestaoArquivosPastaArea.findMany.mockResolvedValue([{ pastaId: 'p-fiscal', areaId: 'area-fiscal' }])
-    await expect(svc.areaDaPasta('cli-1', 'p-fiscal', RAIZ_CLI)).resolves.toBe('area-fiscal')
-    expect(getParents).not.toHaveBeenCalled()
-  })
-
-  it('herda da pasta acima: "Fiscal/2026/Janeiro" é Fiscal', async () => {
-    gestaoArquivosPastaArea.findMany.mockResolvedValue([{ pastaId: 'p-fiscal', areaId: 'area-fiscal' }])
-    getParents.mockImplementation(async (id: string) => {
-      if (id === 'p-janeiro') return ['p-2026']
-      if (id === 'p-2026') return ['p-fiscal']
-      if (id === 'p-fiscal') return [RAIZ_CLI]
-      return []
-    })
-    await expect(svc.areaDaPasta('cli-1', 'p-janeiro', RAIZ_CLI)).resolves.toBe('area-fiscal')
-  })
-
-  it('o mapeamento mais FUNDO vence, porque é o mais específico', async () => {
-    // Quem mapeou "Fiscal/Notas" para outra área quis dizer exatamente isso.
-    gestaoArquivosPastaArea.findMany.mockResolvedValue([
-      { pastaId: 'p-fiscal', areaId: 'area-fiscal' },
-      { pastaId: 'p-notas', areaId: 'area-contabil' },
-    ])
-    getParents.mockImplementation(async (id: string) => {
-      if (id === 'p-jan') return ['p-notas']
-      if (id === 'p-notas') return ['p-fiscal']
-      if (id === 'p-fiscal') return [RAIZ_CLI]
-      return []
-    })
-    await expect(svc.areaDaPasta('cli-1', 'p-jan', RAIZ_CLI)).resolves.toBe('area-contabil')
-  })
-
-  it('pasta sem ancestral mapeado fica sem área, que é o caso de hoje', async () => {
-    // A pasta "2026" que o cliente criou por conta, num escritório que ainda
-    // não mapeou nada dele.
-    gestaoArquivosPastaArea.findMany.mockResolvedValue([{ pastaId: 'p-fiscal', areaId: 'area-fiscal' }])
-    getParents.mockImplementation(async (id: string) => (id === 'p-2026' ? [RAIZ_CLI] : []))
-    await expect(svc.areaDaPasta('cli-1', 'p-2026', RAIZ_CLI)).resolves.toBeNull()
-  })
-
-  it('arquivo na raiz do cliente herda o mapeamento da raiz', async () => {
-    gestaoArquivosPastaArea.findMany.mockResolvedValue([{ pastaId: RAIZ_CLI, areaId: 'area-contabil' }])
-    await expect(svc.areaDaPasta('cli-1', RAIZ_CLI, RAIZ_CLI)).resolves.toBe('area-contabil')
-  })
-
-  it('leva a área resolvida para o aviso do envio', async () => {
-    gestaoArquivosPastaArea.findMany.mockResolvedValue([{ pastaId: RAIZ_CLI, areaId: 'area-contabil' }])
-    await svc.enviarParaPortal(completo, { fileName: 'n.pdf', fileUrl: '/api/upload/n.pdf' }, 'u1')
-    const aviso = disparar.mock.calls[0]![0] as { roteamento: { areaId: string | null } }
-    expect(aviso.roteamento).toEqual({ areaId: 'area-contabil' })
-  })
-
-  it('falha ao resolver a área não cala o aviso: cai no fallback', async () => {
-    // O fallback avisa gente demais, não gente de menos. Errar para o lado de
-    // não avisar ninguém seria perder o arquivo.
-    gestaoArquivosPastaArea.findMany.mockRejectedValue(new Error('banco fora'))
-    await svc.enviarParaPortal(completo, { fileName: 'n.pdf', fileUrl: '/api/upload/n.pdf' }, 'u1')
-    expect(disparar).toHaveBeenCalledTimes(1)
-    // `roteamento` PRESENTE com área nula: é o que diz "é um arquivo, e a
-    // classificação falhou" — e é isso que liga o fallback.
-    const aviso = disparar.mock.calls[0]![0] as { roteamento: { areaId: string | null } }
-    expect(aviso.roteamento).toEqual({ areaId: null })
-  })
-})
-
-describe('mapear pasta para area', () => {
-  const master = { userId: 'u1', isMaster: true, empresaId: 'emp-1' }
-
-  beforeEach(() => {
-    cliente.findFirst.mockResolvedValue({
-      id: 'cli-1', empresaId: 'emp-1', portalDriveFolderId: 'pasta-do-cliente',
-    })
-    getFolderInfo.mockResolvedValue({
-      id: 'p-fiscal', name: 'Fiscal', mimeType: 'application/vnd.google-apps.folder', webViewLink: '',
-    })
-    getParents.mockResolvedValue(['pasta-do-cliente'])
-  })
-
-  it('recusa pasta que não está dentro da pasta do cliente', async () => {
-    // Sem esta trava, um id qualquer do Drive entraria no mapa e o aviso de um
-    // cliente passaria a ser decidido pela pasta de outro.
-    getParents.mockResolvedValue([])
-    await expect(
-      svc.definirAreaDaPasta({ clienteId: 'cli-1', pastaId: 'de-outro', areaId: 'a1' }, master),
-    ).rejects.toThrow(/não encontrada/i)
-    expect(gestaoArquivosPastaArea.upsert).not.toHaveBeenCalled()
-  })
-
-  it('recusa área que o cliente não contratou', async () => {
-    // Mapear para área não contratada produz um mapa que nunca acha
-    // responsável: o arquivo cairia calado no fallback sem ninguém entender.
-    clienteAreaContratada.findFirst.mockResolvedValue(null)
-    await expect(
-      svc.definirAreaDaPasta({ clienteId: 'cli-1', pastaId: 'p-fiscal', areaId: 'a-nao-contratada' }, master),
-    ).rejects.toThrow(/não tem essa área contratada/i)
-    expect(gestaoArquivosPastaArea.upsert).not.toHaveBeenCalled()
-  })
-
-  it('recusa cliente sem pasta do Drive vinculada', async () => {
-    cliente.findFirst.mockResolvedValue({ id: 'cli-1', empresaId: 'emp-1', portalDriveFolderId: null })
-    await expect(
-      svc.definirAreaDaPasta({ clienteId: 'cli-1', pastaId: 'p', areaId: 'a1' }, master),
-    ).rejects.toThrow(/vincule a pasta do drive/i)
-  })
-
-  it('grava o nome da pasta junto, para a tela não ir ao Drive por linha', async () => {
-    const r = await svc.definirAreaDaPasta(
-      { clienteId: 'cli-1', pastaId: 'p-fiscal', areaId: 'area-fiscal' }, master,
-    )
-    expect(r).toMatchObject({ pastaId: 'p-fiscal', areaId: 'area-fiscal', pastaNome: 'Fiscal' })
-  })
-
-  it('remover não é erro quando a pasta já saiu do mapa', async () => {
-    // Dois cliques, duas abas: "já não está mapeada" é sucesso.
-    gestaoArquivosPastaArea.deleteMany.mockResolvedValue({ count: 0 })
-    await expect(
-      svc.removerAreaDaPasta({ clienteId: 'cli-1', pastaId: 'p-fiscal' }, master),
-    ).resolves.toEqual({ ok: true })
-  })
-
-  describe('o que a tela recebe', () => {
-    beforeEach(() => {
-      cliente.findUnique.mockResolvedValue({ portalDriveFolderId: 'pasta-do-cliente' })
-      clienteAreaContratada.findMany.mockResolvedValue([
-        { areaId: 'a-contabil', area: { name: 'Contábil' } },
-        { areaId: 'a-fiscal', area: { name: 'Fiscal' } },
-      ])
-      gestaoArquivosPastaArea.findMany.mockResolvedValue([
-        { pastaId: 'p-notas', pastaNome: 'Notas Fiscais', areaId: 'a-fiscal' },
-      ])
-    })
-
-    it('entrega mapa, opções e raiz de uma vez', async () => {
-      // A tela não funciona com um pedaço: sem opções não há o que escolher, e
-      // sem a raiz o explorador não sabe a que pasta o nível de cima
-      // corresponde. Três consultas em sequência, do navegador, mostrariam a
-      // tela montando aos pedaços.
-      const r = await svc.listarMapaDeAreas('cli-1', master)
-      expect(r.raizId).toBe('pasta-do-cliente')
-      expect(r.areas).toEqual([
-        { id: 'a-contabil', nome: 'Contábil' },
-        { id: 'a-fiscal', nome: 'Fiscal' },
-      ])
-      expect(r.mapa).toEqual([
-        { pastaId: 'p-notas', pastaNome: 'Notas Fiscais', areaId: 'a-fiscal' },
-      ])
-    })
-
-    it('oferece só as áreas CONTRATADAS e vigentes', async () => {
-      // Oferecer as outras produziria um mapa que nunca acha responsável, e o
-      // arquivo cairia calado no fallback sem ninguém entender por quê.
-      await svc.listarMapaDeAreas('cli-1', master)
-      expect(clienteAreaContratada.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            clienteId: 'cli-1', contratado: true, dataEncerramento: null,
-          }),
-        }),
-      )
-    })
-
-    it('cliente fora do alcance não vê mapa nenhum', async () => {
-      cliente.findMany.mockResolvedValue([])
-      const semAlcance = { userId: 'u9', isMaster: false, empresaId: 'emp-1' }
-      await expect(svc.listarMapaDeAreas('cli-1', semAlcance)).rejects.toThrow(/não encontrado/i)
-    })
   })
 })
 

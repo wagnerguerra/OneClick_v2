@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Server, HardDrive } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
@@ -15,82 +15,13 @@ import { tipoDoArquivo } from './explorador'
  * duplicar a tela.
  */
 
-type MapaDeAreas = NonNullable<FonteExplorador['areas']>
-
-/**
- * O mapa de pasta → área deste cliente.
- *
- * Carregado UMA vez por cliente e mantido em memória enquanto a tela vive: o
- * explorador consulta o mapa a cada pasta listada, e uma ida ao servidor por
- * consulta faria a área piscar em cada navegação.
- *
- * `'__raiz__'` é a chave da raiz da unidade, onde o explorador usa `null` e o
- * servidor usa o id da pasta do cliente no Drive. A tradução mora aqui porque
- * é o único ponto que conhece os dois lados.
- */
-function useMapaDeAreas(clienteId: string, podeConfigurar: boolean): MapaDeAreas | undefined {
-  const [dados, setDados] = useState<{
-    raizId: string | null
-    areas: Array<{ id: string; nome: string }>
-    mapa: Map<string, string>
-  } | null>(null)
-
-  const carregar = useCallback(async () => {
-    try {
-      const d = await (trpc as any).gestaoArquivos.driveMapaAreas.query({ clienteId })
-      setDados({
-        raizId: d.raizId ?? null,
-        areas: d.areas ?? [],
-        mapa: new Map<string, string>(
-          (d.mapa ?? []).map((m: { pastaId: string; areaId: string }) => [
-            m.pastaId === d.raizId ? '__raiz__' : m.pastaId,
-            m.areaId,
-          ]),
-        ),
-      })
-    } catch {
-      // Sem mapa a tela continua servindo arquivos — a coluna some, que é
-      // melhor do que a listagem inteira falhar por causa dela.
-      setDados(null)
-    }
-  }, [clienteId])
-
-  useEffect(() => { void carregar() }, [carregar])
-
-  return useMemo(() => {
-    if (!dados) return undefined
-    return {
-      opcoes: dados.areas,
-      mapa: dados.mapa,
-      editavel: podeConfigurar,
-      definir: async (pastaId, areaId) => {
-        // `null` do explorador é a raiz; o servidor a conhece pelo id do Drive.
-        const alvo = pastaId ?? dados.raizId
-        if (!alvo) return
-        if (areaId) {
-          await (trpc as any).gestaoArquivos.driveDefinirAreaDaPasta.mutate({ clienteId, pastaId: alvo, areaId })
-        } else {
-          await (trpc as any).gestaoArquivos.driveRemoverAreaDaPasta.mutate({ clienteId, pastaId: alvo })
-        }
-        await carregar()
-      },
-    }
-  }, [dados, podeConfigurar, clienteId, carregar])
-}
-
 /** Só faz sentido buscar URL do que a pré-visualização consegue exibir. */
 function previsualizavel(a: ArquivoItem): boolean {
   const t = tipoDoArquivo(a.nome, a.mimeType)
   return t === 'imagem' || t === 'pdf' || t === 'texto'
 }
 
-export function useFontesDoEscritorio(
-  clienteId: string,
-  podeExcluir: boolean,
-  podeConfigurar = false,
-): FonteExplorador[] {
-  const areas = useMapaDeAreas(clienteId, podeConfigurar)
-
+export function useFontesDoEscritorio(clienteId: string, podeExcluir: boolean): FonteExplorador[] {
   return useMemo(() => [
     {
       chave: 'local',
@@ -158,12 +89,8 @@ export function useFontesDoEscritorio(
       mover: async (itemId, destinoId) => {
         await (trpc as any).gestaoArquivos.driveMover.mutate({ clienteId, itemId, destinoId })
       },
-      // Só o Drive rotea aviso: é para onde o cliente envia. Os arquivos do
-      // sistema são publicação do escritório para o cliente, o sentido
-      // contrário, e não têm a quem avisar lá dentro.
-      areas,
     },
-  ], [clienteId, podeExcluir, areas])
+  ], [clienteId, podeExcluir])
 }
 
 export { previsualizavel }

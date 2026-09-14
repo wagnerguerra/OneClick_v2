@@ -64,24 +64,8 @@ export class GestaoArquivosNotificacaoService {
    * O responsável e o substituto saem de `ClienteAreaContratada` — as MESMAS
    * pessoas que o escopo do módulo usa para dar acesso. Coordenação e diretoria
    * saem do cargo, dentro da empresa do cliente.
-   *
-   * `roteamento` é o endereço do aviso, e a AUSÊNCIA dele é diferente de
-   * `{ areaId: null }`. Ausente significa "este evento não tem área" — é o
-   * caso de `ARQUIVO_LIDO` e `SOLICITACAO_VENCIDA`, que falam de uma pendência
-   * e não de uma pasta, e onde só a regra manda. Presente com `areaId` significa
-   * "é desta área": o contábil deixa de receber e-mail de nota fiscal e o
-   * fiscal deixa de receber de folha. Presente com `null` significa "é um
-   * arquivo, e não descobrimos de que área" — e só aí vale o fallback.
-   *
-   * A distinção não é preciosismo: fosse um `areaId` opcional solto, todo
-   * evento sem área cairia no fallback e passaria a acordar a coordenação,
-   * inclusive os dois que nada têm a ver com pasta.
    */
-  async destinatarios(
-    evento: EventoNotificavel,
-    clienteId: string,
-    roteamento?: { areaId: string | null },
-  ): Promise<string[]> {
+  async destinatarios(evento: EventoNotificavel, clienteId: string): Promise<string[]> {
     const regra = await this.regraVigente(evento, clienteId)
     if (!regra || !regra.ativo) return []
 
@@ -93,33 +77,10 @@ export class GestaoArquivosNotificacaoService {
     const empresaId = cliente.empresaId
 
     const emails = new Set<string>()
-    const areaId = roteamento?.areaId ?? null
-    /**
-     * Arquivo que o roteamento não soube classificar: o aviso ABRE em vez de
-     * fechar.
-     *
-     * Vai para todos os responsáveis E para a coordenação, mesmo que a regra
-     * não tenha pedido coordenação. É deliberado, e é o oposto de um bug: sem
-     * área não existe dono, e o trabalho do fallback é garantir que alguém com
-     * poder de encaminhar fique sabendo. Fechar aqui — mandar para ninguém, ou
-     * só para quem a regra listou — transformaria "não soubemos classificar"
-     * em "o arquivo se perdeu", que é o defeito que este módulo existe para
-     * não ter.
-     *
-     * Note o `!!roteamento`: evento que não roteia por área não é "arquivo sem
-     * área", é outro assunto, e não convoca ninguém a mais.
-     */
-    const caiuNoFallback = !!roteamento && !areaId
 
     if (regra.notificaResponsavel || regra.notificaSubstituto) {
       const areas = await prisma.clienteAreaContratada.findMany({
-        where: {
-          clienteId,
-          contratado: true,
-          dataEncerramento: null,
-          // Com área, o recorte é ela. Sem área, todas.
-          ...(areaId ? { areaId } : {}),
-        },
+        where: { clienteId, contratado: true, dataEncerramento: null },
         select: {
           responsavel: { select: { email: true, isActive: true } },
           substituto: { select: { email: true, isActive: true } },
@@ -136,7 +97,7 @@ export class GestaoArquivosNotificacaoService {
     }
 
     const cargos: string[] = []
-    if (regra.notificaCoordenador || caiuNoFallback) cargos.push(...CARGOS_COORDENACAO)
+    if (regra.notificaCoordenador) cargos.push(...CARGOS_COORDENACAO)
     if (regra.notificaDiretor) cargos.push(...CARGOS_DIRETORIA)
     if (cargos.length > 0) {
       const chefia = await prisma.user.findMany({
@@ -170,15 +131,9 @@ export class GestaoArquivosNotificacaoService {
     clienteId: string
     assunto: string
     corpo: string
-    /**
-     * Endereço do aviso. Omitir = evento sem área. `{ areaId: null }` = é um
-     * arquivo cuja área não descobrimos, e aí vale o fallback. Ver
-     * `destinatarios`, onde a diferença entre os dois está explicada.
-     */
-    roteamento?: { areaId: string | null }
   }): Promise<boolean> {
     try {
-      const para = await this.destinatarios(input.evento, input.clienteId, input.roteamento)
+      const para = await this.destinatarios(input.evento, input.clienteId)
       if (para.length === 0) return false
 
       const html = input.corpo

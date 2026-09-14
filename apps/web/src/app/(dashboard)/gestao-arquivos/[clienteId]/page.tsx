@@ -95,24 +95,7 @@ export default function GestaoArquivosClientePage() {
     })
   }, [permissions, isMaster, isEmpresaMaster])
 
-  /**
-   * Quem pode MAPEAR a área de uma pasta.
-   *
-   * A mesma sub-permissão `configurar` que o `writeSubProcedure` exige do outro
-   * lado. Não é admin de propósito: o mapa é por cliente, e quem responde por
-   * uma carteira sabe melhor que o master qual pasta é de qual área. Quem não
-   * a tem continua VENDO a coluna — saber a quem o aviso vai é informação
-   * legítima de quem opera os arquivos — mas sem poder trocá-la.
-   */
-  const podeConfigurar = useMemo(() => {
-    if (isMaster || isEmpresaMaster) return true
-    return permissions.some(p => {
-      const x = p as { moduleSlug?: string; subPermissions?: Record<string, boolean> }
-      return x.moduleSlug === MODULE && x.subPermissions?.configurar === true
-    })
-  }, [permissions, isMaster, isEmpresaMaster])
-
-  const fontes = useFontesDoEscritorio(clienteId, podeExcluir, podeConfigurar)
+  const fontes = useFontesDoEscritorio(clienteId, podeExcluir)
 
   // O cabeçalho dizia "Arquivos do cliente" e o caminho terminava na palavra
   // "Cliente", sem nunca dizer qual — com várias abas abertas, todas ficavam
