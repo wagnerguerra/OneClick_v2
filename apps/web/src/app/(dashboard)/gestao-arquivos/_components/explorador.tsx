@@ -822,12 +822,22 @@ function FilaDeEnvio({ fila, onFechar }: { fila: EnvioEmCurso[]; onFechar: () =>
 }
 
 export function Explorador({
-  fontes, cor, altura = 'h-[calc(100vh-260px)]', onExcluir, onPastaAtual, recarregar, acoes,
+  fontes, cor, altura = 'h-[calc(100vh-260px)]', onExcluir, onExcluirVarios,
+  onPastaAtual, recarregar, acoes,
 }: {
   fontes: FonteExplorador[]
   cor: string
   altura?: string
   onExcluir?: (arquivo: { id: string; fileName: string }) => void
+  /**
+   * Exclusão em lote. Ausente = sem caixas de seleção.
+   *
+   * Separada de `onExcluir` de propósito: a seleção múltipla só faz sentido
+   * onde excluir é barato de desfazer (a lixeira do Drive guarda 30 dias) e
+   * onde a pessoa mexe em volume. Quem não passar esta função tem a tela
+   * exatamente como era — é o que mantém o lado do escritório intocado.
+   */
+  onExcluirVarios?: (arquivos: Array<{ id: string; fileName: string }>) => void
   /**
    * Avisa qual pasta está aberta. Quem monta a tela precisa disso para saber
    * ONDE criar pasta ou enviar arquivo — a navegação mora aqui dentro, e sem
@@ -1133,6 +1143,35 @@ export function Explorador({
     || tipoSel === 'texto' || tipoSel === 'codigo' || tipoSel === 'planilha'
     || tipoSel === 'documento'
   const podeExcluirAqui = Boolean(onExcluir && fonteAtual?.permiteExcluir)
+  const podeSelecionar = Boolean(onExcluirVarios && fonteAtual?.permiteExcluir)
+
+  /**
+   * O que está marcado na PASTA ABERTA.
+   *
+   * Some ao trocar de pasta ou de unidade, e depois de recarregar. Manter a
+   * marca entre pastas seria guardar uma seleção invisível: a pessoa clicaria
+   * em "excluir 3" vendo só um, e levaria dois arquivos de outra pasta junto.
+   */
+  const [marcados, setMarcados] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    setMarcados(new Set())
+  }, [selecionada.fonte, selecionada.id, recarregar])
+
+  const arquivosDaPasta = conteudo?.arquivos ?? []
+  const todosMarcados = arquivosDaPasta.length > 0 && marcados.size === arquivosDaPasta.length
+
+  function alternarMarca(id: string) {
+    setMarcados(m => {
+      const novo = new Set(m)
+      if (novo.has(id)) novo.delete(id)
+      else novo.add(id)
+      return novo
+    })
+  }
+
+  function alternarTodos() {
+    setMarcados(m => (m.size === arquivosDaPasta.length ? new Set() : new Set(arquivosDaPasta.map(a => a.id))))
+  }
 
   return (
     <div
@@ -1294,6 +1333,41 @@ export function Explorador({
               </span>
             </div>
           )}
+          {/* A barra do lote entra SÓ com algo marcado.
+              Fica presa no topo da lista, e não no rodapé da tela, porque é
+              daqui que a seleção fala: com a lista rolada, um botão lá embaixo
+              agiria sobre linhas que a pessoa não está mais vendo. */}
+          {podeSelecionar && marcados.size > 0 && (
+            <div className="anim-descer sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-2">
+              <span className="text-[12px] font-medium text-foreground">
+                {marcados.size} {marcados.size === 1 ? 'arquivo marcado' : 'arquivos marcados'}
+              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[12px]"
+                  onClick={() => setMarcados(new Set())}
+                >
+                  Limpar
+                </Button>
+                <Button
+                  variant="soft-destructive"
+                  size="sm"
+                  className="h-7 gap-1.5 text-[12px]"
+                  onClick={() => onExcluirVarios!(
+                    arquivosDaPasta
+                      .filter(a => marcados.has(a.id))
+                      .map(a => ({ id: a.id, fileName: a.nome })),
+                  )}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Excluir {marcados.size === 1 ? 'arquivo' : 'selecionados'}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {carregandoConteudo && (
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -1323,6 +1397,19 @@ export function Explorador({
             >
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  {podeSelecionar && (
+                    <th className="w-[36px] px-2 py-1.5">
+                      <input
+                        type="checkbox"
+                        checked={todosMarcados}
+                        onChange={alternarTodos}
+                        disabled={arquivosDaPasta.length === 0}
+                        aria-label="Marcar todos os arquivos desta pasta"
+                        className="h-3.5 w-3.5 cursor-pointer accent-current align-middle"
+                        style={{ color: cor }}
+                      />
+                    </th>
+                  )}
                   <th className={cn('px-3 py-1.5 text-left font-semibold', areas ? 'w-[36%]' : 'w-[48%]')}>Nome</th>
                   {areas && (
                     <th className="hidden w-[18%] px-3 py-1.5 text-left font-semibold sm:table-cell">Área</th>
@@ -1352,6 +1439,10 @@ export function Explorador({
                     style={alvo === p.id ? { boxShadow: `inset 0 0 0 1px ${cor}` } : undefined}
                     onClick={() => abrirPasta(selecionada.fonte, p.id, [...trilha, p])}
                   >
+                    {/* Pasta não entra na seleção: excluir pasta arrasta junto
+                        o que há dentro, e a marca de um clique não deve poder
+                        fazer isso sem a pessoa ver o que vai levar. */}
+                    {podeSelecionar && <td className="px-2 py-1.5" />}
                     <td className="px-3 py-1.5">
                       <div className="flex min-w-0 items-center gap-2">
                         <Folder className="h-4 w-4 shrink-0" style={{ color: cor }} />
@@ -1386,6 +1477,18 @@ export function Explorador({
                     )}
                     onClick={() => selecionarArquivo(a)}
                   >
+                    {podeSelecionar && (
+                      <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={marcados.has(a.id)}
+                          onChange={() => alternarMarca(a.id)}
+                          aria-label={`Marcar ${a.nome}`}
+                          className="h-3.5 w-3.5 cursor-pointer accent-current align-middle"
+                          style={{ color: cor }}
+                        />
+                      </td>
+                    )}
                     <td className="px-3 py-1.5">
                       <div className="flex min-w-0 items-center gap-2">
                         <IconeArquivo nome={a.nome} mime={a.mimeType} className="h-4 w-4 shrink-0" />

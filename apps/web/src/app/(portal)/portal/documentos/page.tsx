@@ -111,7 +111,9 @@ export default function PortalDocumentosPage() {
   const [criandoPasta, setCriandoPasta] = useState(false)
   const [nomeNovaPasta, setNomeNovaPasta] = useState('')
   /** Arquivo aguardando confirmação de exclusão. */
-  const [aExcluir, setAExcluir] = useState<{ id: string; fileName: string } | null>(null)
+  // Lista, e não um só: o mesmo estado atende a exclusão de um arquivo e a de
+  // uma leva. Dois estados paralelos dariam duas confirmações para manter em pé.
+  const [aExcluir, setAExcluir] = useState<Array<{ id: string; fileName: string }> | null>(null)
   const [excluindo, setExcluindo] = useState(false)
   const [naLixeira, setNaLixeira] = useState(false)
   /** Onde criar pasta e enviar arquivo — vem do explorador. */
@@ -156,22 +158,59 @@ export default function PortalDocumentosPage() {
     }
   }
 
+  /**
+   * Exclui o que estiver marcado — um arquivo ou uma leva.
+   *
+   * Um por vez, e não numa rota de lote: cada chamada refaz a conferência de
+   * permissão e de contenção (o arquivo é mesmo deste cliente?) que a rota já
+   * faz hoje. Uma rota nova que recebesse uma lista teria de repetir essas
+   * travas, e é repetindo trava que se esquece uma.
+   *
+   * O laço NÃO para no primeiro erro. Se o quinto de dez falhar, os outros nove
+   * foram para a lixeira e a pessoa precisa saber disso — abortar deixaria um
+   * estado que ela não consegue deduzir da tela.
+   */
   async function confirmarExclusao() {
-    if (!aExcluir) return
+    if (!aExcluir || aExcluir.length === 0) return
     setExcluindo(true)
-    try {
-      await (trpc.portal as any).arquivos.driveExcluir.mutate({ clienteId, itemId: aExcluir.id })
+
+    const ok: string[] = []
+    const falhou: string[] = []
+    for (const alvo of aExcluir) {
+      try {
+        await (trpc.portal as any).arquivos.driveExcluir.mutate({ clienteId, itemId: alvo.id })
+        ok.push(alvo.fileName)
+      } catch {
+        falhou.push(alvo.fileName)
+      }
+    }
+
+    if (falhou.length === 0) {
       setAviso({
         tipo: 'sucesso',
-        texto: `"${aExcluir.fileName}" foi para a lixeira. Dá para restaurar por 30 dias.`,
+        texto: ok.length === 1
+          ? `"${ok[0]}" foi para a lixeira. Dá para restaurar por 30 dias.`
+          : `${ok.length} arquivos foram para a lixeira. Dá para restaurar por 30 dias.`,
       })
-      setAExcluir(null)
-      setVersao(v => v + 1)
-    } catch (e) {
-      setAviso({ tipo: 'erro', texto: (e as Error).message })
-    } finally {
-      setExcluindo(false)
+    } else if (ok.length === 0) {
+      setAviso({
+        tipo: 'erro',
+        texto: falhou.length === 1
+          ? `Não foi possível excluir "${falhou[0]}".`
+          : `Não foi possível excluir ${falhou.length} arquivos.`,
+      })
+    } else {
+      // Parcial: dizer os dois números é o que permite a pessoa tentar de novo
+      // só o que faltou, em vez de reexcluir tudo.
+      setAviso({
+        tipo: 'erro',
+        texto: `${ok.length} ${ok.length === 1 ? 'arquivo foi' : 'arquivos foram'} para a lixeira, mas ${falhou.length} não: ${falhou.join(', ')}.`,
+      })
     }
+
+    setAExcluir(null)
+    setVersao(v => v + 1)
+    setExcluindo(false)
   }
 
   function escolherArquivo(solicitacao?: Solicitacao) {
@@ -380,9 +419,14 @@ export default function PortalDocumentosPage() {
         <div className="anim-descer flex flex-wrap items-center gap-3 rounded-xl border border-[#f0c9b4] bg-[#fdf0e6] p-3 dark:border-[#4a2c17] dark:bg-[#2a1a10]">
           <AlertCircle className="h-4 w-4 shrink-0 text-[#d97b34]" />
           <p className="min-w-0 flex-1 text-[13px] text-slate-900 dark:text-slate-100">
-            Excluir <span className="font-semibold">{aExcluir.fileName}</span>?
+            {aExcluir.length === 1 ? (
+              <>Excluir <span className="font-semibold">{aExcluir[0]!.fileName}</span>?</>
+            ) : (
+              <>Excluir <span className="font-semibold">{aExcluir.length} arquivos</span>?</>
+            )}
             <span className="text-slate-600 dark:text-slate-400">
-              {' '}Vai para a lixeira do Google Drive e volta por 30 dias.
+              {' '}{aExcluir.length === 1 ? 'Vai' : 'Vão'} para a lixeira do Google Drive
+              e {aExcluir.length === 1 ? 'volta' : 'voltam'} por 30 dias.
             </span>
           </p>
           <button
@@ -424,7 +468,10 @@ export default function PortalDocumentosPage() {
           altura="h-[calc(100vh-290px)]"
           onPastaAtual={aoMudarPasta}
           recarregar={versao}
-          onExcluir={a => { setAviso(null); setAExcluir(a) }}
+          onExcluir={a => { setAviso(null); setAExcluir([a]) }}
+          // Só chega aqui quem tem `podeExcluir`: sem a função, o explorador
+          // nem desenha as caixas de seleção.
+          onExcluirVarios={arquivos => { setAviso(null); setAExcluir(arquivos) }}
         />
       )}
     </div>
