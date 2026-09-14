@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useForm, Controller, type Control } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createEmpresaSchema, type CreateEmpresaInput } from '@saas/types'
-import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, Building2, Plug, Users } from 'lucide-react'
+import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, Building2, Plug, Users, MonitorSmartphone } from 'lucide-react'
 import {
   Button,
   Input,
@@ -34,6 +34,7 @@ const EMPRESA_TABS = [
   { key: 'contato',      label: 'Contato',      icon: Phone },
   { key: 'logo',         label: 'Logomarca',    icon: Upload },
   { key: 'integracoes',  label: 'Integrações',  icon: Plug },
+  { key: 'portal',       label: 'Portal do Cliente', icon: MonitorSmartphone },
   { key: 'usuarios',     label: 'Usuários',     icon: Users },
 ] as const
 
@@ -335,24 +336,35 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
     <TooltipProvider>
       <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5">
         {/* Topo — PADRAO_PAGINAS §1.1 */}
-        <PageHeaderBar actions={<>
-            <Button variant="success" size="sm" type="submit" disabled={saving}>
+        {/* `mb-0`: o form usa `space-y-5`, e a margem própria da barra somaria
+            à dele. Mesmo ajuste do oráculo (`cliente-form`) e das outras 27
+            telas já padronizadas. */}
+        <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
+            {/* Sem `variant`: o primário é o azul do tema, como no
+                `cliente-form`. O verde ficava competindo com as pills. */}
+            <Button size="sm" type="submit" disabled={saving} className="gap-1.5">
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>
             <BackButton href="/empresas" />
         </>}>
           <h1 className="truncate">{title}</h1>
+          {/* A trilha termina no REGISTRO, e os níveis acima são links — era
+              onde o nome da empresa deveria estar. Antes ele vinha numa
+              terceira linha solta abaixo, que é o que deixava o topo frouxo. */}
           <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
             <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
             <span className="text-muted-foreground/50">›</span>
             <span>Cadastros</span>
             <span className="text-muted-foreground/50">›</span>
-            <span>Empresas</span>
+            <Link href="/empresas" className="transition-colors hover:text-foreground">Empresas</Link>
+            {description && (
+              <>
+                <span className="text-muted-foreground/50">›</span>
+                <span className="truncate">{description}</span>
+              </>
+            )}
           </p>
-          {description && (
-            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">{description}</div>
-          )}
         </PageHeaderBar>
 
         {error && (
@@ -713,6 +725,9 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
               </div>
             )}
 
+            {/* PORTAL DO CLIENTE */}
+            {activeTab === 'portal' && <ModulosDoPortal empresaId={empresaId} mode={mode} />}
+
             {/* USUÁRIOS */}
             {activeTab === 'usuarios' && <UsuariosDaEmpresa empresaId={empresaId} mode={mode} />}
             </div>
@@ -721,6 +736,106 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
 
       </form>
     </TooltipProvider>
+  )
+}
+
+/**
+ * O que os clientes desta empresa enxergam no portal.
+ *
+ * SÓ LEITURA aqui. Quem liga e desliga é o master, no cadastro de tenants:
+ * liberar módulo do portal é decisão comercial, e não do escritório sobre si
+ * mesmo. Mas o escritório precisa VER — sem isto, o administrador não tem como
+ * saber por que uma aba não aparece no portal dos clientes dele, e a pergunta
+ * vira chamado.
+ *
+ * "Padrão" contra "definido para esta empresa" é a distinção que importa na
+ * hora de pedir mudança: um módulo que segue o padrão do catálogo pode mudar
+ * para todo mundo numa versão; um que tem decisão própria foi escolhido para
+ * este escritório e fica onde está.
+ */
+function ModulosDoPortal({ empresaId, mode }: { empresaId?: string; mode: 'create' | 'edit' }) {
+  const [modulos, setModulos] = useState<Array<{
+    slug: string
+    rotulo: string
+    descricao: string
+    implementado: boolean
+    liberado: boolean
+    personalizado: boolean
+  }> | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (mode !== 'edit' || !empresaId) return
+    ;(trpc as any).empresa.portalModulos.query({ empresaId })
+      .then(setModulos)
+      .catch((e: Error) => setErro(e.message))
+  }, [empresaId, mode])
+
+  if (mode !== 'edit') {
+    return (
+      <p className="text-[13px] text-muted-foreground">
+        Os módulos do Portal do Cliente aparecem aqui depois que a empresa for criada.
+      </p>
+    )
+  }
+
+  if (erro) return <p className="text-[13px] text-destructive">{erro}</p>
+  if (!modulos) {
+    return (
+      <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h6 className="text-[13px] font-semibold text-foreground">Módulos do Portal do Cliente</h6>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          O que os usuários dos seus clientes veem ao entrar no portal. A liberação é feita
+          pelo suporte OneClick — fale com a gente para mudar.
+        </p>
+      </div>
+
+      <div className="divide-y divide-border rounded-lg border border-border">
+        {modulos.map(m => (
+          <div key={m.slug} className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+                {m.rotulo}
+                {/* Módulo ainda não construído não é o mesmo que bloqueado, e
+                    confundir os dois faria o escritório pedir liberação de algo
+                    que não existe. */}
+                {!m.implementado && (
+                  <span className="rounded-full border border-border px-1.5 py-px text-[10px] font-normal text-muted-foreground">
+                    em construção
+                  </span>
+                )}
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">{m.descricao}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {m.personalizado && (
+                <span className="text-[10px] text-muted-foreground" title="Decisão específica para esta empresa">
+                  definido para esta empresa
+                </span>
+              )}
+              <span
+                className={cn(
+                  'rounded-full px-2 py-0.5 text-[11px] font-medium',
+                  m.liberado
+                    ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400'
+                    : 'bg-muted text-muted-foreground',
+                )}
+              >
+                {m.liberado ? 'Liberado' : 'Bloqueado'}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 

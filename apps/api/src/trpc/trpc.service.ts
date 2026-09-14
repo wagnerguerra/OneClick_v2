@@ -978,7 +978,7 @@ export class TrpcService {
       }),
       area: createAreaRouter(this.areaService),
       ferramentas: createFerramentasRouter(this.ferramentasService, this.htmlPdfService, this.juntarPdfService, this.assinaturaPdfService, this.dividirPdfService),
-      empresa: createEmpresaRouter(this.empresaService),
+      empresa: createEmpresaRouter(this.empresaService, this.portalModulosService),
       user: createUserRouter(this.userService),
       cargo: createCargoRouter(this.cargoService),
       ativo: createAtivoRouter(this.ativoService),
