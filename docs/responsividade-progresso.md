@@ -77,6 +77,27 @@ Cada módulo passa pelos mesmos seis pontos.
 > `orcamentos/[id]/old` ficou de fora de propósito: é a cópia congelada da tela
 > antiga, mantida só para consulta.
 
+### 5. Portal do Cliente — `concluída` · 14/09/2026
+
+Fora da ordem original porque o módulo nasceu depois dela, e nasceu inteiro em
+celular: o cliente abre o portal do telefone com muito mais frequência do que o
+escritório abre o sistema.
+
+| Item | Status |
+|---|---|
+| [x] Cabeçalho e ações da página | `PortalPageHeader` tinha `shrink-0` puro no grupo de ações — a regra 7.1 em cheio. Agora `flex-wrap` + `sm:shrink-0` |
+| [x] Menu | havia nav de celular, mas ele **não filtrava os módulos liberados**: o telefone mostrava o que o desktop escondia, e a rota respondia 404 a quem clicasse |
+| [x] Início | grades já eram `sm:`/`lg:`; espaçamento entre seções caiu para `gap-10` no celular (56px viravam rolagem desperdiçada) |
+| [x] Documentos (explorador) | a árvore de 240px fixos comia 240 dos ~350px úteis em 390px e deixava 110 para a lista. Agora só a partir de `md` |
+| [x] Documentos — navegação sem a árvore | a trilha era **texto puro**: dava para descer e não subir. Virou breadcrumb clicável, que é o que torna possível esconder a árvore |
+| [x] Documentos — fila de envio | 320px fixos encostavam nas duas bordas em 390px; agora acompanha a largura disponível e volta a 320px a partir de `sm` |
+| [x] Obrigações | linha já tinha `min-w-0 flex-1` e contadores já quebravam; o seletor de competência ganhou `max-w-full` |
+| [—] Pré-visualização de arquivo | já era `hidden … lg:flex` desde que nasceu — painel de leitura lado a lado não cabe em tela estreita por definição |
+
+> A trilha não navegável não é bug de responsividade: era assim no desktop
+> também, onde a árvore lateral disfarçava. Apareceu porque esconder a árvore
+> no celular tirou o disfarce.
+
 ## Demais módulos — varredura na ordem do menu
 
 Base aplicada a todo o sistema nesta fase:

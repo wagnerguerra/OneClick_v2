@@ -353,9 +353,16 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           </div>
         </div>
 
-        {/* Navegação em telas estreitas: a barra vira uma linha rolável. */}
+        {/* Navegação em telas estreitas: a barra vira uma linha rolável.
+
+            O MESMO filtro do menu de cima. Sem ele o celular mostrava itens de
+            módulos que o escritório desligou — o desktop escondia, o telefone
+            não, e a rota respondia 404 para quem clicasse. Duas listas com a
+            mesma origem precisam do mesmo recorte, e é por isso que ele está
+            escrito duas vezes em vez de a lista ser filtrada numa variável só:
+            aqui a repetição é visível, e some junto se alguém remover o nav. */}
         <nav className="flex items-center gap-1 overflow-x-auto border-t border-[#eef2f7] px-4 py-1.5 md:hidden dark:border-[#1b2739]">
-          {NAV.map(item => (
+          {NAV.filter(item => !('modulo' in item) || modulosLiberados.has(item.modulo)).map(item => (
             <Link
               key={item.href}
               href={item.href}

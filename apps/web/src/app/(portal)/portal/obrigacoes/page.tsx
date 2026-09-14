@@ -182,7 +182,7 @@ export default function PortalObrigacoesPage() {
           <select
             value={competencia ?? ''}
             onChange={e => setCompetencia(e.target.value)}
-            className="h-9 rounded-lg border border-[#dbe7fb] bg-white px-3 text-[13px] font-semibold capitalize text-slate-700 outline-none focus:border-[#1a6dff] dark:border-[#1b2739] dark:bg-[#0e1726] dark:text-slate-300"
+            className="h-9 max-w-full rounded-lg border border-[#dbe7fb] bg-white px-3 text-[13px] font-semibold capitalize text-slate-700 outline-none focus:border-[#1a6dff] dark:border-[#1b2739] dark:bg-[#0e1726] dark:text-slate-300"
           >
             {competencias.map(c => (
               <option key={c} value={c}>{rotuloCompetencia(c)}</option>

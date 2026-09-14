@@ -134,8 +134,10 @@ export default function PortalInicioPage() {
   const liberados = new Set(vinculo?.modulos ?? [])
   const visiveis = RECURSOS.filter(r => !r.modulo || liberados.has(r.modulo))
 
+  // `gap-10` no celular: 56px entre seções é respiro no desktop e rolagem
+  // desperdiçada numa tela de 390px.
   return (
-    <div className="flex flex-col gap-14 pb-4">
+    <div className="flex flex-col gap-10 pb-4 sm:gap-14">
       {/* ── Abertura ───────────────────────────────────────────────────
           O modelo abre com selo, título de duas linhas (a segunda em cor) e
           dois botões. Aqui a segunda linha é a frase que diz o que o portal

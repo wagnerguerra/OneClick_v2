@@ -50,7 +50,11 @@ export function PortalPageHeader({
           </p>
         )}
       </div>
-      {acoes && <div className="flex shrink-0 items-center gap-2">{acoes}</div>}
+      {/* `sm:shrink-0`, nunca `shrink-0` puro: no celular o grupo precisa
+          quebrar para a linha de baixo. Encolher-se a zero empurra a barra
+          inteira para fora da tela — é a regra 7.1 do PADRAO_RESPONSIVIDADE,
+          escrita depois de isso acontecer em 113 telas de uma vez. */}
+      {acoes && <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{acoes}</div>}
     </div>
   )
 }

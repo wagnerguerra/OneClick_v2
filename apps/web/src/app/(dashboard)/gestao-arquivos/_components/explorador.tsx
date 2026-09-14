@@ -295,8 +295,10 @@ function FilaDeEnvio({ fila, onFechar }: { fila: EnvioEmCurso[]; onFechar: () =>
   const comErro = fila.filter(f => f.situacao === 'erro').length
   const terminou = concluidos + comErro === fila.length
 
+  // `left-3` no celular faz a fila ocupar a largura disponível em vez de
+  // 320px fixos, que em 390px encostavam nas duas bordas.
   return (
-    <div className="anim-subir absolute bottom-3 right-3 z-30 w-[320px] overflow-hidden rounded-lg border border-border bg-card shadow-lg">
+    <div className="anim-subir absolute bottom-3 left-3 right-3 z-30 overflow-hidden rounded-lg border border-border bg-card shadow-lg sm:left-auto sm:w-[320px]">
       <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
         <UploadCloud className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-foreground">
@@ -635,7 +637,13 @@ export function Explorador({
     >
       <FilaDeEnvio fila={fila} onFechar={() => setFila([])} />
       {/* ── Árvore ─────────────────────────────────────────────── */}
-      <div className="w-[240px] shrink-0 overflow-y-auto nice-scrollbar border-r border-border bg-muted/20 p-2">
+      {/* A árvore só a partir de `md`.
+
+          Em 390px ela tomava 240 dos ~350px úteis e sobravam 110 para a lista
+          — o painel principal virava uma tira. No celular a navegação fica
+          toda na lista: entrar é clicar na pasta, e voltar é a trilha acima,
+          que passou a ser clicável justamente por causa disto. */}
+      <div className="hidden w-[240px] shrink-0 overflow-y-auto nice-scrollbar border-r border-border bg-muted/20 p-2 md:block">
         {fontes.map(f => (
           <LinhaArvore
             key={f.chave}
@@ -663,12 +671,31 @@ export function Explorador({
 
       {/* ── Conteúdo da pasta ──────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center gap-1.5 border-b border-border px-3 py-2 text-xs">
-          <span className="shrink-0 text-muted-foreground">{fonteAtual?.nome}</span>
-          {trilha.map(p => (
+        {/* A trilha NAVEGA.
+
+            Era texto puro: dava para descer na árvore e não havia como subir
+            sem a árvore lateral. No desktop passava despercebido; no celular,
+            com a árvore escondida, a pessoa entrava numa pasta e ficava presa.
+            Cada pedaço volta para o seu nível, e o nome da unidade volta para
+            a raiz. */}
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-2 text-xs">
+          <button
+            type="button"
+            onClick={() => abrirPasta(selecionada.fonte, null, [])}
+            className="shrink-0 rounded px-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            {fonteAtual?.nome}
+          </button>
+          {trilha.map((p, i) => (
             <span key={p.id ?? 'r'} className="flex min-w-0 items-center gap-1.5">
               <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground/50" />
-              <span className="truncate text-foreground">{p.nome}</span>
+              <button
+                type="button"
+                onClick={() => abrirPasta(selecionada.fonte, p.id, trilha.slice(0, i + 1))}
+                className="min-w-0 truncate rounded px-1 text-foreground transition-colors hover:bg-muted"
+              >
+                {p.nome}
+              </button>
             </span>
           ))}
           {item && (
