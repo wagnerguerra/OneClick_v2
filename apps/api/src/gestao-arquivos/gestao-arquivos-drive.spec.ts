@@ -27,6 +27,15 @@ const moveFile = jest.fn()
 const listTrashedInFolder = jest.fn()
 const untrashFile = jest.fn()
 const deleteFilePermanently = jest.fn()
+const uploadFile = jest.fn()
+
+// Só `existsSync` e `unlink` do envio; o resto do fs continua real para não
+// afetar quem mais o use na cadeia de imports.
+jest.mock('node:fs', () => ({
+  ...jest.requireActual('node:fs'),
+  existsSync: jest.fn(() => true),
+  unlink: jest.fn((_p: string, cb: () => void) => cb()),
+}))
 
 jest.mock('../drive-sync/drive.client', () => ({
   DriveClient: class {
@@ -46,12 +55,17 @@ jest.mock('../drive-sync/drive.client', () => ({
     listTrashedInFolder = listTrashedInFolder
     untrashFile = untrashFile
     deleteFilePermanently = deleteFilePermanently
+    uploadFile = uploadFile
   },
 }))
 
+import * as fs from 'node:fs'
 import { GestaoArquivosDriveService } from './gestao-arquivos-drive.service'
+import type { GestaoArquivosNotificacaoService } from './gestao-arquivos-notificacao.service'
 
-const svc = new GestaoArquivosDriveService()
+const disparar = jest.fn()
+const notificacao = { disparar } as unknown as GestaoArquivosNotificacaoService
+const svc = new GestaoArquivosDriveService(notificacao)
 
 const master = { userId: 'u1', isMaster: true, empresaId: 'emp-1' }
 const RAIZ = '1eMv40oNPw6XwohFpKpY4UpFOrUEqR2_n'
@@ -81,6 +95,8 @@ beforeEach(() => {
   arquivoLog.findMany.mockResolvedValue([])
   arquivoLog.create.mockResolvedValue({ id: 'log-1' })
   user.findUnique.mockResolvedValue({ name: 'Cliente Teste' })
+  uploadFile.mockResolvedValue({ id: 'novo-1', name: 'n.pdf', size: 125000 })
+  disparar.mockResolvedValue(true)
 })
 
 describe('salvarConfig', () => {
@@ -455,15 +471,85 @@ describe('autoria do envio', () => {
     expect(r.itens[0]!.enviadoPor).toBe('Quem enviou')
   })
 
+  /**
+   * O aviso que o módulo prometia e não entregava.
+   *
+   * O disparo de `ARQUIVO_ENVIADO` ficou para trás no caminho antigo quando o
+   * envio do cliente migrou para o Drive: o arquivo chegava, a auditoria era
+   * gravada, e ninguém no escritório ficava sabendo. Estes testes existem para
+   * que a ligação não se perca de novo numa próxima migração de caminho.
+   */
+  describe('aviso ao escritório', () => {
+    const entrada = { fileName: 'n.pdf', fileUrl: '/api/upload/n.pdf' }
+
+    beforeEach(() => {
+      cliente.findUnique.mockResolvedValue({
+        portalDriveFolderId: 'pasta-do-cliente', razaoSocial: 'ACME LTDA',
+      })
+    })
+
+    it('dispara ARQUIVO_ENVIADO com o cliente no assunto e a autoria no corpo', async () => {
+      await svc.enviarParaPortal(completo, entrada, 'u1')
+
+      expect(disparar).toHaveBeenCalledTimes(1)
+      const aviso = disparar.mock.calls[0]![0] as { evento: string; clienteId: string; assunto: string; corpo: string }
+      expect(aviso.evento).toBe('ARQUIVO_ENVIADO')
+      expect(aviso.clienteId).toBe('cli-1')
+      // Quem responde por cem clientes precisa do NOME do cliente antes do
+      // nome do arquivo — por isso a razão social vem no assunto.
+      expect(aviso.assunto).toBe('Novo arquivo de ACME LTDA — n.pdf')
+      expect(aviso.corpo).toContain('Enviado por Cliente Teste')
+      expect(aviso.corpo).toContain('122 KB')
+    })
+
+    it('avisa mesmo sem conseguir o nome do cliente', async () => {
+      cliente.findUnique.mockResolvedValue({ portalDriveFolderId: 'pasta-do-cliente' })
+      await svc.enviarParaPortal(completo, entrada, 'u1')
+      expect((disparar.mock.calls[0]![0] as { assunto: string }).assunto).toContain('Novo arquivo de cliente')
+    })
+
+    it('omite a autoria em vez de calar o aviso quando o log falha', async () => {
+      arquivoLog.create.mockRejectedValue(new Error('banco fora'))
+      await svc.enviarParaPortal(completo, entrada, 'u1')
+      expect(disparar).toHaveBeenCalledTimes(1)
+      expect((disparar.mock.calls[0]![0] as { corpo: string }).corpo).not.toContain('Enviado por')
+    })
+
+    it('falha do aviso NÃO derruba o envio — o arquivo já está no Drive', async () => {
+      // Sem a blindagem, o erro cairia no catch do upload e a tela diria "não
+      // foi possível enviar" para um arquivo que subiu: a pessoa reenviaria.
+      disparar.mockRejectedValue(new Error('SMTP fora'))
+      await expect(svc.enviarParaPortal(completo, entrada, 'u1'))
+        .resolves.toEqual({ id: 'novo-1', nome: 'n.pdf' })
+    })
+
+    it('não avisa quando o envio falha no Drive', async () => {
+      uploadFile.mockRejectedValue(new Error('403'))
+      await expect(svc.enviarParaPortal(completo, entrada, 'u1')).rejects.toThrow(/não foi possível enviar/i)
+      expect(disparar).not.toHaveBeenCalled()
+    })
+  })
+
   it('falha ao gravar o log não derruba o envio', async () => {
-    // O arquivo já está no Drive quando o log roda.
+    // O arquivo já está no Drive quando o log roda: devolver erro aqui faria a
+    // pessoa reenviar um arquivo que subiu.
     cliente.findUnique.mockResolvedValue({ portalDriveFolderId: 'pasta-do-cliente' })
     arquivoLog.create.mockRejectedValue(new Error('banco fora'))
-    // `uploadFile` não está no dublê do client; o teste cobre só o caminho de
-    // permissão + destino, que é onde o log entra.
     await expect(
-      svc.enviarParaPortal(completo, { fileName: 'n.pdf', fileUrl: '/api/upload/inexistente.pdf' }, 'u1'),
+      svc.enviarParaPortal(completo, { fileName: 'n.pdf', fileUrl: '/api/upload/n.pdf' }, 'u1'),
+    ).resolves.toEqual({ id: 'novo-1', nome: 'n.pdf' })
+  })
+
+  it('recusa envio cujo arquivo sumiu do disco antes de subir', async () => {
+    // O `/api/upload` grava primeiro e só depois esta rota sobe para o Drive.
+    // Entre os dois o arquivo pode não estar lá — e mandar a pessoa tentar de
+    // novo é melhor que subir um arquivo vazio.
+    cliente.findUnique.mockResolvedValue({ portalDriveFolderId: 'pasta-do-cliente' })
+    ;(fs.existsSync as jest.Mock).mockReturnValueOnce(false)
+    await expect(
+      svc.enviarParaPortal(completo, { fileName: 'n.pdf', fileUrl: '/api/upload/sumiu.pdf' }, 'u1'),
     ).rejects.toThrow(/não foi encontrado/i)
+    expect(uploadFile).not.toHaveBeenCalled()
   })
 })
 

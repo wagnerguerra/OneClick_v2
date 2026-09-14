@@ -12,6 +12,7 @@ import {
   clienteDaEmpresa,
   type ContextoInterno,
 } from './gestao-arquivos-escopo'
+import { GestaoArquivosNotificacaoService } from './gestao-arquivos-notificacao.service'
 
 /**
  * Google Drive dentro da Gestão de Arquivos.
@@ -54,6 +55,8 @@ export interface ItemDrive {
 @Injectable()
 export class GestaoArquivosDriveService {
   private readonly logger = new Logger(GestaoArquivosDriveService.name)
+
+  constructor(private readonly notificacao: GestaoArquivosNotificacaoService) {}
 
   /** Config da empresa, ou null se o master ainda não apontou a pasta raiz. */
   async obterConfig(empresaId: string) {
@@ -518,7 +521,7 @@ export class GestaoArquivosDriveService {
       // disco e a tentativa seguinte não exige reenviar.
       fs.unlink(caminho, () => undefined)
 
-      await this.registrarEnvio({
+      const enviadoPor = await this.registrarEnvio({
         clienteId: vinculo.clienteId,
         arquivoId: enviado.id,
         arquivoNome: enviado.name,
@@ -528,11 +531,70 @@ export class GestaoArquivosDriveService {
         tamanho: enviado.size,
       })
 
+      // O `.catch` não é decoração: esta chamada está DENTRO do try cujo catch
+      // responde "Não foi possível enviar o arquivo ao Drive". Neste ponto o
+      // arquivo já está lá. Deixar uma falha de aviso escorrer para aquele
+      // catch faria a tela mentir e a pessoa reenviar, duplicando o arquivo.
+      await this.avisarEnvioDoCliente({
+        clienteId: vinculo.clienteId,
+        arquivoNome: enviado.name,
+        tamanho: enviado.size,
+        enviadoPor,
+      }).catch(() => undefined)
+
       return { id: enviado.id, nome: enviado.name }
     } catch (e) {
       this.logger.warn(`Falha ao subir arquivo para o Drive: ${String(e)}`)
       throw new TRPCError({ code: 'BAD_GATEWAY', message: 'Não foi possível enviar o arquivo ao Drive.' })
     }
+  }
+
+  /**
+   * Avisa o escritório de que o cliente mandou um arquivo.
+   *
+   * Este aviso EXISTIA e não saía. O disparo de `ARQUIVO_ENVIADO` ficou no
+   * caminho antigo (`portal-arquivos.service`, o que gravava `ClienteArquivo`)
+   * quando o envio do cliente migrou para o Drive; o caminho novo só gravava a
+   * auditoria. O efeito era o módulo prometer notificação e nunca notificar —
+   * o arquivo só era descoberto quando alguém abria o portal por conta própria.
+   *
+   * Por ora vai para os destinatários da regra vigente, que hoje são os
+   * responsáveis de TODAS as áreas contratadas do cliente. Rotear pela área do
+   * arquivo é a fase seguinte; até lá, avisar gente demais é preferível a não
+   * avisar ninguém — e é exatamente o que a regra de fallback já decidida
+   * (coordenadores + todos os responsáveis) vai continuar fazendo para arquivo
+   * sem área identificada.
+   *
+   * Quem chama blinda com `.catch`: o arquivo neste ponto já está no Drive, e
+   * transformar um envio bem-sucedido em erro de tela por causa de SMTP seria
+   * trocar um problema pequeno por um grande — a pessoa reenviaria.
+   */
+  private async avisarEnvioDoCliente(e: {
+    clienteId: string
+    arquivoNome: string
+    tamanho?: number | null
+    enviadoPor: string | null
+  }) {
+    // Quem responde por cem clientes precisa saber de QUAL deles, antes de
+    // saber o nome do arquivo. Por isso a razão social entra no assunto.
+    const cliente = await prisma.cliente.findUnique({
+      where: { id: e.clienteId },
+      select: { razaoSocial: true },
+    }).catch(() => null)
+
+    const quem = e.enviadoPor ? `Enviado por ${e.enviadoPor}.` : ''
+    const tamanho = e.tamanho ? ` (${Math.max(1, Math.round(e.tamanho / 1024))} KB)` : ''
+
+    await this.notificacao.disparar({
+      evento: 'ARQUIVO_ENVIADO',
+      clienteId: e.clienteId,
+      assunto: `Novo arquivo de ${cliente?.razaoSocial ?? 'cliente'} — ${e.arquivoNome}`,
+      corpo: [
+        `O cliente enviou "${e.arquivoNome}"${tamanho} pelo portal.`,
+        quem,
+        'O arquivo está na pasta do cliente, em Gestão de Arquivos.',
+      ].filter(Boolean).join('\n'),
+    })
   }
 
   /**
@@ -750,7 +812,14 @@ export class GestaoArquivosDriveService {
     return mapa
   }
 
-  /** Registra o envio. Sem isto, "quem mandou este arquivo?" não tem resposta. */
+  /**
+   * Registra o envio. Sem isto, "quem mandou este arquivo?" não tem resposta.
+   *
+   * Devolve o nome de quem enviou porque já o consultou — o aviso por e-mail
+   * quer o mesmo dado, e uma segunda consulta diria a mesma coisa. `null` tanto
+   * para usuário sem nome quanto para falha do registro: em ambos o aviso sai
+   * sem a autoria, que é melhor do que não sair.
+   */
   private async registrarEnvio(e: {
     clienteId: string
     arquivoId: string
@@ -759,7 +828,7 @@ export class GestaoArquivosDriveService {
     userId: string
     lado: 'CLIENTE' | 'ESCRITORIO'
     tamanho?: number | null
-  }) {
+  }): Promise<string | null> {
     try {
       const usuario = await prisma.user.findUnique({
         where: { id: e.userId },
@@ -778,10 +847,12 @@ export class GestaoArquivosDriveService {
           detalhe: e.tamanho ? `${e.tamanho} bytes` : null,
         },
       })
+      return usuario?.name ?? null
     } catch {
       // O arquivo já está no Drive quando isto roda. Perder a linha de
       // auditoria é ruim; devolver erro para quem acabou de enviar com sucesso
       // é pior.
+      return null
     }
   }
 
