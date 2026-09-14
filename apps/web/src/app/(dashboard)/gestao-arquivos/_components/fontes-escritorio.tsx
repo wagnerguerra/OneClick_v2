@@ -4,8 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { HardDrive } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
-import type { FonteExplorador, Conteudo, ArquivoItem } from './explorador'
-import { tipoDoArquivo } from './explorador'
+import type { FonteExplorador, Conteudo } from './explorador'
 
 /**
  * A "unidade" do explorador no lado do ESCRITÓRIO: a pasta do cliente no Drive.
@@ -88,13 +87,6 @@ function useMapaDeAreas(clienteId: string, podeConfigurar: boolean): MapaDeAreas
   }, [dados, podeConfigurar, clienteId, carregar])
 }
 
-/** Só faz sentido buscar URL do que a pré-visualização consegue exibir. */
-function previsualizavel(a: ArquivoItem): boolean {
-  const t = tipoDoArquivo(a.nome, a.mimeType)
-  // `codigo` (xml, json) e texto para efeito de previa — ver explorador.
-  return t === 'imagem' || t === 'pdf' || t === 'texto' || t === 'codigo'
-}
-
 export function useFontesDoEscritorio(
   clienteId: string,
   podeConfigurar = false,
@@ -144,5 +136,3 @@ export function useFontesDoEscritorio(
     },
   ], [clienteId, areas])
 }
-
-export { previsualizavel }

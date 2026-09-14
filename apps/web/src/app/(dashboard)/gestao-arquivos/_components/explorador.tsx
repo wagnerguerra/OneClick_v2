@@ -336,6 +336,245 @@ function IconeArquivo({ nome, mime, className, cor }: {
   return <Icone className={cn(className, cor ?? corDoTipo)} />
 }
 
+/** Teto do que se busca para a prévia. Acima disto, o botão de abrir resolve. */
+const MAX_BYTES_PLANILHA = 8 * 1024 * 1024
+/** Quanto se desenha. O painel tem ~320px; o resto é peso sem leitura. */
+const MAX_LINHAS = 200
+const MAX_COLUNAS = 40
+
+/**
+ * Prévia de planilha, montada no navegador.
+ *
+ * O `.xlsx` caía em "este tipo de arquivo não abre aqui", o que numa lista
+ * cheia de planilhas é quase o mesmo que não ter prévia. Não dá para resolver
+ * com `<iframe>`: nem o Drive nem o visualizador do Office conseguem abrir
+ * estes arquivos — o do Drive exigiria que o NAVEGADOR de quem olha tivesse
+ * acesso à conta do escritório, e o do Office exigiria expor o arquivo
+ * publicamente para os servidores da Microsoft. Os bytes já chegam pela nossa
+ * API autenticada, então quem desenha é a própria página.
+ *
+ * `xlsx` entra por import dinâmico: é quase um mega, e o explorador abre muito
+ * mais vezes do que alguém clica numa planilha. Assim ele só é baixado no
+ * primeiro clique de quem realmente for olhar uma.
+ *
+ * Os tetos existem porque a pergunta que a prévia responde é "é este arquivo
+ * mesmo?", e não "quanto deu a soma": a planilha inteira de 50 mil linhas
+ * travaria a aba para responder algo que ninguém perguntou.
+ */
+function PreviaDePlanilha({ url, nome }: { url: string; nome: string }) {
+  const [estado, setEstado] = useState<'carregando' | 'ok' | 'grande' | 'erro'>('carregando')
+  const [abas, setAbas] = useState<string[]>([])
+  const [aba, setAba] = useState(0)
+  const [grade, setGrade] = useState<string[][]>([])
+  const [truncada, setTruncada] = useState(false)
+  const livroRef = useRef<{ Sheets: Record<string, unknown>; SheetNames: string[] } | null>(null)
+  const xlsxRef = useRef<typeof import('xlsx') | null>(null)
+
+  const desenhar = useCallback((indice: number) => {
+    const XLSX = xlsxRef.current
+    const livro = livroRef.current
+    if (!XLSX || !livro) return
+    const folha = livro.Sheets[livro.SheetNames[indice]!]
+    const linhas = XLSX.utils.sheet_to_json(folha as never, {
+      header: 1, blankrows: false, defval: '', raw: false,
+    }) as unknown[][]
+    setTruncada(linhas.length > MAX_LINHAS)
+    setGrade(linhas.slice(0, MAX_LINHAS).map(l =>
+      l.slice(0, MAX_COLUNAS).map(c => (c === null || c === undefined ? '' : String(c))),
+    ))
+  }, [])
+
+  useEffect(() => {
+    let cancelado = false
+    setEstado('carregando')
+    setAba(0)
+
+    ;(async () => {
+      try {
+        // `credentials: 'include'`: a URL é da NOSSA API, e o arquivo do Drive
+        // só sai de lá para quem tem sessão.
+        const r = await fetch(url, { credentials: 'include' })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        const buf = await r.arrayBuffer()
+        if (cancelado) return
+        if (buf.byteLength > MAX_BYTES_PLANILHA) { setEstado('grande'); return }
+
+        const XLSX = await import('xlsx')
+        if (cancelado) return
+        const livro = XLSX.read(buf, { type: 'array' })
+        xlsxRef.current = XLSX
+        livroRef.current = livro as never
+        setAbas(livro.SheetNames)
+        desenhar(0)
+        setEstado('ok')
+      } catch {
+        if (!cancelado) setEstado('erro')
+      }
+    })()
+
+    return () => { cancelado = true }
+  }, [url, desenhar])
+
+  function trocarAba(i: number) {
+    setAba(i)
+    desenhar(i)
+  }
+
+  if (estado === 'carregando') return <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+  if (estado !== 'ok') {
+    return (
+      <div className="flex flex-col items-center gap-2 px-4 text-center">
+        <FileSpreadsheet className="h-10 w-10 text-emerald-600/60 dark:text-emerald-400/60" />
+        <p className="text-[11px] text-muted-foreground">
+          {estado === 'grande'
+            ? 'Planilha grande demais para a prévia. Use o botão abaixo.'
+            : 'Não foi possível montar a prévia desta planilha.'}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-full w-full flex-col">
+      {abas.length > 1 && (
+        <div className="flex shrink-0 gap-1 overflow-x-auto nice-scrollbar border-b border-border px-1 pb-1">
+          {abas.map((n, i) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => trocarAba(i)}
+              className={cn(
+                'shrink-0 rounded px-2 py-0.5 text-[11px] transition-colors',
+                i === aba ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60',
+              )}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="nice-scrollbar min-h-0 flex-1 overflow-auto">
+        <table className="w-max border-collapse text-[11px]">
+          <tbody>
+            {grade.map((linha, i) => (
+              <tr key={i} className={i === 0 ? 'sticky top-0 bg-muted/60 font-semibold' : undefined}>
+                {linha.map((celula, j) => (
+                  <td
+                    key={j}
+                    // `max-w` + truncate: uma célula com um parágrafo dentro
+                    // esticaria a tabela e mataria a leitura das vizinhas.
+                    className="max-w-[160px] truncate border border-border/40 px-1.5 py-0.5"
+                    title={celula || undefined}
+                  >
+                    {celula}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {truncada && (
+        <p className="shrink-0 border-t border-border px-2 py-1 text-[10px] text-muted-foreground">
+          Mostrando as primeiras {MAX_LINHAS} linhas de "{nome}".
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** Teto do .docx buscado para prévia. Acima disto, o botão de abrir resolve. */
+const MAX_BYTES_DOCX = 12 * 1024 * 1024
+
+/**
+ * Prévia de documento do Word, montada no navegador.
+ *
+ * Mesmo impasse da planilha: o navegador não renderiza `.docx`, e os
+ * visualizadores de prateleira não servem — o do Drive exigiria que o navegador
+ * de quem olha tivesse acesso à conta do escritório, e o do Office exigiria
+ * expor o arquivo publicamente. O `mammoth` converte o documento em HTML aqui
+ * mesmo, a partir dos bytes que já chegam pela nossa API autenticada.
+ *
+ * O HTML resultante vai para um `<iframe sandbox>` VAZIO, e não para a página.
+ *
+ * Isso não é excesso de zelo: o `.docx` foi enviado pelo CLIENTE, e é conteúdo
+ * que não controlamos. O sandbox vazio nega script, formulário e navegação, e
+ * o iframe ainda isola o CSS do documento do resto da tela — um `<style>` de
+ * dentro do Word não repinta o explorador. `dangerouslySetInnerHTML` daria o
+ * contrário das duas coisas.
+ *
+ * `mammoth` entra por import dinâmico pelo mesmo motivo do `xlsx`: só desce
+ * para quem de fato clicar num documento.
+ */
+function PreviaDeDocumento({ url }: { url: string }) {
+  const [estado, setEstado] = useState<'carregando' | 'ok' | 'grande' | 'erro'>('carregando')
+  const [html, setHtml] = useState('')
+
+  useEffect(() => {
+    let cancelado = false
+    setEstado('carregando')
+
+    ;(async () => {
+      try {
+        const r = await fetch(url, { credentials: 'include' })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        const buf = await r.arrayBuffer()
+        if (cancelado) return
+        if (buf.byteLength > MAX_BYTES_DOCX) { setEstado('grande'); return }
+
+        const mammoth = await import('mammoth')
+        if (cancelado) return
+        const { value } = await mammoth.convertToHtml({ arrayBuffer: buf })
+        if (cancelado) return
+
+        // A folha de estilo acompanha o documento dentro do sandbox: lá não há
+        // nada do nosso tema, e sem isto o texto sai com o serifado padrão do
+        // navegador, em 16px, colado nas bordas.
+        setHtml(`<!doctype html><meta charset="utf-8">
+<style>
+  body{margin:0;padding:14px;font:13px/1.55 'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;background:#fff}
+  h1{font-size:19px}h2{font-size:16px}h3{font-size:14px}
+  h1,h2,h3{margin:14px 0 6px;line-height:1.25}
+  p{margin:0 0 9px}
+  table{border-collapse:collapse;max-width:100%}
+  td,th{border:1px solid #e2e8f0;padding:3px 6px;font-size:12px}
+  img{max-width:100%;height:auto}
+  ul,ol{margin:0 0 9px;padding-left:20px}
+</style>${value}`)
+        setEstado('ok')
+      } catch {
+        if (!cancelado) setEstado('erro')
+      }
+    })()
+
+    return () => { cancelado = true }
+  }, [url])
+
+  if (estado === 'carregando') return <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+  if (estado !== 'ok') {
+    return (
+      <div className="flex flex-col items-center gap-2 px-4 text-center">
+        <FileText className="h-10 w-10 text-blue-600/60 dark:text-blue-400/60" />
+        <p className="text-[11px] text-muted-foreground">
+          {estado === 'grande'
+            ? 'Documento grande demais para a prévia. Use o botão abaixo.'
+            : 'Não foi possível montar a prévia deste documento.'}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <iframe
+      // `sandbox` vazio: nega tudo. O conteúdo vem de arquivo de terceiro.
+      sandbox=""
+      srcDoc={html}
+      title="Prévia do documento"
+      className="h-full w-full border-0 bg-white"
+    />
+  )
+}
+
 /**
  * Uma linha da árvore.
  *
@@ -847,7 +1086,9 @@ export function Explorador({
   // `codigo` entra junto de `texto`: XML e JSON continuam sendo texto e
   // continuam abrindo na pre-visualizacao. Separa-los foi para o ICONE — um
   // .xml de nota fiscal nao e um .txt —, e nao para tirar capacidade.
-  const previsualizavel = tipoSel === 'imagem' || tipoSel === 'pdf' || tipoSel === 'texto' || tipoSel === 'codigo'
+  const previsualizavel = tipoSel === 'imagem' || tipoSel === 'pdf'
+    || tipoSel === 'texto' || tipoSel === 'codigo' || tipoSel === 'planilha'
+    || tipoSel === 'documento'
   const podeExcluirAqui = Boolean(onExcluir && fonteAtual?.permiteExcluir)
 
   return (
@@ -1199,7 +1440,20 @@ export function Explorador({
                   <img src={previewUrl} alt={arquivoSel.nome} className="max-h-full max-w-full object-contain" />
                 )}
 
-                {!previewCarregando && previewUrl && previsualizavel && tipoSel !== 'imagem' && (
+                {/* Planilha não vai em `<iframe>`: o navegador não a renderiza,
+                    e nem o Drive nem o visualizador do Office servem aqui (um
+                    exigiria acesso do navegador de quem olha à conta do
+                    escritório; o outro, expor o arquivo publicamente). */}
+                {!previewCarregando && previewUrl && tipoSel === 'planilha' && (
+                  <PreviaDePlanilha url={previewUrl} nome={arquivoSel.nome} />
+                )}
+
+                {!previewCarregando && previewUrl && tipoSel === 'documento' && (
+                  <PreviaDeDocumento url={previewUrl} />
+                )}
+
+                {!previewCarregando && previewUrl && previsualizavel
+                  && tipoSel !== 'imagem' && tipoSel !== 'planilha' && tipoSel !== 'documento' && (
                   <iframe src={previewUrl} title={arquivoSel.nome} className="h-full w-full border-0" />
                 )}
 
