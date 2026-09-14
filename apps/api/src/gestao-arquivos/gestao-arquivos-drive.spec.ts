@@ -711,6 +711,54 @@ describe('mapear pasta para area', () => {
       svc.removerAreaDaPasta({ clienteId: 'cli-1', pastaId: 'p-fiscal' }, master),
     ).resolves.toEqual({ ok: true })
   })
+
+  describe('o que a tela recebe', () => {
+    beforeEach(() => {
+      cliente.findUnique.mockResolvedValue({ portalDriveFolderId: 'pasta-do-cliente' })
+      clienteAreaContratada.findMany.mockResolvedValue([
+        { areaId: 'a-contabil', area: { name: 'Contábil' } },
+        { areaId: 'a-fiscal', area: { name: 'Fiscal' } },
+      ])
+      gestaoArquivosPastaArea.findMany.mockResolvedValue([
+        { pastaId: 'p-notas', pastaNome: 'Notas Fiscais', areaId: 'a-fiscal' },
+      ])
+    })
+
+    it('entrega mapa, opções e raiz de uma vez', async () => {
+      // A tela não funciona com um pedaço: sem opções não há o que escolher, e
+      // sem a raiz o explorador não sabe a que pasta o nível de cima
+      // corresponde. Três consultas em sequência, do navegador, mostrariam a
+      // tela montando aos pedaços.
+      const r = await svc.listarMapaDeAreas('cli-1', master)
+      expect(r.raizId).toBe('pasta-do-cliente')
+      expect(r.areas).toEqual([
+        { id: 'a-contabil', nome: 'Contábil' },
+        { id: 'a-fiscal', nome: 'Fiscal' },
+      ])
+      expect(r.mapa).toEqual([
+        { pastaId: 'p-notas', pastaNome: 'Notas Fiscais', areaId: 'a-fiscal' },
+      ])
+    })
+
+    it('oferece só as áreas CONTRATADAS e vigentes', async () => {
+      // Oferecer as outras produziria um mapa que nunca acha responsável, e o
+      // arquivo cairia calado no fallback sem ninguém entender por quê.
+      await svc.listarMapaDeAreas('cli-1', master)
+      expect(clienteAreaContratada.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clienteId: 'cli-1', contratado: true, dataEncerramento: null,
+          }),
+        }),
+      )
+    })
+
+    it('cliente fora do alcance não vê mapa nenhum', async () => {
+      cliente.findMany.mockResolvedValue([])
+      const semAlcance = { userId: 'u9', isMaster: false, empresaId: 'emp-1' }
+      await expect(svc.listarMapaDeAreas('cli-1', semAlcance)).rejects.toThrow(/não encontrado/i)
+    })
+  })
 })
 
 describe('lixeira do Drive', () => {

@@ -1081,26 +1081,47 @@ export class GestaoArquivosDriveService {
   // ── Mapa de pasta → área ──────────────────────────────────────────────────
 
   /**
-   * O mapa deste cliente, com nome da área, para a tela de configuração.
+   * Tudo que a tela do mapa precisa, numa chamada só.
    *
-   * O nome da pasta vem da coluna e não do Drive: a tela mostra dezenas de
-   * linhas, e uma ida à API por linha tornaria a tela lenta para exibir uma
-   * informação que muda raramente. Quem renomeia no Drive vê o nome antigo
-   * aqui até remapear — e isso é melhor do que a tela demorar.
+   * O mapa, as áreas que ESTE cliente contratou (as opções legítimas do
+   * seletor) e a raiz dele no Drive. Vêm juntos porque a tela não funciona com
+   * um pedaço: sem as opções não há o que escolher, e sem a raiz o explorador
+   * não sabe a que pasta o nível de cima corresponde. Três consultas em
+   * sequência, do navegador, mostrariam a tela montando aos pedaços.
+   *
+   * `pastaNome` vem da coluna e não do Drive: a tela lista dezenas de pastas, e
+   * uma ida à API por linha a tornaria lenta para exibir algo que muda
+   * raramente. Quem renomeia no Drive vê o nome antigo aqui até remapear.
    */
   async listarMapaDeAreas(clienteId: string, ctx: ContextoInterno) {
     const escopo = await resolverEscopo(ctx)
     if (!alcancaCliente(escopo, clienteId)) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
     }
-    return prisma.gestaoArquivosPastaArea.findMany({
-      where: { clienteId },
-      select: {
-        id: true, pastaId: true, pastaNome: true, areaId: true,
-        area: { select: { name: true } },
-      },
-      orderBy: { pastaNome: 'asc' },
-    })
+
+    const [cliente, mapa, contratadas] = await Promise.all([
+      prisma.cliente.findUnique({
+        where: { id: clienteId },
+        select: { portalDriveFolderId: true },
+      }),
+      prisma.gestaoArquivosPastaArea.findMany({
+        where: { clienteId },
+        select: { pastaId: true, pastaNome: true, areaId: true },
+      }),
+      // Só a área CONTRATADA é opção: oferecer as outras produziria um mapa
+      // que nunca acha responsável, e o arquivo cairia calado no fallback.
+      prisma.clienteAreaContratada.findMany({
+        where: { clienteId, contratado: true, dataEncerramento: null },
+        select: { areaId: true, area: { select: { name: true } } },
+        orderBy: { area: { name: 'asc' } },
+      }),
+    ])
+
+    return {
+      raizId: cliente?.portalDriveFolderId ?? null,
+      areas: contratadas.map(c => ({ id: c.areaId, nome: c.area.name })),
+      mapa: mapa.map(m => ({ pastaId: m.pastaId, pastaNome: m.pastaNome, areaId: m.areaId })),
+    }
   }
 
   /**
