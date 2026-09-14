@@ -1,18 +1,28 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Server, HardDrive } from 'lucide-react'
+import { HardDrive } from 'lucide-react'
 import { trpc } from '@/lib/trpc'
-import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
+import { getApiUrl } from '@/lib/api-url'
 import type { FonteExplorador, Conteudo, ArquivoItem } from './explorador'
 import { tipoDoArquivo } from './explorador'
 
 /**
- * As duas "unidades" do explorador no lado do ESCRITÓRIO.
+ * A "unidade" do explorador no lado do ESCRITÓRIO: a pasta do cliente no Drive.
  *
- * Separado da página porque o portal do cliente tem as suas, com as mesmas
- * formas e rotas diferentes — deixar os adaptadores junto da tela obrigaria a
- * duplicar a tela.
+ * Eram duas. A outra era o acervo local (`ClienteArquivo`), de quando o
+ * escritório publicava arquivos por aqui — e ela parou de fazer sentido quando
+ * o portal passou a listar SÓ o Drive: o que fosse publicado ali o cliente não
+ * via mais. Manter a unidade na tela do escritório prometia um canal que não
+ * chegava a lugar nenhum.
+ *
+ * Os 51 arquivos que sobraram lá (todos de junho e julho de 2026, nenhum depois
+ * disso) continuam no banco e nas rotas — o que saiu foi a unidade da tela, e
+ * isso volta com um `git revert` se alguém precisar deles.
+ *
+ * Separado da página porque o portal do cliente tem a sua, com a mesma forma e
+ * rotas diferentes — deixar o adaptador junto da tela obrigaria a duplicar a
+ * tela.
  */
 
 type MapaDeAreas = NonNullable<FonteExplorador['areas']>
@@ -87,43 +97,11 @@ function previsualizavel(a: ArquivoItem): boolean {
 
 export function useFontesDoEscritorio(
   clienteId: string,
-  podeExcluir: boolean,
   podeConfigurar = false,
 ): FonteExplorador[] {
   const areas = useMapaDeAreas(clienteId, podeConfigurar)
 
   return useMemo(() => [
-    {
-      chave: 'local',
-      nome: 'Arquivos do sistema',
-      icone: Server,
-      permiteExcluir: podeExcluir,
-      buscar: async (id): Promise<Conteudo> => {
-        const d = await (trpc as any).gestaoArquivos.listar.query({ clienteId, pastaId: id })
-        return {
-          pastas: d.pastas.map((p: { id: string; nome: string }) => ({ id: p.id, nome: p.nome })),
-          arquivos: d.arquivos.map((a: any) => ({
-            id: a.id,
-            nome: a.fileName,
-            tamanho: a.fileSize,
-            mimeType: a.mimeType,
-            modificadoEm: a.criadoEm,
-            origem: a.origem,
-            novo: Boolean(a.novo),
-            link: null,
-            enviadoPor: a.enviadoPor ?? null,
-            enviadoEm: a.criadoEm ?? null,
-          })),
-        }
-      },
-      // `abrir` grava o visto e a trilha, e devolve a URL. Chamado mesmo quando
-      // o arquivo não é previsualizável: a URL alimenta o botão "Abrir", e o
-      // registro de que a pessoa acessou vale igual.
-      selecionar: async a => {
-        const r = await (trpc as any).gestaoArquivos.abrir.mutate({ arquivoId: a.id })
-        return resolveAssetUrl(r.url)
-      },
-    },
     {
       chave: 'drive',
       nome: 'Google Drive',
@@ -164,7 +142,7 @@ export function useFontesDoEscritorio(
       // contrário, e não têm a quem avisar lá dentro.
       areas,
     },
-  ], [clienteId, podeExcluir, areas])
+  ], [clienteId, areas])
 }
 
 export { previsualizavel }

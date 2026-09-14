@@ -112,7 +112,7 @@ export default function GestaoArquivosClientePage() {
     })
   }, [permissions, isMaster, isEmpresaMaster])
 
-  const fontes = useFontesDoEscritorio(clienteId, podeExcluir, podeConfigurar)
+  const fontes = useFontesDoEscritorio(clienteId, podeConfigurar)
 
   // O cabeçalho dizia "Arquivos do cliente" e o caminho terminava na palavra
   // "Cliente", sem nunca dizer qual — com várias abas abertas, todas ficavam
@@ -220,7 +220,10 @@ export default function GestaoArquivosClientePage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* `mb-0`: o wrapper acima usa `gap-4`, e a margem própria da barra
+          somaria à dele — era a faixa vazia entre a trilha e as abas. */}
       <PageHeaderBar
+        className="mb-0 sm:mb-0"
         actions={
           <Button variant="outline" size="sm" className="gap-1.5" asChild>
             <Link href="/gestao-arquivos"><ArrowLeft className="h-4 w-4" /> Voltar</Link>

@@ -117,6 +117,7 @@ export default function GestaoArquivosPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeaderBar
+        className="mb-0 sm:mb-0"
         actions={<>
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
