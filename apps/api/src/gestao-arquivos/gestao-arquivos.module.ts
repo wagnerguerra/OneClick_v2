@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { GestaoArquivosService } from './gestao-arquivos.service'
 import { GestaoArquivosNotificacaoService } from './gestao-arquivos-notificacao.service'
 import { GestaoArquivosDriveService } from './gestao-arquivos-drive.service'
+import { GestaoArquivosLoteService } from './gestao-arquivos-lote.service'
 import { GestaoArquivosController } from './gestao-arquivos.controller'
 import { AuthModule } from '../auth/auth.module'
 import { NotificationModule } from '../notification/notification.module'
@@ -22,7 +23,10 @@ import { NotificationModule } from '../notification/notification.module'
 @Module({
   imports: [AuthModule, NotificationModule],
   controllers: [GestaoArquivosController],
-  providers: [GestaoArquivosService, GestaoArquivosNotificacaoService, GestaoArquivosDriveService],
+  providers: [
+    GestaoArquivosService, GestaoArquivosNotificacaoService,
+    GestaoArquivosDriveService, GestaoArquivosLoteService,
+  ],
   exports: [GestaoArquivosService, GestaoArquivosNotificacaoService, GestaoArquivosDriveService],
 })
 export class GestaoArquivosModule {}

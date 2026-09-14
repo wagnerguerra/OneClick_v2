@@ -67,11 +67,14 @@ jest.mock('../drive-sync/drive.client', () => ({
 
 import * as fs from 'node:fs'
 import { GestaoArquivosDriveService } from './gestao-arquivos-drive.service'
-import type { GestaoArquivosNotificacaoService } from './gestao-arquivos-notificacao.service'
+import type { GestaoArquivosLoteService } from './gestao-arquivos-lote.service'
 
-const disparar = jest.fn()
-const notificacao = { disparar } as unknown as GestaoArquivosNotificacaoService
-const svc = new GestaoArquivosDriveService(notificacao)
+// O aviso nao sai deste servico: entra no balde que junta a leva. Observar
+// `registrar` e observar a junta certa — o que o balde faz com isso tem spec
+// proprio, em `gestao-arquivos-lote.spec`.
+const registrar = jest.fn()
+const lote = { registrar } as unknown as GestaoArquivosLoteService
+const svc = new GestaoArquivosDriveService(lote)
 
 const master = { userId: 'u1', isMaster: true, empresaId: 'emp-1' }
 const RAIZ = '1eMv40oNPw6XwohFpKpY4UpFOrUEqR2_n'
@@ -102,7 +105,7 @@ beforeEach(() => {
   arquivoLog.create.mockResolvedValue({ id: 'log-1' })
   user.findUnique.mockResolvedValue({ name: 'Cliente Teste' })
   uploadFile.mockResolvedValue({ id: 'novo-1', name: 'n.pdf', size: 125000 })
-  disparar.mockResolvedValue(true)
+  registrar.mockReset()
   gestaoArquivosPastaArea.findMany.mockResolvedValue([])
   gestaoArquivosPastaArea.upsert.mockImplementation((a: { create: unknown }) => a.create)
   gestaoArquivosPastaArea.deleteMany.mockResolvedValue({ count: 1 })
@@ -498,37 +501,56 @@ describe('autoria do envio', () => {
       })
     })
 
-    it('dispara ARQUIVO_ENVIADO com o cliente no assunto e a autoria no corpo', async () => {
+    it('entrega o envio ao balde com cliente, escritório e autoria', async () => {
+      cliente.findUnique.mockResolvedValue({
+        portalDriveFolderId: 'pasta-do-cliente',
+        razaoSocial: 'ACME LTDA',
+        empresa: { nomeFantasia: 'Central Contábil', razaoSocial: 'CENTRAL CONTABIL LTDA' },
+      })
+
       await svc.enviarParaPortal(completo, entrada, 'u1')
 
-      expect(disparar).toHaveBeenCalledTimes(1)
-      const aviso = disparar.mock.calls[0]![0] as { evento: string; clienteId: string; assunto: string; corpo: string }
-      expect(aviso.evento).toBe('ARQUIVO_ENVIADO')
-      expect(aviso.clienteId).toBe('cli-1')
-      // Quem responde por cem clientes precisa do NOME do cliente antes do
-      // nome do arquivo — por isso a razão social vem no assunto.
-      expect(aviso.assunto).toBe('Novo arquivo de ACME LTDA — n.pdf')
-      expect(aviso.corpo).toContain('Enviado por Cliente Teste')
-      expect(aviso.corpo).toContain('122 KB')
+      expect(registrar).toHaveBeenCalledTimes(1)
+      expect(registrar.mock.calls[0]![0]).toMatchObject({
+        clienteId: 'cli-1',
+        clienteNome: 'ACME LTDA',
+        // O escritório é a identidade de QUEM MANDA o e-mail, e vem na mesma
+        // consulta do cliente para não custar uma ida a mais por arquivo.
+        escritorioNome: 'Central Contábil',
+        arquivoNome: 'n.pdf',
+        tamanho: 125000,
+        enviadoPor: 'Cliente Teste',
+        link: '/gestao-arquivos/cli-1',
+      })
+    })
+
+    it('cai na razão social quando a empresa não tem fantasia', async () => {
+      cliente.findUnique.mockResolvedValue({
+        portalDriveFolderId: 'pasta-do-cliente',
+        razaoSocial: 'ACME LTDA',
+        empresa: { nomeFantasia: null, razaoSocial: 'CENTRAL CONTABIL LTDA' },
+      })
+      await svc.enviarParaPortal(completo, entrada, 'u1')
+      expect(registrar.mock.calls[0]![0].escritorioNome).toBe('CENTRAL CONTABIL LTDA')
     })
 
     it('avisa mesmo sem conseguir o nome do cliente', async () => {
       cliente.findUnique.mockResolvedValue({ portalDriveFolderId: 'pasta-do-cliente' })
       await svc.enviarParaPortal(completo, entrada, 'u1')
-      expect((disparar.mock.calls[0]![0] as { assunto: string }).assunto).toContain('Novo arquivo de cliente')
+      expect(registrar.mock.calls[0]![0].clienteNome).toBe('cliente')
     })
 
     it('omite a autoria em vez de calar o aviso quando o log falha', async () => {
       arquivoLog.create.mockRejectedValue(new Error('banco fora'))
       await svc.enviarParaPortal(completo, entrada, 'u1')
-      expect(disparar).toHaveBeenCalledTimes(1)
-      expect((disparar.mock.calls[0]![0] as { corpo: string }).corpo).not.toContain('Enviado por')
+      expect(registrar).toHaveBeenCalledTimes(1)
+      expect(registrar.mock.calls[0]![0].enviadoPor).toBeNull()
     })
 
     it('falha do aviso NÃO derruba o envio — o arquivo já está no Drive', async () => {
       // Sem a blindagem, o erro cairia no catch do upload e a tela diria "não
       // foi possível enviar" para um arquivo que subiu: a pessoa reenviaria.
-      disparar.mockRejectedValue(new Error('SMTP fora'))
+      registrar.mockImplementation(() => { throw new Error('balde estourou') })
       await expect(svc.enviarParaPortal(completo, entrada, 'u1'))
         .resolves.toEqual({ id: 'novo-1', nome: 'n.pdf' })
     })
@@ -536,7 +558,7 @@ describe('autoria do envio', () => {
     it('não avisa quando o envio falha no Drive', async () => {
       uploadFile.mockRejectedValue(new Error('403'))
       await expect(svc.enviarParaPortal(completo, entrada, 'u1')).rejects.toThrow(/não foi possível enviar/i)
-      expect(disparar).not.toHaveBeenCalled()
+      expect(registrar).not.toHaveBeenCalled()
     })
   })
 
@@ -640,8 +662,7 @@ describe('área da pasta', () => {
   it('leva a área resolvida para o aviso do envio', async () => {
     gestaoArquivosPastaArea.findMany.mockResolvedValue([{ pastaId: RAIZ_CLI, areaId: 'area-contabil' }])
     await svc.enviarParaPortal(completo, { fileName: 'n.pdf', fileUrl: '/api/upload/n.pdf' }, 'u1')
-    const aviso = disparar.mock.calls[0]![0] as { roteamento: { areaId: string | null } }
-    expect(aviso.roteamento).toEqual({ areaId: 'area-contabil' })
+    expect(registrar.mock.calls[0]![0].areaId).toBe('area-contabil')
   })
 
   it('falha ao resolver a área não cala o aviso: cai no fallback', async () => {
@@ -649,11 +670,9 @@ describe('área da pasta', () => {
     // não avisar ninguém seria perder o arquivo.
     gestaoArquivosPastaArea.findMany.mockRejectedValue(new Error('banco fora'))
     await svc.enviarParaPortal(completo, { fileName: 'n.pdf', fileUrl: '/api/upload/n.pdf' }, 'u1')
-    expect(disparar).toHaveBeenCalledTimes(1)
-    // `roteamento` PRESENTE com área nula: é o que diz "é um arquivo, e a
-    // classificação falhou" — e é isso que liga o fallback.
-    const aviso = disparar.mock.calls[0]![0] as { roteamento: { areaId: string | null } }
-    expect(aviso.roteamento).toEqual({ areaId: null })
+    expect(registrar).toHaveBeenCalledTimes(1)
+    // Área nula é o que faz o balde disparar com o fallback ligado.
+    expect(registrar.mock.calls[0]![0].areaId).toBeNull()
   })
 })
 

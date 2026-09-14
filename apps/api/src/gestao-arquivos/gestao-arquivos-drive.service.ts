@@ -12,7 +12,7 @@ import {
   clienteDaEmpresa,
   type ContextoInterno,
 } from './gestao-arquivos-escopo'
-import { GestaoArquivosNotificacaoService } from './gestao-arquivos-notificacao.service'
+import { GestaoArquivosLoteService } from './gestao-arquivos-lote.service'
 
 /**
  * Google Drive dentro da Gestão de Arquivos.
@@ -56,7 +56,8 @@ export interface ItemDrive {
 export class GestaoArquivosDriveService {
   private readonly logger = new Logger(GestaoArquivosDriveService.name)
 
-  constructor(private readonly notificacao: GestaoArquivosNotificacaoService) {}
+  // O aviso nao sai daqui: `registrar` acumula a leva e o balde e quem dispara.
+  constructor(private readonly lote: GestaoArquivosLoteService) {}
 
   /** Config da empresa, ou null se o master ainda não apontou a pasta raiz. */
   async obterConfig(empresaId: string) {
@@ -565,6 +566,11 @@ export class GestaoArquivosDriveService {
    * área — pasta que ninguém mapeou — cai no fallback de `destinatarios`,
    * que abre para todos os responsáveis mais a coordenação.
    *
+   * O aviso não sai daqui: entra num balde que junta a leva inteira. Arrastar
+   * dez arquivos são dez chamadas a este método, e dez e-mails para dizer uma
+   * coisa só é pior que um — o responsável arquiva a leva sem ler, e o aviso
+   * seguinte vai junto. Ver `gestao-arquivos-lote.service`.
+   *
    * Quem chama blinda com `.catch`: o arquivo neste ponto já está no Drive, e
    * transformar um envio bem-sucedido em erro de tela por causa de SMTP seria
    * trocar um problema pequeno por um grande — a pessoa reenviaria.
@@ -578,38 +584,34 @@ export class GestaoArquivosDriveService {
     raiz: string
   }) {
     // Quem responde por cem clientes precisa saber de QUAL deles, antes de
-    // saber o nome do arquivo. Por isso a razão social entra no assunto.
+    // saber o nome do arquivo. Por isso a razão social entra no assunto. A
+    // empresa vem na mesma consulta porque é a identidade de quem MANDA o
+    // e-mail, e uma segunda ida ao banco por arquivo enviado não se paga.
     const cliente = await prisma.cliente.findUnique({
       where: { id: e.clienteId },
-      select: { razaoSocial: true },
+      select: {
+        razaoSocial: true,
+        empresa: { select: { nomeFantasia: true, razaoSocial: true } },
+      },
     }).catch(() => null)
 
     // Resolver a área nunca derruba o aviso: falhar aqui devolve `null`, que é
     // o fallback — e o fallback avisa gente demais, não gente de menos.
     const areaId = await this.areaDaPasta(e.clienteId, e.pastaId, e.raiz).catch(() => null)
 
-    const quem = e.enviadoPor ? `Enviado por ${e.enviadoPor}.` : ''
-    const tamanho = e.tamanho ? ` (${Math.max(1, Math.round(e.tamanho / 1024))} KB)` : ''
-
-    await this.notificacao.disparar({
-      evento: 'ARQUIVO_ENVIADO',
+    this.lote.registrar({
       clienteId: e.clienteId,
-      // Sempre com `roteamento`, mesmo quando a área saiu nula: é ele que diz
-      // "isto é um arquivo, e a classificação falhou" — e é isso que liga o
-      // fallback. Omitir aqui calaria a coordenação justamente no caso em que
-      // ninguém mais sabe de quem o arquivo é.
-      roteamento: { areaId },
+      clienteNome: cliente?.razaoSocial ?? 'cliente',
+      escritorioNome: cliente?.empresa?.nomeFantasia || cliente?.empresa?.razaoSocial || 'OneClick',
+      areaId,
+      arquivoNome: e.arquivoNome,
+      tamanho: e.tamanho ?? null,
+      enviadoPor: e.enviadoPor,
       // O sino leva direto à pasta do cliente. Sem o link ele avisaria que
       // chegou algo e deixaria a pessoa procurar pelo menu — custo maior que a
       // informação. `acenderSino` ainda confere quem pode ABRIR esta tela: ser
       // responsável pela área não concede o módulo.
-      linkNoSino: `/gestao-arquivos/${e.clienteId}`,
-      assunto: `Novo arquivo de ${cliente?.razaoSocial ?? 'cliente'} — ${e.arquivoNome}`,
-      corpo: [
-        `O cliente enviou "${e.arquivoNome}"${tamanho} pelo portal.`,
-        quem,
-        'O arquivo está na pasta do cliente, em Gestão de Arquivos.',
-      ].filter(Boolean).join('\n'),
+      link: `/gestao-arquivos/${e.clienteId}`,
     })
   }
 

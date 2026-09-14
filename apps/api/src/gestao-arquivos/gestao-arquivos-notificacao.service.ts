@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { NotificationService } from '../notification/notification.service'
+import { shellAttachments } from '../common/email-layout'
 
 /**
  * Quem recebe e-mail quando algo acontece no porta-arquivos.
@@ -257,6 +258,17 @@ export class GestaoArquivosNotificacaoService {
      * que informa.
      */
     linkNoSino?: string | null
+    /**
+     * HTML pronto, no shell padrão dos e-mails do sistema.
+     *
+     * Sem ele o `corpo` vira parágrafos simples — que é o suficiente para um
+     * aviso de uma linha e continua sendo o caminho de quem não monta layout.
+     * O `corpo` segue obrigatório de todo jeito: é ele que alimenta o sino, e
+     * texto puro é o que cabe ali.
+     */
+    html?: string
+    /** Ícone do badge do shell (PNG via `cid:icon`). Ver `email-layout`. */
+    iconeEmail?: string
   }): Promise<boolean> {
     try {
       const { usuarios, extras, empresaId } = await this.resolverDestinatarios(
@@ -274,12 +286,19 @@ export class GestaoArquivosNotificacaoService {
       // impedir.
       await this.acenderSino(usuarios, empresaId, input)
 
-      const html = input.corpo
+      const html = input.html ?? input.corpo
         .split('\n')
         .map(l => `<p style="margin:0 0 12px">${this.escapar(l)}</p>`)
         .join('')
 
-      return await this.email.sendMail({ bcc: para, subject: input.assunto, html })
+      return await this.email.sendMail({
+        bcc: para,
+        subject: input.assunto,
+        html,
+        // Sem os anexos, o `cid:logo` e o `cid:icon` do shell viram imagem
+        // quebrada na caixa de quem recebe.
+        ...(input.html ? { attachments: shellAttachments(input.iconeEmail) } : {}),
+      })
     } catch (err) {
       this.logger.warn(
         `Falha ao notificar ${input.evento} do cliente ${input.clienteId}: ${String(err)}`,
