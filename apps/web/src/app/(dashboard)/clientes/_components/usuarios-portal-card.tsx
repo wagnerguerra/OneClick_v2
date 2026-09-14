@@ -117,6 +117,18 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
   const [novoAberto, setNovoAberto] = useState(false)
   const [form, setForm] = useState(formVazio)
   const [editando, setEditando] = useState<UsuarioPortal | null>(null)
+  /**
+   * As empresas do grupo, e quais estão marcadas para esta pessoa.
+   *
+   * `null` enquanto carrega ou quando o cliente não tem grupo — nos dois casos
+   * a seção some, em vez de piscar uma lista vazia.
+   */
+  const [grupoDoVinculo, setGrupoDoVinculo] = useState<{
+    grupo: string | null
+    motivo: string | null
+    empresas: Array<{ id: string; razaoSocial: string; documento: string | null; liberado: boolean }>
+  } | null>(null)
+  const [grupoMarcado, setGrupoMarcado] = useState<string[]>([])
 
   const carregar = useCallback(() => {
     if (!clienteId) { setCarregando(false); return }
@@ -190,6 +202,20 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
     } finally { setSalvando(false) }
   }
 
+  /** Carrega o grupo toda vez que a edição abre — ele muda entre um usuário e outro. */
+  useEffect(() => {
+    if (!editando) { setGrupoDoVinculo(null); setGrupoMarcado([]); return }
+    let cancelado = false
+    ;(trpc.cliente as any).grupoDoVinculoPortal.query({ id: editando.id })
+      .then((g: NonNullable<typeof grupoDoVinculo>) => {
+        if (cancelado) return
+        setGrupoDoVinculo(g)
+        setGrupoMarcado(g.empresas.filter(e => e.liberado).map(e => e.id))
+      })
+      .catch(() => { if (!cancelado) setGrupoDoVinculo(null) })
+    return () => { cancelado = true }
+  }, [editando])
+
   async function salvarEdicao() {
     if (!editando) return
     setSalvando(true)
@@ -200,9 +226,27 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
         podeEditar: editando.podeEditar,
         podeExcluir: editando.podeExcluir,
       })
+
+      // Só chama se houver grupo na tela: sem isso, um cliente sem irmãs
+      // mandaria uma lista vazia e o servidor entenderia "revogue todas".
+      let extra = ''
+      if (grupoDoVinculo && grupoDoVinculo.empresas.length > 0) {
+        const r = await (trpc.cliente as any).definirGrupoDoVinculoPortal.mutate({
+          id: editando.id, clientes: grupoMarcado,
+        }) as { liberados: number; revogados: number; recusados: string[] }
+        const partes: string[] = []
+        if (r.liberados) partes.push(`${r.liberados} empresa(s) liberada(s)`)
+        if (r.revogados) partes.push(`${r.revogados} revogada(s)`)
+        // As recusadas precisam ser NOMEADAS: o motivo mais comum é a pessoa
+        // ser a última administradora daquela empresa, e sem o nome quem lê
+        // não tem o que fazer com a informação.
+        if (r.recusados.length) partes.push(`não deu para revogar: ${r.recusados.join(', ')}`)
+        if (partes.length) extra = ` ${partes.join('; ')}.`
+      }
+
       setEditando(null)
       carregar()
-      alerts.success('Acesso atualizado', 'As mudanças valem no próximo acesso da pessoa.')
+      alerts.success('Acesso atualizado', `As mudanças valem no próximo acesso da pessoa.${extra}`)
     } catch (e) {
       alerts.error('Não foi possível atualizar', (e as Error).message)
     } finally { setSalvando(false) }
@@ -507,6 +551,52 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
               Desativar corta o acesso na hora e preserva o histórico. Remover desfaz o
               vínculo com este cliente — e só com ele.
             </p>
+
+            {/* EMPRESAS DO GRUPO.
+                Só aparece quando o cliente tem grupo com irmãs. Na criação já
+                dava para marcar; aqui é onde se corrige depois — entrou empresa
+                no grupo, ou a pessoa saiu de uma, e antes a única saída era
+                remover o usuário e cadastrar de novo. */}
+            {grupoDoVinculo && grupoDoVinculo.empresas.length > 0 && (
+              <div className="space-y-2 border-t border-border pt-3">
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">
+                    Outras empresas do grupo {grupoDoVinculo.grupo}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    O mesmo login alcança as marcadas — a pessoa troca de empresa no topo do
+                    portal. Desmarcar corta o acesso e preserva o histórico.
+                  </p>
+                </div>
+                <div className="max-h-[180px] space-y-1 overflow-y-auto nice-scrollbar rounded-md border border-border p-2">
+                  {grupoDoVinculo.empresas.map(e => (
+                    <label
+                      key={e.id}
+                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[13px] hover:bg-muted/50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={grupoMarcado.includes(e.id)}
+                        onChange={ev => setGrupoMarcado(m => (
+                          ev.target.checked ? [...m, e.id] : m.filter(x => x !== e.id)
+                        ))}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                      <span className="min-w-0 flex-1 truncate">{e.razaoSocial}</span>
+                      {e.documento && (
+                        <span className="shrink-0 text-[11px] text-muted-foreground">{e.documento}</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {grupoDoVinculo?.motivo && (
+              <p className="border-t border-border pt-3 text-[11px] text-muted-foreground">
+                {grupoDoVinculo.motivo}
+              </p>
+            )}
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" type="button" onClick={() => setEditando(null)} disabled={salvando}>

@@ -1784,6 +1784,21 @@ export function createClienteRouter(
       }))
       .mutation(({ input }) => usuarios().atualizar(input)),
 
+    /**
+     * As empresas do grupo deste vínculo, com o que a pessoa já alcança.
+     *
+     * `readProcedure` como as demais leituras do card; a escrita abaixo exige a
+     * mesma sub-permissão que criar e atualizar usuário do portal — conceder
+     * acesso a mais empresas é o mesmo poder, exercido depois.
+     */
+    grupoDoVinculoPortal: readProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .query(({ input }) => usuarios().grupoDoVinculo(input.id)),
+
+    definirGrupoDoVinculoPortal: writeSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
+      .input(z.object({ id: z.string(), clientes: z.array(z.string()).max(50) }))
+      .mutation(({ input, ctx }) => usuarios().sincronizarGrupo(input, ctx.userId!)),
+
     reenviarConvitePortal: writeSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
       .input(z.object({ id: z.string() }))
       .mutation(({ input, ctx }) => usuarios().reenviarConvite(input.id, { userId: ctx.userId })),

@@ -378,6 +378,139 @@ export class ClienteUsuarioService {
   }
 
   /**
+   * As empresas do grupo deste vínculo, dizendo quais a pessoa já alcança.
+   *
+   * Alimenta a edição do acesso: na CRIAÇÃO já dava para marcar as irmãs, mas
+   * depois não havia como mexer — entrou alguém no grupo, ou saiu, e a única
+   * saída era remover o usuário e cadastrar de novo.
+   *
+   * Usa o mesmo `empresasDoGrupo` da criação, então herda as duas travas dele:
+   * o recorte por `empresaId` (grupo é texto livre, e dois escritórios podem
+   * ter "GRUPO SILVA" sem serem o mesmo) e o teto de sugestão.
+   */
+  async grupoDoVinculo(id: string) {
+    const vinculo = await prisma.clienteUsuario.findUnique({
+      where: { id },
+      select: { userId: true, clienteId: true },
+    })
+    if (!vinculo) throw new TRPCError({ code: 'NOT_FOUND', message: 'Vínculo não encontrado.' })
+
+    const { grupo, empresas, motivo } = await this.empresasDoGrupo(vinculo.clienteId)
+    if (empresas.length === 0) return { grupo, motivo, empresas: [] }
+
+    const jaTem = await prisma.clienteUsuario.findMany({
+      where: { userId: vinculo.userId, clienteId: { in: empresas.map(e => e.id) }, ativo: true },
+      select: { clienteId: true },
+    })
+    const ativos = new Set(jaTem.map(v => v.clienteId))
+
+    return {
+      grupo,
+      motivo,
+      empresas: empresas.map(e => ({ ...e, liberado: ativos.has(e.id) })),
+    }
+  }
+
+  /**
+   * Põe as empresas do grupo exatamente como a tela pediu.
+   *
+   * O vínculo do cliente BASE nunca é tocado: ele é o resto do formulário, e
+   * desmarcá-lo aqui seria a pessoa se excluir da tela em que está.
+   *
+   * Desmarcar DESATIVA, não apaga. É a mesma distinção que o diálogo já faz —
+   * "desativar corta o acesso e preserva o histórico; remover desfaz o
+   * vínculo". Quem saiu do grupo hoje pode voltar, e a trilha de quem viu o
+   * quê continua de pé.
+   *
+   * Não para no primeiro problema. Se uma das empresas recusar (por ser o
+   * último administrador dela, por exemplo), as outras seguem e a tela recebe
+   * a lista do que ficou para trás — abortar tudo deixaria um estado que
+   * ninguém consegue deduzir olhando a lista.
+   */
+  async sincronizarGrupo(
+    input: { id: string; clientes: string[] },
+    autorId: string,
+  ): Promise<{ liberados: number; revogados: number; recusados: string[] }> {
+    const base = await prisma.clienteUsuario.findUnique({
+      where: { id: input.id },
+      select: {
+        userId: true, clienteId: true, nivel: true, areas: true,
+        podeVer: true, podeEditar: true, podeExcluir: true,
+      },
+    })
+    if (!base) throw new TRPCError({ code: 'NOT_FOUND', message: 'Vínculo não encontrado.' })
+
+    // A trava: a lista chega pelo cliente HTTP e não vale nada. Quem decide
+    // quais ids são aceitáveis é a consulta do grupo, refeita aqui.
+    const { empresas } = await this.empresasDoGrupo(base.clienteId)
+    const doGrupo = new Map(empresas.map(e => [e.id, e.razaoSocial]))
+    const querido = new Set(input.clientes.filter(id => doGrupo.has(id)))
+
+    const atuais = await prisma.clienteUsuario.findMany({
+      where: { userId: base.userId, clienteId: { in: [...doGrupo.keys()] } },
+      select: { id: true, clienteId: true, ativo: true, nivel: true },
+    })
+    const porCliente = new Map(atuais.map(v => [v.clienteId, v]))
+
+    let liberados = 0
+    let revogados = 0
+    const recusados: string[] = []
+
+    for (const [clienteId, razaoSocial] of doGrupo) {
+      const atual = porCliente.get(clienteId)
+      const deveTer = querido.has(clienteId)
+
+      try {
+        if (deveTer && !atual) {
+          /**
+           * Herda o acesso do vínculo base, com as áreas pela INTERSEÇÃO.
+           *
+           * Não por `validarAreas`: aquele lança quando a área não é
+           * contratada, e é o certo para o que chega pelo formulário — pedir
+           * "Fiscal" a quem não tem Fiscal é engano de quem pediu. Aqui a área
+           * não foi pedida, foi DERIVADA da matriz, e recusar a filial inteira
+           * porque ela não contrata uma das áreas seria desproporcional: a
+           * pessoa simplesmente não tem aquela área lá.
+           */
+          const contratadas = await prisma.clienteAreaContratada.findMany({
+            where: { clienteId, areaId: { in: base.areas }, contratado: true },
+            select: { areaId: true },
+          })
+          const areas = contratadas.map(a => a.areaId)
+          await prisma.clienteUsuario.create({
+            data: {
+              userId: base.userId,
+              clienteId,
+              nivel: base.nivel,
+              areas,
+              podeVer: base.podeVer,
+              podeEditar: base.podeEditar,
+              podeExcluir: base.podeExcluir,
+              criadoPorId: autorId,
+            },
+          })
+          liberados++
+        } else if (deveTer && atual && !atual.ativo) {
+          await prisma.clienteUsuario.update({ where: { id: atual.id }, data: { ativo: true } })
+          liberados++
+        } else if (!deveTer && atual?.ativo) {
+          // Deixar uma empresa sem nenhum administrador a obrigaria a pedir
+          // socorro ao escritório para qualquer mexida nos próprios usuários.
+          if (atual.nivel === 'ADMINISTRADOR') {
+            await this.exigirOutroAdministrador(clienteId, atual.id)
+          }
+          await prisma.clienteUsuario.update({ where: { id: atual.id }, data: { ativo: false } })
+          revogados++
+        }
+      } catch {
+        recusados.push(razaoSocial)
+      }
+    }
+
+    return { liberados, revogados, recusados }
+  }
+
+  /**
    * Todas as empresas que uma pessoa alcança, dentro do escopo de quem pergunta.
    *
    * Faltava um lugar onde se visse isso: a lista de usuários mostrava
