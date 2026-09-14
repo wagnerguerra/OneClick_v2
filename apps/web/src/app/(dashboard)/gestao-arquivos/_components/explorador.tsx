@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Folder, FolderOpen, FileText, FileImage, FileSpreadsheet, FileArchive,
+  FileCode, FileVideo, FileAudio, File as FileGenerico, Presentation,
   ChevronRight, Loader2, Server, Trash2, Download, ExternalLink,
   Sparkles, PanelRightClose, PanelRightOpen, RefreshCw, Eye,
   CheckCircle2, AlertCircle, X, UploadCloud,
@@ -151,15 +152,32 @@ function dataLegivel(v: string | null): string {
   return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
-/** Tipo pela extensão quando o mime não veio — o Drive nem sempre manda. */
-export function tipoDoArquivo(nome: string, mime: string | null): 'imagem' | 'pdf' | 'planilha' | 'texto' | 'zip' | 'outro' {
+export type TipoDeArquivo =
+  | 'imagem' | 'pdf' | 'planilha' | 'documento' | 'apresentacao'
+  | 'texto' | 'codigo' | 'zip' | 'video' | 'audio' | 'outro'
+
+/**
+ * Tipo pela extensão quando o mime não veio — o Drive nem sempre manda.
+ *
+ * A extensão é quem decide na prática: o caminho do Drive entrega
+ * `mimeType: null` para todo arquivo, então lá só existe o nome. O mime entra
+ * como reforço, para os arquivos do sistema, que o têm.
+ */
+export function tipoDoArquivo(nome: string, mime: string | null): TipoDeArquivo {
   const m = (mime ?? '').toLowerCase()
   const ext = nome.toLowerCase().split('.').pop() ?? ''
-  if (m.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) return 'imagem'
+  if (m.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico', 'heic'].includes(ext)) return 'imagem'
   if (m === 'application/pdf' || ext === 'pdf') return 'pdf'
-  if (m.includes('spreadsheet') || ['xlsx', 'xls', 'csv'].includes(ext)) return 'planilha'
-  if (m.startsWith('text/') || ['txt', 'xml', 'json', 'log'].includes(ext)) return 'texto'
-  if (['zip', 'rar', '7z'].includes(ext)) return 'zip'
+  if (m.includes('spreadsheet') || m.includes('excel') || ['xlsx', 'xls', 'xlsm', 'csv', 'ods'].includes(ext)) return 'planilha'
+  if (m.includes('word') || ['doc', 'docx', 'odt', 'rtf'].includes(ext)) return 'documento'
+  if (m.includes('presentation') || ['ppt', 'pptx', 'odp'].includes(ext)) return 'apresentacao'
+  // XML sai de "texto" e vira "código": num escritório contábil um .xml é quase
+  // sempre nota fiscal, e empilhá-lo com .txt apaga a distinção que importa.
+  if (['xml', 'json', 'html', 'js', 'ts', 'sql', 'rem', 'ret'].includes(ext)) return 'codigo'
+  if (m.startsWith('text/') || ['txt', 'log', 'md'].includes(ext)) return 'texto'
+  if (['zip', 'rar', '7z', 'gz', 'tar'].includes(ext)) return 'zip'
+  if (m.startsWith('video/') || ['mp4', 'avi', 'mov', 'mkv', 'webm'].includes(ext)) return 'video'
+  if (m.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) return 'audio'
   return 'outro'
 }
 
@@ -272,10 +290,50 @@ function SeletorDeArea({
   )
 }
 
-function IconeArquivo({ nome, mime, className }: { nome: string; mime: string | null; className?: string }) {
-  const t = tipoDoArquivo(nome, mime)
-  const Icone = t === 'imagem' ? FileImage : t === 'planilha' ? FileSpreadsheet : t === 'zip' ? FileArchive : FileText
-  return <Icone className={className} />
+/**
+ * Ícone e cor de cada tipo.
+ *
+ * A COR é o que faz o tipo ser lido de relance — não o desenho. Em 16px e tudo
+ * cinza, `FileSpreadsheet` e `FileText` são a mesma silhueta de papel, e uma
+ * lista de .xlsx com .pdf parece ter um ícone só: foi exatamente assim que esta
+ * tela ficou. Antes disto, ainda por cima, .pdf e .txt caíam no MESMO ícone.
+ *
+ * As cores seguem a convenção que as pessoas já trazem de fora — planilha
+ * verde, PDF vermelho, documento azul — porque aqui reconhecer vale mais do
+ * que inventar.
+ *
+ * Cada uma tem variante dark: o portal e o painel têm os dois temas, e um tom
+ * escolhido só para o claro some no escuro.
+ */
+const VISUAL_DO_TIPO: Record<TipoDeArquivo, { Icone: typeof FileText; cor: string }> = {
+  planilha:     { Icone: FileSpreadsheet, cor: 'text-emerald-600 dark:text-emerald-400' },
+  pdf:          { Icone: FileText,        cor: 'text-rose-600 dark:text-rose-400' },
+  documento:    { Icone: FileText,        cor: 'text-blue-600 dark:text-blue-400' },
+  apresentacao: { Icone: Presentation,    cor: 'text-orange-600 dark:text-orange-400' },
+  imagem:       { Icone: FileImage,       cor: 'text-violet-600 dark:text-violet-400' },
+  codigo:       { Icone: FileCode,        cor: 'text-cyan-600 dark:text-cyan-400' },
+  zip:          { Icone: FileArchive,     cor: 'text-amber-600 dark:text-amber-400' },
+  video:        { Icone: FileVideo,       cor: 'text-fuchsia-600 dark:text-fuchsia-400' },
+  audio:        { Icone: FileAudio,       cor: 'text-indigo-600 dark:text-indigo-400' },
+  texto:        { Icone: FileText,        cor: 'text-slate-500 dark:text-slate-400' },
+  outro:        { Icone: FileGenerico,    cor: 'text-muted-foreground' },
+}
+
+/**
+ * O ícone traz a própria cor.
+ *
+ * O `className` do chamador serve a tamanho e layout. Quem passava
+ * `text-muted-foreground` ali pintava todo tipo de igual e anulava o mapa
+ * acima — `cor` existe para o caso legítimo de apagar de propósito.
+ */
+function IconeArquivo({ nome, mime, className, cor }: {
+  nome: string
+  mime: string | null
+  className?: string
+  cor?: string
+}) {
+  const { Icone, cor: corDoTipo } = VISUAL_DO_TIPO[tipoDoArquivo(nome, mime)]
+  return <Icone className={cn(className, cor ?? corDoTipo)} />
 }
 
 /**
@@ -786,7 +844,10 @@ export function Explorador({
   })()
 
   const tipoSel = arquivoSel ? tipoDoArquivo(arquivoSel.nome, arquivoSel.mimeType) : null
-  const previsualizavel = tipoSel === 'imagem' || tipoSel === 'pdf' || tipoSel === 'texto'
+  // `codigo` entra junto de `texto`: XML e JSON continuam sendo texto e
+  // continuam abrindo na pre-visualizacao. Separa-los foi para o ICONE — um
+  // .xml de nota fiscal nao e um .txt —, e nao para tirar capacidade.
+  const previsualizavel = tipoSel === 'imagem' || tipoSel === 'pdf' || tipoSel === 'texto' || tipoSel === 'codigo'
   const podeExcluirAqui = Boolean(onExcluir && fonteAtual?.permiteExcluir)
 
   return (
@@ -1043,7 +1104,7 @@ export function Explorador({
                   >
                     <td className="px-3 py-1.5">
                       <div className="flex min-w-0 items-center gap-2">
-                        <IconeArquivo nome={a.nome} mime={a.mimeType} className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <IconeArquivo nome={a.nome} mime={a.mimeType} className="h-4 w-4 shrink-0" />
                         <span className="truncate">{a.nome}</span>
                         {a.novo && (
                           <Badge className="shrink-0 gap-1 text-white" style={{ backgroundColor: cor }}>
@@ -1144,7 +1205,9 @@ export function Explorador({
 
                 {!previewCarregando && (!previewUrl || !previsualizavel) && (
                   <div className="flex flex-col items-center gap-2 text-center">
-                    <IconeArquivo nome={arquivoSel.nome} mime={arquivoSel.mimeType} className="h-10 w-10 text-muted-foreground/50" />
+                    {/* Na pré-visualização o ícone é grande e sozinho: a cor
+                        cheia dominaria o painel, então entra esmaecida. */}
+                    <IconeArquivo nome={arquivoSel.nome} mime={arquivoSel.mimeType} className="h-10 w-10 opacity-60" />
                     <p className="px-4 text-[11px] text-muted-foreground">
                       Este tipo de arquivo não abre aqui. Use o botão abaixo.
                     </p>

@@ -81,7 +81,8 @@ function useMapaDeAreas(clienteId: string, podeConfigurar: boolean): MapaDeAreas
 /** Só faz sentido buscar URL do que a pré-visualização consegue exibir. */
 function previsualizavel(a: ArquivoItem): boolean {
   const t = tipoDoArquivo(a.nome, a.mimeType)
-  return t === 'imagem' || t === 'pdf' || t === 'texto'
+  // `codigo` (xml, json) e texto para efeito de previa — ver explorador.
+  return t === 'imagem' || t === 'pdf' || t === 'texto' || t === 'codigo'
 }
 
 export function useFontesDoEscritorio(
