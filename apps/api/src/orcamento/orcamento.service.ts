@@ -1,6 +1,7 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma, Prisma } from '@saas/db'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
+import { filtroDeBusca, escopoDeEmpresa, consolidar } from './orcamento-busca-cliente'
 import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj, resolveOrcamentoScope } from '@saas/types'
 import * as XLSX from 'xlsx'
 import { hasSubPermission } from '../trpc/trpc.service'
@@ -1221,45 +1222,35 @@ export class OrcamentoService {
   /**
    * Busca leve de clientes para o seletor da solicitação de orçamento.
    * protectedProcedure (qualquer usuário logado) — retorna campos mínimos,
-   * sempre no escopo da empresa do usuário (master vê todos).
+   * sempre no escopo da empresa CARREGADA, master inclusive.
    */
-  async buscarClientesParaSolicitacao(search: string | undefined, isMaster: boolean, empresaId?: string) {
-    // Alinha com a lista de clientes: não oferece clientes INATIVA nem
-    // soft-deletados pra abrir orçamento (era o que trazia a duplicata inativa
-    // que some do cadastro).
-    const where: any = { status: { not: 'INATIVO' } }
-    if (!isMaster && empresaId) where.empresaId = empresaId
-    if (search && search.trim()) {
-      const term = search.trim()
-      const num = term.replace(/[^0-9]/g, '')
-      where.OR = [
-        { razaoSocial: { contains: term, mode: 'insensitive' } },
-        { nomeFantasia: { contains: term, mode: 'insensitive' } },
-        ...(num ? [{ documento: { contains: num } }] : []),
-      ]
+  async buscarClientesParaSolicitacao(
+    search: string | undefined,
+    isMaster: boolean,
+    empresaId?: string,
+    incluirInativos = false,
+  ) {
+    // As três decisões (recorte por empresa, casamento do termo, consolidação)
+    // moram em `orcamento-busca-cliente.ts`, com teste próprio. Aqui fica só a
+    // consulta.
+    const busca = filtroDeBusca(search)
+    const where: Prisma.ClienteWhereInput = {
+      ...escopoDeEmpresa(isMaster, empresaId),
+      // `situacao` NÃO entra: MENSAL, AVULSO, PROSPECT e PARALIZADO são todos
+      // orçáveis — quem pede orçamento muitas vezes é justamente o prospect.
+      ...(incluirInativos ? {} : { status: { not: 'INATIVO' as const } }),
+      ...(busca ?? {}),
     }
+
     const rows = await prisma.cliente.findMany({
       where,
-      select: { id: true, razaoSocial: true, nomeFantasia: true, documento: true, empresaId: true },
-      orderBy: { razaoSocial: 'asc' },
-      take: 40,
+      select: { id: true, razaoSocial: true, nomeFantasia: true, documento: true, empresaId: true, status: true },
+      // Ativo antes de INATIVO (ordem do enum no alfabeto) para que, quando a
+      // janela de 60 cortar, o que sobra seja o cliente vivo.
+      orderBy: [{ status: 'asc' }, { razaoSocial: 'asc' }],
+      take: 60,
     })
-    // Dedupe por documento normalizado — havia clientes duplicados (uma cópia
-    // órfã com empresaId NULL do legado + a cópia real com empresa), fazendo o
-    // mesmo cliente aparecer 2x no seletor. Prefere a cópia COM empresa; docs
-    // vazios nunca são deduplicados (cada um é um registro distinto).
-    const byDoc = new Map<string, typeof rows[number]>()
-    const semDoc: typeof rows = []
-    for (const r of rows) {
-      const key = (r.documento || '').replace(/\D/g, '')
-      if (!key) { semDoc.push(r); continue }
-      const atual = byDoc.get(key)
-      if (!atual || (!atual.empresaId && r.empresaId)) byDoc.set(key, r)
-    }
-    return [...byDoc.values(), ...semDoc]
-      .sort((a, b) => a.razaoSocial.localeCompare(b.razaoSocial))
-      .slice(0, 20)
-      .map(({ id, razaoSocial, nomeFantasia, documento }) => ({ id, razaoSocial, nomeFantasia, documento }))
+    return consolidar(rows)
   }
 
   // ===================================================================
