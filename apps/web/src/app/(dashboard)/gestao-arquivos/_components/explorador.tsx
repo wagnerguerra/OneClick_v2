@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Folder, FolderOpen, FileText, FileImage, FileSpreadsheet, FileArchive,
   FileCode, FileVideo, FileAudio, File as FileGenerico, Presentation,
@@ -203,20 +204,52 @@ function SeletorDeArea({
 }) {
   const [aberto, setAberto] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  const [caixa, setCaixa] = useState<{ topo: number; direita: number } | null>(null)
   const caixaRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const propria = areas.mapa.get(pastaId ?? '__raiz__') ?? null
   const vigente = propria ?? herdada
   const nome = areas.opcoes.find(o => o.id === vigente)?.nome ?? null
+  const nomeHerdado = areas.opcoes.find(o => o.id === herdada)?.nome ?? null
 
   useEffect(() => {
     if (!aberto) return
     function fora(e: MouseEvent) {
-      if (!caixaRef.current?.contains(e.target as Node)) setAberto(false)
+      const alvo = e.target as Node
+      // O menu vive no `body`, fora de `caixaRef` — sem conferir os dois, o
+      // primeiro clique DENTRO do menu o fecharia antes de escolher.
+      if (caixaRef.current?.contains(alvo) || menuRef.current?.contains(alvo)) return
+      setAberto(false)
     }
+    // Rolar a lista move o gatilho e deixaria o menu solto no ar; fechar é mais
+    // honesto do que persegui-lo a cada quadro.
+    function fechar() { setAberto(false) }
     document.addEventListener('mousedown', fora)
-    return () => document.removeEventListener('mousedown', fora)
+    window.addEventListener('scroll', fechar, true)
+    window.addEventListener('resize', fechar)
+    return () => {
+      document.removeEventListener('mousedown', fora)
+      window.removeEventListener('scroll', fechar, true)
+      window.removeEventListener('resize', fechar)
+    }
   }, [aberto])
+
+  /**
+   * Abre medindo o gatilho.
+   *
+   * O menu é renderizado no `document.body`, e não ao lado do botão, porque a
+   * lista de arquivos rola dentro de um `overflow-y-auto`: um menu absoluto ali
+   * dentro é CORTADO pela borda do contêiner, e nas últimas linhas da lista
+   * simplesmente não aparece. É a mesma razão pela qual o padrão do projeto
+   * manda usar Tooltip em portal quando há `overflow` no caminho.
+   */
+  function alternar() {
+    if (aberto) { setAberto(false); return }
+    const r = caixaRef.current?.getBoundingClientRect()
+    if (r) setCaixa({ topo: r.bottom + 4, direita: window.innerWidth - r.right })
+    setAberto(true)
+  }
 
   async function escolher(areaId: string | null) {
     setAberto(false)
@@ -240,7 +273,7 @@ function SeletorDeArea({
     <div ref={caixaRef} className="relative" onClick={e => e.stopPropagation()}>
       <button
         type="button"
-        onClick={() => setAberto(a => !a)}
+        onClick={alternar}
         disabled={salvando}
         title={propria ? 'Área desta pasta' : nome ? 'Herdada da pasta acima' : 'Sem área definida'}
         className={cn(
@@ -255,8 +288,12 @@ function SeletorDeArea({
         <span className="truncate">{nome ?? 'definir área'}</span>
       </button>
 
-      {aberto && (
-        <div className="absolute right-0 top-full z-20 mt-1 min-w-[200px] overflow-hidden rounded-md border border-border bg-popover py-1 shadow-lg">
+      {aberto && caixa && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={menuRef}
+          style={{ top: caixa.topo, right: caixa.direita }}
+          className="fixed z-[80] min-w-[210px] overflow-hidden rounded-md border border-border bg-popover py-1 shadow-lg"
+        >
           {areas.opcoes.length === 0 && (
             <p className="px-3 py-2 text-[11px] text-muted-foreground">
               Este cliente não tem área contratada. Contrate uma na aba Serviços do cliente.
@@ -275,16 +312,22 @@ function SeletorDeArea({
               {o.nome}
             </button>
           ))}
+          {/* Tirar o vínculo tem DOIS significados, e o rótulo precisa dizer
+              qual é o desta pasta. Se algum ancestral está mapeado, ela volta a
+              herdar dele — e vale nomear qual, senão "acima" é adivinhação. Se
+              não há nada acima, não se herda coisa alguma: a pasta fica sem
+              área, e chamar isso de "herdar" seria mentira. */}
           {propria && (
             <button
               type="button"
               onClick={() => escolher(null)}
-              className="mt-1 block w-full border-t border-border px-3 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-muted"
+              className="mt-1 block w-full border-t border-border px-3 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              Herdar da pasta acima
+              {nomeHerdado ? `Remover — volta a herdar ${nomeHerdado}` : 'Remover área desta pasta'}
             </button>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
