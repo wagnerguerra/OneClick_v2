@@ -1,5 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import type { Prisma } from '@saas/db'
+import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import type { drive_v3 } from 'googleapis'
 import { Readable } from 'node:stream'
 import { createHash } from 'node:crypto'
@@ -678,7 +680,7 @@ export class DriveSyncService {
     detalhes: Array<{ clienteId: string; razaoSocial: string; resultado?: SyncResult; erro?: string }>
   }> {
     const clientes = await prisma.cliente.findMany({
-      where: { driveFolderId: { not: null }, status: 'ATIVO' },
+      where: semEmpresaInativa<Prisma.ClienteWhereInput>({ driveFolderId: { not: null }, status: 'ATIVO' }, await idsDeEmpresasInativas()),
       select: { id: true, razaoSocial: true },
       orderBy: { razaoSocial: 'asc' },
     })

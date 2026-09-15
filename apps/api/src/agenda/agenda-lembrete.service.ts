@@ -3,6 +3,8 @@ import { schedulersAtivos } from '../common/scheduler-guard'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { prisma } from '@saas/db'
+import type { Prisma } from '@saas/db'
+import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import type { AgendaLembrete, AgendaLembreteCanal } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { AgendaLembreteEventsService } from './agenda-lembrete-events.service'
@@ -85,12 +87,13 @@ export class AgendaLembreteService implements OnModuleInit {
     // Lembretes ainda não disparados nos últimos 12h, cujos eventos estão num
     // range razoável (próximos 31 dias). Carrega o evento + participantes pra
     // calcular trigger e destinatários.
+    const inativas = await idsDeEmpresasInativas()
     const lembretes = await prisma.agendaLembrete.findMany({
       where: {
-        evento: {
+        evento: semEmpresaInativa<Prisma.AgendaEventoWhereInput>({
           isActive: true,
           data: { gte: this.atStartOfDayUtc(agoraUtc), lte: ate31dias },
-        },
+        }, inativas),
         OR: [
           { ultimoDisparoEm: null },
           { ultimoDisparoEm: { lt: new Date(agoraUtc.getTime() - 12 * 3_600_000) } },
@@ -138,12 +141,13 @@ export class AgendaLembreteService implements OnModuleInit {
   private async tickTarefas() {
     const agoraUtc = new Date()
     const ate31dias = new Date(agoraUtc.getTime() + 31 * 86_400_000)
+    const inativas = await idsDeEmpresasInativas()
     const lembretes = await prisma.agendaTarefaLembrete.findMany({
       where: {
-        tarefa: {
+        tarefa: semEmpresaInativa<Prisma.AgendaTarefaWhereInput>({
           concluida: false,
           prazo: { gte: this.atStartOfDayUtc(agoraUtc), lte: ate31dias },
-        },
+        }, inativas),
         OR: [
           { ultimoDisparoEm: null },
           { ultimoDisparoEm: { lt: new Date(agoraUtc.getTime() - 12 * 3_600_000) } },

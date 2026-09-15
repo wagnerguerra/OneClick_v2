@@ -45,7 +45,14 @@ export function createClienteRouter(
   socioPerfisService?: import('./dossie/socio-perfis.service').SocioPerfisService,
   relatorioService?: ClienteRelatorioService,
   usuarioService?: import('./cliente-usuario.service').ClienteUsuarioService,
+  portalEscritorioService?: import('../portal/portal-escritorio.service').PortalEscritorioService,
 ) {
+  const portalEsc = () => {
+    if (!portalEscritorioService) {
+      throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Portal do cliente indisponível.' })
+    }
+    return portalEscritorioService
+  }
   /** Serviço opcional na assinatura; aqui vira erro claro em vez de crash. */
   const usuarios = () => {
     if (!usuarioService) {
@@ -1671,6 +1678,48 @@ export function createClienteRouter(
         if (!mesclagemService) throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Serviço indisponível.' })
         return mesclagemService.previsualizar(input.origemId, input.destinoId, ctx.isMaster ?? false, ctx.empresaId)
       }),
+    // ── Portal do Cliente, Fase 1: publicação e solicitações ─────────────
+    // Publicar reusa `manage_files`, a mesma sub-permissão que já governa os
+    // arquivos do cliente: quem pode anexar é quem pode entregar.
+    publicarArquivoPortal: writeSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
+      .input(z.object({
+        arquivoId: z.string(),
+        visivel: z.boolean(),
+        competencia: z.string().regex(/^\d{6}$/).nullish(),
+        categoria: z.string().nullish(),
+        pastaId: z.string().nullish(),
+      }))
+      .mutation(({ input, ctx }) => portalEsc().publicarArquivo(input, {
+        isMaster: ctx.isMaster, empresaId: ctx.empresaId,
+      })),
+
+    listarPastasPortal: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => portalEsc().listarPastas(input.clienteId)),
+
+    listarSolicitacoesPortal: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => portalEsc().listarSolicitacoes(input.clienteId)),
+
+    criarSolicitacaoPortal: writeSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
+      .input(z.object({
+        clienteId: z.string(),
+        titulo: z.string().min(3),
+        descricao: z.string().nullish(),
+        competencia: z.string().regex(/^\d{6}$/).nullish(),
+        categoria: z.string().nullish(),
+        prazo: z.string().nullish(),
+      }))
+      .mutation(({ input, ctx }) => portalEsc().criarSolicitacao(input, {
+        userId: ctx.userId, isMaster: ctx.isMaster, empresaId: ctx.empresaId,
+      })),
+
+    cancelarSolicitacaoPortal: writeSubProcedure(MODULE, 'manage_files', 'Incluir, editar e excluir arquivos do cliente')
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => portalEsc().cancelarSolicitacao(input.id, {
+        isMaster: ctx.isMaster, empresaId: ctx.empresaId,
+      })),
+
     // ── Usuários do cliente (Portal do Cliente, Fase 0) ──────────────────
     // Gateadas pela sub-permissão `manage_client_users`, que já existia no
     // front (`use-clientes-perms.ts`) sem contrapartida no backend — dar acesso
@@ -1683,6 +1732,24 @@ export function createClienteRouter(
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => usuarios().areasDisponiveis(input.clienteId)),
 
+    /** Outras empresas do mesmo grupo, para SUGERIR ao conceder acesso. */
+    empresasDoGrupoCliente: readProcedure(MODULE)
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ input }) => usuarios().empresasDoGrupo(input.clienteId)),
+
+    /** Todas as empresas que uma pessoa do portal alcança. */
+    acessosDoUsuarioPortal: readProcedure(MODULE)
+      .input(z.object({ userId: z.string() }))
+      .query(({ input, ctx }) => usuarios().acessosDaPessoa(input.userId, {
+        isMaster: ctx.isMaster, empresaId: ctx.empresaId,
+      })),
+
+    revogarAcessosPortal: writeSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
+      .input(z.object({ userId: z.string(), clienteIds: z.array(z.string()).min(1).max(100) }))
+      .mutation(({ input, ctx }) => usuarios().revogarAcessos(input, {
+        isMaster: ctx.isMaster, empresaId: ctx.empresaId,
+      })),
+
     vincularUsuarioPortal: writeSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
       .input(z.object({
         clienteId: z.string(),
@@ -1690,7 +1757,16 @@ export function createClienteRouter(
         email: z.string().email(),
         nivel: z.enum(['ADMINISTRADOR', 'OPERACIONAL', 'CONSULTA']),
         areas: z.array(z.string()).default([]),
+        podeVer: z.boolean().optional(),
+        podeEditar: z.boolean().optional(),
+        podeExcluir: z.boolean().optional(),
         telefone: z.string().nullish(),
+        /**
+         * Outras empresas do MESMO GRUPO que recebem o mesmo acesso.
+         * O serviço confere cada uma contra o grupo do cliente principal — a
+         * lista chega pelo cliente HTTP e por si só não vale nada.
+         */
+        clientesAdicionais: z.array(z.string()).max(20).optional(),
       }))
       .mutation(({ input, ctx }) => usuarios().vincular(input, {
         userId: ctx.userId, tenantId: ctx.tenantId,
@@ -1702,8 +1778,26 @@ export function createClienteRouter(
         nivel: z.enum(['ADMINISTRADOR', 'OPERACIONAL', 'CONSULTA']).optional(),
         areas: z.array(z.string()).optional(),
         ativo: z.boolean().optional(),
+        podeVer: z.boolean().optional(),
+        podeEditar: z.boolean().optional(),
+        podeExcluir: z.boolean().optional(),
       }))
       .mutation(({ input }) => usuarios().atualizar(input)),
+
+    /**
+     * As empresas do grupo deste vínculo, com o que a pessoa já alcança.
+     *
+     * `readProcedure` como as demais leituras do card; a escrita abaixo exige a
+     * mesma sub-permissão que criar e atualizar usuário do portal — conceder
+     * acesso a mais empresas é o mesmo poder, exercido depois.
+     */
+    grupoDoVinculoPortal: readProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .query(({ input }) => usuarios().grupoDoVinculo(input.id)),
+
+    definirGrupoDoVinculoPortal: writeSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
+      .input(z.object({ id: z.string(), clientes: z.array(z.string()).max(50) }))
+      .mutation(({ input, ctx }) => usuarios().sincronizarGrupo(input, ctx.userId!)),
 
     reenviarConvitePortal: writeSubProcedure(MODULE, 'manage_client_users', 'gerenciar usuários do cliente')
       .input(z.object({ id: z.string() }))

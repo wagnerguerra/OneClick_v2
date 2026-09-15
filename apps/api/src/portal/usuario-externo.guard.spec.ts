@@ -1,0 +1,200 @@
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common'
+import type { ExecutionContext } from '@nestjs/common'
+
+// A guarda importa `AuthService` como VALOR (é o token do `@Inject`), e esse
+// módulo puxa `better-auth`, que é ESM e o jest não transforma. O dublê troca
+// só o token — a guarda recebe o serviço pelo construtor de qualquer jeito.
+jest.mock('../auth/auth.service', () => ({ AuthService: class AuthServiceDuble {} }))
+
+import { UsuarioExternoGuard } from './usuario-externo.guard'
+
+/**
+ * A guarda que fecha a superfície REST para o usuário externo.
+ *
+ * Nasceu de um vazamento real: `GET /api/admin/online-users` devolvia o
+ * diretório da equipe interna ao usuário do portal, porque escopa por
+ * `empresaId` e o externo herda o `empresaId` do escritório. O gate que existia
+ * cobria só o tRPC, e o sistema tem 40+ controllers REST.
+ */
+
+const getSession = jest.fn()
+const authService = { auth: { api: { getSession } } } as never
+
+function contexto(url: string, comCookie = true, method = 'GET', extras: Record<string, string> = {}): ExecutionContext {
+  return {
+    switchToHttp: () => ({
+      getRequest: () => ({
+        originalUrl: url,
+        url,
+        method,
+        headers: { ...(comCookie ? { cookie: 'better-auth.session_token=abc' } : {}), ...extras },
+      }),
+    }),
+  } as unknown as ExecutionContext
+}
+
+const guard = new UsuarioExternoGuard(authService)
+
+const externo = { user: { id: 'u1', role: 'COLABORADOR_CLIENTE' } }
+const interno = { user: { id: 'u2', role: 'COLABORADOR_INTERNO' } }
+
+beforeEach(() => jest.clearAllMocks())
+
+describe('rota interna', () => {
+  it('barra o usuário do portal', async () => {
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/admin/online-users')))
+      .rejects.toBeInstanceOf(ForbiddenException)
+  })
+
+  it('barra também no stream de presença', async () => {
+    // O SSE é outra rota do mesmo controller: fosse o gate por endpoint,
+    // corrigir a lista deixaria o stream vazando.
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/admin/online-users/events')))
+      .rejects.toBeInstanceOf(ForbiddenException)
+  })
+
+  it('deixa passar o colaborador interno', async () => {
+    getSession.mockResolvedValue(interno)
+    await expect(guard.canActivate(contexto('/api/admin/online-users'))).resolves.toBe(true)
+  })
+
+  it('ignora a query string ao comparar o caminho', async () => {
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/danfe/lista?empresaId=x')))
+      .rejects.toBeInstanceOf(ForbiddenException)
+  })
+})
+
+describe('rotas que o externo precisa', () => {
+  it('libera autenticação — ele precisa entrar e trocar a senha', async () => {
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/auth/sign-in/email'))).resolves.toBe(true)
+  })
+
+  it('libera o namespace do portal', async () => {
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/portal/qualquer-coisa'))).resolves.toBe(true)
+  })
+
+  it('libera o tRPC no caminho REAL da API — /trpc, sem /api', async () => {
+    // REGRESSÃO: a primeira versão liberava só `/api/trpc`, e o controller do
+    // tRPC é `@Controller()` + `@All('trpc/*path')` sem prefixo global. A rota
+    // real é `/trpc`, então NADA do portal passava: a área do cliente subia
+    // dizendo "nenhuma empresa vinculada", porque a própria consulta que lista
+    // as empresas vinha bloqueada.
+    //
+    // O teste que eu tinha escrito usava `/api/trpc` — codificou a minha
+    // suposição, não a rota. Por isso passava com o bug em pé.
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/trpc/portal.meusClientes'))).resolves.toBe(true)
+    expect(getSession).not.toHaveBeenCalled()
+  })
+
+  it('libera também o /api/trpc, para o dia de um prefixo global', async () => {
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/trpc/portal.convite.validar'))).resolves.toBe(true)
+  })
+
+  it('continua barrando rota interna parecida com a do tRPC', async () => {
+    // `/trpc` libera por prefixo; isto garante que o prefixo não vira um buraco
+    // para qualquer caminho que comece parecido.
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/chat/events')))
+      .rejects.toBeInstanceOf(ForbiddenException)
+  })
+})
+
+describe('leitura de asset', () => {
+    // REGRESSÃO: a logo do escritório no topo do portal quebrou porque o
+    // navegador manda o cookie e a guarda via um externo. A MESMA URL
+    // respondia 200 no `curl` (que vai sem cookie), o que despistou o
+    // diagnóstico por um bom tempo.
+  it('libera GET de asset — a logo do topo do portal', async () => {
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/upload/logo.png'))).resolves.toBe(true)
+  })
+
+  it('libera HEAD também', async () => {
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/upload/logo.png', true, 'HEAD'))).resolves.toBe(true)
+  })
+
+  it('libera o POST EXATO — é por ele que o porta-arquivos envia', async () => {
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/upload', true, 'POST'))).resolves.toBe(true)
+  })
+
+  it('barra o POST de certificado, que mora sob o mesmo prefixo', async () => {
+    // A comparação do envio é EXATA justamente por isto: as rotas de
+    // certificado digital são fluxo interno, e um `startsWith` as abriria.
+    getSession.mockResolvedValue(externo)
+    await expect(guard.canActivate(contexto('/api/upload/certificado', true, 'POST')))
+      .rejects.toBeInstanceOf(ForbiddenException)
+    await expect(guard.canActivate(contexto('/api/upload/certificado-pf', true, 'POST')))
+      .rejects.toBeInstanceOf(ForbiddenException)
+  })
+})
+
+describe('usuário desativado com sessão aberta', () => {
+  // O login recusa o inativo; isto é a sessão que já estava aberta quando ele
+  // foi desativado, e que valeria por até 7 dias.
+  const internoInativo = { user: { id: 'u3', role: 'COLABORADOR_INTERNO', isActive: false } }
+  const externoInativo = { user: { id: 'u4', role: 'COLABORADOR_CLIENTE', isActive: false } }
+
+  it('barra em rota interna', async () => {
+    getSession.mockResolvedValue(internoInativo)
+    await expect(guard.canActivate(contexto('/api/danfe/lista')))
+      .rejects.toBeInstanceOf(UnauthorizedException)
+  })
+
+  it('barra no namespace do portal, que o externo ativo pode usar', async () => {
+    getSession.mockResolvedValue(externoInativo)
+    await expect(guard.canActivate(contexto('/api/portal/qualquer-coisa')))
+      .rejects.toBeInstanceOf(UnauthorizedException)
+  })
+
+  it('barra no envio de arquivo do porta-arquivos', async () => {
+    getSession.mockResolvedValue(externoInativo)
+    await expect(guard.canActivate(contexto('/api/upload', true, 'POST')))
+      .rejects.toBeInstanceOf(UnauthorizedException)
+  })
+
+  it('resolve a sessão por Authorization, sem cookie — app e desktop', async () => {
+    getSession.mockResolvedValue(internoInativo)
+    await expect(guard.canActivate(contexto('/api/danfe/lista', false, 'GET', { authorization: 'Bearer tok' })))
+      .rejects.toBeInstanceOf(UnauthorizedException)
+    expect(getSession).toHaveBeenCalled()
+  })
+
+  it('não barra a autenticação — é por ela que se sai', async () => {
+    getSession.mockResolvedValue(internoInativo)
+    await expect(guard.canActivate(contexto('/api/auth/sign-out', true, 'POST'))).resolves.toBe(true)
+  })
+
+  it('usuário ativo segue passando', async () => {
+    getSession.mockResolvedValue({ user: { id: 'u5', role: 'COLABORADOR_INTERNO', isActive: true } })
+    await expect(guard.canActivate(contexto('/api/danfe/lista'))).resolves.toBe(true)
+  })
+})
+
+describe('requisição sem sessão', () => {
+  it('passa sem resolver sessão quando não há cookie', async () => {
+    // Evita uma consulta por requisição em tudo que é público.
+    await expect(guard.canActivate(contexto('/api/health', false))).resolves.toBe(true)
+    expect(getSession).not.toHaveBeenCalled()
+  })
+
+  it('sessão ilegível não vira bloqueio', async () => {
+    // Autenticar é problema da rota; aqui só interessa negar quem é
+    // comprovadamente externo.
+    getSession.mockRejectedValue(new Error('cookie inválido'))
+    await expect(guard.canActivate(contexto('/api/danfe/lista'))).resolves.toBe(true)
+  })
+
+  it('sessão anônima passa — rota pública continua pública', async () => {
+    getSession.mockResolvedValue(null)
+    await expect(guard.canActivate(contexto('/api/contratos/assinar'))).resolves.toBe(true)
+  })
+})

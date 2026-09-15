@@ -14,8 +14,14 @@ import { useMemo } from 'react'
 import { navigation, type NavGroup, type NavItem } from '@/lib/navigation'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-export function useNavegacaoPermitida(): { grupos: NavGroup[]; podeFerramentas: boolean } {
-  const { isMaster, isEmpresaMaster, allowedSlugs, permissions, role } = useUserPermissions()
+/**
+ * `carregando` existe porque lista vazia é ambígua: pode ser "este usuário não
+ * alcança nada" ou "as permissões ainda não chegaram". Quem apenas DESENHA o
+ * menu não precisa distinguir — some e reaparece. Quem FILTRA por essa lista
+ * precisa, ou trata o intervalo de carga como se o usuário não pudesse nada.
+ */
+export function useNavegacaoPermitida(): { grupos: NavGroup[]; podeFerramentas: boolean; carregando: boolean } {
+  const { isMaster, isEmpresaMaster, allowedSlugs, permissions, role, loading } = useUserPermissions()
   const ehLiderSetor = ['GESTOR', 'COORDENADOR', 'DIRETOR'].includes(role)
 
   // Ferramentas fica fora dos blocos da navegação, então não passa pelo filtro.
@@ -72,5 +78,5 @@ export function useNavegacaoPermitida(): { grupos: NavGroup[]; podeFerramentas: 
       .filter((group) => group.items.length > 0)
   }, [isMaster, isEmpresaMaster, allowedSlugs, permissions, ehLiderSetor])
 
-  return { grupos, podeFerramentas }
+  return { grupos, podeFerramentas, carregando: loading }
 }

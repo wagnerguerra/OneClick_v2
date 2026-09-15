@@ -6,6 +6,25 @@ import { PLATFORM_ADMIN_MODULES } from '@saas/types'
 import { hashPassword, verifyPassword } from 'better-auth/crypto'
 import { PermissionsEventsService } from '../permissions-events/permissions-events.service'
 import { invalidateUserPermissionsCache } from '../trpc/trpc.service'
+import { invalidateSessionCacheForUser } from '../trpc/session-cache'
+import { TRPCError } from '@trpc/server'
+
+/**
+ * O módulo Usuários é a equipe do ESCRITÓRIO.
+ *
+ * O colaborador de cliente mora na mesma tabela, mas é cadastrado, editado e
+ * desativado no cadastro do cliente (cliente-usuario.service). Aqui ele não é
+ * listado, aberto nem alterado — nem por quem conhece o id e chama a rota
+ * direto, que é o motivo de a trava estar no servidor e não só na tela.
+ */
+const PAPEL_CLIENTE = 'COLABORADOR_CLIENTE' as const
+const DO_ESCRITORIO: Prisma.UserWhereInput = { role: { not: PAPEL_CLIENTE } }
+const GERIDO_NO_CLIENTE = 'Colaborador de cliente é gerido no cadastro do cliente, não no módulo Usuários.'
+
+async function exigirDoEscritorio(ids: string[]) {
+  const deCliente = await prisma.user.count({ where: { id: { in: ids }, role: PAPEL_CLIENTE } })
+  if (deCliente > 0) throw new TRPCError({ code: 'BAD_REQUEST', message: GERIDO_NO_CLIENTE })
+}
 
 @Injectable()
 export class UserService {
@@ -22,7 +41,7 @@ export class UserService {
   }
 
   async list(input: ListUserInput, callerIsMaster: boolean, callerEmpresaId?: string) {
-    const { page, limit, search, sortBy, sortDir, role, empresaId } = input
+    const { page, limit, search, sortBy, sortDir, role, empresaId, tipo } = input
     const incluirInativos = (input as any).incluirInativos === true
     const empresaEfetiva = (callerIsMaster && empresaId) ? empresaId : callerEmpresaId
     const { skip, take } = getPrismaSkipTake(page, limit)
@@ -50,9 +69,21 @@ export class UserService {
       // Vai dentro de um AND, e não como `OR` solto: a busca por nome/e-mail
       // acima também usa `OR`, e a chave repetida no mesmo objeto sobrescreve a
       // primeira — o filtro de empresa apagaria a busca em silêncio.
-      ...(empresaEfetiva
-        ? { AND: [{ OR: [{ empresaId: empresaEfetiva }, { empresaId: null }] }] }
-        : {}),
+      //
+      // Com `tipo` (aba Usuários do cadastro da empresa), é a empresa EXATA: lá
+      // a pergunta é quem está nesta empresa, e sem o recorte as contas sem
+      // empresa apareciam na aba de TODOS os tenants.
+      AND: [
+        // Sem `tipo` é a equipe do escritório — o módulo Usuários. Colaborador
+        // de cliente só se lista pedindo `tipo: 'clientes'` (aba do tenant em
+        // /empresas); no dia a dia ele é gerido no cadastro do cliente.
+        tipo === 'clientes' ? { role: PAPEL_CLIENTE } : DO_ESCRITORIO,
+        ...(empresaEfetiva
+          ? tipo
+            ? [{ empresaId: empresaEfetiva }]
+            : [{ OR: [{ empresaId: empresaEfetiva }, { empresaId: null }] }]
+          : []),
+      ],
       // Não-master pedindo a lista de outra empresa: a resposta certa é vazia —
       // devolver a própria responderia a pergunta errada.
       ...(!callerIsMaster && empresaId && empresaId !== callerEmpresaId
@@ -86,6 +117,28 @@ export class UserService {
           createdAt: true,
           empresa: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
           area: { select: { id: true, name: true } },
+          /**
+           * De quais clientes a pessoa é, quando ela é usuária do portal.
+           *
+           * Para o usuário de cliente a "área" não diz nada — é sempre vazia. O
+           * que o identifica é a empresa-cliente a que ele responde.
+           *
+           * Vem pelo `user.list`, e não por uma rota nova, para continuar atrás
+           * da permissão do módulo Usuários: quem edita a empresa pode não ter
+           * esse módulo, e uma rota à parte seria um segundo portão sem trava.
+           *
+           * Recortado pela empresa da consulta: vínculo com cliente de OUTRO
+           * tenant não aparece na tela deste, mesmo que exista no banco.
+           */
+          clienteUsuarios: {
+            where: {
+              ativo: true,
+              ...(empresaEfetiva ? { cliente: { empresaId: empresaEfetiva } } : {}),
+            },
+            orderBy: { cliente: { razaoSocial: 'asc' } },
+            take: 20,
+            select: { cliente: { select: { id: true, razaoSocial: true } } },
+          },
           _count: { select: { permissions: true } },
           // Última sessão = último login bem-sucedido (better-auth grava em Session.createdAt).
           // Limita a 1 e descendente — Prisma não tem MAX agrupado direto no select.
@@ -100,9 +153,10 @@ export class UserService {
     ])
 
     // Achata sessions[] em lastLoginAt pra simplificar o front
-    const data = raw.map(({ sessions, ...u }) => ({
+    const data = raw.map(({ sessions, clienteUsuarios, ...u }) => ({
       ...u,
       lastLoginAt: sessions[0]?.createdAt ?? null,
+      clientes: clienteUsuarios.map(v => v.cliente),
     }))
 
     return buildPaginatedResponse(data, total, page, limit)
@@ -243,6 +297,9 @@ export class UserService {
         },
       },
     })
+    if (user.role === PAPEL_CLIENTE) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: GERIDO_NO_CLIENTE })
+    }
     if (!callerIsMaster && callerEmpresaId && user.empresaId !== callerEmpresaId) {
       throw new Error('Acesso negado.')
     }
@@ -256,6 +313,7 @@ export class UserService {
       salario, role, profile, sexo, estadoCivil, tipoContrato,
       cpf, ...rest
     } = input as any
+    if (role === PAPEL_CLIENTE) throw new TRPCError({ code: 'BAD_REQUEST', message: GERIDO_NO_CLIENTE })
     const hashedPassword = await hashPassword(password || 'Acesso@123')
 
     // Limpa empty strings → null pra não violar enums e checks
@@ -324,6 +382,9 @@ export class UserService {
 
     return prisma.$transaction(async (tx) => {
       const existing = await tx.user.findUniqueOrThrow({ where: { id } })
+      if (existing.role === PAPEL_CLIENTE || (userData as Record<string, unknown>).role === PAPEL_CLIENTE) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: GERIDO_NO_CLIENTE })
+      }
       if (existing.isMaster && !callerIsMaster) {
         throw new Error('Apenas um usuário MASTER pode editar outro MASTER.')
       }
@@ -352,6 +413,12 @@ export class UserService {
       if (dataDemissao !== undefined) data.dataDemissao = dataDemissao ? new Date(dataDemissao) : null
 
       const user = await tx.user.update({ where: { id }, data })
+
+      // Desativado pelo formulário: derruba as sessões abertas, como a
+      // exclusão já fazia. Sem isto, quem estava logado seguia logado.
+      if (data.isActive === false && existing.isActive) {
+        await tx.session.deleteMany({ where: { userId: id } })
+      }
 
       // Update password if provided
       if (password) {
@@ -384,6 +451,7 @@ export class UserService {
       // Após commit, dispara SSE + invalida cache. Fora da transação pra não
       // notificar antes do dado estar persistido.
       if (permissions !== undefined) this.notifyPermissionsChanged(id)
+      if ((userData as Record<string, unknown>).isActive === false) invalidateSessionCacheForUser(id)
       return res
     })
   }
@@ -402,6 +470,7 @@ export class UserService {
       where: {
         isActive: true,
         isMaster: false,
+        role: { not: PAPEL_CLIENTE },
         ...(callerEmpresaId ? { OR: [{ empresaId: callerEmpresaId }, { empresaId: null }] } : {}),
       },
       select: {
@@ -471,6 +540,7 @@ export class UserService {
         id: { in: userIds },
         isActive: true,
         isMaster: false,
+        role: { not: PAPEL_CLIENTE },
         ...(callerEmpresaId ? { OR: [{ empresaId: callerEmpresaId }, { empresaId: null }] } : {}),
       },
       select: { id: true },
@@ -531,6 +601,7 @@ export class UserService {
   }
 
   async updatePermissions(userId: string, permissions: Array<{ moduleSlug: string; canRead: boolean; canWrite: boolean; canDelete: boolean; subPermissions?: Record<string, boolean | string> }>) {
+    await exigirDoEscritorio([userId])
     // A tela salva sozinha a cada clique, então duas chamadas para o MESMO
     // usuário se sobrepõem com facilidade. Com "apaga tudo + createMany", as
     // duas transações inseriam a mesma (user_id, module_slug) e a segunda
@@ -603,6 +674,7 @@ export class UserService {
    */
   async delete(id: string, callerUserId: string) {
     const user = await prisma.user.findUniqueOrThrow({ where: { id } })
+    if (user.role === PAPEL_CLIENTE) throw new TRPCError({ code: 'BAD_REQUEST', message: GERIDO_NO_CLIENTE })
     if (user.isMaster) {
       throw new Error('Rebaixe o usuário MASTER antes de excluí-lo.')
     }
@@ -620,6 +692,7 @@ export class UserService {
       // Encerra qualquer sessão ativa
       prisma.session.deleteMany({ where: { userId: id } }),
     ])
+    invalidateSessionCacheForUser(id)
     return { ok: true, soft: true }
   }
 
@@ -635,12 +708,13 @@ export class UserService {
 
     const users = await prisma.user.findMany({
       where: { id: { in: idsUnicos } },
-      select: { id: true, name: true, isMaster: true, isActive: true },
+      select: { id: true, name: true, isMaster: true, isActive: true, role: true },
     })
 
     const pulados: Array<{ id: string; nome: string; motivo: string }> = []
     const aDesativar: string[] = []
     for (const u of users) {
+      if (u.role === PAPEL_CLIENTE) { pulados.push({ id: u.id, nome: u.name, motivo: 'colaborador de cliente — gerido no cadastro do cliente' }); continue }
       if (u.id === callerUserId) { pulados.push({ id: u.id, nome: u.name, motivo: 'é você' }); continue }
       if (u.isMaster) { pulados.push({ id: u.id, nome: u.name, motivo: 'usuário MASTER' }); continue }
       if (!u.isActive) { pulados.push({ id: u.id, nome: u.name, motivo: 'já estava inativo' }); continue }
@@ -655,6 +729,7 @@ export class UserService {
         }),
         prisma.session.deleteMany({ where: { userId: { in: aDesativar } } }),
       ])
+      for (const u of aDesativar) invalidateSessionCacheForUser(u)
     }
 
     return { ok: true, desativados: aDesativar.length, pulados }
@@ -668,6 +743,7 @@ export class UserService {
       throw new Error('Você não pode rebaixar a si mesmo.')
     }
     const target = await prisma.user.findUniqueOrThrow({ where: { id: targetId } })
+    if (target.role === PAPEL_CLIENTE) throw new TRPCError({ code: 'BAD_REQUEST', message: GERIDO_NO_CLIENTE })
     return prisma.user.update({
       where: { id: targetId },
       data: { isMaster: !target.isMaster },
@@ -686,6 +762,9 @@ export class UserService {
     const users = await prisma.user.findMany({
       where: {
         isActive: true,
+        // Select de responsável, atribuição, participante: é sempre alguém da
+        // equipe. Colaborador de cliente não pode ser escolhido para isso.
+        role: { not: PAPEL_CLIENTE },
         ...(callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
       },
       select: {
@@ -909,6 +988,7 @@ export class UserService {
   }
 
   async copyPermissions(sourceUserId: string, targetUserIds: string[]) {
+    await exigirDoEscritorio([sourceUserId, ...targetUserIds])
     const sourcePerms = await prisma.userPermission.findMany({
       where: { userId: sourceUserId },
       select: { moduleSlug: true, canRead: true, canWrite: true, canDelete: true, subPermissions: true },
@@ -943,6 +1023,7 @@ export class UserService {
   async exportAll(_callerIsMaster: boolean, callerEmpresaId?: string) {
     return prisma.user.findMany({
       where: {
+        role: { not: PAPEL_CLIENTE },
         ...(callerEmpresaId ? { empresaId: callerEmpresaId } : {}),
       },
       orderBy: { name: 'asc' },
@@ -1370,6 +1451,7 @@ export class UserService {
             }),
             prisma.session.deleteMany({ where: { userId: d.userId } }),
           ])
+          invalidateSessionCacheForUser(d.userId)
           desativados++
         }
 

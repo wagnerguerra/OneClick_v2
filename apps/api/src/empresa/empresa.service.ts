@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { TRPCError } from '@trpc/server'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
+import { esquecerEmpresasInativas } from '../common/empresa-inativa'
 import { invalidateSessionCacheForUser } from '../trpc/session-cache'
 import type { Prisma } from '@saas/db'
 import type { CreateEmpresaInput, UpdateEmpresaInput, ListEmpresaInput } from '@saas/types'
@@ -22,6 +23,13 @@ function detectChanges(before: Record<string, unknown>, after: Record<string, un
     if (String(oldVal) !== String(newVal)) changes[key] = { from: oldVal, to: newVal }
   }
   return Object.keys(changes).length > 0 ? changes : null
+}
+
+/** Ids de usuários gravados no evento de desativação da empresa. */
+function idsDesativados(changes: Prisma.JsonValue | null | undefined): string[] {
+  if (!changes || typeof changes !== 'object' || Array.isArray(changes)) return []
+  const lista = (changes as Record<string, unknown>).usuariosDesativados
+  return Array.isArray(lista) ? lista.filter((v): v is string => typeof v === 'string') : []
 }
 
 @Injectable()
@@ -61,7 +69,20 @@ export class EmpresaService {
     if (!isMaster && id !== (empresaId ?? null)) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Empresa fora do seu acesso.' })
     }
-    return prisma.empresa.findUniqueOrThrow({ where: { id } })
+    // As contagens alimentam os números do hero do detalhe (PADRAO_PAGINAS
+    // §3.2). Usuários internos e de clientes são contados em separado: somados,
+    // "76 usuários" misturava a equipe do escritório com as pessoas dos clientes
+    // que só acessam o portal — e ainda contava os inativos.
+    const ativos = { empresaId: id, isActive: true }
+    const [empresa, usuariosInternos, usuariosDeClientes] = await Promise.all([
+      prisma.empresa.findUniqueOrThrow({
+        where: { id },
+        include: { _count: { select: { clientes: true } } },
+      }),
+      prisma.user.count({ where: { ...ativos, role: { not: 'COLABORADOR_CLIENTE' } } }),
+      prisma.user.count({ where: { ...ativos, role: 'COLABORADOR_CLIENTE' } }),
+    ])
+    return { ...empresa, usuariosInternos, usuariosDeClientes }
   }
 
   async create(input: CreateEmpresaInput, userId?: string) {
@@ -90,6 +111,10 @@ export class EmpresaService {
       const before = await tx.empresa.findUniqueOrThrow({ where: { id } })
       const data: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(input)) {
+        // O status só muda por `desativar`/`reativar`: o form reenvia o
+        // `isActive` que carregou, e salvar uma empresa inativa a religaria
+        // sem devolver os usuários dela.
+        if (key === 'isActive') continue
         if (value !== undefined) data[key] = typeof value === 'string' && value === '' ? null : value
       }
       const newVersion = before.version + 1
@@ -103,11 +128,181 @@ export class EmpresaService {
     })
   }
 
-  async delete(id: string, userId?: string) {
+  /**
+   * O que está ligado a esta empresa, para o master ver antes de inativar.
+   *
+   * Os grupos seguem o efeito da inativação, e não o módulo de origem: quem
+   * decide precisa saber quem perde o acesso na hora, o que fica guardado sem
+   * ser tocado e o que continua configurado. Contar por módulo diria quanto
+   * existe, mas não o que acontece com cada coisa.
+   *
+   * `ehSuaEmpresa` sai daqui, e não do front, porque é a mesma regra que o
+   * `desativar` aplica — calculada em dois lugares, uma das duas fica para trás.
+   */
+  async levantarVinculos(id: string, autorId: string) {
+    const e = { empresaId: id }
+    const acesso = { empresaId: id, isActive: true, isMaster: false }
+    const [
+      empresa, autor, internos, deClientes, masters, sessoes,
+      clientesAtivos, clientesTotal, areas, cargos, fornecedores, socios,
+      orcamentosAbertos, orcamentosTotal, contratosVigentes, contratosTotal, oportunidades,
+      execucoesAndamento, execucoesTotal, chamadosAbertos, chamadosTotal,
+      certificados, danfes, agenda, whatsapp, recorrencias, drives,
+    ] = await Promise.all([
+      prisma.empresa.findUniqueOrThrow({ where: { id }, select: { id: true, razaoSocial: true, isActive: true } }),
+      prisma.user.findUnique({ where: { id: autorId }, select: { empresaId: true } }),
+      prisma.user.count({ where: { ...acesso, role: { not: 'COLABORADOR_CLIENTE' } } }),
+      prisma.user.count({ where: { ...acesso, role: 'COLABORADOR_CLIENTE' } }),
+      prisma.user.count({ where: { empresaId: id, isActive: true, isMaster: true } }),
+      prisma.session.count({ where: { user: acesso, expiresAt: { gt: new Date() } } }),
+      prisma.cliente.count({ where: { ...e, deletedAt: null, status: 'ATIVO' } }),
+      prisma.cliente.count({ where: { ...e, deletedAt: null } }),
+      prisma.area.count({ where: { ...e, isActive: true } }),
+      prisma.cargo.count({ where: { ...e, isActive: true } }),
+      prisma.fornecedor.count({ where: { ...e, isActive: true } }),
+      prisma.socio.count({ where: { ...e, isActive: true } }),
+      prisma.orcamento.count({ where: { ...e, arquivado: false, status: { in: ['NOVO', 'A_ENVIAR', 'ENVIADO', 'APROVADO', 'LIBERADO'] } } }),
+      prisma.orcamento.count({ where: e }),
+      prisma.contrato.count({ where: { ...e, status: { in: ['AGUARDANDO_ASSINATURA', 'ASSINADO', 'VIGENTE'] } } }),
+      prisma.contrato.count({ where: e }),
+      prisma.oportunidade.count({ where: { ...e, isActive: true } }),
+      prisma.servicoExecucao.count({ where: { ...e, arquivado: false, status: 'EM_ANDAMENTO' } }),
+      prisma.servicoExecucao.count({ where: e }),
+      prisma.helpdeskTicket.count({ where: { ...e, ativo: true, arquivado: false, status: { in: ['NOVO', 'EM_ANDAMENTO', 'AGUARDANDO_AUDITORIA', 'RESOLVIDO'] } } }),
+      prisma.helpdeskTicket.count({ where: e }),
+      prisma.certificadoDigital.count({ where: { ...e, arquivado: false } }),
+      prisma.danfe.count({ where: e }),
+      prisma.agendaEvento.count({ where: { ...e, isActive: true } }),
+      prisma.whatsappNumero.count({ where: { ...e, ativo: true } }),
+      prisma.servicoRecorrencia.count({ where: { ...e, ativa: true } }),
+      prisma.gestaoArquivosDrive.count({ where: { ...e, ativo: true } }),
+    ])
+
+    type Item = { rotulo: string; total: number; detalhe?: string }
+    const item = (rotulo: string, total: number, detalhe?: string): Item => ({ rotulo, total, ...(detalhe ? { detalhe } : {}) })
+
+    return {
+      empresa,
+      ehSuaEmpresa: autor?.empresaId === id,
+      grupos: [
+        {
+          chave: 'acesso',
+          titulo: 'Perdem o acesso agora',
+          nota: 'Ficam inativos e têm a sessão encerrada. Reativar a empresa devolve o acesso a estas pessoas.',
+          itens: [
+            item('Usuários do escritório', internos),
+            item('Usuários de clientes (portal)', deClientes),
+            item('Sessões abertas encerradas', sessoes),
+          ],
+        },
+        {
+          chave: 'dados',
+          titulo: 'Ficam guardados, sem alteração',
+          nota: 'Nada é apagado nem muda de situação.',
+          itens: [
+            item('Clientes', clientesTotal, `${clientesAtivos} ativos`),
+            item('Áreas', areas),
+            item('Cargos', cargos),
+            item('Fornecedores', fornecedores),
+            item('Sócios', socios),
+            item('Orçamentos', orcamentosTotal, `${orcamentosAbertos} em aberto`),
+            item('Contratos', contratosTotal, `${contratosVigentes} vigentes ou em assinatura`),
+            item('Oportunidades do CRM', oportunidades),
+            item('Execuções de serviço', execucoesTotal, `${execucoesAndamento} em andamento`),
+            item('Chamados do HelpDesk', chamadosTotal, `${chamadosAbertos} em aberto`),
+            item('Certificados digitais', certificados),
+            item('DANFEs', danfes),
+            item('Eventos de agenda', agenda),
+          ],
+        },
+        {
+          chave: 'integracoes',
+          titulo: 'Continuam configuradas, mas param',
+          nota: 'A configuração fica guardada; as rotinas automáticas (e-mails, sincronizações, recorrências, alertas) deixam de rodar para esta empresa enquanto ela estiver inativa.',
+          itens: [
+            item('Números de WhatsApp', whatsapp),
+            item('Recorrências de serviço', recorrencias),
+            item('Drives da Gestão de Arquivos', drives),
+          ],
+        },
+      ],
+      mastersMantidos: masters,
+    }
+  }
+
+  /**
+   * Desliga o tenant na raiz. Substitui a exclusão física, que apagava a
+   * empresa e deixava os clientes e usuários dela com `empresaId` nulo — e,
+   * neste sistema, registro sem empresa é registro que toda empresa enxerga.
+   *
+   * O que muda: a empresa fica inativa; os usuários dela (internos e do
+   * portal) ficam inativos e perdem a sessão aberta; e o login passa a ser
+   * recusado (hook de sessão no AuthService). Nenhum outro dado é tocado.
+   *
+   * Os ids desativados ficam gravados no evento. É o que permite ao
+   * `reativar` devolver exatamente quem estava ativo, sem religar quem já
+   * era inativo antes.
+   */
+  async desativar(id: string, autorId: string) {
+    const autor = await prisma.user.findUnique({ where: { id: autorId }, select: { empresaId: true } })
+    if (autor?.empresaId === id) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Você não pode inativar a empresa à qual pertence.' })
+    }
+    const resultado = await prisma.$transaction(async (tx) => {
+      const empresa = await tx.empresa.findUniqueOrThrow({ where: { id } })
+      if (!empresa.isActive) return { jaInativa: true, usuarios: [] as string[] }
+      // Master global fica de fora: administra a plataforma, não o tenant.
+      const usuarios = (await tx.user.findMany({
+        where: { empresaId: id, isActive: true, isMaster: false },
+        select: { id: true },
+      })).map((u) => u.id)
+      if (usuarios.length > 0) {
+        await tx.user.updateMany({ where: { id: { in: usuarios } }, data: { isActive: false } })
+        await tx.session.deleteMany({ where: { userId: { in: usuarios } } })
+      }
+      const version = empresa.version + 1
+      await tx.empresa.update({ where: { id }, data: { isActive: false, version } })
+      await tx.empresaEvent.create({
+        data: {
+          empresaId: id, userId: autorId, type: 'deactivated', version,
+          changes: { isActive: { from: true, to: false }, usuariosDesativados: usuarios },
+        },
+      })
+      return { jaInativa: false, usuarios }
+    })
+    for (const u of resultado.usuarios) invalidateSessionCacheForUser(u)
+    esquecerEmpresasInativas()
+    return { jaInativa: resultado.jaInativa, usuariosDesativados: resultado.usuarios.length }
+  }
+
+  /**
+   * Religa o tenant e devolve o acesso a quem a última desativação desligou.
+   * Só volta quem continua nesta empresa e inativo: quem foi movido ou
+   * religado à mão no meio do caminho não é tocado.
+   */
+  async reativar(id: string, autorId: string) {
+    esquecerEmpresasInativas()
     return prisma.$transaction(async (tx) => {
       const empresa = await tx.empresa.findUniqueOrThrow({ where: { id } })
-      await tx.empresaEvent.create({ data: { empresaId: id, userId: userId || null, type: 'deleted', version: empresa.version } })
-      return tx.empresa.delete({ where: { id } })
+      if (empresa.isActive) return { jaAtiva: true, usuariosReativados: 0 }
+      const ultima = await tx.empresaEvent.findFirst({
+        where: { empresaId: id, type: 'deactivated' },
+        orderBy: { createdAt: 'desc' },
+        select: { changes: true },
+      })
+      const ids = idsDesativados(ultima?.changes)
+      const { count } = ids.length > 0
+        ? await tx.user.updateMany({ where: { id: { in: ids }, empresaId: id, isActive: false }, data: { isActive: true } })
+        : { count: 0 }
+      const version = empresa.version + 1
+      await tx.empresa.update({ where: { id }, data: { isActive: true, version } })
+      await tx.empresaEvent.create({
+        data: {
+          empresaId: id, userId: autorId, type: 'reactivated', version,
+          changes: { isActive: { from: false, to: true }, usuariosReativados: count },
+        },
+      })
+      return { jaAtiva: false, usuariosReativados: count }
     })
   }
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { idsDeEmpresasInativas } from '../common/empresa-inativa'
 import {
   diasDoEvento, saldoDoPeriodo, limiteConcessivo, farolVencimento, diasNoMes,
   limitePagamento, periodoAquisitivoSugerido, iso, type Farol,
@@ -583,7 +584,8 @@ export class ControleFeriasReportsService {
     let totalVencendo = 0
     let notificados = 0
 
-    for (const { empresaId } of empresas) {
+    const inativas = new Set(await idsDeEmpresasInativas())
+    for (const { empresaId } of empresas.filter((e) => !e.empresaId || !inativas.has(e.empresaId))) {
       const { rows } = await this.vencimentos(empresaId)
       const vencidos = rows.filter((r) => r.farol === 'VENCIDO')
       const vencendo = rows.filter((r) => r.farol === 'CRITICO' || r.farol === 'ATENCAO')

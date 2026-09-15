@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Inject } from '@nestjs/common'
 import { CronJob } from 'cron'
 import { prisma } from '@saas/db'
+import { idsDeEmpresasInativas } from '../../common/empresa-inativa'
 import { schedulersAtivos } from '../../common/scheduler-guard'
 import { DossieService } from './dossie.service'
 
@@ -70,6 +71,7 @@ export class DossieSchedulerService implements OnModuleInit, OnModuleDestroy {
     let verificados = 0
     let alertas = 0
     try {
+      const inativas = new Set(await idsDeEmpresasInativas())
       const comDossie = await prisma.clienteDossieFato.findMany({
         where: { bloco: 'receita', campo: 'situacao_cadastral' },
         select: { clienteId: true, valor: true },
@@ -78,9 +80,10 @@ export class DossieSchedulerService implements OnModuleInit, OnModuleDestroy {
       for (const f of comDossie) {
         const cliente = await prisma.cliente.findUnique({
           where: { id: f.clienteId },
-          select: { id: true, status: true },
+          select: { id: true, status: true, empresaId: true },
         })
         if (!cliente || cliente.status !== 'ATIVO') continue
+        if (cliente.empresaId && inativas.has(cliente.empresaId)) continue
 
         const antes = (f.valor || '').toLowerCase()
         const r = await this.dossie.enriquecer(f.clienteId, { forcar: true })

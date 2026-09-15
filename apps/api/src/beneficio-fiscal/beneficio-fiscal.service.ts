@@ -1,6 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
+import { sqlSemEmpresaInativa } from '../common/empresa-inativa'
 import { randomUUID } from 'crypto'
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { EmailService } from '../common/email.service'
@@ -356,6 +357,7 @@ export class BeneficioFiscalService {
           AND v.orcamento_id IS NULL
           AND v.data_vencimento IS NOT NULL
           AND ($1::text IS NULL OR v.empresa_id = $1)
+          AND ${sqlSemEmpresaInativa('v.empresa_id')}
         ORDER BY v.data_vencimento ASC`,
       empresaIdFiltro ?? null,
     )) as any[]

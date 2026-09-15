@@ -1,5 +1,6 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { sqlSemEmpresaInativa } from '../common/empresa-inativa'
 import type { CreateServicoInput, UpdateServicoInput, CreateServicoEtapaInput, CreateServicoPassoInput, CreateExecucaoInput, CreateEncadeamentoInput, Condicao, CreateMaterialInput, UpdateMaterialInput, CreateGrupoInput, UpdateGrupoInput, IniciarGrupoInput, CreateObrigacaoInput, FlowPlan } from '@saas/types'
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { ProcessoService } from '../processo/processo.service'
@@ -4716,6 +4717,7 @@ export class ServicoService {
          AND prazo_limite IS NOT NULL
          AND prazo_limite < $1
          AND notificado_atraso_em IS NULL
+         AND ${sqlSemEmpresaInativa('servico_execucoes.empresa_id')}
        LIMIT 500`,
       agora,
     )

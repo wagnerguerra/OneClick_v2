@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import type { Prisma } from '@saas/db'
+import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { encryptPassword, decryptPassword, serializeCipher, parseCipher, sha256Hex } from './crypto.helper'
@@ -642,10 +644,13 @@ export class CertificadoDigitalService {
     const agora = new Date()
     const em30 = new Date(agora.getTime() + 30 * 86400000)
     const em60 = new Date(agora.getTime() + 60 * 86400000)
+    // Empresa inativa fica como estava: nada muda de situação enquanto ela
+    // estiver desligada (common/empresa-inativa).
+    const inativas = await idsDeEmpresasInativas()
 
     // 1. Atualiza status ATIVO → EXPIRADO em massa para certs vencidos
     const expRes = await prisma.certificadoDigital.updateMany({
-      where: { status: 'ATIVO', expiraEm: { lte: agora } },
+      where: semEmpresaInativa<Prisma.CertificadoDigitalWhereInput>({ status: 'ATIVO', expiraEm: { lte: agora } }, inativas),
       data: { status: 'EXPIRADO' },
     })
 
@@ -656,11 +661,11 @@ export class CertificadoDigitalService {
 
     // 3. Carrega certs em buckets de alerta (não revogados, não arquivados)
     const certs = await prisma.certificadoDigital.findMany({
-      where: {
+      where: semEmpresaInativa<Prisma.CertificadoDigitalWhereInput>({
         arquivado: false,
         status: { in: ['ATIVO', 'EXPIRADO'] },
         expiraEm: { lte: em60 },  // estão dentro de 60 dias OU vencidos
-      },
+      }, inativas),
       select: {
         id: true, titular: true, documento: true,
         clienteId: true, empresaId: true, expiraEm: true,

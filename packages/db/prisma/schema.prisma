@@ -300,6 +300,9 @@ model User {
   // Chat interno
   chatParticipacoes      ChatParticipante[]            @relation("ChatParticipanteUser")
   // Gestão de Ativos
+  arquivosExcluidos      ClienteArquivo[]              @relation("ArquivoExcluidoPor")
+  arquivoVisualizacoes   ArquivoVisualizacao[]
+  arquivoLogs            ArquivoLog[]                  @relation("ArquivoLogUsuario")
   ativosResponsavel      Ativo[]                       @relation("AtivoResponsavel")
   ativoMovimentacoes     AtivoMovimentacao[]
   ativoManutencoes       AtivoManutencao[]             @relation("AtivoManutencaoResponsavel")
@@ -446,6 +449,7 @@ model Area {
   manifestacoes      Manifestacao[]
   reunioes           Reuniao[]
   melhorias          Melhoria[]
+  pastasArquivos     GestaoArquivosPastaArea[]
 
   @@map("areas")
 }
@@ -581,6 +585,10 @@ model Empresa {
   helpdeskCategorias   HelpdeskCategoria[]
   helpdeskTickets      HelpdeskTicket[]
   signatureTemplate    EmpresaSignatureTemplate?
+  notificacoesArquivos GestaoArquivosNotificacao[]
+  driveArquivos        GestaoArquivosDrive?
+  pastaAreasArquivos   GestaoArquivosPastaArea[]
+  portalModulos        PortalModuloEmpresa[]
 
   @@map("empresas")
 }
@@ -690,6 +698,22 @@ model ClienteUsuario {
   nivel     PortalNivel @default(OPERACIONAL)
   areas     String[]    @default([])
   ativo     Boolean     @default(true)
+
+  /// Porta-arquivos: o que este usuário faz com arquivos e pastas.
+  ///
+  /// Trio explícito, e não derivado do `nivel`, porque as duas coisas não andam
+  /// juntas: há ADMINISTRADOR de cliente que o escritório não quer deixar
+  /// apagar nada, e há OPERACIONAL que precisa corrigir o próprio envio errado.
+  /// O `nivel` continua valendo para o RESTO do portal (contrato, honorários);
+  /// aqui quem manda são estes campos.
+  ///
+  /// `podeVer` também é o que governa a pasta do Google Drive. Vale registrar a
+  /// consequência: arquivo do Drive não tem categoria, então o recorte por
+  /// `areas` NÃO se aplica lá — quem tem `podeVer` enxerga a pasta inteira do
+  /// cliente. É por isso que a permissão é por usuário e não automática.
+  podeVer     Boolean @default(true) @map("pode_ver")
+  podeEditar  Boolean @default(false) @map("pode_editar")
+  podeExcluir Boolean @default(false) @map("pode_excluir")
 
   /// Quem criou o vínculo. Pode ser um usuário INTERNO (escritório cadastrando
   /// o primeiro administrador) ou o próprio administrador do cliente.
@@ -952,6 +976,16 @@ model Cliente {
   // CRM
   isLead Boolean @default(false) @map("is_lead")
 
+  // Google Drive — pasta do cliente exibida na Gestão de Arquivos.
+  //
+  // Campo SEPARADO do `driveFolderId` logo abaixo, de propósito. Aquele
+  // alimenta a ingestão automática de XML, que varre a pasta recursivamente e
+  // importa o que encontra; apontá-lo para a pasta geral do cliente faria o
+  // sync engolir XMLs que ninguém mandou importar. São dois usos diferentes da
+  // mesma conta do Drive, e misturá-los faz uma tela mexer na outra sem avisar.
+  portalDriveFolderId   String? @map("portal_drive_folder_id")
+  portalDriveFolderNome String? @map("portal_drive_folder_nome")
+
   // Google Drive — pasta vinculada do cliente para ingestão automática de XML
   driveFolderId   String?   @map("drive_folder_id")
   driveFolderName String?   @map("drive_folder_name")
@@ -1002,7 +1036,12 @@ model Cliente {
   situacoesFiscais        SituacaoFiscal[]
   events                  ClienteEvent[]
   arquivos                ClienteArquivo[]
+  solicitacoesPortal      PortalSolicitacao[]
+  pastasPortal            PortalPasta[]
   usuariosPortal          ClienteUsuario[]
+  arquivoLogs             ArquivoLog[]
+  notificacoesArquivos    GestaoArquivosNotificacao[]
+  pastaAreasArquivos      GestaoArquivosPastaArea[]
   contatos                ClienteContato[]
   inscricoes              ClienteInscricao[]
   contratoParams          ClienteContratoParam[]
@@ -1116,10 +1155,346 @@ model ClienteArquivo {
   userId     String?   @map("user_id")
   createdAt  DateTime  @default(now()) @map("created_at")
 
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // ── Porta-arquivos do Portal do Cliente (Fase 1) ──────────────────────
+  /// Competência AAAAMM. É a pasta raiz do porta-arquivos: contabilidade se
+  /// organiza por mês, e "cadê a guia de agosto?" é como a pessoa procura.
+  competencia String? @db.VarChar(6)
 
+  /// Agrupamento dentro da competência: guias, folha, notas, contabil,
+  /// societario, outros. Texto e não enum porque a lista muda com o uso, e
+  /// migração de enum por causa disso não se paga.
+  categoria String?
+
+  /// Quem colocou: ESCRITORIO ou CLIENTE. Não dá para deduzir do `userId` —
+  /// o autor pode ter sido removido, e a origem do arquivo não muda por isso.
+  origem String @default("ESCRITORIO")
+
+  /// O cliente enxerga este arquivo no portal?
+  ///
+  /// Default FALSE de propósito. A tabela já tem milhares de arquivos internos
+  /// — contratos, documentos de análise, coisas que o escritório guardou sobre
+  /// o cliente e não PARA o cliente. Um default true publicaria tudo isso de
+  /// uma vez no dia do deploy. Publicar é ato deliberado, arquivo por arquivo.
+  visivelParaCliente Boolean @default(false) @map("visivel_para_cliente")
+
+  /// Quando o cliente abriu. É o recibo de leitura que encerra a discussão de
+  /// "não me mandaram a guia".
+  lidoEm    DateTime? @map("lido_em")
+  lidoPorId String?   @map("lido_por_id")
+
+  /// Preenchido quando o arquivo resolve uma solicitação do escritório.
+  solicitacaoId String? @map("solicitacao_id")
+
+  /// Pasta onde o arquivo aparece no portal. `null` = raiz.
+  pastaId String? @map("pasta_id")
+
+  // ── Gestão de Arquivos (lado do escritório) ───────────────────────────
+  /// Exclusão é LÓGICA, nunca `DELETE`.
+  ///
+  /// São documentos fiscais e trabalhistas de terceiros: guia paga, folha
+  /// fechada, contrato assinado. Apagar de verdade transforma um clique errado
+  /// em perda definitiva de documento do cliente — e o log de quem excluiu não
+  /// serve de nada se o arquivo não pode voltar. Toda leitura filtra por
+  /// `excluidoEm: null`; restaurar é limpar estes dois campos.
+  excluidoEm   DateTime? @map("excluido_em")
+  excluidoPorId String?  @map("excluido_por_id")
+
+  cliente     Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  user        User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  solicitacao PortalSolicitacao? @relation(fields: [solicitacaoId], references: [id], onDelete: SetNull)
+  pasta       PortalPasta?       @relation(fields: [pastaId], references: [id], onDelete: SetNull)
+  excluidoPor User?              @relation("ArquivoExcluidoPor", fields: [excluidoPorId], references: [id], onDelete: SetNull)
+  visualizacoes ArquivoVisualizacao[]
+
+  @@index([clienteId, competencia])
+  @@index([clienteId, pastaId])
+  @@index([solicitacaoId])
   @@map("cliente_arquivos")
+}
+
+/// Quem, do escritório, já abriu este arquivo.
+///
+/// É tabela por usuário, e não uma coluna `visto_em` no arquivo, por uma razão
+/// concreta: um cliente costuma ter responsáveis diferentes por área. Se o
+/// fiscal abre a folha de pagamento e isso apaga o destaque para todo mundo, a
+/// pessoa do trabalhista nunca fica sabendo que o documento chegou — o aviso
+/// morre em quem não era o destinatário.
+///
+/// Não se confunde com `ClienteArquivo.lidoEm`, que é o recibo do CLIENTE
+/// abrindo o que o escritório publicou. Aqui é o inverso: o escritório abrindo
+/// o que o cliente mandou.
+model ArquivoVisualizacao {
+  id        String   @id @default(cuid())
+  arquivoId String   @map("arquivo_id")
+  userId    String   @map("user_id")
+  vistoEm   DateTime @default(now()) @map("visto_em")
+
+  arquivo ClienteArquivo @relation(fields: [arquivoId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([arquivoId, userId])
+  @@index([userId])
+  @@map("arquivo_visualizacoes")
+}
+
+/// Trilha de auditoria do porta-arquivos: quem, quando, onde e o quê.
+///
+/// Campos denormalizados de propósito (`arquivoNome`, `pastaCaminho`): o log
+/// precisa continuar legível depois que o arquivo for excluído ou a pasta
+/// renomeada. Um log que só guarda ids vira uma lista de códigos mortos
+/// exatamente no dia em que alguém precisa dele para entender o que houve.
+model ArquivoLog {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+
+  /// Nulo quando o evento é de pasta, ou quando o arquivo sumiu de vez.
+  arquivoId   String? @map("arquivo_id")
+  arquivoNome String? @map("arquivo_nome")
+
+  /// Caminho legível ("Contratos / Aditivos"). `null` = raiz.
+  pastaId      String? @map("pasta_id")
+  pastaCaminho String? @map("pasta_caminho")
+
+  /// ABRIU, BAIXOU, ENVIOU, PUBLICOU, DESPUBLICOU, EXCLUIU, RESTAUROU,
+  /// CRIOU_PASTA, EXCLUIU_PASTA. Texto e não enum: a lista cresce com o uso.
+  evento String
+
+  /// ESCRITORIO ou CLIENTE — de que lado veio o ato. Não dá para deduzir do
+  /// usuário depois, porque o vínculo dele pode mudar ou ser removido.
+  lado String @default("ESCRITORIO")
+
+  usuarioId   String? @map("usuario_id")
+  usuarioNome String? @map("usuario_nome")
+  detalhe     String? @db.Text
+  ip          String?
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuario User?   @relation("ArquivoLogUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([clienteId, criadoEm])
+  @@index([arquivoId])
+  @@index([usuarioId])
+  @@map("arquivo_logs")
+}
+
+/// Quem recebe e-mail quando algo acontece no porta-arquivos.
+///
+/// `clienteId` nulo é a regra PADRÃO da empresa; uma linha com cliente
+/// preenchido sobrepõe a padrão para aquele cliente. Assim a configuração
+/// normal é feita uma vez, e a exceção ("neste cliente o diretor também quer
+/// saber") não obriga a cadastrar todos os outros.
+///
+/// Cuidado de banco: em Postgres `NULL != NULL`, então o `@@unique` abaixo NÃO
+/// impede duas linhas padrão para o mesmo evento. O índice parcial que resolve
+/// isso está no SQL de deploy.
+/// Pasta raiz do Google Drive que a Gestão de Arquivos lista.
+///
+/// Uma por empresa, apontada pelo master. As pastas dos clientes são as
+/// SUBPASTAS dela — é assim que o escritório já organiza o Drive hoje (uma
+/// pasta por cliente dentro de uma pasta guarda-chuva), então o módulo se
+/// encaixa no que existe em vez de pedir uma reorganização.
+model GestaoArquivosDrive {
+  id        String  @id @default(cuid())
+  empresaId String  @unique @map("empresa_id")
+
+  /// ID da pasta no Drive, extraído da URL que o master cola.
+  pastaRaizId   String  @map("pasta_raiz_id")
+  /// Nome resolvido pela API na hora de salvar — serve de confirmação visual
+  /// de que o ID colado é mesmo a pasta que a pessoa pensou.
+  pastaRaizNome String? @map("pasta_raiz_nome")
+
+  ativo Boolean @default(true)
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@map("gestao_arquivos_drive")
+}
+
+/// Quais módulos do Portal do Cliente estão liberados numa empresa.
+///
+/// Guarda só as EXCEÇÕES: ausência de linha significa "vale o padrão do
+/// módulo", declarado no catálogo em `portal-modulos.ts`. O contrário —
+/// exigir linha para tudo — quebraria o portal de quem já usa no instante do
+/// deploy, porque Documentos deixaria de existir até alguém ir ligar.
+///
+/// É por EMPRESA e não por tenant, e isso não é atalho: `Empresa` não tem
+/// `tenantId` no schema, e as empresas em operação estão todas sem tenant (o
+/// único tenant cadastrado aponta para um sandbox sem cliente nenhum). O
+/// portal é escopado por cliente → empresa; um gate por tenant não alcançaria
+/// cliente algum hoje.
+model PortalModuloEmpresa {
+  id        String  @id @default(cuid())
+  empresaId String  @map("empresa_id")
+  /// Slug do módulo: documentos, obrigacoes, chamados, certidoes, ...
+  modulo    String
+  liberado  Boolean @default(true)
+
+  /// Quem mexeu por último — a liberação de módulo é decisão comercial, e
+  /// "quem liberou isto?" é pergunta que aparece.
+  alteradoPorId String?  @map("alterado_por_id")
+  criadoEm      DateTime @default(now()) @map("criado_em")
+  atualizadoEm  DateTime @updatedAt @map("atualizado_em")
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, modulo])
+  @@index([empresaId])
+  @@map("portal_modulos_empresa")
+}
+
+/// A que área do escritório pertence uma pasta do cliente.
+///
+/// Existe para responder "quem precisa saber deste arquivo?". Sem isto, o
+/// aviso de arquivo novo vai para o responsável de TODAS as áreas contratadas
+/// — o contábil recebe e-mail de nota fiscal, o fiscal recebe de folha, e em
+/// pouco tempo ninguém lê nenhum.
+///
+/// O mapa é na PASTA e não no arquivo, por dois motivos. O cliente organiza
+/// por tempo ("2025", "2026") e não por departamento: perguntar a ele se um
+/// extrato é contábil ou fiscal é pedir que aprenda o organograma do
+/// escritório, e uma resposta errada rotearia para a pessoa errada em
+/// silêncio. E a pasta é configuração do escritório, feita uma vez, que o
+/// cliente nunca vê.
+///
+/// `pastaId` é o ID NO DRIVE, não um `PortalPasta`: o envio do cliente passou
+/// a ir direto para o Drive, e é o id de lá que chega na hora de avisar.
+///
+/// A ausência de linha é legítima e comum — é a pasta sem área, que cai no
+/// destino de fallback. Por isso o mapa não precisa estar completo para o
+/// módulo funcionar.
+model GestaoArquivosPastaArea {
+  id        String @id @default(cuid())
+  empresaId String @map("empresa_id")
+  clienteId String @map("cliente_id")
+  pastaId   String @map("pasta_id")
+  areaId    String @map("area_id")
+
+  /// Nome da pasta no momento em que foi mapeada. Só para a tela mostrar o
+  /// mapa sem uma ida ao Drive por linha — o Drive continua sendo a verdade
+  /// sobre o nome atual.
+  pastaNome String? @map("pasta_nome")
+
+  definidoPorId String?  @map("definido_por_id")
+  criadoEm      DateTime @default(now()) @map("criado_em")
+  atualizadoEm  DateTime @updatedAt @map("atualizado_em")
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  area    Area    @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  /// Uma pasta tem no máximo uma área. O `clienteId` entra na chave porque é
+  /// por ele que o mapa é carregado, e a unicidade só do `pastaId` deixaria
+  /// passar a mesma pasta atribuída a dois clientes por engano de vínculo.
+  @@unique([clienteId, pastaId])
+  @@index([clienteId])
+  @@index([empresaId])
+  @@map("gestao_arquivos_pasta_area")
+}
+
+model GestaoArquivosNotificacao {
+  id        String  @id @default(cuid())
+  empresaId String  @map("empresa_id")
+  clienteId String? @map("cliente_id")
+
+  /// ARQUIVO_ENVIADO, ARQUIVO_EXCLUIDO, SOLICITACAO_VENCIDA, ARQUIVO_LIDO.
+  evento String
+  ativo  Boolean @default(true)
+
+  notificaResponsavel Boolean @default(true) @map("notifica_responsavel")
+  notificaSubstituto  Boolean @default(false) @map("notifica_substituto")
+  notificaCoordenador Boolean @default(false) @map("notifica_coordenador")
+  notificaDiretor     Boolean @default(false) @map("notifica_diretor")
+
+  /// Endereços avulsos, separados por ponto e vírgula.
+  emailsExtras String? @map("emails_extras")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  empresa Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, clienteId, evento])
+  @@index([empresaId])
+  @@map("gestao_arquivos_notificacoes")
+}
+
+/// Pasta do porta-arquivos, no modelo do Drive.
+///
+/// A Fase 1 nasceu sem tabela de pastas: a competência (AAAAMM) era a pasta, e
+/// a árvore saía dos próprios campos. Funcionava para guias mensais e não
+/// funcionava para o resto — o cliente quer uma pasta "Contratos", outra
+/// "Documentos societários", e essas não têm mês.
+///
+/// Agora a navegação é por pasta de verdade, criada por quem usa. `competencia`
+/// e `categoria` continuam no arquivo, mas como ATRIBUTO: a categoria é o que
+/// decide quem enxerga (o recorte por área), e a competência serve para busca
+/// e para o escritório se organizar. Nenhuma das duas navega mais.
+model PortalPasta {
+  id        String  @id @default(cuid())
+  clienteId String  @map("cliente_id")
+  nome      String
+  /// `null` = raiz. A árvore é montada por este campo.
+  paiId     String? @map("pai_id")
+
+  /// Quem criou: ESCRITORIO ou CLIENTE. A tela mostra, porque numa pasta
+  /// compartilhada saber de quem é a organização evita bagunça.
+  origem String @default("ESCRITORIO")
+
+  criadaPorId String?  @map("criada_por_id")
+  criadaEm    DateTime @default(now()) @map("criada_em")
+
+  cliente  Cliente          @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pai      PortalPasta?     @relation("PastaFilhas", fields: [paiId], references: [id], onDelete: Cascade)
+  filhas   PortalPasta[]    @relation("PastaFilhas")
+  arquivos ClienteArquivo[]
+
+  /// Não deixa duas pastas com o mesmo nome lado a lado — é o que o Drive faz,
+  /// e o que evita o cliente criar "Notas" três vezes sem perceber.
+  @@unique([clienteId, paiId, nome])
+  @@index([clienteId, paiId])
+  @@map("portal_pastas")
+}
+
+/// Documento que o escritório pede ao cliente.
+///
+/// É o que transforma o portal em processo, em vez de pasta compartilhada: o
+/// escritório pede "o extrato do Itaú de agosto", aquilo vira pendência com
+/// prazo na tela do cliente, e anexar resolve. Sem isso, o porta-arquivos vira
+/// um Drive — e o cliente continua sendo cobrado por WhatsApp.
+model PortalSolicitacao {
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+
+  titulo    String
+  descricao String? @db.Text
+
+  /// Mesma competência e categoria dos arquivos: a pendência nasce já sabendo
+  /// em que pasta o que vier vai cair.
+  competencia String? @db.VarChar(6)
+  categoria   String?
+
+  prazo DateTime?
+
+  /// PENDENTE, ATENDIDA ou CANCELADA. A atendida guarda quando e por quem.
+  situacao    String    @default("PENDENTE")
+  atendidaEm  DateTime? @map("atendida_em")
+  atendidaPor String?   @map("atendida_por")
+
+  criadaPorId  String?  @map("criada_por_id")
+  criadaEm     DateTime @default(now()) @map("criada_em")
+  atualizadaEm DateTime @updatedAt @map("atualizada_em")
+
+  cliente  Cliente          @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  arquivos ClienteArquivo[]
+
+  @@index([clienteId, situacao])
+  @@map("portal_solicitacoes")
 }
 
 // Atividades do Cliente (#5) — um cliente pode ter várias atividades.
@@ -4643,6 +5018,8 @@ model Servico {
    * /**
    * /**
    * /**
+   * /**
+   * /**
    * /** Texto da pergunta apresentada ao gestor em runtime
    * (ex.: "Serviço mensal em todas as áreas?").
    */
@@ -4662,6 +5039,8 @@ model Servico {
    * /**
    * /**
    * /**
+   * /**
+   * /**
    * /** @deprecated Mantido apenas para compat com bloco PERGUNTA / fluxos antigos.
    * Novas decisões de atribuição usam os campos `atribuicao*` abaixo.
    */
@@ -4677,6 +5056,8 @@ model Servico {
   // null (claim-first — todos veem em /meus-servicos, primeiro a marcar passo
   // reivindica). Configurado na pill "Identificação" do detalhe do serviço.
   /**
+   * /**
+   * /**
    * /**
    * /**
    * /**
@@ -4723,6 +5104,8 @@ model Servico {
    * /**
    * /**
    * /**
+   * /**
+   * /**
    * /** URL da fonte oficial onde o vencimento/regra foi confirmado (ex.: site Receita,
    * portal SEFAZ). Usada como prova de auditoria + facilita revisão anual.
    */
@@ -4745,6 +5128,8 @@ model Servico {
 
   // ── Configurações avançadas (espelho dos campos do Acessórias) ──
   /**
+   * /**
+   * /**
    * /**
    * /**
    * /**
@@ -5814,6 +6199,8 @@ model ServicoRecorrencia {
   // Por que: situações como "DAS dia 20 e outra obrigação dia 5" exigem 2+ datas/mês
   // sem precisar de 2 ServicoRecorrencia separados. Mantém 1:1 com Servico.
   /**
+   * /**
+   * /**
    * /**
    * /**
    * /**

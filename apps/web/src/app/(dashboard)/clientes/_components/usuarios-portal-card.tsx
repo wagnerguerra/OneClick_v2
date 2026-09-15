@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import {
   Button, Card, Input, Label, Badge, cn, Checkbox,
-  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
+  Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
@@ -44,11 +44,26 @@ const COR_NIVEL: Record<PortalNivel, string> = {
 
 interface AreaOpcao { id: string; nome: string }
 
+interface EmpresaDoGrupo { id: string; razaoSocial: string; documento: string }
+
+interface AcessoDaPessoa {
+  id: string
+  ativo: boolean
+  nivel: PortalNivel
+  podeVer: boolean
+  podeEditar: boolean
+  podeExcluir: boolean
+  cliente: { id: string; razaoSocial: string; grupo: string | null; status: string }
+}
+
 interface UsuarioPortal {
   id: string
   nivel: PortalNivel
   areas: string[]
   ativo: boolean
+  podeVer: boolean
+  podeEditar: boolean
+  podeExcluir: boolean
   criadoEm: string
   user: {
     id: string; name: string; email: string; telefone: string | null
@@ -62,18 +77,59 @@ const formVazio = () => ({
   nome: '', email: '', telefone: '',
   nivel: 'OPERACIONAL' as PortalNivel,
   areas: [] as string[],
+  // Vê por padrão; escrever e apagar começam desligados. Um formulário que
+  // nasce com poder de exclusão marcado transforma distração em documento
+  // perdido.
+  podeVer: true,
+  podeEditar: false,
+  podeExcluir: false,
 })
+
+/**
+ * O que a pessoa faz com os arquivos do porta-arquivos.
+ *
+ * Separado do NÍVEL de propósito: o nível diz o que ela alcança no portal
+ * (contrato, honorários); isto diz o que ela faz com arquivo. As duas coisas
+ * não andam juntas — há sócio do cliente que o escritório não quer deixar
+ * apagar nada, e há operacional que precisa corrigir o próprio envio.
+ */
+const PERMISSOES: Array<{ campo: 'podeVer' | 'podeEditar' | 'podeExcluir'; rotulo: string; ajuda: string }> = [
+  { campo: 'podeVer', rotulo: 'Ver arquivos', ajuda: 'Abre a pasta e baixa o que está nela.' },
+  { campo: 'podeEditar', rotulo: 'Enviar e criar pastas', ajuda: 'Manda documento e organiza em pastas.' },
+  { campo: 'podeExcluir', rotulo: 'Excluir', ajuda: 'Manda para a lixeira, de onde volta por 30 dias.' },
+]
 
 export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
   const { canManageClientUsers } = useClientesPerms()
   const [usuarios, setUsuarios] = useState<UsuarioPortal[]>([])
   const [areas, setAreas] = useState<AreaOpcao[]>([])
+  /** Outras empresas do mesmo grupo — sugestão, sempre desmarcada. */
+  const [grupo, setGrupo] = useState<{ grupo: string | null; empresas: EmpresaDoGrupo[]; motivo: string | null }>(
+    { grupo: null, empresas: [], motivo: null },
+  )
+  const [irmasMarcadas, setIrmasMarcadas] = useState<string[]>([])
+  /** Pessoa cujos acessos estão abertos na gaveta. */
+  const [vendoAcessos, setVendoAcessos] = useState<UsuarioPortal | null>(null)
+  const [acessos, setAcessos] = useState<AcessoDaPessoa[]>([])
+  const [aRevogar, setARevogar] = useState<string[]>([])
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
 
   const [novoAberto, setNovoAberto] = useState(false)
   const [form, setForm] = useState(formVazio)
   const [editando, setEditando] = useState<UsuarioPortal | null>(null)
+  /**
+   * As empresas do grupo, e quais estão marcadas para esta pessoa.
+   *
+   * `null` enquanto carrega ou quando o cliente não tem grupo — nos dois casos
+   * a seção some, em vez de piscar uma lista vazia.
+   */
+  const [grupoDoVinculo, setGrupoDoVinculo] = useState<{
+    grupo: string | null
+    motivo: string | null
+    empresas: Array<{ id: string; razaoSocial: string; documento: string | null; liberado: boolean }>
+  } | null>(null)
+  const [grupoMarcado, setGrupoMarcado] = useState<string[]>([])
 
   const carregar = useCallback(() => {
     if (!clienteId) { setCarregando(false); return }
@@ -81,8 +137,12 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
     Promise.all([
       (trpc.cliente as any).listarUsuariosPortal.query({ clienteId }),
       (trpc.cliente as any).areasDisponiveisPortal.query({ clienteId }),
+      (trpc.cliente as any).empresasDoGrupoCliente.query({ clienteId })
+        .catch(() => ({ grupo: null, empresas: [], motivo: null })),
     ])
-      .then(([u, a]: [UsuarioPortal[], AreaOpcao[]]) => { setUsuarios(u); setAreas(a) })
+      .then(([u, a, g]: [UsuarioPortal[], AreaOpcao[], typeof grupo]) => {
+        setUsuarios(u); setAreas(a); setGrupo(g)
+      })
       .catch(() => { setUsuarios([]); setAreas([]) })
       .finally(() => setCarregando(false))
   }, [clienteId])
@@ -98,10 +158,25 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
         clienteId, nome: form.nome.trim(), email: form.email.trim(),
         telefone: form.telefone.trim() || null,
         nivel: form.nivel, areas: form.areas,
-      }) as { criouUsuario: boolean; convite: { enviado: boolean } | null }
+        podeVer: form.podeVer, podeEditar: form.podeEditar, podeExcluir: form.podeExcluir,
+        clientesAdicionais: irmasMarcadas,
+      }) as {
+        criouUsuario: boolean
+        convite: { enviado: boolean } | null
+        empresasExtras: number
+      }
       setNovoAberto(false)
       setForm(formVazio())
+      setIrmasMarcadas([])
       carregar()
+      // Avisa separado do resto: quem marcou 4 empresas precisa saber se as 4
+      // entraram, e o texto do convite não fala disso.
+      if (r.empresasExtras > 0) {
+        await alerts.success(
+          'Acesso ao grupo',
+          `A pessoa também passou a enxergar ${r.empresasExtras} empresa(s) do grupo.`,
+        )
+      }
       // A frase muda porque a situação muda: gente nova recebe convite; quem já
       // acessava outro cliente do grupo só passou a enxergar mais um.
       if (!r.criouUsuario) {
@@ -128,18 +203,77 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
     } finally { setSalvando(false) }
   }
 
+  /** Carrega o grupo toda vez que a edição abre — ele muda entre um usuário e outro. */
+  useEffect(() => {
+    if (!editando) { setGrupoDoVinculo(null); setGrupoMarcado([]); return }
+    let cancelado = false
+    ;(trpc.cliente as any).grupoDoVinculoPortal.query({ id: editando.id })
+      .then((g: NonNullable<typeof grupoDoVinculo>) => {
+        if (cancelado) return
+        setGrupoDoVinculo(g)
+        setGrupoMarcado(g.empresas.filter(e => e.liberado).map(e => e.id))
+      })
+      .catch(() => { if (!cancelado) setGrupoDoVinculo(null) })
+    return () => { cancelado = true }
+  }, [editando])
+
   async function salvarEdicao() {
     if (!editando) return
     setSalvando(true)
     try {
       await (trpc.cliente as any).atualizarUsuarioPortal.mutate({
         id: editando.id, nivel: editando.nivel, areas: editando.areas, ativo: editando.ativo,
+        podeVer: editando.podeVer,
+        podeEditar: editando.podeEditar,
+        podeExcluir: editando.podeExcluir,
       })
+
+      // Só chama se houver grupo na tela: sem isso, um cliente sem irmãs
+      // mandaria uma lista vazia e o servidor entenderia "revogue todas".
+      let extra = ''
+      if (grupoDoVinculo && grupoDoVinculo.empresas.length > 0) {
+        const r = await (trpc.cliente as any).definirGrupoDoVinculoPortal.mutate({
+          id: editando.id, clientes: grupoMarcado,
+        }) as { liberados: number; revogados: number; recusados: string[] }
+        const partes: string[] = []
+        if (r.liberados) partes.push(`${r.liberados} empresa(s) liberada(s)`)
+        if (r.revogados) partes.push(`${r.revogados} revogada(s)`)
+        // As recusadas precisam ser NOMEADAS: o motivo mais comum é a pessoa
+        // ser a última administradora daquela empresa, e sem o nome quem lê
+        // não tem o que fazer com a informação.
+        if (r.recusados.length) partes.push(`não deu para revogar: ${r.recusados.join(', ')}`)
+        if (partes.length) extra = ` ${partes.join('; ')}.`
+      }
+
       setEditando(null)
       carregar()
-      alerts.success('Acesso atualizado', 'As mudanças valem no próximo acesso da pessoa.')
+      alerts.success('Acesso atualizado', `As mudanças valem no próximo acesso da pessoa.${extra}`)
     } catch (e) {
       alerts.error('Não foi possível atualizar', (e as Error).message)
+    } finally { setSalvando(false) }
+  }
+
+  function abrirAcessos(u: UsuarioPortal) {
+    setVendoAcessos(u)
+    setAcessos([])
+    setARevogar([])
+    ;(trpc.cliente as any).acessosDoUsuarioPortal.query({ userId: u.user.id })
+      .then((d: AcessoDaPessoa[]) => setAcessos(d))
+      .catch(() => setAcessos([]))
+  }
+
+  async function revogarSelecionados() {
+    if (!vendoAcessos || aRevogar.length === 0) return
+    setSalvando(true)
+    try {
+      const r = await (trpc.cliente as any).revogarAcessosPortal.mutate({
+        userId: vendoAcessos.user.id, clienteIds: aRevogar,
+      }) as { revogados: number }
+      alerts.success('Acessos revogados', `${r.revogados} empresa(s) deixaram de ser acessíveis.`)
+      setVendoAcessos(null)
+      carregar()
+    } catch (e) {
+      alerts.error('Não foi possível revogar', (e as Error).message)
     } finally { setSalvando(false) }
   }
 
@@ -206,7 +340,7 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
         {canManageClientUsers && (
           <Button
             type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]"
-            onClick={() => { setForm(formVazio()); setNovoAberto(true) }}
+            onClick={() => { setForm(formVazio()); setIrmasMarcadas([]); setNovoAberto(true) }}
           >
             <Plus className="h-3 w-3" /> Novo usuário
           </Button>
@@ -256,9 +390,14 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
                     {/* Sinaliza o caso do grupo antes que alguém remova achando
                         que está encerrando o acesso da pessoa por completo. */}
                     {u.outrosClientes > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" title="Também acessa outros clientes">
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); abrirAcessos(u) }}
+                        className="inline-flex items-center gap-1 rounded px-1 text-[10px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                        title="Ver todas as empresas que esta pessoa acessa"
+                      >
                         <Building2 className="h-3 w-3" /> +{u.outrosClientes} cliente(s)
-                      </span>
+                      </button>
                     )}
                   </p>
                   <p className="truncate text-[11px] text-muted-foreground">
@@ -355,6 +494,15 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
               areas={areas} selecionadas={form.areas}
               onToggle={id => setForm(f => ({ ...f, areas: alternarArea(f.areas, id) }))}
             />
+            <CampoPermissoes
+              valores={form}
+              onToggle={(campo, v) => setForm(f => ({ ...f, [campo]: v }))}
+            />
+            <CampoGrupo
+              grupo={grupo}
+              marcadas={irmasMarcadas}
+              onToggle={id => setIrmasMarcadas(l => (l.includes(id) ? l.filter(x => x !== id) : [...l, id]))}
+            />
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" type="button" onClick={() => setNovoAberto(false)} disabled={salvando}>
@@ -383,6 +531,14 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
               selecionadas={editando?.areas ?? []}
               onToggle={id => setEditando(u => (u ? { ...u, areas: alternarArea(u.areas, id) } : u))}
             />
+            <CampoPermissoes
+              valores={{
+                podeVer: editando?.podeVer ?? false,
+                podeEditar: editando?.podeEditar ?? false,
+                podeExcluir: editando?.podeExcluir ?? false,
+              }}
+              onToggle={(campo, v) => setEditando(u => (u ? { ...u, [campo]: v } : u))}
+            />
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
                 checked={editando?.ativo ?? false}
@@ -394,6 +550,52 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
               Desativar corta o acesso na hora e preserva o histórico. Remover desfaz o
               vínculo com este cliente — e só com ele.
             </p>
+
+            {/* EMPRESAS DO GRUPO.
+                Só aparece quando o cliente tem grupo com irmãs. Na criação já
+                dava para marcar; aqui é onde se corrige depois — entrou empresa
+                no grupo, ou a pessoa saiu de uma, e antes a única saída era
+                remover o usuário e cadastrar de novo. */}
+            {grupoDoVinculo && grupoDoVinculo.empresas.length > 0 && (
+              <div className="space-y-2 border-t border-border pt-3">
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">
+                    Outras empresas do grupo {grupoDoVinculo.grupo}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    O mesmo login alcança as marcadas — a pessoa troca de empresa no topo do
+                    portal. Desmarcar corta o acesso e preserva o histórico.
+                  </p>
+                </div>
+                <div className="max-h-[180px] space-y-1 overflow-y-auto nice-scrollbar rounded-md border border-border p-2">
+                  {grupoDoVinculo.empresas.map(e => (
+                    <label
+                      key={e.id}
+                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[13px] hover:bg-muted/50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={grupoMarcado.includes(e.id)}
+                        onChange={ev => setGrupoMarcado(m => (
+                          ev.target.checked ? [...m, e.id] : m.filter(x => x !== e.id)
+                        ))}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                      <span className="min-w-0 flex-1 truncate">{e.razaoSocial}</span>
+                      {e.documento && (
+                        <span className="shrink-0 text-[11px] text-muted-foreground">{e.documento}</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {grupoDoVinculo?.motivo && (
+              <p className="border-t border-border pt-3 text-[11px] text-muted-foreground">
+                {grupoDoVinculo.motivo}
+              </p>
+            )}
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" type="button" onClick={() => setEditando(null)} disabled={salvando}>
@@ -405,6 +607,75 @@ export function UsuariosPortalCard({ clienteId }: { clienteId?: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Acessos da pessoa — o que faltava para revogar quem saiu de um grupo
+          sem abrir cliente por cliente. */}
+      <Dialog open={Boolean(vendoAcessos)} onOpenChange={v => { if (!v) setVendoAcessos(null) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeaderIcon icon={Building2} color="sky">
+            <DialogTitle>Empresas que {vendoAcessos?.user.name} acessa</DialogTitle>
+            <DialogDescription>
+              O mesmo login enxerga todas. Marque para revogar.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody className="max-h-[50vh] overflow-y-auto nice-scrollbar">
+            {acessos.length === 0 ? (
+              <div className="flex h-24 items-center justify-center">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {acessos.map(a => (
+                  <label
+                    key={a.id}
+                    className={cn(
+                      'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5',
+                      !a.ativo && 'opacity-50',
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={!a.ativo}
+                      checked={aRevogar.includes(a.cliente.id)}
+                      onChange={() => setARevogar(l => (
+                        l.includes(a.cliente.id) ? l.filter(x => x !== a.cliente.id) : [...l, a.cliente.id]
+                      ))}
+                      className="h-4 w-4 shrink-0 rounded border-border"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] text-foreground">
+                        {a.cliente.razaoSocial}
+                      </span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {NIVEIS.find(n => n.valor === a.nivel)?.rotulo ?? a.nivel}
+                        {' · '}
+                        {[
+                          a.podeVer && 'vê',
+                          a.podeEditar && 'envia',
+                          a.podeExcluir && 'exclui',
+                        ].filter(Boolean).join(', ') || 'sem acesso a arquivos'}
+                        {!a.ativo && ' · desativado'}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVendoAcessos(null)} disabled={salvando}>
+              Fechar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={revogarSelecionados}
+              disabled={salvando || aRevogar.length === 0}
+            >
+              {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : `Revogar ${aRevogar.length || ''}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </Card>
   )
 }
@@ -422,6 +693,102 @@ function CampoNivel({ valor, onChange }: { valor: PortalNivel; onChange: (v: Por
       </Select>
       <p className="mt-1 text-[11px] text-muted-foreground">
         {NIVEIS.find(n => n.valor === valor)?.descricao}
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Outras empresas do mesmo grupo econômico.
+ *
+ * Sugestão com caixas DESMARCADAS, e nunca um "marcar todas". O campo `grupo`
+ * do cliente é texto livre digitado por gente: na base de produção há valores
+ * que não são grupo nenhum (um deles reúne 519 empresas sem relação entre si).
+ * Um acesso concedido por distração à empresa errada é documento fiscal de um
+ * cliente aberto para outro — então quem concede lê os nomes e marca um a um.
+ *
+ * Quando o backend decide não sugerir, ele manda o `motivo`, e a explicação
+ * aparece no lugar da lista. Silêncio faria parecer que o cliente não tem
+ * grupo, que é outra coisa.
+ */
+function CampoGrupo({ grupo, marcadas, onToggle }: {
+  grupo: { grupo: string | null; empresas: EmpresaDoGrupo[]; motivo: string | null }
+  marcadas: string[]
+  onToggle: (id: string) => void
+}) {
+  if (grupo.motivo) {
+    return (
+      <div className="rounded-lg border border-border bg-muted/20 p-2.5">
+        <p className="text-[11px] leading-relaxed text-muted-foreground">{grupo.motivo}</p>
+      </div>
+    )
+  }
+  if (!grupo.grupo || grupo.empresas.length === 0) return null
+
+  return (
+    <div>
+      <Label className="text-[13px] font-semibold">Outras empresas de {grupo.grupo}</Label>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">
+        Marque as que esta pessoa também deve acessar. Ela usa o mesmo login e troca
+        de empresa dentro do portal.
+      </p>
+      <div className="mt-1.5 max-h-[180px] space-y-1 overflow-y-auto nice-scrollbar rounded-lg border border-border p-2.5">
+        {grupo.empresas.map(e => (
+          <label key={e.id} className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={marcadas.includes(e.id)}
+              onChange={() => onToggle(e.id)}
+              className="h-4 w-4 shrink-0 rounded border-border"
+            />
+            <span className="min-w-0 truncate text-[13px] text-foreground">{e.razaoSocial}</span>
+          </label>
+        ))}
+      </div>
+      {marcadas.length > 0 && (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {marcadas.length} empresa(s) receberão o mesmo nível, as mesmas áreas e as
+          mesmas permissões de arquivo. Depois cada uma se ajusta.
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Permissões do porta-arquivos.
+ *
+ * Vale um aviso na própria tela, e não só no código: a pasta do Google Drive
+ * não é classificada por área, então quem recebe "Ver arquivos" enxerga a
+ * pasta INTEIRA do cliente — as áreas liberadas acima não recortam o que está
+ * lá. Quem concede precisa saber disso na hora de conceder, não depois.
+ */
+function CampoPermissoes({ valores, onToggle }: {
+  valores: { podeVer: boolean; podeEditar: boolean; podeExcluir: boolean }
+  onToggle: (campo: 'podeVer' | 'podeEditar' | 'podeExcluir', v: boolean) => void
+}) {
+  return (
+    <div>
+      <Label className="text-[13px] font-semibold">Arquivos</Label>
+      <div className="mt-1.5 space-y-1.5 rounded-lg border border-border p-2.5">
+        {PERMISSOES.map(p => (
+          <label key={p.campo} className="flex cursor-pointer items-start gap-2">
+            <input
+              type="checkbox"
+              checked={valores[p.campo]}
+              onChange={e => onToggle(p.campo, e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-border"
+            />
+            <span className="min-w-0">
+              <span className="block text-[13px] text-foreground">{p.rotulo}</span>
+              <span className="block text-[11px] text-muted-foreground">{p.ajuda}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        A pasta de arquivos não é separada por área: quem pode ver enxerga tudo
+        o que estiver nela.
       </p>
     </div>
   )

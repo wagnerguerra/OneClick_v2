@@ -79,8 +79,7 @@ import {
   Sparkles,
   Smartphone,
   Info,
-  type LucideIcon,
-} from 'lucide-react'
+  type LucideIcon, FolderOpen,} from 'lucide-react'
 
 export interface NavItem {
   label: string
@@ -176,6 +175,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Agenda Corporativa', href: '/agenda', icon: Calendar },
       { label: 'Coleta e Recebimento', href: '/coleta-documentos', icon: FolderInput },
+      { label: 'Gestão de Arquivos', href: '/gestao-arquivos', icon: FolderOpen },
       { label: 'Contatos', href: '/contatos', icon: Phone },
       { label: 'Gerenciador de Serviços', href: '/meus-servicos', icon: ListChecks },
       { label: 'Minhas Obrigações', href: '/minhas-obrigacoes', icon: ClipboardCheck },
@@ -308,7 +308,6 @@ export const navigation: NavGroup[] = [
       { label: 'Chat Interno', href: '/configuracoes/chat', icon: MessageSquare },
       { label: 'Certificado Digital', href: '/configuracoes/certificado', icon: BadgeCheck, masterOnly: true },
       { label: 'Stripe', href: '/configuracoes/stripe', icon: CreditCard, masterOnly: true },
-      { label: 'Empresas (tenants)', href: '/admin/empresas', icon: Building2, masterOnly: true },
       { label: 'Planos e preços', href: '/admin/planos', icon: CircleDollarSign, masterOnly: true },
       { label: 'Assinatura de email', href: '/admin/assinatura-template', icon: Mail, masterOnly: true },
       { label: 'Métricas', href: '/metricas', icon: Activity, masterOnly: true },

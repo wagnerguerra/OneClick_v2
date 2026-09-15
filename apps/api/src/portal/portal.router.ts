@@ -1,7 +1,11 @@
 import { z } from 'zod'
 
-import { router, publicProcedure } from '../trpc/trpc.service'
+import { router, publicProcedure, portalSessaoProcedure, portalProcedure, portalModuloProcedure } from '../trpc/trpc.service'
+import type { PortalArquivosService } from './portal-arquivos.service'
+import type { GestaoArquivosDriveService } from '../gestao-arquivos/gestao-arquivos-drive.service'
+import type { PortalObrigacoesService } from './portal-obrigacoes.service'
 import type { ConviteValido } from './portal-tipos'
+import { listarVinculos } from './portal-escopo'
 
 /**
  * O router declara o que USA do serviço, em vez de importar a classe.
@@ -31,8 +35,201 @@ interface ConviteApi {
  * `portalProcedure`, que exige sessão e resolve o cliente antes do handler.
  * A regra do namespace continua valendo: nada lê dado de cliente sem escopo.
  */
-export function createPortalRouter(conviteService: ConviteApi) {
+export function createPortalRouter(
+  conviteService: ConviteApi,
+  arquivosService: PortalArquivosService,
+  driveService: GestaoArquivosDriveService,
+  obrigacoesService: PortalObrigacoesService,
+) {
   return router({
+    /**
+     * As empresas que este usuário enxerga.
+     *
+     * É a primeira chamada do portal e a única sem `clienteId` — alimenta o
+     * seletor de empresa. Devolve só nome, nível e áreas: nenhum dado do
+     * cliente sai daqui, isso é papel das rotas com escopo.
+     */
+    meusClientes: portalSessaoProcedure.query(({ ctx }) => listarVinculos(ctx.userId)),
+
+    /**
+     * Porta-arquivos — Fase 1.
+     *
+     * Todas com `portalProcedure`: o `clienteId` vem do input, e o vínculo é
+     * resolvido ANTES do handler. O serviço recebe o vínculo pronto e nunca
+     * monta consulta sem ele.
+     */
+    /**
+     * O gate de módulo roda ANTES de cada handler, e não no meio deles: uma
+     * checagem por rota seria esquecida na próxima rota nova. `NOT_FOUND` e
+     * não `FORBIDDEN` porque, para quem não tem o módulo, ele não existe —
+     * dizer "existe mas você não pode" só informa o que está desligado.
+     */
+    arquivos: router({
+      /**
+       * Abre uma pasta: subpastas, arquivos e o caminho até a raiz.
+       *
+       * `pastaId` ausente = raiz. Uma chamada só porque a tela precisa das três
+       * coisas juntas — e porque validar a pasta antes de listar é o que impede
+       * navegar para a pasta de outro cliente por id adivinhado.
+       */
+      abrirPasta: portalModuloProcedure('documentos')
+        .input(z.object({ clienteId: z.string(), pastaId: z.string().nullish() }))
+        .query(({ input, ctx }) => arquivosService.abrirPasta(ctx.portal, input.pastaId)),
+
+      /**
+       * A pasta do cliente no Google Drive do escritório.
+       *
+       * Só ADMINISTRADOR enxerga — ver `podeVerDriveNoPortal`. Não é excesso
+       * de zelo: os arquivos do Drive não têm categoria, e é a categoria que o
+       * portal usa para separar por área. Para quem não pode, devolve
+       * `vinculada: false` com o motivo, em vez de erro — a aba simplesmente
+       * explica que não está disponível.
+       */
+      drive: portalModuloProcedure('documentos')
+        .input(z.object({ clienteId: z.string(), subPastaId: z.string().nullish() }))
+        .query(({ input, ctx }) => driveService.listarParaPortal(ctx.portal, input.subPastaId)),
+
+      /**
+       * Escrita no Drive do cliente.
+       *
+       * Cada uma confere a própria PERMISSÃO (podeEditar, podeExcluir) dentro
+       * do serviço, e não aqui. A procedure já garante o vínculo e o módulo;
+       * o que "editar" significa para arquivo é conhecimento do serviço.
+       * Espalhar essa checagem pelo router significaria repeti-la em toda rota
+       * nova e esquecê-la em uma delas.
+       */
+      driveCriarPasta: portalModuloProcedure('documentos')
+        .input(z.object({
+          clienteId: z.string(),
+          nome: z.string().min(1).max(120),
+          paiId: z.string().nullish(),
+        }))
+        .mutation(({ input, ctx }) =>
+          driveService.criarPastaParaPortal(ctx.portal, input.nome, input.paiId)),
+
+      driveEnviar: portalModuloProcedure('documentos')
+        .input(z.object({
+          clienteId: z.string(),
+          fileName: z.string().min(1).max(255),
+          fileUrl: z.string().min(1),
+          pastaId: z.string().nullish(),
+          mimeType: z.string().nullish(),
+        }))
+        .mutation(({ input, ctx }) => driveService.enviarParaPortal(ctx.portal, input, ctx.userId)),
+
+      driveExcluir: portalModuloProcedure('documentos')
+        .input(z.object({ clienteId: z.string(), itemId: z.string() }))
+        .mutation(({ input, ctx }) => driveService.excluirParaPortal(ctx.portal, input.itemId)),
+
+      /**
+       * A lixeira do cliente.
+       *
+       * Não é a lixeira do Google inteira — aquela é da conta do escritório e
+       * mistura todos os clientes. É o que foi excluído de dentro da pasta
+       * DESTE cliente, que o Drive permite perguntar porque o item excluído
+       * mantém os pais.
+       */
+      driveLixeira: portalModuloProcedure('documentos')
+        .input(z.object({ clienteId: z.string() }))
+        .query(({ ctx }) => driveService.lixeiraParaPortal(ctx.portal)),
+
+      driveRestaurar: portalModuloProcedure('documentos')
+        .input(z.object({ clienteId: z.string(), itemId: z.string() }))
+        .mutation(({ input, ctx }) => driveService.restaurarParaPortal(ctx.portal, input.itemId)),
+
+      /** Arrastar e soltar: `destinoId` nulo leva para a raiz do cliente. */
+      driveMover: portalModuloProcedure('documentos')
+        .input(z.object({
+          clienteId: z.string(),
+          itemId: z.string(),
+          destinoId: z.string().nullable(),
+        }))
+        .mutation(({ input, ctx }) =>
+          driveService.moverParaPortal(ctx.portal, input.itemId, input.destinoId)),
+
+      criarPasta: portalModuloProcedure('documentos')
+        .input(z.object({
+          clienteId: z.string(),
+          nome: z.string().min(1).max(80),
+          paiId: z.string().nullish(),
+        }))
+        .mutation(({ input, ctx }) => arquivosService.criarPasta(ctx.portal, input, ctx.userId)),
+
+      excluirPasta: portalModuloProcedure('documentos')
+        .input(z.object({ clienteId: z.string(), pastaId: z.string() }))
+        .mutation(({ input, ctx }) => arquivosService.excluirPasta(ctx.portal, input.pastaId)),
+
+      /** Devolve a URL e marca o recibo de leitura. */
+      abrir: portalModuloProcedure('documentos')
+        .input(z.object({ clienteId: z.string(), arquivoId: z.string() }))
+        .mutation(({ input, ctx }) => arquivosService.abrir(ctx.portal, input.arquivoId, ctx.userId)),
+
+      enviar: portalModuloProcedure('documentos')
+        .input(z.object({
+          clienteId: z.string(),
+          fileName: z.string().min(1),
+          fileUrl: z.string().min(1),
+          fileSize: z.number().nullish(),
+          mimeType: z.string().nullish(),
+          competencia: z.string().length(6).nullish(),
+          categoria: z.string().nullish(),
+          descricao: z.string().nullish(),
+          solicitacaoId: z.string().nullish(),
+          pastaId: z.string().nullish(),
+        }))
+        .mutation(({ input, ctx }) => arquivosService.enviar(ctx.portal, input, ctx.userId)),
+    }),
+
+    /** O que o escritório está esperando deste cliente. */
+    /**
+     * Obrigações da empresa do cliente.
+     *
+     * Leitura pura, sem gate de permissão de arquivo: `podeVer` governa o
+     * porta-arquivos, e usá-lo aqui amarraria duas coisas sem relação — quem
+     * não pode baixar documento ainda precisa saber se o imposto foi entregue.
+     * O recorte que vale é o de ÁREA, dentro do serviço.
+     */
+    obrigacoes: router({
+      listar: portalModuloProcedure('obrigacoes')
+        .input(z.object({ clienteId: z.string(), competencia: z.string().nullish() }))
+        .query(({ input, ctx }) => obrigacoesService.listar(ctx.portal, { competencia: input.competencia })),
+
+      competencias: portalModuloProcedure('obrigacoes')
+        .input(z.object({ clienteId: z.string() }))
+        .query(({ ctx }) => obrigacoesService.competencias(ctx.portal)),
+
+      resumo: portalModuloProcedure('obrigacoes')
+        .input(z.object({ clienteId: z.string(), competencia: z.string().nullish() }))
+        .query(({ input, ctx }) => obrigacoesService.resumo(ctx.portal, input.competencia)),
+    }),
+
+    /**
+     * Pendências pertencem a Documentos, não a um módulo próprio: elas se
+     * resolvem anexando arquivo, e a tela que as mostra é a de documentos.
+     * Desligar Documentos tem de desligá-las junto — senão sobraria uma
+     * cobrança sem o lugar onde atendê-la.
+     */
+    solicitacoes: router({
+      pendentes: portalModuloProcedure('documentos')
+        .input(z.object({ clienteId: z.string() }))
+        .query(({ ctx }) => arquivosService.solicitacoesPendentes(ctx.portal)),
+
+      marcarAtendida: portalModuloProcedure('documentos')
+        .input(z.object({ clienteId: z.string(), solicitacaoId: z.string() }))
+        .mutation(({ input, ctx }) =>
+          arquivosService.marcarSolicitacaoAtendida(ctx.portal, input.solicitacaoId, ctx.userId)),
+    }),
+
+    /**
+     * O que a pessoa pode ver NESTE cliente.
+     *
+     * A tela usa para montar o menu: sem isto ela ofereceria itens que a API
+     * recusaria depois, e o cliente descobriria a permissão pelo erro.
+     */
+    meuAcesso: portalProcedure
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ ctx }) => ctx.portal),
+
     convite: router({
       /** Abre a tela do convite. Devolve o mínimo para a pessoa se reconhecer. */
       validar: publicProcedure

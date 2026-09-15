@@ -37,6 +37,7 @@
     "html-to-image": "^1.11.13",
     "jszip": "^3.10.1",
     "lucide-react": "^0.468.0",
+    "mammoth": "^1.12.3",
     "marked": "^18.0.4",
     "next": "^15.2.0",
     "pdfjs-dist": "^6.2.108",

@@ -482,7 +482,22 @@ function ServiceCard({
   )
 }
 
-interface ClienteOpcao { id: string; razaoSocial: string; nomeFantasia: string | null; documento: string }
+interface ClienteOpcao { id: string; razaoSocial: string; nomeFantasia: string | null; documento: string; inativo: boolean }
+
+/**
+ * Marca de ex-cliente (status INATIVO).
+ *
+ * Ex-cliente entra na busca porque é assim que ele volta a ser cliente — mas
+ * entra IDENTIFICADO: escolher sem saber levaria o comercial a orçar para uma
+ * conta encerrada sem perceber.
+ */
+function SeloExCliente() {
+  return (
+    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+      Ex-cliente
+    </span>
+  )
+}
 
 /** Formulário de solicitação de orçamento ao comercial — cliente + detalhamento. */
 function OrcamentoRequestForm({
@@ -494,6 +509,7 @@ function OrcamentoRequestForm({
   const [resultados, setResultados] = useState<ClienteOpcao[]>([])
   const [buscando, setBuscando] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const seletorRef = useRef<HTMLDivElement>(null)
   const [clienteSel, setClienteSel] = useState<ClienteOpcao | null>(null)
   const [detalhamento, setDetalhamento] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -554,7 +570,9 @@ function OrcamentoRequestForm({
     setBuscando(true)
     const t = setTimeout(async () => {
       try {
-        const data = await trpc.orcamento.buscarClientes.query({ search: termo })
+        // `incluirInativos`: quem pede orçamento muitas vezes é um ex-cliente
+        // voltando. A lista marca quais são, para ninguém escolher no escuro.
+        const data = await trpc.orcamento.buscarClientes.query({ search: termo, incluirInativos: true })
         setResultados(data as ClienteOpcao[])
         setDropdownOpen(true)
       } catch {
@@ -565,6 +583,30 @@ function OrcamentoRequestForm({
     }, 350)
     return () => clearTimeout(t)
   }, [busca, clienteSel])
+
+  /**
+   * A lista de sugestões fecha com clique fora e com Esc.
+   *
+   * Ela só fechava ao ESCOLHER um cliente — e o caminho mais comum do balão é
+   * justamente não escolher nenhum (digita-se o nome de quem ainda não é
+   * cliente). A lista ficava aberta por cima de Contato e E-mail, e não havia
+   * gesto nenhum que a tirasse dali: o formulário virava impreenchível.
+   */
+  useEffect(() => {
+    if (!dropdownOpen) return
+    function foraDoSeletor(e: MouseEvent) {
+      if (!seletorRef.current?.contains(e.target as Node)) setDropdownOpen(false)
+    }
+    function esc(e: KeyboardEvent) {
+      if (e.key === 'Escape') setDropdownOpen(false)
+    }
+    document.addEventListener('mousedown', foraDoSeletor)
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('mousedown', foraDoSeletor)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [dropdownOpen])
 
   function escolherCliente(c: ClienteOpcao) {
     setClienteSel(c)
@@ -648,6 +690,7 @@ function OrcamentoRequestForm({
             <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 h-9">
               <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span className="text-sm text-foreground truncate flex-1">{clienteSel.razaoSocial}</span>
+              {clienteSel.inativo && <SeloExCliente />}
               <button
                 type="button"
                 onClick={limparCliente}
@@ -658,7 +701,7 @@ function OrcamentoRequestForm({
               </button>
             </div>
           ) : (
-            <div className="relative">
+            <div className="relative" ref={seletorRef}>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <input
@@ -679,7 +722,10 @@ function OrcamentoRequestForm({
                       onClick={() => escolherCliente(c)}
                       className="w-full text-left px-3 py-2 hover:bg-muted transition-colors border-b border-border last:border-0"
                     >
-                      <div className="text-sm text-foreground truncate">{c.razaoSocial}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm text-foreground truncate">{c.razaoSocial}</span>
+                        {c.inativo && <SeloExCliente />}
+                      </div>
                       <div className="text-[11px] text-muted-foreground truncate">
                         {c.nomeFantasia ? `${c.nomeFantasia} · ` : ''}{c.documento}
                       </div>
@@ -688,7 +734,8 @@ function OrcamentoRequestForm({
                 </div>
               )}
               <p className="mt-1 text-[10px] text-muted-foreground">
-                Cliente não cadastrado? Digite o nome — cadastramos automaticamente como prospect.
+                A busca cobre os clientes da empresa carregada, inclusive ex-clientes (marcados na lista).
+                Não cadastrado? Digite o nome — cadastramos automaticamente como prospect.
               </p>
             </div>
           )}

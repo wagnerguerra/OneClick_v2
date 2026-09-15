@@ -28,11 +28,50 @@ import { PortalConviteService } from '../portal/portal-convite.service'
 /** Papel que marca o usuário como externo. Já existia no schema, sem uso. */
 const ROLE_EXTERNO = 'COLABORADOR_CLIENTE'
 
+/**
+ * Valores do campo `grupo` que NÃO são grupo econômico.
+ *
+ * Descoberto olhando a produção: `JR GRUPO` tem 519 empresas ativas sem
+ * nenhuma relação entre si (auto peças, telefonia, entretenimento, hotelaria)
+ * — é rótulo de carteira, provavelmente herança do legado. `EMPRESA ÚNICA`
+ * significa literalmente "não é grupo", e mesmo assim marca 255 clientes.
+ *
+ * Sugerir esses como grupo daria a um usuário de portal a chance de receber
+ * acesso a centenas de empresas de clientes diferentes num clique. A lista
+ * existe para que isso nunca aconteça por distração.
+ */
+const NAO_SAO_GRUPOS = new Set(['JR GRUPO', 'EMPRESA UNICA', 'EMPRESA ÚNICA'])
+
+/**
+ * Acima disto, o campo `grupo` não está descrevendo um grupo econômico.
+ *
+ * Um grupo de verdade na base tem de 5 a 13 empresas. O teto não bloqueia
+ * nada — apenas para de SUGERIR, e a tela explica por quê. Conceder continua
+ * possível uma empresa de cada vez.
+ */
+const TETO_SUGESTAO = 20
+
 export interface VincularInput {
   clienteId: string
   email: string
   nome: string
   nivel: PortalNivel
+
+  /**
+   * Permissões do porta-arquivos. Ausentes = os defaults do schema (vê, não
+   * edita, não exclui) — quem ganha poder de escrever ou apagar ganha por ato
+   * deliberado, nunca por omissão do formulário.
+   */
+  podeVer?: boolean
+  podeEditar?: boolean
+  podeExcluir?: boolean
+  /**
+   * Outras empresas do MESMO GRUPO que recebem o mesmo acesso.
+   *
+   * Cada uma é conferida contra o grupo do cliente principal antes de virar
+   * vínculo — um id forjado aqui não abre porta para um cliente qualquer.
+   */
+  clientesAdicionais?: string[]
   /** Ids de `Area`. Validados contra o que o cliente contratou. */
   areas: string[]
   telefone?: string | null
@@ -50,6 +89,9 @@ export class ClienteUsuarioService {
       select: {
         id: true,
         nivel: true,
+        podeVer: true,
+        podeEditar: true,
+        podeExcluir: true,
         areas: true,
         ativo: true,
         criadoEm: true,
@@ -154,7 +196,12 @@ export class ClienteUsuarioService {
       const vinculo = jaVinculado
         ? await prisma.clienteUsuario.update({
             where: { id: jaVinculado.id },
-            data: { ativo: true, nivel: input.nivel as never, areas },
+            data: {
+              ativo: true, nivel: input.nivel as never, areas,
+              ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
+              ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
+              ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
+            },
           })
         : await prisma.clienteUsuario.create({
             data: {
@@ -162,6 +209,9 @@ export class ClienteUsuarioService {
               clienteId: input.clienteId,
               nivel: input.nivel as never,
               areas,
+              ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
+              ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
+              ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
               criadoPorId: ctx.userId,
             },
           })
@@ -210,6 +260,9 @@ export class ClienteUsuarioService {
           clienteId: input.clienteId,
           nivel: input.nivel as never,
           areas,
+          ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
+          ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
+          ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
           criadoPorId: ctx.userId,
         },
         select: { id: true },
@@ -225,7 +278,286 @@ export class ClienteUsuarioService {
       .enviar(criado.vinculoId, { userId: ctx.userId })
       .catch(() => ({ enviado: false }))
 
-    return { ...criado, criouUsuario: true, convite: { enviado } }
+    const extras = await this.vincularIrmas(input, criado.userId, ctx.userId)
+    return { ...criado, criouUsuario: true, convite: { enviado }, empresasExtras: extras }
+  }
+
+  /**
+   * Cria os vínculos nas outras empresas do grupo.
+   *
+   * Fora da transação principal de propósito: o cadastro da pessoa já está
+   * certo, e uma empresa irmã que falhe não pode desfazê-lo. O retorno diz
+   * quantas entraram, e a tela avisa se veio menos do que foi pedido.
+   */
+  private async vincularIrmas(
+    input: VincularInput,
+    userId: string,
+    autorId: string,
+  ): Promise<number> {
+    const pedidos = (input.clientesAdicionais ?? []).filter(id => id !== input.clienteId)
+    if (pedidos.length === 0) return 0
+
+    // A trava: só entra quem está REALMENTE no mesmo grupo. A tela sugere, mas
+    // quem decide é isto — a lista chega pelo cliente HTTP e não vale nada.
+    const { empresas } = await this.empresasDoGrupo(input.clienteId)
+    const permitidos = new Set(empresas.map(e => e.id))
+    const validos = pedidos.filter(id => permitidos.has(id))
+    if (validos.length === 0) return 0
+
+    let criados = 0
+    for (const clienteId of validos) {
+      try {
+        const areas = await this.validarAreas(clienteId, input.areas)
+        await prisma.clienteUsuario.upsert({
+          where: { userId_clienteId: { userId, clienteId } },
+          create: {
+            userId,
+            clienteId,
+            nivel: input.nivel as never,
+            areas,
+            ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
+            ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
+            ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
+            criadoPorId: autorId,
+          },
+          // Já existia e estava desligado: religa com o acesso novo, em vez de
+          // deixar a pessoa achando que concedeu e nada acontecer.
+          update: { ativo: true },
+        })
+        criados++
+      } catch {
+        // Uma empresa que falha não impede as outras.
+      }
+    }
+    return criados
+  }
+
+  /**
+   * Outras empresas do mesmo grupo econômico, para sugerir ao conceder acesso.
+   *
+   * Sugestão, nunca automação: devolve a lista para a tela mostrar com as
+   * caixas DESMARCADAS. Quem concede escolhe uma a uma, vendo os nomes. O
+   * campo `grupo` é texto livre digitado por gente, e um acesso concedido por
+   * engano a uma empresa errada é vazamento de documento fiscal.
+   */
+  async empresasDoGrupo(clienteId: string) {
+    const cliente = await prisma.cliente.findUnique({
+      where: { id: clienteId },
+      select: { id: true, grupo: true, empresaId: true },
+    })
+    const grupo = cliente?.grupo?.trim() ?? ''
+    if (!cliente || !grupo || NAO_SAO_GRUPOS.has(grupo.toUpperCase())) {
+      return { grupo: null, empresas: [], motivo: null as string | null }
+    }
+
+    const irmas = await prisma.cliente.findMany({
+      where: {
+        // `equals` com `mode: insensitive` porque o campo tem variações de
+        // caixa e de espaço à direita — "GRUPO ADISTEC " e "GRUPO ADISTEC"
+        // são o mesmo grupo para quem digitou.
+        grupo: { equals: grupo, mode: 'insensitive' },
+        empresaId: cliente.empresaId,
+        status: 'ATIVO',
+        id: { not: clienteId },
+      },
+      orderBy: { razaoSocial: 'asc' },
+      select: { id: true, razaoSocial: true, documento: true },
+      take: TETO_SUGESTAO + 1,
+    })
+
+    if (irmas.length > TETO_SUGESTAO) {
+      return {
+        grupo,
+        empresas: [],
+        motivo: `O grupo "${grupo}" tem mais de ${TETO_SUGESTAO} empresas — não parece um grupo `
+          + 'econômico, e por isso não é sugerido. Conceda o acesso empresa por empresa.',
+      }
+    }
+
+    return { grupo, empresas: irmas, motivo: null }
+  }
+
+  /**
+   * As empresas do grupo deste vínculo, dizendo quais a pessoa já alcança.
+   *
+   * Alimenta a edição do acesso: na CRIAÇÃO já dava para marcar as irmãs, mas
+   * depois não havia como mexer — entrou alguém no grupo, ou saiu, e a única
+   * saída era remover o usuário e cadastrar de novo.
+   *
+   * Usa o mesmo `empresasDoGrupo` da criação, então herda as duas travas dele:
+   * o recorte por `empresaId` (grupo é texto livre, e dois escritórios podem
+   * ter "GRUPO SILVA" sem serem o mesmo) e o teto de sugestão.
+   */
+  async grupoDoVinculo(id: string) {
+    const vinculo = await prisma.clienteUsuario.findUnique({
+      where: { id },
+      select: { userId: true, clienteId: true },
+    })
+    if (!vinculo) throw new TRPCError({ code: 'NOT_FOUND', message: 'Vínculo não encontrado.' })
+
+    const { grupo, empresas, motivo } = await this.empresasDoGrupo(vinculo.clienteId)
+    if (empresas.length === 0) return { grupo, motivo, empresas: [] }
+
+    const jaTem = await prisma.clienteUsuario.findMany({
+      where: { userId: vinculo.userId, clienteId: { in: empresas.map(e => e.id) }, ativo: true },
+      select: { clienteId: true },
+    })
+    const ativos = new Set(jaTem.map(v => v.clienteId))
+
+    return {
+      grupo,
+      motivo,
+      empresas: empresas.map(e => ({ ...e, liberado: ativos.has(e.id) })),
+    }
+  }
+
+  /**
+   * Põe as empresas do grupo exatamente como a tela pediu.
+   *
+   * O vínculo do cliente BASE nunca é tocado: ele é o resto do formulário, e
+   * desmarcá-lo aqui seria a pessoa se excluir da tela em que está.
+   *
+   * Desmarcar DESATIVA, não apaga. É a mesma distinção que o diálogo já faz —
+   * "desativar corta o acesso e preserva o histórico; remover desfaz o
+   * vínculo". Quem saiu do grupo hoje pode voltar, e a trilha de quem viu o
+   * quê continua de pé.
+   *
+   * Não para no primeiro problema. Se uma das empresas recusar (por ser o
+   * último administrador dela, por exemplo), as outras seguem e a tela recebe
+   * a lista do que ficou para trás — abortar tudo deixaria um estado que
+   * ninguém consegue deduzir olhando a lista.
+   */
+  async sincronizarGrupo(
+    input: { id: string; clientes: string[] },
+    autorId: string,
+  ): Promise<{ liberados: number; revogados: number; recusados: string[] }> {
+    const base = await prisma.clienteUsuario.findUnique({
+      where: { id: input.id },
+      select: {
+        userId: true, clienteId: true, nivel: true, areas: true,
+        podeVer: true, podeEditar: true, podeExcluir: true,
+      },
+    })
+    if (!base) throw new TRPCError({ code: 'NOT_FOUND', message: 'Vínculo não encontrado.' })
+
+    // A trava: a lista chega pelo cliente HTTP e não vale nada. Quem decide
+    // quais ids são aceitáveis é a consulta do grupo, refeita aqui.
+    const { empresas } = await this.empresasDoGrupo(base.clienteId)
+    const doGrupo = new Map(empresas.map(e => [e.id, e.razaoSocial]))
+    const querido = new Set(input.clientes.filter(id => doGrupo.has(id)))
+
+    const atuais = await prisma.clienteUsuario.findMany({
+      where: { userId: base.userId, clienteId: { in: [...doGrupo.keys()] } },
+      select: { id: true, clienteId: true, ativo: true, nivel: true },
+    })
+    const porCliente = new Map(atuais.map(v => [v.clienteId, v]))
+
+    let liberados = 0
+    let revogados = 0
+    const recusados: string[] = []
+
+    for (const [clienteId, razaoSocial] of doGrupo) {
+      const atual = porCliente.get(clienteId)
+      const deveTer = querido.has(clienteId)
+
+      try {
+        if (deveTer && !atual) {
+          /**
+           * Herda o acesso do vínculo base, com as áreas pela INTERSEÇÃO.
+           *
+           * Não por `validarAreas`: aquele lança quando a área não é
+           * contratada, e é o certo para o que chega pelo formulário — pedir
+           * "Fiscal" a quem não tem Fiscal é engano de quem pediu. Aqui a área
+           * não foi pedida, foi DERIVADA da matriz, e recusar a filial inteira
+           * porque ela não contrata uma das áreas seria desproporcional: a
+           * pessoa simplesmente não tem aquela área lá.
+           */
+          const contratadas = await prisma.clienteAreaContratada.findMany({
+            where: { clienteId, areaId: { in: base.areas }, contratado: true },
+            select: { areaId: true },
+          })
+          const areas = contratadas.map(a => a.areaId)
+          await prisma.clienteUsuario.create({
+            data: {
+              userId: base.userId,
+              clienteId,
+              nivel: base.nivel,
+              areas,
+              podeVer: base.podeVer,
+              podeEditar: base.podeEditar,
+              podeExcluir: base.podeExcluir,
+              criadoPorId: autorId,
+            },
+          })
+          liberados++
+        } else if (deveTer && atual && !atual.ativo) {
+          await prisma.clienteUsuario.update({ where: { id: atual.id }, data: { ativo: true } })
+          liberados++
+        } else if (!deveTer && atual?.ativo) {
+          // Deixar uma empresa sem nenhum administrador a obrigaria a pedir
+          // socorro ao escritório para qualquer mexida nos próprios usuários.
+          if (atual.nivel === 'ADMINISTRADOR') {
+            await this.exigirOutroAdministrador(clienteId, atual.id)
+          }
+          await prisma.clienteUsuario.update({ where: { id: atual.id }, data: { ativo: false } })
+          revogados++
+        }
+      } catch {
+        recusados.push(razaoSocial)
+      }
+    }
+
+    return { liberados, revogados, recusados }
+  }
+
+  /**
+   * Todas as empresas que uma pessoa alcança, dentro do escopo de quem pergunta.
+   *
+   * Faltava um lugar onde se visse isso: a lista de usuários mostrava
+   * "outrosClientes" como número, sem dizer quais. Quem precisa revogar o
+   * acesso de alguém que saiu de um grupo tinha de abrir cliente por cliente.
+   */
+  async acessosDaPessoa(userId: string, escopo: { isMaster?: boolean; empresaId?: string | null }) {
+    const daEmpresa = escopo.empresaId
+      ? { empresaId: escopo.empresaId }
+      : (escopo.isMaster ? {} : { empresaId: '__none__' })
+
+    const vinculos = await prisma.clienteUsuario.findMany({
+      where: { userId, cliente: daEmpresa },
+      orderBy: [{ ativo: 'desc' }, { cliente: { razaoSocial: 'asc' } }],
+      select: {
+        id: true, ativo: true, nivel: true, areas: true,
+        podeVer: true, podeEditar: true, podeExcluir: true, criadoEm: true,
+        cliente: { select: { id: true, razaoSocial: true, grupo: true, status: true } },
+      },
+    })
+    return vinculos
+  }
+
+  /**
+   * Desliga vários acessos de uma vez.
+   *
+   * Desativa (`ativo: false`) em vez de apagar: o vínculo carrega quem criou e
+   * quando, e é por ele que a trilha de arquivos amarra o que a pessoa fez.
+   * Apagar levaria a história junto.
+   */
+  async revogarAcessos(
+    input: { userId: string; clienteIds: string[] },
+    escopo: { isMaster?: boolean; empresaId?: string | null },
+  ) {
+    const daEmpresa = escopo.empresaId
+      ? { empresaId: escopo.empresaId }
+      : (escopo.isMaster ? {} : { empresaId: '__none__' })
+
+    const r = await prisma.clienteUsuario.updateMany({
+      where: {
+        userId: input.userId,
+        clienteId: { in: input.clienteIds },
+        cliente: daEmpresa,
+      },
+      data: { ativo: false },
+    })
+    return { revogados: r.count }
   }
 
   /** Reenvia o convite — link novo, o anterior deixa de valer. */
@@ -235,7 +567,10 @@ export class ClienteUsuarioService {
 
   /** Muda nível, áreas ou liga/desliga o acesso. */
   async atualizar(
-    input: { id: string; nivel?: PortalNivel; areas?: string[]; ativo?: boolean },
+    input: {
+      id: string; nivel?: PortalNivel; areas?: string[]; ativo?: boolean
+      podeVer?: boolean; podeEditar?: boolean; podeExcluir?: boolean
+    },
   ) {
     const atual = await prisma.clienteUsuario.findUnique({
       where: { id: input.id },
@@ -257,6 +592,9 @@ export class ClienteUsuarioService {
       where: { id: input.id },
       data: {
         ...(input.nivel ? { nivel: input.nivel as never } : {}),
+        ...(input.podeVer !== undefined ? { podeVer: input.podeVer } : {}),
+        ...(input.podeEditar !== undefined ? { podeEditar: input.podeEditar } : {}),
+        ...(input.podeExcluir !== undefined ? { podeExcluir: input.podeExcluir } : {}),
         ...(areas ? { areas } : {}),
         ...(input.ativo != null ? { ativo: input.ativo } : {}),
       },

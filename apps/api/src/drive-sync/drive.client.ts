@@ -1,3 +1,4 @@
+import type { Readable } from 'stream'
 import { google, drive_v3 } from 'googleapis'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
@@ -143,6 +144,231 @@ export class DriveClient {
       webViewLink: res.data.webViewLink ?? '',
       mimeType: res.data.mimeType ?? '',
     }
+  }
+
+  /**
+   * Cria uma pasta dentro de outra.
+   *
+   * No Drive, pasta é um arquivo com mimeType de pasta — daí o `files.create`
+   * sem mídia nenhuma.
+   */
+  async createFolder(nome: string, parentId: string): Promise<{ id: string; name: string }> {
+    const drive = this.drive()
+    const res = await drive.files.create({
+      requestBody: {
+        name: nome,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentId],
+      },
+      fields: 'id, name',
+      supportsAllDrives: true,
+    })
+    return { id: res.data.id ?? '', name: res.data.name ?? nome }
+  }
+
+  /**
+   * Itens NA LIXEIRA que ainda apontam para esta pasta.
+   *
+   * No Drive, item excluído mantém os pais — é por isso que dá para perguntar
+   * "o que foi jogado fora de dentro desta pasta". Sem essa propriedade não
+   * haveria como montar uma lixeira por cliente: a lixeira do Google é uma só,
+   * da conta inteira, misturando todos os clientes.
+   */
+  async listTrashedInFolder(folderId: string, opts?: { limit?: number }): Promise<
+    Array<{ id: string; name: string; mimeType: string; size: number; trashedTime: string; isFolder: boolean }>
+  > {
+    const drive = this.drive()
+    const res = await drive.files.list({
+      q: `'${folderId}' in parents and trashed = true`,
+      fields: 'files(id, name, mimeType, size, trashedTime)',
+      orderBy: 'name',
+      pageSize: Math.min(opts?.limit ?? 200, 1000),
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    })
+    return (res.data.files ?? []).map(f => ({
+      id: f.id ?? '',
+      name: f.name ?? '',
+      mimeType: f.mimeType ?? '',
+      size: Number(f.size ?? 0),
+      trashedTime: f.trashedTime ?? '',
+      isFolder: f.mimeType === 'application/vnd.google-apps.folder',
+    }))
+  }
+
+  /** Tira um item da lixeira, de volta para a pasta de onde saiu. */
+  async untrashFile(fileId: string): Promise<void> {
+    const drive = this.drive()
+    await drive.files.update({
+      fileId,
+      requestBody: { trashed: false },
+      supportsAllDrives: true,
+    })
+  }
+
+  /**
+   * Apaga de vez. Não há volta — nem pela lixeira, nem por suporte do Google.
+   *
+   * Existe porque a alternativa é esperar 30 dias pelo expurgo automático, e
+   * há caso legítimo de querer o documento fora agora (arquivo enviado para o
+   * cliente errado, por exemplo). Quem chama precisa ter certeza.
+   */
+  async deleteFilePermanently(fileId: string): Promise<void> {
+    const drive = this.drive()
+    await drive.files.delete({ fileId, supportsAllDrives: true })
+  }
+
+  /**
+   * Move um item de uma pasta para outra.
+   *
+   * No Drive não existe "mover": existe trocar os pais. `addParents` sem
+   * `removeParents` deixaria o item nos DOIS lugares ao mesmo tempo — o Drive
+   * permite isso e a nossa árvore não, então os dois andam sempre juntos.
+   */
+  async moveFile(fileId: string, novoPaiId: string, paiAtualId: string): Promise<void> {
+    const drive = this.drive()
+    await drive.files.update({
+      fileId,
+      addParents: novoPaiId,
+      removeParents: paiAtualId,
+      fields: 'id, parents',
+      supportsAllDrives: true,
+    })
+  }
+
+  /**
+   * Manda um item para a lixeira do Drive.
+   *
+   * `trashed: true` e não `files.delete`: a exclusão definitiva é irreversível
+   * e some com o arquivo do cliente para sempre. Na lixeira ele volta por 30
+   * dias, que é a mesma escolha que fizemos do lado de cá com o `excluidoEm`.
+   */
+  async trashFile(fileId: string): Promise<void> {
+    const drive = this.drive()
+    await drive.files.update({
+      fileId,
+      requestBody: { trashed: true },
+      supportsAllDrives: true,
+    })
+  }
+
+  /**
+   * Metadados de um arquivo, para servir o conteúdo com o tipo certo.
+   *
+   * Sem o `mimeType`, o proxy entregaria tudo como octet-stream e o navegador
+   * baixaria em vez de exibir — o que mata a ideia de pré-visualizar.
+   */
+  async getFileMeta(fileId: string): Promise<{
+    id: string; name: string; mimeType: string; size: number
+  }> {
+    const drive = this.drive()
+    const res = await drive.files.get({
+      fileId,
+      fields: 'id, name, mimeType, size',
+      supportsAllDrives: true,
+    })
+    return {
+      id: res.data.id ?? '',
+      name: res.data.name ?? '',
+      mimeType: res.data.mimeType ?? 'application/octet-stream',
+      size: Number(res.data.size ?? 0),
+    }
+  }
+
+  /**
+   * Baixa o conteúdo de um arquivo como stream.
+   *
+   * É o que permite servir o arquivo do Drive pela NOSSA API. O caminho óbvio
+   * — jogar o `webViewLink` num iframe — não funciona: aquele link exige que o
+   * NAVEGADOR de quem olha tenha acesso ao arquivo, e quem tem acesso é a
+   * conta do escritório, não o usuário. Passando por aqui, a permissão volta a
+   * ser a nossa: o sistema confere quem pode ver e só então entrega os bytes.
+   */
+  async downloadStream(fileId: string): Promise<Readable> {
+    const drive = this.drive()
+    const r = await drive.files.get(
+      { fileId, alt: 'media', supportsAllDrives: true },
+      { responseType: 'stream' },
+    )
+    return r.data as unknown as Readable
+  }
+
+  /**
+   * Os pais de um item no Drive.
+   *
+   * Serve para confirmar que uma pasta descende de outra — a trava que impede
+   * a Gestão de Arquivos de listar qualquer pasta da conta a partir de um id
+   * colado à mão. O Drive permite múltiplos pais historicamente, então devolve
+   * lista, ainda que hoje na prática seja sempre um.
+   */
+  async getParents(fileId: string): Promise<string[]> {
+    const drive = this.drive()
+    const res = await drive.files.get({
+      fileId,
+      fields: 'parents',
+      supportsAllDrives: true,
+    })
+    return res.data.parents ?? []
+  }
+
+  /**
+   * Lista as SUBPASTAS de uma pasta.
+   *
+   * `listFilesInFolder` não serve para isso: ele não pede `mimeType`, então
+   * pasta e arquivo voltam indistinguíveis. No Drive, pasta é um arquivo com
+   * mimeType `application/vnd.google-apps.folder` — a distinção está só aí.
+   *
+   * Usado pela Gestão de Arquivos para o master escolher qual subpasta é de
+   * qual cliente.
+   */
+  async listSubfolders(folderId: string, opts?: { limit?: number }): Promise<
+    Array<{ id: string; name: string; webViewLink: string; modifiedTime: string }>
+  > {
+    const drive = this.drive()
+    const res = await drive.files.list({
+      q: `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: 'files(id, name, webViewLink, modifiedTime)',
+      orderBy: 'name',
+      pageSize: Math.min(opts?.limit ?? 200, 1000),
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    })
+    return (res.data.files ?? []).map(f => ({
+      id: f.id ?? '',
+      name: f.name ?? '',
+      webViewLink: f.webViewLink ?? '',
+      modifiedTime: f.modifiedTime ?? '',
+    }))
+  }
+
+  /**
+   * Conteúdo de uma pasta: subpastas e arquivos, com o mimeType para separar.
+   *
+   * Existe além do `listFilesInFolder` porque aquele foi feito para a ingestão
+   * de XML — devolve só arquivo, sem tipo, ordenado por modificação. Aqui a
+   * tela precisa navegar, então precisa das duas coisas e do tipo.
+   */
+  async listFolderContents(folderId: string, opts?: { limit?: number }): Promise<
+    Array<{ id: string; name: string; mimeType: string; size: number; modifiedTime: string; webViewLink: string; isFolder: boolean }>
+  > {
+    const drive = this.drive()
+    const res = await drive.files.list({
+      q: `'${folderId}' in parents and trashed = false`,
+      fields: 'files(id, name, mimeType, size, modifiedTime, webViewLink)',
+      orderBy: 'folder,name',
+      pageSize: Math.min(opts?.limit ?? 300, 1000),
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    })
+    return (res.data.files ?? []).map(f => ({
+      id: f.id ?? '',
+      name: f.name ?? '',
+      mimeType: f.mimeType ?? '',
+      size: Number(f.size ?? 0),
+      modifiedTime: f.modifiedTime ?? '',
+      webViewLink: f.webViewLink ?? '',
+      isFolder: f.mimeType === 'application/vnd.google-apps.folder',
+    }))
   }
 
   /** Lista arquivos de uma pasta. Default: últimos 50 modificados. */

@@ -21,6 +21,21 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   DIRETOR: 'Diretor',
 }
 
+/**
+ * Papéis da equipe do escritório — todos, menos o colaborador de cliente.
+ *
+ * O módulo Usuários é a equipe interna. Quem é de um cliente se cadastra e se
+ * edita no cadastro do cliente, e por isso não é oferecido como papel em
+ * /usuarios (filtro, edição rápida e formulário).
+ */
+export const USER_ROLE_LABELS_ESCRITORIO: Record<Exclude<UserRole, 'COLABORADOR_CLIENTE'>, string> = {
+  COLABORADOR_INTERNO: USER_ROLE_LABELS.COLABORADOR_INTERNO,
+  PRESTADOR_SERVICO: USER_ROLE_LABELS.PRESTADOR_SERVICO,
+  GESTOR: USER_ROLE_LABELS.GESTOR,
+  COORDENADOR: USER_ROLE_LABELS.COORDENADOR,
+  DIRETOR: USER_ROLE_LABELS.DIRETOR,
+}
+
 const ROLE_VALUES = ['COLABORADOR_INTERNO', 'PRESTADOR_SERVICO', 'COLABORADOR_CLIENTE', 'GESTOR', 'COORDENADOR', 'DIRETOR'] as const
 
 export const UserProfileEnum = {
@@ -52,7 +67,7 @@ export const MODULE_SLUGS = [
   'custeio-clientes', 'graficos-contrato-erp',
   'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios',
   // Administrativo
-  'agenda', 'acessorias', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma', 'processos',
+  'agenda', 'acessorias', 'coleta-documentos', 'contatos', 'estoque', 'gestao-arquivos', 'meus-servicos', 'minhas-obrigacoes', 'organograma', 'processos',
   // Legalização
   'beneficios-fiscais', 'gestao-certificados', 'quadro-societario',
   // Trabalhista
@@ -106,6 +121,7 @@ export const MODULE_LABELS: Record<string, string> = {
   // Administrativo
   agenda: 'Agenda Corporativa', 'coleta-documentos': 'Coleta e Recebimento',
   contatos: 'Contatos', estoque: 'Controle de Estoque',
+  'gestao-arquivos': 'Gestão de Arquivos',
   'meus-servicos': 'Meus Serviços', 'minhas-obrigacoes': 'Minhas Obrigações', organograma: 'Organograma',
   acessorias: 'Acessórias',
   // Legalização
@@ -143,7 +159,7 @@ export const MODULE_LABELS: Record<string, string> = {
 export const MODULE_GROUPS = {
   'Cadastros': ['areas', 'cargos', 'clientes', 'colaboradores', 'empresas', 'fornecedores', 'grupos-empresariais', 'obrigacoes', 'obrigacoes-fixas', 'obrigacoes-demanda', 'servicos', 'socios', 'usuarios'],
   'Comercial': ['crm', 'whatsapp', 'clausulas', 'comercial', 'contratos', 'contrato-templates', 'custeio-clientes', 'graficos-contrato-erp', 'orcamentos', 'pesquisas', 'comercial-relatorios', 'contratos-relatorios'],
-  'Administrativo': ['agenda', 'acessorias', 'coleta-documentos', 'contatos', 'estoque', 'meus-servicos', 'minhas-obrigacoes', 'organograma', 'processos'],
+  'Administrativo': ['agenda', 'acessorias', 'coleta-documentos', 'contatos', 'estoque', 'gestao-arquivos', 'meus-servicos', 'minhas-obrigacoes', 'organograma', 'processos'],
   'Legalização': ['beneficios-fiscais', 'gestao-certificados', 'quadro-societario'],
   'Trabalhista': ['banco-horas', 'beneficios', 'controle-ferias', 'fgts-digital', 'folha-pagamento', 'folha-bi'],
   'Fiscal': ['caixapostal', 'certidoes-cnd', 'dctfweb', 'dte', 'obrigacoes-servicos', 'situacao-fiscal', 'reforma-tributaria', 'ferramentas-fiscal'],
@@ -281,6 +297,14 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
   // Coleta e Recebimento: os papéis do v1 viraram sub-permissões — adm/ era a
   // Recepção (rota) e arq/ o Arquivo. Quem não tem nenhuma só cria e acompanha
   // as próprias solicitações.
+  // Gestão de Arquivos. O toggle do módulo liga canRead/canWrite/canDelete de
+  // uma vez, então o `canDelete` sozinho não dá o controle fino que a promessa
+  // do módulo faz ("ler" versus "ler e excluir"). A sub-permissão é o mecanismo
+  // que a tela oferece para separar os dois.
+  'gestao-arquivos': [
+    { key: 'excluir_arquivos', label: 'Excluir arquivos do cliente (vão para a lixeira, de onde voltam)', group: 'Arquivos' },
+    { key: 'configurar', label: 'Configurar notificações e a pasta do Google Drive', group: 'Configurações' },
+  ],
   'coleta-documentos': [
     { key: 'rota', label: 'Recepção/Rota (confirmar rota, receber, entregar ao arquivo)', group: 'Papéis' },
     { key: 'arquivo', label: 'Arquivo (triagem, entregar ao setor, arquivar protocolo)', group: 'Papéis' },
@@ -718,6 +742,15 @@ export const listUserSchema = paginationSchema.extend({
   role: z.enum(ROLE_VALUES).optional(),
   empresaId: z.string().optional(),
   incluirInativos: z.coerce.boolean().optional(),
+  /**
+   * Recorte da aba Usuários do cadastro da empresa: `internos` é a equipe do
+   * escritório; `clientes`, as pessoas dos clientes que acessam o portal.
+   *
+   * Quando vem, a lista fica restrita à empresa EXATA — sem as contas sem
+   * empresa, que a listagem geral inclui de propósito. Na aba a pergunta é
+   * "quem está nesta empresa", e uma conta sem empresa não está em nenhuma.
+   */
+  tipo: z.enum(['internos', 'clientes']).optional(),
 })
 
 export type CreateUserInput = z.infer<typeof createUserSchema>

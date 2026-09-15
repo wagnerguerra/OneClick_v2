@@ -17,7 +17,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { TEXT, BADGE, SURFACE, STRONG } from '@/lib/color-styles'
-import { USER_ROLE_LABELS } from '@saas/types'
+import { USER_ROLE_LABELS_ESCRITORIO } from '@saas/types'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -73,7 +73,6 @@ function loginCorClass(iso: string): string {
 const ROLE_CONFIG: Record<string, { label: string; color: string }> = {
   COLABORADOR_INTERNO: { label: 'Colaborador Interno', color: 'bg-emerald-500 text-white' },
   PRESTADOR_SERVICO: { label: 'Prestador de Serviço', color: 'bg-sky-500 text-white' },
-  COLABORADOR_CLIENTE: { label: 'Colaborador de Cliente', color: 'bg-violet-500 text-white' },
   GESTOR: { label: 'Gestor', color: 'bg-amber-500 text-white' },
   COORDENADOR: { label: 'Coordenador', color: 'bg-orange-500 text-white' },
   DIRETOR: { label: 'Diretor', color: 'bg-rose-500 text-white' },
@@ -471,7 +470,7 @@ export default function UsuariosPage() {
                 <SelectTrigger className="h-8 w-full text-xs sm:w-[190px]"><SelectValue placeholder="Perfil" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todos os perfis</SelectItem>
-                  {Object.entries(USER_ROLE_LABELS).map(([v, label]) => (
+                  {Object.entries(USER_ROLE_LABELS_ESCRITORIO).map(([v, label]) => (
                     <SelectItem key={v} value={v}>{label as string}</SelectItem>
                   ))}
                 </SelectContent>

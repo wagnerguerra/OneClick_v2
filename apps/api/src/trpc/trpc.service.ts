@@ -40,6 +40,14 @@ import { createClienteRouter } from '../cliente/cliente.router'
 import { ClienteRelatorioService } from '../cliente/relatorio/relatorio.service'
 import { ClienteUsuarioService } from '../cliente/cliente-usuario.service'
 import { PortalConviteService } from '../portal/portal-convite.service'
+import { PortalArquivosService } from '../portal/portal-arquivos.service'
+import { PortalEscritorioService } from '../portal/portal-escritorio.service'
+import { PortalObrigacoesService } from '../portal/portal-obrigacoes.service'
+import { PortalModulosService } from '../portal/portal-modulos.service'
+import { GestaoArquivosService } from '../gestao-arquivos/gestao-arquivos.service'
+import { GestaoArquivosNotificacaoService } from '../gestao-arquivos/gestao-arquivos-notificacao.service'
+import { GestaoArquivosDriveService } from '../gestao-arquivos/gestao-arquivos-drive.service'
+import { createGestaoArquivosRouter } from '../gestao-arquivos/gestao-arquivos.router'
 import { createPortalRouter } from '../portal/portal.router'
 import { StripeService } from '../stripe/stripe.service'
 import { createBillingRouter } from '../stripe/stripe.router'
@@ -218,7 +226,7 @@ import { createSignatureRouter } from '../signature/signature.router'
 import { createNfseRouter } from '../nfse/nfse.router'
 import { createMinhasObrigacoesRouter } from '../minhas-obrigacoes/minhas-obrigacoes.router'
 import { AuthService } from '../auth/auth.service'
-import { resolverVinculo, atendeNivel, type PortalNivel } from '../portal/portal-escopo'
+import { resolverVinculo, atendeNivel, ehUsuarioDePortal, type PortalNivel } from '../portal/portal-escopo'
 
 /**
  * Estado de billing do tenant, calculado no createContext.
@@ -350,7 +358,12 @@ export const router = t.router
 export const publicProcedure = t.procedure
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   if (!ctx.userId) {
-    throw new Error('Não autorizado')
+    // TRPCError, e não `new Error`: um Error cru o tRPC classifica como
+    // INTERNAL_SERVER_ERROR e devolve 500. Como 314 rotas passam por aqui,
+    // uma sessão expirada derrubava a aplicação inteira com 500 em vez de
+    // devolver 401 — e o front, sem conseguir distinguir "faça login de novo"
+    // de "o servidor quebrou", mostrava erro em tudo em vez de redirecionar.
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
   }
   assertUsuarioInterno(ctx)
   return next({ ctx: { ...ctx, userId: ctx.userId } })
@@ -501,6 +514,54 @@ export const portalProcedure = t.procedure.use(async ({ ctx, getRawInput, next }
   }
 
   return next({ ctx: { ...ctx, userId: ctx.userId, portal: vinculo } })
+})
+
+/**
+ * Portal, com um MÓDULO exigido.
+ *
+ * Existe como procedure, e não como checagem no corpo de cada rota, por um
+ * motivo prático: espalhada, a checagem é esquecida na próxima rota nova, e o
+ * esquecimento não aparece em teste nenhum — a rota simplesmente responde a
+ * quem não devia. Aqui, uma rota nova só existe depois de declarar a que
+ * módulo pertence.
+ *
+ *     listar: portalModuloProcedure('obrigacoes')
+ *       .input(...)
+ *       .query(({ ctx }) => svc.listar(ctx.portal))
+ *
+ * `NOT_FOUND` e não `FORBIDDEN`: para quem não tem o módulo, ele não existe.
+ * Um 403 confirmaria que a funcionalidade está lá, apenas desligada — que é
+ * justamente o que a liberação por empresa quer manter privado.
+ */
+export function portalModuloProcedure(slug: string) {
+  return portalProcedure.use(({ ctx, next }) => {
+    if (!ctx.portal.modulos.includes(slug)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Recurso não disponível.' })
+    }
+    return next({ ctx })
+  })
+}
+
+/**
+ * Portal, SEM cliente definido.
+ *
+ * Para o que existe antes da escolha da empresa: descobrir quais clientes esta
+ * pessoa enxerga. É a única porta do portal que não exige `clienteId`, e por
+ * isso ela devolve apenas a lista de vínculos — nada de dado de cliente.
+ *
+ * Exige ser externo de fato: quem não tem vínculo nenhum não tem o que fazer
+ * aqui, e um interno que caísse nesta rota veria uma lista vazia em vez de um
+ * erro confuso.
+ */
+export const portalSessaoProcedure = t.procedure.use(async ({ ctx, next }) => {
+  if (!ctx.userId) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' })
+  }
+  assertTenantActive(ctx)
+  if (!(await ehUsuarioDePortal(ctx.userId))) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Este acesso não pertence a nenhum cliente.' })
+  }
+  return next({ ctx: { ...ctx, userId: ctx.userId } })
 })
 
 /**
@@ -776,6 +837,13 @@ export class TrpcService {
     @Inject(ClienteRelatorioService) private readonly clienteRelatorioService: ClienteRelatorioService,
     @Inject(ClienteUsuarioService) private readonly clienteUsuarioService: ClienteUsuarioService,
     @Inject(PortalConviteService) private readonly portalConviteService: PortalConviteService,
+    @Inject(PortalArquivosService) private readonly portalArquivosService: PortalArquivosService,
+    @Inject(PortalEscritorioService) private readonly portalEscritorioService: PortalEscritorioService,
+    @Inject(PortalObrigacoesService) private readonly portalObrigacoesService: PortalObrigacoesService,
+    @Inject(PortalModulosService) private readonly portalModulosService: PortalModulosService,
+    @Inject(GestaoArquivosService) private readonly gestaoArquivosService: GestaoArquivosService,
+    @Inject(GestaoArquivosNotificacaoService) private readonly gestaoArquivosNotificacaoService: GestaoArquivosNotificacaoService,
+    @Inject(GestaoArquivosDriveService) private readonly gestaoArquivosDriveService: GestaoArquivosDriveService,
     @Inject(SincronizarResponsaveisService) private readonly sincronizarResponsaveisService: SincronizarResponsaveisService,
     @Inject(LegacyImportService) private readonly legacyImportService: LegacyImportService,
     @Inject(SciService) private readonly sciService: SciService,
@@ -910,7 +978,7 @@ export class TrpcService {
       }),
       area: createAreaRouter(this.areaService),
       ferramentas: createFerramentasRouter(this.ferramentasService, this.htmlPdfService, this.juntarPdfService, this.assinaturaPdfService, this.dividirPdfService),
-      empresa: createEmpresaRouter(this.empresaService),
+      empresa: createEmpresaRouter(this.empresaService, this.portalModulosService),
       user: createUserRouter(this.userService),
       cargo: createCargoRouter(this.cargoService),
       ativo: createAtivoRouter(this.ativoService),
@@ -927,7 +995,7 @@ export class TrpcService {
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
       adminTenant: createAdminTenantRouter(this.adminTenantService),
-      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService, this.clienteCapaService, this.dossieService, this.dossieBackfillService, this.clienteLogoService, this.socioPerfisService, this.clienteRelatorioService, this.clienteUsuarioService),
+      cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService, this.clienteCapaService, this.dossieService, this.dossieBackfillService, this.clienteLogoService, this.socioPerfisService, this.clienteRelatorioService, this.clienteUsuarioService, this.portalEscritorioService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
       fornecedor: createFornecedorRouter(this.fornecedorService),
@@ -953,7 +1021,8 @@ export class TrpcService {
       sqlConsole: createSqlConsoleRouter(this.sqlConsoleService),
       nota: createNotaRouter(this.notaService),
       whatsapp: createWhatsappRouter(this.whatsappService, this.whatsappCloudService),
-      portal: createPortalRouter(this.portalConviteService),
+      portal: createPortalRouter(this.portalConviteService, this.portalArquivosService, this.gestaoArquivosDriveService, this.portalObrigacoesService),
+      gestaoArquivos: createGestaoArquivosRouter(this.gestaoArquivosService, this.gestaoArquivosNotificacaoService, this.gestaoArquivosDriveService),
       faq: createFaqRouter(this.faqService),
       servico: createServicoRouter(this.servicoService),
       processo: createProcessoRouter(this.processoService),

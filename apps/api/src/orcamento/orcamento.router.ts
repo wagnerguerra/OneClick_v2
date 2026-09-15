@@ -238,9 +238,15 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
     // ── Solicitação de orçamento (balão "Fale com a TI") ──
     // protectedProcedure: qualquer usuário autenticado pode pedir um orçamento
     // ao comercial, mesmo sem permissão de escrita no módulo orçamentos.
+    // `incluirInativos` é opt-in, e não o padrão, porque a mesma rota alimenta o
+    // seletor de cliente das manifestações, onde ex-cliente não faz sentido. No
+    // balão de orçamento faz: pedido de orçamento de quem já foi cliente é
+    // exatamente como um ex-cliente volta a ser cliente.
     buscarClientes: protectedProcedure
-      .input(z.object({ search: z.string().optional() }))
-      .query(({ input, ctx }) => orcamentoService.buscarClientesParaSolicitacao(input.search, ctx.isMaster ?? false, ctx.empresaId)),
+      .input(z.object({ search: z.string().optional(), incluirInativos: z.boolean().optional() }))
+      .query(({ input, ctx }) => orcamentoService.buscarClientesParaSolicitacao(
+        input.search, ctx.isMaster ?? false, ctx.empresaId, input.incluirInativos ?? false,
+      )),
 
     // Cadastra (ou reaproveita) um cliente como lead/prospect a partir de um
     // nome digitado — usado na edição de cliente no detalhe do orçamento.
