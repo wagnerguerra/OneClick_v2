@@ -11,7 +11,7 @@ import {
 import { Button, Card, Badge, cn } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, DOT } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { navigation, groupColorVar } from '@/lib/navigation'
 
@@ -256,8 +256,8 @@ function SchedulerCard({ item, corModulo }: { item: SchedulerItem; corModulo: st
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="text-sm font-semibold leading-tight">{item.nome}</h4>
                 {item.ativo ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Ativo
+                  <span className={cn('inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15', TEXT.emerald)}>
+                    <span className={cn('h-1.5 w-1.5 rounded-full', DOT.emerald)} /> Ativo
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted text-muted-foreground">

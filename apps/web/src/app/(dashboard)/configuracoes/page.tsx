@@ -1041,7 +1041,7 @@ export default function ConfiguracoesPage() {
 
                           <span className="text-[10px] text-muted-foreground ml-auto">Ctrl+Enter para executar</span>
                           {sqlResult[dbSubtab] && !sqlResult[dbSubtab]!.error && (
-                            <span className="text-[10px] text-emerald-600 font-medium">
+                            <span className={cn('text-[10px] font-medium', TEXT.emerald)}>
                               {sqlResult[dbSubtab]!.rowCount} linha(s) · {sqlResult[dbSubtab]!.ms}ms
                             </span>
                           )}

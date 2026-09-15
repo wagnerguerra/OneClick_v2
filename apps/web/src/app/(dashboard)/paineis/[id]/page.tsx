@@ -500,7 +500,7 @@ function SortableFolha({ folha, expanded, onToggle, onRename, onDelete }: { folh
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: folha.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
   return (
-    <div ref={setNodeRef} style={style} className={`flex items-center gap-1.5 rounded-lg border px-2 py-2 ${expanded ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20' : 'border-border'}`}>
+    <div ref={setNodeRef} style={style} className={cn('flex items-center gap-1.5 rounded-lg border px-2 py-2', expanded ? SURFACE.indigo : 'border-border')}>
       <button className="cursor-grab touch-none p-1 text-muted-foreground hover:text-foreground" {...attributes} {...listeners} title="Arrastar"><GripVertical className="h-4 w-4" /></button>
       <button className="flex items-center gap-1.5 text-sm flex-1 truncate text-left" onClick={onToggle} title={expanded ? 'Recolher' : 'Abrir blocos'}>
         {expanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}

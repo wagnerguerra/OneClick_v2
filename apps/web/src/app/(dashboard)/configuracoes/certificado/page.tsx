@@ -313,7 +313,7 @@ function CertificadoSettingsPageInner() {
                           <div>
                             <p className={cn(
                               'text-sm font-semibold',
-                              certInfo.expired ? 'text-red-800 dark:text-red-300' : 'text-emerald-800 dark:text-emerald-300',
+                              certInfo.expired ? TEXT.red : TEXT.emerald,
                             )}>
                               {certInfo.expired ? 'Certificado Expirado' : 'Certificado Instalado'}
                             </p>
@@ -496,7 +496,7 @@ function CertificadoSettingsPageInner() {
                           <div>
                             <p className={cn(
                               'text-sm font-semibold',
-                              certPfInfo.expired ? 'text-red-800 dark:text-red-300' : 'text-emerald-800 dark:text-emerald-300',
+                              certPfInfo.expired ? TEXT.red : TEXT.emerald,
                             )}>
                               {certPfInfo.expired ? 'Certificado PF Expirado' : 'Certificado PF Instalado'}
                             </p>

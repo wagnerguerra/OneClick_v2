@@ -11,7 +11,7 @@ import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { MasterGate } from '@/components/auth/master-gate'
-import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
+import { BADGE, STRONG, SURFACE, TEXT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 
@@ -608,7 +608,7 @@ function TabPlanos({ plans, loading, onRefresh }: { plans: Plan[]; loading: bool
                         <span className={cn(
                           'text-[10px] font-medium px-2 py-0.5 rounded-full',
                           plan.isActive
-                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                            ? STRONG.emerald
                             : 'bg-muted text-muted-foreground',
                         )}>
                           {plan.isActive ? 'Ativo' : 'Inativo'}

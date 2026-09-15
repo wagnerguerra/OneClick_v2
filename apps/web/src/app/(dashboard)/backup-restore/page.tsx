@@ -165,7 +165,7 @@ function BackupRestorePageInner() {
             </h5>
           </CardHeader>
           <div className="p-4 space-y-4">
-            <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+            <div className={cn('flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm', TEXT.amber)}>
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>A restauracao do banco de dados <strong>sobrescreve todos os dados atuais</strong>. Gere um backup antes de restaurar.</span>
             </div>

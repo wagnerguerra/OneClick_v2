@@ -718,7 +718,7 @@ export function CalendarioSection() {
                   <div className="text-xs font-semibold text-muted-foreground">
                     Ano <span className="tabular-nums text-foreground">{anoView}</span>
                     {filtroAno === 'TODOS' && (
-                      <span className="ml-1 text-[10px] text-amber-700 dark:text-amber-400">
+                      <span className={cn('ml-1 text-[10px]', TEXT.amber)}>
                         (visualização sempre mostra um ano por vez)
                       </span>
                     )}

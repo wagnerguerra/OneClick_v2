@@ -6,7 +6,7 @@ import { Button, Input, Label, Badge, cn, Switch } from '@saas/ui'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { BADGE, TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT, DOT, FILL } from '@/lib/color-styles'
 import { MarkdownView } from '@/components/ui/markdown-view'
 
 interface Faixa { min: number; max: number | null; pontos: number }
@@ -182,7 +182,7 @@ export function HelpdeskIaSection() {
 
   const cap = Number(cfg.capUsdMensal)
   const pct = cap > 0 ? Math.min(100, (cfg.gastoUsdMesAtual / cap) * 100) : 0
-  const cor = pct < 60 ? 'bg-emerald-500' : pct < 90 ? 'bg-amber-500' : 'bg-rose-500'
+  const cor = pct < 60 ? FILL.emerald : pct < 90 ? FILL.amber : FILL.rose
 
   return (
     <div className="space-y-5">
@@ -425,8 +425,8 @@ export function HelpdeskIaSection() {
               </BarChart>
             </ResponsiveContainer>
             <div className="flex items-center gap-4 mt-2 text-[10px] text-muted-foreground justify-center">
-              <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-violet-500" /> Custo USD</span>
-              <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-cyan-500" /> Tickets processados</span>
+              <span className="inline-flex items-center gap-1"><span className={cn('h-2 w-2 rounded-sm', DOT.violet)} /> Custo USD</span>
+              <span className="inline-flex items-center gap-1"><span className={cn('h-2 w-2 rounded-sm', DOT.cyan)} /> Tickets processados</span>
             </div>
           </div>
         )}
