@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { prisma } from '@saas/db'
+import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import type { Prisma } from '@saas/db'
 import {
   HELPDESK_SLA_PADRAO_HORAS,
@@ -1905,14 +1906,15 @@ export class HelpdeskService {
     let auto_fechados = 0
 
     // 1. Tickets ativos com prazoSla próximo — alerta 75% consumido
+    const inativas = await idsDeEmpresasInativas()
     const ativos = await prisma.helpdeskTicket.findMany({
-      where: {
+      where: semEmpresaInativa<Prisma.HelpdeskTicketWhereInput>({
         ativo: true,
         arquivado: false,
         status: { in: ['NOVO', 'EM_ANDAMENTO'] },
         prazoSla: { not: null },
         slaAlertadoEm: null,
-      },
+      }, inativas),
       select: {
         id: true, numero: true, titulo: true, createdAt: true, prazoSla: true,
         responsavelId: true, areaId: true, empresaId: true, prioridade: true,
@@ -1948,11 +1950,11 @@ export class HelpdeskService {
     // 2. Auto-fecha RESOLVIDOS sem CSAT há mais de 3 dias
     const limiteAutoFechamento = new Date(agora.getTime() - 3 * 24 * 60 * 60 * 1000)
     const semCsat = await prisma.helpdeskTicket.findMany({
-      where: {
+      where: semEmpresaInativa<Prisma.HelpdeskTicketWhereInput>({
         status: 'RESOLVIDO',
         csatRespondidoEm: null,
         resolvidoEm: { lte: limiteAutoFechamento },
-      },
+      }, inativas),
       select: { id: true, numero: true, titulo: true, solicitanteId: true, empresaId: true },
       take: 200,
     })

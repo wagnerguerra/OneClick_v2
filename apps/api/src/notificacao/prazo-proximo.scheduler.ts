@@ -2,6 +2,8 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/commo
 import { schedulersAtivos } from '../common/scheduler-guard'
 import { CronJob } from 'cron'
 import { prisma } from '@saas/db'
+import type { Prisma } from '@saas/db'
+import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import { NotificacaoService } from './notificacao.service'
 
 /**
@@ -45,16 +47,17 @@ export class PrazoProximoScheduler implements OnModuleInit, OnModuleDestroy {
     stats.regras = regras.length
     if (regras.length === 0) return stats
 
+    const inativas = await idsDeEmpresasInativas()
     for (const regra of regras) {
       const horas = regra.antecedenciaHoras ?? 24
       const limite = new Date(agora.getTime() + horas * 60 * 60 * 1000)
       const execs = await prisma.servicoExecucao.findMany({
-        where: {
+        where: semEmpresaInativa<Prisma.ServicoExecucaoWhereInput>({
           servicoId: regra.servicoId,
           status: 'EM_ANDAMENTO',
           pausado: false,
           prazoLimite: { gte: agora, lte: limite },
-        },
+        }, inativas),
         select: { id: true },
       })
       for (const e of execs) {

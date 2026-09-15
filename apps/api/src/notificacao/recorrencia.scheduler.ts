@@ -2,6 +2,8 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject, forwardRef }
 import { schedulersAtivos } from '../common/scheduler-guard'
 import { CronJob } from 'cron'
 import { prisma } from '@saas/db'
+import type { Prisma } from '@saas/db'
+import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import { ServicoService } from '../servico/servico.service'
 import { aplicarAjusteVencimento } from './feriados-br'
 import { carregarDiasNaoUteis } from '../common/dias-nao-uteis'
@@ -55,11 +57,12 @@ export class RecorrenciaScheduler implements OnModuleInit, OnModuleDestroy {
     const agora = new Date()
     const stats = { disparados: 0, ignorados: 0, erros: 0 }
 
+    const inativas = await idsDeEmpresasInativas()
     const recorrencias = await prisma.servicoRecorrencia.findMany({
-      where: {
+      where: semEmpresaInativa<Prisma.ServicoRecorrenciaWhereInput>({
         ativa: true,
         OR: [{ proximaExecucao: { lte: agora } }, { proximaExecucao: null }],
-      },
+      }, inativas),
       include: {
         servico: {
           select: {
@@ -75,6 +78,8 @@ export class RecorrenciaScheduler implements OnModuleInit, OnModuleDestroy {
     })
 
     for (const r of recorrencias) {
+      // A recorrência pode estar sem empresa e o serviço, não.
+      if (r.servico.empresaId && inativas.includes(r.servico.empresaId)) { stats.ignorados++; continue }
       try {
         // Cliente "ativo" = contrato em vigência (assinado e em prazo)
         const clientesIds = Array.from(new Set(

@@ -2,6 +2,7 @@ import { Injectable, Inject, OnModuleInit } from '@nestjs/common'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { prisma } from '@saas/db'
+import { idsDeEmpresasInativas } from '../common/empresa-inativa'
 import type { AgendaDisparoConfig, Prisma } from '@saas/db'
 import { EmailService } from '../common/email.service'
 import { AgendaEmailTemplateService } from './agenda-email-template.service'
@@ -145,6 +146,8 @@ export class AgendaDisparoService implements OnModuleInit {
   private async tickScheduler() {
     const cfg = await prisma.agendaDisparoConfig.findFirst()
     if (!cfg || !cfg.ativo) return
+    // Empresa inativa não recebe a agenda do dia (common/empresa-inativa).
+    if (cfg.empresaId && (await idsDeEmpresasInativas()).includes(cfg.empresaId)) return
 
     const destinatarios = await this.resolverDestinatarios(cfg)
     if (destinatarios.length === 0) return

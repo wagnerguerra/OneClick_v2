@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { TRPCError } from '@trpc/server'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
+import { esquecerEmpresasInativas } from '../common/empresa-inativa'
 import { invalidateSessionCacheForUser } from '../trpc/session-cache'
 import type { Prisma } from '@saas/db'
 import type { CreateEmpresaInput, UpdateEmpresaInput, ListEmpresaInput } from '@saas/types'
@@ -216,8 +217,8 @@ export class EmpresaService {
         },
         {
           chave: 'integracoes',
-          titulo: 'Continuam configuradas',
-          nota: 'Não são desligadas pela inativação.',
+          titulo: 'Continuam configuradas, mas param',
+          nota: 'A configuração fica guardada; as rotinas automáticas (e-mails, sincronizações, recorrências, alertas) deixam de rodar para esta empresa enquanto ela estiver inativa.',
           itens: [
             item('Números de WhatsApp', whatsapp),
             item('Recorrências de serviço', recorrencias),
@@ -270,6 +271,7 @@ export class EmpresaService {
       return { jaInativa: false, usuarios }
     })
     for (const u of resultado.usuarios) invalidateSessionCacheForUser(u)
+    esquecerEmpresasInativas()
     return { jaInativa: resultado.jaInativa, usuariosDesativados: resultado.usuarios.length }
   }
 
@@ -279,6 +281,7 @@ export class EmpresaService {
    * religado à mão no meio do caminho não é tocado.
    */
   async reativar(id: string, autorId: string) {
+    esquecerEmpresasInativas()
     return prisma.$transaction(async (tx) => {
       const empresa = await tx.empresa.findUniqueOrThrow({ where: { id } })
       if (empresa.isActive) return { jaAtiva: true, usuariosReativados: 0 }

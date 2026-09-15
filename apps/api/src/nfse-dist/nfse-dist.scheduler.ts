@@ -21,6 +21,8 @@ import {
 import { schedulersAtivos } from '../common/scheduler-guard'
 import { CronJob } from 'cron'
 import { prisma } from '@saas/db'
+import type { Prisma } from '@saas/db'
+import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import {
   iniciarExecucao,
   finalizarExecucao,
@@ -153,12 +155,12 @@ export class NfseDistScheduler implements OnModuleInit, OnModuleDestroy {
 
     try {
       const clientes = await prisma.cliente.findMany({
-        where: {
+        where: semEmpresaInativa<Prisma.ClienteWhereInput>({
           // @ts-ignore — coluna `nfseDistEnabled` será adicionada no schema Prisma em paralelo.
           nfseDistEnabled: true,
           status: 'ATIVO',
           empresaId: empresaIdHome, // default-deny: null → IS NULL, nunca "todos"
-        },
+        }, await idsDeEmpresasInativas()),
         select: { id: true, razaoSocial: true },
       })
       totalClientes = clientes.length
@@ -222,11 +224,11 @@ export class NfseDistScheduler implements OnModuleInit, OnModuleDestroy {
       // sincronizam manualmente (ficam presos em "Aguardando o scheduler").
       const empresaIdHome = await this.resolverHomeEmpresaId()
       const clientes = await prisma.cliente.findMany({
-        where: {
+        where: semEmpresaInativa<Prisma.ClienteWhereInput>({
           // @ts-ignore — campos serão adicionados no schema Prisma em paralelo.
           nfseDistSyncRequestedAt: { not: null },
           status: 'ATIVO',
-        },
+        }, await idsDeEmpresasInativas()),
         select: { id: true, razaoSocial: true },
       })
 

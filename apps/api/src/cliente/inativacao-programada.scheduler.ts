@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
 import { CronJob } from 'cron'
 import { prisma, Prisma } from '@saas/db'
+import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import { schedulersAtivos } from '../common/scheduler-guard'
 import { ServicoService } from '../servico/servico.service'
 
@@ -76,10 +77,10 @@ export class InativacaoProgramadaScheduler implements OnModuleInit, OnModuleDest
       fim.setHours(23, 59, 59, 999)
 
       const vencidos = await prisma.cliente.findMany({
-        where: {
+        where: semEmpresaInativa<Prisma.ClienteWhereInput>({
           inativacaoProgramadaPara: { lte: fim },
           status: 'ATIVO' as never,
-        },
+        }, await idsDeEmpresasInativas()),
         select: {
           id: true, code: true, razaoSocial: true, version: true, empresaId: true,
           inativacaoProgramadaPara: true, inativacaoProgramadaMotivo: true,

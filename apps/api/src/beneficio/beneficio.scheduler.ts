@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Inject } from '@nestjs/common'
 import { CronJob } from 'cron'
 import { prisma } from '@saas/db'
+import { sqlSemEmpresaInativa } from '../common/empresa-inativa'
 import { schedulersAtivos } from '../common/scheduler-guard'
 import { BeneficioService } from './beneficio.service'
 
@@ -31,7 +32,7 @@ export class BeneficioSchedulerService implements OnModuleInit, OnModuleDestroy 
       const br = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
       const dia = br.getDate(), mes = br.getMonth() + 1, ano = br.getFullYear()
       const empresas = await prisma.$queryRawUnsafe<Array<{ empresa_id: string }>>(
-        `SELECT empresa_id FROM beneficio_config WHERE notificar_auto=true AND dia_notificacao=$1`, dia,
+        `SELECT empresa_id FROM beneficio_config WHERE notificar_auto=true AND dia_notificacao=$1 AND ${sqlSemEmpresaInativa('beneficio_config.empresa_id')}`, dia,
       ).catch(() => [])
       let n = 0, semComp = 0
       for (const e of empresas) {
@@ -46,7 +47,7 @@ export class BeneficioSchedulerService implements OnModuleInit, OnModuleDestroy 
 
       // Cobrança de quem ainda não lançou — empresas cujo dia_cobranca é hoje.
       const cobrancas = await prisma.$queryRawUnsafe<Array<{ empresa_id: string }>>(
-        `SELECT empresa_id FROM beneficio_config WHERE notificar_auto=true AND dia_cobranca=$1`, dia,
+        `SELECT empresa_id FROM beneficio_config WHERE notificar_auto=true AND dia_cobranca=$1 AND ${sqlSemEmpresaInativa('beneficio_config.empresa_id')}`, dia,
       ).catch(() => [])
       let c = 0
       for (const e of cobrancas) {

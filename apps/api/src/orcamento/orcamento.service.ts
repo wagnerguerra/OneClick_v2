@@ -1,5 +1,6 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma, Prisma } from '@saas/db'
+import { idsDeEmpresasInativas, semEmpresaInativa } from '../common/empresa-inativa'
 import type { CreateOrcamentoInput, UpdateOrcamentoInput, ListOrcamentoInput, CreateOrcamentoItemInput, UpdateOrcamentoItemInput } from '@saas/types'
 import { filtroDeBusca, escopoDeEmpresa, consolidar } from './orcamento-busca-cliente'
 import { ORCAMENTO_ALLOWED_TRANSITIONS, ORCAMENTO_STATUS_LABELS, ORCAMENTO_STATUS_ORDER, isOrcamentoTransitionAllowed, limparCnpj, resolveOrcamentoScope } from '@saas/types'
@@ -4992,7 +4993,7 @@ export class OrcamentoService {
     const where: any = { arquivado: false, status: 'ENVIADO', dtEnviado: { not: null } }
     if (opts?.empresaId) where.empresaId = opts.empresaId
     const orcs = await prisma.orcamento.findMany({
-      where,
+      where: semEmpresaInativa(where, await idsDeEmpresasInativas()),
       select: { id: true, numero: true, clienteId: true, empresaId: true, responsavelId: true, solicitanteId: true, dtEnviado: true, validadeDias: true },
     })
 
@@ -5115,7 +5116,7 @@ export class OrcamentoService {
     if (opts?.empresaId) where.empresaId = opts.empresaId
 
     const orcs = await prisma.orcamento.findMany({
-      where,
+      where: semEmpresaInativa(where, await idsDeEmpresasInativas()),
       select: {
         id: true, numero: true, status: true, responsavelId: true, solicitanteId: true,
         clienteId: true, empresaId: true,
