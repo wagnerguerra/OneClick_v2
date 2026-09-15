@@ -191,6 +191,10 @@ export default function PortalInicioPage() {
     <div className="flex flex-col gap-10 pb-4 sm:gap-14">
       <AberturaPortal vinculo={vinculo} pendencias={pendencias} obrigacoes={obrigacoes} />
 
+      {/* Container centralizado com bordas laterais, como no modelo: numa tela
+          larga, cards esticados de ponta a ponta viram linhas longas demais
+          para ler e deixam o conteúdo solto. Só o céu da abertura sangra. */}
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 sm:gap-14">
       <EmNumeros vinculo={vinculo} pendencias={pendencias} obrigacoes={obrigacoes} />
 
       {/* ── Módulos + passo-a-passo ────────────────────────────────────
@@ -210,7 +214,7 @@ export default function PortalInicioPage() {
           </p>
         </div>
 
-        <div className="grid overflow-hidden rounded-2xl border border-[#e6ebf2] bg-white shadow-sm lg:grid-cols-[minmax(0,1fr)_20rem] dark:border-[#1b2739] dark:bg-[#0e1726]">
+        <div className="grid overflow-hidden rounded-2xl border border-[#e6ebf2] bg-white shadow-sm lg:grid-cols-[minmax(0,1fr)_18rem] dark:border-[#1b2739] dark:bg-[#0e1726]">
           {/* Módulos */}
           <div className="p-5 sm:p-6">
             <div className="mb-5 flex items-start gap-3 border-b border-[#eef2f7] pb-4 dark:border-[#1b2739]">
@@ -328,6 +332,7 @@ export default function PortalInicioPage() {
           </p>
         </div>
       </section>
+      </div>
     </div>
   )
 }

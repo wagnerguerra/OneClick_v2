@@ -174,7 +174,9 @@ export function AberturaPortal({ vinculo, pendencias, obrigacoes }: Props) {
         </svg>
       </div>
 
-      <div className="relative grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,36rem)] xl:gap-16">
+      {/* O céu sangra até as bordas; o conteúdo fica no mesmo container
+          centralizado do resto da home, como no modelo. */}
+      <div className="relative mx-auto grid w-full max-w-5xl items-center gap-10 lg:grid-cols-2 lg:gap-12">
         {/* ── Texto ─────────────────────────────────────────────────── */}
         <div className="flex flex-col items-start gap-4">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#dbe8ff] px-3 py-1 text-[11px] font-semibold text-[#1a6dff] dark:bg-[#16233a] dark:text-[#7db0ff]">
