@@ -31,6 +31,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { ImportModal } from './_components/import-modal'
+import { InativarEmpresaDialog } from './_components/inativar-empresa-dialog'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
@@ -76,6 +77,7 @@ export default function EmpresasPage() {
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [aInativar, setAInativar] = useState<{ id: string; razaoSocial: string } | null>(null)
 
   // Debounce de busca — 400ms
   useEffect(() => {
@@ -149,24 +151,6 @@ export default function EmpresasPage() {
       exportToExcel(all as Record<string, unknown>[], EXPORT_COLUMNS, `empresas-${new Date().toISOString().slice(0, 10)}`)
     } catch { alerts.error('Erro', 'Não foi possível exportar.') }
     finally { setExporting(false) }
-  }
-
-  async function handleInativar(id: string, name: string) {
-    const confirmed = await alerts.confirm({
-      title: 'Inativar empresa',
-      text: `"${name}" ficará inativa. Os usuários dela, do escritório e do portal, perdem o acesso na hora. Nenhum dado é apagado, e reativar devolve o acesso a quem tinha.`,
-      confirmText: 'Inativar',
-    })
-    if (!confirmed) return
-    try {
-      const r = await trpc.empresa.desativar.mutate({ id })
-      await alerts.success('Empresa inativada', r.jaInativa
-        ? `"${name}" já estava inativa.`
-        : `${r.usuariosDesativados} usuário(s) perderam o acesso.`)
-      fetchEmpresas()
-    } catch (e) {
-      alerts.error('Não foi possível inativar', (e as Error).message)
-    }
   }
 
   async function handleReativar(id: string, name: string) {
@@ -359,7 +343,7 @@ export default function EmpresasPage() {
                           variant="soft-destructive"
                           size="icon-sm"
                           title="Inativar empresa"
-                          onClick={() => handleInativar(empresa.id, empresa.razaoSocial)}
+                          onClick={() => setAInativar({ id: empresa.id, razaoSocial: empresa.razaoSocial })}
                         >
                           <PowerOff className="h-3.5 w-3.5" />
                         </Button>
@@ -451,6 +435,7 @@ export default function EmpresasPage() {
       </Card>
 
       <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onSuccess={fetchEmpresas} />
+      <InativarEmpresaDialog empresa={aInativar} onClose={() => setAInativar(null)} onInativada={fetchEmpresas} />
     </div>
   )
 }

@@ -128,6 +128,108 @@ export class EmpresaService {
   }
 
   /**
+   * O que está ligado a esta empresa, para o master ver antes de inativar.
+   *
+   * Os grupos seguem o efeito da inativação, e não o módulo de origem: quem
+   * decide precisa saber quem perde o acesso na hora, o que fica guardado sem
+   * ser tocado e o que continua configurado. Contar por módulo diria quanto
+   * existe, mas não o que acontece com cada coisa.
+   *
+   * `ehSuaEmpresa` sai daqui, e não do front, porque é a mesma regra que o
+   * `desativar` aplica — calculada em dois lugares, uma das duas fica para trás.
+   */
+  async levantarVinculos(id: string, autorId: string) {
+    const e = { empresaId: id }
+    const acesso = { empresaId: id, isActive: true, isMaster: false }
+    const [
+      empresa, autor, internos, deClientes, masters, sessoes,
+      clientesAtivos, clientesTotal, areas, cargos, fornecedores, socios,
+      orcamentosAbertos, orcamentosTotal, contratosVigentes, contratosTotal, oportunidades,
+      execucoesAndamento, execucoesTotal, chamadosAbertos, chamadosTotal,
+      certificados, danfes, agenda, whatsapp, recorrencias, drives,
+    ] = await Promise.all([
+      prisma.empresa.findUniqueOrThrow({ where: { id }, select: { id: true, razaoSocial: true, isActive: true } }),
+      prisma.user.findUnique({ where: { id: autorId }, select: { empresaId: true } }),
+      prisma.user.count({ where: { ...acesso, role: { not: 'COLABORADOR_CLIENTE' } } }),
+      prisma.user.count({ where: { ...acesso, role: 'COLABORADOR_CLIENTE' } }),
+      prisma.user.count({ where: { empresaId: id, isActive: true, isMaster: true } }),
+      prisma.session.count({ where: { user: acesso, expiresAt: { gt: new Date() } } }),
+      prisma.cliente.count({ where: { ...e, deletedAt: null, status: 'ATIVO' } }),
+      prisma.cliente.count({ where: { ...e, deletedAt: null } }),
+      prisma.area.count({ where: { ...e, isActive: true } }),
+      prisma.cargo.count({ where: { ...e, isActive: true } }),
+      prisma.fornecedor.count({ where: { ...e, isActive: true } }),
+      prisma.socio.count({ where: { ...e, isActive: true } }),
+      prisma.orcamento.count({ where: { ...e, arquivado: false, status: { in: ['NOVO', 'A_ENVIAR', 'ENVIADO', 'APROVADO', 'LIBERADO'] } } }),
+      prisma.orcamento.count({ where: e }),
+      prisma.contrato.count({ where: { ...e, status: { in: ['AGUARDANDO_ASSINATURA', 'ASSINADO', 'VIGENTE'] } } }),
+      prisma.contrato.count({ where: e }),
+      prisma.oportunidade.count({ where: { ...e, isActive: true } }),
+      prisma.servicoExecucao.count({ where: { ...e, arquivado: false, status: 'EM_ANDAMENTO' } }),
+      prisma.servicoExecucao.count({ where: e }),
+      prisma.helpdeskTicket.count({ where: { ...e, ativo: true, arquivado: false, status: { in: ['NOVO', 'EM_ANDAMENTO', 'AGUARDANDO_AUDITORIA', 'RESOLVIDO'] } } }),
+      prisma.helpdeskTicket.count({ where: e }),
+      prisma.certificadoDigital.count({ where: { ...e, arquivado: false } }),
+      prisma.danfe.count({ where: e }),
+      prisma.agendaEvento.count({ where: { ...e, isActive: true } }),
+      prisma.whatsappNumero.count({ where: { ...e, ativo: true } }),
+      prisma.servicoRecorrencia.count({ where: { ...e, ativa: true } }),
+      prisma.gestaoArquivosDrive.count({ where: { ...e, ativo: true } }),
+    ])
+
+    type Item = { rotulo: string; total: number; detalhe?: string }
+    const item = (rotulo: string, total: number, detalhe?: string): Item => ({ rotulo, total, ...(detalhe ? { detalhe } : {}) })
+
+    return {
+      empresa,
+      ehSuaEmpresa: autor?.empresaId === id,
+      grupos: [
+        {
+          chave: 'acesso',
+          titulo: 'Perdem o acesso agora',
+          nota: 'Ficam inativos e têm a sessão encerrada. Reativar a empresa devolve o acesso a estas pessoas.',
+          itens: [
+            item('Usuários do escritório', internos),
+            item('Usuários de clientes (portal)', deClientes),
+            item('Sessões abertas encerradas', sessoes),
+          ],
+        },
+        {
+          chave: 'dados',
+          titulo: 'Ficam guardados, sem alteração',
+          nota: 'Nada é apagado nem muda de situação.',
+          itens: [
+            item('Clientes', clientesTotal, `${clientesAtivos} ativos`),
+            item('Áreas', areas),
+            item('Cargos', cargos),
+            item('Fornecedores', fornecedores),
+            item('Sócios', socios),
+            item('Orçamentos', orcamentosTotal, `${orcamentosAbertos} em aberto`),
+            item('Contratos', contratosTotal, `${contratosVigentes} vigentes ou em assinatura`),
+            item('Oportunidades do CRM', oportunidades),
+            item('Execuções de serviço', execucoesTotal, `${execucoesAndamento} em andamento`),
+            item('Chamados do HelpDesk', chamadosTotal, `${chamadosAbertos} em aberto`),
+            item('Certificados digitais', certificados),
+            item('DANFEs', danfes),
+            item('Eventos de agenda', agenda),
+          ],
+        },
+        {
+          chave: 'integracoes',
+          titulo: 'Continuam configuradas',
+          nota: 'Não são desligadas pela inativação.',
+          itens: [
+            item('Números de WhatsApp', whatsapp),
+            item('Recorrências de serviço', recorrencias),
+            item('Drives da Gestão de Arquivos', drives),
+          ],
+        },
+      ],
+      mastersMantidos: masters,
+    }
+  }
+
+  /**
    * Desliga o tenant na raiz. Substitui a exclusão física, que apagava a
    * empresa e deixava os clientes e usuários dela com `empresaId` nulo — e,
    * neste sistema, registro sem empresa é registro que toda empresa enxerga.
