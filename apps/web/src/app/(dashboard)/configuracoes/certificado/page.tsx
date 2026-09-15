@@ -10,7 +10,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import { MasterGate } from '@/components/auth/master-gate'
-import { TEXT } from '@/lib/color-styles'
+import { SURFACE, TEXT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import Swal from 'sweetalert2'
@@ -290,10 +290,10 @@ function CertificadoSettingsPageInner() {
                     <div className={cn(
                       'p-4 rounded-lg border',
                       certInfo.expired
-                        ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/40'
+                        ? SURFACE.red
                         : certInfo.daysRemaining != null && certInfo.daysRemaining <= 30
-                          ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/40'
-                          : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40',
+                          ? SURFACE.amber
+                          : SURFACE.emerald,
                     )}>
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
@@ -473,10 +473,10 @@ function CertificadoSettingsPageInner() {
                     <div className={cn(
                       'p-4 rounded-lg border',
                       certPfInfo.expired
-                        ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/40'
+                        ? SURFACE.red
                         : certPfInfo.daysRemaining != null && certPfInfo.daysRemaining <= 30
-                          ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/40'
-                          : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40',
+                          ? SURFACE.amber
+                          : SURFACE.emerald,
                     )}>
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
@@ -647,9 +647,9 @@ function CertificadoSettingsPageInner() {
                 </div>
 
                 <div className="p-5 space-y-5">
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40">
+                  <div className={cn('flex items-center gap-2 p-3 rounded-lg border', SURFACE.blue)}>
                     <HelpCircle className={cn('h-4 w-4 shrink-0', TEXT.blue)} />
-                    <p className="text-xs text-blue-700 dark:text-blue-400">
+                    <p className={cn('text-xs', TEXT.blue)}>
                       As credenciais são utilizadas para consultar o cartão CNPJ com dados completos (incluindo CPF dos sócios).
                     </p>
                   </div>

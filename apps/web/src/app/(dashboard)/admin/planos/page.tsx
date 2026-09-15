@@ -241,7 +241,7 @@ export default function AdminPlanosPage() {
 
       {/* Lista de planos */}
       <Card>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto nice-scrollbar">
           <table className="w-full table-fixed text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground [&>th]:whitespace-nowrap">
@@ -350,7 +350,7 @@ export default function AdminPlanosPage() {
                   </div>
                 </div>
 
-                <div className="max-h-[320px] space-y-4 overflow-y-auto rounded-md border border-border bg-muted/20 p-3">
+                <div className="max-h-[320px] space-y-4 overflow-y-auto nice-scrollbar rounded-md border border-border bg-muted/20 p-3">
                   {sellableGroups.map(([group, slugs]) => {
                     const groupSlugs = slugs as readonly string[]
                     const allOn = groupSlugs.every((s) => form.modules.includes(s))

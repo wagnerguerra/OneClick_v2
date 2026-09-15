@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import {
   Button, Input, Label, Badge, cn,
   Dialog, DialogContent, DialogTitle, DialogDescription, DialogBody, DialogFooter,
@@ -35,9 +35,9 @@ type QaItem = {
 }
 
 const SEV_STYLE: Record<QaItem['severidade'], string> = {
-  ALTA: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
-  MEDIA: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-  BAIXA: 'bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-300',
+  ALTA: BADGE.rose,
+  MEDIA: BADGE.amber,
+  BAIXA: BADGE.slate,
 }
 const SEV_LABEL: Record<QaItem['severidade'], string> = { ALTA: 'Alta', MEDIA: 'Média', BAIXA: 'Baixa' }
 

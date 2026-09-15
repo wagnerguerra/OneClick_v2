@@ -14,7 +14,7 @@ import {
   cn,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { BADGE, TEXT } from '@/lib/color-styles'
+import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import {
@@ -118,7 +118,7 @@ function DiaTooltip({ feriados, posicaoTopo }: { feriados: Feriado[]; posicaoTop
                 </p>
               )}
               {!f.recorrente && (
-                <p className="text-[9px] text-amber-700 dark:text-amber-400">⚠ Apenas neste ano</p>
+                <p className={cn('text-[9px]', TEXT.amber)}>⚠ Apenas neste ano</p>
               )}
             </div>
           )
@@ -573,7 +573,7 @@ export function CalendarioSection() {
 
           {/* Barra de bulk delete */}
           {selected.size > 0 && (
-            <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800 dark:bg-amber-950/30">
+            <div className={cn('flex items-center justify-between border-b px-4 py-2', SURFACE.amber)}>
               <span className="text-xs font-medium text-amber-900 dark:text-amber-200">
                 {selected.size} item{selected.size > 1 ? 's' : ''} selecionado{selected.size > 1 ? 's' : ''}
               </span>

@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import {
   Button, Input, Badge, cn,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -40,10 +40,10 @@ type TicketRel = {
 }
 
 const PRIO_STYLE: Record<HelpdeskPrioridade, string> = {
-  URGENTE: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
-  ALTA: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300',
-  MEDIA: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-  BAIXA: 'bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-300',
+  URGENTE: BADGE.rose,
+  ALTA: BADGE.orange,
+  MEDIA: BADGE.amber,
+  BAIXA: BADGE.slate,
 }
 const STATUS_STYLE: Record<HelpdeskStatus, string> = {
   NOVO: TEXT.sky,

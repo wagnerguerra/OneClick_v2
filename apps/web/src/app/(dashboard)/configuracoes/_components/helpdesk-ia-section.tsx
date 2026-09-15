@@ -6,7 +6,7 @@ import { Button, Input, Label, Badge, cn, Switch } from '@saas/ui'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { MarkdownView } from '@/components/ui/markdown-view'
 
 interface Faixa { min: number; max: number | null; pontos: number }
@@ -553,20 +553,20 @@ function PlanoStatusBadge({ status }: { status?: 'pendente' | 'aprovado' | 'reje
   if (!status) return <span className="text-muted-foreground/60">—</span>
   if (status === 'pendente') {
     return (
-      <Badge variant="outline" className="text-[10px] h-5 bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300">
+      <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.violet)}>
         Pendente
       </Badge>
     )
   }
   if (status === 'aprovado') {
     return (
-      <Badge variant="outline" className="text-[10px] h-5 bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 gap-0.5">
+      <Badge variant="outline" className={cn('text-[10px] h-5 gap-0.5', BADGE.emerald)}>
         <CheckCircle2 className="h-2.5 w-2.5" /> Aprovado
       </Badge>
     )
   }
   return (
-    <Badge variant="outline" className="text-[10px] h-5 bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-300 gap-0.5">
+    <Badge variant="outline" className={cn('text-[10px] h-5 gap-0.5', BADGE.rose)}>
       <XCircle className="h-2.5 w-2.5" /> Rejeitado
     </Badge>
   )
@@ -615,9 +615,9 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
             variant="outline"
             className={cn(
               'text-[10px] h-5',
-              d.complexidade === 'plano' && 'bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300',
-              d.complexidade === 'complexo' && 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300',
-              d.complexidade === 'erro' && 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-300',
+              d.complexidade === 'plano' && BADGE.violet,
+              d.complexidade === 'complexo' && BADGE.amber,
+              d.complexidade === 'erro' && BADGE.rose,
             )}
           >
             {d.complexidade}
@@ -701,13 +701,13 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
                     Auditoria humana
                   </p>
                   {planoStatus === 'aprovado' && (
-                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                    <p className={cn('text-[11px]', TEXT.emerald)}>
                       ✓ Plano aprovado{d.ticket?.aiPlanoAprovadoEm && ` em ${new Date(d.ticket.aiPlanoAprovadoEm).toLocaleString('pt-BR')}`}
                     </p>
                   )}
                   {planoStatus === 'rejeitado' && (
                     <>
-                      <p className="text-[11px] text-rose-700 dark:text-rose-300">✗ Plano rejeitado</p>
+                      <p className={cn('text-[11px]', TEXT.rose)}>✗ Plano rejeitado</p>
                       {d.ticket?.aiPlanoMotivoRejeicao && (
                         <p className="text-[11px] text-rose-700/80 dark:text-rose-300/80 mt-1">
                           <strong>Motivo:</strong> {d.ticket.aiPlanoMotivoRejeicao}
@@ -723,7 +723,7 @@ function DecisaoLinha({ decisao: d, aberto, planoStatus, onToggle }: {
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5 flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3 text-rose-500" /> Erro
                   </p>
-                  <p className="text-[11px] font-mono text-rose-700 dark:text-rose-300 whitespace-pre-wrap">{d.erro}</p>
+                  <p className={cn('text-[11px] font-mono whitespace-pre-wrap', TEXT.rose)}>{d.erro}</p>
                 </div>
               )}
 

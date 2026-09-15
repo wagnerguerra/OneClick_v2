@@ -14,8 +14,9 @@ import {
 } from 'lucide-react'
 import {
   Button, Input, Label, Card, CardHeader, CardContent, Checkbox,
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn,
 } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { useSession } from '@/lib/auth-client'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -381,7 +382,7 @@ export default function AssinaturaTemplatePage() {
                         {template.backgroundImageUrl ? 'Trocar' : 'Subir imagem'}
                       </Button>
                       {template.backgroundImageUrl && (
-                        <Button size="sm" variant="ghost" className="gap-1.5 text-rose-600" onClick={() => setField('backgroundImageUrl', null)}>
+                        <Button size="sm" variant="ghost" className={cn('gap-1.5', TEXT.rose)} onClick={() => setField('backgroundImageUrl', null)}>
                           <X className="h-3.5 w-3.5" /> Remover
                         </Button>
                       )}
@@ -470,7 +471,7 @@ export default function AssinaturaTemplatePage() {
                 <h3 className="text-sm font-semibold">Placeholders disponíveis</h3>
                 <p className="text-[11px] text-muted-foreground mt-1">Clique pra copiar. Use no HTML acima.</p>
               </CardHeader>
-              <CardContent className="p-3 max-h-[260px] overflow-y-auto">
+              <CardContent className="p-3 max-h-[260px] overflow-y-auto nice-scrollbar">
                 <div className="grid grid-cols-1 gap-1">
                   {SIGNATURE_PLACEHOLDERS.map(p => (
                     <button

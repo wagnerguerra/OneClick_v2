@@ -8,7 +8,11 @@ import {
   LayoutGrid, RefreshCw, ExternalLink, Pencil, Copy, GripVertical, X,
   ChevronDown, ChevronRight,
 } from 'lucide-react'
-import { Button, Card, Badge } from '@saas/ui'
+import {
+  Button, Card, Badge, cn, Checkbox,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue, SelectGroup,
+} from '@saas/ui'
+import { SURFACE } from '@/lib/color-styles'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent,
 } from '@dnd-kit/core'
@@ -220,7 +224,7 @@ export default function PainelEditorPage() {
           <div className="space-y-1.5"><label className="text-[13px] font-semibold">Período (d)</label><input type="number" className={inputCls} value={meta.periodoDias} onChange={(e) => setMeta({ ...meta, periodoDias: Number(e.target.value) || 30 })} /></div>
         </div>
         <div className="flex items-center justify-between mt-3">
-          <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={meta.ativo} onChange={(e) => setMeta({ ...meta, ativo: e.target.checked })} /> Painel ativo</label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer"><Checkbox checked={meta.ativo} onCheckedChange={(v) => setMeta({ ...meta, ativo: v === true })} /> Painel ativo</label>
           <Button size="sm" onClick={salvarMeta} disabled={savingMeta} style={{ backgroundColor: accent }} className="text-white">{savingMeta ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4 mr-1.5" /> Salvar dados</>}</Button>
         </div>
       </Card>
@@ -303,70 +307,94 @@ export default function PainelEditorPage() {
               </div>
               <button onClick={() => setBlocoModal({ open: false })} className="ml-auto p-1.5 rounded-md text-muted-foreground hover:bg-muted shrink-0"><X className="h-4 w-4" /></button>
             </div>
-            <div className="p-4 space-y-4 overflow-y-auto">
+            <div className="p-4 space-y-4 overflow-y-auto nice-scrollbar">
             <div className="space-y-1.5">
               <label className="text-[13px] font-semibold">Métrica</label>
-              <select className={inputCls} value={blocoForm.metricId} onChange={(e) => { const v = e.target.value; const m = metricById[v]; setBlocoForm((f) => ({ ...f, metricId: v, visual: v === '__custom__' ? 'kpi' : (m?.visuals?.includes(f.visual) ? f.visual : (m?.visuals?.[0] ?? 'kpi')) })) }}>
-                <optgroup label="✨ Personalizada">
-                  <option value="__custom__">Métrica personalizada (montar do zero)</option>
-                </optgroup>
-                {['comercial', 'helpdesk', 'vps'].map((mod) => (
-                  <optgroup key={mod} label={mod === 'comercial' ? 'Comercial' : mod === 'helpdesk' ? 'Helpdesk / TI' : 'VPS / Servidor'}>
-                    {catalogo.filter((m) => m.modulo === mod).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                  </optgroup>
-                ))}
-              </select>
+              <Select value={blocoForm.metricId} onValueChange={(v) => { const m = metricById[v]; setBlocoForm((f) => ({ ...f, metricId: v, visual: v === '__custom__' ? 'kpi' : (m?.visuals?.includes(f.visual) ? f.visual : (m?.visuals?.[0] ?? 'kpi')) })) }}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Escolha a métrica" /></SelectTrigger>
+                <SelectContent className="z-[130]">
+                  <SelectGroup>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">✨ Personalizada</div>
+                    <SelectItem value="__custom__">Métrica personalizada (montar do zero)</SelectItem>
+                  </SelectGroup>
+                  {['comercial', 'helpdesk', 'vps'].map((mod) => {
+                    const itens = catalogo.filter((m) => m.modulo === mod)
+                    if (!itens.length) return null
+                    return (
+                      <SelectGroup key={mod}>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{mod === 'comercial' ? 'Comercial' : mod === 'helpdesk' ? 'Helpdesk / TI' : 'VPS / Servidor'}</div>
+                        {itens.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+                      </SelectGroup>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
             </div>
 
             {isCustom && (
-              <div className="space-y-3 rounded-lg border border-indigo-300/40 bg-indigo-50/40 dark:bg-indigo-950/15 p-3">
+              <div className={cn('space-y-3 rounded-lg border p-3', SURFACE.indigo)}>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-semibold">Entidade</label>
-                    <select className={inputCls} value={blocoForm.custom.entidade} onChange={(e) => setCustom({ entidade: e.target.value, campo: '', groupBy: '', filtros: [] })}>
-                      {entidades.map((en) => <option key={en.id} value={en.id}>{en.label}</option>)}
-                    </select>
+                    <Select value={blocoForm.custom.entidade} onValueChange={(v) => setCustom({ entidade: v, campo: '', groupBy: '', filtros: [] })}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent className="z-[130]">
+                        {entidades.map((en) => <SelectItem key={en.id} value={en.id}>{en.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-semibold">Cálculo</label>
-                    <select className={inputCls} value={blocoForm.custom.agregacao} onChange={(e) => setCustom({ agregacao: e.target.value })}>
-                      <option value="count">Contagem (qtd)</option>
-                      <option value="sum">Soma</option>
-                      <option value="avg">Média</option>
-                      <option value="min">Mínimo</option>
-                      <option value="max">Máximo</option>
-                    </select>
+                    <Select value={blocoForm.custom.agregacao} onValueChange={(v) => setCustom({ agregacao: v })}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent className="z-[130]">
+                        <SelectItem value="count">Contagem (qtd)</SelectItem>
+                        <SelectItem value="sum">Soma</SelectItem>
+                        <SelectItem value="avg">Média</SelectItem>
+                        <SelectItem value="min">Mínimo</SelectItem>
+                        <SelectItem value="max">Máximo</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 {blocoForm.custom.agregacao !== 'count' && (
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-semibold">Campo (numérico)</label>
-                    <select className={inputCls} value={blocoForm.custom.campo} onChange={(e) => setCustom({ campo: e.target.value })}>
-                      <option value="">— escolha —</option>
-                      {(customEnt?.campos ?? []).filter((c: any) => c.tipo === 'number').map((c: any) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                    </select>
+                    <Select value={blocoForm.custom.campo || '__none__'} onValueChange={(v) => setCustom({ campo: v === '__none__' ? '' : v })}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent className="z-[130]">
+                        <SelectItem value="__none__">— escolha —</SelectItem>
+                        {(customEnt?.campos ?? []).filter((c: any) => c.tipo === 'number').map((c: any) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-semibold">Agrupar por</label>
-                    <select className={inputCls} value={blocoForm.custom.groupBy} onChange={(e) => { const g = e.target.value; setCustom({ groupBy: g }); setBlocoForm((f) => ({ ...f, visual: g ? (['donut', 'bar'].includes(f.visual) ? f.visual : 'donut') : 'kpi' })) }}>
-                      <option value="">— nenhum (KPI único) —</option>
-                      {(customEnt?.campos ?? []).filter((c: any) => c.tipo !== 'date' && c.tipo !== 'number').map((c: any) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                    </select>
+                    <Select value={blocoForm.custom.groupBy || '__none__'} onValueChange={(raw) => { const g = raw === '__none__' ? '' : raw; setCustom({ groupBy: g }); setBlocoForm((f) => ({ ...f, visual: g ? (['donut', 'bar'].includes(f.visual) ? f.visual : 'donut') : 'kpi' })) }}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent className="z-[130]">
+                        <SelectItem value="__none__">— nenhum (KPI único) —</SelectItem>
+                        {(customEnt?.campos ?? []).filter((c: any) => c.tipo !== 'date' && c.tipo !== 'number').map((c: any) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                   {!blocoForm.custom.groupBy && (
                     <div className="space-y-1.5">
                       <label className="text-[13px] font-semibold">Formato</label>
-                      <select className={inputCls} value={blocoForm.custom.formato} onChange={(e) => setCustom({ formato: e.target.value })}>
-                        <option value="number">Número</option>
-                        <option value="currency">Moeda (R$)</option>
-                      </select>
+                      <Select value={blocoForm.custom.formato} onValueChange={(v) => setCustom({ formato: v })}>
+                        <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent className="z-[130]">
+                          <SelectItem value="number">Número</SelectItem>
+                          <SelectItem value="currency">Moeda (R$)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                 </div>
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={blocoForm.custom.usarPeriodo} onChange={(e) => setCustom({ usarPeriodo: e.target.checked })} />
+                  <Checkbox checked={blocoForm.custom.usarPeriodo} onCheckedChange={(v) => setCustom({ usarPeriodo: v === true })} />
                   Filtrar pela data ({(customEnt?.campos ?? []).find((c: any) => c.tipo === 'date')?.label ?? 'data'}) no período do bloco/painel
                 </label>
                 {/* Filtros */}
@@ -377,12 +405,18 @@ export default function PainelEditorPage() {
                   </div>
                   {blocoForm.custom.filtros.map((flt: any, i: number) => (
                     <div key={i} className="grid grid-cols-[1fr_auto_1fr_auto] gap-1.5 items-center">
-                      <select className={inputCls} value={flt.campo} onChange={(e) => setCustom({ filtros: blocoForm.custom.filtros.map((x: any, j: number) => j === i ? { ...x, campo: e.target.value } : x) })}>
-                        {(customEnt?.campos ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                      </select>
-                      <select className={`${inputCls} w-[5rem]`} value={flt.op} onChange={(e) => setCustom({ filtros: blocoForm.custom.filtros.map((x: any, j: number) => j === i ? { ...x, op: e.target.value } : x) })}>
-                        <option value="eq">=</option><option value="ne">≠</option><option value="gt">&gt;</option><option value="lt">&lt;</option><option value="gte">≥</option><option value="lte">≤</option><option value="contains">contém</option>
-                      </select>
+                      <Select value={flt.campo} onValueChange={(v) => setCustom({ filtros: blocoForm.custom.filtros.map((x: any, j: number) => j === i ? { ...x, campo: v } : x) })}>
+                        <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent className="z-[130]">
+                          {(customEnt?.campos ?? []).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={flt.op} onValueChange={(v) => setCustom({ filtros: blocoForm.custom.filtros.map((x: any, j: number) => j === i ? { ...x, op: v } : x) })}>
+                        <SelectTrigger className="h-9 text-sm w-[5rem]"><SelectValue /></SelectTrigger>
+                        <SelectContent className="z-[130]">
+                          <SelectItem value="eq">=</SelectItem><SelectItem value="ne">≠</SelectItem><SelectItem value="gt">&gt;</SelectItem><SelectItem value="lt">&lt;</SelectItem><SelectItem value="gte">≥</SelectItem><SelectItem value="lte">≤</SelectItem><SelectItem value="contains">contém</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <input className={inputCls} value={flt.valor} placeholder="valor" onChange={(e) => setCustom({ filtros: blocoForm.custom.filtros.map((x: any, j: number) => j === i ? { ...x, valor: e.target.value } : x) })} />
                       <button onClick={() => setCustom({ filtros: blocoForm.custom.filtros.filter((_: any, j: number) => j !== i) })} className="p-1 text-muted-foreground hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
                     </div>
@@ -393,9 +427,12 @@ export default function PainelEditorPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <label className="text-[13px] font-semibold">Visual</label>
-                <select className={inputCls} value={blocoForm.visual} onChange={(e) => setBlocoForm((f) => ({ ...f, visual: e.target.value }))}>
-                  {(isCustom ? (blocoForm.custom.groupBy ? ['donut', 'bar'] : ['kpi']) : (metricSel?.visuals ?? ['kpi'])).map((v: string) => <option key={v} value={v}>{VISUAL_LABEL[v] ?? v}</option>)}
-                </select>
+                <Select value={blocoForm.visual} onValueChange={(v) => setBlocoForm((f) => ({ ...f, visual: v }))}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent className="z-[130]">
+                    {(isCustom ? (blocoForm.custom.groupBy ? ['donut', 'bar'] : ['kpi']) : (metricSel?.visuals ?? ['kpi'])).map((v: string) => <SelectItem key={v} value={v}>{VISUAL_LABEL[v] ?? v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <label className="text-[13px] font-semibold">Largura (1–12)</label>
@@ -410,11 +447,14 @@ export default function PainelEditorPage() {
               {blocoForm.visual === 'kpi' ? (
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-semibold">Tamanho da fonte</label>
-                  <select className={inputCls} value={blocoForm.size} onChange={(e) => setBlocoForm((f) => ({ ...f, size: e.target.value }))}>
-                    <option value="md">Normal</option>
-                    <option value="lg">Grande</option>
-                    <option value="hero">Gigante</option>
-                  </select>
+                  <Select value={blocoForm.size} onValueChange={(v) => setBlocoForm((f) => ({ ...f, size: v }))}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent className="z-[130]">
+                      <SelectItem value="md">Normal</SelectItem>
+                      <SelectItem value="lg">Grande</SelectItem>
+                      <SelectItem value="hero">Gigante</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               ) : (
                 <div className="space-y-1.5">
@@ -440,7 +480,7 @@ export default function PainelEditorPage() {
             </div>
             {blocoForm.visual === 'kpi' && (isCustom ? blocoForm.custom.usarPeriodo : metricSel?.comparavel) && (
               <label className="flex items-center gap-2 text-sm cursor-pointer rounded-lg border border-border bg-muted/30 px-3 py-2">
-                <input type="checkbox" checked={blocoForm.comparar} onChange={(e) => setBlocoForm((f) => ({ ...f, comparar: e.target.checked }))} />
+                <Checkbox checked={blocoForm.comparar} onCheckedChange={(v) => setBlocoForm((f) => ({ ...f, comparar: v === true }))} />
                 Comparar com o período anterior (mostra variação %)
               </label>
             )}

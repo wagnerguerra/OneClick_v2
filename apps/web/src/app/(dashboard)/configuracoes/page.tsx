@@ -644,7 +644,7 @@ export default function ConfiguracoesPage() {
                         ? 'text-white shadow-sm'
                         : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground'
                     )}
-                    style={activeGroup === group ? { backgroundColor: '#f97316' } : undefined}
+                    style={activeGroup === group ? { backgroundColor: 'var(--mod-configuracoes, #f97316)' } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     {group}
@@ -685,7 +685,7 @@ export default function ConfiguracoesPage() {
                             'px-4 py-2.5 text-xs font-medium transition-all flex items-center gap-2 border-b-2 -mb-px',
                             dbSubtab === tab.key
                               ? 'border-orange-500 text-orange-600'
-                              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
+                              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                           )}
                         >
                           <Icon className="h-3.5 w-3.5" />
@@ -813,8 +813,8 @@ export default function ConfiguracoesPage() {
 
                         {/* Painel do template ativo com variáveis */}
                         {activeTemplate[dbSubtab] && Object.keys(templateVars[dbSubtab] || {}).length > 0 && (
-                          <div className="rounded border border-orange-200 bg-orange-50/50">
-                            <div className="flex items-center justify-between px-3 py-2 border-b border-orange-200/60">
+                          <div className="rounded border border-orange-200 bg-orange-50/50 dark:bg-orange-950/20">
+                            <div className="flex items-center justify-between px-3 py-2 border-b border-orange-200/60 dark:border-orange-800/40">
                               <div className="flex items-center gap-2">
                                 <Bookmark className="h-3.5 w-3.5 text-orange-500" />
                                 <span className="text-xs font-semibold text-orange-700">{activeTemplate[dbSubtab]!.name}</span>
@@ -848,9 +848,9 @@ export default function ConfiguracoesPage() {
                                 ))}
                               </div>
                               {/* Preview do SQL resolvido */}
-                              <div className="mt-2 pt-2 border-t border-orange-200/60">
+                              <div className="mt-2 pt-2 border-t border-orange-200/60 dark:border-orange-800/40">
                                 <div className="text-[10px] text-orange-600 font-medium mb-1">Preview:</div>
-                                <div className="text-[11px] font-mono text-orange-900 bg-orange-100/60 rounded px-2 py-1.5 max-h-[60px] overflow-auto whitespace-pre-wrap nice-scrollbar">
+                                <div className="text-[11px] font-mono text-orange-900 dark:text-orange-200 bg-orange-100/60 dark:bg-orange-900/20 rounded px-2 py-1.5 max-h-[60px] overflow-auto whitespace-pre-wrap nice-scrollbar">
                                   {resolveTemplate(activeTemplate[dbSubtab]!.sql, templateVars[dbSubtab]!)}
                                 </div>
                               </div>
@@ -1024,7 +1024,7 @@ export default function ConfiguracoesPage() {
                                       {/* Templates */}
                                       {templates.length > 0 && (
                                         <>
-                                          <div className="px-3 py-1.5 bg-orange-50/80 border-b border-orange-100 flex items-center gap-1.5">
+                                          <div className="px-3 py-1.5 bg-orange-50/80 dark:bg-orange-950/20 border-b border-orange-100 dark:border-orange-900/40 flex items-center gap-1.5">
                                             <Bookmark className="h-3 w-3 text-orange-500" />
                                             <span className="text-[10px] font-semibold text-orange-600 uppercase tracking-wider">Templates</span>
                                             <span className="text-[10px] text-orange-400">({templates.length})</span>
@@ -1167,7 +1167,7 @@ export default function ConfiguracoesPage() {
                             'px-4 py-2.5 text-xs font-medium transition-all flex items-center gap-2 border-b-2 -mb-px',
                             googleSubtab === tab.key
                               ? 'border-orange-500 text-orange-600'
-                              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
+                              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                           )}
                         >
                           <Icon className="h-3.5 w-3.5" />
@@ -1483,7 +1483,7 @@ export default function ConfiguracoesPage() {
                       </p>
                       <Link
                         href="/configuracoes/certificado"
-                        className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-sky-700 hover:underline dark:text-sky-400"
+                        className={cn('mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium hover:underline', TEXT.sky)}
                       >
                         Abrir certificados digitais
                         <ChevronRight className="h-3.5 w-3.5" />
@@ -1556,9 +1556,7 @@ export default function ConfiguracoesPage() {
                       {acessResult && (
                         <div className={cn(
                           'flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border',
-                          acessResult.ok
-                            ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300'
-                            : 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300',
+                          acessResult.ok ? BADGE.emerald : BADGE.red,
                         )}>
                           {acessResult.ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
                           <span className="font-medium">

@@ -224,8 +224,8 @@ function Resumo({ rotulo, valor, detalhe, tom }: {
       <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{rotulo}</div>
       <div className={cn(
         'mt-0.5 text-lg font-semibold tabular-nums',
-        tom === 'alerta' && 'text-rose-600 dark:text-rose-400',
-        tom === 'ok' && 'text-emerald-600 dark:text-emerald-400',
+        tom === 'alerta' && TEXT.rose,
+        tom === 'ok' && TEXT.emerald,
       )}>
         {valor}
       </div>

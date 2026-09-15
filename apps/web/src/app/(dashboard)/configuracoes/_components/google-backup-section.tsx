@@ -177,7 +177,7 @@ export function GoogleBackupSection() {
                 <Badge variant="outline" className="text-[9px]">{status.driveMode}</Badge>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400">
+              <div className={cn('flex items-center gap-1.5', TEXT.rose)}>
                 <XCircle className="h-3.5 w-3.5" />
                 <span>Credenciais Google não configuradas (env vars GOOGLE_DRIVE_*).</span>
               </div>

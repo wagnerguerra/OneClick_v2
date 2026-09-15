@@ -11,7 +11,7 @@ import { Button, Input, Label, Card, CardHeader, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { MasterGate } from '@/components/auth/master-gate'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 
@@ -312,9 +312,9 @@ function TabChaves({
 
       <div className="p-5 space-y-5">
         {/* Ambiente */}
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
+        <div className={cn('flex items-center gap-2 p-3 rounded-lg border', SURFACE.amber)}>
           <AlertTriangle className={cn('h-4 w-4 shrink-0', TEXT.amber)} />
-          <p className="text-xs text-amber-700 dark:text-amber-400">
+          <p className={cn('text-xs', TEXT.amber)}>
             Certifique-se de usar as chaves corretas para o ambiente desejado.
             Chaves com prefixo <code className="font-mono bg-amber-100 dark:bg-amber-900/30 px-1 rounded">sk_test_</code> são
             de teste; <code className="font-mono bg-amber-100 dark:bg-amber-900/30 px-1 rounded">sk_live_</code> são de produção.
@@ -391,9 +391,9 @@ function TabChaves({
         {connectionStatus !== 'idle' && (
           <div className={cn(
             'flex items-center gap-2 p-3 rounded-lg border text-xs',
-            connectionStatus === 'ok' && 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400',
-            connectionStatus === 'error' && 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/40 text-red-700 dark:text-red-400',
-            connectionStatus === 'testing' && 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/40 text-blue-700 dark:text-blue-400',
+            connectionStatus === 'ok' && BADGE.emerald,
+            connectionStatus === 'error' && BADGE.red,
+            connectionStatus === 'testing' && BADGE.blue,
           )}>
             {connectionStatus === 'testing' && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
             {connectionStatus === 'ok' && <CheckCircle2 className="h-4 w-4 shrink-0" />}
@@ -479,9 +479,7 @@ function TabWebhooks({ values }: { values: Record<string, string> }) {
         {/* Status do Webhook Secret */}
         <div className={cn(
           'flex items-center gap-2 p-3 rounded-lg border text-xs',
-          hasWebhookSecret
-            ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400'
-            : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400',
+          hasWebhookSecret ? BADGE.emerald : BADGE.amber,
         )}>
           {hasWebhookSecret
             ? <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -741,20 +739,20 @@ function TabInfo() {
               className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent transition-colors group"
             >
               <div>
-                <p className="text-xs font-medium text-foreground group-hover:text-[#f97316] transition-colors">
+                <p className="text-xs font-medium text-foreground group-hover:text-[var(--mod-configuracoes,#f97316)] transition-colors">
                   {item.label}
                 </p>
                 <p className="text-[11px] text-muted-foreground">{item.description}</p>
               </div>
-              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-[#f97316] shrink-0 transition-colors" />
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-[var(--mod-configuracoes,#f97316)] shrink-0 transition-colors" />
             </a>
           ))}
         </div>
 
         {/* Nota sobre ambiente */}
-        <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40">
+        <div className={cn('p-4 rounded-lg border', SURFACE.blue)}>
           <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">Dica: Teste local de webhooks</h5>
-          <p className="text-[11px] text-blue-700 dark:text-blue-400 leading-relaxed">
+          <p className={cn('text-[11px] leading-relaxed', TEXT.blue)}>
             Para testar webhooks localmente, use o Stripe CLI:{' '}
             <code className="font-mono bg-blue-100 dark:bg-blue-900/30 px-1.5 py-0.5 rounded text-[10px]">
               stripe listen --forward-to localhost:4000/api/stripe/webhook
