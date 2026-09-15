@@ -17,7 +17,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BADGE, STRONG, FILL } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -227,7 +227,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
                       </Select>
                     )}
                     {i === 0 && <span className="w-[5.5rem] shrink-0" />}
-                    <span className="inline-flex items-center justify-center rounded bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-200 px-1.5 text-[10px] font-bold shrink-0">{i + 1}</span>
+                    <span className={cn('inline-flex items-center justify-center rounded px-1.5 text-[10px] font-bold shrink-0', STRONG.violet)}>{i + 1}</span>
                     <span className="flex-1 text-xs truncate"><code>{cId}</code> <span className="text-muted-foreground">{getNome(cId)}</span></span>
                     <button type="button" title="Subir" onClick={() => moveOperando(i, 'up')} disabled={i === 0} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"><ArrowUp className="h-4 w-4" /></button>
                     <button type="button" title="Descer" onClick={() => moveOperando(i, 'down')} disabled={i >= operandos.length - 1} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"><ArrowDown className="h-4 w-4" /></button>
@@ -257,7 +257,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
                   <div key={c.conta} className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted/50">
                     <span className="text-xs truncate"><code>{c.conta}</code> <span className="text-muted-foreground">{c.nomeSci || c.nomeExibido || ''}</span></span>
                     {inFormula ? (
-                      <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-full shrink-0">na fórmula</span>
+                      <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0', BADGE.emerald)}>na fórmula</span>
                     ) : (
                       <button type="button" onClick={() => addOperando(c.conta)} className="text-[11px] font-medium shrink-0 rounded px-2 py-0.5" style={{ color: MODULE_COLOR }}>+ Adicionar</button>
                     )}
@@ -1067,7 +1067,7 @@ export default function BiCategoriasBalancetePage() {
           color: inherit !important;
         }
         .pai-select-item:hover {
-          background: #8b5cf6 !important;
+          background: var(--mod-contabil, #8b5cf6) !important;
           color: #fff !important;
         }
         .pai-select-item:hover .pai-select-sub {
@@ -1231,7 +1231,7 @@ export default function BiCategoriasBalancetePage() {
                 <DropdownMenuItem onClick={expandAll}><ChevronsDown className="mr-2 h-4 w-4" /> Expandir Tudo</DropdownMenuItem>
                 <DropdownMenuItem onClick={collapseAll}><ChevronsUp className="mr-2 h-4 w-4" /> Recolher Tudo</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleDeleteSelected} disabled={selected.size === 0} className="text-red-600 dark:text-red-400 focus:text-red-600 hover:!text-white"><Trash2 className="mr-2 h-4 w-4" /> Excluir Selecionadas ({selected.size})</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDeleteSelected} disabled={selected.size === 0} className={cn(TEXT.red, 'focus:text-red-600 hover:!text-white')}><Trash2 className="mr-2 h-4 w-4" /> Excluir Selecionadas ({selected.size})</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleCopiar} disabled={!clienteId}><Copy className="mr-2 h-4 w-4" /> Copiar para outro cliente</DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLimpar} disabled={!clienteId}><Eraser className="mr-2 h-4 w-4" /> Limpar Personalizações</DropdownMenuItem>
@@ -1240,13 +1240,13 @@ export default function BiCategoriasBalancetePage() {
                 <DropdownMenuItem onClick={handleImportBackup} disabled={!clienteId}><Upload className="mr-2 h-4 w-4" /> Importar Backup (JSON)</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleImportarBalancete} disabled={!clienteId} className="font-medium hover:!text-white" style={{ color: MODULE_COLOR }}><RefreshCw className="mr-2 h-4 w-4" /> Importar Balancete (SCI)</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExcluirBalancete} disabled={!clienteId} className="text-red-600 dark:text-red-400 focus:text-red-600 hover:!text-white"><Trash2 className="mr-2 h-4 w-4" /> Excluir Balancete</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExcluirBalancete} disabled={!clienteId} className={cn(TEXT.red, 'focus:text-red-600 hover:!text-white')}><Trash2 className="mr-2 h-4 w-4" /> Excluir Balancete</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLinkPublico} disabled={!clienteId}><Link2 className="mr-2 h-4 w-4" /> Link Público BI</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={loadCategorias} disabled={!clienteId}><RefreshCw className="mr-2 h-4 w-4" /> Recarregar</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLimparTudoCliente} disabled={!clienteId} className="text-red-600 dark:text-red-400 focus:text-red-600 hover:!text-white font-medium"><Trash2 className="mr-2 h-4 w-4" /> Apagar tudo do cliente</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLimparTudoCliente} disabled={!clienteId} className={cn(TEXT.red, 'focus:text-red-600 hover:!text-white font-medium')}><Trash2 className="mr-2 h-4 w-4" /> Apagar tudo do cliente</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button
@@ -1402,7 +1402,7 @@ export default function BiCategoriasBalancetePage() {
                               className={cn(
                                 'h-7 w-full text-[11px]',
                                 catDreIsOverride
-                                  ? 'text-violet-700 dark:text-violet-300 font-medium'
+                                  ? cn(TEXT.violet, 'font-medium')
                                   : catDreIsInherited
                                     ? 'text-muted-foreground italic'
                                     : 'text-muted-foreground',
@@ -1447,7 +1447,7 @@ export default function BiCategoriasBalancetePage() {
                             className={cn(
                               'rounded p-1 transition-colors',
                               cat.tipo === 'C' || cat.tipo === 'calculada'
-                                ? 'text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20'
+                                ? cn(TEXT.violet, 'hover:bg-violet-50 dark:hover:bg-violet-900/20')
                                 : 'text-muted-foreground/30 cursor-not-allowed',
                             )}
                           >
@@ -1563,7 +1563,7 @@ export default function BiCategoriasBalancetePage() {
                 </div>
                 <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                   <div
-                    className="h-full bg-violet-500 transition-all"
+                    className={cn('h-full transition-all', FILL.violet)}
                     style={{ width: `${importarStatus.progress}%` }}
                   />
                 </div>

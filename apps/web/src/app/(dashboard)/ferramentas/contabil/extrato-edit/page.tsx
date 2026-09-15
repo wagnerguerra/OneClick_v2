@@ -13,7 +13,7 @@ import {
   Button, Card, Badge, cn, Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BADGE } from '@/lib/color-styles'
 import { PageHeader } from '@/components/page-header'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { alerts } from '@/lib/alerts'
@@ -169,7 +169,7 @@ export default function ExtratoEditPage() {
                   <Badge className="border-0 bg-muted text-muted-foreground">{parsed.rows.length} lançamentos</Badge>
                   {parsed.meta.groupApplied > 0 && <Badge className="border-0 bg-muted text-muted-foreground">Datas explodidas: {parsed.meta.groupApplied}</Badge>}
                   {parsed.meta.totalsRemoved > 0 && <Badge className="border-0 bg-muted text-muted-foreground">Totais removidos: {parsed.meta.totalsRemoved}</Badge>}
-                  {parsed.meta.usedFallback && <Badge className="border-0 bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">Formato genérico</Badge>}
+                  {parsed.meta.usedFallback && <Badge className={cn('border-0', BADGE.amber)}>Formato genérico</Badge>}
                 </div>
 
                 {codigoCol && (
@@ -182,13 +182,13 @@ export default function ExtratoEditPage() {
                     ) : semCadastro ? (
                       <>
                         <AlertTriangle className={cn('h-4 w-4', TEXT.amber)} />
-                        <span className="text-amber-700 dark:text-amber-400">Coluna <b>CNPJ</b> criada por <b>{cnpjInfo?.label}</b>, mas não há {tipoLabel(codigoCol.tipo).toLowerCase()} cadastrados. Envie a planilha de cadastro para preencher.</span>
+                        <span className={TEXT.amber}>Coluna <b>CNPJ</b> criada por <b>{cnpjInfo?.label}</b>, mas não há {tipoLabel(codigoCol.tipo).toLowerCase()} cadastrados. Envie a planilha de cadastro para preencher.</span>
                         <Button size="sm" className="ml-auto gap-1.5 rounded-lg text-white" style={accent} onClick={() => setCadastroOpen(true)}><Users className="h-4 w-4" /> Enviar planilha de {tipoLabel(codigoCol.tipo).toLowerCase()}</Button>
                       </>
                     ) : (
                       <>
                         <Link2 className={cn('h-4 w-4', TEXT.emerald)} />
-                        <span className="text-emerald-700 dark:text-emerald-400"><b>CNPJ vinculado:</b> {cnpjInfo?.matched ?? 0} de {cnpjInfo?.total ?? 0} códigos</span>
+                        <span className={TEXT.emerald}><b>CNPJ vinculado:</b> {cnpjInfo?.matched ?? 0} de {cnpjInfo?.total ?? 0} códigos</span>
                         <Button size="sm" variant="outline" className="ml-auto gap-1.5 rounded-lg" onClick={() => setCadastroOpen(true)}><Users className="h-4 w-4" /> Atualizar cadastro</Button>
                       </>
                     )}
@@ -213,7 +213,7 @@ export default function ExtratoEditPage() {
                   </Button>
                 </div>
 
-                <div className="overflow-x-auto rounded-xl border border-border/50">
+                <div className="nice-scrollbar overflow-x-auto rounded-xl border border-border/50">
                   <Table>
                     <TableHeader>
                       <TableRow className="hover:bg-transparent">{previewCols.map((h) => <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>)}</TableRow>

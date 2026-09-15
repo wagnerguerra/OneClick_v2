@@ -172,7 +172,7 @@ export function VersionHistoryDialog({ modelId, modelNome, open, onOpenChange, c
               {/* Banner da versão + picker de comparação */}
               <div className="space-y-3 rounded-[4px] border border-border/60 bg-muted/20 p-3">
                 <div className={cn('flex items-start gap-2 text-xs',
-                  viewingIsCurrent ? 'text-sky-700 dark:text-sky-300' : 'text-amber-700 dark:text-amber-300')}>
+                  viewingIsCurrent ? TEXT.sky : TEXT.amber)}>
                   <Eye className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
                     Visualizando a <strong>versão {viewingVersion.versionNumber}</strong>

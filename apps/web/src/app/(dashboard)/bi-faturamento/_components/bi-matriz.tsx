@@ -195,8 +195,8 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
               const isGroup = row.level === 0
               const rowType = getRowType(row.conta, row.nomeConta)
 
-              const valColor = rowType === 'receita' ? 'text-emerald-700 dark:text-emerald-400'
-                : rowType === 'despesa' ? 'text-red-800 dark:text-red-400'
+              const valColor = rowType === 'receita' ? TEXT.emerald
+                : rowType === 'despesa' ? TEXT.red
                 : ''
               const isRowSel = selRow === row.id
 
@@ -238,7 +238,7 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
                           {fmtNum(cell.realizado)}
                         </td>
                         <td
-                          className={cn('px-1 py-1.5 text-right tabular-nums text-muted-foreground cursor-pointer', cell.pct_av < 0 && 'text-red-500', hlR)}
+                          className={cn('px-1 py-1.5 text-right tabular-nums text-muted-foreground cursor-pointer', cell.pct_av < 0 && TEXT.red, hlR)}
                           onClick={() => handleCellClick(row.id, ref)}
                         >
                           {fmtPct(cell.pct_av)}
@@ -251,7 +251,7 @@ export function BiMatriz({ clienteId, ano }: { clienteId: string; ano: number })
                   <td className={cn('px-2 py-1.5 text-right tabular-nums border-l-2 border-border/40 bg-muted/20', row.total.realizado < 0 ? cn(TEXT.red, 'font-semibold') : `${valColor} font-semibold`)}>
                     {fmtNum(row.total.realizado)}
                   </td>
-                  <td className={cn('px-1 py-1.5 text-right tabular-nums bg-muted/20 text-muted-foreground font-semibold', row.total.pct_av < 0 && 'text-red-500')}>
+                  <td className={cn('px-1 py-1.5 text-right tabular-nums bg-muted/20 text-muted-foreground font-semibold', row.total.pct_av < 0 && TEXT.red)}>
                     {fmtPct(row.total.pct_av)}
                   </td>
                 </tr>

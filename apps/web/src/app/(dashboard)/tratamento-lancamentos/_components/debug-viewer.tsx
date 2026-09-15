@@ -16,7 +16,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   cn,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BADGE, type ColorName } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { extractClient } from '../lib/extract-client'
 
@@ -32,11 +32,12 @@ const STATUS_LABEL: Record<TraceRow['status'], string> = {
   'pulada-regra': 'Pulada (regra)',
   'ignorada-zero': 'Ignorada (zero)',
 }
-const STATUS_CLASS: Record<TraceRow['status'], string> = {
-  ok: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-  pendencia: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400',
-  'pulada-regra': 'bg-slate-200 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300',
-  'ignorada-zero': 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
+// Cor de conceito por status → papel BADGE do helper (fonte única).
+const STATUS_TONE: Record<TraceRow['status'], ColorName> = {
+  ok: 'emerald',
+  pendencia: 'rose',
+  'pulada-regra': 'slate',
+  'ignorada-zero': 'amber',
 }
 
 const cellText = (v: unknown): string => (v === null || v === undefined || v === '' ? '' : String(v))
@@ -258,5 +259,5 @@ function PendTable({ trace, pendencias }: { trace: TraceRow[]; pendencias: Debug
 }
 
 function StatusBadge({ status }: { status: TraceRow['status'] }) {
-  return <Badge variant="secondary" className={cn('text-[10px] font-medium', STATUS_CLASS[status])}>{STATUS_LABEL[status]}</Badge>
+  return <Badge variant="outline" className={cn('text-[10px] font-medium', BADGE[STATUS_TONE[status]])}>{STATUS_LABEL[status]}</Badge>
 }

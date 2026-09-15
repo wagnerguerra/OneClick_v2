@@ -8,7 +8,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { Trash2, Plus, Search, Wand2, ChevronLeft, ChevronRight, ListChecks, ExternalLink, AlertTriangle, CheckCircle2, MoreVertical, Braces } from 'lucide-react'
 import type { TreatmentDefinition, Direcao } from '@saas/types'
 import { matchPalavraChaveIndex, HISTORICO_DATA_VARS, historicoToken } from '@saas/types'
@@ -484,9 +484,9 @@ const LIST_PAGE_SIZE = 20
 /** Selo de status de correspondência de uma descrição (2 estados). */
 function BadgeCorresp({ ok }: { ok: boolean }) {
   return ok ? (
-    <span className="inline-flex items-center whitespace-nowrap rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">Correspondida</span>
+    <span className={cn('inline-flex items-center whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10px] font-medium', BADGE.emerald)}>Correspondida</span>
   ) : (
-    <span className="inline-flex items-center whitespace-nowrap rounded-full border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-medium text-rose-700 dark:text-rose-400">Sem correspondência</span>
+    <span className={cn('inline-flex items-center whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10px] font-medium', BADGE.rose)}>Sem correspondência</span>
   )
 }
 

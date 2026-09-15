@@ -22,7 +22,7 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   cn,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BADGE, DOT, type ColorName } from '@/lib/color-styles'
 
 type CellValue = string | number | boolean | null
 type Direcao = 'DEBITO' | 'CREDITO' | null
@@ -96,18 +96,19 @@ const MAX_RENDER = 500
 const STATUS_LABEL: Record<TraceStatus, string> = {
   ok: 'OK', pendencia: 'Pendência', 'pulada-regra': 'Pulada (regra)', 'ignorada-zero': 'Ignorada',
 }
-const STATUS_CLASS: Record<TraceStatus, string> = {
-  ok: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-  pendencia: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400',
-  'pulada-regra': 'bg-slate-200 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300',
-  'ignorada-zero': 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
+// Cor de conceito por status → papel BADGE do helper (fonte única).
+const STATUS_TONE: Record<TraceStatus, ColorName> = {
+  ok: 'emerald',
+  pendencia: 'rose',
+  'pulada-regra': 'slate',
+  'ignorada-zero': 'amber',
 }
 
 const cellText = (v: CellValue | undefined): string => (v === null || v === undefined || v === '' ? '' : String(v))
 const dirLabel = (d: Direcao): string => (d === 'DEBITO' ? 'Débito' : d === 'CREDITO' ? 'Crédito' : '—')
 
 // Bolinha de cor por origem (● rose = modelo, ● amber = arquivo).
-const DOT: Record<Origem, string> = { modelo: 'bg-rose-500', arquivo: 'bg-amber-500' }
+const ORIGEM_DOT: Record<Origem, string> = { modelo: DOT.rose, arquivo: DOT.amber }
 // Realce das células causadoras (na expansão) por origem, com contorno no hover.
 const CELL_HL: Record<Origem, string> = {
   modelo: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 font-medium cursor-help hover:ring-2 hover:ring-inset hover:ring-rose-500 dark:hover:ring-rose-400',
@@ -115,7 +116,7 @@ const CELL_HL: Record<Origem, string> = {
 }
 
 function Dot({ origem }: { origem: Origem }) {
-  return <span className={cn('inline-block h-2 w-2 shrink-0 rounded-full', DOT[origem])} />
+  return <span className={cn('inline-block h-2 w-2 shrink-0 rounded-full', ORIGEM_DOT[origem])} />
 }
 
 function scrollToCenter(container: HTMLElement | null, el: HTMLElement) {
@@ -528,7 +529,7 @@ function DadosProcessados({
                     <TableCell className={txt}>{t.contaContrapartida ?? '—'}</TableCell>
                     <TableCell className={txt}>{t.contaCorrente ?? '—'}</TableCell>
                     <TableCell className="py-2">
-                      <Badge variant="secondary" className={cn('text-[10px] font-medium', STATUS_CLASS[t.status])}>{STATUS_LABEL[t.status]}</Badge>
+                      <Badge variant="outline" className={cn('text-[10px] font-medium', BADGE[STATUS_TONE[t.status]])}>{STATUS_LABEL[t.status]}</Badge>
                     </TableCell>
                   </TableRow>
                 )

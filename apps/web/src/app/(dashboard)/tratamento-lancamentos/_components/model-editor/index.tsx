@@ -9,7 +9,7 @@ import {
 import {
   Button, Input, Label, Checkbox, Card, TooltipProvider, cn,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import type { TreatmentDefinition } from '@saas/types'
 import { EMPTY_TREATMENT_DEFINITION, formatValorExibicao, extrairMarcadorDC, matchPalavraChaveIndex } from '@saas/types'
 import { normalizeDefinition } from '../treatment-definition'
@@ -992,7 +992,7 @@ export function ModelEditor({ mode, modelId, backTo }: Props) {
 
           {isReview || !currentStep ? (
             <>
-              <div className="flex items-start gap-2 rounded-[2px] border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
+              <div className={cn('flex items-start gap-2 rounded-[2px] border px-3 py-2 text-xs', BADGE.sky)}>
                 <Info className="h-4 w-4 shrink-0 mt-0.5" />
                 Confira o resumo do modelo abaixo. Você pode voltar a qualquer etapa para ajustar antes de criar.
               </div>

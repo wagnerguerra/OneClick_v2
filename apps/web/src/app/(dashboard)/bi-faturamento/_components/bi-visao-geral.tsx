@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react'
 import { Card, CardContent, cn, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, SURFACE } from '@/lib/color-styles'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import { BiKpiCards, type KpiData } from './bi-kpi-cards'
 import {
@@ -151,7 +151,7 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                   </SelectContent>
                 </Select>
               </div>
-              <CardContent className="p-4 bg-white dark:bg-card">
+              <CardContent className="p-4 bg-card">
                 {(() => {
                   // Build chart data from indicadoresHorizontais
                   const chartData = MESES_LABELS.map((label, i) => {
@@ -238,7 +238,7 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                     Principais Fontes de Receita
                   </h4>
                 </div>
-                <CardContent className="p-3 bg-white dark:bg-card">
+                <CardContent className="p-3 bg-card">
                   {fontesReceita.length === 0 ? (
                     <div className="flex items-center justify-center h-[80px] text-xs text-muted-foreground">Sem dados</div>
                   ) : (
@@ -273,7 +273,7 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                     Principais Fontes de Despesas
                   </h4>
                 </div>
-                <CardContent className="p-3 bg-white dark:bg-card">
+                <CardContent className="p-3 bg-card">
                   {fontesDespesas.length === 0 ? (
                     <div className="flex items-center justify-center h-[80px] text-xs text-muted-foreground">Sem dados</div>
                   ) : (
@@ -310,7 +310,7 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                 % Custos Fixos x Despesas Operacionais
               </h4>
             </div>
-            <CardContent className="p-4 bg-white dark:bg-card">
+            <CardContent className="p-4 bg-card">
               <div className="flex gap-6" style={{ minHeight: 320 }}>
                 {/* Donut 30% */}
                 <div className="flex flex-col items-center justify-center" style={{ width: '30%' }}>
@@ -337,14 +337,14 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                         </PieChart>
                       </ResponsiveContainer>
                       <div className="flex flex-col gap-2 w-full mt-1">
-                        <div className="flex items-center justify-between rounded-md bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30 px-3 py-2">
+                        <div className={cn('flex items-center justify-between rounded-md border px-3 py-2', SURFACE.emerald)}>
                           <div className="flex items-center gap-2 text-[11px]">
                             <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: GREEN_SOLID }} />
                             <span className="font-medium text-foreground">Custos Fixos</span>
                           </div>
                           <span className="font-bold text-[11px] tabular-nums text-foreground">{formatCurrency(totalCustos)}</span>
                         </div>
-                        <div className="flex items-center justify-between rounded-md bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30 px-3 py-2">
+                        <div className={cn('flex items-center justify-between rounded-md border px-3 py-2', SURFACE.red)}>
                           <div className="flex items-center gap-2 text-[11px]">
                             <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: RED_SOLID }} />
                             <span className="font-medium text-foreground">Despesas Op.</span>
@@ -397,7 +397,7 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
               <div className="px-5 py-3 border-b border-border/60 bg-muted/20">
                 <h4 className="text-[13px] font-semibold text-foreground">Comparativo entre Anos</h4>
               </div>
-              <CardContent className="p-4 bg-white dark:bg-card">
+              <CardContent className="p-4 bg-card">
                 <div className="overflow-x-auto nice-scrollbar">
                   <table className="w-full text-xs border-collapse">
                     <thead>
