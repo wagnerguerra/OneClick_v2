@@ -6,6 +6,7 @@ import { PLATFORM_ADMIN_MODULES } from '@saas/types'
 import { hashPassword, verifyPassword } from 'better-auth/crypto'
 import { PermissionsEventsService } from '../permissions-events/permissions-events.service'
 import { invalidateUserPermissionsCache } from '../trpc/trpc.service'
+import { invalidateSessionCacheForUser } from '../trpc/session-cache'
 
 @Injectable()
 export class UserService {
@@ -384,6 +385,12 @@ export class UserService {
 
       const user = await tx.user.update({ where: { id }, data })
 
+      // Desativado pelo formulário: derruba as sessões abertas, como a
+      // exclusão já fazia. Sem isto, quem estava logado seguia logado.
+      if (data.isActive === false && existing.isActive) {
+        await tx.session.deleteMany({ where: { userId: id } })
+      }
+
       // Update password if provided
       if (password) {
         const hashedPassword = await hashPassword(password)
@@ -415,6 +422,7 @@ export class UserService {
       // Após commit, dispara SSE + invalida cache. Fora da transação pra não
       // notificar antes do dado estar persistido.
       if (permissions !== undefined) this.notifyPermissionsChanged(id)
+      if ((userData as Record<string, unknown>).isActive === false) invalidateSessionCacheForUser(id)
       return res
     })
   }
@@ -651,6 +659,7 @@ export class UserService {
       // Encerra qualquer sessão ativa
       prisma.session.deleteMany({ where: { userId: id } }),
     ])
+    invalidateSessionCacheForUser(id)
     return { ok: true, soft: true }
   }
 
@@ -686,6 +695,7 @@ export class UserService {
         }),
         prisma.session.deleteMany({ where: { userId: { in: aDesativar } } }),
       ])
+      for (const u of aDesativar) invalidateSessionCacheForUser(u)
     }
 
     return { ok: true, desativados: aDesativar.length, pulados }
@@ -1401,6 +1411,7 @@ export class UserService {
             }),
             prisma.session.deleteMany({ where: { userId: d.userId } }),
           ])
+          invalidateSessionCacheForUser(d.userId)
           desativados++
         }
 

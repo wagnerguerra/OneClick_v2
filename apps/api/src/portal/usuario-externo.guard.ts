@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable } from '@nestjs/common'
+import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable, UnauthorizedException } from '@nestjs/common'
 import type { Request } from 'express'
 
 import { AuthService } from '../auth/auth.service'
@@ -16,8 +16,12 @@ import { AuthService } from '../auth/auth.service'
  * Corrigir só aquele endpoint deixaria os outros 40 esperando a vez. A regra
  * vive aqui, em UM lugar, e vale para tudo que entra por HTTP.
  *
+ * Segundo papel, desde 15/09/2026: recusar em toda rota REST a sessão de quem
+ * foi DESATIVADO depois de entrar. O login recusa o inativo, mas a sessão que
+ * já estava aberta seguiria valendo até expirar (7 dias).
+ *
  * A regra é estreita de propósito: só bloqueia quando HÁ sessão e ela é de um
- * usuário externo. Requisição sem sessão segue o caminho de sempre — rota
+ * usuário externo ou inativo. Requisição sem sessão segue o caminho de sempre — rota
  * pública continua pública, e a autenticação continua sendo problema de quem
  * já cuidava dela.
  */
@@ -31,6 +35,7 @@ import { AuthService } from '../auth/auth.service'
  * tem como distinguir procedure por procedure dentro de um POST /api/trpc.
  */
 const LIBERADOS = ['/api/auth', '/api/portal']
+const AUTENTICACAO = '/api/auth'
 
 /**
  * Leitura de asset — logo do escritório, avatar, anexo já publicado.
@@ -90,30 +95,42 @@ export class UsuarioExternoGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<Request>()
     const caminho = (req.originalUrl || req.url || '').split('?')[0] ?? ''
 
+    // O tRPC recusa a sessão inativa no próprio contexto.
     if (TRPC.some(p => caminho.startsWith(p))) return true
-    if (LIBERADOS.some(p => caminho.startsWith(p))) return true
+    // Autenticação fica aberta a todos, inativo inclusive: é por ela que se
+    // sai. Entrar, o hook de criação de sessão recusa.
+    if (caminho.startsWith(AUTENTICACAO)) return true
     if (caminho.startsWith(ASSETS_LEITURA) && METODOS_LEITURA.has(req.method)) return true
-    if (caminho === ENVIO_ARQUIVO && req.method === 'POST') return true
 
-    // Sem cookie não há sessão a resolver — evita uma consulta por requisição
-    // em tudo que é público (assets, webhooks, health).
-    if (!req.headers.cookie) return true
+    // Sem cookie nem Authorization não há sessão a resolver — evita uma
+    // consulta por requisição em tudo que é público (webhooks, health). O
+    // Authorization entra porque app e desktop mandam a sessão por bearer.
+    if (!req.headers.cookie && !req.headers.authorization) return true
 
-    let role: string | undefined
+    let usuario: Record<string, unknown> | undefined
     try {
       const headers = new Headers()
       for (const [chave, valor] of Object.entries(req.headers)) {
         if (valor) headers.set(chave, Array.isArray(valor) ? valor.join(', ') : valor)
       }
       const sessao = await this.authService.auth.api.getSession({ headers })
-      role = (sessao?.user as Record<string, unknown> | undefined)?.role as string | undefined
+      usuario = sessao?.user as Record<string, unknown> | undefined
     } catch {
       // Sessão ilegível não é problema desta guarda: quem cuida de autenticar
-      // é a rota. Aqui só interessa NEGAR quem é comprovadamente externo.
+      // é a rota. Aqui só interessa NEGAR quem é comprovadamente barrado.
       return true
     }
 
-    if (role === 'COLABORADOR_CLIENTE') {
+    // Sessão aberta de quem foi desativado depois de entrar: não vale em rota
+    // nenhuma — nem nas que o externo pode usar, logo abaixo.
+    if (usuario && usuario.isActive === false) {
+      throw new UnauthorizedException('Usuário inativo.')
+    }
+
+    if (LIBERADOS.some(p => caminho.startsWith(p))) return true
+    if (caminho === ENVIO_ARQUIVO && req.method === 'POST') return true
+
+    if (usuario?.role === 'COLABORADOR_CLIENTE') {
       throw new ForbiddenException('Esta área é do escritório. Usuários de cliente acessam pelo portal.')
     }
     return true

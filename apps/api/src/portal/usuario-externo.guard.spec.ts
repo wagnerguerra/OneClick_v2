@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common'
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common'
 import type { ExecutionContext } from '@nestjs/common'
 
 // A guarda importa `AuthService` como VALOR (é o token do `@Inject`), e esse
@@ -20,14 +20,14 @@ import { UsuarioExternoGuard } from './usuario-externo.guard'
 const getSession = jest.fn()
 const authService = { auth: { api: { getSession } } } as never
 
-function contexto(url: string, comCookie = true, method = 'GET'): ExecutionContext {
+function contexto(url: string, comCookie = true, method = 'GET', extras: Record<string, string> = {}): ExecutionContext {
   return {
     switchToHttp: () => ({
       getRequest: () => ({
         originalUrl: url,
         url,
         method,
-        headers: comCookie ? { cookie: 'better-auth.session_token=abc' } : {},
+        headers: { ...(comCookie ? { cookie: 'better-auth.session_token=abc' } : {}), ...extras },
       }),
     }),
   } as unknown as ExecutionContext
@@ -134,6 +134,48 @@ describe('leitura de asset', () => {
       .rejects.toBeInstanceOf(ForbiddenException)
     await expect(guard.canActivate(contexto('/api/upload/certificado-pf', true, 'POST')))
       .rejects.toBeInstanceOf(ForbiddenException)
+  })
+})
+
+describe('usuário desativado com sessão aberta', () => {
+  // O login recusa o inativo; isto é a sessão que já estava aberta quando ele
+  // foi desativado, e que valeria por até 7 dias.
+  const internoInativo = { user: { id: 'u3', role: 'COLABORADOR_INTERNO', isActive: false } }
+  const externoInativo = { user: { id: 'u4', role: 'COLABORADOR_CLIENTE', isActive: false } }
+
+  it('barra em rota interna', async () => {
+    getSession.mockResolvedValue(internoInativo)
+    await expect(guard.canActivate(contexto('/api/danfe/lista')))
+      .rejects.toBeInstanceOf(UnauthorizedException)
+  })
+
+  it('barra no namespace do portal, que o externo ativo pode usar', async () => {
+    getSession.mockResolvedValue(externoInativo)
+    await expect(guard.canActivate(contexto('/api/portal/qualquer-coisa')))
+      .rejects.toBeInstanceOf(UnauthorizedException)
+  })
+
+  it('barra no envio de arquivo do porta-arquivos', async () => {
+    getSession.mockResolvedValue(externoInativo)
+    await expect(guard.canActivate(contexto('/api/upload', true, 'POST')))
+      .rejects.toBeInstanceOf(UnauthorizedException)
+  })
+
+  it('resolve a sessão por Authorization, sem cookie — app e desktop', async () => {
+    getSession.mockResolvedValue(internoInativo)
+    await expect(guard.canActivate(contexto('/api/danfe/lista', false, 'GET', { authorization: 'Bearer tok' })))
+      .rejects.toBeInstanceOf(UnauthorizedException)
+    expect(getSession).toHaveBeenCalled()
+  })
+
+  it('não barra a autenticação — é por ela que se sai', async () => {
+    getSession.mockResolvedValue(internoInativo)
+    await expect(guard.canActivate(contexto('/api/auth/sign-out', true, 'POST'))).resolves.toBe(true)
+  })
+
+  it('usuário ativo segue passando', async () => {
+    getSession.mockResolvedValue({ user: { id: 'u5', role: 'COLABORADOR_INTERNO', isActive: true } })
+    await expect(guard.canActivate(contexto('/api/danfe/lista'))).resolves.toBe(true)
   })
 })
 

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { betterAuth } from 'better-auth'
 import { APIError } from 'better-auth/api'
+import { motivoParaRecusarSessao } from './sessao-recusada'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
 import { twoFactor, bearer } from 'better-auth/plugins'
 import { expo } from '@better-auth/expo'
@@ -58,21 +59,19 @@ export class AuthService {
           enabled: false, // Desabilita cache server-side da session — evita stale data apos verifyTotp
         },
       },
-      // Trava de entrada da empresa inativa. Toda porta — senha, Google,
-      // desktop, app — passa pela criação da sessão, então é aqui que se
-      // recusa. A mensagem é um código que as telas de login traduzem.
-      // O master global passa: é quem religa a empresa.
+      // Trava de entrada: usuário inativo e empresa inativa. Toda porta —
+      // senha, Google, desktop, app — passa pela criação da sessão, então é
+      // aqui que se recusa. A regra mora em `sessao-recusada.ts`.
       databaseHooks: {
         session: {
           create: {
             before: async (session) => {
               const user = await prisma.user.findUnique({
                 where: { id: session.userId },
-                select: { isMaster: true, empresa: { select: { isActive: true } } },
+                select: { isActive: true, isMaster: true, empresa: { select: { isActive: true } } },
               })
-              if (user && !user.isMaster && user.empresa && !user.empresa.isActive) {
-                throw new APIError('FORBIDDEN', { message: 'EMPRESA_INATIVA' })
-              }
+              const motivo = motivoParaRecusarSessao(user)
+              if (motivo) throw new APIError('FORBIDDEN', { message: motivo })
             },
           },
         },
@@ -127,6 +126,14 @@ export class AuthService {
           activeEmpresaId: {
             type: 'string',
             required: false,
+            input: false,
+          },
+          // Lido a cada getSession (cookieCache desabilitado). É o que permite
+          // ao contexto do tRPC e à guarda REST recusarem a sessão que já
+          // estava aberta quando o usuário foi desativado.
+          isActive: {
+            type: 'boolean',
+            defaultValue: true,
             input: false,
           },
         },

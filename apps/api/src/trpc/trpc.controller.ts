@@ -109,7 +109,10 @@ export class TrpcController {
 
           const session = await authInstance.api.getSession({ headers })
 
-          if (session?.user) {
+          // Sessão de quem foi desativado depois de entrar vale como anônima:
+          // o login já recusa o inativo (hook no AuthService), e isto fecha a
+          // sessão que estava aberta antes da desativação.
+          if (session?.user && (session.user as Record<string, unknown>).isActive !== false) {
             const user = session.user as Record<string, unknown>
             userId = session.user.id
             tenantId = user.tenantId as string | undefined
