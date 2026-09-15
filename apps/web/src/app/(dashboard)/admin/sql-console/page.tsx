@@ -441,7 +441,7 @@ function fmt(v: unknown): string {
 function cell(v: unknown) {
   if (v === null || v === undefined) return <span className="text-muted-foreground/50 italic">null</span>
   if (typeof v === 'boolean') return <span className={v ? TEXT.emerald : TEXT.rose}>{String(v)}</span>
-  if (typeof v === 'number') return <span className="text-sky-700 dark:text-sky-300">{String(v)}</span>
+  if (typeof v === 'number') return <span className={TEXT.sky}>{String(v)}</span>
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)
 }

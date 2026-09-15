@@ -265,7 +265,7 @@ function CodeSnippet({ code, label = 'Código' }: { code: string; label?: string
           {copied ? 'Copiado!' : 'Copiar'}
         </Button>
       </div>
-      <pre className="text-[11px] font-mono p-3 overflow-x-auto whitespace-pre max-h-[500px] text-foreground/80 leading-relaxed">
+      <pre className="text-[11px] font-mono p-3 overflow-x-auto whitespace-pre max-h-[500px] text-foreground/80 leading-relaxed nice-scrollbar">
         {code}
       </pre>
     </div>
