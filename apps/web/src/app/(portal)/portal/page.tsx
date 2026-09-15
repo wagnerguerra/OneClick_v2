@@ -1,20 +1,25 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   FolderOpen, CalendarCheck, LifeBuoy, FileCheck2, ShieldCheck, Receipt,
-  ArrowRight, Clock, Upload, Inbox, Download, Sparkles, LayoutGrid,
+  ArrowRight, Clock, Upload, Inbox, Download, LayoutGrid,
 } from 'lucide-react'
 
+import { trpc } from '@/lib/trpc'
 import { usePortal } from '../_lib/contexto'
+import {
+  AberturaPortal, EmNumeros, type Consulta, type ResumoObrigacoes,
+} from '../_components/abertura-portal'
 
 /**
  * Início do Portal do Cliente.
  *
  * Repaginada sobre a gramática do LuminAux (starter-builder), que é a
- * referência visual do portal: sobrancelha em caixa alta com traço, título
- * grande com a segunda linha em cor, cards com chip de ícone e faixa azul de
- * fecho.
+ * referência visual do portal: céu azul desfocado, título com a segunda linha
+ * digitada, janela de terminal, card de números, sobrancelha em caixa alta com
+ * traço, cards com chip de ícone e faixa azul de fecho.
  *
  * O miolo segue a seção "Build your starter" do modelo: UM card branco com
  * um passo-a-passo vertical (círculos ligados por uma linha) ao lado do
@@ -110,10 +115,22 @@ const PASSOS: Array<{ titulo: string; descricao: string; icone: typeof Upload }>
   },
 ]
 
-const ROTULO_NIVEL: Record<string, string> = {
-  ADMINISTRADOR: 'Administrador',
-  OPERACIONAL: 'Operacional',
-  CONSULTA: 'Consulta',
+/**
+ * O pedaço da API do portal que a home lê. Tipado aqui, e não com `any`, para
+ * que uma mudança no formato quebre a compilação em vez da tela.
+ */
+interface PortalApiDaHome {
+  solicitacoes: { pendentes: { query(i: { clienteId: string }): Promise<unknown[]> } }
+  obrigacoes: { resumo: { query(i: { clienteId: string; competencia: string }): Promise<ResumoObrigacoes> } }
+}
+
+/**
+ * Competência corrente, AAAAMM. Sem ela o resumo conta o histórico inteiro,
+ * e o card diria "no mês" de um número que não é do mês.
+ */
+function competenciaAtual(): string {
+  const d = new Date()
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 /**
@@ -130,8 +147,7 @@ function Sobrancelha({ children, alinhar = 'centro' }: { children: React.ReactNo
 }
 
 export default function PortalInicioPage() {
-  const { vinculo } = usePortal()
-  const semArea = !vinculo || vinculo.areas.length === 0
+  const { clienteId, vinculo } = usePortal()
 
   /**
    * Só os cards de módulos liberados.
@@ -142,56 +158,40 @@ export default function PortalInicioPage() {
    */
   const liberados = new Set(vinculo?.modulos ?? [])
   const visiveis = RECURSOS.filter(r => !r.modulo || liberados.has(r.modulo))
+  const temDocumentos = liberados.has('documentos')
+  const temObrigacoes = liberados.has('obrigacoes')
+
+  // Números da abertura. Só consulta o que o escritório liberou: a rota de um
+  // módulo desligado responde "não encontrado", e isso não é um número.
+  const [pendencias, setPendencias] = useState<Consulta<number>>(undefined)
+  const [obrigacoes, setObrigacoes] = useState<Consulta<ResumoObrigacoes>>(undefined)
+
+  useEffect(() => {
+    if (!clienteId) return
+    let vivo = true
+    const api = trpc.portal as unknown as PortalApiDaHome
+    setPendencias(undefined)
+    setObrigacoes(undefined)
+    if (temDocumentos) {
+      api.solicitacoes.pendentes.query({ clienteId })
+        .then(lista => { if (vivo) setPendencias(lista.length) })
+        .catch(() => { if (vivo) setPendencias(null) })
+    }
+    if (temObrigacoes) {
+      api.obrigacoes.resumo.query({ clienteId, competencia: competenciaAtual() })
+        .then(r => { if (vivo) setObrigacoes(r) })
+        .catch(() => { if (vivo) setObrigacoes(null) })
+    }
+    return () => { vivo = false }
+  }, [clienteId, temDocumentos, temObrigacoes])
 
   // `gap-10` no celular: 56px entre seções é respiro no desktop e rolagem
   // desperdiçada numa tela de 390px.
   return (
     <div className="flex flex-col gap-10 pb-4 sm:gap-14">
-      {/* ── Abertura ───────────────────────────────────────────────────
-          O modelo abre com selo, título de duas linhas (a segunda em cor) e
-          dois botões. Aqui a segunda linha é a frase que diz o que o portal
-          faz, e o nome da empresa vem logo abaixo — é ele que ancora "onde
-          eu estou", e como título gigante quebraria mal em razão social
-          longa. */}
-      <section className="flex flex-col items-start gap-4 pt-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eaf1ff] px-3 py-1 text-[11px] font-semibold text-[#1a6dff] dark:bg-[#16233a] dark:text-[#7db0ff]">
-          <Sparkles className="h-3 w-3" />
-          Portal do cliente
-        </span>
+      <AberturaPortal vinculo={vinculo} pendencias={pendencias} obrigacoes={obrigacoes} />
 
-        <h1 className="max-w-3xl text-[34px] font-bold leading-[1.1] tracking-tight text-balance text-slate-900 sm:text-[42px] dark:text-slate-100">
-          Seus documentos,
-          <br />
-          <span className="text-[#1a6dff]">no lugar certo.</span>
-        </h1>
-
-        <p className="max-w-xl text-[15px] leading-relaxed text-slate-600 dark:text-slate-400">
-          <span className="font-semibold text-slate-900 dark:text-slate-100">
-            {vinculo?.razaoSocial ?? 'Sua empresa'}
-          </span>
-          {' · '}
-          acesso {ROTULO_NIVEL[vinculo?.nivel ?? ''] ?? '—'}
-          {semArea
-            ? <>, ainda sem área liberada — fale com o escritório.</>
-            : <> em {vinculo!.areas.length} área(s) contratada(s).</>}
-        </p>
-
-        <div className="mt-1 flex flex-wrap items-center gap-2.5">
-          <Link
-            href="/portal/documentos"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#1a6dff] px-5 py-2.5 text-[13.5px] font-semibold text-white transition-colors hover:bg-[#0b4fd0]"
-          >
-            <FolderOpen className="h-4 w-4" />
-            Abrir documentos
-          </Link>
-          <a
-            href="#recursos"
-            className="inline-flex items-center gap-2 rounded-lg border border-[#dbe7fb] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-slate-700 transition-colors hover:bg-[#f2f7ff] dark:border-[#1b2739] dark:bg-[#0e1726] dark:text-slate-300 dark:hover:bg-[#16233a]"
-          >
-            O que tem aqui
-          </a>
-        </div>
-      </section>
+      <EmNumeros vinculo={vinculo} pendencias={pendencias} obrigacoes={obrigacoes} />
 
       {/* ── Módulos + passo-a-passo ────────────────────────────────────
           Um card só, como o "Build your starter" do modelo: conteúdo de um
