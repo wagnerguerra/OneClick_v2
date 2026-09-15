@@ -276,12 +276,12 @@ export default function FolhaBiPage() {
         </div>
 
         {intervaloInvalido && (
-          <p className="mt-2 text-xs text-rose-500">
+          <p className={cn('mt-2 text-xs', TEXT.rose)}>
             A competência final ({String(mesFim).padStart(2, '0')}/{anoFim}) é anterior à inicial ({String(mesIni).padStart(2, '0')}/{anoIni}).
           </p>
         )}
         {!intervaloInvalido && excedeLimite && (
-          <p className="mt-2 text-xs text-rose-500">
+          <p className={cn('mt-2 text-xs', TEXT.rose)}>
             {competencias.length} competências de uma vez é demais — o limite é 36. Cada uma é uma extração no SCI.
           </p>
         )}
@@ -429,7 +429,7 @@ export default function FolhaBiPage() {
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {lote.ativos > 0 ? `${lote.ativos} na fila` : 'lote encerrado'}
-                  {lote.comErro > 0 && <span className="text-rose-500"> · {lote.comErro} com erro</span>}
+                  {lote.comErro > 0 && <span className={TEXT.rose}> · {lote.comErro} com erro</span>}
                 </p>
               </Card>
             )}
@@ -449,7 +449,7 @@ export default function FolhaBiPage() {
                           Sincronizado {jobDaSelecao.concluidoEm ? new Date(jobDaSelecao.concluidoEm).toLocaleString('pt-BR') : ''}
                           {jobDaSelecao.totalLinhas != null ? ` · ${jobDaSelecao.totalLinhas} linha(s)` : ''}
                         </span>
-                      : <span className="text-rose-500">Falhou: {jobDaSelecao.erro || 'erro não informado'}</span>}
+                      : <span className={TEXT.rose}>Falhou: {jobDaSelecao.erro || 'erro não informado'}</span>}
                 </div>
                 {jobDaSelecao.log && (
                   <pre className="nice-scrollbar mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-[11px] leading-snug text-muted-foreground">
@@ -667,7 +667,7 @@ function Matriz({ m, empresa, refNum, onConfig, nonce }: { m: any; empresa: numb
       {carregandoG && <p className="text-[11px] text-muted-foreground">carregando agrupamento…</p>}
 
       <Card className="overflow-hidden p-0 dark:bg-accent">
-        <div className="overflow-x-auto">
+        <div className="nice-scrollbar overflow-x-auto">
           <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
@@ -879,7 +879,7 @@ function Inss({ inss }: { inss: any }) {
           Composicao patronal <span className="font-normal text-muted-foreground">= {brl(g.patronalTot)}</span>
         </h3>
         <Card className="overflow-hidden p-0 dark:bg-accent">
-          <div className="overflow-x-auto">
+          <div className="nice-scrollbar overflow-x-auto">
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
@@ -961,7 +961,7 @@ function Inss({ inss }: { inss: any }) {
           <div className="min-w-[420px] flex-[2]">
             <h3 className="mb-1.5 text-sm font-semibold text-foreground">Autonomos (RPA) <span className="font-normal text-muted-foreground">= {brl(g.aut)}</span></h3>
             <Card className="overflow-hidden p-0 dark:bg-accent">
-              <div className="overflow-x-auto">
+              <div className="nice-scrollbar overflow-x-auto">
                 <table className="w-full border-collapse text-xs">
                   <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
                     <th className="px-2.5 py-1.5 text-left font-semibold text-foreground">Autonomo</th>
@@ -1092,7 +1092,7 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
           </p>
         )}
         <Card className="overflow-hidden p-0 dark:bg-accent">
-          <div className="overflow-x-auto">
+          <div className="nice-scrollbar overflow-x-auto">
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
@@ -1148,7 +1148,7 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
             Antecipado (até o dia 9): soma também o FGTS do mês anterior.
           </p>
           <Card className="overflow-hidden p-0 dark:bg-accent">
-            <div className="overflow-x-auto">
+            <div className="nice-scrollbar overflow-x-auto">
               <table className="w-full border-collapse text-xs">
                 <thead><tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
                   <th className="sticky left-0 z-10 bg-muted/60 dark:bg-card px-2.5 py-1.5 text-left font-semibold text-foreground">Centro / Colaborador</th>
@@ -1252,7 +1252,7 @@ function Irrf({ irrf }: { irrf: any }) {
 
       {/* ===== Tabela 0561 (pivot Base/Valor por tipo) ===== */}
       <Card className="overflow-hidden p-0 dark:bg-accent">
-        <div className="overflow-x-auto">
+        <div className="nice-scrollbar overflow-x-auto">
           <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
@@ -1551,7 +1551,7 @@ function Provisoes({ provisoes, empresa, refNum }: { provisoes: any; empresa: nu
       </div>
 
       <Card className="overflow-hidden p-0 dark:bg-accent">
-        <div className="overflow-x-auto">
+        <div className="nice-scrollbar overflow-x-auto">
           <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">
@@ -1739,7 +1739,7 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
               {cfg.periodo && <b className="text-foreground">Periodo aquisitivo {dt(r0?.ini_per_aquis)} a {dt(r0?.dt_venc)}</b>}
               {r0 && <>{cfg.periodo ? ' · ' : ''}medias {brl(n(r0.medias))} · base INSS {brl(n(r0.base_inss))}{cfg.periodo ? ` · faltas ${n(r0.faltas)}` : ''}{r0.rescisao ? ' · rescisao' : ''}</>}
             </div>
-            <div className="overflow-x-auto">
+            <div className="nice-scrollbar overflow-x-auto">
               <table className="border-collapse text-[11px]">
                 <thead><tr className="border-b border-border text-[10px] text-muted-foreground">
                   <th className="px-2 py-0.5 text-left" />
@@ -1799,7 +1799,7 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
 
       {/* Detalhe por colaborador / centro */}
       <Card className="overflow-hidden p-0 dark:bg-accent">
-        <div className="overflow-x-auto">
+        <div className="nice-scrollbar overflow-x-auto">
           <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/40 dark:bg-card text-[11px]">

@@ -21,7 +21,7 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data'
 import { PendenciasModal, type PendenciaAdmissao, type PendenciaPeriodo, type ForaDoControle } from './_components/pendencias-modal'
 import { corSaldoTexto, tituloSaldo } from '../_lib/cores'
-import { BADGE } from '@/lib/color-styles'
+import { BADGE, BORDER } from '@/lib/color-styles'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
 const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
@@ -176,7 +176,7 @@ function Kpi({ label, valor, hint, cor, icone: Icone, destaque }: {
   label: string; valor: string | number; hint?: string; cor?: string; icone?: typeof Users; destaque?: boolean
 }) {
   return (
-    <Card className={cn('p-3', destaque && 'border-rose-300 dark:border-rose-800')}>
+    <Card className={cn('p-3', destaque && BORDER.rose)}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
@@ -756,7 +756,7 @@ export default function RelatoriosFeriasPage() {
           </Card>
 
           {prov.semSalario.length > 0 && (
-            <Card className="border-amber-300 p-3 dark:border-amber-800">
+            <Card className={cn('p-3', BORDER.amber)}>
               <p className="text-xs">
                 <b>{prov.semSalario.length} colaborador(es)</b> com {prov.resumo.diasSemSalario} dia(s) em aberto ficaram
                 <b> fora da conta</b> por não terem salário no cadastro — o total abaixo está incompleto:{' '}

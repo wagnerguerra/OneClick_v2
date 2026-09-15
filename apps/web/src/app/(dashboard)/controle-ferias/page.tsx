@@ -24,7 +24,7 @@ import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 import { corSaldo, tituloSaldo } from './_lib/cores'
-import { BADGE, TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT, BORDER } from '@/lib/color-styles'
 
 const PAGE_SIZES = [10, 20, 50]
 
@@ -68,7 +68,7 @@ function Indicador({ label, valor, hint, cor, icone: Icone, ativo, onClick, dest
       className={cn(
         'flex w-full items-center gap-3 rounded-lg border bg-card px-3 py-2.5 text-left transition-colors',
         'hover:border-foreground/20 hover:bg-muted/30',
-        ativo ? 'border-transparent ring-2' : destaque ? 'border-rose-300 dark:border-rose-800' : 'border-border',
+        ativo ? 'border-transparent ring-2' : destaque ? BORDER.rose : 'border-border',
       )}
       style={ativo ? { boxShadow: `0 0 0 2px ${corFinal}`, background: `color-mix(in srgb, ${corFinal} 7%, transparent)` } : undefined}
     >
@@ -450,7 +450,7 @@ export default function ControleFeriasPage() {
                 type="button"
                 onClick={() => { setFColaboradores('TODOS'); setPage(1) }}
                 title="Registros de colaboradores desligados no cadastro — clique para incluí-los"
-                className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-400"
+                className={cn('inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-amber-100 dark:hover:bg-amber-900/40', BADGE.amber)}
               >
                 +{data!.ocultosPorInatividade} desligado{data!.ocultosPorInatividade === 1 ? '' : 's'}
               </button>

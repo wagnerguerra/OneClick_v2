@@ -5,7 +5,7 @@ import { Loader2, Trash2 } from 'lucide-react'
 import { Button, Input, cn, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { STRONG } from '@/lib/color-styles'
+import { STRONG, SURFACE, TEXT } from '@/lib/color-styles'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -110,13 +110,13 @@ export function FolhaLancamentosTab({ clienteId }: { clienteId: string }) {
       {/* Totais */}
       {filtered.length > 0 && (
         <div className="flex gap-3">
-          <div className="rounded border px-4 py-2 text-center flex-1 bg-emerald-50/30 border-emerald-200/50 dark:bg-emerald-950/20 dark:border-emerald-800/50">
+          <div className={cn('rounded border px-4 py-2 text-center flex-1', SURFACE.emerald)}>
             <p className="text-[10px] text-muted-foreground uppercase">Total Débitos</p>
-            <p className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{fmt(totalDebito)}</p>
+            <p className={cn('text-sm font-bold tabular-nums', TEXT.emerald)}>{fmt(totalDebito)}</p>
           </div>
-          <div className="rounded border px-4 py-2 text-center flex-1 bg-red-50/30 border-red-200/50 dark:bg-red-950/20 dark:border-red-800/50">
+          <div className={cn('rounded border px-4 py-2 text-center flex-1', SURFACE.red)}>
             <p className="text-[10px] text-muted-foreground uppercase">Total Créditos</p>
-            <p className="text-sm font-bold tabular-nums text-red-700 dark:text-red-300">{fmt(totalCredito)}</p>
+            <p className={cn('text-sm font-bold tabular-nums', TEXT.red)}>{fmt(totalCredito)}</p>
           </div>
         </div>
       )}

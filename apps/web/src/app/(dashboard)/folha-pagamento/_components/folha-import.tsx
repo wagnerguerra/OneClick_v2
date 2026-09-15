@@ -5,7 +5,7 @@ import { Upload, Loader2, FileText, Check, AlertTriangle, Trash2, Clock } from '
 import { Button, Input, Card, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import { STRONG } from '@/lib/color-styles'
+import { STRONG, SURFACE, TEXT } from '@/lib/color-styles'
 
 // Cor do módulo Trabalhista (editável no design-system). Fill vívido leva texto
 // escuro (o lime é claro); superfícies/badge sutis via color-mix em `style` inline
@@ -146,12 +146,12 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
 
       {/* Resultado da última importação */}
       {ultimoResultado && (
-        <Card className="p-5 border border-emerald-200 bg-emerald-50/30 dark:border-emerald-800 dark:bg-emerald-950/20">
-          <h4 className="text-sm font-semibold mb-3 flex items-center gap-2 text-emerald-700 dark:text-emerald-300"><Check className="h-4 w-4" />Importação Concluída</h4>
+        <Card className={cn('p-5 border', SURFACE.emerald)}>
+          <h4 className={cn('text-sm font-semibold mb-3 flex items-center gap-2', TEXT.emerald)}><Check className="h-4 w-4" />Importação Concluída</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
             <div className="rounded border bg-card px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Seções</p><p className="text-lg font-bold">{ultimoResultado.secoes}</p></div>
             <div className="rounded border bg-card px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Eventos</p><p className="text-lg font-bold">{ultimoResultado.totalLinhas}</p></div>
-            <div className="rounded border bg-card px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Status</p><p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Importado</p></div>
+            <div className="rounded border bg-card px-3 py-2 text-center"><p className="text-[10px] text-muted-foreground uppercase">Status</p><p className={cn('text-sm font-semibold', TEXT.emerald)}>Importado</p></div>
           </div>
           <div className="overflow-x-auto nice-scrollbar rounded border bg-card">
             <table className="w-full text-xs">
@@ -200,9 +200,9 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
               </div>
             )}
             {erros.length > 0 && (
-              <div className="rounded border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
-                <p className="text-xs font-semibold text-amber-700 mb-1 flex items-center gap-1 dark:text-amber-300"><AlertTriangle className="h-3.5 w-3.5" />{erros.length} erro(s)</p>
-                <ul className="text-[11px] text-amber-800 space-y-0.5 max-h-[150px] overflow-y-auto nice-scrollbar dark:text-amber-300">
+              <div className={cn('rounded border p-3', SURFACE.amber)}>
+                <p className={cn('text-xs font-semibold mb-1 flex items-center gap-1', TEXT.amber)}><AlertTriangle className="h-3.5 w-3.5" />{erros.length} erro(s)</p>
+                <ul className={cn('text-[11px] space-y-0.5 max-h-[150px] overflow-y-auto nice-scrollbar', TEXT.amber)}>
                   {erros.map((a, i) => <li key={i}>• {a}</li>)}
                 </ul>
               </div>
