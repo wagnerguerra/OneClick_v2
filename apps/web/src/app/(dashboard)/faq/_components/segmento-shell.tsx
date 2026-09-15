@@ -5,7 +5,7 @@ import { Lightbulb, Info, ArrowRight, FileSearch, Calendar, RotateCcw } from 'lu
 import { ArticleShell } from './article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from './article-blocks'
 
-const FAQ_COLOR = '#0891b2'
+const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
 
 export interface CadeiaTemplate {
   nome: string

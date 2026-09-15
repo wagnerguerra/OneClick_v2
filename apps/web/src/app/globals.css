@@ -314,17 +314,29 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
 .dark .mod-administrativo .dark\:text-sky-400, .dark .mod-administrativo .dark\:text-sky-300,
 .dark .mod-perfil .dark\:text-sky-400, .dark .mod-perfil .dark\:text-sky-300 { color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 80%, white); }
 
-/* === TI / FAQ → cyan === */
-.mod-ti .bg-cyan-500, .mod-ti .bg-cyan-600, .mod-faq .bg-cyan-500, .mod-faq .bg-cyan-600 { background-color: var(--mod-ti, #22d3ee); }
-.mod-ti .hover\:bg-cyan-600:hover, .mod-ti .hover\:bg-cyan-700:hover, .mod-faq .hover\:bg-cyan-600:hover, .mod-faq .hover\:bg-cyan-700:hover { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 87%, black); }
-.mod-ti .text-cyan-500, .mod-ti .text-cyan-600, .mod-ti .text-cyan-700, .mod-faq .text-cyan-500, .mod-faq .text-cyan-600, .mod-faq .text-cyan-700 { color: var(--mod-ti, #22d3ee); }
-.mod-ti .border-cyan-200, .mod-ti .border-cyan-300, .mod-ti .border-cyan-400, .mod-ti .border-cyan-500, .mod-faq .border-cyan-200, .mod-faq .border-cyan-300, .mod-faq .border-cyan-400, .mod-faq .border-cyan-500 { border-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 40%, transparent); }
-.mod-ti .bg-cyan-50, .mod-ti .bg-cyan-100, .mod-faq .bg-cyan-50, .mod-faq .bg-cyan-100 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 12%, transparent); }
-.mod-ti .from-cyan-400, .mod-faq .from-cyan-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-ti, #22d3ee) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(34 211 238 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
-.mod-ti .to-cyan-600, .mod-faq .to-cyan-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, black) var(--tw-gradient-to-position); }
-.mod-ti .from-cyan-500, .mod-faq .from-cyan-500 { --tw-gradient-from: var(--mod-ti, #22d3ee) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
-.dark .mod-ti .dark\:bg-cyan-950\/30, .dark .mod-ti .dark\:bg-cyan-900\/40, .dark .mod-faq .dark\:bg-cyan-950\/30, .dark .mod-faq .dark\:bg-cyan-900\/40 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 18%, transparent); }
-.dark .mod-ti .dark\:text-cyan-400, .dark .mod-ti .dark\:text-cyan-300, .dark .mod-faq .dark\:text-cyan-400, .dark .mod-faq .dark\:text-cyan-300 { color: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, white); }
+/* === TI → cyan === */
+.mod-ti .bg-cyan-500, .mod-ti .bg-cyan-600 { background-color: var(--mod-ti, #22d3ee); }
+.mod-ti .hover\:bg-cyan-600:hover, .mod-ti .hover\:bg-cyan-700:hover { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 87%, black); }
+.mod-ti .text-cyan-500, .mod-ti .text-cyan-600, .mod-ti .text-cyan-700 { color: var(--mod-ti, #22d3ee); }
+.mod-ti .border-cyan-200, .mod-ti .border-cyan-300, .mod-ti .border-cyan-400, .mod-ti .border-cyan-500 { border-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 40%, transparent); }
+.mod-ti .bg-cyan-50, .mod-ti .bg-cyan-100 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 12%, transparent); }
+.mod-ti .from-cyan-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-ti, #22d3ee) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(34 211 238 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-ti .to-cyan-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, black) var(--tw-gradient-to-position); }
+.mod-ti .from-cyan-500 { --tw-gradient-from: var(--mod-ti, #22d3ee) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.dark .mod-ti .dark\:bg-cyan-950\/30, .dark .mod-ti .dark\:bg-cyan-900\/40 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 18%, transparent); }
+.dark .mod-ti .dark\:text-cyan-400, .dark .mod-ti .dark\:text-cyan-300 { color: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, white); }
+
+/* === Ajuda (FAQ) → cyan proprio (#0891b2) === */
+.mod-ajuda .bg-cyan-500, .mod-ajuda .bg-cyan-600 { background-color: var(--mod-ajuda, #0891b2); }
+.mod-ajuda .hover\:bg-cyan-600:hover, .mod-ajuda .hover\:bg-cyan-700:hover { background-color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 87%, black); }
+.mod-ajuda .text-cyan-500, .mod-ajuda .text-cyan-600, .mod-ajuda .text-cyan-700 { color: var(--mod-ajuda, #0891b2); }
+.mod-ajuda .border-cyan-200, .mod-ajuda .border-cyan-300, .mod-ajuda .border-cyan-400, .mod-ajuda .border-cyan-500 { border-color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 40%, transparent); }
+.mod-ajuda .bg-cyan-50, .mod-ajuda .bg-cyan-100 { background-color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 12%, transparent); }
+.mod-ajuda .from-cyan-400 { --tw-gradient-from: color-mix(in srgb, var(--mod-ajuda, #0891b2) 92%, white) var(--tw-gradient-from-position); --tw-gradient-to: rgb(8 145 178 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.mod-ajuda .to-cyan-600 { --tw-gradient-to: color-mix(in srgb, var(--mod-ajuda, #0891b2) 80%, black) var(--tw-gradient-to-position); }
+.mod-ajuda .from-cyan-500 { --tw-gradient-from: var(--mod-ajuda, #0891b2) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.dark .mod-ajuda .dark\:bg-cyan-950\/30, .dark .mod-ajuda .dark\:bg-cyan-900\/40 { background-color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 18%, transparent); }
+.dark .mod-ajuda .dark\:text-cyan-400, .dark .mod-ajuda .dark\:text-cyan-300 { color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 80%, white); }
 
 /* === Trabalhista → lime === */
 .mod-trabalhista .bg-lime-500, .mod-trabalhista .bg-lime-600 { background-color: var(--mod-trabalhista, #a3e635); }
@@ -402,9 +414,12 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
 .dark .mod-corporativo .dark\:bg-sky-900, .dark .mod-administrativo .dark\:bg-sky-900, .dark .mod-perfil .dark\:bg-sky-900 { background-color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 18%, transparent); }
 .dark .mod-corporativo .dark\:text-sky-200, .dark .mod-administrativo .dark\:text-sky-200, .dark .mod-perfil .dark\:text-sky-200 { color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 80%, white); }
 .dark .mod-corporativo .dark\:border-sky-700, .dark .mod-administrativo .dark\:border-sky-700, .dark .mod-perfil .dark\:border-sky-700 { border-color: color-mix(in srgb, var(--mod-corporativo, #0ea5e9) 35%, transparent); }
-.dark .mod-ti .dark\:bg-cyan-900, .dark .mod-faq .dark\:bg-cyan-900 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 18%, transparent); }
-.dark .mod-ti .dark\:text-cyan-200, .dark .mod-faq .dark\:text-cyan-200 { color: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, white); }
-.dark .mod-ti .dark\:border-cyan-700, .dark .mod-faq .dark\:border-cyan-700 { border-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 35%, transparent); }
+.dark .mod-ti .dark\:bg-cyan-900 { background-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 18%, transparent); }
+.dark .mod-ti .dark\:text-cyan-200 { color: color-mix(in srgb, var(--mod-ti, #22d3ee) 80%, white); }
+.dark .mod-ti .dark\:border-cyan-700 { border-color: color-mix(in srgb, var(--mod-ti, #22d3ee) 35%, transparent); }
+.dark .mod-ajuda .dark\:bg-cyan-900 { background-color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 18%, transparent); }
+.dark .mod-ajuda .dark\:text-cyan-200 { color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 80%, white); }
+.dark .mod-ajuda .dark\:border-cyan-700 { border-color: color-mix(in srgb, var(--mod-ajuda, #0891b2) 35%, transparent); }
 .dark .mod-trabalhista .dark\:bg-lime-900 { background-color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 18%, transparent); }
 .dark .mod-trabalhista .dark\:text-lime-200 { color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 80%, white); }
 .dark .mod-trabalhista .dark\:border-lime-700 { border-color: color-mix(in srgb, var(--mod-trabalhista, #a3e635) 35%, transparent); }

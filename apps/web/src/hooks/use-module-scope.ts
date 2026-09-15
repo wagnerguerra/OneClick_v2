@@ -76,7 +76,7 @@ const ROUTE_PREFIXES: Array<[string, string]> = [
   ['/configuracoes', 'configuracoes'],
 
   // FAQ / Ajuda
-  ['/faq', 'faq'],
+  ['/faq', 'ajuda'],
 
   // Admin (não tem slug de módulo — usa cores próprias)
   ['/admin', ''],

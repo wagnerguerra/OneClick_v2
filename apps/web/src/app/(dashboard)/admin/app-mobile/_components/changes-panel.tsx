@@ -9,7 +9,7 @@
 // assistente muda o status para 'processada'.
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent, Badge, Button, cn } from '@saas/ui'
+import { Card, CardContent, Badge, Button, Checkbox, cn } from '@saas/ui'
 import { ClipboardList, Copy, Check, CheckCircle2 } from 'lucide-react'
 import { TEXT } from '@/lib/color-styles'
 
@@ -166,12 +166,11 @@ export function ChangesPanel() {
                       : 'border-border hover:bg-muted/40 cursor-pointer',
                 )}
               >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 accent-violet-600"
+                <Checkbox
+                  className="mt-0.5"
                   checked={marcada}
                   disabled={processada}
-                  onChange={() => toggle(ch.id)}
+                  onCheckedChange={() => toggle(ch.id)}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">

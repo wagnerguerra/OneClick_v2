@@ -130,7 +130,7 @@ export function FaqEditor({ titulo, value, onChange, onSave, saving, slugTravado
         {/* Ícone */}
         <div className="col-span-12 space-y-1.5">
           <Label className="text-[13px] font-semibold">Ícone</Label>
-          <div className="flex flex-wrap gap-1.5 rounded-md border border-border p-2 max-h-28 overflow-y-auto bg-muted/20">
+          <div className="flex flex-wrap gap-1.5 rounded-md border border-border p-2 max-h-28 overflow-y-auto nice-scrollbar bg-muted/20">
             {FAQ_ICON_NAMES.map(name => {
               const I = iconByName[name]!
               const sel = value.icon === name

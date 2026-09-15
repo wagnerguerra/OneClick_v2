@@ -9,7 +9,7 @@ import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, DefRow } from '../_components/article-blocks'
 
 const MODULO_COLOR = 'var(--mod-ti, #0ea5e9)' // sky — TI
-const FAQ_COLOR = '#0369a1'
+const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
 
 export default function FaqControleAtivosPage() {
   return (

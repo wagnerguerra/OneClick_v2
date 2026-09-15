@@ -143,7 +143,7 @@ export default function DesignSystemPage() {
         </CardHeader>
         <div className="flex min-h-[700px]">
           {/* Pills laterais com seções */}
-          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+          <div className="w-[200px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
             <PillGroup label="Sistema" tabs={TABS_SISTEMA} activeTab={activeTab} onSelect={setActiveTab} />
             <PillGroup label="FAQ" tabs={TABS_FAQ} activeTab={activeTab} onSelect={setActiveTab} className="mt-4" />
             <PillGroup label="App Mobile" tabs={TABS_APP} activeTab={activeTab} onSelect={setActiveTab} className="mt-4" />
@@ -375,7 +375,7 @@ function ModuleColorsEditor() {
     { slug: 'qualidade',     label: 'Qualidade',     desc: 'Amber — não conformidades, melhorias' },
     { slug: 'configuracoes', label: 'Configurações', desc: 'Orange — settings gerais' },
     { slug: 'processos',     label: 'Processos',     desc: 'Violet — engine de processos' },
-    { slug: 'faq',           label: 'FAQ',           desc: 'Cyan — FAQ_COLOR (títulos de Section)' },
+    { slug: 'ajuda',         label: 'Ajuda',         desc: 'Cyan — cor da seção Ajuda/FAQ (var(--mod-ajuda))' },
     { slug: 'perfil',        label: 'Perfil',        desc: 'Sky suave — perfil, usuário' },
   ]
 
@@ -508,7 +508,7 @@ function ModuleColorsEditor() {
               <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={() => setLogs([])}>Limpar</Button>
             )}
           </div>
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="max-h-[400px] overflow-y-auto nice-scrollbar">
             {logs.length === 0 ? (
               <p className="text-[11px] text-muted-foreground/60 italic p-3 text-center">
                 Sem eventos. Mexa numa cor pra ver o tempo de resposta.

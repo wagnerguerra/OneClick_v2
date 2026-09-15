@@ -190,7 +190,7 @@ export default function SqlConsolePage() {
                 className="flex-1 text-[13px] focus:outline-none placeholder:text-muted-foreground/70" />
             </div>
           </div>
-          <div className="flex-1 overflow-auto py-1.5">
+          <div className="flex-1 overflow-auto nice-scrollbar py-1.5">
             {schemaLoading && schema.length === 0 ? (
               <div className="flex items-center justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
             ) : (
@@ -279,7 +279,7 @@ export default function SqlConsolePage() {
               {sel && colunasSel.length > 0 && (
                 <div className="shrink-0 border-b border-border px-3 py-2 bg-muted/10">
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{colunasSel.length} colunas · <span className="text-rose-500">•</span> = NOT NULL</div>
-                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-auto">
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-auto nice-scrollbar">
                     {colunasSel.map(c => (
                       <span key={c.name} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[11px] shadow-sm">
                         {c.name === 'id' && <KeyRound className="h-3 w-3 text-amber-500 shrink-0" />}
@@ -373,7 +373,7 @@ function ResultGrid({ res, loading, empty }: { res: RunResult | null; loading?: 
   if (!res) return <div className="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground">{empty}</div>
   if (res.ok === false) {
     return (
-      <div className="flex-1 overflow-auto bg-rose-500/5 min-h-0">
+      <div className="flex-1 overflow-auto nice-scrollbar bg-rose-500/5 min-h-0">
         <div className="flex items-center gap-2 px-3 py-2 border-b border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300 text-[12px] font-semibold">
           <AlertTriangle className="h-3.5 w-3.5" /> Erro · {res.ms} ms
         </div>
@@ -387,7 +387,7 @@ function ResultGrid({ res, loading, empty }: { res: RunResult | null; loading?: 
     </div>
   }
   return (
-    <div className="flex-1 overflow-auto min-h-0">
+    <div className="flex-1 overflow-auto nice-scrollbar min-h-0">
       <table className="w-full text-[12px] border-collapse">
         <thead className="sticky top-0 z-10">
           <tr>{res.columns.map(c => (

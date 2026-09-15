@@ -237,7 +237,7 @@ export default function EmailTemplatesPage() {
               <Plus className="h-3.5 w-3.5" /> Novo
             </Button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="flex-1 overflow-y-auto nice-scrollbar p-2">
             {templates.length === 0 ? (
               <p className="px-2 py-6 text-center text-xs text-muted-foreground">
                 Nenhum modelo. Crie um novo ou restaure os exemplos.

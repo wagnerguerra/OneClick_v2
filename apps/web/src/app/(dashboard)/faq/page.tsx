@@ -21,7 +21,7 @@ import { FAQ_ARTIGOS, CATEGORIA_ORDEM } from './_components/articles-catalog'
 import { resolveFaqIcon } from './_components/faq-icons'
 
 /** Acento da seção FAQ — o mesmo do cabeçalho dos artigos. */
-const FAQ_COLOR = '#0891b2'
+const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
 
 /**
  * Ícone e cor de cada categoria.
