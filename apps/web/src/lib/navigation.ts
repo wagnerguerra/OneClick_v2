@@ -308,7 +308,6 @@ export const navigation: NavGroup[] = [
       { label: 'Chat Interno', href: '/configuracoes/chat', icon: MessageSquare },
       { label: 'Certificado Digital', href: '/configuracoes/certificado', icon: BadgeCheck, masterOnly: true },
       { label: 'Stripe', href: '/configuracoes/stripe', icon: CreditCard, masterOnly: true },
-      { label: 'Empresas (tenants)', href: '/admin/empresas', icon: Building2, masterOnly: true },
       { label: 'Planos e preços', href: '/admin/planos', icon: CircleDollarSign, masterOnly: true },
       { label: 'Assinatura de email', href: '/admin/assinatura-template', icon: Mail, masterOnly: true },
       { label: 'Métricas', href: '/metricas', icon: Activity, masterOnly: true },

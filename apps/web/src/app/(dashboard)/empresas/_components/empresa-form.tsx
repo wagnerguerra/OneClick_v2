@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useForm, Controller, type Control } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createEmpresaSchema, type CreateEmpresaInput } from '@saas/types'
-import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, Building2, Plug, Users, MonitorSmartphone } from 'lucide-react'
+import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, Building2, Plug, Users, ShieldCheck, RotateCcw, AlertTriangle } from 'lucide-react'
 import {
   Button,
   Input,
@@ -25,6 +25,7 @@ import {
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
 
@@ -34,7 +35,7 @@ const EMPRESA_TABS = [
   { key: 'contato',      label: 'Contato',      icon: Phone },
   { key: 'logo',         label: 'Logomarca',    icon: Upload },
   { key: 'integracoes',  label: 'Integrações',  icon: Plug },
-  { key: 'portal',       label: 'Portal do Cliente', icon: MonitorSmartphone },
+  { key: 'permissoes',   label: 'Permissões',   icon: ShieldCheck },
   { key: 'usuarios',     label: 'Usuários',     icon: Users },
 ] as const
 
@@ -725,8 +726,8 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
               </div>
             )}
 
-            {/* PORTAL DO CLIENTE */}
-            {activeTab === 'portal' && <ModulosDoPortal empresaId={empresaId} mode={mode} />}
+            {/* PERMISSÕES — módulos do Portal do Cliente para este tenant */}
+            {activeTab === 'permissoes' && <PermissoesDoPortal empresaId={empresaId} mode={mode} />}
 
             {/* USUÁRIOS */}
             {activeTab === 'usuarios' && <UsuariosDaEmpresa empresaId={empresaId} mode={mode} />}
@@ -739,42 +740,82 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
   )
 }
 
-/**
- * O que os clientes desta empresa enxergam no portal.
- *
- * SÓ LEITURA aqui. Quem liga e desliga é o master, no cadastro de tenants:
- * liberar módulo do portal é decisão comercial, e não do escritório sobre si
- * mesmo. Mas o escritório precisa VER — sem isto, o administrador não tem como
- * saber por que uma aba não aparece no portal dos clientes dele, e a pergunta
- * vira chamado.
- *
- * "Padrão" contra "definido para esta empresa" é a distinção que importa na
- * hora de pedir mudança: um módulo que segue o padrão do catálogo pode mudar
- * para todo mundo numa versão; um que tem decisão própria foi escolhido para
- * este escritório e fica onde está.
- */
-function ModulosDoPortal({ empresaId, mode }: { empresaId?: string; mode: 'create' | 'edit' }) {
-  const [modulos, setModulos] = useState<Array<{
-    slug: string
-    rotulo: string
-    descricao: string
-    implementado: boolean
-    liberado: boolean
-    personalizado: boolean
-  }> | null>(null)
-  const [erro, setErro] = useState<string | null>(null)
+interface ModuloDoPortal {
+  slug: string
+  rotulo: string
+  descricao: string
+  implementado: boolean
+  padrao: boolean
+  liberado: boolean
+  personalizado: boolean
+}
 
-  useEffect(() => {
+/**
+ * Permissões do tenant: quais módulos do Portal do Cliente os clientes dele
+ * enxergam.
+ *
+ * O tenant do OneClick é a EMPRESA, e o que é dele mora no cadastro dela. Esta
+ * aba viveu em `/admin/empresas` até 15/09/2026, numa tela que listava a tabela
+ * `Tenant` — onde o único registro era um cadastro de teste de QA, e as quatro
+ * empresas em operação não apareciam.
+ *
+ * Quem liga e desliga é o master da plataforma: liberar módulo do portal é
+ * decisão comercial sobre o tenant, não do tenant sobre si mesmo. Os demais
+ * veem a mesma lista, sem os interruptores — o administrador do escritório
+ * precisa saber por que uma aba não aparece no portal dos clientes dele.
+ *
+ * A trava é o `masterProcedure` no servidor; esconder o interruptor aqui é só
+ * para não oferecer o que vai ser recusado.
+ */
+function PermissoesDoPortal({ empresaId, mode }: { empresaId?: string; mode: 'create' | 'edit' }) {
+  const { isMaster, loading: carregandoPermissao } = useUserPermissions()
+  // Enquanto a permissão carrega, ninguém edita: mostrar interruptor que some
+  // um instante depois é pior do que mostrá-lo um instante mais tarde.
+  const editavel = isMaster && !carregandoPermissao
+
+  const [modulos, setModulos] = useState<ModuloDoPortal[] | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState<string | null>(null)
+
+  const carregar = () => {
     if (mode !== 'edit' || !empresaId) return
     ;(trpc as any).empresa.portalModulos.query({ empresaId })
-      .then(setModulos)
+      .then((m: ModuloDoPortal[]) => { setModulos(m); setErro(null) })
       .catch((e: Error) => setErro(e.message))
-  }, [empresaId, mode])
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { carregar() }, [empresaId, mode])
+
+  async function alternar(m: ModuloDoPortal, liberado: boolean) {
+    if (!empresaId) return
+    setSalvando(m.slug)
+    // Otimista: o interruptor precisa responder na hora, e o efeito de uma
+    // liberação não é visível nesta tela mesmo.
+    setModulos(l => l && l.map(x => (x.slug === m.slug ? { ...x, liberado, personalizado: true } : x)))
+    try {
+      await (trpc as any).empresa.definirPortalModulo.mutate({ empresaId, modulo: m.slug, liberado })
+    } catch (e) {
+      carregar()
+      alerts.error('Não foi possível salvar', (e as Error).message)
+    } finally { setSalvando(null) }
+  }
+
+  async function voltarAoPadrao(m: ModuloDoPortal) {
+    if (!empresaId) return
+    setSalvando(m.slug)
+    try {
+      await (trpc as any).empresa.voltarPortalModuloAoPadrao.mutate({ empresaId, modulo: m.slug })
+      carregar()
+    } catch (e) {
+      alerts.error('Não foi possível restaurar', (e as Error).message)
+    } finally { setSalvando(null) }
+  }
 
   if (mode !== 'edit') {
     return (
       <p className="text-[13px] text-muted-foreground">
-        Os módulos do Portal do Cliente aparecem aqui depois que a empresa for criada.
+        As permissões do Portal do Cliente ficam disponíveis depois que a empresa for criada.
       </p>
     )
   }
@@ -793,16 +834,17 @@ function ModulosDoPortal({ empresaId, mode }: { empresaId?: string; mode: 'creat
       <div>
         <h6 className="text-[13px] font-semibold text-foreground">Módulos do Portal do Cliente</h6>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
-          O que os usuários dos seus clientes veem ao entrar no portal. A liberação é feita
-          pelo suporte OneClick — fale com a gente para mudar.
+          {editavel
+            ? 'O que os usuários dos clientes deste tenant enxergam no portal. Desligar um módulo o esconde do menu e faz as rotas dele deixarem de responder — não é só a tela.'
+            : 'O que os usuários dos seus clientes veem ao entrar no portal. A liberação é feita pelo administrador da plataforma.'}
         </p>
       </div>
 
       <div className="divide-y divide-border rounded-lg border border-border">
         {modulos.map(m => (
-          <div key={m.slug} className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+          <div key={m.slug} className={cn('flex flex-wrap items-start gap-3 px-3 py-2.5', !m.implementado && 'bg-muted/20')}>
             <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+              <p className="flex flex-wrap items-center gap-1.5 text-[13px] font-medium text-foreground">
                 {m.rotulo}
                 {/* Módulo ainda não construído não é o mesmo que bloqueado, e
                     confundir os dois faria o escritório pedir liberação de algo
@@ -812,25 +854,60 @@ function ModulosDoPortal({ empresaId, mode }: { empresaId?: string; mode: 'creat
                     em construção
                   </span>
                 )}
+                {m.personalizado && (
+                  <span className="text-[10px] font-normal text-muted-foreground" title="Decisão específica para este tenant">
+                    (definido para este tenant)
+                  </span>
+                )}
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">{m.descricao}</p>
+              {/* Ligar o que não existe produz item de menu que leva a uma
+                  página em branco — pior que a ausência. */}
+              {editavel && !m.implementado && m.liberado && (
+                <p className="mt-1 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3" />
+                  Ligado, mas sem tela ainda — o cliente não verá nada.
+                </p>
+              )}
             </div>
+
             <div className="flex shrink-0 items-center gap-2">
-              {m.personalizado && (
-                <span className="text-[10px] text-muted-foreground" title="Decisão específica para esta empresa">
-                  definido para esta empresa
+              {editavel ? (
+                <>
+                  {m.personalizado && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => voltarAoPadrao(m)}
+                      disabled={salvando !== null}
+                      title={`Voltar ao padrão (${m.padrao ? 'liberado' : 'bloqueado'})`}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {salvando === m.slug
+                    ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    : (
+                      <Switch
+                        checked={m.liberado}
+                        onCheckedChange={v => alternar(m, v)}
+                        aria-label={`Liberar ${m.rotulo}`}
+                      />
+                    )}
+                </>
+              ) : (
+                <span
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-[11px] font-medium',
+                    m.liberado
+                      ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400'
+                      : 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  {m.liberado ? 'Liberado' : 'Bloqueado'}
                 </span>
               )}
-              <span
-                className={cn(
-                  'rounded-full px-2 py-0.5 text-[11px] font-medium',
-                  m.liberado
-                    ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400'
-                    : 'bg-muted text-muted-foreground',
-                )}
-              >
-                {m.liberado ? 'Liberado' : 'Bloqueado'}
-              </span>
             </div>
           </div>
         ))}

@@ -4,9 +4,11 @@ import { prisma } from '@saas/db'
 import { MODULOS_DO_PORTAL, resolverLiberados } from './portal-modulos'
 
 /**
- * Liberação dos módulos do Portal do Cliente, por empresa.
+ * Liberação dos módulos do Portal do Cliente, por tenant — e o tenant do
+ * OneClick é a EMPRESA.
  *
- * Quem decide é o master da plataforma, em `/admin/empresas`. É gate de
+ * Quem decide é o master da plataforma, no cadastro do tenant: `/empresas`,
+ * aba Permissões. É gate de
  * produto: o escritório pode não querer que o cliente veja obrigações
  * atrasadas, ou pode vender o portal em camadas.
  */
@@ -84,53 +86,5 @@ export class PortalModulosService {
   async voltarAoPadrao(empresaId: string, modulo: string) {
     await prisma.portalModuloEmpresa.deleteMany({ where: { empresaId, modulo } })
     return { ok: true }
-  }
-
-  /**
-   * As empresas que a tela do master lista.
-   *
-   * Traz a contagem de clientes com portal: a decisão de liberar módulo pesa
-   * diferente numa empresa com 300 clientes usando o portal e numa que tem
-   * zero. Sem o número, o master escolhe no escuro.
-   */
-  async empresasComPortal() {
-    const empresas = await prisma.empresa.findMany({
-      orderBy: { nomeFantasia: 'asc' },
-      select: {
-        id: true,
-        nomeFantasia: true,
-        razaoSocial: true,
-        _count: { select: { clientes: true } },
-      },
-    })
-
-    const usuarios = await prisma.clienteUsuario.groupBy({
-      by: ['clienteId'],
-      where: { ativo: true },
-      _count: { _all: true },
-    })
-    const clientesComUsuario = new Set(usuarios.map(u => u.clienteId))
-
-    // Uma consulta só para descobrir a qual empresa cada cliente com portal
-    // pertence — evita N consultas, uma por empresa.
-    const donos = clientesComUsuario.size > 0
-      ? await prisma.cliente.findMany({
-        where: { id: { in: [...clientesComUsuario] } },
-        select: { empresaId: true },
-      })
-      : []
-
-    const porEmpresa = new Map<string, number>()
-    for (const d of donos) {
-      if (!d.empresaId) continue
-      porEmpresa.set(d.empresaId, (porEmpresa.get(d.empresaId) ?? 0) + 1)
-    }
-
-    return empresas.map(e => ({
-      id: e.id,
-      nome: e.nomeFantasia || e.razaoSocial || e.id,
-      clientes: e._count.clientes,
-      clientesComPortal: porEmpresa.get(e.id) ?? 0,
-    }))
   }
 }

@@ -34,7 +34,7 @@ import { PortalContexto, type VinculoPortal } from './_lib/contexto'
 /**
  * Itens do menu.
  *
- * `modulo` amarra o item à liberação que o master faz em /admin/empresas: sem
+ * `modulo` amarra o item à liberação que o master faz em /empresas, aba Permissões: sem
  * o módulo liberado para a empresa, o item some da barra. Início não tem
  * módulo — é a porta de entrada, e esconder a porta deixaria a pessoa presa
  * numa tela sem saída.

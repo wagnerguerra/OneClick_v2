@@ -37,6 +37,29 @@ export function createEmpresaRouter(
         await empresaService.getById(input.empresaId, ctx.isMaster ?? false, ctx.empresaId)
         return portalModulos.listar(input.empresaId)
       }),
+
+    /**
+     * Liga ou desliga um módulo do portal para os clientes deste tenant.
+     *
+     * `masterProcedure`: é o master GLOBAL da plataforma quem decide — liberar
+     * módulo do portal é decisão comercial sobre o tenant, e não do tenant
+     * sobre si mesmo. O `isEmpresaMaster` (dono do tenant) NÃO passa aqui.
+     *
+     * Moraram em `adminTenant` até 15/09/2026, numa tela que tratava a tabela
+     * `Tenant` como se fosse o cadastro de tenants. Não é: o tenant do OneClick
+     * é a `Empresa`, e tudo que é dele fica no cadastro dela.
+     */
+    definirPortalModulo: masterProcedure
+      .input(z.object({
+        empresaId: z.string(),
+        modulo: z.string().min(1).max(40),
+        liberado: z.boolean(),
+      }))
+      .mutation(({ input, ctx }) => portalModulos.definir(input, ctx.userId)),
+
+    voltarPortalModuloAoPadrao: masterProcedure
+      .input(z.object({ empresaId: z.string(), modulo: z.string().min(1).max(40) }))
+      .mutation(({ input }) => portalModulos.voltarAoPadrao(input.empresaId, input.modulo)),
     create: masterProcedure.input(createEmpresaSchema).mutation(({ input, ctx }) => empresaService.create(input, ctx.userId)),
     update: masterProcedure.input(z.object({ id: z.string(), data: updateEmpresaSchema })).mutation(({ input, ctx }) => empresaService.update(input.id, input.data, ctx.userId)),
     delete: masterProcedure.input(z.object({ id: z.string() })).mutation(({ input, ctx }) => empresaService.delete(input.id, ctx.userId)),

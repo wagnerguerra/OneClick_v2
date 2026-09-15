@@ -47,7 +47,6 @@ export const config = {
     '/configuracoes/certificado',
     '/metricas',
     '/backup-restore',
-    '/admin/empresas',
     '/admin/planos',
   ],
 }

@@ -994,7 +994,7 @@ export class TrpcService {
       nfse: createNfseRouter(this.nfseDistService),
       onboarding: createOnboardingRouter(this.onboardingService),
       admin: createAdminRouter(this.adminService),
-      adminTenant: createAdminTenantRouter(this.adminTenantService, this.portalModulosService),
+      adminTenant: createAdminTenantRouter(this.adminTenantService),
       cliente: createClienteRouter(this.clienteService, this.legacyImportService, this.sciService, this.integrationService, this.importOneclickService, this.cnpjService, this.clienteEnriquecimentoService, this.sincronizarResponsaveisService, this.contratoSyncService, this.omieService, this.duplicidadeService, this.mesclagemService, this.clienteCapaService, this.dossieService, this.dossieBackfillService, this.clienteLogoService, this.socioPerfisService, this.clienteRelatorioService, this.clienteUsuarioService, this.portalEscritorioService),
       billing: createBillingRouter(this.stripeService),
       colaborador: createColaboradorRouter(this.colaboradorService),
