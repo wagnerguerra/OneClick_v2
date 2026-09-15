@@ -15,7 +15,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { BuscarNotasModal } from './_components/buscar-notas-modal'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -226,10 +226,10 @@ export default function DanfePage() {
 // ─────────────────────────────────────────────────────────────
 function KpiCard({ icon: Icon, label, value, color }: { icon: typeof FileText; label: string; value: number; color: string }) {
   const map: Record<string, string> = {
-    rose:    'text-rose-700 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-300',
-    amber:   'text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300',
-    emerald: 'text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300',
-    sky:     'text-sky-700 bg-sky-50 dark:bg-sky-950/30 dark:text-sky-300',
+    rose:    BADGE.rose,
+    amber:   BADGE.amber,
+    emerald: BADGE.emerald,
+    sky:     BADGE.sky,
   }
   return (
     <div className="flex items-center gap-2 rounded-md border bg-card p-2.5">
@@ -307,7 +307,7 @@ function UploadModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
             onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files) }}
             className={cn(
               'border-2 border-dashed rounded-md p-6 text-center transition-colors',
-              dragOver ? 'border-sky-400 bg-sky-50/50' : 'border-border',
+              dragOver ? 'border-sky-400 bg-sky-50/50 dark:bg-sky-950/30' : 'border-border',
             )}
           >
             <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
@@ -323,7 +323,7 @@ function UploadModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => { reset(); onClose() }}>Cancelar</Button>
-          <Button onClick={handleUpload} disabled={uploading || files.length === 0} className="bg-sky-600 hover:bg-sky-700">
+          <Button onClick={handleUpload} disabled={uploading || files.length === 0} className="text-white" style={{ backgroundColor: MODULE_COLOR }}>
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {uploading ? 'Enviando...' : 'Enviar'}
           </Button>

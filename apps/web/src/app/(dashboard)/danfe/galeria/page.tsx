@@ -15,7 +15,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
-import { STRONG, TEXT } from '@/lib/color-styles'
+import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
@@ -80,12 +80,12 @@ interface CompetenciaInfo {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  AUTORIZADA: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300',
-  CANCELADA:  'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300',
-  DENEGADA:   'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300',
-  INUTILIZADA: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-950/30 dark:text-slate-300',
-  EMITIDA:     'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300',
-  SUBSTITUIDA: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300',
+  AUTORIZADA: BADGE.emerald,
+  CANCELADA:  BADGE.rose,
+  DENEGADA:   BADGE.amber,
+  INUTILIZADA: BADGE.slate,
+  EMITIDA:     BADGE.emerald,
+  SUBSTITUIDA: BADGE.amber,
 }
 
 function fmtBRL(v: string | number | null): string {

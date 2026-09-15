@@ -19,7 +19,7 @@ import {
   Button, Card, Input, Label, Badge, cn, Checkbox,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, BORDER, SURFACE, TEXT } from '@/lib/color-styles'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import {
   type Parametros, type Regime, type Atividade, type Operacao, type Escopo,
@@ -308,7 +308,7 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
             <span className="text-sm font-semibold">Total IVA</span>
             <span className="text-lg font-bold tabular-nums">{porcento(totalIva)}</span>
           </div>
-          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <p className={cn('mt-3 rounded-md border px-3 py-2 text-[11px]', BADGE.amber)}>
             A alíquota do IVA ainda não está definida em lei, e a estimativa oficial varia de <b>26,5%</b> a <b>28%</b>.
           </p>
         </Card>
@@ -409,7 +409,7 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
           <span className="text-lg font-bold tabular-nums">{porcento(aliquotaCpp(p))}</span>
         </div>
         {p.folhaMensal <= 0 && (
-          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <p className={cn('mt-3 rounded-md border px-3 py-2 text-[11px]', BADGE.amber)}>
             Sem a folha, a CPP não entra nas colunas fora do Simples e o comparativo <b>não é conclusivo</b>.
           </p>
         )}
@@ -437,8 +437,8 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
                           variant="outline"
                           className={cn(
                             'h-4 whitespace-nowrap px-1.5 text-[9px]',
-                            i.categoria === 'REMUNERACAO' && 'border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400',
-                            i.categoria === 'REVISAR' && 'border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-400',
+                            i.categoria === 'REMUNERACAO' && cn(BORDER.emerald, TEXT.emerald),
+                            i.categoria === 'REVISAR' && cn(BORDER.amber, TEXT.amber),
                           )}
                         >
                           {ROTULO_CATEGORIA_FOLHA[i.categoria]}
@@ -598,7 +598,7 @@ export function SecaoConfigurar({ p, onChange, origem, composicao, onAbrirCompos
         </Card>
       )}
 
-      <p className="mt-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300">
+      <p className={cn('mt-5 rounded-lg border px-4 py-3 text-xs', BADGE.rose)}>
         Os resultados da simulação não substituem uma consultoria tributária. Confirme os dados, as alíquotas
         e as regras específicas do setor antes de tomar decisões.
       </p>
@@ -644,7 +644,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
           bate com a memória de cálculo, o resto da comparação está apoiado
           num número que ninguém conferiu. */}
       {c.divergenciaDas?.alerta && (
-        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+        <div className={cn('mb-5 rounded-lg border px-4 py-3', SURFACE.amber)}>
           <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
             <AlertTriangle className="h-4 w-4" /> DAS informado diverge do calculado
           </p>
@@ -658,7 +658,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
       )}
 
       {!c.conclusivo && (
-        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+        <div className={cn('mb-5 rounded-lg border px-4 py-3', SURFACE.amber)}>
           <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
             <AlertTriangle className="h-4 w-4" /> Comparativo ainda não conclusivo
           </p>
@@ -829,7 +829,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
               </tbody>
             </table>
             {l.pendencias.length > 0 && (
-              <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-amber-700 dark:text-amber-400">
+              <ul className={cn('mt-2 list-disc space-y-0.5 pl-4 text-[11px]', TEXT.amber)}>
                 {l.pendencias.map(m => <li key={m}>{m}</li>)}
               </ul>
             )}
@@ -880,7 +880,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
         </Card>
       </div>
 
-      <p className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+      <p className={cn('mb-5 rounded-lg border px-4 py-3 text-xs', BADGE.amber)}>
         <b>Importante:</b> a simulação não deve ser lida apenas pela alíquota final. Avalie também o impacto da
         geração de créditos, a relação com os clientes (quem compra pode aproveitar o crédito) e a
         competitividade do negócio. O Simples <b>não é extinto</b> pela reforma: as duas primeiras colunas
@@ -1265,7 +1265,7 @@ export function SecaoVisaoGeral({ p, cliente }: {
       </div>
 
       {!comparativo.conclusivo && (
-        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+        <div className={cn('mb-5 rounded-lg border px-4 py-3', SURFACE.amber)}>
           <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
             <AlertTriangle className="h-4 w-4" /> Simulação ainda não conclusiva
           </p>
@@ -1277,14 +1277,12 @@ export function SecaoVisaoGeral({ p, cliente }: {
 
       <div className={cn(
         'mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3',
-        alivio
-          ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30'
-          : 'border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30',
+        alivio ? SURFACE.emerald : SURFACE.rose,
       )}>
-        <span className={cn('text-sm font-medium', alivio ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300')}>
+        <span className={cn('text-sm font-medium', alivio ? TEXT.emerald : TEXT.rose)}>
           {economiaAnual === null ? 'Diferença anual' : alivio ? 'Economia anual estimada' : 'Custo adicional anual estimado'}
         </span>
-        <span className={cn('text-lg font-bold tabular-nums', alivio ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300')}>
+        <span className={cn('text-lg font-bold tabular-nums', alivio ? TEXT.emerald : TEXT.rose)}>
           {economiaAnual === null ? '—' : reais(Math.abs(economiaAnual))}
         </span>
       </div>

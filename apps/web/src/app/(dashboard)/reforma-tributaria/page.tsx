@@ -29,7 +29,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
-import { TEXT } from '@/lib/color-styles'
+import { FILL, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { useTabLabel } from '@/hooks/use-tab-label'
 import { SeletorCliente, type ClienteSimulador } from './_components/seletor-cliente'
@@ -477,7 +477,7 @@ export default function ReformaTributariaPage() {
                           <td className="py-2 pr-3">
                             <span className="block h-1.5 w-full overflow-hidden rounded-full bg-muted">
                               <span
-                                className="block h-full rounded-full bg-sky-500"
+                                className={cn('block h-full rounded-full', FILL.sky)}
                                 style={{ width: `${Math.max(0, (m.receita / maior) * 100)}%` }}
                               />
                             </span>

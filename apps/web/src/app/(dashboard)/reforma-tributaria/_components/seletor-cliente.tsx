@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, Loader2, Check, ChevronDown, X } from 'lucide-react'
 import { Input, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 
 export interface ClienteSimulador {
@@ -149,7 +150,7 @@ export function SeletorCliente({ selecionado, onSelecionar }: {
                       .filter(Boolean).join(' · ')}
                   </p>
                 </div>
-                {selecionado?.id === c.id && <Check className="h-4 w-4 shrink-0 text-emerald-600" />}
+                {selecionado?.id === c.id && <Check className={cn('h-4 w-4 shrink-0', TEXT.emerald)} />}
               </button>
             ))
           )}

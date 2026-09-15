@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { Button, Card, cn } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
-import { TEXT, BORDER } from '@/lib/color-styles'
+import { BADGE, STRONG, TEXT, BORDER } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
@@ -16,10 +16,10 @@ import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 
 const STATUS_CHIP: Record<string, string> = {
-  AUTORIZADA: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300',
-  CANCELADA:  'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300',
-  DENEGADA:   'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300',
-  INUTILIZADA: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-950/30 dark:text-slate-300',
+  AUTORIZADA: BADGE.emerald,
+  CANCELADA:  BADGE.rose,
+  DENEGADA:   BADGE.amber,
+  INUTILIZADA: BADGE.slate,
 }
 
 function fmtBRL(v: string | number): string {
@@ -103,7 +103,7 @@ export default function DanfeDetalhePage() {
             {regerando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Regerar PDF
           </Button>
-          <Button size="sm" variant="outline" onClick={handleDelete} className={cn('gap-1.5 hover:bg-rose-50', TEXT.rose, BORDER.rose)}>
+          <Button size="sm" variant="outline" onClick={handleDelete} className={cn('gap-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30', TEXT.rose, BORDER.rose)}>
             <Trash2 className="h-3.5 w-3.5" /> Excluir
           </Button>
           <BackButton href="/danfe" />
@@ -121,11 +121,11 @@ export default function DanfeDetalhePage() {
           <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border', STATUS_CHIP[danfe.status] ?? STATUS_CHIP.AUTORIZADA)}>
             {danfe.status}
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 px-2.5 py-0.5 text-[11px] font-medium uppercase border border-slate-200 dark:border-slate-700">
+          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border', STRONG.slate)}>
             Modelo {danfe.modelo} ({danfe.modelo === '55' ? 'NFe' : 'NFCe'})
           </span>
           {danfe.protocolo && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 px-2.5 py-0.5 text-[11px] font-medium uppercase">
+            <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase', STRONG.sky)}>
               Protocolo {danfe.protocolo}
             </span>
           )}

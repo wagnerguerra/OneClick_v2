@@ -99,7 +99,7 @@ export function SpedSheetSelector({ files, color, onFields, onBlock }: ToolExtra
         </Button>
       </div>
 
-      <div className="max-h-64 space-y-0.5 overflow-y-auto rounded-lg border border-border/50 bg-card/50 p-1.5">
+      <div className="nice-scrollbar max-h-64 space-y-0.5 overflow-y-auto rounded-lg border border-border/50 bg-card/50 p-1.5">
         {listed.map((reg) => {
           const checked = selected.has(reg)
           return (

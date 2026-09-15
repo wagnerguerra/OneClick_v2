@@ -15,7 +15,7 @@ import {
   Checkbox, Switch,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { BADGE, STRONG, TEXT } from '@/lib/color-styles'
+import { BADGE, STRONG, TEXT, SURFACE, BORDER } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
@@ -452,10 +452,10 @@ export default function CaixaPostalRegrasPage() {
             : <span className={cn('text-[10px] font-bold', className)}>+{value} pts</span>
         )
 
-        const KW_STYLES: Record<string, { border: string; bg: string; text: string; icon: typeof AlertTriangle; label: string }> = {
-          criticas: { border: 'border-red-200 dark:border-red-800', bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-400', icon: AlertTriangle, label: 'Críticas' },
-          medias: { border: 'border-amber-200 dark:border-amber-800', bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-400', icon: Clock, label: 'Médias' },
-          baixas: { border: 'border-gray-200 dark:border-gray-700', bg: 'bg-gray-50 dark:bg-gray-800/50', text: 'text-gray-600 dark:text-gray-400', icon: Mail, label: 'Baixas' },
+        const KW_STYLES: Record<string, { badge: string; border: string; text: string; icon: typeof AlertTriangle; label: string }> = {
+          criticas: { badge: BADGE.red, border: BORDER.red, text: TEXT.red, icon: AlertTriangle, label: 'Críticas' },
+          medias: { badge: BADGE.amber, border: BORDER.amber, text: TEXT.amber, icon: Clock, label: 'Médias' },
+          baixas: { badge: BADGE.slate, border: BORDER.slate, text: TEXT.slate, icon: Mail, label: 'Baixas' },
         }
 
         return (
@@ -502,13 +502,13 @@ export default function CaixaPostalRegrasPage() {
                     <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Faixas de Prioridade (Score)</h4>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                       {([
-                        { key: 'P0' as const, label: 'P0 — Crítica', icon: AlertTriangle, border: 'border-red-200 dark:border-red-800', bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-400' },
-                        { key: 'P1' as const, label: 'P1 — Alta', icon: MailWarning, border: 'border-orange-200 dark:border-orange-800', bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-400' },
-                        { key: 'P2' as const, label: 'P2 — Média', icon: Clock, border: 'border-amber-200 dark:border-amber-800', bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-400' },
+                        { key: 'P0' as const, label: 'P0 — Crítica', icon: AlertTriangle, surface: SURFACE.red, text: TEXT.red },
+                        { key: 'P1' as const, label: 'P1 — Alta', icon: MailWarning, surface: SURFACE.orange, text: TEXT.orange },
+                        { key: 'P2' as const, label: 'P2 — Média', icon: Clock, surface: SURFACE.amber, text: TEXT.amber },
                       ]).map(p => {
                         const Icon = p.icon
                         return (
-                          <div key={p.key} className={cn('rounded-lg border p-3 text-center', p.border, p.bg)}>
+                          <div key={p.key} className={cn('rounded-lg border p-3 text-center', p.surface)}>
                             <div className="flex items-center justify-center gap-1.5 mb-1">
                               <Icon className={cn('h-3.5 w-3.5', p.text)} />
                               <span className={cn('text-xs font-bold', p.text)}>{p.label}</span>
@@ -524,12 +524,12 @@ export default function CaixaPostalRegrasPage() {
                           </div>
                         )
                       })}
-                      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 text-center">
+                      <div className={cn('rounded-lg border p-3 text-center', SURFACE.slate)}>
                         <div className="flex items-center justify-center gap-1.5 mb-1">
-                          <Mail className="h-3.5 w-3.5 text-gray-500" />
-                          <span className="text-xs font-bold text-gray-600 dark:text-gray-400">P3 — Baixa</span>
+                          <Mail className={cn('h-3.5 w-3.5', TEXT.slate)} />
+                          <span className={cn('text-xs font-bold', TEXT.slate)}>P3 — Baixa</span>
                         </div>
-                        <p className="text-lg font-bold text-gray-600 dark:text-gray-400">&lt; {cfg.thresholds.P2}</p>
+                        <p className={cn('text-lg font-bold', TEXT.slate)}>&lt; {cfg.thresholds.P2}</p>
                       </div>
                     </div>
                   </div>
@@ -618,7 +618,7 @@ export default function CaixaPostalRegrasPage() {
                                 <KwIcon className={cn('h-3.5 w-3.5', style.text)} />
                                 <span className={cn('text-xs font-semibold', style.text)}>{style.label}</span>
                               </div>
-                              <Badge variant="outline" className={cn('text-[10px]', style.bg, style.text, style.border)}>
+                              <Badge variant="outline" className={cn('text-[10px]', style.badge)}>
                                 {configEditing ? (
                                   <div className="flex items-center gap-1">
                                     <span>+</span>
@@ -632,7 +632,7 @@ export default function CaixaPostalRegrasPage() {
                             </div>
                             <div className="flex flex-wrap gap-1">
                               {catCfg.palavras.map(kw => (
-                                <span key={kw} className={cn('inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-mono', style.bg, style.border, style.text)}>
+                                <span key={kw} className={cn('inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-mono', style.badge)}>
                                   {kw}
                                   {configEditing && (
                                     <button onClick={() => removeKeyword(cat, kw)} className="ml-0.5 hover:opacity-70">

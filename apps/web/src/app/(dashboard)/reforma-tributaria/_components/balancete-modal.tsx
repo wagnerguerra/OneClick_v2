@@ -16,7 +16,7 @@ import {
   Button, Dialog, DialogContent, DialogTitle, DialogDescription, Badge, cn,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
@@ -192,7 +192,7 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
           {carregando ? (
             <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
           ) : !status || status.meses === 0 ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            <div className={cn('rounded-lg border px-4 py-3 text-sm', BADGE.amber)}>
               <p className="font-semibold">Nunca sincronizado</p>
               <p className="mt-0.5 text-xs">
                 Sem balancete, o crédito da simulação é estimado por premissa em vez de sair das contas
@@ -222,9 +222,7 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
 
               <div className={cn(
                 'flex items-start gap-2 rounded-lg border px-4 py-2.5 text-xs',
-                desatualizado
-                  ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300'
-                  : 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300',
+                desatualizado ? BADGE.amber : BADGE.emerald,
               )}>
                 {desatualizado
                   ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -237,7 +235,7 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
               </div>
 
               {status.lacunas.length > 0 && (
-                <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300">
+                <div className={cn('rounded-lg border px-4 py-2.5 text-xs', BADGE.rose)}>
                   <p className="font-semibold">Meses faltando no meio da série</p>
                   <p className="mt-1 flex flex-wrap gap-1">
                     {status.lacunas.slice(0, 12).map(l => (
@@ -270,7 +268,7 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
           )}
 
           {status && !status.idSci && (
-            <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-300">
+            <div className={cn('rounded-lg border px-4 py-3 text-xs', BADGE.sky)}>
               <p className="font-semibold">Sem ID SCI no cadastro — será descoberto agora</p>
               <p className="mt-0.5">
                 A importação identifica a empresa no Firebird pelo ID SCI. Como o cadastro ainda não tem,
@@ -281,7 +279,7 @@ export function BalanceteModal({ clienteId, clienteNome, aberto, onFechar, onAtu
           )}
 
           {smConectado === false && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            <div className={cn('rounded-lg border px-4 py-3 text-xs', BADGE.amber)}>
               <p className="font-semibold">Service Manager não está escutando</p>
               <p className="mt-0.5">
                 Quem lê o Firebird é o Service Manager, no PC do escritório — o servidor não alcança a

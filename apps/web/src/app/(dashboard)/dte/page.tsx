@@ -16,7 +16,7 @@ import {
   Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT, STRONG } from '@/lib/color-styles'
+import { BADGE, TEXT, STRONG } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -74,22 +74,22 @@ interface ClienteAgrupado {
 
 const MODULE_COLOR = 'var(--mod-fiscal, #818cf8)'
 
-const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
-  DFE: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300' },
-  NOTIFICACOES: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300' },
-  'NOTIFICAÇÕES': { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300' },
-  'COOPERAÇÃO FISCAL': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300' },
-  'COOPERACAO FISCAL': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300' },
-  INTIMACOES: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300' },
-  'INTIMAÇÕES': { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300' },
-  CIENCIAS: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300' },
-  'CIÊNCIAS': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300' },
+const TIPO_COLORS: Record<string, string> = {
+  DFE: BADGE.blue,
+  NOTIFICACOES: BADGE.amber,
+  'NOTIFICAÇÕES': BADGE.amber,
+  'COOPERAÇÃO FISCAL': BADGE.purple,
+  'COOPERACAO FISCAL': BADGE.purple,
+  INTIMACOES: BADGE.red,
+  'INTIMAÇÕES': BADGE.red,
+  CIENCIAS: BADGE.purple,
+  'CIÊNCIAS': BADGE.purple,
 }
 
 function TipoBadge({ tipo }: { tipo: string }) {
   const upper = tipo.toUpperCase()
-  const colors = TIPO_COLORS[upper] || TIPO_COLORS[tipo] || { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-400' }
-  return <Badge className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded', colors.bg, colors.text)}>{tipo || '--'}</Badge>
+  const colors = TIPO_COLORS[upper] || TIPO_COLORS[tipo] || BADGE.slate
+  return <Badge variant="outline" className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded', colors)}>{tipo || '--'}</Badge>
 }
 
 function formatDoc(doc: string) {

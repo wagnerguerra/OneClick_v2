@@ -16,7 +16,7 @@ import {
   Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -92,11 +92,11 @@ function getCompetencias() {
   return comps
 }
 
-const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  aguardando_fechamento: { bg: 'bg-gray-50 dark:bg-gray-800/50', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700' },
-  pronto_envio: { bg: 'bg-sky-50 dark:bg-sky-900/20', text: 'text-sky-700 dark:text-sky-400', border: 'border-sky-200 dark:border-sky-800' },
-  aguardando_pagamento: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800' },
-  concluido: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' },
+const STATUS_COLORS: Record<string, string> = {
+  aguardando_fechamento: BADGE.slate,
+  pronto_envio: BADGE.sky,
+  aguardando_pagamento: BADGE.amber,
+  concluido: BADGE.emerald,
 }
 
 const ALERTA_COLORS: Record<string, { bg: string; text: string }> = {
@@ -415,7 +415,7 @@ export default function DctfwebPage() {
                     </button>
                   </TableCell>
                   <TableCell>
-                    <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', sc.bg, sc.text, sc.border)}>
+                    <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium', sc)}>
                       {r.statusProcessoLabel}
                     </span>
                     {r.divergente && <span className="ml-1 text-[9px] text-red-500 font-bold">DIVERG.</span>}

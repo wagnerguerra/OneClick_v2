@@ -15,7 +15,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -43,12 +43,12 @@ interface Consulta {
   user?: { id: string; name: string } | null
 }
 
-const CERTIDAO_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  'Negativa': { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' },
-  'Positiva': { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-400', border: 'border-red-200 dark:border-red-800' },
-  'Positiva com Efeitos de Negativa': { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800' },
-  'Pendente': { bg: 'bg-gray-50 dark:bg-gray-800/50', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700' },
-  'Não identificada': { bg: 'bg-gray-50 dark:bg-gray-800/50', text: 'text-gray-500 dark:text-gray-500', border: 'border-gray-200 dark:border-gray-700' },
+const CERTIDAO_COLORS: Record<string, string> = {
+  'Negativa': BADGE.emerald,
+  'Positiva': BADGE.red,
+  'Positiva com Efeitos de Negativa': BADGE.amber,
+  'Pendente': BADGE.slate,
+  'Não identificada': BADGE.slate,
 }
 
 const PAGE_SIZES = [10, 20, 50]
@@ -363,10 +363,9 @@ export default function SituacaoFiscalPage() {
 
   function CertidaoBadge({ tipo }: { tipo: string | null }) {
     if (!tipo) return <span className="text-muted-foreground text-xs">—</span>
-    const fallback = { bg: 'bg-gray-50 dark:bg-gray-800/50', text: 'text-gray-500 dark:text-gray-500', border: 'border-gray-200 dark:border-gray-700' }
-    const colors = CERTIDAO_COLORS[tipo] ?? fallback
+    const colors = CERTIDAO_COLORS[tipo] ?? BADGE.slate
     return (
-      <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold', colors.bg, colors.text, colors.border)}>
+      <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold', colors)}>
         {tipo === 'Negativa' && <CheckCircle2 className="h-3 w-3" />}
         {tipo === 'Positiva' && <XCircle className="h-3 w-3" />}
         {tipo === 'Positiva com Efeitos de Negativa' && <AlertTriangle className="h-3 w-3" />}

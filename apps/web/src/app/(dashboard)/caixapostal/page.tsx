@@ -1389,7 +1389,7 @@ export default function CaixaPostalPage() {
                           <div><span className="text-muted-foreground">Score: </span><span className="font-medium">{detalheMsg.score}/100</span></div>
                         </div>
                         {detalheMsg.acao_recomendada && (
-                          <div className="text-xs mt-2 p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300">
+                          <div className={cn('text-xs mt-2 p-2 rounded border', BADGE.amber)}>
                             <strong>Ação recomendada:</strong> {detalheMsg.acao_recomendada}
                           </div>
                         )}
@@ -1416,7 +1416,7 @@ export default function CaixaPostalPage() {
                             if (meta[campo] && typeof meta[campo] === 'string') return <div className="text-sm leading-relaxed whitespace-pre-wrap">{meta[campo] as string}</div>
                           }
                         }
-                        if (detalheData) return (<div><p className="text-xs text-muted-foreground mb-2">Resposta bruta da API:</p><pre className="text-xs whitespace-pre-wrap bg-muted/30 rounded-lg p-4 overflow-x-auto max-h-[400px]">{JSON.stringify(detalheData, null, 2)}</pre></div>)
+                        if (detalheData) return (<div><p className="text-xs text-muted-foreground mb-2">Resposta bruta da API:</p><pre className="text-xs whitespace-pre-wrap bg-muted/30 rounded-lg p-4 overflow-x-auto max-h-[400px] nice-scrollbar">{JSON.stringify(detalheData, null, 2)}</pre></div>)
                         return <p className="text-center text-muted-foreground py-10">Nenhum conteúdo disponível.</p>
                       })()}
                     </div>
@@ -2199,7 +2199,7 @@ export default function CaixaPostalPage() {
             {verArquivadas ? (
               <div className="flex items-center gap-2">
                 <Archive className={cn('h-3.5 w-3.5', TEXT.amber)} />
-                <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Mensagens arquivadas</span>
+                <span className={cn('text-xs font-medium', TEXT.amber)}>Mensagens arquivadas</span>
                 <Badge variant="outline" className="text-[10px]">{mensagens.length}</Badge>
               </div>
             ) : (
@@ -2539,7 +2539,7 @@ export default function CaixaPostalPage() {
                             <div><span className="text-muted-foreground">Score: </span><span className="font-medium">{detalheMsg.score}/100</span></div>
                           </div>
                           {detalheMsg.acao_recomendada && (
-                            <div className="text-xs p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300">
+                            <div className={cn('text-xs p-2 rounded border', BADGE.amber)}>
                               <strong>Ação:</strong> {detalheMsg.acao_recomendada}
                             </div>
                           )}
@@ -2558,7 +2558,7 @@ export default function CaixaPostalPage() {
                                 if (meta[campo] && typeof meta[campo] === 'string') return <div className="text-sm leading-relaxed whitespace-pre-wrap">{meta[campo] as string}</div>
                               }
                             }
-                            if (detalheData) return <pre className="text-[10px] whitespace-pre-wrap bg-muted/30 rounded p-3 overflow-x-auto max-h-[300px]">{JSON.stringify(detalheData, null, 2)}</pre>
+                            if (detalheData) return <pre className="text-[10px] whitespace-pre-wrap bg-muted/30 rounded p-3 overflow-x-auto max-h-[300px] nice-scrollbar">{JSON.stringify(detalheData, null, 2)}</pre>
                             return <p className="text-center text-muted-foreground py-6 text-xs">Nenhum conteúdo disponível.</p>
                           })()}
                         </div>
