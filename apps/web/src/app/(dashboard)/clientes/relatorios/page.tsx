@@ -101,7 +101,7 @@ function MultiSelect({ label, options, selected, onChange }: {
   const toggle = (v: string) => { const n = new Set(selected); if (n.has(v)) n.delete(v); else n.add(v); onChange(n) }
   return (
     <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-sm border border-border bg-card hover:bg-muted/50">
+      <button type="button" role="combobox" aria-expanded={open} onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-sm border border-border hover:bg-muted/50">
         <span className="text-muted-foreground">{label}:</span>
         <span className="font-medium">{selected.size === 0 ? 'Todos' : `${selected.size} selec.`}</span>
         <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />

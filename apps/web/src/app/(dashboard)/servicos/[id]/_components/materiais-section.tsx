@@ -21,7 +21,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import {
   StickyNote, Link as LinkIcon, Paperclip, Plus, Pencil, Trash2, Loader2,
   ExternalLink, Download, X,
@@ -41,9 +41,9 @@ export interface Material {
 }
 
 const TIPO_META: Record<MaterialTipo, { icon: typeof StickyNote; label: string; cls: string }> = {
-  NOTA:    { icon: StickyNote, label: 'Nota',    cls: 'bg-amber-50  border-amber-300  text-amber-700  hover:bg-amber-100  dark:hover:bg-amber-900/40  dark:bg-amber-950/30  dark:border-amber-800  dark:text-amber-300' },
-  LINK:    { icon: LinkIcon,   label: 'Link',    cls: 'bg-sky-50    border-sky-300    text-sky-700    hover:bg-sky-100    dark:hover:bg-sky-900/40    dark:bg-sky-950/30    dark:border-sky-800    dark:text-sky-300' },
-  ARQUIVO: { icon: Paperclip,  label: 'Arquivo', cls: 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300' },
+  NOTA:    { icon: StickyNote, label: 'Nota',    cls: cn(BADGE.amber, 'hover:bg-amber-100 dark:hover:bg-amber-900/40') },
+  LINK:    { icon: LinkIcon,   label: 'Link',    cls: cn(BADGE.sky, 'hover:bg-sky-100 dark:hover:bg-sky-900/40') },
+  ARQUIVO: { icon: Paperclip,  label: 'Arquivo', cls: cn(BADGE.emerald, 'hover:bg-emerald-100 dark:hover:bg-emerald-900/40') },
 }
 
 function fmtBytes(n?: number | null) {

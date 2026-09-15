@@ -711,7 +711,7 @@ export default function ClientesPage() {
                   title={onlyMensal ? 'Filtrando somente os mensais — clique para limpar' : 'Filtrar somente os mensais'}
                   className={cn(
                     'rounded px-0.5 text-lg font-bold tabular-nums transition-colors hover:bg-muted',
-                    onlyMensal ? 'text-cyan-600 dark:text-cyan-400' : 'text-foreground',
+                    onlyMensal ? TEXT.cyan : 'text-foreground',
                   )}
                 >
                   {stats.mensais.toLocaleString('pt-BR')}
@@ -724,7 +724,7 @@ export default function ClientesPage() {
                   title={filterServico === '__com__' ? 'Filtrando quem tem serviço — clique para limpar' : 'Filtrar quem tem serviço contratado'}
                   className={cn(
                     'rounded px-0.5 text-lg font-bold tabular-nums transition-colors hover:bg-muted',
-                    filterServico === '__com__' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground',
+                    filterServico === '__com__' ? TEXT.emerald : 'text-foreground',
                   )}
                 >
                   {stats.comServico.toLocaleString('pt-BR')}
@@ -1149,7 +1149,7 @@ export default function ClientesPage() {
       {/* Seleção em lote */}
       {selected.size > 0 && (
         <div className="flex flex-col gap-2 rounded-lg bg-emerald-50 px-4 py-2.5 text-sm dark:bg-emerald-950/20 sm:flex-row sm:items-center sm:gap-3">
-          <span className="font-medium text-emerald-700 dark:text-emerald-400">{selected.size} selecionado{selected.size > 1 ? 's' : ''}</span>
+          <span className={cn('font-medium', TEXT.emerald)}>{selected.size} selecionado{selected.size > 1 ? 's' : ''}</span>
           {/* Âmbar soft com borda (tom do KPI "Backlog em aberto"): destaca sobre o fundo
               esmeralda da barra, onde o soft-warning (tint 10%) sumia. O per-row segue
               soft-warning (fica sobre a linha, homogêneo com o Editar/Reativar). */}
@@ -1272,7 +1272,7 @@ export default function ClientesPage() {
                           <button
                             type="button"
                             onClick={e => { e.stopPropagation(); setFiliaisModal({ documento: cliente.documento, matrizNome: cliente.razaoSocial }) }}
-                            className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors"
+                            className={cn('inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full transition-colors hover:bg-violet-200 dark:hover:bg-violet-900/50', BADGE.violet)}
                             title={`Ver ${cliente.filiaisCount} ${cliente.filiaisCount === 1 ? 'filial' : 'filiais'} deste grupo`}
                           >
                             <Building2 className="h-2.5 w-2.5" />
@@ -1508,7 +1508,7 @@ export default function ClientesPage() {
             <div className="flex gap-1 mb-3 border-b">
               {(['ATIVIDADE', 'ORIGEM', 'GRUPO', 'BENEFICIO'] as const).map(tab => (
                 <button key={tab} type="button"
-                  className={cn('px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px', opcoesTab === tab ? 'border-emerald-500 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-muted-foreground hover:text-foreground')}
+                  className={cn('px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px', opcoesTab === tab ? cn('border-emerald-500', TEXT.emerald) : 'border-transparent text-muted-foreground hover:text-foreground')}
                   onClick={() => { setOpcoesTab(tab); loadOpcoes(tab) }}
                 >
                   {tab === 'ATIVIDADE' ? 'Atividades' : tab === 'ORIGEM' ? 'Origens' : tab === 'GRUPO' ? 'Grupos' : 'Benefícios'}
@@ -1634,7 +1634,7 @@ function CelulaTexto({ clienteId, campo, valor, podeEditar, onUpdated, maxLength
           if (e.key === 'Enter') { e.preventDefault(); salvar() }
           if (e.key === 'Escape') { setRascunho(valor ?? ''); setEditando(false) }
         }}
-        className="w-full rounded border border-primary bg-background px-1.5 py-0.5 text-sm outline-none"
+        className="w-full rounded border border-primary px-1.5 py-0.5 text-sm outline-none"
       />
     )
   }

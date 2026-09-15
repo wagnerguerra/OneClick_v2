@@ -5,10 +5,11 @@ import {
   Loader2, X, Users, Check, AlertTriangle, UserCog,
 } from 'lucide-react'
 import {
-  Button, Card, Badge, Input, Label,
+  Button, Card, Badge, Input, Label, cn,
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import { BADGE, TEXT, BORDER, SURFACE } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -79,7 +80,7 @@ export function SincronizarResponsaveisDialog({ open, onOpenChange, onAfterRun }
                   Padrão 12 meses. Quanto maior, mais dados — mas pode considerar responsáveis que mudaram recentemente.
                 </p>
               </div>
-              <div className="rounded border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
+              <div className={cn('rounded border p-3 text-xs', BADGE.sky)}>
                 <p className="font-semibold mb-1">Como funciona:</p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>Para cada cliente vinculado ao Acessórias, busca as deliveries do período</li>
@@ -89,7 +90,7 @@ export function SincronizarResponsaveisDialog({ open, onOpenChange, onAfterRun }
                   <li>Atualiza <code>ClienteAreaContratada.responsavelId</code> da área correspondente</li>
                 </ul>
               </div>
-              <div className="rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              <div className={cn('rounded border p-3 text-xs', BADGE.amber)}>
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <div>
@@ -116,20 +117,20 @@ export function SincronizarResponsaveisDialog({ open, onOpenChange, onAfterRun }
                   <div className="text-[10px] uppercase text-muted-foreground">Clientes processados</div>
                   <div className="text-xl font-semibold tabular-nums">{resultado.stats.clientesProcessados}</div>
                 </Card>
-                <Card className="p-3 border-l-2 border-emerald-200">
-                  <div className="text-[10px] uppercase text-emerald-700">Áreas atualizadas</div>
+                <Card className={cn('p-3 border-l-2', BORDER.emerald)}>
+                  <div className={cn('text-[10px] uppercase', TEXT.emerald)}>Áreas atualizadas</div>
                   <div className="text-xl font-semibold tabular-nums">{resultado.stats.areasAtualizadas}</div>
                 </Card>
-                <Card className="p-3 border-l-2 border-amber-200">
-                  <div className="text-[10px] uppercase text-amber-700">Sem match no User</div>
+                <Card className={cn('p-3 border-l-2', BORDER.amber)}>
+                  <div className={cn('text-[10px] uppercase', TEXT.amber)}>Sem match no User</div>
                   <div className="text-xl font-semibold tabular-nums">{resultado.stats.areasSemMatch}</div>
                 </Card>
-                <Card className="p-3 border-l-2 border-red-200">
-                  <div className="text-[10px] uppercase text-red-700">Área não contratada</div>
+                <Card className={cn('p-3 border-l-2', BORDER.red)}>
+                  <div className={cn('text-[10px] uppercase', TEXT.red)}>Área não contratada</div>
                   <div className="text-xl font-semibold tabular-nums">{resultado.stats.areasNaoContratadas}</div>
                 </Card>
-                <Card className="p-3 border-l-2 border-slate-200">
-                  <div className="text-[10px] uppercase text-slate-700">Sem dados Acessórias</div>
+                <Card className={cn('p-3 border-l-2', BORDER.slate)}>
+                  <div className={cn('text-[10px] uppercase', TEXT.slate)}>Sem dados Acessórias</div>
                   <div className="text-xl font-semibold tabular-nums">{resultado.stats.clientesSemDados}</div>
                 </Card>
               </div>
@@ -180,9 +181,9 @@ export function SincronizarResponsaveisDialog({ open, onOpenChange, onAfterRun }
               )}
 
               {resultado.stats.areasAtualizadas > 0 && resultado.pendencias.length === 0 && (
-                <div className="rounded border border-emerald-200 bg-emerald-50 p-4 flex items-center gap-3">
-                  <Check className="h-5 w-5 text-emerald-600 shrink-0" />
-                  <p className="text-sm text-emerald-900">
+                <div className={cn('rounded border p-4 flex items-center gap-3', SURFACE.emerald)}>
+                  <Check className={cn('h-5 w-5 shrink-0', TEXT.emerald)} />
+                  <p className={cn('text-sm', TEXT.emerald)}>
                     <strong>{resultado.stats.areasAtualizadas} áreas atualizadas.</strong> Todos os responsáveis foram
                     sincronizados sem pendências.
                   </p>

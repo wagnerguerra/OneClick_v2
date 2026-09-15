@@ -175,7 +175,7 @@ export function PassoEmailsSection({ passoId, readOnly, density = 'normal', inli
             'inline-flex items-center gap-1 rounded-md border font-medium transition-colors shrink-0',
             compact ? 'h-6 px-1.5 text-[10px]' : 'h-7 px-2 text-[11px]',
             count > 0
-              ? 'bg-indigo-50 border-indigo-300 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:border-indigo-800 dark:text-indigo-300'
+              ? cn(BADGE.indigo, 'hover:bg-indigo-100 dark:hover:bg-indigo-900/40')
               : 'border-dashed border-muted-foreground/30 text-muted-foreground hover:bg-muted/40 hover:text-foreground hover:border-muted-foreground/50',
           )}
           title="E-mails de conclusão do passo"

@@ -40,7 +40,7 @@ function coresParaEvento(categoria: string | null) {
   if (categoria && categoria in OBRIGACAO_CATEGORIA_CORES) {
     return OBRIGACAO_CATEGORIA_CORES[categoria as ObrigacaoCategoria]
   }
-  return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }
+  return { bg: 'bg-slate-50 dark:bg-slate-800/50', text: 'text-slate-700 dark:text-slate-300', border: 'border-slate-200 dark:border-slate-700' }
 }
 
 // Sigla/borda para qualquer Área — as 3 fiscais têm mapa próprio; as demais caem

@@ -140,7 +140,7 @@ function StatusBadge({ status, pausado }: { status: string; pausado?: boolean })
   // distinguir execucoes paradas das ativas relance na lista.
   if (pausado && status === 'EM_ANDAMENTO') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800">
+      <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold', BADGE.amber)}>
         <Pause className="h-3 w-3" /> Pausado
       </span>
     )
@@ -192,41 +192,41 @@ function tipoDoServico(s: Servico): {
   if (s.tipo === 'PERGUNTA') {
     return {
       curto: 'Pergunta', completo: 'Pergunta — ponto de decisão que ramifica a cadeia',
-      classe: 'bg-fuchsia-50 dark:bg-fuchsia-900/20 border-fuchsia-300 dark:border-fuchsia-700 text-fuchsia-700 dark:text-fuchsia-300',
+      classe: BADGE.fuchsia,
       Icone: HelpCircle,
     }
   }
   if (s.categoriaServico === 'FLUXO') {
     return {
       curto: 'Fluxo', completo: 'Parte do Fluxo — item interno de outro serviço',
-      classe: 'bg-violet-50 dark:bg-violet-900/20 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300',
+      classe: BADGE.violet,
       Icone: Network,
     }
   }
   if (s.ehObrigacaoAcessoria) {
     return {
       curto: 'Acessória', completo: 'Obrigação Acessória — entregue com uma certa recorrência',
-      classe: 'bg-rose-50 dark:bg-rose-900/20 border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300',
+      classe: BADGE.rose,
       Icone: ShieldCheck,
     }
   }
   if (s.ehServicoInterno) {
     return {
       curto: 'Interno', completo: 'Serviço Interno — de execução interna, fora do catálogo comercial',
-      classe: 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300',
+      classe: BADGE.slate,
       Icone: Lock,
     }
   }
   if (s.categoriaServico === 'MENSAL' || s.recorrenteMensal) {
     return {
       curto: 'Recorrente', completo: 'Serviço Recorrente — executado com uma determinada recorrência',
-      classe: 'bg-sky-50 dark:bg-sky-900/20 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300',
+      classe: BADGE.sky,
       Icone: Repeat,
     }
   }
   return {
     curto: 'Extraordinário', completo: 'Serviço Extraordinário — pontual, cobrança por execução',
-    classe: 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300',
+    classe: BADGE.amber,
     Icone: Zap,
   }
 }
@@ -2526,8 +2526,8 @@ function SortablePasso({ passo, etapaIdx, passoIdx, onUpdate, onRemove }: {
         className={cn(
           'shrink-0 inline-flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors font-medium',
           passo.obrigatorio
-            ? 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/30'
-            : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30',
+            ? cn(BADGE.rose, 'hover:bg-rose-100 dark:hover:bg-rose-900/30')
+            : cn(BADGE.emerald, 'hover:bg-emerald-100 dark:hover:bg-emerald-900/30'),
         )}
         title={passo.obrigatorio ? 'Obrigatório (clique para tornar opcional)' : 'Opcional (clique para tornar obrigatório)'}
       >

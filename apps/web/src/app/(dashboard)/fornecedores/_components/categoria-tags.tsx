@@ -78,7 +78,7 @@ export function CategoriaTagsInput({ value, onChange }: { value: string[]; onCha
   return (
     <div className="relative" ref={boxRef}>
       <div
-        className="mt-1.5 flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-transparent px-2 py-1.5 focus-within:ring-2 focus-within:ring-primary/20"
+        className="mt-1.5 flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-white dark:bg-[#262a33] px-2 py-1.5 focus-within:ring-2 focus-within:ring-primary/20"
         onClick={() => setFocused(true)}
       >
         {selected.map((c) => (

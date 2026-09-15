@@ -15,6 +15,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { Loader2, ArrowLeft, X, FileBarChart, ExternalLink, Search as SearchIcon } from 'lucide-react'
 import { Button, Input, Label, Checkbox } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BADGE } from '@/lib/color-styles'
 
 type ErpRow = { ano: number; mes: number; movimentacao: number }
 type ChartData = Record<string, ErpRow[] | undefined>
@@ -69,11 +70,11 @@ function statusFromVal(val: number, limite: number): 'ok' | 'igual' | 'defasado'
   return 'defasado'
 }
 
-const STATUS_BADGE: Record<'ok' | 'igual' | 'defasado' | 'sem', { bg: string; text: string; label: string }> = {
-  ok: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'OK' },
-  igual: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'IGUAL' },
-  defasado: { bg: 'bg-red-100', text: 'text-red-700', label: 'DEFASADO' },
-  sem: { bg: 'bg-gray-100', text: 'text-gray-500', label: '—' },
+const STATUS_BADGE: Record<'ok' | 'igual' | 'defasado' | 'sem', { cls: string; label: string }> = {
+  ok: { cls: BADGE.emerald, label: 'OK' },
+  igual: { cls: BADGE.amber, label: 'IGUAL' },
+  defasado: { cls: BADGE.red, label: 'DEFASADO' },
+  sem: { cls: BADGE.slate, label: '—' },
 }
 
 // Cor da borda do mini-card de parâmetro
@@ -186,7 +187,7 @@ export function ContratoChartModal({
             <div className="flex items-end gap-3 flex-wrap">
               <div className="space-y-1"><Label>Início</Label><Input type="date" value={chartDatei} onChange={(e) => setChartDatei(e.target.value)} className="h-8" /></div>
               <div className="space-y-1"><Label>Fim</Label><Input type="date" value={chartDatef} onChange={(e) => setChartDatef(e.target.value)} className="h-8" /></div>
-              <Button type="button" size="sm" onClick={onLoad} disabled={chartLoading} style={{ backgroundColor: '#10b981', color: '#fff' }}>
+              <Button type="button" size="sm" onClick={onLoad} disabled={chartLoading} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
                 {chartLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />} Atualizar
               </Button>
             </div>
@@ -207,7 +208,7 @@ export function ContratoChartModal({
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto p-5">
+          <div className="flex-1 overflow-y-auto nice-scrollbar p-5">
             {chartLoading ? (
               <div className="flex flex-col items-center justify-center py-16">
                 <Loader2 className="h-8 w-8 animate-spin text-emerald-500 mb-3" />
@@ -243,7 +244,7 @@ export function ContratoChartModal({
                           <span className="text-[9px] text-muted-foreground">
                             Contrato: {card.paramVal > 0 ? fmtVal(card.paramVal, card.isMoney) : '—'}
                           </span>
-                          <span className={cn('text-[9px] font-bold px-1 rounded', STATUS_BADGE[card.status].bg, STATUS_BADGE[card.status].text)}>
+                          <span className={cn('text-[9px] font-bold px-1 rounded', STATUS_BADGE[card.status].cls)}>
                             {STATUS_BADGE[card.status].label}
                           </span>
                         </div>
@@ -424,7 +425,7 @@ function ComparativoCard({ ind, data, params, Charts }: {
         <Charts.Bar data={cData} options={opts} />
       </div>
       <div className="mt-1 flex items-center justify-center">
-        <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded', STATUS_BADGE[st].bg, STATUS_BADGE[st].text)}>
+        <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded', STATUS_BADGE[st].cls)}>
           {STATUS_BADGE[st].label}
         </span>
       </div>
@@ -539,7 +540,7 @@ function IndicadorCard({ ind, rows, paramVal, Charts, fullscreen }: {
       </div>
 
       {/* Tabela completa: Mês/Valor/Limite/Status */}
-      <div className="mt-2 max-h-[140px] overflow-y-auto">
+      <div className="mt-2 max-h-[140px] overflow-y-auto nice-scrollbar">
         <table className="w-full text-[10px]">
           <thead className="sticky top-0 bg-card">
             <tr className="border-b border-border/30">
@@ -559,7 +560,7 @@ function IndicadorCard({ ind, rows, paramVal, Charts, fullscreen }: {
                   <td className="py-1 px-1 text-right font-mono">{fmtVal(v, ind.isMoney)}</td>
                   <td className="py-1 px-1 text-right font-mono text-muted-foreground">{paramVal > 0 ? fmtVal(paramVal, ind.isMoney) : '—'}</td>
                   <td className="py-1 px-1 text-center">
-                    <span className={cn('text-[8px] font-bold px-1 rounded', STATUS_BADGE[st].bg, STATUS_BADGE[st].text)}>
+                    <span className={cn('text-[8px] font-bold px-1 rounded', STATUS_BADGE[st].cls)}>
                       {STATUS_BADGE[st].label}
                     </span>
                   </td>

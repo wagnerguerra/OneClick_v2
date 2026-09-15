@@ -10,6 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BORDER, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useClientesPerms } from './use-clientes-perms'
@@ -287,7 +288,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
             {/* ── Publicados ────────────────────────────────────────────── */}
             <section>
               <p className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
-                <Eye className="h-3.5 w-3.5 text-emerald-600" />
+                <Eye className={cn('h-3.5 w-3.5', TEXT.emerald)} />
                 No portal do cliente
                 <span className="font-normal text-muted-foreground">{publicados.length}</span>
               </p>
@@ -316,8 +317,8 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
                           className={cn(
                             'h-4 shrink-0 px-1.5 text-[9px]',
                             a.lidoEm
-                              ? 'border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400'
-                              : 'border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-400',
+                              ? cn(BORDER.emerald, TEXT.emerald)
+                              : cn(BORDER.amber, TEXT.amber),
                           )}
                           title={a.lidoEm ? `Aberto em ${new Date(a.lidoEm).toLocaleString('pt-BR')}` : 'O cliente ainda não abriu'}
                         >
@@ -381,13 +382,13 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
             {fechadas.length > 0 && (
               <section>
                 <p className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                  <CheckCircle2 className={cn('h-3.5 w-3.5', TEXT.emerald)} />
                   Pedidos encerrados
                 </p>
                 <div className="grid gap-1">
                   {fechadas.map(s => (
                     <p key={s.id} className="truncate text-[11px] text-muted-foreground">
-                      <span className={s.situacao === 'ATENDIDA' ? 'text-emerald-600 dark:text-emerald-400' : ''}>
+                      <span className={s.situacao === 'ATENDIDA' ? TEXT.emerald : ''}>
                         {s.situacao === 'ATENDIDA' ? '✓' : '—'}
                       </span>{' '}
                       {s.titulo}
@@ -495,7 +496,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
                 onChange={e => setPedido(p => ({ ...p, descricao: e.target.value }))}
                 rows={2}
                 placeholder="Alguma instrução que ajude o cliente a mandar o arquivo certo."
-                className="mt-1.5 w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
+                className="mt-1.5 w-full rounded-md px-3 py-2 text-sm"
               />
             </div>
             <div className="grid gap-3 sm:grid-cols-3">

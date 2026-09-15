@@ -675,9 +675,9 @@ function ResumoSection({ clienteId, logs, loading, cliente, resumoFiscal }: {
   const localLogs = logs.filter(l => l.tipo.startsWith('local'))
 
   function statusLabel(status: string | null | undefined): { label: string; cls: string } {
-    if (status === 'ok') return { label: 'Sincronizado', cls: 'text-emerald-600' }
-    if (status === 'erro') return { label: 'Erro', cls: 'text-red-600' }
-    if (status === 'aguardando') return { label: 'Aguardando', cls: 'text-amber-600' }
+    if (status === 'ok') return { label: 'Sincronizado', cls: TEXT.emerald }
+    if (status === 'erro') return { label: 'Erro', cls: TEXT.red }
+    if (status === 'aguardando') return { label: 'Aguardando', cls: TEXT.amber }
     return { label: 'Nunca sincronizou', cls: 'text-muted-foreground' }
   }
   function fmtData(iso: string | null | undefined): string {

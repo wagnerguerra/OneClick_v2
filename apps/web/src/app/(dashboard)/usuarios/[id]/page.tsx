@@ -16,7 +16,7 @@ import { cn } from '@saas/ui'
 import Link from 'next/link'
 import { BackButton } from '@/components/ui/back-button'
 import { UserAvatar } from '@/components/ui/user-avatar'
-import { STRONG } from '@/lib/color-styles'
+import { STRONG, TEXT, BADGE } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { SectionCard } from '@/components/section-card'
 import { trpc } from '@/lib/trpc'
@@ -310,7 +310,7 @@ export default function UserProfilePage() {
                 {user.isMaster ? (
                   <div className="text-center py-6">
                     <Shield className="h-8 w-8 mx-auto mb-2 text-amber-500" />
-                    <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Usuário MASTER</p>
+                    <p className={cn('text-sm font-semibold', TEXT.amber)}>Usuário MASTER</p>
                     <p className="text-xs text-muted-foreground mt-1">Acesso total a todos os módulos do sistema.</p>
                   </div>
                 ) : (
@@ -445,7 +445,7 @@ export default function UserProfilePage() {
           </SectionCard>
 
           {user.isMaster && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            <div className={cn('rounded-lg border px-4 py-3 text-xs', BADGE.amber)}>
               <p className="flex items-center gap-1.5 font-semibold"><Shield className="h-3.5 w-3.5" />Usuário MASTER</p>
               <p className="mt-1">Enxerga todos os módulos e ignora as permissões individuais.</p>
             </div>

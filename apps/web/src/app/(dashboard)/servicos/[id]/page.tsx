@@ -1496,11 +1496,11 @@ export default function ServicoDetailPage() {
                               (atribuicaoUsaOrcamento ? 1 : 0) +
                               (atribuicaoUsaClienteArea ? 1 : 0)
                             return totalFontes === 0 ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900 shrink-0">
+                              <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0', BADGE.rose)}>
                                 ⚠ Sem fonte definida
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900 shrink-0">
+                              <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0', BADGE.emerald)}>
                                 {totalFontes} fonte{totalFontes > 1 ? 's' : ''}
                               </span>
                             )
@@ -1538,7 +1538,7 @@ export default function ServicoDetailPage() {
                                 {atribuicaoColaboradores.map(uid => {
                                   const u = usuariosForSelect.find(x => x.id === uid)
                                   return (
-                                    <span key={uid} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900">
+                                    <span key={uid} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border', BADGE.sky)}>
                                       {u?.name ?? uid}
                                       <button
                                         type="button"
@@ -1581,7 +1581,7 @@ export default function ServicoDetailPage() {
                                 {atribuicaoAreas.map(aid => {
                                   const a = areas.find(x => x.id === aid)
                                   return (
-                                    <span key={aid} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900">
+                                    <span key={aid} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border', BADGE.emerald)}>
                                       {a?.name ?? aid}
                                       <button
                                         type="button"

@@ -168,7 +168,7 @@ export function ImportModal({ open, onClose, onSuccess }: ImportModalProps) {
                 </TableBody></Table>
               </div>
               {invalidRows.length > 0 && (
-                <div className="flex items-start gap-2 rounded-[2px] bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                <div className={cn('flex items-start gap-2 rounded-[2px] bg-amber-500/10 px-3 py-2 text-xs', TEXT.amber)}>
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /><span>Registros com erros serão ignorados.</span>
                 </div>
               )}

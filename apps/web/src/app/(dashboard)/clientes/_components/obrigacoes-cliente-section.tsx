@@ -389,7 +389,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
           <div className="flex flex-1 items-center gap-2 min-w-0">
             <ListChecks className="h-4 w-4 text-muted-foreground shrink-0" />
             <h5 className="text-sm font-semibold mb-0">Obrigações do cliente</h5>
-            <Badge variant="outline" className="h-5 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+            <Badge variant="outline" className={cn('h-5 text-[10px]', BADGE.emerald)}>
               {totalAtivas} ativa{totalAtivas === 1 ? '' : 's'}
             </Badge>
             {items.length > totalAtivas && (
@@ -583,7 +583,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                   )}
                 </TableCell>
                 <TableCell className="hidden sm:table-cell text-center whitespace-nowrap">
-                  <Badge variant="outline" className={cn('h-5 text-[10px]', i.ativo ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'text-muted-foreground')}>
+                  <Badge variant="outline" className={cn('h-5 text-[10px]', i.ativo ? BADGE.emerald : 'text-muted-foreground')}>
                     {i.ativo ? 'Ativa' : 'Inativa'}
                   </Badge>
                 </TableCell>
@@ -721,7 +721,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                   className="h-8 pl-8 text-xs"
                 />
               </div>
-              <div className="border rounded max-h-[280px] overflow-y-auto divide-y">
+              <div className="border rounded max-h-[280px] overflow-y-auto nice-scrollbar divide-y">
                 {loadingObr ? (
                   <div className="text-center text-muted-foreground py-6">
                     <Loader2 className="h-4 w-4 animate-spin mx-auto" />

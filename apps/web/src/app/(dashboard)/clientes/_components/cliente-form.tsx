@@ -827,7 +827,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                     não passa nem perto. */}
                 {isEdit && canEditDetails && watchedValues.status === 'ATIVO' && (
                   <div className={cn('mt-5 rounded-xl border p-5', ZONA_PERIGO_SURFACE_CLASS)}>
-                    <h5 className="mb-0 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                    <h5 className={cn('mb-0 text-sm font-semibold', TEXT.amber)}>
                       Zona de perigo
                     </h5>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1162,7 +1162,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
     <CardColapsavel titulo="Detalhes do Cliente" icone={FileText}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
-        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
           <div className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -1838,7 +1838,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
     <CardColapsavel titulo="Comercial" icone={ShoppingCart}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
-        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
           <div className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -1972,14 +1972,14 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
                         <div className={cn(
                           'max-w-[80%] rounded-lg px-4 py-2.5 relative group',
                           h.tipo === 'cliente'
-                            ? 'bg-white border border-border/60 dark:bg-gray-800'
+                            ? 'bg-card border border-border/60'
                             : 'text-white'
                         )} style={h.tipo !== 'cliente' ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-semibold" style={h.tipo !== 'cliente' ? { color: 'rgba(255,255,255,0.8)' } : { color: '#495057' }}>
+                            <span className={cn('text-[10px] font-semibold', h.tipo === 'cliente' && 'text-foreground')} style={h.tipo !== 'cliente' ? { color: 'rgba(255,255,255,0.8)' } : undefined}>
                               {h.tipo === 'cliente' ? 'Cliente' : (h.user?.name || 'Equipe')}
                             </span>
-                            <span className="text-[9px]" style={h.tipo !== 'cliente' ? { color: 'rgba(255,255,255,0.6)' } : { color: '#878a99' }}>
+                            <span className={cn('text-[9px]', h.tipo === 'cliente' && 'text-muted-foreground')} style={h.tipo !== 'cliente' ? { color: 'rgba(255,255,255,0.6)' } : undefined}>
                               {new Date(h.createdAt).toLocaleString('pt-BR')}
                             </span>
                           </div>
@@ -2686,7 +2686,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
     <CardColapsavel titulo="Fiscal" icone={Receipt}>
       <div className="flex min-h-[450px]">
         {/* Pills laterais */}
-        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
+        <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto nice-scrollbar">
           <div className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -2977,7 +2977,7 @@ function SituacaoFiscalCard({ clienteId, documento }: { clienteId: string; docum
                 <div>
                   <div className="flex items-center gap-2">
                     {c.tipoCertidao && (
-                      <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full', CERTIDAO_COLORS_INLINE[c.tipoCertidao] || 'bg-gray-100 text-gray-600')}>
+                      <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full', CERTIDAO_COLORS_INLINE[c.tipoCertidao] || STRONG.slate)}>
                         {c.tipoCertidao}
                       </span>
                     )}
@@ -3153,7 +3153,7 @@ function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
       ) : rows.length === 0 ? (
         <p className="text-xs text-muted-foreground">Sem registro</p>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-border">
+        <div className="overflow-x-auto rounded-md border border-border nice-scrollbar">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -4203,7 +4203,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
             <p className="text-xs mt-1">Clique em &quot;Novo Contato&quot; para adicionar.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto nice-scrollbar">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border">
@@ -4259,7 +4259,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
                     <td className="py-2.5 px-3">
                       <div className="flex items-center justify-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button type="button" title="Editar" onClick={() => startEdit(c)}
-                          className="p-1 rounded hover:bg-sky-100 dark:hover:bg-sky-900/30 text-sky-600 dark:text-sky-400 transition-colors">
+                          className={cn('p-1 rounded hover:bg-sky-100 dark:hover:bg-sky-900/30 transition-colors', TEXT.sky)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button type="button" title="Excluir" onClick={() => handleRemove(c.id, c.nome)}
@@ -4474,7 +4474,7 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
                       <div><span className="text-muted-foreground">Score: </span><span className="font-medium">{detalheMsg.score}/100</span></div>
                     </div>
                     {typeof detalheMsg.acao_recomendada === 'string' && detalheMsg.acao_recomendada && (
-                      <div className="text-xs p-2 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300">
+                      <div className={cn('text-xs p-2 rounded border', BADGE.amber)}>
                         <strong>Ação recomendada:</strong> {detalheMsg.acao_recomendada as string}
                       </div>
                     )}
@@ -4485,7 +4485,7 @@ function CaixaPostalClienteCard({ documento }: { documento: string }) {
                 {(() => {
                   const corpo = extrairCorpoMensagem(detalheData)
                   if (corpo) return <RichContent className="text-sm leading-relaxed [&_p]:mb-3 [&_a]:text-sky-600" html={corpo} />
-                  if (detalheData) return (<div><p className="text-xs text-muted-foreground mb-2">Resposta bruta da API:</p><pre className="text-xs whitespace-pre-wrap bg-muted/30 rounded-lg p-4 overflow-x-auto max-h-[400px]">{JSON.stringify(detalheData, null, 2)}</pre></div>)
+                  if (detalheData) return (<div><p className="text-xs text-muted-foreground mb-2">Resposta bruta da API:</p><pre className="text-xs whitespace-pre-wrap bg-muted/30 rounded-lg p-4 overflow-x-auto max-h-[400px] nice-scrollbar">{JSON.stringify(detalheData, null, 2)}</pre></div>)
                   return <p className="text-center text-muted-foreground py-10">Nenhum conteúdo disponível.</p>
                 })()}
 

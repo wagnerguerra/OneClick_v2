@@ -237,7 +237,7 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
 
         <MioloColapsavel aberto={cardAberto}>
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto nice-scrollbar">
           <Table>
             <TableHeader>
               <TableRow>
@@ -271,7 +271,7 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
                         />
                         <span className="text-sm font-medium">{row.areaNome}</span>
                         {hasEncerramento && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 text-[9px] font-medium">
+                          <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium', BADGE.amber)}>
                             <CalendarOff className="h-2.5 w-2.5" /> Encerrado
                           </span>
                         )}

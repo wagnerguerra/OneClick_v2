@@ -919,8 +919,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                               <td className="px-3 py-2 text-muted-foreground max-w-[150px] truncate" title={v.observacoes || ''}>{v.observacoes || '—'}</td>
                               <td className="px-3 py-2">
                                 {dt ? <span className={cn('font-medium', vencido && TEXT.red, proximo && TEXT.amber, !vencido && !proximo && TEXT.emerald)}>{dt.toLocaleDateString('pt-BR')}</span> : '—'}
-                                {vencido && <span className="text-[9px] text-red-500 dark:text-red-400 ml-1">(vencido)</span>}
-                                {proximo && !vencido && diffDays !== null && <span className="text-[9px] text-amber-500 dark:text-amber-400 ml-1">({diffDays}d)</span>}
+                                {vencido && <span className={cn('text-[9px] ml-1', TEXT.red)}>(vencido)</span>}
+                                {proximo && !vencido && diffDays !== null && <span className={cn('text-[9px] ml-1', TEXT.amber)}>({diffDays}d)</span>}
                               </td>
                               <td className="px-3 py-2 text-center">
                                 <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleVencimento(v.id) }} className={cn('h-5 w-5 rounded-full border-2 flex items-center justify-center mx-auto', v.concluido ? 'bg-emerald-500 border-emerald-500' : 'border-muted-foreground/40')}>
@@ -973,10 +973,10 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                             <td className="px-3 py-2">{a.descricao}</td>
                             <td className="px-3 py-2">
                               <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
-                                a.status === 'concluido' || a.status === 'Concluído' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' :
-                                a.status === 'em_andamento' || a.status === 'Em andamento' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' :
-                                a.status === 'cancelado' || a.status === 'Cancelado' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
-                                'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300')}>
+                                a.status === 'concluido' || a.status === 'Concluído' ? BADGE.emerald :
+                                a.status === 'em_andamento' || a.status === 'Em andamento' ? BADGE.sky :
+                                a.status === 'cancelado' || a.status === 'Cancelado' ? BADGE.red :
+                                BADGE.amber)}>
                                 {a.status || 'Pendente'}
                               </span>
                             </td>
@@ -1727,7 +1727,7 @@ function EditSocioModal(props: {
         <DialogHeaderIcon icon={mode === 'create' ? Plus : Pencil} color={mode === 'create' ? 'emerald' : 'sky'}>
           <DialogTitle>{mode === 'create' ? 'Novo Sócio' : 'Editar Sócio'}</DialogTitle>
         </DialogHeaderIcon>
-        <DialogBody className="overflow-y-auto">
+        <DialogBody>
           {loading || !socio ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando...

@@ -9,6 +9,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BADGE, SURFACE, BORDER, TEXT } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -148,9 +149,9 @@ export default function DuplicidadesPage() {
         </p>
       </PageHeaderBar>
 
-      <Card className="border-sky-200 bg-sky-50/60 p-4 text-sm dark:border-sky-900 dark:bg-sky-950/20">
+      <Card className={cn('p-4 text-sm', SURFACE.sky)}>
         <div className="flex gap-3">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
+          <ShieldCheck className={cn('mt-0.5 h-4 w-4 shrink-0', TEXT.sky)} />
           <div className="space-y-1">
             <p className="font-medium text-foreground">Este relatório só lê — nada é alterado aqui.</p>
             <p className="text-muted-foreground">
@@ -177,7 +178,7 @@ export default function DuplicidadesPage() {
             <p className="text-xs text-muted-foreground">cadastros excedentes</p>
           </Card>
           <Card className="p-4">
-            <p className="text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-500">{gruposCriticos}</p>
+            <p className={cn('text-2xl font-bold tabular-nums', TEXT.amber)}>{gruposCriticos}</p>
             <p className="text-xs text-muted-foreground">com histórico dos dois lados</p>
           </Card>
           <Card className="p-4">
@@ -203,12 +204,12 @@ export default function DuplicidadesPage() {
       ) : (
         <div className="space-y-3">
           {res.grupos.map((g) => (
-            <Card key={g.documento} className={cn('overflow-hidden', g.dadoEmMaisDeUm && 'border-amber-300 dark:border-amber-800')}>
+            <Card key={g.documento} className={cn('overflow-hidden', g.dadoEmMaisDeUm && BORDER.amber)}>
               <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/30 px-4 py-2.5">
                 <span className="font-mono text-sm font-medium">{masks.cpfCnpj(g.documento)}</span>
                 <Badge variant="secondary" className="text-[10px]">{g.cadastros.length} cadastros</Badge>
                 {g.dadoEmMaisDeUm && (
-                  <Badge className="gap-1 bg-amber-100 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
+                  <Badge className={cn('gap-1 text-[10px]', BADGE.amber)}>
                     <AlertTriangle className="h-3 w-3" />histórico dos dois lados
                   </Badge>
                 )}
@@ -372,7 +373,7 @@ function MesclarModal({ grupo, destinoId, onClose, onDone }: {
             <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="font-semibold">#{destino.code} — {destino.razaoSocial}</span>
             {destino.isActive
-              ? <Badge className="bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">ativo</Badge>
+              ? <Badge className={cn('text-[10px]', BADGE.emerald)}>ativo</Badge>
               : <Badge variant="secondary" className="text-[10px]">inativo</Badge>}
           </div>
 
@@ -428,7 +429,7 @@ function MesclarModal({ grupo, destinoId, onClose, onDone }: {
               )}
 
               {totalColidem > 0 && (
-                <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-400">
+                <p className={cn('rounded border px-3 py-2 text-xs', SURFACE.amber, TEXT.amber)}>
                   <strong>{totalColidem} registro(s)</strong> já existem no cadastro mantido (mesma área, mesmo mês de
                   cache, etc.) e ficam onde estão — o dado do cadastro mantido prevalece. Nada é apagado: eles seguem
                   recuperáveis no cadastro que vai para a lixeira.

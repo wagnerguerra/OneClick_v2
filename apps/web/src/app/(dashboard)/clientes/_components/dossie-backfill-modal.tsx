@@ -14,7 +14,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { FileSearch, Loader2, Play, Square, AlertTriangle } from 'lucide-react'
-import { Button, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Input, Label } from '@saas/ui'
+import { Button, Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Input, Label, cn } from '@saas/ui'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -142,7 +143,7 @@ export function DossieBackfillModal({ open, onOpenChange }: { open: boolean; onO
               </p>
 
               {(sim.alfanumericos > 0 || sim.invalidos > 0) && (
-                <div className="flex items-start gap-2 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <div className={cn('flex items-start gap-2 rounded-lg border px-3 py-2 text-xs', BADGE.amber)}>
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <div>
                     {sim.alfanumericos > 0 && (
@@ -191,7 +192,7 @@ export function DossieBackfillModal({ open, onOpenChange }: { open: boolean; onO
                 <p className="truncate text-xs text-muted-foreground">Consultando: {progresso.clienteAtual}</p>
               )}
               {progresso.ultimoErro && (
-                <p className="truncate text-xs text-amber-600">Último erro — {progresso.ultimoErro}</p>
+                <p className={cn('truncate text-xs', TEXT.amber)}>Último erro — {progresso.ultimoErro}</p>
               )}
             </div>
           )}

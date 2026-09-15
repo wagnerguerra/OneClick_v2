@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { ListChecks, Plus, Loader2, Trash2, Power, Clock } from 'lucide-react'
 import { Button, Card, Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useClientesPerms } from './use-clientes-perms'
@@ -18,7 +19,7 @@ interface Obrigacao {
 
 const TIPO_LABELS: Record<string, string> = { fixa: 'Fixa', sob_demanda: 'Sob Demanda' }
 const PERIOD_LABELS: Record<string, string> = { mensal: 'Mensal', trimestral: 'Trimestral', semestral: 'Semestral', anual: 'Anual', pontual: 'Pontual' }
-const STATUS_COLORS: Record<string, string> = { pendente: 'bg-amber-100 text-amber-700', em_andamento: 'bg-sky-100 text-sky-700', concluida: 'bg-emerald-100 text-emerald-700', atrasada: 'bg-red-100 text-red-700' }
+const STATUS_COLORS: Record<string, string> = { pendente: BADGE.amber, em_andamento: BADGE.sky, concluida: BADGE.emerald, atrasada: BADGE.red }
 
 export function ObrigacoesCard({ clienteId }: { clienteId: string }) {
   const { canManageRegistration } = useClientesPerms()
@@ -70,7 +71,7 @@ export function ObrigacoesCard({ clienteId }: { clienteId: string }) {
     <Card>
       <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-5 py-3">
         <div>
-          <h4 className="text-sm font-semibold flex items-center gap-2"><ListChecks className="h-4 w-4 text-emerald-600" /> Obrigacoes</h4>
+          <h4 className="text-sm font-semibold flex items-center gap-2"><ListChecks className={cn('h-4 w-4', TEXT.emerald)} /> Obrigacoes</h4>
           <p className="text-[11px] text-muted-foreground mt-0.5">{items.filter(i => i.ativo).length} obrigacoes ativas</p>
         </div>
         {canManageRegistration && <Button type="button" variant="outline" size="sm" onClick={() => setAdding(!adding)} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>}

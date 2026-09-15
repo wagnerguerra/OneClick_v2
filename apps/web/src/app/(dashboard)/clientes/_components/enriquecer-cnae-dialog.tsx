@@ -5,9 +5,10 @@ import {
   Loader2, X, Sparkles, Check, AlertTriangle, Globe,
 } from 'lucide-react'
 import {
-  Button, Card, Badge, Checkbox, Input, Label,
+  Button, Card, Badge, Checkbox, Input, Label, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
+import { BADGE, TEXT, BORDER } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -90,7 +91,7 @@ export function EnriquecerCnaeDialog({ open, onOpenChange, onAfterRun }: {
                   Cada chamada respeita 200ms entre clientes (≈5/s). 50 clientes ≈ 10s. Limite máximo: 2000.
                 </p>
               </div>
-              <div className="rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              <div className={cn('rounded border p-3 text-xs', BADGE.amber)}>
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <div>
@@ -118,22 +119,22 @@ export function EnriquecerCnaeDialog({ open, onOpenChange, onAfterRun }: {
                   <div className="text-[10px] uppercase text-muted-foreground">Processados</div>
                   <div className="text-xl font-semibold tabular-nums">{resultado.stats.total}</div>
                 </Card>
-                <Card className="p-3 border-l-2 border-emerald-200">
-                  <div className="text-[10px] uppercase text-emerald-700">Atualizados</div>
+                <Card className={cn('p-3 border-l-2', BORDER.emerald)}>
+                  <div className={cn('text-[10px] uppercase', TEXT.emerald)}>Atualizados</div>
                   <div className="text-xl font-semibold tabular-nums">{resultado.stats.atualizados}</div>
                 </Card>
-                <Card className="p-3 border-l-2 border-sky-200">
-                  <div className="text-[10px] uppercase text-sky-700">Via BrasilAPI</div>
+                <Card className={cn('p-3 border-l-2', BORDER.sky)}>
+                  <div className={cn('text-[10px] uppercase', TEXT.sky)}>Via BrasilAPI</div>
                   <div className="text-xl font-semibold tabular-nums">{resultado.stats.brasilapi}</div>
                   <div className="text-[10px] text-muted-foreground">grátis</div>
                 </Card>
-                <Card className="p-3 border-l-2 border-violet-200">
-                  <div className="text-[10px] uppercase text-violet-700">Via SERPRO</div>
+                <Card className={cn('p-3 border-l-2', BORDER.violet)}>
+                  <div className={cn('text-[10px] uppercase', TEXT.violet)}>Via SERPRO</div>
                   <div className="text-xl font-semibold tabular-nums">{resultado.stats.serpro}</div>
                   <div className="text-[10px] text-muted-foreground">fallback pago</div>
                 </Card>
-                <Card className="p-3 border-l-2 border-red-200">
-                  <div className="text-[10px] uppercase text-red-700">Erros</div>
+                <Card className={cn('p-3 border-l-2', BORDER.red)}>
+                  <div className={cn('text-[10px] uppercase', TEXT.red)}>Erros</div>
                   <div className="text-xl font-semibold tabular-nums">{resultado.stats.erros}</div>
                 </Card>
               </div>
@@ -143,7 +144,7 @@ export function EnriquecerCnaeDialog({ open, onOpenChange, onAfterRun }: {
                 <div className="px-4 py-2 border-b text-xs font-semibold text-muted-foreground">
                   Detalhes (primeiros 30 de {resultado.detalhes.length})
                 </div>
-                <div className="max-h-[260px] overflow-y-auto divide-y">
+                <div className="nice-scrollbar max-h-[260px] overflow-y-auto divide-y">
                   {resultado.detalhes.slice(0, 30).map((d, i) => (
                     <div key={i} className="px-4 py-1.5 text-xs flex items-center gap-2">
                       {d.ok && d.campos ? (
@@ -154,8 +155,8 @@ export function EnriquecerCnaeDialog({ open, onOpenChange, onAfterRun }: {
                         <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                       )}
                       <span className="font-medium truncate flex-1">{d.razao}</span>
-                      {d.fonte === 'brasilapi' && <Badge variant="outline" className="h-4 text-[9px] bg-sky-50 text-sky-700 border-sky-200">BrasilAPI</Badge>}
-                      {d.fonte === 'serpro' && <Badge variant="outline" className="h-4 text-[9px] bg-violet-50 text-violet-700 border-violet-200">SERPRO</Badge>}
+                      {d.fonte === 'brasilapi' && <Badge variant="outline" className={cn('h-4 text-[9px]', BADGE.sky)}>BrasilAPI</Badge>}
+                      {d.fonte === 'serpro' && <Badge variant="outline" className={cn('h-4 text-[9px]', BADGE.violet)}>SERPRO</Badge>}
                       {d.motivo && <span className="text-muted-foreground italic truncate max-w-[200px]">{d.motivo}</span>}
                     </div>
                   ))}
