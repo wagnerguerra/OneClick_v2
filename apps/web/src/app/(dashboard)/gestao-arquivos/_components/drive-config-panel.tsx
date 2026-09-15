@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Loader2, Save, FolderSymlink, ExternalLink, CheckCircle2 } from 'lucide-react'
 import {
-  Button, Input,
+  Button, Input, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { TEXT } from '@/lib/color-styles'
 
 /**
  * Configuração do Google Drive do módulo.
@@ -147,7 +148,7 @@ export function DriveConfigPanel({ podeAdministrar }: { podeAdministrar: boolean
           </Button>
         </div>
         {raizNome && (
-          <p className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
+          <p className={cn('mt-2 flex items-center gap-1.5 text-[11px]', TEXT.emerald)}>
             <CheckCircle2 className="h-3.5 w-3.5" />
             Conectado a <span className="font-medium">{raizNome}</span>
           </p>

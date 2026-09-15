@@ -167,7 +167,7 @@ export function NotificacoesModal({
           })}
         </div>
 
-        <DialogBody className="max-h-[60vh] overflow-y-auto nice-scrollbar">
+        <DialogBody className="max-h-[60vh]">
           {aba === 'drive' ? (
             <DriveConfigPanel podeAdministrar={podeAdministrar} />
           ) : loading ? (
