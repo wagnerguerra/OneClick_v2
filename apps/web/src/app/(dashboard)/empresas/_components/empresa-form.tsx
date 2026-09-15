@@ -11,7 +11,6 @@ import {
   Button,
   Input,
   Label,
-  Card,
   Select,
   SelectTrigger,
   SelectContent,
@@ -25,6 +24,7 @@ import {
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { SectionCard } from '@/components/section-card'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
 const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
@@ -40,6 +40,16 @@ const EMPRESA_TABS = [
 ] as const
 
 type EmpresaTabKey = typeof EMPRESA_TABS[number]['key']
+
+const REGIME_LABEL: Record<string, string> = {
+  SIMPLES_NACIONAL: 'Simples Nacional',
+  LUCRO_PRESUMIDO: 'Lucro Presumido',
+  LUCRO_REAL: 'Lucro Real',
+  MEI: 'MEI',
+}
+
+/** Chip de vidro do hero — caixa alta, PADRAO_PAGINAS §3.2. */
+const CHIP_HERO = 'rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold uppercase text-white ring-1 ring-white/25 backdrop-blur'
 
 // Mapeia cada campo do schema pra aba onde está renderizado — usado pra pular
 // pro tab com erro quando o usuário tenta salvar sem preencher tudo.
@@ -64,6 +74,8 @@ interface EmpresaFormProps {
   title: string
   /** Complemento do título (ex.: código do registro). Some no modo criação. */
   description?: string
+  /** Contagens do registro para os números do hero (só na edição). */
+  resumo?: { clientes: number; usuarios: number } | null
   defaultValues?: Partial<CreateEmpresaInput> & { code?: number }
 }
 
@@ -209,7 +221,7 @@ function LogoUpload({ control, setValue, fieldName = 'logoUrl' }: {
   )
 }
 
-export function EmpresaForm({ mode, empresaId, title, description, defaultValues }: EmpresaFormProps) {
+export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: EmpresaFormProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -221,6 +233,7 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
     control,
     setValue,
     getValues,
+    watch,
     formState: { errors },
   } = useForm<CreateEmpresaInput>({
     resolver: zodResolver(createEmpresaSchema),
@@ -320,6 +333,63 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
     }
   }
 
+  const isEdit = mode === 'edit'
+
+  // Permissões e Usuários precisam de uma empresa salva. Na criação as demais
+  // abas FICAM — os campos obrigatórios estão espalhados por Dados Legais,
+  // Endereço e Contato, e escondê-las tornaria impossível criar a empresa.
+  const abas = EMPRESA_TABS.filter(t => isEdit || (t.key !== 'permissoes' && t.key !== 'usuarios'))
+
+  const [razaoSocialV, nomeFantasiaV, cnpjV, cidadeV, ufV, taxRegimeV, logoUrlV, telefoneV, emailV] = watch([
+    'razaoSocial', 'nomeFantasia', 'cnpj', 'cidade', 'uf', 'taxRegime', 'logoUrl', 'telefone', 'email',
+  ])
+
+  // Módulos do portal que o cliente de fato enxerga: liberado E construído.
+  // Refaz ao trocar de aba para refletir o que o master acabou de ligar em
+  // Permissões, sem exigir recarregar a página.
+  const [modulosLiberados, setModulosLiberados] = useState<number | null>(null)
+  useEffect(() => {
+    if (!isEdit || !empresaId) return
+    ;(trpc as any).empresa.portalModulos.query({ empresaId })
+      .then((m: Array<{ liberado: boolean; implementado: boolean }>) =>
+        setModulosLiberados(m.filter(x => x.liberado && x.implementado).length))
+      .catch(() => setModulosLiberados(null))
+  }, [isEdit, empresaId, activeTab])
+
+  const botoesDasAbas = (
+    <div className="nice-scrollbar flex gap-1.5 overflow-x-auto py-2">
+      {abas.map(tab => {
+        const Icon = tab.icon
+        return (
+          // Botões simples, não `role="tablist"`: o CSS global impõe borda e
+          // raio zero nos triggers e briga com a pílula (PADRAO_PAGINAS §3.2).
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={cn(
+              'inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors',
+              activeTab === tab.key
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            <Icon className="h-4 w-4 shrink-0" />{tab.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  const linhasDoResumo: Array<[string, string]> = [
+    ['ID', defaultValues?.code !== undefined ? String(defaultValues.code) : ''],
+    ['CNPJ', cnpjV ? masks.cnpj(cnpjV) : ''],
+    ['Regime', taxRegimeV ? (REGIME_LABEL[taxRegimeV] ?? taxRegimeV) : ''],
+    ['Cidade/UF', [cidadeV, ufV].filter(Boolean).join('/')],
+    ['Telefone', telefoneV ? masks.telefone(telefoneV) : ''],
+    ['E-mail', emailV ?? ''],
+  ]
+
   // Pula pra primeira aba com erro + mostra toast quando a validação falha.
   // Sem isso, o clique no Salvar parecia não fazer nada porque o erro estava em
   // aba não-visível (ex: telefone faltando em "Contato" mas usuário em "Dados Legais").
@@ -335,14 +405,10 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
 
   return (
     <TooltipProvider>
-      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5">
-        {/* Topo — PADRAO_PAGINAS §1.1 */}
-        {/* `mb-0`: o form usa `space-y-5`, e a margem própria da barra somaria
-            à dele. Mesmo ajuste do oráculo (`cliente-form`) e das outras 27
-            telas já padronizadas. */}
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="flex flex-col">
+        {/* Barra da página — PADRAO_PAGINAS §3.1. `mb-0`: o espaço até o hero
+            é o `mt-6` dele, e a margem própria da barra somaria à dele. */}
         <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
-            {/* Sem `variant`: o primário é o azul do tema, como no
-                `cliente-form`. O verde ficava competindo com as pills. */}
             <Button size="sm" type="submit" disabled={saving} className="gap-1.5">
               <Save className="h-4 w-4" />
               {saving ? 'Salvando...' : 'Salvar'}
@@ -350,70 +416,112 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
             <BackButton href="/empresas" />
         </>}>
           <h1 className="truncate">{title}</h1>
-          {/* A trilha termina no REGISTRO, e os níveis acima são links — era
-              onde o nome da empresa deveria estar. Antes ele vinha numa
-              terceira linha solta abaixo, que é o que deixava o topo frouxo. */}
           <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
             <Link href="/dashboard" className="transition-colors hover:text-foreground">Página inicial</Link>
             <span className="text-muted-foreground/50">›</span>
             <span>Cadastros</span>
             <span className="text-muted-foreground/50">›</span>
             <Link href="/empresas" className="transition-colors hover:text-foreground">Empresas</Link>
-            {description && (
-              <>
-                <span className="text-muted-foreground/50">›</span>
-                <span className="truncate">{description}</span>
-              </>
-            )}
+            <span className="text-muted-foreground/50">›</span>
+            <span className="truncate">{isEdit ? (razaoSocialV || title) : 'Nova Empresa'}</span>
           </p>
         </PageHeaderBar>
 
         {error && (
-          <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="mt-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         )}
 
-        <Card className="overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-border px-5 py-3">
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-            <h5 className="text-[13px] font-semibold">Detalhes da Empresa</h5>
-          </div>
-          <div className="flex min-h-[500px]">
-            {/* Pills laterais — padrão dos demais módulos */}
-            <div className="w-[170px] shrink-0 border-r border-border bg-muted/40 p-3 overflow-y-auto">
-              <div className="space-y-1">
-                {EMPRESA_TABS.map(tab => {
-                  const Icon = tab.icon
-                  return (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      onClick={() => setActiveTab(tab.key)}
-                      className={cn(
-                        'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
-                        activeTab === tab.key
-                          ? 'text-white shadow-sm'
-                          : 'text-muted-foreground hover:bg-white dark:hover:bg-muted/60 hover:text-foreground',
+        {isEdit ? (
+          /* Hero — PADRAO_PAGINAS §3.2. A empresa não tem capa própria, então
+             vale o gradiente da cor do módulo, que é o que o padrão prevê. */
+          <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="relative overflow-hidden">
+              <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
+
+              <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="flex min-w-0 items-end gap-4">
+                    <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
+                      {logoUrlV ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={resolveAssetUrl(logoUrlV)}
+                          alt="Logomarca"
+                          className="h-20 w-20 rounded-xl object-contain"
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                        />
+                      ) : (
+                        <Building2 className="h-10 w-10 text-emerald-500" />
                       )}
-                      style={activeTab === tab.key ? { backgroundColor: MODULE_COLOR } : undefined}
-                    >
-                      <Icon className="h-3.5 w-3.5 shrink-0" />
-                      <span>{tab.label}</span>
-                    </button>
-                  )
-                })}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-xl font-bold tracking-tight text-white drop-shadow">{razaoSocialV || 'Empresa'}</p>
+                        <span className={CHIP_HERO}>{defaultValues?.isActive === false ? 'Inativa' : 'Ativa'}</span>
+                        {taxRegimeV && <span className={CHIP_HERO}>{REGIME_LABEL[taxRegimeV] ?? taxRegimeV}</span>}
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/85">
+                        {nomeFantasiaV && <span className="truncate">{nomeFantasiaV}</span>}
+                        {cnpjV && (
+                          <span className="inline-flex items-center gap-1.5 tabular-nums">
+                            <Scale className="h-3.5 w-3.5" />{masks.cnpj(cnpjV)}
+                          </span>
+                        )}
+                        {(cidadeV || ufV) && (
+                          <span className="inline-flex items-center gap-1.5">
+                            <MapPin className="h-3.5 w-3.5" />{[cidadeV, ufV].filter(Boolean).join('/')}
+                          </span>
+                        )}
+                        {telefoneV && (
+                          <span className="inline-flex items-center gap-1.5 tabular-nums">
+                            <Phone className="h-3.5 w-3.5" />{masks.telefone(telefoneV)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Números do registro, à direita — o resumo do tenant. */}
+                  <div className="flex gap-6">
+                    {([
+                      [resumo?.clientes, 'Clientes'],
+                      [resumo?.usuarios, 'Usuários'],
+                      [modulosLiberados, 'Módulos no portal'],
+                    ] as Array<[number | null | undefined, string]>).map(([valor, rotulo]) => (
+                      <div key={rotulo} className="text-center">
+                        <p className="text-lg font-bold tracking-tight text-white drop-shadow tabular-nums">
+                          {valor ?? '—'}
+                        </p>
+                        <p className="text-xs text-white/75">{rotulo}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div
-              key={activeTab}
-              className="flex-1 min-w-0 p-5"
-              style={{ animation: 'fadeSlideIn 0.25s ease-out' }}
-            >
+            {/* Abas na base do hero */}
+            <div className="border-t border-border px-3">{botoesDasAbas}</div>
+          </div>
+        ) : (
+          /* Na criação não há registro para o hero mostrar; as abas vêm soltas. */
+          <div className="mt-6 rounded-2xl border border-border bg-card px-3">{botoesDasAbas}</div>
+        )}
+
+        {/* Conteúdo — PADRAO_PAGINAS §3.3: principal + lateral de 20rem. */}
+        <div className={cn('mt-6', isEdit && 'grid items-start gap-6 lg:grid-cols-[1fr_20rem]')}>
+          <div
+            key={activeTab}
+            className="min-w-0"
+            style={{ animation: 'fadeSlideIn 0.25s ease-out' }}
+          >
 
             {/* DADOS LEGAIS */}
             {activeTab === 'dados-legais' && (
+              <SectionCard icon={<Scale />} title="Dados legais" description="Identificação da empresa na Receita Federal.">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {mode === 'edit' && defaultValues?.code !== undefined && (
                   <div className="space-y-1.5">
@@ -525,10 +633,12 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
                   />
                 </div>
               </div>
+              </SectionCard>
             )}
 
             {/* ENDEREÇO */}
             {activeTab === 'endereco' && (
+              <SectionCard icon={<MapPin />} title="Endereço" description="Sede da empresa.">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="cep">CEP</Label>
@@ -615,10 +725,12 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
                   )}
                 </div>
               </div>
+              </SectionCard>
             )}
 
             {/* CONTATO */}
             {activeTab === 'contato' && (
+              <SectionCard icon={<Phone />} title="Contato" description="Como os clientes e a plataforma falam com a empresa.">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="telefone">Telefone<RequiredMark /></Label>
@@ -653,10 +765,12 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
                   />
                 </div>
               </div>
+              </SectionCard>
             )}
 
             {/* LOGOMARCA */}
             {activeTab === 'logo' && (
+              <SectionCard icon={<Upload />} title="Logomarca" description="Aparece no cabeçalho do sistema, no portal do cliente e nos documentos impressos.">
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
@@ -680,10 +794,12 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
                   <LogoUpload control={control} setValue={setValue} fieldName="marcaDaguaUrl" />
                 </div>
               </div>
+              </SectionCard>
             )}
 
             {/* INTEGRAÇÕES */}
             {activeTab === 'integracoes' && (
+              <SectionCard icon={<Plug />} title="Integrações" description="Serviços externos usados por este tenant.">
               <div className="space-y-6 max-w-2xl">
                 <div className="rounded-md border border-border bg-muted/30 p-4 space-y-4">
                   <div className="flex items-start justify-between gap-4">
@@ -724,17 +840,54 @@ export function EmpresaForm({ mode, empresaId, title, description, defaultValues
                   </div>
                 </div>
               </div>
+              </SectionCard>
             )}
 
             {/* PERMISSÕES — módulos do Portal do Cliente para este tenant */}
-            {activeTab === 'permissoes' && <PermissoesDoPortal empresaId={empresaId} mode={mode} />}
+            {activeTab === 'permissoes' && (
+              <SectionCard
+                icon={<ShieldCheck />}
+                title="Permissões do Portal do Cliente"
+                description="Quais módulos os usuários dos clientes deste tenant enxergam no portal."
+              >
+                <PermissoesDoPortal empresaId={empresaId} mode={mode} />
+              </SectionCard>
+            )}
 
             {/* USUÁRIOS */}
-            {activeTab === 'usuarios' && <UsuariosDaEmpresa empresaId={empresaId} mode={mode} />}
-            </div>
+            {activeTab === 'usuarios' && (
+              <SectionCard
+                icon={<Users />}
+                title="Usuários da empresa"
+                description="Quem está vinculado a esta empresa. O cadastro é feito no módulo Usuários."
+                actions={
+                  <Link href="/usuarios" className="text-[13px] font-medium text-emerald-700 hover:underline dark:text-emerald-400">
+                    Abrir Usuários
+                  </Link>
+                }
+              >
+                <UsuariosDaEmpresa empresaId={empresaId} mode={mode} />
+              </SectionCard>
+            )}
           </div>
-        </Card>
 
+          {/* Lateral: os dados que se quer ver de relance enquanto se edita
+              outra aba — o CNPJ não some ao abrir Endereço. */}
+          {isEdit && (
+            <aside className="min-w-0">
+              <SectionCard icon={<Building2 />} title="Resumo" collapsible={false}>
+                <dl className="space-y-2 text-[13px]">
+                  {linhasDoResumo.map(([rotulo, valor]) => (
+                    <div key={rotulo} className="flex items-start justify-between gap-3">
+                      <dt className="shrink-0 text-muted-foreground">{rotulo}</dt>
+                      <dd className="min-w-0 truncate text-right text-foreground">{valor || '—'}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </SectionCard>
+            </aside>
+          )}
+        </div>
       </form>
     </TooltipProvider>
   )
@@ -831,14 +984,11 @@ function PermissoesDoPortal({ empresaId, mode }: { empresaId?: string; mode: 'cr
 
   return (
     <div className="space-y-3">
-      <div>
-        <h6 className="text-[13px] font-semibold text-foreground">Módulos do Portal do Cliente</h6>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
+      <p className="text-[11px] text-muted-foreground">
           {editavel
             ? 'O que os usuários dos clientes deste tenant enxergam no portal. Desligar um módulo o esconde do menu e faz as rotas dele deixarem de responder — não é só a tela.'
             : 'O que os usuários dos seus clientes veem ao entrar no portal. A liberação é feita pelo administrador da plataforma.'}
-        </p>
-      </div>
+      </p>
 
       <div className="divide-y divide-border rounded-lg border border-border">
         {modulos.map(m => (
@@ -991,18 +1141,6 @@ function UsuariosDaEmpresa({ empresaId, mode }: { empresaId?: string; mode: 'cre
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h6 className="text-[13px] font-semibold text-foreground">Usuários da empresa</h6>
-          <p className="text-xs text-muted-foreground">
-            Quem está vinculado a esta empresa. O cadastro é feito no módulo Usuários.
-          </p>
-        </div>
-        <Link href="/usuarios" className="text-[13px] font-medium text-emerald-700 hover:underline dark:text-emerald-400">
-          Abrir Usuários
-        </Link>
-      </div>
-
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative max-w-sm flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

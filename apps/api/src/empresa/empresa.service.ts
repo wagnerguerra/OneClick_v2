@@ -61,7 +61,13 @@ export class EmpresaService {
     if (!isMaster && id !== (empresaId ?? null)) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Empresa fora do seu acesso.' })
     }
-    return prisma.empresa.findUniqueOrThrow({ where: { id } })
+    return prisma.empresa.findUniqueOrThrow({
+      where: { id },
+      // As contagens alimentam os números do hero do detalhe (PADRAO_PAGINAS
+      // §3.2). Vêm na mesma consulta porque a tela não abre sem este registro,
+      // e uma segunda ida só para dois números não se paga.
+      include: { _count: { select: { clientes: true, users: true } } },
+    })
   }
 
   async create(input: CreateEmpresaInput, userId?: string) {

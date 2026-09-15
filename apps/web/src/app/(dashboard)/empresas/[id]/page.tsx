@@ -29,12 +29,14 @@ type EmpresaData = {
   logoDarkUrl: string | null
   serproHabilitado: boolean | null
   serproOrcamentoMensal: number | null
+  _count: { clientes: number; users: number }
 }
 
 export default function EditEmpresaPage() {
   const params = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)
   const [empresa, setEmpresa] = useState<(Partial<CreateEmpresaInput> & { code?: number }) | null>(null)
+  const [resumo, setResumo] = useState<{ clientes: number; usuarios: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -66,6 +68,7 @@ export default function EditEmpresaPage() {
           serproHabilitado: data.serproHabilitado ?? false,
           serproOrcamentoMensal: data.serproOrcamentoMensal ?? null,
         })
+        setResumo({ clientes: data._count.clientes, usuarios: data._count.users })
       })
       .catch(() => setError('Empresa não encontrada'))
       .finally(() => setLoading(false))
@@ -91,9 +94,9 @@ export default function EditEmpresaPage() {
     <EmpresaForm
       mode="edit"
       empresaId={params.id}
-      title="Editar Empresa"
-      description={`Empresa #${empresa.code}`}
+      title={`Empresa #${empresa.code}`}
       defaultValues={empresa}
+      resumo={resumo}
     />
   )
 }
