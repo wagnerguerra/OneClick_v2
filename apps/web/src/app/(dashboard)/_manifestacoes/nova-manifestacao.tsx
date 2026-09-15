@@ -11,6 +11,7 @@ import {
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+import { STRONG } from '@/lib/color-styles'
 import type { Config } from './tipos'
 
 const CANAIS = [
@@ -217,7 +218,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
               {elogiadosIds.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {elogiadosIds.map(id => (
-                    <span key={id} className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                    <span key={id} className={cn('rounded-full px-2 py-0.5 text-[11px]', STRONG.amber)}>
                       {pessoas.find(p => p.id === id)?.name ?? id}
                     </span>
                   ))}

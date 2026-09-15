@@ -412,7 +412,7 @@ export default function ReuniaoDetalhePage() {
               <div className="space-y-2">
                 {r.arquivos.map((a) => (
                   <a key={a.id} href={`${getApiUrl()}${a.arquivoPath}`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-xs hover:border-amber-300 dark:hover:border-amber-800 transition-colors">
+                    className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-xs hover:border-[var(--mod-qualidade,#fbbf24)] transition-colors">
                     <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <span className="truncate">{a.nome}</span>
                   </a>
