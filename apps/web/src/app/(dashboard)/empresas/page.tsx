@@ -5,7 +5,7 @@ import { masks } from '@/lib/masks'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Pencil, Trash2,
+  Plus, Pencil, Power, PowerOff,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   ArrowUpDown, ArrowUp, ArrowDown,
   MoreVertical, FileUp, FileDown, Lock,
@@ -151,15 +151,38 @@ export default function EmpresasPage() {
     finally { setExporting(false) }
   }
 
-  async function handleDelete(id: string, name: string) {
-    const confirmed = await alerts.confirmDelete(name)
+  async function handleInativar(id: string, name: string) {
+    const confirmed = await alerts.confirm({
+      title: 'Inativar empresa',
+      text: `"${name}" ficará inativa. Os usuários dela, do escritório e do portal, perdem o acesso na hora. Nenhum dado é apagado, e reativar devolve o acesso a quem tinha.`,
+      confirmText: 'Inativar',
+    })
     if (!confirmed) return
     try {
-      await trpc.empresa.delete.mutate({ id })
-      await alerts.success('Empresa excluída', `"${name}" foi removida com sucesso.`)
+      const r = await trpc.empresa.desativar.mutate({ id })
+      await alerts.success('Empresa inativada', r.jaInativa
+        ? `"${name}" já estava inativa.`
+        : `${r.usuariosDesativados} usuário(s) perderam o acesso.`)
       fetchEmpresas()
-    } catch {
-      alerts.error('Erro ao excluir', 'Não foi possível excluir a empresa.')
+    } catch (e) {
+      alerts.error('Não foi possível inativar', (e as Error).message)
+    }
+  }
+
+  async function handleReativar(id: string, name: string) {
+    const confirmed = await alerts.confirm({
+      title: 'Reativar empresa',
+      text: `"${name}" volta a ficar ativa, e os usuários desligados junto com ela recuperam o acesso.`,
+      confirmText: 'Reativar',
+      icon: 'question',
+    })
+    if (!confirmed) return
+    try {
+      const r = await trpc.empresa.reativar.mutate({ id })
+      await alerts.success('Empresa reativada', `${r.usuariosReativados} usuário(s) recuperaram o acesso.`)
+      fetchEmpresas()
+    } catch (e) {
+      alerts.error('Não foi possível reativar', (e as Error).message)
     }
   }
 
@@ -303,6 +326,9 @@ export default function EmpresasPage() {
                       {empresa.nomeFantasia && (
                         <p className="text-xs text-muted-foreground">{empresa.nomeFantasia}</p>
                       )}
+                      {!empresa.isActive && (
+                        <span className="mt-0.5 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">inativa</span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
@@ -328,13 +354,25 @@ export default function EmpresasPage() {
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
-                        variant="soft-destructive"
-                        size="icon-sm"
-                        onClick={() => handleDelete(empresa.id, empresa.razaoSocial)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {empresa.isActive ? (
+                        <Button
+                          variant="soft-destructive"
+                          size="icon-sm"
+                          title="Inativar empresa"
+                          onClick={() => handleInativar(empresa.id, empresa.razaoSocial)}
+                        >
+                          <PowerOff className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="soft-info"
+                          size="icon-sm"
+                          title="Reativar empresa"
+                          onClick={() => handleReativar(empresa.id, empresa.razaoSocial)}
+                        >
+                          <Power className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

@@ -62,7 +62,10 @@ export function createEmpresaRouter(
       .mutation(({ input }) => portalModulos.voltarAoPadrao(input.empresaId, input.modulo)),
     create: masterProcedure.input(createEmpresaSchema).mutation(({ input, ctx }) => empresaService.create(input, ctx.userId)),
     update: masterProcedure.input(z.object({ id: z.string(), data: updateEmpresaSchema })).mutation(({ input, ctx }) => empresaService.update(input.id, input.data, ctx.userId)),
-    delete: masterProcedure.input(z.object({ id: z.string() })).mutation(({ input, ctx }) => empresaService.delete(input.id, ctx.userId)),
+    // Não há exclusão física de empresa: apagar o tenant deixava clientes e
+    // usuários dele sem empresa, visíveis a todas. Ver `desativar`.
+    desativar: masterProcedure.input(z.object({ id: z.string() })).mutation(({ input, ctx }) => empresaService.desativar(input.id, ctx.userId)),
+    reativar: masterProcedure.input(z.object({ id: z.string() })).mutation(({ input, ctx }) => empresaService.reativar(input.id, ctx.userId)),
     getEvents: masterProcedure.input(z.object({ empresaId: z.string() })).query(({ input }) => empresaService.getEvents(input.empresaId)),
     exportAll: masterProcedure.query(() => empresaService.exportAll()),
     listForSelect: protectedProcedure.query(({ ctx }) => empresaService.listForSelect({ empresaId: ctx.empresaId ?? null, isMaster: !!ctx.isMaster })),

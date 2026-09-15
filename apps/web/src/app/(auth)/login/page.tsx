@@ -102,7 +102,9 @@ export default function LoginPage() {
       })
 
       if (result.error) {
-        setError('Usuário ou senha inválidos. Verifique suas credenciais e tente novamente.')
+        setError(result.error.message === 'EMPRESA_INATIVA'
+          ? 'O acesso desta empresa está suspenso. Fale com o administrador da plataforma.'
+          : 'Usuário ou senha inválidos. Verifique suas credenciais e tente novamente.')
         return
       }
 

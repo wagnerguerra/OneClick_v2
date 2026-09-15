@@ -24,6 +24,13 @@ function detectChanges(before: Record<string, unknown>, after: Record<string, un
   return Object.keys(changes).length > 0 ? changes : null
 }
 
+/** Ids de usuários gravados no evento de desativação da empresa. */
+function idsDesativados(changes: Prisma.JsonValue | null | undefined): string[] {
+  if (!changes || typeof changes !== 'object' || Array.isArray(changes)) return []
+  const lista = (changes as Record<string, unknown>).usuariosDesativados
+  return Array.isArray(lista) ? lista.filter((v): v is string => typeof v === 'string') : []
+}
+
 @Injectable()
 export class EmpresaService {
   async list(input: ListEmpresaInput) {
@@ -103,6 +110,10 @@ export class EmpresaService {
       const before = await tx.empresa.findUniqueOrThrow({ where: { id } })
       const data: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(input)) {
+        // O status só muda por `desativar`/`reativar`: o form reenvia o
+        // `isActive` que carregou, e salvar uma empresa inativa a religaria
+        // sem devolver os usuários dela.
+        if (key === 'isActive') continue
         if (value !== undefined) data[key] = typeof value === 'string' && value === '' ? null : value
       }
       const newVersion = before.version + 1
@@ -116,11 +127,77 @@ export class EmpresaService {
     })
   }
 
-  async delete(id: string, userId?: string) {
+  /**
+   * Desliga o tenant na raiz. Substitui a exclusão física, que apagava a
+   * empresa e deixava os clientes e usuários dela com `empresaId` nulo — e,
+   * neste sistema, registro sem empresa é registro que toda empresa enxerga.
+   *
+   * O que muda: a empresa fica inativa; os usuários dela (internos e do
+   * portal) ficam inativos e perdem a sessão aberta; e o login passa a ser
+   * recusado (hook de sessão no AuthService). Nenhum outro dado é tocado.
+   *
+   * Os ids desativados ficam gravados no evento. É o que permite ao
+   * `reativar` devolver exatamente quem estava ativo, sem religar quem já
+   * era inativo antes.
+   */
+  async desativar(id: string, autorId: string) {
+    const autor = await prisma.user.findUnique({ where: { id: autorId }, select: { empresaId: true } })
+    if (autor?.empresaId === id) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Você não pode inativar a empresa à qual pertence.' })
+    }
+    const resultado = await prisma.$transaction(async (tx) => {
+      const empresa = await tx.empresa.findUniqueOrThrow({ where: { id } })
+      if (!empresa.isActive) return { jaInativa: true, usuarios: [] as string[] }
+      // Master global fica de fora: administra a plataforma, não o tenant.
+      const usuarios = (await tx.user.findMany({
+        where: { empresaId: id, isActive: true, isMaster: false },
+        select: { id: true },
+      })).map((u) => u.id)
+      if (usuarios.length > 0) {
+        await tx.user.updateMany({ where: { id: { in: usuarios } }, data: { isActive: false } })
+        await tx.session.deleteMany({ where: { userId: { in: usuarios } } })
+      }
+      const version = empresa.version + 1
+      await tx.empresa.update({ where: { id }, data: { isActive: false, version } })
+      await tx.empresaEvent.create({
+        data: {
+          empresaId: id, userId: autorId, type: 'deactivated', version,
+          changes: { isActive: { from: true, to: false }, usuariosDesativados: usuarios },
+        },
+      })
+      return { jaInativa: false, usuarios }
+    })
+    for (const u of resultado.usuarios) invalidateSessionCacheForUser(u)
+    return { jaInativa: resultado.jaInativa, usuariosDesativados: resultado.usuarios.length }
+  }
+
+  /**
+   * Religa o tenant e devolve o acesso a quem a última desativação desligou.
+   * Só volta quem continua nesta empresa e inativo: quem foi movido ou
+   * religado à mão no meio do caminho não é tocado.
+   */
+  async reativar(id: string, autorId: string) {
     return prisma.$transaction(async (tx) => {
       const empresa = await tx.empresa.findUniqueOrThrow({ where: { id } })
-      await tx.empresaEvent.create({ data: { empresaId: id, userId: userId || null, type: 'deleted', version: empresa.version } })
-      return tx.empresa.delete({ where: { id } })
+      if (empresa.isActive) return { jaAtiva: true, usuariosReativados: 0 }
+      const ultima = await tx.empresaEvent.findFirst({
+        where: { empresaId: id, type: 'deactivated' },
+        orderBy: { createdAt: 'desc' },
+        select: { changes: true },
+      })
+      const ids = idsDesativados(ultima?.changes)
+      const { count } = ids.length > 0
+        ? await tx.user.updateMany({ where: { id: { in: ids }, empresaId: id, isActive: false }, data: { isActive: true } })
+        : { count: 0 }
+      const version = empresa.version + 1
+      await tx.empresa.update({ where: { id }, data: { isActive: true, version } })
+      await tx.empresaEvent.create({
+        data: {
+          empresaId: id, userId: autorId, type: 'reactivated', version,
+          changes: { isActive: { from: false, to: true }, usuariosReativados: count },
+        },
+      })
+      return { jaAtiva: false, usuariosReativados: count }
     })
   }
 

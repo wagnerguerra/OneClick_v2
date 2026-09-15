@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { betterAuth } from 'better-auth'
+import { APIError } from 'better-auth/api'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
 import { twoFactor, bearer } from 'better-auth/plugins'
 import { expo } from '@better-auth/expo'
@@ -55,6 +56,25 @@ export class AuthService {
         updateAge: 60 * 60 * 24, // atualiza a cada 24h
         cookieCache: {
           enabled: false, // Desabilita cache server-side da session — evita stale data apos verifyTotp
+        },
+      },
+      // Trava de entrada da empresa inativa. Toda porta — senha, Google,
+      // desktop, app — passa pela criação da sessão, então é aqui que se
+      // recusa. A mensagem é um código que as telas de login traduzem.
+      // O master global passa: é quem religa a empresa.
+      databaseHooks: {
+        session: {
+          create: {
+            before: async (session) => {
+              const user = await prisma.user.findUnique({
+                where: { id: session.userId },
+                select: { isMaster: true, empresa: { select: { isActive: true } } },
+              })
+              if (user && !user.isMaster && user.empresa && !user.empresa.isActive) {
+                throw new APIError('FORBIDDEN', { message: 'EMPRESA_INATIVA' })
+              }
+            },
+          },
         },
       },
       trustedOrigins: (request) => {
