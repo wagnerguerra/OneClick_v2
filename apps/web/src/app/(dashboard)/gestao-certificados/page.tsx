@@ -16,7 +16,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
-import { BADGE } from '@/lib/color-styles'
+import { BADGE, SURFACE, STRONG, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertAcessoModal } from '@/components/certificado/cert-acesso-modal'
 import { SenhaPfxInput } from '@/components/certificado/senha-pfx-input'
@@ -605,7 +605,7 @@ export default function GestaoCertificadosPage() {
           <>
           {/* Barra de ações em massa — só aparece quando há seleção */}
           {canDelete && selecionados.size > 0 && (
-            <div className="flex items-center justify-between gap-3 px-4 py-2 bg-fuchsia-50 dark:bg-fuchsia-950/20 border-b border-fuchsia-200 dark:border-fuchsia-900">
+            <div className={cn('flex items-center justify-between gap-3 px-4 py-2 border-b', SURFACE.fuchsia)}>
               <div className="text-sm font-medium">
                 {selecionados.size} selecionado(s)
               </div>
@@ -996,8 +996,8 @@ function RenovarCertificadoModal({ target, onClose, onRenovado }: {
           </DialogDescription>
         </DialogHeaderIcon>
         <DialogBody className="space-y-4">
-          <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
-            <History className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <div className={cn('flex items-start gap-2 p-3 rounded-md border', SURFACE.amber)}>
+            <History className={cn('h-4 w-4 mt-0.5 shrink-0', TEXT.amber)} />
             <p className="text-[11px] text-amber-900 dark:text-amber-300 leading-relaxed">
               O certificado atual será marcado como <strong>RENOVADO</strong> e ocultado da listagem padrão. Os vínculos (cliente/empresa/sócio) serão herdados automaticamente. O histórico de versões fica acessível pela tela de detalhes do novo certificado.
             </p>
@@ -1008,10 +1008,10 @@ function RenovarCertificadoModal({ target, onClose, onRenovado }: {
             <label
               className={cn(
                 'flex items-center gap-3 px-4 py-3 border border-dashed rounded-md cursor-pointer transition-colors',
-                arquivo ? 'border-fuchsia-300 bg-fuchsia-50/50 dark:bg-fuchsia-900/10' : 'border-border hover:bg-muted/30',
+                arquivo ? SURFACE.fuchsia : 'border-border hover:bg-muted/30',
               )}
             >
-              {arquivo ? <FileLock className="h-5 w-5 text-fuchsia-600" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
+              {arquivo ? <FileLock className={cn('h-5 w-5', TEXT.fuchsia)} /> : <Upload className="h-5 w-5 text-muted-foreground" />}
               <div className="flex-1 min-w-0">
                 {arquivo ? (
                   <>
@@ -1395,7 +1395,7 @@ function LegacyImportModal({ open, onOpenChange, empresaId, onImported }: {
                           <td className="px-3 py-1 max-w-[180px] truncate text-muted-foreground">
                             {item.clienteRazao || '—'}
                             {item.vincularA === 'empresa' && (
-                              <span className="ml-1 inline-flex items-center rounded bg-fuchsia-100 px-1 py-0.5 text-[9px] font-bold text-fuchsia-800">EMPRESA</span>
+                              <span className={cn('ml-1 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold', STRONG.fuchsia)}>EMPRESA</span>
                             )}
                           </td>
                           <td className="px-3 py-1">
@@ -1705,7 +1705,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
                 dragOver ? 'border-fuchsia-500 bg-fuchsia-50' : 'border-border hover:border-fuchsia-400 hover:bg-muted',
               )}
             >
-              <UploadCloud className="h-8 w-8 mx-auto text-zinc-400 mb-2" />
+              <UploadCloud className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
               <div className="text-sm font-medium">
                 Arraste arquivos .pfx/.p12 aqui
               </div>
@@ -1731,7 +1731,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
                 <button
                   type="button"
                   onClick={() => setFiles([])}
-                  className="text-[11px] text-rose-600 hover:underline"
+                  className={cn('text-[11px] hover:underline', TEXT.rose)}
                 >
                   Limpar tudo
                 </button>
@@ -1739,13 +1739,13 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
               <div className="max-h-[150px] overflow-y-auto border rounded">
                 {files.map(f => (
                   <div key={f.name} className="flex items-center gap-2 px-2 py-1 border-b last:border-b-0 text-xs">
-                    <FileLock className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                    <FileLock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <span className="flex-1 truncate font-mono">{f.name}</span>
-                    <span className="text-zinc-500 tabular-nums">{(f.size / 1024).toFixed(1)} KB</span>
+                    <span className="text-muted-foreground tabular-nums">{(f.size / 1024).toFixed(1)} KB</span>
                     <button
                       type="button"
                       onClick={() => removeFile(f.name)}
-                      className="text-zinc-400 hover:text-rose-600"
+                      className="text-muted-foreground hover:text-rose-600"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -1840,7 +1840,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
                           <td className="px-3 py-1 max-w-[160px] truncate text-muted-foreground">
                             {f.alvoRazao || '—'}
                             {f.vincularA === 'empresa' && (
-                              <span className="ml-1 inline-flex items-center rounded bg-fuchsia-100 px-1 py-0.5 text-[9px] font-bold text-fuchsia-800">EMPRESA</span>
+                              <span className={cn('ml-1 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold', STRONG.fuchsia)}>EMPRESA</span>
                             )}
                           </td>
                           <td className="px-3 py-1 tabular-nums">{venc}</td>

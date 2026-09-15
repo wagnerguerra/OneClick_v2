@@ -14,7 +14,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Switch,
 } from '@saas/ui'
-import { BADGE, type ColorName } from '@/lib/color-styles'
+import { BADGE, SURFACE, type ColorName } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -394,7 +394,7 @@ export default function BeneficiosFiscaisPage() {
 
         {/* Barra de ações em massa — aparece quando há seleção */}
         {podeSelecionar && selecionados.size > 0 && (
-          <div className="flex items-center justify-between gap-3 px-4 py-2 bg-fuchsia-50 dark:bg-fuchsia-950/20 border-b border-fuchsia-200 dark:border-fuchsia-900">
+          <div className={cn('flex items-center justify-between gap-3 px-4 py-2 border-b', SURFACE.fuchsia)}>
             <div className="text-sm font-medium">{selecionados.size} selecionado(s)</div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={() => setSelecionados(new Set())} disabled={orcando || excluindoLote}>

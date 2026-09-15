@@ -1118,7 +1118,7 @@ export default function CertidoesCndPage() {
           return (
             <button key={f.key} type="button" onClick={() => { setFiltroTipo(f.key); setLixeira(false); setPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
-                isActive ? 'bg-fuchsia-50 dark:bg-fuchsia-950/30 border-fuchsia-200 dark:border-fuchsia-800 text-fuchsia-700 dark:text-fuchsia-400 shadow-sm'
+                isActive ? cn(BADGE.fuchsia, 'shadow-sm')
                   : 'border-border/40 text-muted-foreground hover:border-fuchsia-200 hover:text-foreground bg-card',
               )}>
               <Icon className="h-3.5 w-3.5" />{f.label}
@@ -1130,7 +1130,7 @@ export default function CertidoesCndPage() {
         })}
         <button type="button" onClick={() => { setLixeira(!lixeira); setFiltroTipo(''); setPage(1) }}
           className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ml-auto',
-            lixeira ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 shadow-sm'
+            lixeira ? cn(BADGE.red, 'shadow-sm')
               : 'border-border/40 text-muted-foreground hover:border-red-200 hover:text-foreground bg-card',
           )}>
           <Trash2 className="h-3.5 w-3.5" />Lixeira
@@ -1612,7 +1612,7 @@ export default function CertidoesCndPage() {
                       <h4 className="text-sm font-semibold mb-1">Emitir DARF</h4>
                       <p className="text-[11px] text-muted-foreground">Informe o código de receita, período e valor para gerar a guia de pagamento (DARF) via SICALC/SERPRO. O sistema calculará multa e juros automaticamente.</p>
                     </div>
-                    <div className="rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10 p-2.5 text-[11px] text-amber-700 dark:text-amber-400">
+                    <div className={cn('rounded-md border p-2.5 text-[11px]', BADGE.amber)}>
                       <strong>Dica:</strong> Consulte a aba "Situação Fiscal" para identificar os códigos de receita e valores pendentes do contribuinte.
                     </div>
 
@@ -1620,7 +1620,7 @@ export default function CertidoesCndPage() {
                       <label className="text-xs font-medium">Código de Receita *</label>
                       <input type="text" placeholder="Ex: 0220, 6106..." value={darfForm.codigoReceita}
                         onChange={e => setDarfForm(prev => ({ ...prev, codigoReceita: e.target.value }))}
-                        className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
+                        className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -1628,7 +1628,7 @@ export default function CertidoesCndPage() {
                         <label className="text-xs font-medium">Período (PA) *</label>
                         <input type="text" placeholder="MM/YYYY" value={darfForm.dataPA}
                           onChange={e => setDarfForm(prev => ({ ...prev, dataPA: e.target.value }))}
-                          className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
+                          className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium">Tipo Período</label>
@@ -1651,21 +1651,21 @@ export default function CertidoesCndPage() {
                       <label className="text-xs font-medium">Valor do Imposto (R$) *</label>
                       <input type="text" placeholder="0,00" value={darfForm.valorImposto}
                         onChange={e => setDarfForm(prev => ({ ...prev, valorImposto: e.target.value }))}
-                        className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
+                        className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
                     </div>
 
                     <div className="space-y-1">
                       <label className="text-xs font-medium">Data de Consolidação</label>
                       <input type="date" value={darfForm.dataConsolidacao}
                         onChange={e => setDarfForm(prev => ({ ...prev, dataConsolidacao: e.target.value }))}
-                        className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                        className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                     </div>
 
                     <div className="space-y-1">
                       <label className="text-xs font-medium">Observação</label>
                       <input type="text" placeholder="Opcional" value={darfForm.observacao}
                         onChange={e => setDarfForm(prev => ({ ...prev, observacao: e.target.value }))}
-                        className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                        className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                     </div>
 
                     <Button className="w-full gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white" onClick={handleEmitirDarf} disabled={darfLoading}>
@@ -1674,15 +1674,15 @@ export default function CertidoesCndPage() {
                     </Button>
 
                     {darfErro && (
-                      <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10 p-3 text-xs text-red-700 dark:text-red-400">
+                      <div className={cn('rounded-md border p-3 text-xs', BADGE.red)}>
                         <p className="font-medium mb-1">Erro na emissão</p>
                         <p>{darfErro}</p>
                       </div>
                     )}
 
                     {darfConsolidado && (
-                      <div className="rounded-md border border-fuchsia-200 dark:border-fuchsia-800 bg-fuchsia-50 dark:bg-fuchsia-900/10 p-3 space-y-1.5 text-xs">
-                        <p className="font-semibold text-fuchsia-700 dark:text-fuchsia-400 mb-2">Valores Consolidados</p>
+                      <div className={cn('rounded-md border p-3 space-y-1.5 text-xs', SURFACE.fuchsia)}>
+                        <p className={cn('font-semibold mb-2', TEXT.fuchsia)}>Valores Consolidados</p>
                         {typeof darfConsolidado.valorPrincipalMoedaCorrente === 'number' && (
                           <div className="flex justify-between"><span className="text-muted-foreground">Principal</span><span className="font-mono font-medium">R$ {Number(darfConsolidado.valorPrincipalMoedaCorrente).toFixed(2)}</span></div>
                         )}
@@ -2275,15 +2275,15 @@ export default function CertidoesCndPage() {
                       </div>
                     )}
                     {munConsultaStatus === 'success' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.emerald)}>
                         <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Consulta concluída</p><p className="text-[10px] text-muted-foreground">{munConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.emerald)}>Consulta concluída</p><p className="text-[10px] text-muted-foreground">{munConsultaMsg}</p></div>
                       </div>
                     )}
                     {munConsultaStatus === 'error' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.red)}>
                         <XCircle className="h-5 w-5 text-red-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-red-700 dark:text-red-400">Falha na consulta</p><p className="text-[10px] text-muted-foreground">{munConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.red)}>Falha na consulta</p><p className="text-[10px] text-muted-foreground">{munConsultaMsg}</p></div>
                       </div>
                     )}
                   </div>
@@ -2972,15 +2972,15 @@ export default function CertidoesCndPage() {
                       </div>
                     )}
                     {trbConsultaStatus === 'success' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.emerald)}>
                         <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Consulta concluída</p><p className="text-[10px] text-muted-foreground">{trbConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.emerald)}>Consulta concluída</p><p className="text-[10px] text-muted-foreground">{trbConsultaMsg}</p></div>
                       </div>
                     )}
                     {trbConsultaStatus === 'error' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.red)}>
                         <XCircle className="h-5 w-5 text-red-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-red-700 dark:text-red-400">Falha na consulta</p><p className="text-[10px] text-muted-foreground">{trbConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.red)}>Falha na consulta</p><p className="text-[10px] text-muted-foreground">{trbConsultaMsg}</p></div>
                       </div>
                     )}
                   </div>
@@ -3281,15 +3281,15 @@ export default function CertidoesCndPage() {
                       </div>
                     )}
                     {fgtsConsultaStatus === 'success' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.emerald)}>
                         <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Consulta concluída</p><p className="text-[10px] text-muted-foreground">{fgtsConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.emerald)}>Consulta concluída</p><p className="text-[10px] text-muted-foreground">{fgtsConsultaMsg}</p></div>
                       </div>
                     )}
                     {fgtsConsultaStatus === 'error' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.red)}>
                         <XCircle className="h-5 w-5 text-red-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-red-700 dark:text-red-400">Falha na consulta</p><p className="text-[10px] text-muted-foreground">{fgtsConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.red)}>Falha na consulta</p><p className="text-[10px] text-muted-foreground">{fgtsConsultaMsg}</p></div>
                       </div>
                     )}
                   </div>
@@ -3557,15 +3557,15 @@ export default function CertidoesCndPage() {
                       </div>
                     )}
                     {cguConsultaStatus === 'success' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.emerald)}>
                         <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Consulta concluída</p><p className="text-[10px] text-muted-foreground">{cguConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.emerald)}>Consulta concluída</p><p className="text-[10px] text-muted-foreground">{cguConsultaMsg}</p></div>
                       </div>
                     )}
                     {cguConsultaStatus === 'error' && (
-                      <div className="flex items-center gap-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-4 py-3">
+                      <div className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', SURFACE.red)}>
                         <XCircle className="h-5 w-5 text-red-500 shrink-0" />
-                        <div><p className="text-xs font-medium text-red-700 dark:text-red-400">Falha</p><p className="text-[10px] text-muted-foreground">{cguConsultaMsg}</p></div>
+                        <div><p className={cn('text-xs font-medium', TEXT.red)}>Falha</p><p className="text-[10px] text-muted-foreground">{cguConsultaMsg}</p></div>
                       </div>
                     )}
                   </div>
