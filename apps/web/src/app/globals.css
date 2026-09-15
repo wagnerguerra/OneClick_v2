@@ -426,29 +426,6 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
   .paleta-painel[data-state="closed"] { animation: dialog-fade-out 130ms ease-in forwards; }
 }
 
-/* Portal do cliente — efeitos da abertura (referência: LuminAux starter-builder).
-   Tudo decorativo. Sem movimento, as linhas da janela aparecem de uma vez, o
-   cursor fica parado e os pontos não flutuam: o conteúdo continua inteiro. */
-@keyframes portal-flutua {
-  0%, 100% { transform: translateY(0); opacity: 0.45; }
-  50%      { transform: translateY(-10px); opacity: 1; }
-}
-@keyframes portal-cursor {
-  0%, 49%   { opacity: 1; }
-  50%, 100% { opacity: 0; }
-}
-@keyframes portal-linha {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.portal-ponto  { animation: portal-flutua 6s ease-in-out infinite; }
-.portal-cursor { animation: portal-cursor 1.05s steps(1) infinite; }
-.portal-linha  { opacity: 0; animation: portal-linha 320ms ease-out forwards; }
-@media (prefers-reduced-motion: reduce) {
-  .portal-ponto, .portal-cursor { animation: none; }
-  .portal-linha { opacity: 1; animation: none; }
-}
-
 /* Dropdown / Select / Popover animations (gaveta) */
 @keyframes dropdown-in-top {
   from { opacity: 0; transform: translateY(-6px) scaleY(0.96); }

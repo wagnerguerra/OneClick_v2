@@ -6,6 +6,7 @@ import type { GestaoArquivosDriveService } from '../gestao-arquivos/gestao-arqui
 import type { PortalObrigacoesService } from './portal-obrigacoes.service'
 import type { ConviteValido } from './portal-tipos'
 import { listarVinculos } from './portal-escopo'
+import { listarEquipe } from './portal-equipe'
 
 /**
  * O router declara o que USA do serviço, em vez de importar a classe.
@@ -229,6 +230,16 @@ export function createPortalRouter(
     meuAcesso: portalProcedure
       .input(z.object({ clienteId: z.string() }))
       .query(({ ctx }) => ctx.portal),
+
+    /**
+     * Quem atende esta empresa no escritório, por área — o "sua equipe" da
+     * home. Sem módulo próprio: saber com quem falar não é funcionalidade que
+     * o escritório liga e desliga. O recorte (áreas do vínculo, só ativos, só
+     * nome/e-mail/foto) mora em `portal-equipe.ts`.
+     */
+    equipe: portalProcedure
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ ctx }) => listarEquipe(ctx.portal)),
 
     convite: router({
       /** Abre a tela do convite. Devolve o mínimo para a pessoa se reconhecer. */

@@ -390,7 +390,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       <main className="-mt-40 w-full flex-1 px-5 pb-16 pt-8 sm:px-7">
         {clienteId
           ? (
-            <PortalContexto.Provider value={{ clienteId, vinculo: atual }}>
+            <PortalContexto.Provider value={{ clienteId, vinculo: atual, usuarioNome: sessao?.user?.name ?? null }}>
               {/*
                 A `key` no caminho é o que faz a animação rodar de novo a cada
                 página: sem ela o React reaproveita o nó e a troca acontece sem
