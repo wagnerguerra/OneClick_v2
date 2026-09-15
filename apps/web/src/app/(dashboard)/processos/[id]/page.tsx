@@ -288,7 +288,7 @@ export default function ProcessoDetalhePage() {
             {proc.orcamentoId && (
               <Link
                 href={`/orcamentos/${proc.orcamentoId}`}
-                className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 hover:bg-muted text-sky-700 dark:text-sky-300 px-2.5 py-0.5 text-[11px] font-medium uppercase border border-sky-200/60 dark:border-sky-800/60 transition-colors"
+                className={cn('inline-flex items-center gap-1.5 rounded-full bg-muted/60 hover:bg-muted px-2.5 py-0.5 text-[11px] font-medium uppercase border border-sky-200/60 dark:border-sky-800/60 transition-colors', TEXT.sky)}
               >
                 Origem: orçamento ↗
               </Link>
@@ -311,7 +311,7 @@ export default function ProcessoDetalhePage() {
           />
 
           {/* TabsList em pills centralizadas — dentro do mesmo wrapper */}
-          <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto flex justify-center">
+          <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto nice-scrollbar flex justify-center">
             <TabsList className="min-w-max !shadow-sm !border !border-border/60 gap-1.5 !p-1 !bg-muted/60 dark:!bg-muted/40 !rounded-full backdrop-blur-sm w-fit h-auto">
               <TabsTrigger value="visao" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
                 <Layers className="h-3.5 w-3.5" />Visão geral
@@ -477,7 +477,7 @@ export default function ProcessoDetalhePage() {
                                 <label
                                   key={idx}
                                   onClick={multi ? () => toggleOpcao(op) : undefined}
-                                  className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer text-sm transition-colors ${checked ? 'bg-orange-50 dark:bg-orange-950/30 border-orange-300 dark:border-orange-700' : 'border-border hover:bg-muted/50'}`}
+                                  className={cn('flex items-center gap-2 px-3 py-2 rounded border cursor-pointer text-sm transition-colors', checked ? SURFACE.orange : 'border-border hover:bg-muted/50')}
                                 >
                                   {multi ? (
                                     // Checkbox centralizado (indicador; o clique é tratado no <label>).
@@ -938,7 +938,7 @@ function FluxoGraph({ execucoes, onChanged }: {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto nice-scrollbar">
       <svg width={svgWidth} height={svgHeight} className="text-foreground">
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -1210,7 +1210,7 @@ function FluxoResponsavelPopover({ exec, triggerRect, onClose, onChanged }: {
       {areaFiltro && (
         <div className="px-2 py-1.5 border-b bg-sky-50 dark:bg-sky-950/30 flex items-center gap-1.5">
           <span className={cn('inline-block h-1.5 w-1.5 rounded-full shrink-0', DOT.sky)} />
-          <span className="text-[10px] text-sky-700 dark:text-sky-300">
+          <span className={cn('text-[10px]', TEXT.sky)}>
             Filtrado pela área <strong>{areaFiltro.name}</strong>
           </span>
         </div>

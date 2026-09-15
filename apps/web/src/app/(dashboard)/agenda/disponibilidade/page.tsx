@@ -446,8 +446,8 @@ export default function AgendaDisponibilidadePage() {
                     const isHoje = formatDateKey(d) === hojeKey
                     return (
                       <div key={i} className={cn('flex-1 border-b border-r border-border last:border-r-0 px-2 py-2 text-center', isHoje && 'bg-sky-50 dark:bg-sky-950/30')}>
-                        <div className={cn('text-[10px] font-semibold uppercase tracking-wider', isHoje ? 'text-sky-700 dark:text-sky-400' : 'text-muted-foreground')}>{DIAS_LABEL[i]}</div>
-                        <div className={cn('text-sm font-semibold mt-0.5', isHoje && 'text-sky-700 dark:text-sky-400')}>
+                        <div className={cn('text-[10px] font-semibold uppercase tracking-wider', isHoje ? TEXT.sky : 'text-muted-foreground')}>{DIAS_LABEL[i]}</div>
+                        <div className={cn('text-sm font-semibold mt-0.5', isHoje && TEXT.sky)}>
                           {String(d.getDate()).padStart(2, '0')}/{String(d.getMonth() + 1).padStart(2, '0')}
                         </div>
                       </div>

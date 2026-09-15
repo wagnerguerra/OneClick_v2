@@ -18,7 +18,7 @@ import { trpc } from '@/lib/trpc'
 import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Recorte } from '../_components/periodos'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -91,7 +91,7 @@ const MEDIDAS = [
   // "Em aberto e no prazo" é a única das seis que não pede ação: fica em
   // cinza, para o olho ir direto ao que precisa de atenção.
   { campo: 'pendenteNoPrazo',   label: 'Em aberto e no prazo',  ajuda: 'Ainda não entregues, com o prazo legal à frente.',
-    cor: 'text-slate-600 dark:text-slate-300',    bg: 'bg-slate-100 dark:bg-slate-900/30',   hex: '#475569' },
+    cor: TEXT.slate,    bg: 'bg-slate-100 dark:bg-slate-900/30',   hex: '#475569' },
   { campo: 'pendenteAtrasado',  label: 'Em aberto e em atraso', ajuda: 'Ainda não entregues, com o prazo legal já passado.',
     cor: TEXT.amber,    bg: 'bg-amber-100 dark:bg-amber-900/30',   hex: '#d97706' },
   { campo: 'pendenteComMulta',  label: 'Em aberto e passível de multa', ajuda: 'Das que estão em atraso, as que geram multa. É a exposição de hoje.',
@@ -413,7 +413,7 @@ function AvisoCobertura({ dados, recorte }: { dados: Retorno | null; recorte: Re
   if (fimPedido <= fimCoberto) return null
 
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+    <div className={cn('rounded-lg border px-4 py-2.5 text-[13px]', BADGE.amber)}>
       A sincronização de entregas cobre até <b>{new Date(ate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</b>,
       e o período escolhido vai além disso. O que aparece abaixo está incompleto — rode a
       sincronização para o período desejado na aba <b>Integração</b>.
@@ -479,7 +479,7 @@ function FiltroColuna({ valor, onChange }: { valor: string; onChange: (v: string
       onChange={(e) => onChange(e.target.value)}
       placeholder="filtrar…"
       className={cn(
-        'w-full rounded border border-border bg-card px-1.5 py-0.5 text-[11px] font-normal normal-case tracking-normal',
+        'w-full rounded px-1.5 py-0.5 text-[11px] font-normal normal-case tracking-normal',
         'placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1',
       )}
       style={valor ? { borderColor: MODULE_COLOR } : undefined}
@@ -532,7 +532,7 @@ function DetalheMedidaModal({ cartao, medida, tipo, recorte, regua, onClose }: {
             )}
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="max-h-[65vh] overflow-y-auto p-0">
+        <DialogBody className="max-h-[65vh] p-0">
           {carregando ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -698,7 +698,7 @@ function ListaPendentes({ pendentes }: { pendentes: Pendente[] }) {
                     : 'text-muted-foreground')}>
                     {p.atrasada ? 'em atraso' : 'no prazo'}
                   </span>
-                  {p.multa && <span className="ml-1 text-[10px] text-rose-500">multa</span>}
+                  {p.multa && <span className={cn('ml-1 text-[10px]', TEXT.rose)}>multa</span>}
                 </td>
               </tr>
             ))}

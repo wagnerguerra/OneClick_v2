@@ -17,7 +17,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT, STRONG } from '@/lib/color-styles'
+import { TEXT, STRONG, BADGE, SURFACE } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
@@ -332,8 +332,9 @@ function ServicoCombobox({ servicos, value, onSelect, placeholder }: {
     <div ref={ref} className="relative w-full">
       <button
         type="button"
+        role="combobox"
         onClick={() => setOpen(o => !o)}
-        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        className="flex h-9 w-full items-center justify-between rounded-md border border-input px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
       >
         {selected ? (
           <span className="flex flex-col items-start min-w-0 flex-1 truncate">
@@ -1097,7 +1098,7 @@ export default function MeusServicosPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
                           <span className="text-sm font-semibold">{sv.nome}</span>
-                          <Badge variant="outline" className="text-[10px] h-5 bg-orange-50 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-400">
+                          <Badge variant="outline" className={cn('text-[10px] h-5', BADGE.orange)}>
                             Aguardando resposta
                           </Badge>
                           <Badge variant="outline" className="text-[10px] h-5">
@@ -1123,7 +1124,7 @@ export default function MeusServicosPage() {
                             className={cn(
                               'flex items-center gap-2 px-3 py-2 rounded border cursor-pointer text-sm transition-colors',
                               checked
-                                ? 'bg-orange-50 dark:bg-orange-950/30 border-orange-300 dark:border-orange-700'
+                                ? SURFACE.orange
                                 : 'bg-card border-border hover:bg-muted/50',
                             )}
                           >
@@ -1289,7 +1290,7 @@ export default function MeusServicosPage() {
                         )}
                         {totalComentarios > 0 && (
                           <span
-                            className="inline-flex items-center gap-0.5 text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/20 rounded px-1.5 py-0.5 font-medium"
+                            className={cn('inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-medium', BADGE.sky)}
                             title={`${totalComentarios} comentário${totalComentarios > 1 ? 's' : ''} no serviço`}
                           >
                             <MessageSquare className="h-3 w-3" /> {totalComentarios}
@@ -1297,7 +1298,7 @@ export default function MeusServicosPage() {
                         )}
                         {totalAnexos > 0 && (
                           <span
-                            className="inline-flex items-center gap-0.5 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-1.5 py-0.5 font-medium"
+                            className={cn('inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-medium', BADGE.amber)}
                             title={`${totalAnexos} anexo${totalAnexos > 1 ? 's' : ''} no serviço`}
                           >
                             <Paperclip className="h-3 w-3" /> {totalAnexos}
@@ -1350,14 +1351,15 @@ export default function MeusServicosPage() {
                         // ela caía no cálculo de prazo abaixo e aparecia em
                         // vermelho, como se estivesse atrasada.
                         <Badge
-                          className="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 text-[10px] px-2 py-0.5 h-5 gap-1"
+                          variant="outline"
+                          className={cn('text-[10px] px-2 py-0.5 h-5 gap-1', STRONG.violet)}
                           title="Obrigação dispensada no Acessórias — não é devida por este cliente"
                         >
                           Dispensado
                         </Badge>
                       ) : exec.pausado ? (
                         <span
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800"
+                          className={cn('inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded border', STRONG.amber)}
                           title={exec.pausadoMotivo ? `Motivo: ${exec.pausadoMotivo}` : 'Execução pausada — SLA não corre'}
                         >
                           <Pause className="h-3 w-3" /> Pausado
@@ -1368,7 +1370,7 @@ export default function MeusServicosPage() {
                         // cálculo abaixo pintaria de vermelho algo que a origem
                         // não considera atrasado.
                         <span
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded text-sky-700 bg-sky-50 dark:bg-sky-900/20 dark:text-sky-300"
+                          className={cn('inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded', BADGE.sky)}
                           title={`No Acessórias: ${exec.acessoriasStatus}. O prazo interno passou, o legal ainda não.`}
                         >
                           {exec.acessoriasStatus}
@@ -1377,10 +1379,10 @@ export default function MeusServicosPage() {
                         <span
                           className={cn(
                             'inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded',
-                            tempo.cor === 'red' && 'text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20',
-                            tempo.cor === 'amber' && 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20',
-                            tempo.cor === 'emerald' && 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
-                            tempo.cor === 'slate' && 'text-slate-600 dark:text-slate-400 bg-muted',
+                            tempo.cor === 'red' && BADGE.rose,
+                            tempo.cor === 'amber' && BADGE.amber,
+                            tempo.cor === 'emerald' && BADGE.emerald,
+                            tempo.cor === 'slate' && cn('bg-muted', TEXT.slate),
                           )}
                         >
                           <Clock className="h-3 w-3" /> {tempo.texto}

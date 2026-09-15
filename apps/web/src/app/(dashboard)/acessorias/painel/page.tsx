@@ -23,7 +23,7 @@ import { PERIODOS, filtroDe, rotuloCompetencia, competenciasDisponiveis, type Re
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
-import { TEXT } from '@/lib/color-styles'
+import { BADGE, TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -493,7 +493,7 @@ export default function PainelEntregasPage() {
                     {c.naoLidasCriticas > 0 && (
                       <button type="button" title="Ver as obrigações vencendo"
                         onClick={() => setDrill({ cliente: c, foco: 'a_vencer', rotulo: 'Vencendo' })}>
-                        <Badge className="cursor-pointer bg-rose-100 text-[10px] text-rose-700 hover:brightness-95 dark:bg-rose-950/40 dark:text-rose-400">
+                        <Badge variant="outline" className={cn('cursor-pointer text-[10px] hover:brightness-95', BADGE.rose)}>
                           {c.naoLidasCriticas} vencendo
                         </Badge>
                       </button>
@@ -509,7 +509,7 @@ export default function PainelEntregasPage() {
                     {c.atrasadas > 0 && (
                       <button type="button" title="Ver as obrigações atrasadas"
                         onClick={() => setDrill({ cliente: c, foco: 'atrasadas', rotulo: 'Atrasadas' })}>
-                        <Badge className="cursor-pointer bg-amber-100 text-[10px] text-amber-800 hover:brightness-95 dark:bg-amber-950/40 dark:text-amber-400">
+                        <Badge variant="outline" className={cn('cursor-pointer text-[10px] hover:brightness-95', BADGE.amber)}>
                           {c.atrasadas} atrasadas
                         </Badge>
                       </button>
@@ -527,7 +527,7 @@ export default function PainelEntregasPage() {
         ) : (
           <div className="max-h-[620px] overflow-auto nice-scrollbar">
             {truncado && (
-              <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-[12px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+              <p className={cn('border-b px-4 py-2 text-[12px]', BADGE.amber)}>
                 Mostrando as primeiras {truncado.limite} linhas. Os indicadores acima contam
                 a carteira inteira — use os filtros para reduzir a lista.
               </p>
@@ -762,7 +762,7 @@ function ObrigacoesDoClienteModal({
             #{cliente.clienteCode} — {cliente.clienteNome} · {masks.cpfCnpj(cliente.documento)}
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="max-h-[65vh] overflow-y-auto p-0">
+        <DialogBody className="max-h-[65vh] p-0">
           {carregando ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -864,7 +864,7 @@ function DetalheEntregaModal({ linha: l, urlTemplate, onClose }: {
             #{l.clienteCode} — {l.clienteNome} · {masks.cpfCnpj(l.documento)}
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="max-h-[65vh] space-y-4 overflow-y-auto">
+        <DialogBody className="max-h-[65vh] space-y-4">
           <Secao titulo="Datas">
             <Campo label="Competência" valor={fmtComp(l.competencia)} />
             <Campo label="Prazo técnico (EntDtPrazo)" valor={fmtData(l.prazo)} />
@@ -1065,7 +1065,7 @@ function RegrasModal({ onClose, onMudou }: { onClose: () => void; onMudou: () =>
             O que a sincronização deixa de trazer. Regra por cliente vence a regra geral.
           </DialogDescription>
         </DialogHeaderIcon>
-        <DialogBody className="overflow-y-auto">
+        <DialogBody>
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
@@ -1082,8 +1082,8 @@ function RegrasModal({ onClose, onMudou }: { onClose: () => void; onMudou: () =>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="truncate text-sm font-medium">{r.nome}</span>
                       {r.considerar
-                        ? <Badge className="bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">exceção: considerar</Badge>
-                        : <Badge className="bg-rose-100 text-[10px] text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">não considerar</Badge>}
+                        ? <Badge variant="outline" className={cn('text-[10px]', BADGE.emerald)}>exceção: considerar</Badge>
+                        : <Badge variant="outline" className={cn('text-[10px]', BADGE.rose)}>não considerar</Badge>}
                     </div>
                     <p className="truncate text-[11px] text-muted-foreground">
                       {r.cliente ? `#${r.cliente.code} — ${r.cliente.razaoSocial}` : 'todos os clientes'}

@@ -15,7 +15,7 @@ import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
-import { TEXT } from '@/lib/color-styles'
+import { SURFACE, TEXT } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
 
@@ -162,7 +162,7 @@ export default function DivergenciasPage() {
 
       <AbasAcessorias />
 
-      <Card className="border-sky-200 bg-sky-50/60 p-4 text-sm dark:border-sky-900 dark:bg-sky-950/20">
+      <Card className={cn('p-4 text-sm', SURFACE.sky)}>
         <div className="flex gap-3">
           <ShieldCheck className={cn('mt-0.5 h-4 w-4 shrink-0', TEXT.sky)} />
           <div className="space-y-1">
@@ -213,7 +213,7 @@ export default function DivergenciasPage() {
               <p className="text-xs text-muted-foreground">clientes comparados</p>
             </Card>
             <Card className="p-4">
-              <p className="text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-500">{rel.totais.clientesComDivergencia}</p>
+              <p className={cn('text-2xl font-bold tabular-nums', TEXT.amber)}>{rel.totais.clientesComDivergencia}</p>
               <p className="text-xs text-muted-foreground">com divergência</p>
             </Card>
             <Card className="p-4">

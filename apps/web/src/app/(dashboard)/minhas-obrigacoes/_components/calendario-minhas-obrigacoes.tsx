@@ -111,7 +111,7 @@ export function CalendarioMinhasObrigacoes({ items, loading, onSelecionar }: Cal
                   {cel.dia !== null && (
                     <>
                       <div className="flex items-center justify-between mb-1">
-                        <span className={cn('font-semibold', ehHoje ? 'text-sky-700 dark:text-sky-400' : 'text-foreground/80')}>
+                        <span className={cn('font-semibold', ehHoje ? TEXT.sky : 'text-foreground/80')}>
                           {cel.dia}
                         </span>
                         {eventos.length > 0 && (

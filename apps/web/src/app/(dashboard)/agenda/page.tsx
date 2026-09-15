@@ -2037,7 +2037,7 @@ export default function AgendaPage() {
                                 <button
                                   type="button"
                                   onClick={e => { e.stopPropagation(); setDayModalDate(dateStr); setDayModalOpen(true) }}
-                                  className="text-[10px] text-emerald-700 dark:text-emerald-400 hover:underline pl-1 font-medium cursor-pointer w-full text-left leading-none"
+                                  className={cn('text-[10px] hover:underline pl-1 font-medium cursor-pointer w-full text-left leading-none', TEXT.emerald)}
                                 >
                                   +{ocultas} tarefa{ocultas > 1 ? 's' : ''}
                                 </button>
@@ -2476,7 +2476,7 @@ export default function AgendaPage() {
 
                       {ev.particular && (
                         <FieldRow icon={Lock} label="Particular">
-                          <span className="text-amber-700 dark:text-amber-300">Visível apenas para criador e participantes</span>
+                          <span className={TEXT.amber}>Visível apenas para criador e participantes</span>
                         </FieldRow>
                       )}
                     </div>
@@ -2537,7 +2537,7 @@ export default function AgendaPage() {
                           as de trás. Hover levanta a carta de trás; clique a seleciona
                           (ela vira a da frente). Sem duplicar a carta selecionada. */}
                       {deckCards.length > 1 && (
-                        <p className="text-[10px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <p className={cn('text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5', TEXT.violet)}>
                           <Link2 className="h-3.5 w-3.5" />
                           {deckCards.length} cards vinculados
                         </p>
@@ -2581,7 +2581,7 @@ export default function AgendaPage() {
                         className="relative rounded-xl border border-violet-500/40 bg-card shadow-lg overflow-hidden">
                         <div className="px-4 py-2.5 border-b border-violet-500/20 flex items-center gap-2 bg-violet-500/10">
                           <Target className={cn('h-4 w-4', TEXT.violet, 'shrink-0')} />
-                          <span className="text-[11px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider">
+                          <span className={cn('text-[11px] font-bold uppercase tracking-wider', TEXT.violet)}>
                             Detalhes da oportunidade
                           </span>
                           {op.numero != null && (
@@ -2613,7 +2613,7 @@ export default function AgendaPage() {
                               </span>
                             )}
                             {op.valor != null && Number(op.valor) > 0 && (
-                              <span className="inline-flex items-center text-[13px] font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                              <span className={cn('inline-flex items-center text-[13px] font-bold tabular-nums', TEXT.emerald)}>
                                 {fmtMoeda(op.valor)}
                               </span>
                             )}
