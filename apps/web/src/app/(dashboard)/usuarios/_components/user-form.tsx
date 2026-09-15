@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import {
   createUserSchema, updateUserSchema,
   type CreateUserInput, type UpdateUserInput, type PermissionInput,
-  MODULE_GROUPS, MODULE_LABELS, USER_ROLE_LABELS, USER_PROFILE_LABELS,
+  MODULE_GROUPS, MODULE_LABELS, USER_ROLE_LABELS_ESCRITORIO, USER_PROFILE_LABELS,
   MODULE_SUB_PERMISSIONS,
 } from '@saas/types'
 import { HelpCircle, User, Briefcase, Calendar, Building2, Shield, ChevronDown, ShieldCheck, Save, ArrowLeft, Handshake, Loader2, Download, Settings } from 'lucide-react'
@@ -518,7 +518,7 @@ function UserDetailsCard({ activeTab, mode, userId, register, control, errors, a
                 <div className="col-span-12 md:col-span-4 space-y-1.5">
                   <div className="flex items-center gap-1.5"><Label>Tipo de usuário</Label><FieldHint text="Define a categoria do usuário no sistema." /></div>
                   <Controller control={control} name="role" render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{Object.entries(USER_ROLE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent></Select>
+                    <Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{Object.entries(USER_ROLE_LABELS_ESCRITORIO).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent></Select>
                   )} />
                 </div>
                 <div className="col-span-12 md:col-span-4 space-y-1.5">

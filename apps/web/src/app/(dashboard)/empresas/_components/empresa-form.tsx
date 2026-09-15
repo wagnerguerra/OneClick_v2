@@ -860,7 +860,7 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
               <SectionCard
                 icon={<Users />}
                 title="Usuários da empresa"
-                description="A equipe do escritório e as pessoas dos clientes que acessam o portal. O cadastro é feito no módulo Usuários."
+                description="A equipe do escritório e as pessoas dos clientes que acessam o portal. A equipe se cadastra no módulo Usuários; as pessoas dos clientes, no cadastro de cada cliente."
                 actions={
                   <Link href="/usuarios" className="text-[13px] font-medium text-emerald-700 hover:underline dark:text-emerald-400">
                     Abrir Usuários
@@ -1284,7 +1284,14 @@ function TabelaDeUsuarios({ empresaId, tipo, titulo, vazio, termo, incluirInativ
                 return (
                   <tr key={u.id} className="hover:bg-muted/20">
                     <td className="px-3 py-2 text-[13px] truncate">
-                      <Link href={`/usuarios/${u.id}`} className="hover:underline" title={u.name}>{u.name}</Link>
+                      {/* Colaborador de cliente é gerido no cadastro do cliente, não em /usuarios. */}
+                      {deClientes ? (
+                        u.clientes?.[0]
+                          ? <Link href={`/clientes/${u.clientes[0].id}`} className="hover:underline" title={`${u.name} — abrir o cadastro do cliente`}>{u.name}</Link>
+                          : <span title={u.name}>{u.name}</span>
+                      ) : (
+                        <Link href={`/usuarios/${u.id}`} className="hover:underline" title={u.name}>{u.name}</Link>
+                      )}
                       {!u.isActive && (
                         <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">inativo</span>
                       )}

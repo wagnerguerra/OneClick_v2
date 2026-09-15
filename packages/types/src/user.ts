@@ -21,6 +21,21 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   DIRETOR: 'Diretor',
 }
 
+/**
+ * Papéis da equipe do escritório — todos, menos o colaborador de cliente.
+ *
+ * O módulo Usuários é a equipe interna. Quem é de um cliente se cadastra e se
+ * edita no cadastro do cliente, e por isso não é oferecido como papel em
+ * /usuarios (filtro, edição rápida e formulário).
+ */
+export const USER_ROLE_LABELS_ESCRITORIO: Record<Exclude<UserRole, 'COLABORADOR_CLIENTE'>, string> = {
+  COLABORADOR_INTERNO: USER_ROLE_LABELS.COLABORADOR_INTERNO,
+  PRESTADOR_SERVICO: USER_ROLE_LABELS.PRESTADOR_SERVICO,
+  GESTOR: USER_ROLE_LABELS.GESTOR,
+  COORDENADOR: USER_ROLE_LABELS.COORDENADOR,
+  DIRETOR: USER_ROLE_LABELS.DIRETOR,
+}
+
 const ROLE_VALUES = ['COLABORADOR_INTERNO', 'PRESTADOR_SERVICO', 'COLABORADOR_CLIENTE', 'GESTOR', 'COORDENADOR', 'DIRETOR'] as const
 
 export const UserProfileEnum = {
