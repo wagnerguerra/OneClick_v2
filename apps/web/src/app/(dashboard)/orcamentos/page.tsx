@@ -25,7 +25,7 @@ import { CatalogoCombobox } from './_components/catalogo-combobox'
 import { RelatorioColunaModal } from './_components/relatorio-coluna-modal'
 import { ReprocessarServicosModal } from './_components/reprocessar-servicos-modal'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BADGE, DOT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { useAutoHideScrollbar } from '@/hooks/use-autohide-scrollbar'
@@ -882,7 +882,7 @@ export default function OrcamentosPage() {
             className={cn(
               'h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0',
               arquivado
-                ? 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400'
+                ? BADGE.amber
                 : 'bg-card border-border text-muted-foreground hover:bg-muted/50',
             )}
             title={arquivado ? 'Mostrando arquivados' : 'Mostrando ativos'}
@@ -1089,7 +1089,7 @@ export default function OrcamentosPage() {
                 className={cn(
                   'inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md border transition-colors',
                   comReaberturas
-                    ? 'bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/40 dark:border-amber-800 dark:text-amber-200'
+                    ? BADGE.amber
                     : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted/40',
                 )}
               >
@@ -1183,7 +1183,7 @@ export default function OrcamentosPage() {
                         <DropdownMenuItem onClick={() => router.push(`/orcamentos/${orc.id}`)}><FileText className="h-4 w-4" />Detalhes</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDuplicar(orc.id)}><Copy className="h-4 w-4" />Duplicar</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleArquivar(orc.id)}><Archive className="h-4 w-4" />Arquivar</DropdownMenuItem>
-                        <DropdownMenuItem className="text-amber-600 dark:text-amber-500" onClick={() => handleCancelar(orc.id)}><Ban className="h-4 w-4" />Cancelar</DropdownMenuItem>
+                        <DropdownMenuItem className={TEXT.amber} onClick={() => handleCancelar(orc.id)}><Ban className="h-4 w-4" />Cancelar</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -1662,7 +1662,7 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
                 <DropdownMenuItem onClick={() => onOpenDetail(orc.id)}><Eye className="h-3.5 w-3.5 mr-2" /> Detalhes</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onDuplicar(orc.id)}><Copy className="h-3.5 w-3.5 mr-2" /> Duplicar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onArquivar(orc.id)}><Archive className="h-3.5 w-3.5 mr-2" /> Arquivar</DropdownMenuItem>
-                <DropdownMenuItem className="text-amber-600 dark:text-amber-500" onClick={() => onCancelar(orc.id)}><Ban className="h-3.5 w-3.5 mr-2" /> Cancelar</DropdownMenuItem>
+                <DropdownMenuItem className={TEXT.amber} onClick={() => onCancelar(orc.id)}><Ban className="h-3.5 w-3.5 mr-2" /> Cancelar</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -1671,10 +1671,10 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
       {/* Resposta do cliente pelo link — faixa de destaque pra ninguém deixar passar */}
       {orc.decisaoTipo && (() => {
         const meta = orc.decisaoTipo === 'APROVADO'
-          ? { label: 'Cliente aprovou pelo link', Icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300', dot: 'bg-emerald-500' }
+          ? { label: 'Cliente aprovou pelo link', Icon: CheckCircle2, cls: BADGE.emerald, dot: DOT.emerald }
           : orc.decisaoTipo === 'REVISAO_SOLICITADA'
-          ? { label: 'Cliente pediu revisão', Icon: Pencil, cls: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300', dot: 'bg-amber-500' }
-          : { label: 'Cliente recusou pelo link', Icon: ThumbsDown, cls: 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300', dot: 'bg-rose-500' }
+          ? { label: 'Cliente pediu revisão', Icon: Pencil, cls: BADGE.amber, dot: DOT.amber }
+          : { label: 'Cliente recusou pelo link', Icon: ThumbsDown, cls: BADGE.rose, dot: DOT.rose }
         const Icon = meta.Icon
         return (
           <div className={cn('mx-3 mb-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium', meta.cls)}
@@ -1738,7 +1738,7 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
         </div>
         <div className="flex items-center gap-2">
           {orc.oportunidadeId && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-fuchsia-700 bg-fuchsia-50 dark:bg-fuchsia-900/30 dark:text-fuchsia-400 rounded-sm px-1.5 py-0.5" title="Card de CRM vinculado">
+            <span className={cn('inline-flex items-center gap-1 text-[10px] font-medium rounded-sm px-1.5 py-0.5', BADGE.fuchsia)} title="Card de CRM vinculado">
               <Target className="h-3 w-3" /> CRM{orc.oportunidadeNumero != null ? ` #${orc.oportunidadeNumero}` : ''}
             </span>
           )}

@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { cn } from '@saas/ui'
+import { BADGE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { CLAUSULA_CATEGORIA_LABELS, type ClausulaCategoria } from '@saas/types'
@@ -443,9 +444,7 @@ export default function ContratoTemplatesPage() {
                     onClick={() => toggleFixa(idx)}
                     className={cn(
                       'text-[10px] px-2 py-1 rounded border transition-colors shrink-0',
-                      c.fixaVersao
-                        ? 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400'
-                        : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400',
+                      c.fixaVersao ? BADGE.amber : BADGE.emerald,
                     )}
                     title={c.fixaVersao ? 'Versão travada — clique para soltar' : 'Versão flutuante — clique para travar'}
                   >

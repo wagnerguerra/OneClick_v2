@@ -24,7 +24,7 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BADGE, SURFACE } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { SectionCard } from '@/components/section-card'
@@ -1630,8 +1630,8 @@ export default function OrcamentoDetailPage() {
               <span className={cn(
                 'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md transition-opacity',
                 autoSaveStatus === 'saving' && 'text-muted-foreground bg-muted/60',
-                autoSaveStatus === 'saved' && 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
-                autoSaveStatus === 'error' && 'text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20',
+                autoSaveStatus === 'saved' && BADGE.emerald,
+                autoSaveStatus === 'error' && BADGE.rose,
               )}>
                 {autoSaveStatus === 'saving' && (<><Loader2 className="h-3 w-3 animate-spin" /> Salvando...</>)}
                 {autoSaveStatus === 'saved' && (<><CheckCircle2 className="h-3 w-3" /> Salvo</>)}
@@ -1969,7 +1969,7 @@ export default function OrcamentoDetailPage() {
         {/* Tira de tabs do modelo: botoes simples (fora do [role=tablist] global,
             que impoe borda inferior/raio 0/cores antigas). O estado continua no
             <Tabs value={activeTab}> — os TabsContent abaixo reagem normalmente. */}
-        <div className="flex gap-1.5 overflow-x-auto py-2">
+        <div className="flex gap-1.5 overflow-x-auto nice-scrollbar py-2">
           {([
             { value: 'detalhes', icon: FileText, label: 'Detalhes' },
             { value: 'itens', icon: Package, label: 'Itens', badge: orc.itens.length },
@@ -2008,12 +2008,12 @@ export default function OrcamentoDetailPage() {
 
       {/* Banner de paralizacao */}
       {orc.paralizado && (
-        <Card className="p-3 border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 mt-5">
+        <Card className={cn('p-3 mt-5', SURFACE.amber)}>
           <div className="flex items-start gap-3">
             <Pause className={cn('h-5 w-5 shrink-0 mt-0.5', TEXT.amber)} />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Orçamento Paralizado</p>
-              <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">{orc.paralizadoMotivo}</p>
+              <p className={cn('text-xs mt-0.5', TEXT.amber)}>{orc.paralizadoMotivo}</p>
               {orc.paralizadoEm && (
                 <p className={cn('text-[10px]', TEXT.amber, 'mt-1')}>
                   Desde {new Date(orc.paralizadoEm).toLocaleString('pt-BR')}
@@ -2112,7 +2112,7 @@ export default function OrcamentoDetailPage() {
                             onChange={setFormEmails}
                             suggestions={emailSuggestions}
                             placeholder="Digite e pressione Enter, vírgula ou espaço para adicionar"
-                            chipClassName="bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300"
+                            chipClassName={BADGE.rose}
                           />
                         </div>
 
@@ -2263,7 +2263,7 @@ export default function OrcamentoDetailPage() {
                         <TableBody>
                           {!orc.itens.length ? (
                             <TableRow><TableCell colSpan={7} className="text-center py-6 text-xs">
-                              <div className="flex items-center justify-center gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 px-4 py-3 text-amber-800 dark:text-amber-300">
+                              <div className={cn('flex items-center justify-center gap-2 rounded-md border px-4 py-3', BADGE.amber)}>
                                 <AlertTriangle className="h-4 w-4" />
                                 <span className="font-medium">Atenção!</span>
                                 <span>Não é possível enviar orçamentos sem itens adicionados.</span>
@@ -2400,12 +2400,12 @@ export default function OrcamentoDetailPage() {
                                   {(item.subservico?.nome || item.catalogoTexto?.titulo) && (
                                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                                       {item.subservico?.nome && (
-                                        <span className="rounded bg-violet-50 px-1.5 py-0.5 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
+                                        <span className={cn('rounded px-1.5 py-0.5', BADGE.violet)}>
                                           {item.subservico.nome}
                                         </span>
                                       )}
                                       {item.catalogoTexto?.titulo && (
-                                        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                                        <span className={cn('rounded px-1.5 py-0.5', BADGE.amber)}>
                                           {item.catalogoTexto.titulo}
                                         </span>
                                       )}
@@ -2453,7 +2453,7 @@ export default function OrcamentoDetailPage() {
                         <h4 className="text-[13px] font-semibold text-foreground">Desconto e Pagamento</h4>
                       </div>
                       {apenasDescontoItem && (
-                        <div className="mx-5 mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-300">
+                        <div className={cn('mx-5 mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', BADGE.amber)}>
                           <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                           <span>O desconto geral está desativado nas configurações (&ldquo;Usar apenas desconto por item&rdquo;). Aplique o desconto item a item na aba <strong>Itens</strong>.</span>
                         </div>
@@ -3018,7 +3018,7 @@ export default function OrcamentoDetailPage() {
                       type="button"
                       onClick={() => toggleArquivoPublico(arq.id, !arq.publico)}
                       title={arq.publico ? 'Público — aparece na proposta do cliente. Clique para tornar privado.' : 'Privado — só interno. Clique para publicar na proposta do cliente.'}
-                      className={`shrink-0 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors ${arq.publico ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                      className={cn('shrink-0 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors', arq.publico ? BADGE.emerald : 'bg-muted text-muted-foreground hover:bg-muted/70')}
                     >
                       {arq.publico ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
                       {arq.publico ? 'Público' : 'Privado'}
@@ -3283,7 +3283,7 @@ export default function OrcamentoDetailPage() {
               Serviço já presente ou indisponível é ignorado.
             </DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-3 overflow-auto">
+          <DialogBody className="space-y-3">
             {loadingGruposOrc ? (
               <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
@@ -3517,7 +3517,7 @@ export default function OrcamentoDetailPage() {
           </DialogHeaderIcon>
           <DialogBody className="space-y-3">
             {reabrirStatusOptions.length === 0 ? (
-              <div className="flex items-start gap-2 text-[12px] text-rose-700 bg-rose-50 dark:bg-rose-900/10 dark:text-rose-300 rounded p-3 border border-rose-200 dark:border-rose-900/30">
+              <div className={cn('flex items-start gap-2 text-[12px] rounded p-3 border', BADGE.rose)}>
                 <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                 <p>Este orçamento está no status "Novo" — não há status anterior para o qual voltar.</p>
               </div>
@@ -3564,7 +3564,7 @@ export default function OrcamentoDetailPage() {
                 </div>
                 {/* Aviso contextual sobre o efeito da reabertura */}
                 {reabrirManterDatas ? (
-                  <div className="flex items-start gap-2 text-[11px] text-emerald-700 bg-emerald-50 dark:bg-emerald-900/10 dark:text-emerald-300 rounded p-3 border border-emerald-200 dark:border-emerald-900/30">
+                  <div className={cn('flex items-start gap-2 text-[11px] rounded p-3 border', BADGE.emerald)}>
                     <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
                     <div className="space-y-1">
                       <p className="font-medium">Datas dos marcos serão preservadas.</p>
@@ -3572,7 +3572,7 @@ export default function OrcamentoDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-start gap-2 text-[11px] text-amber-700 bg-amber-50 dark:bg-amber-900/10 dark:text-amber-300 rounded p-3 border border-amber-200 dark:border-amber-900/30">
+                  <div className={cn('flex items-start gap-2 text-[11px] rounded p-3 border', BADGE.amber)}>
                     <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                     <div className="space-y-1">
                       <p className="font-medium">Datas dos marcos posteriores a &quot;{STATUS_LABELS[reabrirStatus] || reabrirStatus}&quot; serão limpas.</p>
@@ -3793,7 +3793,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
         <div className="flex items-center justify-between gap-2 mb-1">
           <div className="flex items-baseline gap-2 flex-wrap min-w-0">
             <span className="text-sm font-semibold text-foreground truncate">{nome}</span>
-            {autorExterno && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">cliente · e-mail</span>}
+            {autorExterno && <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full', BADGE.sky)}>cliente · e-mail</span>}
             {viaEmail && !autorExterno && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">enviado por e-mail</span>}
             <span className="text-[11px] text-muted-foreground" title={dataAbsoluta}>{dataRelativa}</span>
             {editadoAbsoluto && (
@@ -3806,7 +3806,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
             )}
             {restritaIds.length > 0 && (
               <span
-                className="inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-300 rounded-full px-2 py-0.5"
+                className={cn('inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5', BADGE.blue)}
                 title={restritaNomes.length > 0 ? `Visível apenas para: ${restritaNomes.join(', ')}` : `Restrito a ${restritaIds.length} usuário(s)`}
               >
                 <Shield className="h-2.5 w-2.5" /> Restrita

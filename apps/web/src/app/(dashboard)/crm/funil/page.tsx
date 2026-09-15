@@ -6,6 +6,7 @@ import { Sparkles, Loader2, Save, Copy, ExternalLink, Flame, Thermometer, Snowfl
 import { Button, Card, Input, Label, Switch, Badge, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn, Dialog, DialogContent } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
+import { BADGE, DOT } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -227,7 +228,7 @@ export default function CrmFunilPage() {
                     <div className="flex items-center gap-2 min-w-0">
                       <Megaphone className="h-3.5 w-3.5 shrink-0" style={{ color: c.corPrimaria || '#10b981' }} />
                       <span className="text-sm font-medium truncate flex-1">{c.nome || c.slug}</span>
-                      <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', c.ativo ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
+                      <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', c.ativo ? DOT.emerald : 'bg-muted-foreground/40')} />
                     </div>
                     <p className="text-[10px] text-muted-foreground font-mono truncate pl-5">/{c.slug}</p>
                     <p className="text-[10px] text-muted-foreground pl-5">{c._registrados ?? 0} no CRM · {c._total ?? 0} sessões</p>
@@ -305,7 +306,7 @@ export default function CrmFunilPage() {
                 </div>
 
                 {cfg.roteador && (
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/40 p-3 text-[12px] text-emerald-800 dark:text-emerald-300">
+                  <div className={cn('rounded-lg border p-3 text-[12px]', BADGE.emerald)}>
                     <strong>Modo Recepção.</strong> Esta campanha é o ponto de entrada único (ex.: o chat do site). A IA faz a triagem, identifica a intenção e <strong>encaminha o lead para a trilha certa</strong> (usando a &quot;descrição de roteamento&quot; de cada trilha), ou trata como fora de escopo (currículo/suporte/spam). A trilha e a rubrica abaixo <em>não</em> são usadas neste modo.
                   </div>
                 )}

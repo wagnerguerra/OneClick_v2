@@ -15,6 +15,7 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { TEXT, SURFACE } from '@/lib/color-styles'
 import Link from 'next/link'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -755,7 +756,7 @@ export default function ContratoDetailPage() {
             <div className="space-y-2">
               {contrato.assinaturas.map(a => (
                 <div key={a.id} className="flex items-center gap-2 text-xs border-l-2 border-emerald-400 pl-3 py-1">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <CheckCircle2 className={cn('h-3.5 w-3.5 shrink-0', TEXT.emerald)} />
                   <span className="font-semibold">{a.parte}:</span>
                   <span>{a.signatarioNome}</span>
                   <span className="text-muted-foreground">·</span>
@@ -828,7 +829,7 @@ function ResumoAssinatura({ titulo, assinatura }: { titulo: string; assinatura: 
   if (assinatura) {
     return (
       <div className="flex items-center gap-2">
-        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+        <CheckCircle2 className={cn('h-3.5 w-3.5 shrink-0', TEXT.emerald)} />
         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{titulo}</span>
         <span className="text-xs truncate">{assinatura.signatarioNome}</span>
       </div>
@@ -852,10 +853,10 @@ function BlocoAssinatura({ titulo, assinatura, onAssinar, podeAssinar, notaClien
 }) {
   if (assinatura) {
     return (
-      <div className="rounded-md border-2 border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 space-y-2">
+      <div className={cn('rounded-md border-2 p-4 space-y-2', SURFACE.emerald)}>
         <div className="flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-emerald-600" />
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">{titulo}</p>
+          <ShieldCheck className={cn('h-4 w-4', TEXT.emerald)} />
+          <p className={cn('text-[10px] font-semibold uppercase tracking-wider', TEXT.emerald)}>{titulo}</p>
         </div>
         <p className="text-sm font-semibold">{assinatura.signatarioNome}</p>
         {assinatura.signatarioDoc && (

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Send, ThumbsDown, Coins, CheckCircle2, FileDown, CalendarDays } from 'lucide-react'
 import { Button, Card, Input, cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BADGE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { exportToExcel, type ExportColumn } from '@/lib/export-data'
@@ -194,9 +194,9 @@ function DonutCard({ title, slices }: { title: string; slices: { name: string; v
 }
 
 const COR_BADGE: Record<string, string> = {
-  emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  sky: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
-  rose: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+  emerald: BADGE.emerald,
+  sky: BADGE.sky,
+  rose: BADGE.rose,
 }
 const COR_TITULO: Record<string, string> = {
   emerald: TEXT.emerald,

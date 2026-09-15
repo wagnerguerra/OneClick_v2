@@ -16,6 +16,7 @@ import {
   Label, RichEditor, Checkbox,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { SURFACE, BADGE } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -542,7 +543,7 @@ export default function ParametrosOrcamentosPage() {
               />
             </div>
 
-            <div className="flex items-start gap-3 p-3 bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30 rounded-md">
+            <div className={cn('flex items-start gap-3 p-3 border rounded-md', SURFACE.rose)}>
               <Checkbox
                 id="disponivel"
                 checked={form.disponivelOrcamento}
@@ -571,7 +572,7 @@ export default function ParametrosOrcamentosPage() {
               </div>
 
               {!editing ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300">
+                <div className={cn('rounded-md border px-3 py-2 text-[11px]', BADGE.amber)}>
                   Salve o item primeiro para poder adicionar textos a ele.
                 </div>
               ) : textosLoading ? (

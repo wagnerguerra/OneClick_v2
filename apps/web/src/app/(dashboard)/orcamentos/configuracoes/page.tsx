@@ -193,7 +193,7 @@ export default function OrcamentosConfiguracoesPage() {
         </div>
         <div className="flex flex-col sm:flex-row min-h-[450px]">
           {/* Pills laterais */}
-          <div className="sm:w-[200px] shrink-0 border-b sm:border-b-0 sm:border-r border-border bg-muted/40 p-3 flex sm:flex-col gap-1 overflow-x-auto">
+          <div className="sm:w-[200px] shrink-0 border-b sm:border-b-0 sm:border-r border-border bg-muted/40 p-3 flex sm:flex-col gap-1 overflow-x-auto nice-scrollbar">
             {visibleTabs.map(tab => {
               const Icon = tab.icon
               const active = activeTab === tab.key
@@ -356,7 +356,7 @@ export default function OrcamentosConfiguracoesPage() {
                   <div className="col-span-12 border-t border-border pt-4 mt-1 space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground block">Itens do orçamento</label>
                     <label className="flex items-start gap-2 cursor-pointer select-none">
-                      <input type="checkbox" checked={config.exigirSubservico} onChange={e => setConfig(c => ({ ...c, exigirSubservico: e.target.checked }))} className="mt-0.5 h-4 w-4 accent-[var(--mod-comercial,#fb7185)]" />
+                      <Checkbox checked={config.exigirSubservico} onCheckedChange={v => setConfig(c => ({ ...c, exigirSubservico: v === true }))} accentColor="var(--mod-comercial, #fb7185)" className="mt-0.5" />
                       <span className="text-[11px] text-muted-foreground">
                         <strong className="text-foreground font-medium">Exigir subserviço ao incluir um item.</strong> Marcado, um serviço que foi dividido em subserviços só entra no orçamento com o subserviço escolhido — quem precisa vendê-lo fechado depende da permissão <em>&quot;Incluir serviço sem escolher o subserviço&quot;</em>. Desmarcado, a exigência não vale para ninguém e o serviço pode ser orçado como um todo.
                       </span>

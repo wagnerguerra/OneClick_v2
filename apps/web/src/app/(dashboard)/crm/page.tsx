@@ -22,7 +22,7 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT, STRONG } from '@/lib/color-styles'
+import { TEXT, STRONG, BADGE } from '@/lib/color-styles'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -1230,7 +1230,7 @@ export default function CrmPage() {
 
           <SheetBody className="px-6 py-5 space-y-5">
             {draftRestored && (
-              <div className="flex items-center gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+              <div className={cn('flex items-center gap-2 rounded-md border px-3 py-2 text-xs', BADGE.amber)}>
                 <RotateCcw className="h-3.5 w-3.5 shrink-0" />
                 <span>Recuperamos os dados que você havia começado a digitar. Para começar do zero, use <strong>Descartar</strong> (ícone de lixeira no topo).</span>
               </div>
@@ -1513,7 +1513,7 @@ export default function CrmPage() {
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className={cn('text-sm font-medium leading-snug', t.concluida && 'line-through')}>{t.titulo}</p>
                                   {t.prioridade === 'ALTA' && (
-                                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20">
+                                    <Badge variant="outline" className={cn('text-[10px] h-4 px-1.5', BADGE.orange)}>
                                       <AlertCircle className="h-2.5 w-2.5 mr-0.5" />Alta
                                     </Badge>
                                   )}
@@ -1658,7 +1658,7 @@ export default function CrmPage() {
             <DialogTitle className="text-[15px]">Gerenciar Tags</DialogTitle>
             <DialogDescription className="text-[11px]">Crie tags para categorizar oportunidades</DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-2 max-h-[50vh] overflow-y-auto">
+          <DialogBody className="space-y-2 max-h-[50vh]">
             {tags.map(tag => (
               <div key={tag.id} className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/30">
                 <input type="color" value={tag.cor} onChange={e => handleUpdateTag(tag.id, { cor: e.target.value })} className="h-7 w-7 rounded border cursor-pointer shrink-0" />
@@ -1695,7 +1695,7 @@ export default function CrmPage() {
             <DialogTitle className="text-[15px]">Gerenciar Etapas do Pipeline</DialogTitle>
             <DialogDescription className="text-[11px]">Edite nome, cor, probabilidade e ordem das etapas</DialogDescription>
           </DialogHeaderIcon>
-          <DialogBody className="space-y-3 max-h-[60vh] overflow-y-auto">
+          <DialogBody className="space-y-3 max-h-[60vh]">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={editEtapas.sort((a, b) => a.ordem - b.ordem).map(e => e.id)} strategy={verticalListSortingStrategy}>
                 {editEtapas.sort((a, b) => a.ordem - b.ordem).map((etapa, idx) => (

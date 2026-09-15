@@ -11,6 +11,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
+import { BADGE } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { IndicadoresDashboard } from '../_components/indicadores-dashboard'
 import Link from 'next/link'
@@ -140,7 +141,7 @@ export default function RelatoriosOrcamentosPage() {
       </PageHeaderBar>
 
       {/* Pills */}
-      <div className="flex gap-1 border-b border-border/40 overflow-x-auto">
+      <div className="flex gap-1 border-b border-border/40 overflow-x-auto nice-scrollbar">
         {TABS.map(t => {
           const Icon = t.icon
           const active = tab === t.key
@@ -282,7 +283,7 @@ function AtrasadosTab({ atrasados }: { atrasados: AtrasadosData }) {
                 <TableCell className="text-right text-sm">{formatCurrency(o.totalGeral)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{new Date(o.createdAt).toLocaleDateString('pt-BR')}</TableCell>
                 <TableCell className="text-center">
-                  <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px]">{o.diasAtraso}d</Badge>
+                  <Badge variant="outline" className={cn(BADGE.amber, 'text-[10px]')}>{o.diasAtraso}d</Badge>
                 </TableCell>
               </TableRow>
             ))}
@@ -314,7 +315,7 @@ function AtrasadosTab({ atrasados }: { atrasados: AtrasadosData }) {
                 <TableCell className="text-right text-sm">{formatCurrency(o.totalGeral)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{o.dtEnviado ? new Date(o.dtEnviado).toLocaleDateString('pt-BR') : '—'}</TableCell>
                 <TableCell className="text-center">
-                  <Badge className="bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 text-[10px]">{o.diasAtraso}d</Badge>
+                  <Badge variant="outline" className={cn(BADGE.rose, 'text-[10px]')}>{o.diasAtraso}d</Badge>
                 </TableCell>
               </TableRow>
             ))}
@@ -387,10 +388,10 @@ function DesempenhoTab({ data }: { data: DesempenhoData }) {
                 <TableCell className="text-center text-sm font-medium" style={{ color: STATUS_COLORS.APROVADO }}>{d.aprovados}</TableCell>
                 <TableCell className="text-center text-sm font-medium" style={{ color: STATUS_COLORS.ENCERRADO }}>{d.encerrados}</TableCell>
                 <TableCell className="text-center">
-                  <Badge className={cn(
+                  <Badge variant="outline" className={cn(
                     'text-[10px]',
-                    d.taxaAprovacao >= 50 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                      d.taxaAprovacao >= 25 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                    d.taxaAprovacao >= 50 ? BADGE.emerald :
+                      d.taxaAprovacao >= 25 ? BADGE.amber : BADGE.red
                   )}>{d.taxaAprovacao}%</Badge>
                 </TableCell>
                 <TableCell className="text-right text-sm font-medium">{formatCurrency(d.valorAprovado)}</TableCell>
@@ -488,10 +489,10 @@ function AreaTab({ data }: { data: AreaData }) {
                 </TableCell>
                 <TableCell className="text-center text-sm">{d.count} <span className="text-[10px] text-muted-foreground">({total > 0 ? Math.round((d.count / total) * 100) : 0}%)</span></TableCell>
                 <TableCell className="text-center">
-                  <Badge className={cn(
+                  <Badge variant="outline" className={cn(
                     'text-[10px]',
-                    d.taxaAprovacao >= 50 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                      d.taxaAprovacao >= 25 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                    d.taxaAprovacao >= 50 ? BADGE.emerald :
+                      d.taxaAprovacao >= 25 ? BADGE.amber : BADGE.red
                   )}>{d.taxaAprovacao}%</Badge>
                 </TableCell>
                 <TableCell className="text-right text-sm">{formatCurrency(d.valor)}</TableCell>

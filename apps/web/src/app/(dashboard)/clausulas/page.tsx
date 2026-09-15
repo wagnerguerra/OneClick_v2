@@ -17,7 +17,7 @@ import Link from 'next/link'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { cn } from '@saas/ui'
-import { STRONG } from '@/lib/color-styles'
+import { STRONG, SURFACE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { CLAUSULA_CATEGORIA_LABELS, type ClausulaCategoria } from '@saas/types'
@@ -493,7 +493,7 @@ export default function ClausulasPage() {
             {histVersoes.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">Nenhuma versão encontrada</p>
             ) : histVersoes.map(v => (
-              <div key={v.id} className={cn('rounded-md border p-3', v.publicada && 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20')}>
+              <div key={v.id} className={cn('rounded-md border p-3', v.publicada && SURFACE.emerald)}>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-bold">v{v.versao}</span>
                   {v.publicada && <Badge variant="outline" className={cn('text-[10px] h-4 px-1.5', STRONG.emerald)}>Publicada</Badge>}

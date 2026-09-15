@@ -6,6 +6,7 @@ import {
   UserPlus, StickyNote, Phone,
 } from 'lucide-react'
 import { Button, Input, Badge, cn, Checkbox } from '@saas/ui'
+import { BADGE, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
@@ -139,7 +140,7 @@ export default function WhatsappPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-90px)]">
       {!configurado && (
-        <div className="flex items-center gap-2 rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-300 mb-2">
+        <div className={cn('flex items-center gap-2 rounded-md border px-3 py-2 text-xs mb-2', BADGE.amber)}>
           <AlertTriangle className="h-4 w-4 shrink-0" />
           Integração do WhatsApp ainda não configurada. Preencha as credenciais da Meta em <a href="/configuracoes" className="underline font-medium">Configurações → WhatsApp</a>.
         </div>
@@ -224,7 +225,7 @@ export default function WhatsappPage() {
                     <div className={cn('max-w-[72%] rounded-lg px-3 py-2 text-sm shadow-sm',
                       m.interna ? 'bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-800/60' :
                       m.direcao === 'OUT' ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-card border border-border')}>
-                      {m.interna && <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 mb-0.5 flex items-center gap-1"><StickyNote className="h-3 w-3" /> Nota interna</p>}
+                      {m.interna && <p className={cn('text-[10px] font-semibold mb-0.5 flex items-center gap-1', TEXT.amber)}><StickyNote className="h-3 w-3" /> Nota interna</p>}
                       {m.midiaUrl && <a href={m.midiaUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline block mb-1">[{m.tipo}]</a>}
                       <p className="whitespace-pre-wrap break-words">{m.conteudo}</p>
                       <div className="flex items-center justify-end gap-1 mt-0.5">
