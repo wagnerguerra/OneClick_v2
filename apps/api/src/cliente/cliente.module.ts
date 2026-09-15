@@ -15,6 +15,7 @@ import { MesclagemService } from './mesclagem.service'
 import { ClienteRelatorioService } from './relatorio/relatorio.service'
 import { ClienteUsuarioService } from './cliente-usuario.service'
 import { PortalConviteService } from '../portal/portal-convite.service'
+import { PortalContatoService } from '../portal/portal-contato.service'
 import { PortalArquivosService } from '../portal/portal-arquivos.service'
 import { PortalEscritorioService } from '../portal/portal-escritorio.service'
 import { PortalObrigacoesService } from '../portal/portal-obrigacoes.service'
@@ -38,7 +39,7 @@ import { InativacaoProgramadaScheduler } from './inativacao-programada.scheduler
   imports: [GestaoArquivosModule, CnpjModule, forwardRef(() => BiModule), AuthModule, forwardRef(() => ServicoModule)],
   controllers: [PortalController, ContratoSyncController, ClienteRelatorioController],
   providers: [
-    InativacaoProgramadaScheduler,ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService, ClienteRelatorioService, ClienteUsuarioService, PortalConviteService, PortalArquivosService, PortalEscritorioService, PortalObrigacoesService, PortalModulosService],
-  exports: [ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService, ClienteRelatorioService, ClienteUsuarioService, PortalConviteService, PortalArquivosService, PortalEscritorioService, PortalObrigacoesService, PortalModulosService],
+    InativacaoProgramadaScheduler,ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService, ClienteRelatorioService, ClienteUsuarioService, PortalConviteService, PortalArquivosService, PortalEscritorioService, PortalObrigacoesService, PortalModulosService, PortalContatoService],
+  exports: [ClienteService, ClienteEnriquecimentoService, ClienteCapaService, ClienteLogoService, SincronizarResponsaveisService, LegacyImportService, SciService, OmieService, IntegrationService, ImportOneclickService, ContratoSyncService, DuplicidadeService, MesclagemService, ClienteRelatorioService, ClienteUsuarioService, PortalConviteService, PortalArquivosService, PortalEscritorioService, PortalObrigacoesService, PortalModulosService, PortalContatoService],
 })
 export class ClienteModule {}

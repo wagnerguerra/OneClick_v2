@@ -40,6 +40,7 @@ import { createClienteRouter } from '../cliente/cliente.router'
 import { ClienteRelatorioService } from '../cliente/relatorio/relatorio.service'
 import { ClienteUsuarioService } from '../cliente/cliente-usuario.service'
 import { PortalConviteService } from '../portal/portal-convite.service'
+import { PortalContatoService } from '../portal/portal-contato.service'
 import { PortalArquivosService } from '../portal/portal-arquivos.service'
 import { PortalEscritorioService } from '../portal/portal-escritorio.service'
 import { PortalObrigacoesService } from '../portal/portal-obrigacoes.service'
@@ -841,6 +842,7 @@ export class TrpcService {
     @Inject(PortalEscritorioService) private readonly portalEscritorioService: PortalEscritorioService,
     @Inject(PortalObrigacoesService) private readonly portalObrigacoesService: PortalObrigacoesService,
     @Inject(PortalModulosService) private readonly portalModulosService: PortalModulosService,
+    @Inject(PortalContatoService) private readonly portalContatoService: PortalContatoService,
     @Inject(GestaoArquivosService) private readonly gestaoArquivosService: GestaoArquivosService,
     @Inject(GestaoArquivosNotificacaoService) private readonly gestaoArquivosNotificacaoService: GestaoArquivosNotificacaoService,
     @Inject(GestaoArquivosDriveService) private readonly gestaoArquivosDriveService: GestaoArquivosDriveService,
@@ -1021,7 +1023,7 @@ export class TrpcService {
       sqlConsole: createSqlConsoleRouter(this.sqlConsoleService),
       nota: createNotaRouter(this.notaService),
       whatsapp: createWhatsappRouter(this.whatsappService, this.whatsappCloudService),
-      portal: createPortalRouter(this.portalConviteService, this.portalArquivosService, this.gestaoArquivosDriveService, this.portalObrigacoesService),
+      portal: createPortalRouter(this.portalConviteService, this.portalArquivosService, this.gestaoArquivosDriveService, this.portalObrigacoesService, this.portalContatoService),
       gestaoArquivos: createGestaoArquivosRouter(this.gestaoArquivosService, this.gestaoArquivosNotificacaoService, this.gestaoArquivosDriveService),
       faq: createFaqRouter(this.faqService),
       servico: createServicoRouter(this.servicoService),

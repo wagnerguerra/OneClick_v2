@@ -4,6 +4,7 @@ import { router, publicProcedure, portalSessaoProcedure, portalProcedure, portal
 import type { PortalArquivosService } from './portal-arquivos.service'
 import type { GestaoArquivosDriveService } from '../gestao-arquivos/gestao-arquivos-drive.service'
 import type { PortalObrigacoesService } from './portal-obrigacoes.service'
+import type { PortalContatoService } from './portal-contato.service'
 import type { ConviteValido } from './portal-tipos'
 import { listarVinculos } from './portal-escopo'
 import { listarEquipe } from './portal-equipe'
@@ -41,6 +42,7 @@ export function createPortalRouter(
   arquivosService: PortalArquivosService,
   driveService: GestaoArquivosDriveService,
   obrigacoesService: PortalObrigacoesService,
+  contatoService: PortalContatoService,
 ) {
   return router({
     /**
@@ -240,6 +242,24 @@ export function createPortalRouter(
     equipe: portalProcedure
       .input(z.object({ clienteId: z.string() }))
       .query(({ ctx }) => listarEquipe(ctx.portal)),
+
+    /**
+     * O cliente escreve para o responsável de uma área, pelo portal.
+     *
+     * Recebe a ÁREA, nunca um endereço: quem recebe é decidido no servidor, a
+     * partir do cadastro (ver `portal-contato.service.ts`). Os limites de
+     * tamanho repetem os do serviço para a tela recusar antes de ir e voltar.
+     */
+    contato: router({
+      enviar: portalProcedure
+        .input(z.object({
+          clienteId: z.string(),
+          areaId: z.string().min(1),
+          assunto: z.string().trim().min(3).max(150),
+          mensagem: z.string().trim().min(5).max(5000),
+        }))
+        .mutation(({ input, ctx }) => contatoService.enviar(ctx.portal, ctx.userId, input)),
+    }),
 
     convite: router({
       /** Abre a tela do convite. Devolve o mínimo para a pessoa se reconhecer. */

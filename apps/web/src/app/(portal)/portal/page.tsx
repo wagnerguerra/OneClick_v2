@@ -12,6 +12,7 @@ import {
   type Alerta, type AreaDaEquipe, type Consulta, type Obrigacao, type PastaDrive,
   type Pendencia, type ResumoObrigacoes,
 } from '../_components/painel-inicio'
+import { ContatoEquipeModal } from '../_components/contato-equipe-modal'
 
 /**
  * Início do Portal do Cliente — a mesa de trabalho do cliente.
@@ -90,6 +91,7 @@ export default function PortalInicioPage() {
   const [resumo, setResumo] = useState<Consulta<ResumoObrigacoes>>(undefined)
   const [pasta, setPasta] = useState<Consulta<PastaDrive>>(undefined)
   const [equipe, setEquipe] = useState<Consulta<AreaDaEquipe[]>>(undefined)
+  const [escrevendoPara, setEscrevendoPara] = useState<AreaDaEquipe | null>(null)
 
   // Só consulta o que o escritório liberou: a rota de um módulo desligado
   // responde "não encontrado", e isso não é um dado para mostrar.
@@ -176,11 +178,13 @@ export default function PortalInicioPage() {
         </div>
 
         <aside className="flex flex-col gap-5">
-          <BlocoEquipe equipe={equipe} />
+          <BlocoEquipe equipe={equipe} onEscrever={setEscrevendoPara} />
           <AcessoRapido liberados={liberados} />
           <CartaoAjuda />
         </aside>
       </div>
+
+      <ContatoEquipeModal clienteId={clienteId} area={escrevendoPara} onClose={() => setEscrevendoPara(null)} />
     </div>
   )
 }

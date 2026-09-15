@@ -580,7 +580,13 @@ function iniciais(nome: string): string {
   return ((partes[0]?.[0] ?? '') + (partes.length > 1 ? partes[partes.length - 1]![0] ?? '' : '')).toUpperCase()
 }
 
-export function BlocoEquipe({ equipe }: { equipe: Consulta<AreaDaEquipe[]> }) {
+export function BlocoEquipe({
+  equipe, onEscrever,
+}: {
+  equipe: Consulta<AreaDaEquipe[]>
+  /** Abre o modal de mensagem para a área. Sem ele, o botão não aparece. */
+  onEscrever?: (area: AreaDaEquipe) => void
+}) {
   return (
     <Bloco icone={Users} cor={TOM.azul} titulo="Sua equipe no escritório" subtitulo="Com quem falar, por área">
       {equipe === undefined ? <Carregando linhas={2} /> : equipe === null ? <Falhou /> : equipe.length === 0 ? (
@@ -605,15 +611,20 @@ export function BlocoEquipe({ equipe }: { equipe: Consulta<AreaDaEquipe[]> }) {
                   <p className="truncate text-[11.5px] text-slate-500 dark:text-slate-400">Substituto: {a.substituto.nome}</p>
                 )}
               </div>
-              {a.responsavel && (
-                <a
-                  href={`mailto:${a.responsavel.email}`}
-                  title={a.responsavel.email}
-                  aria-label={`Enviar e-mail para ${a.responsavel.nome}`}
+              {/* O e-mail sai pelo portal, e não por `mailto:`: assim chega mesmo
+                  para quem não tem um programa de e-mail configurado, e a
+                  mensagem já leva a empresa e a área. Aparece também quando só
+                  há substituto — é para ele que o servidor manda nesse caso. */}
+              {onEscrever && (a.responsavel || a.substituto) && (
+                <button
+                  type="button"
+                  onClick={() => onEscrever(a)}
+                  title="Escrever mensagem"
+                  aria-label={`Escrever para ${(a.responsavel ?? a.substituto)!.nome}`}
                   className="shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-[#f2f7ff] hover:text-[#1a6dff] dark:hover:bg-[#16233a] dark:hover:text-[#7db0ff]"
                 >
                   <Mail className="h-4 w-4" />
-                </a>
+                </button>
               )}
             </li>
           ))}
