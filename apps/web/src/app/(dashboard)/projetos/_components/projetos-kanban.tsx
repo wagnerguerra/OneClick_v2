@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { resolveAssetUrl } from '@/lib/api-url'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
   useDroppable, type DragEndEvent, type DragStartEvent,
@@ -546,19 +546,12 @@ function ResumoFrentes({ execucoes, envolvidos }: { execucoes: number; envolvido
 }
 
 function AvatarPequeno({ user }: { user: { name: string; image: string | null } }) {
-  if (user.image) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={resolveAssetUrl(user.image)} alt={user.name} className="h-5 w-5 rounded-full object-cover" />
-  }
-  const iniciais = user.name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]?.toUpperCase())
-    .join('')
   return (
-    <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[9px] font-semibold text-foreground/70 shrink-0">
-      {iniciais || '?'}
-    </div>
+    <UserAvatar
+      user={user}
+      className="h-5 w-5 shrink-0 text-[9px] font-semibold"
+      bg="bg-muted"
+      fg="text-foreground/70"
+    />
   )
 }

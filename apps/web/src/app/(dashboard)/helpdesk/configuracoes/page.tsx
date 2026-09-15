@@ -13,6 +13,7 @@ import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
+import { BADGE } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
@@ -165,7 +166,7 @@ export default function HelpdeskConfiguracoesPage() {
 
             {/* Aviso: sem agentes = ninguém é notificado nem pode atender */}
             {config && !config.temAgentes && (
-              <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200">
+              <div className={`mx-4 mt-4 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px] ${BADGE.amber}`}>
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>
                   <strong>Nenhum usuário é agente do HelpDesk.</strong> Isso significa que ninguém será

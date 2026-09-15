@@ -6,7 +6,7 @@ import {
   Button, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, SURFACE, FILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -264,9 +264,9 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
           )}
 
           {semAutor > 0 && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
+            <div className={cn('flex items-start gap-2 rounded-lg border px-3 py-2', SURFACE.amber)}>
               <AlertCircle className={cn('mt-0.5 h-4 w-4 shrink-0', TEXT.amber)} />
-              <p className="text-[12.5px] text-amber-900 dark:text-amber-300">
+              <p className={cn('text-[12.5px]', TEXT.amber)}>
                 <b>{semAutor}</b> arquivo(s) sem autor reconhecido. Escolha quem escreveu, ou
                 remova da lista — eles não serão importados em branco.
               </p>
@@ -305,7 +305,7 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
                             deixa a pessoa sem saber se o problema é o arquivo
                             ou o cadastro. */}
                         {!a.autorId && (
-                          <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+                          <p className={cn('mt-1 text-[11px]', TEXT.amber)}>
                             {a.prefixo ? <>li &quot;<b>{a.prefixo}</b>&quot;</> : 'sem nome no arquivo'}
                           </p>
                         )}
@@ -344,7 +344,7 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
                 <span className="tabular-nums">{progresso} de {achados.filter(a => a.autorId).length}</span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                <div className={cn('h-full rounded-full transition-[width] duration-300', FILL.emerald)}
                   style={{ width: `${(progresso / Math.max(1, achados.filter(a => a.autorId).length)) * 100}%` }} />
               </div>
             </div>

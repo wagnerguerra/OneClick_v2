@@ -27,7 +27,7 @@ import {
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Label,
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, STRONG, SURFACE } from '@/lib/color-styles'
 import { AnexosDropzone, type AnexoStaged } from '../../../helpdesk/_components/anexos-dropzone'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -91,8 +91,8 @@ function fmtBytes(b: number): string {
 }
 
 const CORES_SITUACAO: Record<Apontamento['situacao'], string> = {
-  ABERTO: 'bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-300',
-  RESOLVIDO: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300',
+  ABERTO: STRONG.amber,
+  RESOLVIDO: STRONG.emerald,
   DESCARTADO: 'bg-muted text-muted-foreground',
 }
 
@@ -442,7 +442,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                     <Badge variant="secondary" className="shrink-0 text-[10px]">{r.abertos} em aberto</Badge>
                   )}
                   {r.travada && (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-800 dark:bg-rose-500/15 dark:text-rose-300">
+                    <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold', STRONG.rose)}>
                       <AlertOctagon className="h-3 w-3" />
                       Travada
                     </span>
@@ -496,7 +496,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                             className={cn(
                               'rounded-lg border px-3 py-2',
                               a.impeditivo && a.situacao === 'ABERTO'
-                                ? 'border-rose-300 bg-rose-50 dark:border-rose-500/40 dark:bg-rose-500/10'
+                                ? SURFACE.rose
                                 : 'border-border bg-muted/20',
                             )}
                           >
@@ -506,7 +506,7 @@ export function ProjetoTabRodadas({ projetoId, canWrite, canDelete, corProjeto, 
                               </p>
                               <div className="flex shrink-0 items-center gap-1">
                                 {a.impeditivo && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-800 dark:bg-rose-500/20 dark:text-rose-300">
+                                  <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold', STRONG.rose)}>
                                     <AlertOctagon className="h-3 w-3" /> Impeditivo
                                   </span>
                                 )}

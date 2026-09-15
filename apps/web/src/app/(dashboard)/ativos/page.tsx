@@ -13,7 +13,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@saas/ui'
-import { TEXT, BADGE } from '@/lib/color-styles'
+import { TEXT, BADGE, SURFACE } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
@@ -215,8 +215,8 @@ export default function AtivosPage() {
 
         {/* Barra de ações em massa — só aparece com seleção ativa */}
         {selectedIds.size > 0 && (
-          <div className="flex items-center gap-3 border-b bg-sky-50 dark:bg-sky-950/20 px-4 py-2">
-            <span className="text-[12px] font-semibold text-sky-700 dark:text-sky-300">
+          <div className={cn('flex items-center gap-3 border-b px-4 py-2', SURFACE.sky)}>
+            <span className={cn('text-[12px] font-semibold', TEXT.sky)}>
               {selectedIds.size} ativo{selectedIds.size === 1 ? '' : 's'} selecionado{selectedIds.size === 1 ? '' : 's'}
             </span>
             <div className="flex items-center gap-2 ml-auto">
@@ -320,7 +320,7 @@ export default function AtivosPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Link href={`/ativos/${a.id}`} className="font-mono text-[11px] font-semibold text-sky-700 dark:text-sky-300 hover:underline">
+                    <Link href={`/ativos/${a.id}`} className={cn('font-mono text-[11px] font-semibold hover:underline', TEXT.sky)}>
                       {a.tag}
                     </Link>
                   </TableCell>

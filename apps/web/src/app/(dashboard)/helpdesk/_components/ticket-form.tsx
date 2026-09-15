@@ -11,6 +11,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { BADGE } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { AnexosDropzone, type AnexoStaged } from './anexos-dropzone'
@@ -374,8 +375,8 @@ export function TicketFormFields({ form, variant = 'modal', onSubmitShortcut }: 
           parece que o sistema inventou o conteudo. */}
       {form.rascunhoRestaurado && (
         <div className={cn(
-          'flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-amber-800',
-          'dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
+          'flex items-start gap-2 rounded-md border px-3 py-2',
+          BADGE.amber,
           fab ? 'text-[11px]' : 'text-xs',
         )}>
           <RotateCcw className="mt-0.5 h-3.5 w-3.5 shrink-0" />

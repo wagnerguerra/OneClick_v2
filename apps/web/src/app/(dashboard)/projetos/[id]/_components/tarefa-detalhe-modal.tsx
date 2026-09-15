@@ -298,7 +298,7 @@ export function TarefaDetalheModal({ open, onOpenChange, projetoId, projetoCor, 
 
           {/* Tab: Atividade */}
           <TabsContent value="atividade">
-            <DialogBody className="space-y-4 max-h-[500px] overflow-y-auto">
+            <DialogBody className="space-y-4 max-h-[500px]">
               {/* Composer */}
               <div className="flex gap-2 items-start sticky top-0 bg-card pt-1 pb-3 border-b border-border z-10">
                 <textarea

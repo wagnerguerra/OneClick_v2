@@ -24,7 +24,7 @@ import { alerts } from '@/lib/alerts'
 import { fmtDateBR } from '@/lib/date'
 import { USER_PERMISSIONS_REFRESH_EVENT } from '@/hooks/use-user-permissions'
 import { HELPDESK_STATUS_COR } from '../_lib/status-styles'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, BORDER } from '@/lib/color-styles'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import {
   HELPDESK_STATUS_LABELS, HELPDESK_PRIORIDADE_LABELS, HELPDESK_TIPO_LABELS,
@@ -765,9 +765,9 @@ export default function HelpdeskIndicadoresPage() {
                             <Badge
                               variant="outline"
                               className={
-                                a.slaPct >= 90 ? 'border-emerald-300 text-emerald-600 dark:border-emerald-800 dark:text-emerald-400'
-                                  : a.slaPct >= 70 ? 'border-amber-300 text-amber-600 dark:border-amber-800 dark:text-amber-400'
-                                  : 'border-rose-300 text-rose-600 dark:border-rose-800 dark:text-rose-400'
+                                a.slaPct >= 90 ? cn(BORDER.emerald, TEXT.emerald)
+                                  : a.slaPct >= 70 ? cn(BORDER.amber, TEXT.amber)
+                                  : cn(BORDER.rose, TEXT.rose)
                               }
                             >
                               {a.slaPct}%

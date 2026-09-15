@@ -14,7 +14,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { BackButton } from '@/components/ui/back-button'
-import { TEXT, BADGE, BORDER } from '@/lib/color-styles'
+import { TEXT, BADGE, BORDER, SURFACE } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -281,12 +281,12 @@ export default function AtivoDetalhePage() {
             {meta.label}
           </span>
           {garantiaVencendo && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2.5 py-0.5 text-[11px] font-medium uppercase border border-amber-200 dark:border-amber-800">
+            <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border', BADGE.amber)}>
               Garantia vencendo
             </span>
           )}
           {garantiaVencida && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 px-2.5 py-0.5 text-[11px] font-medium uppercase border border-rose-200 dark:border-rose-800">
+            <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase border', BADGE.rose)}>
               Sem garantia
             </span>
           )}
@@ -518,7 +518,7 @@ export default function AtivoDetalhePage() {
                     href={`/helpdesk/${t.id}`}
                     className="flex items-center gap-2 rounded-md border bg-card px-3 py-2 hover:bg-muted/40 transition-colors"
                   >
-                    <span className="font-mono text-[11px] text-sky-700 dark:text-sky-300 font-semibold shrink-0">
+                    <span className={cn('font-mono text-[11px] font-semibold shrink-0', TEXT.sky)}>
                       #HLP{String(t.numero).padStart(4, '0')}
                     </span>
                     <span className="flex-1 text-[12px] truncate">{t.titulo}</span>
@@ -653,7 +653,7 @@ function ManutencoesTab({ ativoId, manutencoes, fornecedores, users, onChanged }
                 </div>
                 <p className="text-[12px] text-foreground mt-1">{m.descricao}</p>
                 {m.proximaPreventiva && (
-                  <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-0.5">
+                  <p className={cn('text-[10px] mt-0.5', TEXT.amber)}>
                     📅 Próxima preventiva: {fmtDate(m.proximaPreventiva)}
                   </p>
                 )}
@@ -738,7 +738,7 @@ function ManutencaoEditor({ ativoId, initial, fornecedores, users, onCancel, onS
   }
 
   return (
-    <div className="rounded-md border-2 border-sky-300 bg-sky-50/40 dark:bg-sky-950/10 dark:border-sky-900 p-3 space-y-3">
+    <div className={cn('rounded-md border-2 p-3 space-y-3', SURFACE.sky)}>
       <div className="grid grid-cols-12 gap-3">
         <div className="col-span-12 sm:col-span-4 space-y-1.5">
           <Label className="text-[13px] font-semibold">Tipo *</Label>
@@ -959,7 +959,7 @@ function KpiAtivo({ icon: Icon, label, value, hint }: {
   return (
     <div className="rounded-md border bg-card p-2.5">
       <div className="flex items-center gap-2">
-        <div className="h-8 w-8 rounded-md bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-300 flex items-center justify-center">
+        <div className={cn('h-8 w-8 rounded-md flex items-center justify-center', BADGE.sky)}>
           <Icon className="h-3.5 w-3.5" />
         </div>
         <div className="min-w-0 flex-1">

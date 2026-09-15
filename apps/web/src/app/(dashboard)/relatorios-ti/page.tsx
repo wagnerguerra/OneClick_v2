@@ -12,7 +12,7 @@ import {
   Sheet, SheetContent, SheetTitle, SheetDescription,
   RichEditor, RichContent,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, SURFACE, STRONG } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -550,13 +550,13 @@ export default function RelatoriosTiPage() {
 
       {/* Pendentes de hoje — a pergunta que o líder faz todo fim de tarde. */}
       {pendentesHoje.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
+        <div className={cn('flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2', SURFACE.amber)}>
           <AlertCircle className={cn('h-4 w-4 shrink-0', TEXT.amber)} />
-          <span className="text-[13px] text-amber-900 dark:text-amber-300">
+          <span className={cn('text-[13px]', TEXT.amber)}>
             Ainda sem relatório hoje:
           </span>
           {pendentesHoje.map(u => (
-            <span key={u.id} className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+            <span key={u.id} className={cn('rounded-full px-2 py-0.5 text-[11px]', STRONG.amber)}>
               {u.name}
             </span>
           ))}
@@ -629,7 +629,7 @@ export default function RelatoriosTiPage() {
                     {envio && (
                       <span title={`Enviado à diretoria em ${new Date(envio.enviadoEm).toLocaleString('pt-BR')}`}
                         className="inline-flex items-center rounded-full bg-emerald-100 p-1 dark:bg-emerald-900/40">
-                        <Send className="h-2.5 w-2.5 text-emerald-700 dark:text-emerald-400" />
+                        <Send className={cn('h-2.5 w-2.5', TEXT.emerald)} />
                       </span>
                     )}
                     {itens.length > 0 && (
@@ -739,9 +739,9 @@ export default function RelatoriosTiPage() {
             {/* Coluna da esquerda — quem entregou o quê */}
             <div className="nice-scrollbar w-[330px] shrink-0 space-y-1.5 overflow-y-auto border-r border-border bg-muted/20 p-2.5">
               {enviosDoDia.length > 0 && (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-2.5 py-1.5 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                <div className={cn('rounded-lg border px-2.5 py-1.5', SURFACE.emerald)}>
                   {enviosDoDia.map(e => (
-                    <p key={e.id} className="text-[11px] text-emerald-900 dark:text-emerald-300">
+                    <p key={e.id} className={cn('text-[11px]', TEXT.emerald)}>
                       <Send className="mr-1 inline h-3 w-3" />
                       Enviado {new Date(e.enviadoEm).toLocaleString('pt-BR')} · {e.destinatarios.length} destinatário(s)
                       {' · '}
@@ -788,7 +788,7 @@ export default function RelatoriosTiPage() {
                       </span>
                       {r.enviado && (
                         <span title="Já enviado à diretoria"
-                          className="shrink-0 rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-semibold uppercase text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                          className={cn('shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase', STRONG.emerald)}>
                           enviado
                         </span>
                       )}

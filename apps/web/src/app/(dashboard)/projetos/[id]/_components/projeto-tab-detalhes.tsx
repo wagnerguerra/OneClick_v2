@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Loader2, Check, Calendar, User as UserIcon, Flag, Palette } from 'lucide-react'
-import { resolveAssetUrl } from '@/lib/api-url'
 import {
   Input, Label, Card, cn,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
   RichEditor,
 } from '@saas/ui'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
@@ -231,14 +231,7 @@ export function ProjetoTabDetalhes({ projeto, canWrite, onSaved }: Props) {
             <div className="h-9 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/40">
               {projeto.responsavel ? (
                 <>
-                  {projeto.responsavel.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={resolveAssetUrl(projeto.responsavel.image)} alt={projeto.responsavel.name} className="h-5 w-5 rounded-full" />
-                  ) : (
-                    <div className="h-5 w-5 rounded-full bg-background border border-border flex items-center justify-center text-[9px] font-semibold">
-                      {projeto.responsavel.name.split(' ').slice(0, 2).map((s) => s[0]).join('')}
-                    </div>
-                  )}
+                  <UserAvatar user={projeto.responsavel} className="h-5 w-5 text-[9px]" bg="bg-background" fg="text-foreground" />
                   <span className="text-sm">{projeto.responsavel.name}</span>
                 </>
               ) : (

@@ -21,7 +21,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, SURFACE } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { resolveAssetUrl } from '@/lib/api-url'
@@ -622,7 +622,7 @@ export default function HelpdeskPage() {
           <span>HelpDesk</span>
           {verArquivados && (<>
             <span className="text-muted-foreground/50">›</span>
-            <span className="text-amber-600 dark:text-amber-400">Arquivados</span>
+            <span className={TEXT.amber}>Arquivados</span>
           </>)}
         </p>
       </PageHeaderBar>
@@ -742,7 +742,7 @@ export default function HelpdeskPage() {
 
       {/* Banner do modo arquivado — sinaliza que a visão é distinta */}
       {verArquivados && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 shrink-0">
+        <div className={cn('flex items-center justify-between gap-3 rounded-md border px-3 py-2 shrink-0', SURFACE.amber)}>
           <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 text-xs">
             <Archive className="h-3.5 w-3.5" />
             <span>Você está vendo <strong>tickets arquivados</strong>. Eles não aparecem no kanban normal — use o botão de desarquivar pra trazer um ticket de volta.</span>

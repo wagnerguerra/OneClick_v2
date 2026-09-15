@@ -20,7 +20,7 @@ import {
   RichContent,
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, STRONG, SURFACE } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { MarkdownView } from '@/components/ui/markdown-view'
 import { BackButton } from '@/components/ui/back-button'
@@ -947,7 +947,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
           <div className="min-w-0 space-y-4">
             {/* R5.1 — aviso ao AGENTE sobre por que os campos estão congelados. */}
             {podeAtuar && congelado && (
-              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200">
+              <div className={cn('flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]', SURFACE.amber, TEXT.amber)}>
                 <Lock className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>
                   Chamado <strong>{ticket.arquivado ? 'arquivado' : HELPDESK_STATUS_LABELS[ticket.status].toLowerCase()}</strong> —
@@ -1019,7 +1019,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
               <Card className="border-l-4 border-l-emerald-500 bg-emerald-50/40 dark:bg-emerald-900/20">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    <CheckCircle2 className={cn('h-5 w-5', TEXT.emerald)} />
                     <h3 className="text-sm font-semibold">Como foi seu atendimento?</h3>
                   </div>
                   {/* R5.2 — texto muda se o ticket já foi concluído sem avaliação
@@ -1133,20 +1133,20 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                 )}
               >
                 <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-2">
-                  <Bot className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                  <Bot className={cn('h-4 w-4', TEXT.violet)} />
                   <h3 className="font-semibold text-sm">Plano de resolução — IA</h3>
                   {ticket.aiPlanoStatus === 'pendente' && (
-                    <Badge variant="outline" className="ml-auto bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/30 dark:text-violet-300">
+                    <Badge variant="outline" className={cn('ml-auto', STRONG.violet)}>
                       Aguardando aprovação
                     </Badge>
                   )}
                   {ticket.aiPlanoStatus === 'aprovado' && (
-                    <Badge variant="outline" className="ml-auto bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300">
+                    <Badge variant="outline" className={cn('ml-auto', STRONG.emerald)}>
                       <CheckCircle2 className="h-3 w-3 mr-1" /> Aprovado
                     </Badge>
                   )}
                   {ticket.aiPlanoStatus === 'rejeitado' && (
-                    <Badge variant="outline" className="ml-auto bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-300">
+                    <Badge variant="outline" className={cn('ml-auto', STRONG.rose)}>
                       <XCircle className="h-3 w-3 mr-1" /> Rejeitado
                     </Badge>
                   )}
@@ -1495,13 +1495,13 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                   {ticket.eventos.map(ev => (
                     <div key={ev.id} className="flex items-start gap-3 px-4 py-3">
                       <div className="shrink-0 mt-0.5">
-                        {ev.tipo === 'criado' && <FileText className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />}
-                        {ev.tipo === 'atribuido' && <UserCog className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />}
-                        {ev.tipo === 'status_alterado' && <Layers className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />}
-                        {ev.tipo === 'mensagem_publica' && <MessageSquare className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />}
-                        {ev.tipo === 'nota_interna' && <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
-                        {ev.tipo === 'anexo_adicionado' && <Paperclip className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />}
-                        {ev.tipo === 'csat_recebido' && <Star className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+                        {ev.tipo === 'criado' && <FileText className={cn('h-4 w-4', TEXT.cyan)} />}
+                        {ev.tipo === 'atribuido' && <UserCog className={cn('h-4 w-4', TEXT.cyan)} />}
+                        {ev.tipo === 'status_alterado' && <Layers className={cn('h-4 w-4', TEXT.cyan)} />}
+                        {ev.tipo === 'mensagem_publica' && <MessageSquare className={cn('h-4 w-4', TEXT.cyan)} />}
+                        {ev.tipo === 'nota_interna' && <Lock className={cn('h-4 w-4', TEXT.amber)} />}
+                        {ev.tipo === 'anexo_adicionado' && <Paperclip className={cn('h-4 w-4', TEXT.cyan)} />}
+                        {ev.tipo === 'csat_recebido' && <Star className={cn('h-4 w-4', TEXT.emerald)} />}
                         {!['criado','atribuido','status_alterado','mensagem_publica','nota_interna','anexo_adicionado','csat_recebido'].includes(ev.tipo) && (
                           <History className="h-4 w-4 text-muted-foreground" />
                         )}
@@ -1543,7 +1543,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
               <Card className="border-l-4 border-l-slate-400 dark:border-l-slate-500">
                 <CardContent className="p-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <Bot className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
+                    <Bot className={cn('h-4 w-4 shrink-0', TEXT.violet)} />
                     <p className="text-sm font-semibold">Triagem IA</p>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
@@ -1990,7 +1990,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                       </div>
                       <div className="flex items-center justify-between pt-2 border-t border-border">
                         <span className="font-semibold">Custo estimado</span>
-                        <span className="font-mono tabular-nums font-semibold text-violet-700 dark:text-violet-300">
+                        <span className={cn('font-mono tabular-nums font-semibold', TEXT.violet)}>
                           US$ {estimativa.custoMinUsd.toFixed(4)} – {estimativa.custoMaxUsd.toFixed(4)}
                         </span>
                       </div>

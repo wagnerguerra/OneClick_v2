@@ -5,9 +5,10 @@ import {
   Archive, Loader2, Play, Check, AlertCircle,
 } from 'lucide-react'
 import {
-  Button, Input, Label, Card, Switch,
+  Button, Input, Label, Card, Switch, cn,
 } from '@saas/ui'
 import Link from 'next/link'
+import { BADGE } from '@/lib/color-styles'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { BackButton } from '@/components/ui/back-button'
 import { trpc } from '@/lib/trpc'
@@ -190,7 +191,7 @@ export default function ProjetosConfiguracoesPage() {
                       <>
                         {new Date(config.ultimaExecucao).toLocaleString('pt-BR')}
                         {config.ultimoTotalArquivados > 0 ? (
-                          <span className="ml-2 inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                          <span className={cn('ml-2 inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded', BADGE.emerald)}>
                             <Check className="h-3 w-3" /> {config.ultimoTotalArquivados} arquivado(s)
                           </span>
                         ) : (
