@@ -727,6 +727,15 @@ export const listUserSchema = paginationSchema.extend({
   role: z.enum(ROLE_VALUES).optional(),
   empresaId: z.string().optional(),
   incluirInativos: z.coerce.boolean().optional(),
+  /**
+   * Recorte da aba Usuários do cadastro da empresa: `internos` é a equipe do
+   * escritório; `clientes`, as pessoas dos clientes que acessam o portal.
+   *
+   * Quando vem, a lista fica restrita à empresa EXATA — sem as contas sem
+   * empresa, que a listagem geral inclui de propósito. Na aba a pergunta é
+   * "quem está nesta empresa", e uma conta sem empresa não está em nenhuma.
+   */
+  tipo: z.enum(['internos', 'clientes']).optional(),
 })
 
 export type CreateUserInput = z.infer<typeof createUserSchema>

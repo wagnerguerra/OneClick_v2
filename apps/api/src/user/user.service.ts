@@ -22,7 +22,7 @@ export class UserService {
   }
 
   async list(input: ListUserInput, callerIsMaster: boolean, callerEmpresaId?: string) {
-    const { page, limit, search, sortBy, sortDir, role, empresaId } = input
+    const { page, limit, search, sortBy, sortDir, role, empresaId, tipo } = input
     const incluirInativos = (input as any).incluirInativos === true
     const empresaEfetiva = (callerIsMaster && empresaId) ? empresaId : callerEmpresaId
     const { skip, take } = getPrismaSkipTake(page, limit)
@@ -37,6 +37,8 @@ export class UserService {
           }
         : {}),
       ...(role ? { role } : {}),
+      ...(tipo === 'clientes' ? { role: 'COLABORADOR_CLIENTE' as const } : {}),
+      ...(tipo === 'internos' ? { role: { not: 'COLABORADOR_CLIENTE' as const } } : {}),
       // Por padrão esconde inativos (soft-deleted). Pra mostrar todos, passar incluirInativos=true.
       ...(incluirInativos ? {} : { isActive: true }),
       // Empresa efetiva: a que o master pediu explicitamente (a aba de usuários
@@ -50,8 +52,14 @@ export class UserService {
       // Vai dentro de um AND, e não como `OR` solto: a busca por nome/e-mail
       // acima também usa `OR`, e a chave repetida no mesmo objeto sobrescreve a
       // primeira — o filtro de empresa apagaria a busca em silêncio.
+      //
+      // Com `tipo` (aba Usuários do cadastro da empresa), é a empresa EXATA: lá
+      // a pergunta é quem está nesta empresa, e sem o recorte as contas sem
+      // empresa apareciam na aba de TODOS os tenants.
       ...(empresaEfetiva
-        ? { AND: [{ OR: [{ empresaId: empresaEfetiva }, { empresaId: null }] }] }
+        ? tipo
+          ? { AND: [{ empresaId: empresaEfetiva }] }
+          : { AND: [{ OR: [{ empresaId: empresaEfetiva }, { empresaId: null }] }] }
         : {}),
       // Não-master pedindo a lista de outra empresa: a resposta certa é vazia —
       // devolver a própria responderia a pergunta errada.
@@ -86,6 +94,28 @@ export class UserService {
           createdAt: true,
           empresa: { select: { id: true, razaoSocial: true, nomeFantasia: true } },
           area: { select: { id: true, name: true } },
+          /**
+           * De quais clientes a pessoa é, quando ela é usuária do portal.
+           *
+           * Para o usuário de cliente a "área" não diz nada — é sempre vazia. O
+           * que o identifica é a empresa-cliente a que ele responde.
+           *
+           * Vem pelo `user.list`, e não por uma rota nova, para continuar atrás
+           * da permissão do módulo Usuários: quem edita a empresa pode não ter
+           * esse módulo, e uma rota à parte seria um segundo portão sem trava.
+           *
+           * Recortado pela empresa da consulta: vínculo com cliente de OUTRO
+           * tenant não aparece na tela deste, mesmo que exista no banco.
+           */
+          clienteUsuarios: {
+            where: {
+              ativo: true,
+              ...(empresaEfetiva ? { cliente: { empresaId: empresaEfetiva } } : {}),
+            },
+            orderBy: { cliente: { razaoSocial: 'asc' } },
+            take: 20,
+            select: { cliente: { select: { id: true, razaoSocial: true } } },
+          },
           _count: { select: { permissions: true } },
           // Última sessão = último login bem-sucedido (better-auth grava em Session.createdAt).
           // Limita a 1 e descendente — Prisma não tem MAX agrupado direto no select.
@@ -100,9 +130,10 @@ export class UserService {
     ])
 
     // Achata sessions[] em lastLoginAt pra simplificar o front
-    const data = raw.map(({ sessions, ...u }) => ({
+    const data = raw.map(({ sessions, clienteUsuarios, ...u }) => ({
       ...u,
       lastLoginAt: sessions[0]?.createdAt ?? null,
+      clientes: clienteUsuarios.map(v => v.cliente),
     }))
 
     return buildPaginatedResponse(data, total, page, limit)

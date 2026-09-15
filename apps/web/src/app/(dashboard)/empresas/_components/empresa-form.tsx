@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useForm, Controller, type Control } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createEmpresaSchema, type CreateEmpresaInput } from '@saas/types'
-import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, Building2, Plug, Users, ShieldCheck, RotateCcw, AlertTriangle } from 'lucide-react'
+import { HelpCircle, Scale, MapPin, Phone, Search, Loader2, Upload, X, Save, Building2, Plug, Users, ShieldCheck, RotateCcw, AlertTriangle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react'
 import {
   Button,
   Input,
@@ -75,7 +75,7 @@ interface EmpresaFormProps {
   /** Complemento do título (ex.: código do registro). Some no modo criação. */
   description?: string
   /** Contagens do registro para os números do hero (só na edição). */
-  resumo?: { clientes: number; usuarios: number } | null
+  resumo?: { clientes: number; usuariosInternos: number; usuariosDeClientes: number } | null
   defaultValues?: Partial<CreateEmpresaInput> & { code?: number }
 }
 
@@ -488,7 +488,8 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
                   <div className="flex gap-6">
                     {([
                       [resumo?.clientes, 'Clientes'],
-                      [resumo?.usuarios, 'Usuários'],
+                      [resumo?.usuariosInternos, 'Usuários'],
+                      [resumo?.usuariosDeClientes, 'Usuários de clientes'],
                       [modulosLiberados, 'Módulos no portal'],
                     ] as Array<[number | null | undefined, string]>).map(([valor, rotulo]) => (
                       <div key={rotulo} className="text-center">
@@ -859,7 +860,7 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
               <SectionCard
                 icon={<Users />}
                 title="Usuários da empresa"
-                description="Quem está vinculado a esta empresa. O cadastro é feito no módulo Usuários."
+                description="A equipe do escritório e as pessoas dos clientes que acessam o portal. O cadastro é feito no módulo Usuários."
                 actions={
                   <Link href="/usuarios" className="text-[13px] font-medium text-emerald-700 hover:underline dark:text-emerald-400">
                     Abrir Usuários
@@ -1075,10 +1076,9 @@ interface UsuarioDaEmpresa {
   profile: string | null
   isActive: boolean
   area: { id: string; name: string } | null
+  /** Empresas-cliente a que a pessoa responde, quando é usuária do portal. */
+  clientes?: Array<{ id: string; razaoSocial: string }>
 }
-
-/** Teto da paginação do projeto (packages/types/src/pagination.ts). */
-const LIMITE_PAGINA = 100
 
 const ROLE_LABEL: Record<string, string> = {
   COLABORADOR_INTERNO: 'Colaborador interno',
@@ -1090,42 +1090,31 @@ const ROLE_LABEL: Record<string, string> = {
 }
 
 /**
- * Usuários vinculados a esta empresa.
+ * Usuários vinculados a esta empresa, em dois grupos.
  *
  * Só consulta: quem cria e edita usuário é o módulo Usuários, que tem as
  * regras de permissão, senha e perfil. Aqui a pergunta é outra — "quem está
  * nesta empresa?" —, e responder exigia sair da tela e filtrar em outro lugar.
+ *
+ * Separados porque são perguntas diferentes: a equipe diz quem TRABALHA no
+ * escritório; os de clientes dizem quem, de fora, entra no portal. Misturados,
+ * "Cliente Teste" aparecia entre a Aline e a Andreia como se fosse da equipe.
+ *
+ * A busca e o "Mostrar inativos" são um só para os dois grupos; a paginação é
+ * de cada tabela, no servidor (PADRAO_PAGINAS §1.4).
  */
 function UsuariosDaEmpresa({ empresaId, mode }: { empresaId?: string; mode: 'create' | 'edit' }) {
-  const [usuarios, setUsuarios] = useState<UsuarioDaEmpresa[]>([])
-  const [carregando, setCarregando] = useState(false)
-  const [erro, setErro] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
+  const [termo, setTermo] = useState('')
   const [incluirInativos, setIncluirInativos] = useState(false)
-  /** Total no servidor — pode ser maior que o carregado. */
-  const [total, setTotal] = useState(0)
 
+  // Debounce de 400ms: sem ele cada tecla vira duas consultas, uma por tabela.
   useEffect(() => {
-    if (mode !== 'edit' || !empresaId) return
-    let cancelado = false
-    setCarregando(true)
-    setErro(null)
-    // LIMITE_PAGINA é o teto da paginação do projeto; pedir mais faz a
-    // validação recusar a chamada inteira.
-    ;(trpc.user as any).list.query({ page: 1, limit: LIMITE_PAGINA, empresaId, incluirInativos })
-      .then((r: { data?: UsuarioDaEmpresa[]; total?: number }) => {
-        if (cancelado) return
-        setUsuarios(r?.data ?? [])
-        setTotal(r?.total ?? r?.data?.length ?? 0)
-      })
-      // Quem edita empresa pode não ter acesso ao módulo Usuários. Melhor dizer
-      // isso do que mostrar uma lista vazia, que parece "não há ninguém".
-      .catch((e: Error) => { if (!cancelado) setErro(e.message) })
-      .finally(() => { if (!cancelado) setCarregando(false) })
-    return () => { cancelado = true }
-  }, [empresaId, mode, incluirInativos])
+    const t = setTimeout(() => setTermo(busca.trim()), 400)
+    return () => clearTimeout(t)
+  }, [busca])
 
-  if (mode !== 'edit') {
+  if (mode !== 'edit' || !empresaId) {
     return (
       <p className="text-sm text-muted-foreground italic py-10 text-center">
         Salve a empresa primeiro para ver os usuários vinculados a ela.
@@ -1133,14 +1122,8 @@ function UsuariosDaEmpresa({ empresaId, mode }: { empresaId?: string; mode: 'cre
     )
   }
 
-  const filtrados = busca.trim()
-    ? usuarios.filter(u =>
-        u.name.toLowerCase().includes(busca.trim().toLowerCase())
-        || u.email.toLowerCase().includes(busca.trim().toLowerCase()))
-    : usuarios
-
   return (
-    <div className="space-y-3">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative max-w-sm flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -1152,60 +1135,207 @@ function UsuariosDaEmpresa({ empresaId, mode }: { empresaId?: string; mode: 'cre
             onChange={e => setIncluirInativos(e.target.checked)} />
           Mostrar inativos
         </label>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {filtrados.length} {filtrados.length === 1 ? 'usuário' : 'usuários'}
-          {total > usuarios.length && ` de ${total}`}
-        </span>
       </div>
 
-      {/* A lista traz uma página. Acima disso o número some sem avisar, e
-          alguém concluiria que a empresa tem menos gente do que tem. */}
-      {total > usuarios.length && (
-        <p className="text-xs text-muted-foreground">
-          Mostrando os {usuarios.length} primeiros. Use o módulo Usuários para ver a lista completa.
-        </p>
-      )}
+      <TabelaDeUsuarios
+        empresaId={empresaId}
+        tipo="internos"
+        titulo="Usuários internos"
+        vazio={termo ? 'Nenhum usuário interno com esse nome ou e-mail.' : 'Nenhum usuário interno.'}
+        termo={termo}
+        incluirInativos={incluirInativos}
+      />
+      <TabelaDeUsuarios
+        empresaId={empresaId}
+        tipo="clientes"
+        titulo="Usuários de clientes"
+        vazio={termo ? 'Nenhum usuário de cliente com esse nome ou e-mail.' : 'Nenhum cliente com acesso ao portal.'}
+        termo={termo}
+        incluirInativos={incluirInativos}
+      />
+    </div>
+  )
+}
 
-      {carregando ? (
-        <div className="py-10 text-center"><Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" /></div>
-      ) : erro ? (
-        <div className="py-8 text-center">
-          <p className="text-sm text-muted-foreground">Não foi possível carregar os usuários.</p>
-          <p className="mt-1 text-xs text-muted-foreground/70">{erro}</p>
+/** Opções fixas do "Exibir N registros" (PADRAO_PAGINAS §1.4). */
+const TAMANHOS_DE_PAGINA = [10, 20, 50, 100]
+
+/**
+ * Uma tabela de usuários com a própria página.
+ *
+ * Cada grupo pagina sozinho, no servidor: a equipe da Central tem dezenas de
+ * pessoas e os clientes com portal são poucos, e amarrar os dois numa página
+ * só faria um grupo empurrar o outro para fora da tela.
+ *
+ * Os botões levam `type="button"`: esta tabela vive DENTRO do formulário da
+ * empresa, e um botão sem tipo é `submit` — trocar de página salvaria a empresa.
+ */
+function TabelaDeUsuarios({ empresaId, tipo, titulo, vazio, termo, incluirInativos }: {
+  empresaId: string
+  tipo: 'internos' | 'clientes'
+  titulo: string
+  vazio: string
+  termo: string
+  incluirInativos: boolean
+}) {
+  const [linhas, setLinhas] = useState<UsuarioDaEmpresa[]>([])
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState<string | null>(null)
+
+  // Busca, filtro ou tamanho mudou: volta à página 1. Sem isso, filtrar estando
+  // na página 3 deixa a tabela vazia com o rodapé dizendo que há registros.
+  useEffect(() => { setPage(1) }, [termo, incluirInativos, limit])
+
+  useEffect(() => {
+    let cancelado = false
+    setCarregando(true)
+    setErro(null)
+    ;(trpc.user as any).list.query({
+      page, limit, empresaId, tipo, incluirInativos,
+      ...(termo ? { search: termo } : {}),
+    })
+      .then((r: { data?: UsuarioDaEmpresa[]; total?: number; totalPages?: number }) => {
+        if (cancelado) return
+        const dados = r?.data ?? []
+        // Página que ficou vazia não fica na tela: volta para a anterior.
+        if (dados.length === 0 && page > 1 && (r?.total ?? 0) > 0) {
+          setPage(p => Math.max(1, p - 1))
+          return
+        }
+        setLinhas(dados)
+        setTotal(r?.total ?? 0)
+        setTotalPages(r?.totalPages ?? 0)
+      })
+      // Quem edita empresa pode não ter acesso ao módulo Usuários. Melhor dizer
+      // isso do que mostrar uma lista vazia, que parece "não há ninguém".
+      .catch((e: Error) => { if (!cancelado) setErro(e.message) })
+      .finally(() => { if (!cancelado) setCarregando(false) })
+    return () => { cancelado = true }
+  }, [empresaId, tipo, termo, incluirInativos, page, limit])
+
+  const inicio = total === 0 ? 0 : (page - 1) * limit + 1
+  const fim = Math.min(page * limit, total)
+
+  // No máximo 5 números, com a janela deslizando em torno da página atual.
+  const numeros = (() => {
+    if (totalPages <= 1) return [] as number[]
+    let start = Math.max(1, page - 2)
+    const end = Math.min(totalPages, start + 4)
+    start = Math.max(1, end - 4)
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+  })()
+
+  const deClientes = tipo === 'clientes'
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="flex items-baseline gap-2 text-[13px] font-semibold text-foreground">
+          {titulo}
+          <span className="text-xs font-normal text-muted-foreground tabular-nums">{total}</span>
+        </h4>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="hidden sm:inline">Exibir</span>
+          <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
+            <SelectTrigger className="h-8 w-[68px] bg-card text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {TAMANHOS_DE_PAGINA.map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <span className="hidden sm:inline">registros</span>
         </div>
-      ) : filtrados.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground italic">
-          {usuarios.length === 0 ? 'Nenhum usuário vinculado a esta empresa.' : 'Nenhum usuário com esse nome ou e-mail.'}
-        </p>
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-border">
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-border">
+        {carregando ? (
+          <div className="py-10 text-center"><Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" /></div>
+        ) : erro ? (
+          <div className="py-8 text-center">
+            <p className="text-sm text-muted-foreground">Não foi possível carregar os usuários.</p>
+            <p className="mt-1 text-xs text-muted-foreground/70">{erro}</p>
+          </div>
+        ) : linhas.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground italic">{vazio}</p>
+        ) : (
           <table className="w-full table-fixed">
             <thead>
               <tr className="bg-muted/40 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <th className="px-3 py-2">Nome</th>
                 <th className="px-3 py-2 w-[30%]">E-mail</th>
-                <th className="px-3 py-2 w-[20%]">Cargo</th>
-                <th className="px-3 py-2 w-[15%]">Área</th>
+                {/* Para usuário de cliente o cargo é sempre o mesmo e a área é
+                    sempre vazia: o que situa a pessoa é a empresa-cliente. */}
+                {deClientes ? (
+                  <th className="px-3 py-2 w-[35%]">Clientes</th>
+                ) : (
+                  <>
+                    <th className="px-3 py-2 w-[20%]">Cargo</th>
+                    <th className="px-3 py-2 w-[15%]">Área</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {filtrados.map(u => (
-                <tr key={u.id} className="hover:bg-muted/20">
-                  <td className="px-3 py-2 text-[13px] truncate">
-                    <Link href={`/usuarios/${u.id}`} className="hover:underline" title={u.name}>{u.name}</Link>
-                    {!u.isActive && (
-                      <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">inativo</span>
+              {linhas.map(u => {
+                const clientes = u.clientes?.length ? u.clientes.map(c => c.razaoSocial).join(', ') : '—'
+                return (
+                  <tr key={u.id} className="hover:bg-muted/20">
+                    <td className="px-3 py-2 text-[13px] truncate">
+                      <Link href={`/usuarios/${u.id}`} className="hover:underline" title={u.name}>{u.name}</Link>
+                      {!u.isActive && (
+                        <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">inativo</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-[13px] text-muted-foreground truncate" title={u.email}>{u.email}</td>
+                    {deClientes ? (
+                      <td className="px-3 py-2 text-[13px] text-muted-foreground truncate" title={clientes}>{clientes}</td>
+                    ) : (
+                      <>
+                        <td className="px-3 py-2 text-[13px] truncate">{ROLE_LABEL[u.role] ?? u.role}</td>
+                        <td className="px-3 py-2 text-[13px] text-muted-foreground truncate">{u.area?.name ?? '—'}</td>
+                      </>
                     )}
-                  </td>
-                  <td className="px-3 py-2 text-[13px] text-muted-foreground truncate" title={u.email}>{u.email}</td>
-                  <td className="px-3 py-2 text-[13px] truncate">{ROLE_LABEL[u.role] ?? u.role}</td>
-                  <td className="px-3 py-2 text-[13px] text-muted-foreground truncate">{u.area?.name ?? '—'}</td>
-                </tr>
-              ))}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+
+        {!carregando && !erro && total > 0 && (
+          <div className="flex flex-col gap-3 border-t border-border/60 bg-muted/20 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Mostrando <span className="font-medium">{inicio}</span> a <span className="font-medium">{fim}</span> de <span className="font-medium">{total}</span> registros
+            </p>
+            {/* A navegação some quando só há uma página: setas desabilitadas
+                numa lista de dez linhas são ruído. */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <Button type="button" variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(1)} aria-label="Primeira página">
+                  <ChevronsLeft className="h-3.5 w-3.5" />
+                </Button>
+                <Button type="button" variant="outline" size="icon-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)} aria-label="Página anterior">
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                {numeros.map(n => (
+                  <Button key={n} type="button" variant={n === page ? 'soft' : 'outline'} size="icon-xs" className="text-xs" onClick={() => setPage(n)}>
+                    {n}
+                  </Button>
+                ))}
+                <Button type="button" variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(p => p + 1)} aria-label="Próxima página">
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+                <Button type="button" variant="outline" size="icon-xs" disabled={page === totalPages} onClick={() => setPage(totalPages)} aria-label="Última página">
+                  <ChevronsRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

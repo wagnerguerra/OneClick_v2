@@ -61,13 +61,20 @@ export class EmpresaService {
     if (!isMaster && id !== (empresaId ?? null)) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Empresa fora do seu acesso.' })
     }
-    return prisma.empresa.findUniqueOrThrow({
-      where: { id },
-      // As contagens alimentam os números do hero do detalhe (PADRAO_PAGINAS
-      // §3.2). Vêm na mesma consulta porque a tela não abre sem este registro,
-      // e uma segunda ida só para dois números não se paga.
-      include: { _count: { select: { clientes: true, users: true } } },
-    })
+    // As contagens alimentam os números do hero do detalhe (PADRAO_PAGINAS
+    // §3.2). Usuários internos e de clientes são contados em separado: somados,
+    // "76 usuários" misturava a equipe do escritório com as pessoas dos clientes
+    // que só acessam o portal — e ainda contava os inativos.
+    const ativos = { empresaId: id, isActive: true }
+    const [empresa, usuariosInternos, usuariosDeClientes] = await Promise.all([
+      prisma.empresa.findUniqueOrThrow({
+        where: { id },
+        include: { _count: { select: { clientes: true } } },
+      }),
+      prisma.user.count({ where: { ...ativos, role: { not: 'COLABORADOR_CLIENTE' } } }),
+      prisma.user.count({ where: { ...ativos, role: 'COLABORADOR_CLIENTE' } }),
+    ])
+    return { ...empresa, usuariosInternos, usuariosDeClientes }
   }
 
   async create(input: CreateEmpresaInput, userId?: string) {
