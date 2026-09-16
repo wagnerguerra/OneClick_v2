@@ -56,9 +56,9 @@ export type ColorName =
  * superfície de um card) → `SURFACE`.
  */
 export const BADGE: Record<ColorName, string> = {
-  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800',
+  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800',
   rose: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800',
-  amber: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-800/10 dark:text-amber-300 dark:border-amber-600/35',
+  amber: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-700/10 dark:text-amber-300 dark:border-amber-600/35',
   sky: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300 dark:border-sky-800',
   indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800',
   lime: 'bg-lime-50 text-lime-700 border-lime-200 dark:bg-lime-950/30 dark:text-lime-400 dark:border-lime-800',
