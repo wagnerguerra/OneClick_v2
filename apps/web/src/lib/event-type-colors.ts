@@ -9,10 +9,8 @@ import type { CSSProperties } from 'react'
  *                 bolinhas, barras verticais e bordas-esquerdas);
  *  - `corTexto` → cor do texto sobre o fundo cheio (tema claro).
  *
- * Erro comum: usar `cor` (fundo) onde o certo é `corBorda` (dot/borda). Para
- * borda/dot/traço use `t.corBorda` DIRETO no call site — não precisa de helper.
- * Este módulo centraliza só a **adaptação de dark do FUNDO** (`chipTipoEvento`),
- * que é a parte com lógica (e a que estava inconsistente pelo sistema).
+ * Erro comum (que estes helpers evitam): usar `cor` (fundo) onde o certo é
+ * `corBorda` (dot/borda), deixando o elemento pálido/errado.
  */
 export interface TipoEventoCores {
   cor: string
@@ -40,4 +38,13 @@ export function chipTipoEvento(t: TipoEventoCores, isDark: boolean): CSSProperti
     backgroundColor: isDark ? `${t.cor}${DARK_FILL_ALPHA}` : t.cor,
     color: isDark ? DARK_TEXT : (t.corTexto ?? '#ffffff'),
   }
+}
+
+/**
+ * Cor de **borda / dot / traço** de um tipo de evento — sempre `corBorda`
+ * (cai em `cor` só se o tipo não tiver borda definida). É o que se deve usar em
+ * bolinhas do select, barras verticais e bordas-esquerdas.
+ */
+export function bordaTipoEvento(t: TipoEventoCores): string {
+  return t.corBorda || t.cor
 }

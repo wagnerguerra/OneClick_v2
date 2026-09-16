@@ -306,6 +306,8 @@ export class AgendaEmailTemplateService {
     // Monta o conjunto de fragmentos HTML por chave de elemento (string vazia = sem conteúdo).
     const fragmentosDoEvento = (ev: any) => {
       const cor = ev.tipo?.cor || template.accent
+      // Cor de BORDA do tipo (mais forte) — usada na tira/borda do card, não o fundo.
+      const corBorda = ev.tipo?.corBorda || cor
       const modalidadeLabel = ev.presenca === 'ONLINE' ? 'Online' : ev.presenca === 'HIBRIDO' ? 'Híbrido' : 'Presencial'
       const modalidadeIcon = ev.presenca === 'ONLINE' ? '💻' : ev.presenca === 'HIBRIDO' ? '🔄' : '🏢'
       const local = ev.salaRef?.nome || salaTexto(ev.sala) || ev.local || ''
@@ -399,6 +401,7 @@ export class AgendaEmailTemplateService {
 
       return {
         cor,
+        corBorda,
         molduraCor,
         molduraPad,
         frags: {
@@ -454,7 +457,7 @@ export class AgendaEmailTemplateService {
     // ── Builder: monta o corpo do card respeitando ordem/visibilidade; elementos
     //    inline vizinhos fluem na mesma linha (preserva o visual original). ──
     const renderCardBuilder = (ev: any) => {
-      const { cor, frags, molduraCor, molduraPad } = fragmentosDoEvento(ev)
+      const { cor, frags, molduraCor, molduraPad, corBorda } = fragmentosDoEvento(ev)
       const horarioBlock = ev.diaInteiro
         ? `<span class="em-evtimev" style="font-weight:700;color:${cor}">Dia inteiro</span>`
         : `<div class="em-evtimev" style="font-weight:700;font-size:14px;color:#0f172a;line-height:1.1">${esc(ev.horaInicio ?? '')}</div>
@@ -480,7 +483,7 @@ export class AgendaEmailTemplateService {
   <tr><td class="em-evborder" bgcolor="${molduraCor}" style="background-color:${molduraCor};padding:${molduraPad};border-radius:10px">
     <table cellpadding="0" cellspacing="0" border="0" width="100%" class="em-evcard" style="background:#ffffff;border-radius:9px;overflow:hidden">
       <tr>
-        <td width="4" bgcolor="${cor}" style="background-color:${cor};width:4px;padding:0;line-height:0;font-size:0">&nbsp;</td>
+        <td width="4" bgcolor="${corBorda}" style="background-color:${corBorda};width:4px;padding:0;line-height:0;font-size:0">&nbsp;</td>
         <td width="68" valign="middle" class="em-evtime" style="padding:14px 10px 14px 14px;text-align:center;border-right:1px solid #f1f5f9;vertical-align:middle;background:#f8fafc">
           ${horarioBlock}
         </td>

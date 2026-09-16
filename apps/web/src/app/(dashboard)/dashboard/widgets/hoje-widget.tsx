@@ -144,7 +144,7 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
                   >
                     <span
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-inset ring-current/15"
-                      style={{ backgroundColor: `color-mix(in srgb, ${l.cor} 18%, transparent)`, color: `color-mix(in srgb, ${l.cor} 70%, #0f172a)` }}
+                      style={{ backgroundColor: `color-mix(in srgb, ${l.cor} 18%, transparent)`, color: `color-mix(in srgb, ${l.cor} 70%, var(--color-foreground))` }}
                     >
                       <Icon className="h-4 w-4" />
                     </span>
@@ -155,7 +155,7 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
                         </p>
                         <span
                           className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px text-[11px] font-semibold"
-                          style={{ backgroundColor: `color-mix(in srgb, ${l.cor} 18%, transparent)`, color: `color-mix(in srgb, ${l.cor} 70%, #0f172a)` }}
+                          style={{ backgroundColor: `color-mix(in srgb, ${l.cor} 18%, transparent)`, color: `color-mix(in srgb, ${l.cor} 70%, var(--color-foreground))` }}
                         >
                           {l.pill}
                         </span>
