@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  FolderTree, FileText, Loader2, Trash2, RotateCcw, History, ArrowLeft,
+  FolderTree, FileText, Loader2, Trash2, RotateCcw, History, ArrowLeft, Copy,
 } from 'lucide-react'
 import {
   Button, Card, Input, Label,
@@ -18,6 +18,7 @@ import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { Explorador } from '../_components/explorador'
 import { useFontesDoEscritorio } from '../_components/fontes-escritorio'
+import { CopiarEstruturaModal } from '../_components/copiar-estrutura-modal'
 
 const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
 const MODULE = 'gestao-arquivos'
@@ -75,6 +76,7 @@ export default function GestaoArquivosClientePage() {
   const [log, setLog] = useState<LinhaLog[]>([])
   const [excluidos, setExcluidos] = useState<Excluido[]>([])
   const [lixeiraDrive, setLixeiraDrive] = useState<NaLixeiraDoDrive[]>([])
+  const [copiando, setCopiando] = useState(false)
   const [processandoDrive, setProcessandoDrive] = useState<string | null>(null)
   const [aExcluir, setAExcluir] = useState<{ id: string; fileName: string } | null>(null)
   const [motivo, setMotivo] = useState('')
@@ -225,9 +227,19 @@ export default function GestaoArquivosClientePage() {
       <PageHeaderBar
         className="mb-0 sm:mb-0"
         actions={
-          <Button variant="outline" size="sm" className="gap-1.5" asChild>
-            <Link href="/gestao-arquivos"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setCopiando(true)}
+            >
+              <Copy className="h-4 w-4" /> Copiar estrutura
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" asChild>
+              <Link href="/gestao-arquivos"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
+            </Button>
+          </>
         }
       >
         <h1 className="truncate">{nomeCliente ?? 'Arquivos do cliente'}</h1>
@@ -268,6 +280,13 @@ export default function GestaoArquivosClientePage() {
           )
         })}
       </div>
+
+      <CopiarEstruturaModal
+        aberto={copiando}
+        origemId={clienteId}
+        origemNome={nomeCliente ?? 'este cliente'}
+        onFechar={() => setCopiando(false)}
+      />
 
       {aba === 'explorador' && (
         <Explorador
