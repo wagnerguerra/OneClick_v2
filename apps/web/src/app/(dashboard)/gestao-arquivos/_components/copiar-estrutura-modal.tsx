@@ -222,14 +222,18 @@ export function CopiarEstruturaModal({
                 {processando && !previa ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderTree className="h-4 w-4" />}
                 Simular
               </Button>
+              {/* Copiar não espera pela simulação. A operação não é destrutiva
+                  — cria o que falta e reaproveita o que já existe —, então
+                  exigir o clique em "Simular" antes cobrava um passo que não
+                  protegia de nada, e pior: marcar outro cliente limpava a
+                  simulação e travava o botão de novo, sem dizer por quê. */}
               <Button
                 size="sm"
                 onClick={() => executar(false)}
-                disabled={escolhidos.size === 0 || processando || !previa}
-                title={!previa ? 'Simule primeiro para ver o que será criado' : undefined}
+                disabled={escolhidos.size === 0 || processando}
                 className="gap-1.5"
               >
-                {processando && previa ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                {processando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
                 Copiar para {escolhidos.size} cliente(s)
               </Button>
             </>
