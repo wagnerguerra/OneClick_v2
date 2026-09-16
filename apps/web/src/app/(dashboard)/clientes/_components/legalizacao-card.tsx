@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, Check, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, X, MoreVertical, ChevronDown } from 'lucide-react'
+import { Shield, ShieldCheck, Loader2, Users, ExternalLink, Plus, Trash2, Eye, EyeOff, Check, CheckCircle2, XCircle, AlertTriangle, FileText, FileLock, KeyRound, Clock, ListChecks, Link2, Download, Printer, Pencil, MoreVertical, ChevronDown } from 'lucide-react'
 import {
   Button, Input, Label, Card, Checkbox,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle,
@@ -1430,79 +1430,67 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     </Card>
 
     {/* Modal Acesso */}
-    {aceModalOpen && typeof document !== 'undefined' && createPortal(
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ animation: "dialog-fade-in 200ms ease-out" }}>
-        <div className="fixed inset-0 bg-black/60" onClick={() => setAceModalOpen(false)} />
-        <div className="relative bg-background rounded-xl shadow-2xl border w-full max-w-md" style={{ animation: "dialog-zoom-in 200ms ease-out" }}>
-          <div className="flex items-center justify-between border-b px-5 py-3">
-            <h3 className="text-sm font-semibold">{aceEditId ? 'Editar Acesso' : 'Novo Acesso'}</h3>
-            <button type="button" onClick={() => setAceModalOpen(false)} className="rounded-md p-1.5 hover:bg-muted"><X className="h-4 w-4" /></button>
-          </div>
-          <div className="px-5 py-4 space-y-3">
-            <div><Label className="text-xs">Tipo do Acesso *</Label><Input value={aceForm.portal} onChange={e => setAceForm(p => ({ ...p, portal: e.target.value }))} placeholder="Ex: Portal, Sistema" className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Usuário</Label><Input value={aceForm.usuario} onChange={e => setAceForm(p => ({ ...p, usuario: e.target.value }))} className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Senha {aceEditId ? '(vazio = não alterar)' : ''}</Label><Input value={aceForm.senha} onChange={e => setAceForm(p => ({ ...p, senha: e.target.value }))} placeholder={aceEditId ? 'Deixar vazio para não alterar' : ''} className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Link</Label><Input value={aceForm.link} onChange={e => setAceForm(p => ({ ...p, link: e.target.value }))} placeholder="https://" className="text-xs mt-1" /></div>
-          </div>
-          <div className="flex justify-end gap-2 border-t px-5 py-3">
-            <Button type="button" variant="outline" size="sm" onClick={() => setAceModalOpen(false)}>Fechar</Button>
-            <Button type="button" size="sm" onClick={saveAcesso} disabled={!aceForm.portal}>Salvar</Button>
-          </div>
-        </div>
-      </div>,
-      document.body,
-    )}
+    <Dialog open={aceModalOpen} onOpenChange={setAceModalOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeaderIcon icon={aceEditId ? Pencil : KeyRound} color={aceEditId ? 'sky' : 'emerald'}>
+          <DialogTitle>{aceEditId ? 'Editar Acesso' : 'Novo Acesso'}</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-3">
+          <div><Label className="text-xs">Tipo do Acesso *</Label><Input value={aceForm.portal} onChange={e => setAceForm(p => ({ ...p, portal: e.target.value }))} placeholder="Ex: Portal, Sistema" className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Usuário</Label><Input value={aceForm.usuario} onChange={e => setAceForm(p => ({ ...p, usuario: e.target.value }))} className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Senha {aceEditId ? '(vazio = não alterar)' : ''}</Label><Input value={aceForm.senha} onChange={e => setAceForm(p => ({ ...p, senha: e.target.value }))} placeholder={aceEditId ? 'Deixar vazio para não alterar' : ''} className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Link</Label><Input value={aceForm.link} onChange={e => setAceForm(p => ({ ...p, link: e.target.value }))} placeholder="https://" className="text-xs mt-1" /></div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setAceModalOpen(false)}>Fechar</Button>
+          <Button type="button" size="sm" onClick={saveAcesso} disabled={!aceForm.portal}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     {/* Modal Vencimento */}
-    {vncModalOpen && typeof document !== 'undefined' && createPortal(
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ animation: "dialog-fade-in 200ms ease-out" }}>
-        <div className="fixed inset-0 bg-black/60" onClick={() => setVncModalOpen(false)} />
-        <div className="relative bg-background rounded-xl shadow-2xl border w-full max-w-md" style={{ animation: "dialog-zoom-in 200ms ease-out" }}>
-          <div className="flex items-center justify-between border-b px-5 py-3">
-            <h3 className="text-sm font-semibold">{vncEditId ? 'Editar Vencimento' : 'Novo Vencimento'}</h3>
-            <button type="button" onClick={() => setVncModalOpen(false)} className="rounded-md p-1.5 hover:bg-muted"><X className="h-4 w-4" /></button>
-          </div>
-          <div className="px-5 py-4 space-y-3">
-            <div><Label className="text-xs">Tipo do Alvará *</Label><Input value={vncForm.descricao} onChange={e => setVncForm(p => ({ ...p, descricao: e.target.value }))} className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Vencimento</Label><Input type="date" value={vncForm.dataVencimento} onChange={e => setVncForm(p => ({ ...p, dataVencimento: e.target.value }))} className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Observações</Label><textarea value={vncForm.observacoes} onChange={e => setVncForm(p => ({ ...p, observacoes: e.target.value }))} rows={3} className="w-full rounded-md px-3 py-2 text-xs mt-1 resize-none" /></div>
-          </div>
-          <div className="flex justify-end gap-2 border-t px-5 py-3">
-            <Button type="button" variant="outline" size="sm" onClick={() => setVncModalOpen(false)}>Fechar</Button>
-            <Button type="button" size="sm" onClick={saveVencimento} disabled={!vncForm.descricao}>Salvar</Button>
-          </div>
-        </div>
-      </div>,
-      document.body,
-    )}
+    <Dialog open={vncModalOpen} onOpenChange={setVncModalOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeaderIcon icon={vncEditId ? Pencil : Clock} color={vncEditId ? 'sky' : 'emerald'}>
+          <DialogTitle>{vncEditId ? 'Editar Vencimento' : 'Novo Vencimento'}</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-3">
+          <div><Label className="text-xs">Tipo do Alvará *</Label><Input value={vncForm.descricao} onChange={e => setVncForm(p => ({ ...p, descricao: e.target.value }))} className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Vencimento</Label><Input type="date" value={vncForm.dataVencimento} onChange={e => setVncForm(p => ({ ...p, dataVencimento: e.target.value }))} className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Observações</Label><textarea value={vncForm.observacoes} onChange={e => setVncForm(p => ({ ...p, observacoes: e.target.value }))} rows={3} className="w-full rounded-md px-3 py-2 text-xs mt-1 resize-none" /></div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setVncModalOpen(false)}>Fechar</Button>
+          <Button type="button" size="sm" onClick={saveVencimento} disabled={!vncForm.descricao}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     {/* Modal Andamento */}
-    {andModalOpen && typeof document !== 'undefined' && createPortal(
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ animation: "dialog-fade-in 200ms ease-out" }}>
-        <div className="fixed inset-0 bg-black/60" onClick={() => setAndModalOpen(false)} />
-        <div className="relative bg-background rounded-xl shadow-2xl border w-full max-w-lg" style={{ animation: "dialog-zoom-in 200ms ease-out" }}>
-          <div className="flex items-center justify-between border-b px-5 py-3">
-            <h3 className="text-sm font-semibold">{andEditId ? 'Editar Andamento' : 'Novo Andamento'}</h3>
-            <button type="button" onClick={() => setAndModalOpen(false)} className="rounded-md p-1.5 hover:bg-muted"><X className="h-4 w-4" /></button>
+    <Dialog open={andModalOpen} onOpenChange={setAndModalOpen}>
+      <DialogContent className="max-w-lg">
+        <DialogHeaderIcon icon={andEditId ? Pencil : ListChecks} color={andEditId ? 'sky' : 'emerald'}>
+          <DialogTitle>{andEditId ? 'Editar Andamento' : 'Novo Andamento'}</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-3">
+          <div>
+            <Label className="text-xs">Tipo *</Label>
+            <Select value={andForm.tipo} onValueChange={v => setAndForm(p => ({ ...p, tipo: v }))}>
+              <SelectTrigger className="mt-1 text-xs"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+              <SelectContent>
+                {TIPOS_ANDAMENTO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="px-5 py-4 space-y-3">
-            <div>
-              <Label className="text-xs">Tipo *</Label>
-              <select value={andForm.tipo} onChange={e => setAndForm(p => ({ ...p, tipo: e.target.value }))} className="w-full rounded-md px-3 py-2 text-xs mt-1">
-                {TIPOS_ANDAMENTO.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div><Label className="text-xs">Título</Label><Input value={andForm.titulo} onChange={e => setAndForm(p => ({ ...p, titulo: e.target.value }))} placeholder="Título do andamento" className="text-xs mt-1" /></div>
-            <div><Label className="text-xs">Descrição</Label><textarea value={andForm.descricao} onChange={e => setAndForm(p => ({ ...p, descricao: e.target.value }))} rows={4} className="w-full rounded-md px-3 py-2 text-xs mt-1 resize-none" placeholder="Descrição detalhada..." /></div>
-          </div>
-          <div className="flex justify-end gap-2 border-t px-5 py-3">
-            <Button type="button" variant="outline" size="sm" onClick={() => setAndModalOpen(false)}>Fechar</Button>
-            <Button type="button" size="sm" onClick={saveAndamento} disabled={!andForm.tipo}>Salvar</Button>
-          </div>
-        </div>
-      </div>,
-      document.body,
-    )}
+          <div><Label className="text-xs">Título</Label><Input value={andForm.titulo} onChange={e => setAndForm(p => ({ ...p, titulo: e.target.value }))} placeholder="Título do andamento" className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Descrição</Label><textarea value={andForm.descricao} onChange={e => setAndForm(p => ({ ...p, descricao: e.target.value }))} rows={4} className="w-full rounded-md px-3 py-2 text-xs mt-1 resize-none" placeholder="Descrição detalhada..." /></div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setAndModalOpen(false)}>Fechar</Button>
+          <Button type="button" size="sm" onClick={saveAndamento} disabled={!andForm.tipo}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     {certPdfOpen && certPdfData && typeof document !== 'undefined' && createPortal(
       <Dialog open={certPdfOpen} onOpenChange={setCertPdfOpen}>
