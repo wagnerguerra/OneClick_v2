@@ -33,7 +33,6 @@ import { resolveAssetUrl, getApiUrl } from '@/lib/api-url'
 import { renderConflitosHtml } from '@/lib/agenda-conflitos'
 import { TarefaModal } from './_components/tarefa-modal'
 import { alerts } from '@/lib/alerts'
-import Swal from 'sweetalert2'
 import { useSession } from '@/lib/auth-client'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
@@ -1208,115 +1207,44 @@ export default function AgendaPage() {
     }
   }
 
-  async function handleDelete(ev: AgendaEvento) {
-    const dataFmt = (() => { const d = new Date(ev.data); return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}` })()
-    const horarioFmt = ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio ?? ''} — ${ev.horaFim ?? ''}`
+  // Modal de exclusão de evento (Dialog centralizado — substitui o SweetAlert).
+  const [deleteEvent, setDeleteEvent] = useState<AgendaEvento | null>(null)
+  const [deleteScope, setDeleteScope] = useState<'single' | 'future' | 'series'>('single')
+  const [deleteNotifPart, setDeleteNotifPart] = useState(false)
+  const [deleteNotifTenant, setDeleteNotifTenant] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
-    const eventCard = `
-      <div style="background:#f9fafb;border-radius:8px;padding:12px 16px;margin-bottom:16px;border-left:4px solid ${ev.tipo.cor}">
-        <p style="margin:0;font-weight:600;color:#111827">${ev.titulo}</p>
-        <p style="margin:4px 0 0;font-size:12px;color:#6b7280">${dataFmt} · ${horarioFmt}</p>
-        <p style="margin:2px 0 0;font-size:11px;color:#9ca3af">${ev.tipo.nome}${ev.recorrencia !== 'NENHUMA' ? ` · ${RECORRENCIA_LABELS[ev.recorrencia]}` : ''}</p>
-        ${ev.participantes.length > 0 ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af">👥 ${ev.participantes.length} participante(s)</p>` : ''}
-      </div>
-    `
+  function handleDelete(ev: AgendaEvento) {
+    setDeleteScope('single')
+    setDeleteNotifPart(false)
+    setDeleteNotifTenant(false)
+    setDeleteEvent(ev)
+  }
 
-    // Dois checkboxes de notificação (participantes / empresa toda) — HTML custom
-    // porque o `input:'checkbox'` nativo do Swal só suporta um.
-    const notifChecksHtml = `
-      <div style="text-align:left;margin-top:14px;padding-top:12px;border-top:1px solid #f3f4f6;display:flex;flex-direction:column;gap:10px">
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
-          <input type="checkbox" id="chk-notif-part" style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
-          ✉️ Notificar participantes por e-mail
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
-          <input type="checkbox" id="chk-notif-tenant" style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
-          📢 Notificar todos da empresa <span style="font-size:11px;color:#9ca3af">(sino + e-mail)</span>
-        </label>
-      </div>`
-    const notifPreConfirm = () => ({
-      notificar: (document.getElementById('chk-notif-part') as HTMLInputElement | null)?.checked ?? false,
-      notificarTodosTenant: (document.getElementById('chk-notif-tenant') as HTMLInputElement | null)?.checked ?? false,
-    })
-
-    if (ev.lote && ev.recorrencia !== 'NENHUMA') {
-      // 3 opções (padrão Google Calendar): só este dia · este e os posteriores ·
-      // todo o agendamento. "Este e os posteriores" preserva as ocorrências
-      // passadas (corrige o bug de apagar a série inteira ao remover os futuros).
-      const scopeRadiosHtml = `
-        <div style="text-align:left;margin-top:10px;display:flex;flex-direction:column;gap:8px">
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
-            <input type="radio" name="del-scope" value="single" checked style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
-            Somente este dia
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
-            <input type="radio" name="del-scope" value="future" style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
-            Este e os posteriores
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer">
-            <input type="radio" name="del-scope" value="series" style="width:15px;height:15px;cursor:pointer;accent-color:#ef4444" />
-            Todo o agendamento
-          </label>
-        </div>`
-      const result = await Swal.fire({
-        iconHtml: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>',
-        title: 'Excluir evento recorrente',
-        html: `<div style="text-align:left;font-size:14px">${eventCard}<p style="margin:0;color:#374151;font-weight:500">O que deseja excluir?</p>${scopeRadiosHtml}${notifChecksHtml}</div>`,
-        preConfirm: () => ({
-          scope: (document.querySelector('input[name="del-scope"]:checked') as HTMLInputElement | null)?.value ?? 'single',
-          ...notifPreConfirm(),
-        }),
-        showCancelButton: true,
-        confirmButtonText: '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg> Excluir</span>',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#ef4444',
-        cancelButtonColor: '#d1d5db',
-        customClass: { icon: 'swal-icon-no-border', cancelButton: 'swal-cancel-dark' },
-        reverseButtons: true,
-      })
-      if (!result.isConfirmed) return
-      const val = (result.value as { scope?: string; notificar?: boolean; notificarTodosTenant?: boolean } | undefined) ?? {}
-      const scope = val.scope ?? 'single'
-      try {
-        if (scope === 'series') {
-          // Série inteira — não há notificação granular (deleteLote não notifica).
-          await trpc.agenda.deleteLote.mutate({ lote: ev.lote })
-          alerts.success('Série excluída', 'Todos os eventos da série foram removidos.')
-        } else if (scope === 'future') {
-          await (trpc.agenda as any).deleteEstesEPosteriores.mutate({ id: ev.id })
-          alerts.success('Eventos excluídos', 'Este e os posteriores foram removidos; os anteriores foram mantidos.')
-        } else {
-          await trpc.agenda.delete.mutate({ id: ev.id, notificar: !!val.notificar, notificarTodosTenant: !!val.notificarTodosTenant })
-          alerts.success('Evento excluído', '')
-        }
-        setModalOpen(false)
-        setDayModalOpen(false)
-        fetchEventos()
-      } catch (e) { alerts.error('Erro', (e as Error).message) }
-    } else {
-      const result = await Swal.fire({
-        iconHtml: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>',
-        title: 'Excluir evento',
-        html: `<div style="text-align:left;font-size:14px">${eventCard}<p style="margin:0;color:#6b7280;font-size:13px">Esta ação não pode ser desfeita.</p>${notifChecksHtml}</div>`,
-        preConfirm: notifPreConfirm,
-        showCancelButton: true,
-        confirmButtonText: '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg> Excluir</span>',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#ef4444',
-        cancelButtonColor: '#d1d5db',
-        customClass: { icon: 'swal-icon-no-border', cancelButton: 'swal-cancel-dark' },
-        reverseButtons: true,
-      })
-      if (!result.isConfirmed) return
-      const notif = (result.value as { notificar?: boolean; notificarTodosTenant?: boolean } | undefined) ?? {}
-      try {
-        await trpc.agenda.delete.mutate({ id: ev.id, notificar: !!notif.notificar, notificarTodosTenant: !!notif.notificarTodosTenant })
+  async function confirmDelete() {
+    const ev = deleteEvent
+    if (!ev) return
+    const recorrente = !!ev.lote && ev.recorrencia !== 'NENHUMA'
+    setDeleting(true)
+    try {
+      if (recorrente && deleteScope === 'series' && ev.lote) {
+        // Série inteira — não há notificação granular (deleteLote não notifica).
+        await trpc.agenda.deleteLote.mutate({ lote: ev.lote })
+        alerts.success('Série excluída', 'Todos os eventos da série foram removidos.')
+      } else if (recorrente && deleteScope === 'future') {
+        // "Este e os posteriores" preserva as ocorrências passadas.
+        await (trpc.agenda as any).deleteEstesEPosteriores.mutate({ id: ev.id })
+        alerts.success('Eventos excluídos', 'Este e os posteriores foram removidos; os anteriores foram mantidos.')
+      } else {
+        await trpc.agenda.delete.mutate({ id: ev.id, notificar: deleteNotifPart, notificarTodosTenant: deleteNotifTenant })
         alerts.success('Evento excluído', '')
-        setModalOpen(false)
-        setDayModalOpen(false)
-        fetchEventos()
-      } catch (e) { alerts.error('Erro', (e as Error).message) }
-    }
+      }
+      setDeleteEvent(null)
+      setModalOpen(false)
+      setDayModalOpen(false)
+      fetchEventos()
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setDeleting(false) }
   }
 
   function addAvulso() {
@@ -2259,6 +2187,65 @@ export default function AgendaPage() {
       {/* ============================================================ */}
       {/* Modal criar/editar/visualizar evento */}
       {/* ============================================================ */}
+      {/* Excluir evento — Dialog centralizado */}
+      <Dialog open={!!deleteEvent} onOpenChange={o => { if (!o) setDeleteEvent(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeaderIcon icon={Trash2} color="rose">
+            <DialogTitle>{deleteEvent && deleteEvent.lote && deleteEvent.recorrencia !== 'NENHUMA' ? 'Excluir evento recorrente' : 'Excluir evento'}</DialogTitle>
+          </DialogHeaderIcon>
+          <DialogBody className="space-y-3">
+            {deleteEvent && (() => {
+              const ev = deleteEvent
+              const d = new Date(ev.data)
+              const dataFmt = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`
+              const horarioFmt = ev.diaInteiro ? 'Dia inteiro' : `${ev.horaInicio ?? ''} — ${ev.horaFim ?? ''}`
+              const recorrente = !!ev.lote && ev.recorrencia !== 'NENHUMA'
+              return (
+                <>
+                  <div className="rounded-lg bg-muted px-4 py-3 border-l-4" style={{ borderLeftColor: ev.tipo.cor }}>
+                    <p className="text-sm font-semibold text-foreground">{ev.titulo}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{dataFmt} · {horarioFmt}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{ev.tipo.nome}{recorrente ? ` · ${RECORRENCIA_LABELS[ev.recorrencia]}` : ''}</p>
+                    {ev.participantes.length > 0 && <p className="mt-1 text-[11px] text-muted-foreground">👥 {ev.participantes.length} participante(s)</p>}
+                  </div>
+                  {recorrente ? (
+                    <div className="space-y-1.5">
+                      <p className="text-[13px] font-medium text-foreground">O que deseja excluir?</p>
+                      {([['single', 'Somente este dia'], ['future', 'Este e os posteriores'], ['series', 'Todo o agendamento']] as const).map(([val, label]) => (
+                        <button key={val} type="button" onClick={() => setDeleteScope(val)} className="flex w-full items-center gap-2 text-left text-[13px]">
+                          <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full border', deleteScope === val ? 'border-destructive' : 'border-border')}>
+                            {deleteScope === val && <span className="h-2 w-2 rounded-full bg-destructive" />}
+                          </span>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[13px] text-muted-foreground">Esta ação não pode ser desfeita.</p>
+                  )}
+                  <div className="flex flex-col gap-2.5 border-t border-border pt-3">
+                    <label className="flex cursor-pointer items-center gap-2 text-[13px]">
+                      <Checkbox checked={deleteNotifPart} onCheckedChange={v => setDeleteNotifPart(v === true)} />
+                      ✉️ Notificar participantes por e-mail
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-[13px]">
+                      <Checkbox checked={deleteNotifTenant} onCheckedChange={v => setDeleteNotifTenant(v === true)} />
+                      📢 Notificar todos da empresa <span className="text-[11px] text-muted-foreground">(sino + e-mail)</span>
+                    </label>
+                  </div>
+                </>
+              )
+            })()}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" size="sm" type="button" onClick={() => setDeleteEvent(null)} disabled={deleting}>Cancelar</Button>
+            <Button variant="destructive" size="sm" type="button" onClick={confirmDelete} disabled={deleting} className="gap-1.5">
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-7xl" hideClose={modalMode === 'view'}>
           <DialogHeaderIcon
