@@ -6,7 +6,7 @@ import {
   Loader2, ClipboardList, Building2,
 } from 'lucide-react'
 import {
-  Button, Input,
+  Button, Input, Checkbox,
   Dialog, DialogContent, DialogBody, DialogFooter,
   DialogTitle, DialogDescription, DialogClose,
 } from '@saas/ui'
@@ -527,7 +527,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                 onChange={e => setImportText(e.target.value)}
               />
               <label className="flex items-center gap-2 text-xs">
-                <input type="checkbox" checked={importPreencherCnpj} onChange={e => setImportPreencherCnpj(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+                <Checkbox checked={importPreencherCnpj} onCheckedChange={v => setImportPreencherCnpj(v === true)} />
                 Preencher dados automaticamente pelo CNPJ (ReceitaWS)
               </label>
             </div>
@@ -544,7 +544,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                 </div>
                 <div className="space-y-1 flex items-end">
                   <label className="flex items-center gap-2 text-xs pb-1.5">
-                    <input type="checkbox" checked={sciForce} onChange={e => setSciForce(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+                    <Checkbox checked={sciForce} onCheckedChange={v => setSciForce(v === true)} />
                     Forcar sobrescrita
                   </label>
                 </div>
@@ -581,11 +581,10 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                         ocFlags[key as keyof typeof ocFlags] && 'bg-emerald-50/60 dark:bg-emerald-950/20',
                       )}
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={ocFlags[key as keyof typeof ocFlags]}
-                        onChange={e => setOcFlags(prev => ({ ...prev, [key]: e.target.checked }))}
-                        className="h-3.5 w-3.5 rounded accent-emerald-600"
+                        onCheckedChange={v => setOcFlags(prev => ({ ...prev, [key]: v === true }))}
+                        className="shrink-0"
                       />
                       <div className="min-w-0">
                         <div className="text-[11px] font-medium leading-tight">{label}</div>
@@ -617,7 +616,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                       { state: ocSkipLeads, setter: setOcSkipLeads, label: 'Ignorar Leads' },
                     ] as const).map(({ state, setter, label }) => (
                       <label key={label} className="flex items-center gap-2 text-[11px] cursor-pointer">
-                        <input type="checkbox" checked={state} onChange={e => (setter as (v: boolean) => void)(e.target.checked)} className="h-3.5 w-3.5 rounded accent-emerald-600" />
+                        <Checkbox checked={state} onCheckedChange={v => (setter as (v: boolean) => void)(v === true)} />
                         {label}
                       </label>
                     ))}
@@ -638,7 +637,7 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
                 </div>
                 <div className="space-y-1 flex items-end">
                   <label className="flex items-center gap-2 text-xs pb-1.5">
-                    <input type="checkbox" checked={idSciForce} onChange={e => setIdSciForce(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+                    <Checkbox checked={idSciForce} onCheckedChange={v => setIdSciForce(v === true)} />
                     Forcar sobrescrita
                   </label>
                 </div>
@@ -651,12 +650,12 @@ export function IntegracoesModal({ open, onClose, onRefreshList }: IntegracoesMo
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground">Atualiza dados cadastrais via API SERPRO Consulta CNPJ com importacao opcional de socios (QSA).</p>
               <label className="flex items-center gap-2 text-xs">
-                <input type="checkbox" checked={serproSocios} onChange={e => setSerproSocios(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+                <Checkbox checked={serproSocios} onCheckedChange={v => setSerproSocios(v === true)} />
                 Importar QSA (socios) automaticamente
               </label>
               {serproSocios && (
                 <label className="flex items-center gap-2 text-xs ml-5">
-                  <input type="checkbox" checked={serproForceSocios} onChange={e => setSerproForceSocios(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+                  <Checkbox checked={serproForceSocios} onCheckedChange={v => setSerproForceSocios(v === true)} />
                   Forcar reimportacao de socios (remove auto-importados e reimporta)
                 </label>
               )}
