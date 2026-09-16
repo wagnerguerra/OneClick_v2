@@ -590,7 +590,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                 cadastro, então acompanha a permissão de editar detalhes; a capa
                 GLOBAL (padrão do módulo) segue restrita ao master, no modal. */}
             {mode === 'edit' && clienteId && canEditDetails && (
-              <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5">
+              <div className="absolute right-4 top-4 z-10 flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setCapaModal(true)}
