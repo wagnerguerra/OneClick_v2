@@ -100,7 +100,7 @@ export const STRONG: Record<ColorName, string> = {
 export const TEXT: Record<ColorName, string> = {
   emerald: 'text-emerald-600 dark:text-emerald-400',
   rose: 'text-rose-600 dark:text-rose-500',
-  amber: 'text-amber-600 dark:text-amber-300',
+  amber: 'text-amber-600 dark:text-amber-400',
   sky: 'text-sky-600 dark:text-sky-400',
   indigo: 'text-indigo-600 dark:text-indigo-400',
   lime: 'text-lime-600 dark:text-lime-400',
