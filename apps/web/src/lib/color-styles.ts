@@ -100,7 +100,7 @@ export const STRONG: Record<ColorName, string> = {
 export const TEXT: Record<ColorName, string> = {
   emerald: 'text-emerald-600 dark:text-emerald-400',
   rose: 'text-rose-600 dark:text-rose-500',
-  amber: 'text-amber-600 dark:text-amber-400',
+  amber: 'text-amber-600 dark:text-amber-300',
   sky: 'text-sky-600 dark:text-sky-400',
   indigo: 'text-indigo-600 dark:text-indigo-400',
   lime: 'text-lime-600 dark:text-lime-400',
@@ -123,7 +123,7 @@ export const TEXT: Record<ColorName, string> = {
 export const SURFACE: Record<ColorName, string> = {
   emerald: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800',
   rose: 'bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800',
-  amber: 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800',
+  amber: 'bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30',
   sky: 'bg-sky-50 border-sky-200 dark:bg-sky-950/30 dark:border-sky-800',
   indigo: 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800',
   lime: 'bg-lime-50 border-lime-200 dark:bg-lime-950/30 dark:border-lime-800',
@@ -142,7 +142,7 @@ export const SURFACE: Record<ColorName, string> = {
 export const BORDER: Record<ColorName, string> = {
   emerald: 'border-emerald-200 dark:border-emerald-800',
   rose: 'border-rose-200 dark:border-rose-800',
-  amber: 'border-amber-200 dark:border-amber-800',
+  amber: 'border-amber-200 dark:border-amber-500/30',
   sky: 'border-sky-200 dark:border-sky-800',
   indigo: 'border-indigo-200 dark:border-indigo-800',
   lime: 'border-lime-200 dark:border-lime-800',
