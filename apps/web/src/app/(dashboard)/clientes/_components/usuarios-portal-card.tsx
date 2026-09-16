@@ -732,11 +732,10 @@ function CampoGrupo({ grupo, marcadas, onToggle }: {
       <div className="mt-1.5 max-h-[180px] space-y-1 overflow-y-auto nice-scrollbar rounded-lg border border-border p-2.5">
         {grupo.empresas.map(e => (
           <label key={e.id} className="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={marcadas.includes(e.id)}
-              onChange={() => onToggle(e.id)}
-              className="h-4 w-4 shrink-0 rounded border-border"
+              onCheckedChange={() => onToggle(e.id)}
+              className="shrink-0"
             />
             <span className="min-w-0 truncate text-[13px] text-foreground">{e.razaoSocial}</span>
           </label>
@@ -770,11 +769,10 @@ function CampoPermissoes({ valores, onToggle }: {
       <div className="mt-1.5 space-y-1.5 rounded-lg border border-border p-2.5">
         {PERMISSOES.map(p => (
           <label key={p.campo} className="flex cursor-pointer items-start gap-2">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={valores[p.campo]}
-              onChange={e => onToggle(p.campo, e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-border"
+              onCheckedChange={v => onToggle(p.campo, v === true)}
+              className="mt-0.5"
             />
             <span className="min-w-0">
               <span className="block text-[13px] text-foreground">{p.rotulo}</span>
