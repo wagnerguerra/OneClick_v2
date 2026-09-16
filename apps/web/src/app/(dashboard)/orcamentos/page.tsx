@@ -103,6 +103,7 @@ interface OrcamentoRow {
   createdAt: string
   updatedAt: string
   arquivado?: boolean
+  paralizado?: boolean
   // Datas dedicadas + validade — usadas para calcular prazo no card
   dtEnviado?: string | null
   dtAprovado?: string | null
@@ -1160,7 +1161,12 @@ export default function OrcamentosPage() {
                   <TableCell className="hidden sm:table-cell font-mono text-xs font-medium">{orc.numero}</TableCell>
                   <TableCell className="hidden sm:table-cell"><StatusBadge status={orc.status} /></TableCell>
                   <TableCell className="text-sm">
-                    <span className="block truncate">{getClienteNome(orc) || '—'}</span>
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <span className="truncate">{getClienteNome(orc) || '—'}</span>
+                      {orc.paralizado && (
+                        <Badge variant="outline" className={cn('shrink-0 text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
+                      )}
+                    </span>
                     {/* Número e status, que ganham coluna a partir de `sm` */}
                     <span className="mt-1 flex items-center gap-1.5 sm:hidden">
                       <span className="font-mono text-[11px] text-muted-foreground">#{orc.numero}</span>
@@ -1649,6 +1655,9 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
       <div className="flex items-start justify-between gap-1 px-3 pt-2.5 pb-1">
         <h4 className="min-w-0 text-[13px] font-semibold leading-tight line-clamp-2">
           <span className="shrink-0">#{orc.numero}</span> {clienteNome || 'Sem cliente'}
+          {orc.paralizado && (
+            <Badge variant="outline" className={cn('ml-1 align-middle text-[10px] px-1.5 py-0 border-transparent font-medium', BADGE.amber)}>Paralizado</Badge>
+          )}
         </h4>
         <div className="h-6 w-6 shrink-0 -mr-1 -mt-0.5">
           {showMenu && (
