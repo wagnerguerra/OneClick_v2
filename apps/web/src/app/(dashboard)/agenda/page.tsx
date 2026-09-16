@@ -8,7 +8,7 @@ import {
   MapPin, Users, Trash2, Edit2, X, Video, Monitor, Building2,
   Repeat, Lock, History, Settings, Palette, Check, DoorOpen,
   Bell, Mail, CheckSquare, Square, ListTodo, Search, Target, ArrowRight, ArrowUp, Link2, ExternalLink,
-  StickyNote, Paperclip, Send, Upload, FileBarChart, Sparkles, Printer,
+  StickyNote, Paperclip, Send, Upload, FileBarChart, Sparkles, Printer, AlertTriangle,
 } from 'lucide-react'
 import {
   Button, Input, Textarea, Label, Card,
@@ -2221,7 +2221,7 @@ export default function AgendaPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[13px] text-muted-foreground">Esta ação não pode ser desfeita.</p>
+                    <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground"><AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />Esta ação não pode ser desfeita!</p>
                   )}
                   <div className="flex flex-col gap-2.5 border-t border-border pt-3">
                     <label className="flex cursor-pointer items-center gap-2 text-[13px]">
