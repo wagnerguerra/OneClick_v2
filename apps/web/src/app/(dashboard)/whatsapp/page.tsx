@@ -11,6 +11,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import { useTabLabel } from '@/hooks/use-tab-label'
+import { UserAvatar } from '@/components/ui/user-avatar'
 
 const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
 const wa = () => (trpc as any).whatsapp
@@ -34,10 +35,6 @@ const FILTROS: { key: Status | null; label: string }[] = [
   { key: 'RESOLVIDA', label: 'Resolvidas' },
 ]
 
-function iniciais(nome?: string | null, tel?: string | null) {
-  const base = (nome || tel || '?').trim()
-  return base.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
-}
 function horaCurta(d: string | null) {
   if (!d) return ''
   const dt = new Date(d)
@@ -178,7 +175,7 @@ export default function WhatsappPage() {
             ) : conversas.map(c => (
               <button key={c.id} onClick={() => setSelId(c.id)}
                 className={cn('w-full flex items-start gap-2.5 px-3 py-2.5 border-b border-border/50 text-left hover:bg-muted/40', selId === c.id && 'bg-muted/60')}>
-                <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-[11px] font-semibold shrink-0">{iniciais(c.contatoNome, c.contatoTelefone)}</div>
+                <UserAvatar user={{ name: c.contatoNome ?? '' }} phone={c.contatoTelefone} className="h-9 w-9 text-[11px] font-semibold shrink-0" bg="bg-muted" fg="text-foreground" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium truncate">{c.contatoNome || c.contatoTelefone || c.waId}</span>
@@ -205,7 +202,7 @@ export default function WhatsappPage() {
             <>
               <div className="h-14 px-4 flex items-center justify-between border-b border-border shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-[11px] font-semibold">{iniciais(sel.contatoNome, sel.contatoTelefone)}</div>
+                  <UserAvatar user={{ name: sel.contatoNome ?? '' }} phone={sel.contatoTelefone} className="h-9 w-9 text-[11px] font-semibold" bg="bg-muted" fg="text-foreground" />
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate">{sel.contatoNome || sel.contatoTelefone || sel.waId}</p>
                     <p className="text-[11px] text-muted-foreground">{sel.contatoTelefone || '+' + sel.waId}</p>
@@ -269,7 +266,7 @@ export default function WhatsappPage() {
         {sel && (
           <div className="w-[260px] shrink-0 border-l border-border p-4 hidden xl:block">
             <div className="flex flex-col items-center text-center">
-              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center text-lg font-semibold mb-2">{iniciais(sel.contatoNome, sel.contatoTelefone)}</div>
+              <UserAvatar user={{ name: sel.contatoNome ?? '' }} phone={sel.contatoTelefone} className="h-16 w-16 text-lg font-semibold mb-2" bg="bg-muted" fg="text-foreground" />
               <p className="font-semibold text-sm">{sel.contatoNome || 'Sem nome'}</p>
               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><Phone className="h-3 w-3" /> {sel.contatoTelefone || '+' + sel.waId}</p>
             </div>

@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Loader2, Filter, Megaphone, Target, Send, CheckCircle2, FileCheck, DollarSign, Users, Percent, Landmark, Repeat, Zap, Users2, Trophy, TicketPercent, Scissors, Wallet, TrendingDown } from 'lucide-react'
-import { Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, Avatar, AvatarImage, AvatarFallback, cn } from '@saas/ui'
+import { Card, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@saas/ui'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { BackButton } from '@/components/ui/back-button'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -267,11 +268,6 @@ function MrrReport({ mrr }: { mrr: MrrData }) {
   )
 }
 
-function iniciais(nome: string) {
-  const parts = nome.trim().split(/\s+/)
-  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1]![0] : '')).toUpperCase() || '?'
-}
-
 const MEDALHAS = ['#fbbf24', '#94a3b8', '#d97706'] // ouro, prata, bronze
 
 function VendedoresReport({ data }: { data: VendedoresData }) {
@@ -302,10 +298,7 @@ function VendedoresReport({ data }: { data: VendedoresData }) {
               <div className="w-6 shrink-0 text-center text-sm font-bold tabular-nums" style={{ color: i < 3 ? MEDALHAS[i] : 'var(--color-muted-foreground)' }}>
                 {i + 1}
               </div>
-              <Avatar className="h-9 w-9 shrink-0">
-                {v.image && <AvatarImage src={v.image} alt={v.nome} />}
-                <AvatarFallback className="text-[11px]">{iniciais(v.nome)}</AvatarFallback>
-              </Avatar>
+              <UserAvatar user={{ name: v.nome, image: v.image }} className="h-9 w-9 shrink-0 text-[11px]" bg="bg-muted" fg="text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-medium truncate">{v.nome}</span>
