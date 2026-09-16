@@ -2532,7 +2532,10 @@ function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
         <Input value={idAtual != null ? String(idAtual) : ''} readOnly placeholder="—" />
         <p className="text-[11px] text-muted-foreground">Atualizado automaticamente ao cadastrar via botão</p>
       </div>
-      <div className="col-span-12 md:col-span-6 flex items-end">
+      <div className="col-span-12 md:col-span-6 space-y-1.5">
+        {/* Rótulo espaçador invisível: alinha o botão com o Input ao lado (que
+            tem Label em cima e texto de ajuda embaixo). */}
+        <Label className="invisible" aria-hidden>Ação</Label>
         <Button
           type="button"
           onClick={handleCadastrar}
