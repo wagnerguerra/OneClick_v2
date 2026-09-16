@@ -1807,7 +1807,7 @@ export default function OrcamentoDetailPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
         {/* Controles de capa — base do background, visiveis apenas para Master ao passar o mouse */}
         {isMaster && (
-          <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5">
+          <div className="absolute right-4 top-4 z-10 flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => coverInputRef.current?.click()}
