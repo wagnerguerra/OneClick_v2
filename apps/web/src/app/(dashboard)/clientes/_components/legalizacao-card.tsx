@@ -195,6 +195,14 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
   const [andModalOpen, setAndModalOpen] = useState(false)
   const [andEditId, setAndEditId] = useState<string | null>(null)
   const [andForm, setAndForm] = useState({ tipo: 'Localização', titulo: '', vencimento: '', descricao: '' })
+  // Modal CNAE manual
+  const [cnaeModalOpen, setCnaeModalOpen] = useState(false)
+  const [cnaeForm, setCnaeForm] = useState({ codigo: '', descricao: '' })
+  const [cnaeSalvando, setCnaeSalvando] = useState(false)
+  // Modal DT-e nova mensagem
+  const [dteModalOpen, setDteModalOpen] = useState(false)
+  const [dteForm, setDteForm] = useState({ titulo: '', tipo: '' })
+  const [dteSalvando, setDteSalvando] = useState(false)
 
   const [certPdfData, setCertPdfData] = useState<string | null>(null)
   const [certPdfOpen, setCertPdfOpen] = useState(false)
@@ -420,15 +428,30 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
     try { await (trpc.cliente as any).removeAndamento.mutate({ id }); setAndamentos(prev => prev.filter(a => a.id !== id)) } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
-  async function addCnae() {
-    if (!clienteId) return
-    const codigo = prompt('Codigo CNAE (ex: 6202-3/00):')
-    if (!codigo) return
-    const descricao = prompt('Descricao:') || ''
+  function openCnaeModal() {
+    setCnaeForm({ codigo: '', descricao: '' })
+    setCnaeModalOpen(true)
+  }
+  async function saveCnae() {
+    if (!clienteId || !cnaeForm.codigo.trim()) return
+    setCnaeSalvando(true)
     try {
-      await (trpc.cliente as any).addCnae.mutate({ clienteId, codigo, descricao })
+      await (trpc.cliente as any).addCnae.mutate({ clienteId, codigo: cnaeForm.codigo.trim(), descricao: cnaeForm.descricao.trim() })
+      setCnaeModalOpen(false)
       setCnaes([])
     } catch (e) { alerts.error('Erro', (e as Error).message) }
+    finally { setCnaeSalvando(false) }
+  }
+  async function saveDteMensagem() {
+    if (!clienteId || !dteForm.titulo.trim()) return
+    setDteSalvando(true)
+    try {
+      await (trpc.cliente as any).dteAddMensagem.mutate({ clienteId, titulo: dteForm.titulo.trim(), tipo: dteForm.tipo.trim(), dataMensagem: new Date().toISOString() })
+      const data = await (trpc.cliente as any).dteMensagens.query({ clienteId }) as typeof dteMensagens
+      setDteMensagens(data)
+      setDteModalOpen(false)
+    } catch (err) { alerts.error('Erro', (err as Error).message) }
+    finally { setDteSalvando(false) }
   }
 
   async function removeCnae(id: string) {
@@ -1002,7 +1025,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <h4 className="text-[13px] font-semibold text-foreground">CNAE (Receita Federal / Serpro)</h4>
                   <div className="flex items-center gap-1.5">
-                    {clienteId && canManageFiscal && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); addCnae() }} className="gap-1.5 h-7 text-[11px]"><Plus className="h-3 w-3" /> Manual</Button>}
+                    {clienteId && canManageFiscal && <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openCnaeModal() }} className="gap-1.5 h-7 text-[11px]"><Plus className="h-3 w-3" /> Manual</Button>}
                   </div>
                 </div>
               </div>
@@ -1341,17 +1364,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                   <h4 className="text-[13px] font-semibold text-foreground">DT-e — Domicílio Tributário Eletrônico</h4>
                   {clienteId && canManageFiscal && (
                     <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" type="button"
-                      onClick={async (e) => {
-                        e.preventDefault(); e.stopPropagation()
-                        const titulo = prompt('Título da mensagem:')
-                        if (!titulo) return
-                        const tipo = prompt('Tipo (ex: Intimação, Notificação, Ciência):') || ''
-                        try {
-                          await (trpc.cliente as any).dteAddMensagem.mutate({ clienteId, titulo, tipo, dataMensagem: new Date().toISOString() })
-                          const data = await (trpc.cliente as any).dteMensagens.query({ clienteId }) as typeof dteMensagens
-                          setDteMensagens(data)
-                        } catch (err) { alerts.error('Erro', (err as Error).message) }
-                      }}>
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDteForm({ titulo: '', tipo: '' }); setDteModalOpen(true) }}>
                       <Plus className="h-3 w-3" />Nova Mensagem
                     </Button>
                   )}
@@ -1488,6 +1501,40 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setAndModalOpen(false)}>Fechar</Button>
           <Button type="button" size="sm" onClick={saveAndamento} disabled={!andForm.tipo}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Modal CNAE manual */}
+    <Dialog open={cnaeModalOpen} onOpenChange={setCnaeModalOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeaderIcon icon={FileText} color="emerald">
+          <DialogTitle>Adicionar CNAE</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-3">
+          <div><Label className="text-xs">Código CNAE *</Label><Input value={cnaeForm.codigo} onChange={e => setCnaeForm(p => ({ ...p, codigo: e.target.value }))} placeholder="Ex: 6202-3/00" className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Descrição</Label><Input value={cnaeForm.descricao} onChange={e => setCnaeForm(p => ({ ...p, descricao: e.target.value }))} placeholder="Descrição da atividade" className="text-xs mt-1" /></div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setCnaeModalOpen(false)}>Fechar</Button>
+          <Button type="button" size="sm" onClick={saveCnae} disabled={!cnaeForm.codigo.trim() || cnaeSalvando}>{cnaeSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Modal DT-e nova mensagem */}
+    <Dialog open={dteModalOpen} onOpenChange={setDteModalOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeaderIcon icon={FileText} color="emerald">
+          <DialogTitle>Nova mensagem DT-e</DialogTitle>
+        </DialogHeaderIcon>
+        <DialogBody className="space-y-3">
+          <div><Label className="text-xs">Título da mensagem *</Label><Input value={dteForm.titulo} onChange={e => setDteForm(p => ({ ...p, titulo: e.target.value }))} placeholder="Título da mensagem" className="text-xs mt-1" /></div>
+          <div><Label className="text-xs">Tipo</Label><Input value={dteForm.tipo} onChange={e => setDteForm(p => ({ ...p, tipo: e.target.value }))} placeholder="Ex: Intimação, Notificação, Ciência" className="text-xs mt-1" /></div>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setDteModalOpen(false)}>Fechar</Button>
+          <Button type="button" size="sm" onClick={saveDteMensagem} disabled={!dteForm.titulo.trim() || dteSalvando}>{dteSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
