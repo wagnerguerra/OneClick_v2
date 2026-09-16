@@ -8,6 +8,7 @@ import type { PortalContatoService } from './portal-contato.service'
 import type { ConviteValido } from './portal-tipos'
 import { listarVinculos } from './portal-escopo'
 import { listarEquipe } from './portal-equipe'
+import { itensDoCalendario, type ItemDoCalendario } from './portal-calendario'
 
 /**
  * O router declara o que USA do serviço, em vez de importar a classe.
@@ -242,6 +243,44 @@ export function createPortalRouter(
     equipe: portalProcedure
       .input(z.object({ clienteId: z.string() }))
       .query(({ ctx }) => listarEquipe(ctx.portal)),
+
+    /**
+     * O calendário do mês: vencimentos, feriados e os eventos da agenda em que
+     * o cliente aparece.
+     *
+     * As obrigações entram AQUI, e não dentro do serviço do calendário, porque
+     * elas são de um módulo que o escritório liga e desliga — com o módulo
+     * desligado a rota devolve o mês sem elas, em vez de o calendário decidir
+     * sozinho o que mostrar. Feriado e evento não têm módulo: são contexto do
+     * mês, não funcionalidade liberável.
+     */
+    calendario: portalProcedure
+      .input(z.object({
+        clienteId: z.string(),
+        ano: z.number().int().min(2000).max(2100),
+        mes: z.number().int().min(1).max(12),
+      }))
+      .query(async ({ input, ctx }): Promise<ItemDoCalendario[]> => {
+        const competencia = `${input.ano}${String(input.mes).padStart(2, '0')}`
+        const [doMes, obrigacoes] = await Promise.all([
+          itensDoCalendario(ctx.portal, input.ano, input.mes),
+          ctx.portal.modulos.includes('obrigacoes')
+            ? obrigacoesService.listar(ctx.portal, { competencia })
+            : Promise.resolve([]),
+        ])
+        return [
+          ...doMes,
+          ...obrigacoes.map((o) => ({
+            id: `obrigacao-${o.id}`,
+            tipo: 'obrigacao' as const,
+            titulo: o.nome,
+            data: o.prazo.slice(0, 10),
+            hora: null,
+            detalhe: o.area,
+            situacao: o.situacao,
+          })),
+        ]
+      }),
 
     /**
      * O cliente escreve para o responsável de uma área, pelo portal.

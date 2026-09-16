@@ -13,6 +13,7 @@ import {
   type Pendencia, type ResumoObrigacoes,
 } from '../_components/painel-inicio'
 import { ContatoEquipeModal } from '../_components/contato-equipe-modal'
+import { CalendarioPortal } from '../_components/calendario-portal'
 
 /**
  * Início do Portal do Cliente — a mesa de trabalho do cliente.
@@ -135,7 +136,7 @@ export default function PortalInicioPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-4 xl:max-w-[86rem]">
       <Saudacao
         nome={usuarioNome}
         razaoSocial={vinculo?.razaoSocial ?? 'Sua empresa'}
@@ -158,8 +159,17 @@ export default function PortalInicioPage() {
 
       <Alertas itens={alertas} />
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="flex min-w-0 flex-col gap-5">
+      {/* Três colunas no monitor largo: calendário, o miolo e a coluna de
+          contato. Abaixo disso o calendário desce para a coluna da direita
+          (tablet) ou para o fim da pilha (celular) — ele é contexto do mês, e
+          quem abre o portal no telefone veio resolver pendência. */}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[19rem_minmax(0,1fr)_20rem]">
+        <CalendarioPortal
+          clienteId={clienteId}
+          className="order-last lg:order-none lg:col-start-2 lg:row-start-1 xl:col-start-1 xl:row-start-1"
+        />
+
+        <div className="flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-span-2 lg:row-start-1 xl:col-start-2 xl:row-span-1">
           {temDocumentos && <BlocoPendencias pendencias={pendencias} podeEditar={podeEditar} hoje={hoje} />}
           {temObrigacoes && <BlocoObrigacoes lista={obrigacoes} resumo={resumo} mes={mes} hoje={hoje} />}
           {temDocumentos && <BlocoDocumentos pasta={pasta} hoje={hoje} />}
@@ -177,7 +187,7 @@ export default function PortalInicioPage() {
           )}
         </div>
 
-        <aside className="flex flex-col gap-5">
+        <aside className="flex flex-col gap-5 lg:col-start-2 lg:row-start-2 xl:col-start-3 xl:row-start-1">
           <BlocoEquipe equipe={equipe} onEscrever={setEscrevendoPara} />
           <AcessoRapido liberados={liberados} />
           <CartaoAjuda />
