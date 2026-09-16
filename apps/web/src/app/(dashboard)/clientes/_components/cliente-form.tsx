@@ -2526,28 +2526,24 @@ function AcessoriasIntegracao({ clienteId }: { clienteId: string | null }) {
   }
 
   return (
-    <>
-      <div className="col-span-12 md:col-span-6 space-y-1.5">
-        <Label>ID Acessórias</Label>
-        <Input value={idAtual != null ? String(idAtual) : ''} readOnly placeholder="—" />
-        <p className="text-[11px] text-muted-foreground">Atualizado automaticamente ao cadastrar via botão</p>
-      </div>
-      <div className="col-span-12 md:col-span-6 space-y-1.5">
-        {/* Rótulo espaçador invisível: alinha o botão com o Input ao lado (que
-            tem Label em cima e texto de ajuda embaixo). */}
-        <Label className="invisible" aria-hidden>Ação</Label>
+    <div className="col-span-12 md:col-span-7 space-y-1.5">
+      <Label>ID Acessórias</Label>
+      {/* Input e botão na MESMA linha */}
+      <div className="flex items-center gap-2">
+        <Input value={idAtual != null ? String(idAtual) : ''} readOnly placeholder="—" className="flex-1 min-w-0" />
         <Button
           type="button"
           onClick={handleCadastrar}
           disabled={loading || !clienteId}
-          className="gap-2"
+          className="gap-2 shrink-0"
           style={{ backgroundColor: '#0ea5e9', color: '#fff' }}
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
           {idAtual ? 'Sincronizar no Acessórias' : 'Cadastrar no Acessórias'}
         </Button>
       </div>
-    </>
+      <p className="text-[11px] text-muted-foreground">Atualizado automaticamente ao cadastrar via botão</p>
+    </div>
   )
 }
 
