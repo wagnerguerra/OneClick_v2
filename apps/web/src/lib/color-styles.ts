@@ -81,7 +81,7 @@ export const BADGE: Record<ColorName, string> = {
 export const STRONG: Record<ColorName, string> = {
   emerald: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900 dark:text-emerald-200 dark:border-emerald-700',
   rose: 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900 dark:text-rose-200 dark:border-rose-700',
-  amber: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700',
+  amber: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40',
   sky: 'bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-900 dark:text-sky-200 dark:border-sky-700',
   indigo: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900 dark:text-indigo-200 dark:border-indigo-700',
   lime: 'bg-lime-100 text-lime-700 border-lime-200 dark:bg-lime-900 dark:text-lime-200 dark:border-lime-700',
