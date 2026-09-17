@@ -1592,8 +1592,33 @@ export class OrcamentoService {
     const original = await prisma.orcamento.findUnique({ where: { id }, include: { itens: true } })
     if (!original) throw new Error('Orcamento nao encontrado')
 
-    const novo = await prisma.orcamento.create({
+    // O numero tem que ser alocado igual ao `create`: advisory lock por empresa
+    // + max(numeroInicial, ultimo + 1).
+    //
+    // Antes daqui a duplicacao nao passava `numero` e caia no default do schema
+    // (@default(autoincrement())). Essa sequencia do Postgres nunca e' usada —
+    // o create sempre grava o numero explicitamente e a importacao do legado
+    // preserva o numero original —, entao ela ficou parada la' atras e devolvia
+    // valores antigos: duplicar o #4778 gerava #4540. Pior, `numero` nao tem
+    // unique no banco, logo a colisao com um orcamento existente passa calada.
+    const empresaDoNovo = empresaId || original.empresaId || undefined
+    const config = await this.getConfig(empresaDoNovo).catch(() => null)
+    const numeroInicial = Math.max(1, config?.numeroInicial ?? 1)
+    const lockKey = `orcamento_numero:${empresaDoNovo ?? 'global'}`
+
+    const novo = await prisma.$transaction(async tx => {
+      // $executeRawUnsafe e NAO $queryRawUnsafe: pg_advisory_xact_lock retorna
+      // void, tipo que o Prisma nao desserializa (ver comentario no create).
+      await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', lockKey)
+      const lastOrc = await tx.orcamento.findFirst({
+        where: empresaDoNovo ? { empresaId: empresaDoNovo } : {},
+        orderBy: { numero: 'desc' },
+        select: { numero: true },
+      }).catch(() => null)
+      const proximoNumero = Math.max(numeroInicial, (lastOrc?.numero ?? 0) + 1)
+      return tx.orcamento.create({
       data: {
+        numero: proximoNumero,
         clienteId: original.clienteId,
         oportunidadeId: original.oportunidadeId,
         responsavelId: original.responsavelId,
@@ -1612,6 +1637,7 @@ export class OrcamentoService {
         empresaId: empresaId || original.empresaId,
         status: 'NOVO',
       },
+      })
     })
 
     if (original.itens.length > 0) {
