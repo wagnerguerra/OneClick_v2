@@ -21,7 +21,7 @@ import {
   RichContent,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, PILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { coresTipoEvento } from '@/lib/event-type-colors'
 import { useIsDark } from '@/hooks/use-is-dark'
@@ -1516,7 +1516,7 @@ export default function AgendaPage() {
                     const u = usuarios.find(x => x.id === id)
                     if (!u) return null
                     return (
-                      <span key={id} className="flex items-center gap-1 text-[11px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 pl-1.5 pr-1 py-0.5 rounded-full">
+                      <span key={id} className={cn('flex items-center gap-1 text-[11px] pl-1.5 pr-1 py-0.5 rounded-full', PILL.sky)}>
                         <span className="truncate max-w-[120px]">{u.name}</span>
                         <button
                           type="button"
@@ -2839,7 +2839,7 @@ export default function AgendaPage() {
                             { v: 'ONLINE', l: 'Online', i: Video },
                             { v: 'HIBRIDO', l: 'Híbrido', i: Monitor },
                           ].map(({ v, l, i: I }) => (
-                            <label key={v} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', form.presenca === v ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400' : 'hover:bg-muted/50')}>
+                            <label key={v} className={cn('flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors', form.presenca === v ? PILL.sky : 'hover:bg-muted/50')}>
                               <input type="radio" name="presenca" checked={form.presenca === v} onChange={() => setForm(f => ({ ...f, presenca: v, ...(v === 'ONLINE' ? { salaId: '', sala: '' } : {}) }))} className="accent-sky-500" />
                               <I className="h-3.5 w-3.5" />{l}
                             </label>
@@ -2863,7 +2863,7 @@ export default function AgendaPage() {
                                 key={s.id}
                                 className={cn(
                                   'flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors',
-                                  active ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400' : 'hover:bg-muted/50',
+                                  active ? PILL.sky : 'hover:bg-muted/50',
                                 )}
                               >
                                 <input
@@ -2881,7 +2881,7 @@ export default function AgendaPage() {
                           <label
                             className={cn(
                               'flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs transition-colors',
-                              form.sala === 'Outro' ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400' : 'hover:bg-muted/50',
+                              form.sala === 'Outro' ? PILL.sky : 'hover:bg-muted/50',
                             )}
                           >
                             <input
@@ -3249,7 +3249,7 @@ export default function AgendaPage() {
                         {form.participanteIds.map(id => {
                           const u = usuarios.find(u => u.id === id)
                           return u ? (
-                            <span key={id} className="flex items-center gap-1.5 text-[11px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 pl-0.5 pr-2 py-0.5 rounded-full">
+                            <span key={id} className={cn('flex items-center gap-1.5 text-[11px] pl-0.5 pr-2 py-0.5 rounded-full', PILL.sky)}>
                               <UserAvatar user={{ name: u.name, image: u.image ?? null }} className="h-5 w-5 text-[8px] text-sky-700 dark:text-sky-400" bg="bg-sky-200 dark:bg-sky-800" />
                               {u.name}
                               <button type="button" onClick={() => setForm(f => ({ ...f, participanteIds: f.participanteIds.filter(p => p !== id) }))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
@@ -3257,7 +3257,7 @@ export default function AgendaPage() {
                           ) : null
                         })}
                         {form.participantesAvulsos.map(nome => (
-                          <span key={nome} className="flex items-center gap-1 text-[11px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                          <span key={nome} className={cn('flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full', PILL.amber)}>
                             {nome}
                             <button type="button" onClick={() => setForm(f => ({ ...f, participantesAvulsos: f.participantesAvulsos.filter(p => p !== nome) }))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
                           </span>
@@ -3386,9 +3386,7 @@ export default function AgendaPage() {
                         {lembretesForm.map((l, idx) => (
                           <span key={idx} className={cn(
                             'flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full',
-                            l.canal === 'EMAIL'
-                              ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400'
-                              : 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400',
+                            l.canal === 'EMAIL' ? PILL.violet : PILL.sky,
                           )}>
                             {l.canal === 'EMAIL' ? <Mail className="h-3 w-3" /> : <Bell className="h-3 w-3" />}
                             {formatarMinutosAntes(l.minutosAntes)}

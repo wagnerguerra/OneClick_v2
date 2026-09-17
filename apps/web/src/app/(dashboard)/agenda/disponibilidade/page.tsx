@@ -13,7 +13,7 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
   RichContent,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, PILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { UserAvatar } from '@/components/ui/user-avatar'
@@ -338,7 +338,7 @@ export default function AgendaDisponibilidadePage() {
                 const u = usuarios.find(x => x.id === id)
                 if (!u) return null
                 return (
-                  <span key={id} className="flex items-center gap-1 text-xs bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 px-2.5 py-1 rounded-full">
+                  <span key={id} className={cn('flex items-center gap-1 text-xs px-2.5 py-1 rounded-full', PILL.sky)}>
                     {u.name}
                     <button
                       type="button"

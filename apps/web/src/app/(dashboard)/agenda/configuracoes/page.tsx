@@ -18,7 +18,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
-import { TEXT, SURFACE } from '@/lib/color-styles'
+import { TEXT, SURFACE, PILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { BackButton } from '@/components/ui/back-button'
 import { UserAvatar } from '@/components/ui/user-avatar'
@@ -880,7 +880,7 @@ export default function AgendaConfiguracoesPage() {
                               const u = usuarios.find(x => x.id === id)
                               if (!u) return null
                               return (
-                                <span key={id} className="flex items-center gap-1 text-xs bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 px-2.5 py-1 rounded-full">
+                                <span key={id} className={cn('flex items-center gap-1 text-xs px-2.5 py-1 rounded-full', PILL.sky)}>
                                   {u.name}
                                   <button type="button" onClick={() => toggleDestinatario(id)} className="hover:text-rose-500">
                                     <X className="h-3 w-3" />

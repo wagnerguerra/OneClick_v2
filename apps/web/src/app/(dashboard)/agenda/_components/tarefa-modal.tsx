@@ -8,6 +8,7 @@ import {
 } from '@saas/ui'
 import { Plus, Edit2, Loader2, X, Bell, Mail, CheckSquare, Users, Briefcase } from 'lucide-react'
 import Link from 'next/link'
+import { PILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { trpc } from '@/lib/trpc'
@@ -252,7 +253,7 @@ export function TarefaModal({ open, onOpenChange, tarefa, onSaved, oportunidadeI
               <div className="flex flex-wrap gap-1.5 mb-1.5">
                 {lembretes.map((l, idx) => (
                   <span key={idx} className={cn('flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full',
-                    l.canal === 'EMAIL' ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400' : 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400')}>
+                    l.canal === 'EMAIL' ? PILL.violet : PILL.sky)}>
                     {l.canal === 'EMAIL' ? <Mail className="h-3 w-3" /> : <Bell className="h-3 w-3" />}
                     {formatarMinutosAntes(l.minutosAntes)}
                     <button type="button" onClick={() => setLembretes(arr => arr.filter((_, i) => i !== idx))} className="hover:text-red-500"><X className="h-3 w-3" /></button>
