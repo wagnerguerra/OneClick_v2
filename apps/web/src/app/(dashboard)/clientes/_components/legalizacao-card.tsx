@@ -609,11 +609,8 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                 <Icon className="h-3.5 w-3.5 shrink-0" />
                 <span className="flex-1 truncate">{pill.label}</span>
                 {count != null && count > 0 ? (
-                  <span
-                    className={cn('text-[9px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center ml-auto shrink-0 text-white',
-                      activeTab === pill.id && 'bg-white/30')}
-                    style={activeTab === pill.id ? undefined : { backgroundColor: 'var(--mod-cadastros, #10b981)' }}
-                  >
+                  <span className={cn('text-[9px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center ml-auto shrink-0',
+                    activeTab === pill.id ? 'bg-white/30 text-white' : 'bg-red-500 text-white')}>
                     {count}
                   </span>
                 ) : <span className="ml-auto shrink-0 w-[16px]" />}
