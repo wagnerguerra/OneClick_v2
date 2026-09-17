@@ -3834,15 +3834,27 @@ export default function AgendaPage() {
                 )}
               </div>
 
-              {/* Preview */}
-              <div className="flex items-center gap-2">
+              {/* Preview — claro e escuro lado a lado (cada um força o booleano
+                  do tema em coresTipoEvento; o dark fica sobre superfície escura
+                  pra o tint com alpha compositar como no app). */}
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="text-[10px] text-muted-foreground">Preview:</span>
-                <span
-                  className="text-xs px-3 py-1 rounded-[2px]"
-                  style={{ backgroundColor: tipoForm.cor, color: tipoForm.corTexto, borderLeft: `3px solid ${tipoForm.corBorda}` }}
-                >
-                  {tipoForm.nome || 'Nome do tipo'}
-                </span>
+                {([['Claro', false, 'bg-white ring-1 ring-black/10'], ['Escuro', true, 'bg-slate-900 ring-1 ring-white/10']] as const).map(([label, dark, surface]) => {
+                  const c = coresTipoEvento(tipoForm, dark)
+                  return (
+                    <div key={label} className="flex items-center gap-1.5">
+                      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</span>
+                      <span className={cn('rounded-md p-1.5', surface)}>
+                        <span
+                          className="inline-block text-xs px-3 py-1 rounded-[2px]"
+                          style={{ backgroundColor: c.fundo, color: c.texto, borderLeft: `3px solid ${c.borda}` }}
+                        >
+                          {tipoForm.nome || 'Nome do tipo'}
+                        </span>
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
 
               {/* Ações */}
