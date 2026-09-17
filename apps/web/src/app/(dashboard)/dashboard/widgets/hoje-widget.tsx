@@ -153,9 +153,11 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
                 const chipStyle = c
                   ? { backgroundColor: c.fundo, color: c.texto }
                   : { backgroundColor: `color-mix(in srgb, ${l.cor} 18%, transparent)`, color: `color-mix(in srgb, ${l.cor} 70%, var(--color-foreground))` }
-                // Círculo do ícone (evento): fundo na cor de BORDA (acento forte);
-                // tarefa mantém o color-mix do chip.
-                const circleStyle = c ? { backgroundColor: c.borda, color: c.texto } : chipStyle
+                // Círculo do ícone (evento): fundo na cor de BORDA (acento forte) e
+                // ícone na cor de fundo SÓLIDA do tipo (l.cor) — não c.fundo, que no
+                // dark vem com alpha (é pra background) e deixaria o ícone apagado.
+                // Tarefa mantém o color-mix do chip.
+                const circleStyle = c ? { backgroundColor: c.borda, color: l.cor } : chipStyle
                 return (
                   <li
                     key={l.key}
