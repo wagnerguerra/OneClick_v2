@@ -668,8 +668,8 @@ export class HelpdeskService {
               s.id                AS "servicoId",
               s.nome              AS "servicoNome",
               (SELECT COUNT(*)::int FROM servico_etapas et WHERE et.servico_id = s.id)               AS "etapas",
-              (SELECT COUNT(*)::int FROM servico_execucao_passos p WHERE p.execucao_id = e.id)       AS "passosTotal",
-              (SELECT COUNT(*)::int FROM servico_execucao_passos p WHERE p.execucao_id = e.id
+              (SELECT COUNT(*)::int FROM servico_execucoes_passos p WHERE p.execucao_id = e.id)      AS "passosTotal",
+              (SELECT COUNT(*)::int FROM servico_execucoes_passos p WHERE p.execucao_id = e.id
                   AND (p.concluido OR p.ignorado))                                                   AS "passosFechados"
          FROM helpdesk_tickets t
          LEFT JOIN helpdesk_categorias c ON c.id = t.categoria_id
