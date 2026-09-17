@@ -15,7 +15,7 @@ interface EventoHoje {
   diaInteiro?: boolean
   horaInicio?: string | null
   horaFim?: string | null
-  tipo?: { nome: string; cor: string | null; corBorda?: string | null; corTexto?: string | null } | null
+  tipo?: { nome: string; cor: string | null; corTexto?: string | null } | null
   participantes?: Array<{ usuario: { id: string; name: string } | null }>
 }
 interface TarefaHoje {
@@ -42,9 +42,10 @@ interface Linha {
   riscado?: boolean
   particular?: boolean
   href: string
-  /** Presente só p/ EVENTOS (tarefas ficam no estilo color-mix). Círculo do ícone
-   *  usa corBorda de fundo + cor no ícone; badge usa `chipTipoEvento`. */
-  tipoEvento?: { cor: string; corBorda: string; corTexto: string }
+  /** Eventos usam a MESMA lógica de cor da /agenda (chipTipoEvento); tarefas mantêm
+   *  o color-mix. `corTexto` é a cor de texto do tipo (só evento). */
+  isEvento?: boolean
+  corTexto?: string | null
 }
 
 const PRIORIDADE_COR: Record<string, string> = { ALTA: '#e11d48', NORMAL: 'var(--color-primary)', BAIXA: '#64748b' }
@@ -79,15 +80,13 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
       const ini = hora(e.horaInicio); const fim = hora(e.horaFim)
       const n = e.participantes?.length ?? 0
       const horario = e.diaInteiro || !ini ? 'Dia inteiro' : fim ? `${ini} – ${fim}` : ini
-      const corEv = e.tipo?.cor
       return {
         key: `e-${e.id}`,
         ordem: e.diaInteiro || !ini ? '99:99' : ini,
         icone: CalendarClock,
-        cor: corEv || 'var(--color-primary)',
-        // Só eventos COM cor de tipo (hex) entram no estilo próprio; sem tipo,
-        // caem no color-mix seguro (que aceita a CSS var).
-        tipoEvento: corEv ? { cor: corEv, corBorda: e.tipo?.corBorda || corEv, corTexto: e.tipo?.corTexto || '#ffffff' } : undefined,
+        cor: e.tipo?.cor || 'var(--color-primary)',
+        isEvento: true,
+        corTexto: e.tipo?.corTexto ?? null,
         titulo: e.titulo,
         pill: e.tipo?.nome || 'Evento',
         sub: n > 1 ? `${horario} · ${n} participantes` : horario,
@@ -146,11 +145,11 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
             <ul className="divide-y divide-border">
               {linhas.map(l => {
                 const Icon = l.icone
-                // Tarefas (e eventos sem cor de tipo) seguem o color-mix; eventos com
-                // tipo usam a cor de borda no círculo e o chip adaptado no badge.
-                const mix = { backgroundColor: `color-mix(in srgb, ${l.cor} 18%, transparent)`, color: `color-mix(in srgb, ${l.cor} 70%, var(--color-foreground))` }
-                const circleStyle = l.tipoEvento ? { backgroundColor: l.tipoEvento.corBorda, color: l.tipoEvento.cor } : mix
-                const badgeStyle = l.tipoEvento ? chipTipoEvento(l.tipoEvento, isDark) : mix
+                // Eventos: mesma lógica de cor da /agenda (fundo cheio+corTexto no
+                // claro; alpha+texto claro no dark). Tarefas: color-mix (como eram).
+                const chipStyle = l.isEvento
+                  ? chipTipoEvento({ cor: l.cor, corTexto: l.corTexto }, isDark)
+                  : { backgroundColor: `color-mix(in srgb, ${l.cor} 18%, transparent)`, color: `color-mix(in srgb, ${l.cor} 70%, var(--color-foreground))` }
                 return (
                   <li
                     key={l.key}
@@ -159,7 +158,7 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
                   >
                     <span
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-inset ring-current/15"
-                      style={circleStyle}
+                      style={chipStyle}
                     >
                       <Icon className="h-4 w-4" />
                     </span>
@@ -170,7 +169,7 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
                         </p>
                         <span
                           className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px text-[11px] font-semibold"
-                          style={badgeStyle}
+                          style={chipStyle}
                         >
                           {l.pill}
                         </span>
