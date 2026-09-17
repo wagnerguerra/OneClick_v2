@@ -3560,11 +3560,42 @@ function registerIpcHandlers() {
       deployEmit(90, 'restart', '→ Reiniciando containers e verificando saúde...', 'info')
       deployCheckAbort('restart', 90)
       deployCurrentStep = 'restart'
-      const up = await sshExec(cfg, 'cd /opt/oneclick && docker compose up -d --force-recreate api web 2>&1 && sleep 12 && curl -s -o /dev/null -w "API:%{http_code}\\n" http://127.0.0.1:4100/api/health', (line) => deployEmit(95, 'restart', line, 'info'))
+      // Health por TENTATIVAS, não por espera fixa.
+      //
+      // Antes era `sleep 12 && curl`. A API leva mais de 12s para abrir a porta
+      // (bem mais quando a VPS está sob carga), então o curl batia antes e o
+      // deploy reprovava um deploy que tinha dado certo — e, pior, abortava
+      // ANTES de gravar o `.deployed-sha` logo abaixo, deixando o Service
+      // Manager achando que a publicação ficou pendente. Aconteceu no deploy do
+      // 4295cff6: a API estava no ar, respondendo 200, e o painel dizia falha.
+      //
+      // Agora tenta a cada 3s por até 90s e aceita o primeiro 200/204. Continua
+      // reprovando quem realmente não sobe — só para de reprovar quem sobe
+      // devagar. `|| true` no curl para o `-e` do shell não matar o laço num
+      // connection refused, que é o esperado nas primeiras tentativas.
+      const HEALTH_TENTATIVAS = 30
+      const HEALTH_INTERVALO_S = 3
+      const cmdHealth = [
+        'cd /opt/oneclick',
+        'docker compose up -d --force-recreate api web 2>&1',
+        `for i in $(seq 1 ${HEALTH_TENTATIVAS}); do`,
+        '  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://127.0.0.1:4100/api/health || true)',
+        '  if [ "$code" = "200" ] || [ "$code" = "204" ]; then echo "API:$code (tentativa $i)"; exit 0; fi',
+        `  echo "aguardando API... ($i/${HEALTH_TENTATIVAS}, ultimo=$code)"`,
+        `  sleep ${HEALTH_INTERVALO_S}`,
+        'done',
+        `echo "API:000 (sem resposta em ${HEALTH_TENTATIVAS * HEALTH_INTERVALO_S}s)"; exit 1`,
+      ].join('\n')
+      // Timeout do canal maior que a janela do laço, senão o ssh corta antes.
+      const up = await sshExec(cfg, cmdHealth, (line) => deployEmit(95, 'restart', line, 'info'), (HEALTH_TENTATIVAS * HEALTH_INTERVALO_S + 60) * 1000)
       if (up.code !== 0 || !/(API:200|API:204)/.test(up.stdout || '')) {
-        deployEmit(98, 'restart', `✗ Reinício ou verificação de saúde falhou`, 'err')
+        const semResposta = /API:000/.test(up.stdout || '')
+        const motivo = semResposta
+          ? `API não respondeu em ${HEALTH_TENTATIVAS * HEALTH_INTERVALO_S}s após o restart`
+          : 'Reinício ou verificação de saúde falhou'
+        deployEmit(98, 'restart', `✗ ${motivo}`, 'err')
         deployRunning = false
-        return { ok: false, error: 'Reinício ou verificação de saúde falhou' }
+        return { ok: false, error: motivo }
       }
       // Carimbo do que EFETIVAMENTE subiu. O `git reset` na VPS acontece lá no
       // começo, então o commit estar lá não prova que ele foi publicado: um
