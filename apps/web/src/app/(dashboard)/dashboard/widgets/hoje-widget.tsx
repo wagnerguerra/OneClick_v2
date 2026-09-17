@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { CalendarClock, CheckCircle2, Circle, Lock, MoreVertical, Users, CalendarDays, ListChecks } from 'lucide-react'
 import { cn, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
-import { chipTipoEvento } from '@/lib/event-type-colors'
+import { coresTipoEvento } from '@/lib/event-type-colors'
 import { useIsDark } from '@/hooks/use-is-dark'
 
 interface EventoHoje {
@@ -42,7 +42,7 @@ interface Linha {
   riscado?: boolean
   particular?: boolean
   href: string
-  /** Eventos usam a MESMA lógica de cor da /agenda (chipTipoEvento); tarefas mantêm
+  /** Eventos usam a MESMA lógica de cor da /agenda (coresTipoEvento); tarefas mantêm
    *  o color-mix. `corTexto` é a cor de texto do tipo (só evento). */
   isEvento?: boolean
   corTexto?: string | null
@@ -147,8 +147,9 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
                 const Icon = l.icone
                 // Eventos: mesma lógica de cor da /agenda (fundo cheio+corTexto no
                 // claro; alpha+texto claro no dark). Tarefas: color-mix (como eram).
-                const chipStyle = l.isEvento
-                  ? chipTipoEvento({ cor: l.cor, corTexto: l.corTexto }, isDark)
+                const c = l.isEvento ? coresTipoEvento({ cor: l.cor, corTexto: l.corTexto }, isDark) : null
+                const chipStyle = c
+                  ? { backgroundColor: c.fundo, color: c.texto }
                   : { backgroundColor: `color-mix(in srgb, ${l.cor} 18%, transparent)`, color: `color-mix(in srgb, ${l.cor} 70%, var(--color-foreground))` }
                 return (
                   <li

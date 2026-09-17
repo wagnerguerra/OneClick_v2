@@ -23,7 +23,7 @@ import {
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { chipTipoEvento } from '@/lib/event-type-colors'
+import { coresTipoEvento } from '@/lib/event-type-colors'
 import { useIsDark } from '@/hooks/use-is-dark'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { ModuloAcessoButton } from '@/components/modulo-acesso-button'
@@ -683,7 +683,7 @@ export default function AgendaPage() {
   // Detecta tema dark pra ajustar cores dos cards de evento (#HLP0059).
   // Cores pastel claras do tipo do evento ficam destoantes no dark; usamos
   // versão com alpha (sobre fundo escuro fica integrada) + texto claro. Ver
-  // `chipTipoEvento` em @/lib/event-type-colors.
+  // `coresTipoEvento` em @/lib/event-type-colors.
   const isDark = useIsDark()
 
   // Modal de detalhes do dia
@@ -1499,7 +1499,7 @@ export default function AgendaPage() {
                   {tipos.map(t => (
                     <SelectItem key={t.id} value={t.id}>
                       <span className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda }} />
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: coresTipoEvento(t, isDark).borda }} />
                         {t.nome}
                       </span>
                     </SelectItem>
@@ -1629,7 +1629,7 @@ export default function AgendaPage() {
                         {/* Linha superior: data (esq) | horário com ícone (dir) */}
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }} />
+                            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: coresTipoEvento(ev.tipo, isDark).borda }} />
                             <span className="text-[11px] text-muted-foreground">{dataHoje}</span>
                           </div>
                           <div className={cn('flex items-center gap-1 text-[11px] shrink-0', TEXT.sky)}>
@@ -1777,7 +1777,7 @@ export default function AgendaPage() {
                             <span
                               key={ev.id}
                               className="h-1.5 w-1.5 rounded-full"
-                              style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }}
+                              style={{ backgroundColor: coresTipoEvento(ev.tipo, isDark).borda }}
                             />
                           ))}
                           {(tarefasPorDia[dateStr] ?? []).length > 0 && (
@@ -1818,19 +1818,19 @@ export default function AgendaPage() {
                                   )}
                                   style={{
                                     // Mês adjacente / evento passado: cinza (fora de foco). Caso normal:
-                                    // cor do tipo adaptada ao tema via chipTipoEvento (fonte única).
+                                    // cor do tipo adaptada ao tema via coresTipoEvento (fonte única).
                                     // Borda lateral mantém a saturação total (corBorda).
                                     backgroundColor: !isCurrentMonth
                                       ? (isDark ? '#1e2028' : '#f3f4f6')
                                       : isPast
                                         ? (isDark ? '#252830' : '#e5e7eb')
-                                        : chipTipoEvento(ev.tipo, isDark).backgroundColor,
+                                        : coresTipoEvento(ev.tipo, isDark).fundo,
                                     color: !isCurrentMonth
                                       ? (isDark ? '#6b7280' : '#9ca3af')
                                       : isPast
                                         ? (isDark ? '#9ca3af' : '#6b7280')
-                                        : chipTipoEvento(ev.tipo, isDark).color,
-                                    borderLeft: !isCurrentMonth ? 'none' : `3px solid ${ev.tipo.corBorda}`,
+                                        : coresTipoEvento(ev.tipo, isDark).texto,
+                                    borderLeft: !isCurrentMonth ? 'none' : `3px solid ${coresTipoEvento(ev.tipo, isDark).borda}`,
                                     paddingLeft: !isCurrentMonth ? '11px' : undefined,
                                   }}
                                   onClick={e => { e.stopPropagation(); openViewEvent(ev) }}
@@ -1859,7 +1859,7 @@ export default function AgendaPage() {
                                       <div className="px-3 py-2 flex items-start gap-2 border-b border-background/20">
                                         <span
                                           className="h-2.5 w-2.5 rounded-full shrink-0 mt-1"
-                                          style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }}
+                                          style={{ backgroundColor: coresTipoEvento(ev.tipo, isDark).borda }}
                                         />
                                         <div className="min-w-0">
                                           <p className="font-semibold leading-tight">{ev.titulo}</p>
@@ -2035,7 +2035,7 @@ export default function AgendaPage() {
                   onClick={() => openViewEvent(ev)}
                 >
                   {/* Barra colorida do tipo */}
-                  <div className="w-2 rounded-full shrink-0 self-stretch" style={{ backgroundColor: ev.tipo.corBorda || ev.tipo.cor }} />
+                  <div className="w-2 rounded-full shrink-0 self-stretch" style={{ backgroundColor: coresTipoEvento(ev.tipo, isDark).borda }} />
                   <div className="flex-1 min-w-0 space-y-2">
                     {/* Título + badge do tipo */}
                     <div className="flex items-start justify-between gap-2">
@@ -2054,7 +2054,7 @@ export default function AgendaPage() {
                         )}
                         <span
                           className="text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap"
-                          style={chipTipoEvento(ev.tipo, isDark)}
+                          style={{ backgroundColor: coresTipoEvento(ev.tipo, isDark).fundo, color: coresTipoEvento(ev.tipo, isDark).texto }}
                         >
                           {ev.tipo.nome}
                         </span>
@@ -2192,7 +2192,7 @@ export default function AgendaPage() {
               const recorrente = !!ev.lote && ev.recorrencia !== 'NENHUMA'
               return (
                 <>
-                  <div className="rounded-lg bg-muted px-4 py-3 border-l-4" style={{ borderLeftColor: ev.tipo.corBorda }}>
+                  <div className="rounded-lg bg-muted px-4 py-3 border-l-4" style={{ borderLeftColor: coresTipoEvento(ev.tipo, isDark).borda }}>
                     <p className="text-sm font-semibold text-foreground">{ev.titulo}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{dataFmt} · {horarioFmt}</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">{ev.tipo.nome}{recorrente ? ` · ${RECORRENCIA_LABELS[ev.recorrencia]}` : ''}</p>
@@ -2319,7 +2319,7 @@ export default function AgendaPage() {
                             <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto nice-scrollbar">
                               {tipos.map(t => (
                                 <DropdownMenuItem key={t.id} onClick={() => alterarTipoEvento(t.id)} className="gap-2 text-xs">
-                                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda || t.cor }} />
+                                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: coresTipoEvento(t, isDark).borda }} />
                                   <span className="flex-1">{t.nome}</span>
                                   {t.id === ev.tipoId && <Check className="h-3.5 w-3.5 text-sky-500" />}
                                 </DropdownMenuItem>
@@ -2776,7 +2776,7 @@ export default function AgendaPage() {
                           >
                             {selectedTipo ? (
                               <span className="flex items-center gap-2 min-w-0">
-                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: selectedTipo.corBorda }} />
+                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: coresTipoEvento(selectedTipo, isDark).borda }} />
                                 <span className="truncate">{selectedTipo.nome}</span>
                               </span>
                             ) : (
@@ -2812,7 +2812,7 @@ export default function AgendaPage() {
                                       form.tipoId === t.id && 'bg-accent text-accent-foreground',
                                     )}
                                   >
-                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda }} />
+                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: coresTipoEvento(t, isDark).borda }} />
                                     <span className="truncate">{t.nome}</span>
                                   </button>
                                 ))}
@@ -3674,7 +3674,7 @@ export default function AgendaPage() {
                       <div className="flex items-center gap-2 min-w-0">
                         <span
                           className="text-xs px-2.5 py-0.5 rounded-[2px] font-medium truncate"
-                          style={{ ...chipTipoEvento(t, isDark), borderLeft: `3px solid ${t.corBorda}` }}
+                          style={{ backgroundColor: coresTipoEvento(t, isDark).fundo, color: coresTipoEvento(t, isDark).texto, borderLeft: `3px solid ${coresTipoEvento(t, isDark).borda}` }}
                         >
                           {t.nome}
                         </span>
