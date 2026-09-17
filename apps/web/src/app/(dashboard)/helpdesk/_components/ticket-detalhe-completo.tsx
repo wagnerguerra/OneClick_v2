@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   Headphones, Loader2, MessageSquare, Lock, Send, Paperclip, Clock,
   AlertTriangle, CheckCircle2, XCircle, History, Layers, FileText, UserCog,
@@ -10,6 +11,7 @@ import {
   FileVideo, FileAudio, File as FileIcon, FileSpreadsheet,
   MoreVertical, Pencil, Trash2, Bot, ThumbsUp, ThumbsDown,
   Terminal, Copy, Zap, FileCheck, Reply, X, RotateCcw, Info, Archive, ArchiveRestore,
+  ListChecks,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Badge, Label, cn, RichEditor, Input,
@@ -130,6 +132,20 @@ interface Ticket {
   } | null
   aiExecutionCustoUsd?: string | number | null
   aiExecutionEm?: string | null
+  /**
+   * Checklist do chamado (#HLP0396) — computado no backend a partir do serviço
+   * que a categoria sugere. `execucaoId` nulo = há checklist disponível mas o
+   * agente ainda não iniciou. `checklist` nulo = categoria sem checklist.
+   */
+  checklist?: {
+    servicoId: string
+    servicoNome: string | null
+    etapas: number
+    execucaoId: string | null
+    execucaoStatus: string | null
+    passosTotal: number
+    passosFechados: number
+  } | null
 }
 
 // Cores de status: fonte única em _lib/status-styles.
@@ -156,12 +172,13 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
 
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'conversa' | 'timeline'>('conversa')
+  const [activeTab, setActiveTab] = useState<'conversa' | 'timeline' | 'checklist'>('conversa')
 
   // Mensagem nova
   const [novaMsg, setNovaMsg] = useState('')
   const [interna, setInterna] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  const [iniciandoChecklist, setIniciandoChecklist] = useState(false)
   // Respondendo a uma mensagem específica (citar)
   const [respondendoA, setRespondendoA] = useState<Mensagem | null>(null)
   const [msgAnexos, setMsgAnexos] = useState<AnexoStaged[]>([])
@@ -411,6 +428,32 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
    * enviar mensagem). Volta pra Em andamento E desarquiva, senão reabre mas
    * some da lista por continuar arquivado.
    */
+  /**
+   * Inicia o checklist que a categoria sugere. O backend é idempotente: se já
+   * houver execução deste chamado, devolve a existente em vez de criar outra.
+   */
+  async function handleIniciarChecklist() {
+    if (!ticket?.checklist) return
+    const ok = await alerts.confirm({
+      title: 'Iniciar o checklist?',
+      text: `"${ticket.checklist.servicoNome}" será iniciado neste chamado e passa a aparecer também em Meus Serviços. `
+        + 'Confira se o roteiro cabe neste caso — esta categoria atende mais de uma situação.',
+      confirmText: 'Iniciar',
+      icon: 'question',
+    })
+    if (!ok) return
+    setIniciandoChecklist(true)
+    try {
+      const r = await (trpc.helpdesk as any).iniciarChecklist.mutate({ id }) as { execucaoId: string; criada: boolean }
+      await fetchData(true)
+      alerts.success(r.criada ? 'Checklist iniciado' : 'Checklist já estava iniciado')
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setIniciandoChecklist(false)
+    }
+  }
+
   async function reabrirTicket() {
     const ok = await alerts.confirm({
       title: 'Reabrir chamado?',
@@ -937,6 +980,17 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
               <TabsTrigger value="timeline" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-700 dark:data-[state=active]:!text-cyan-300 gap-1.5">
                 <History className="h-3.5 w-3.5" /> Histórico
               </TabsTrigger>
+              {/* Só aparece quando a categoria do chamado tem checklist vinculado. */}
+              {ticket.checklist && (
+                <TabsTrigger value="checklist" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-700 dark:data-[state=active]:!text-cyan-300 gap-1.5">
+                  <ListChecks className="h-3.5 w-3.5" /> Checklist
+                  {ticket.checklist.execucaoId && (
+                    <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">
+                      {ticket.checklist.passosFechados}/{ticket.checklist.passosTotal}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              )}
             </SlidingTabsList>
           </div>
         </div>
@@ -1516,6 +1570,42 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                 </CardContent></Card>
               )}
             </TabsContent>
+
+            {/* Checklist do chamado (#HLP0396). Reusa o motor de Serviços: o
+                conteúdo vem de getExecucao e cada passo é marcado por
+                togglePasso — as mesmas rotinas do /meus-servicos, que são
+                protectedProcedure com guarda pessoal. Molde: o ChecklistDialog
+                de /processos/painel, aqui em versão inline (sem Dialog, que
+                empilharia modal sobre o Sheet do chamado). */}
+            <TabsContent value="checklist" className="mt-0">
+              {!ticket.checklist ? (
+                <Card><CardContent className="p-6 text-center text-xs text-muted-foreground">
+                  Esta categoria de chamado não tem checklist vinculado.
+                </CardContent></Card>
+              ) : !ticket.checklist.execucaoId ? (
+                <Card><CardContent className="p-6 text-center space-y-3">
+                  <ListChecks className="mx-auto h-8 w-8 text-muted-foreground/30" />
+                  <p className="text-sm">
+                    <strong>{ticket.checklist.servicoNome}</strong>
+                    <span className="text-muted-foreground"> · {ticket.checklist.etapas} etapa(s)</span>
+                  </p>
+                  <p className="mx-auto max-w-sm text-[12px] text-muted-foreground">
+                    Iniciar cria a execução do roteiro e ela passa a aparecer também em Meus Serviços.
+                    Confira se o checklist cabe neste chamado antes — esta categoria atende mais de um caso.
+                  </p>
+                  {podeAtuar ? (
+                    <Button size="sm" className="gap-1.5" onClick={handleIniciarChecklist} disabled={iniciandoChecklist}>
+                      {iniciandoChecklist ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ListChecks className="h-3.5 w-3.5" />}
+                      Iniciar checklist
+                    </Button>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">Só agentes do HelpDesk podem iniciar o checklist.</p>
+                  )}
+                </CardContent></Card>
+              ) : (
+                <ChecklistDoChamado execucaoId={ticket.checklist.execucaoId} onChanged={() => fetchData(true)} />
+              )}
+            </TabsContent>
           </div>
 
           {/* Sidebar — propriedades editáveis */}
@@ -1701,6 +1791,33 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                 )}
               </CardContent>
             </Card>
+
+            {/* Resumo do checklist — visível sem trocar de aba. A timeline de
+                etapas não cabe em 280px, então aqui fica só o progresso. */}
+            {ticket.checklist?.execucaoId && (
+              <Card>
+                <CardContent className="p-3">
+                  <SideField label="Checklist" icon={ListChecks}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('checklist')}
+                      className="w-full text-left text-[13px] hover:underline"
+                    >
+                      {ticket.checklist.servicoNome}
+                    </button>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full bg-cyan-500 transition-all"
+                        style={{ width: `${ticket.checklist.passosTotal > 0 ? Math.round((ticket.checklist.passosFechados / ticket.checklist.passosTotal) * 100) : 0}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">
+                      {ticket.checklist.passosFechados}/{ticket.checklist.passosTotal} passos
+                    </p>
+                  </SideField>
+                </CardContent>
+              </Card>
+            )}
 
             {/* C10 — arquivar/desarquivar pela sidebar. Só agente (podeAtuar);
                 arquivar só nas etapas finais (fonte única helpdeskPodeArquivar,
@@ -2178,6 +2295,129 @@ function PlanoMeta({ label, value, mono }: { label: string; value: string; mono?
       <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{label}</p>
       <p className={cn('text-[11px] text-foreground/85 break-words', mono && 'font-mono')}>{value}</p>
     </div>
+  )
+}
+
+/**
+ * Checklist da execução, inline. Lê por `getExecucao` e marca por `togglePasso`
+ * — as mesmas rotinas do /meus-servicos. Agrupa por `etapaNome` porque na
+ * execução a etapa é só uma string (snapshot), não um registro.
+ *
+ * Deliberadamente enxuto perto do modal completo: aqui não há anexo por passo,
+ * campos de cliente nem "concluir execução". Quem precisa disso abre o
+ * checklist completo pelo link do rodapé — mesma divisão do painel de Processos.
+ */
+function ChecklistDoChamado({ execucaoId, onChanged }: { execucaoId: string; onChanged: () => void }) {
+  type Passo = {
+    id: string; passoNome: string; etapaNome: string; ordem: number
+    concluido: boolean; ignorado: boolean; obrigatorio: boolean; observacao: string | null
+  }
+  const [data, setData] = useState<{ id: string; status: string; servico: { nome: string }; passos: Passo[] } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const r = await (trpc.servico as any).getExecucao.query({ id: execucaoId })
+      setData(r)
+    } catch (e) {
+      alerts.error('Erro ao carregar checklist', (e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }, [execucaoId])
+
+  useEffect(() => { load() }, [load])
+
+  async function toggle(passoId: string) {
+    setTogglingId(passoId)
+    try {
+      await (trpc.servico as any).togglePasso.mutate({ id: passoId })
+      await load()
+      onChanged()
+    } catch (e) {
+      // O motor recusa passo fora de ordem e passo com dependência aberta — a
+      // mensagem dele já explica qual; repassar crua é mais útil que traduzir.
+      alerts.error('Não foi possível alterar o passo', (e as Error).message)
+    } finally {
+      setTogglingId(null)
+    }
+  }
+
+  const porEtapa = useMemo(() => {
+    if (!data) return []
+    const map = new Map<string, Passo[]>()
+    for (const p of data.passos) {
+      if (!map.has(p.etapaNome)) map.set(p.etapaNome, [])
+      map.get(p.etapaNome)!.push(p)
+    }
+    return [...map.entries()].map(([etapa, passos]) => ({ etapa, passos }))
+  }, [data])
+
+  const fechados = data?.passos.filter(p => p.concluido || p.ignorado).length ?? 0
+  const total = data?.passos.length ?? 0
+  const pct = total > 0 ? Math.round((fechados / total) * 100) : 0
+
+  if (loading) {
+    return <Card><CardContent className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></CardContent></Card>
+  }
+  if (!data) {
+    return <Card><CardContent className="p-6 text-center text-xs text-muted-foreground">Checklist indisponível.</CardContent></Card>
+  }
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-4">
+        <div>
+          <p className="text-sm font-semibold">{data.servico.nome}</p>
+          <p className="text-[11px] text-muted-foreground tabular-nums">{fechados}/{total} passos · {pct}%</p>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+            <div className="h-full transition-all" style={{ width: `${pct}%`, backgroundColor: data.status === 'CONCLUIDO' ? '#10b981' : '#06b6d4' }} />
+          </div>
+        </div>
+
+        {porEtapa.map(({ etapa, passos }) => (
+          <div key={etapa}>
+            <h4 className="mb-2 border-b pb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">{etapa}</h4>
+            <ul className="space-y-1.5">
+              {passos.map(p => {
+                const fechado = p.concluido || p.ignorado
+                return (
+                  <li key={p.id} className="flex items-start gap-2.5 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => toggle(p.id)}
+                      disabled={togglingId === p.id}
+                      className={cn(
+                        'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors',
+                        p.concluido && 'border-emerald-500 bg-emerald-500',
+                        p.ignorado && 'border-amber-400 bg-amber-400',
+                        !fechado && 'border-border hover:border-cyan-500',
+                      )}
+                      title={p.concluido ? 'Concluído (clique para reabrir)' : p.ignorado ? 'Ignorado' : 'Marcar como concluído'}
+                    >
+                      {togglingId === p.id ? <Loader2 className="h-3 w-3 animate-spin text-white" /> : fechado ? <CheckCircle2 className="h-3 w-3 text-white" /> : null}
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <p className={cn('leading-snug', fechado && 'text-muted-foreground line-through')}>
+                        {p.passoNome}
+                        {p.obrigatorio && !fechado && <span className="ml-1 text-[10px] font-semibold text-red-600/70">obrig.</span>}
+                      </p>
+                      {p.observacao && <p className="mt-0.5 text-[11px] italic text-muted-foreground">{p.observacao}</p>}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        ))}
+
+        <Link href={`/meus-servicos?exec=${execucaoId}`} className="block text-xs text-cyan-700 hover:underline dark:text-cyan-300">
+          Abrir checklist completo →
+        </Link>
+      </CardContent>
+    </Card>
   )
 }
 

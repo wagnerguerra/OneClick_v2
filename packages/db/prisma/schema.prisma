@@ -5210,6 +5210,9 @@ model Servico {
   // Itens de orçamento que escolheram este serviço como subserviço.
   itensComoSubservico OrcamentoItem[] @relation("ItemSubservico")
 
+  // Categorias de chamado que usam este serviço como checklist sugerido.
+  categoriasHelpdesk HelpdeskCategoria[]
+
   @@index([areaId])
   @@index([categoriaServico])
   @@index([servicoPaiId])
@@ -5770,6 +5773,10 @@ model ServicoExecucao {
   id            String            @id @default(cuid())
   servicoId     String            @map("servico_id")
   orcamentoId   String?           @map("orcamento_id")
+  /// Chamado do HelpDesk que originou esta execução (checklist iniciado pelo
+  /// agente no card do ticket). FK de verdade, diferente do `orcamentoId` acima,
+  /// que é referência solta: vínculo por texto sem FK quebra em silêncio.
+  ticketId      String?           @map("ticket_id")
   clienteId     String            @map("cliente_id")
   responsavelId String?           @map("responsavel_id")
   // Status: EM_ANDAMENTO | CONCLUIDO | CANCELADO | AGUARDANDO_INICIO | PULADO
@@ -5861,6 +5868,7 @@ model ServicoExecucao {
 
   servico      Servico                  @relation(fields: [servicoId], references: [id])
   cliente      Cliente                  @relation("ClienteServicoExecucoes", fields: [clienteId], references: [id])
+  ticket       HelpdeskTicket?          @relation(fields: [ticketId], references: [id], onDelete: SetNull)
   passos       ServicoExecucaoPasso[]
   watchers     ServicoExecucaoWatcher[]
   eventos      ServicoExecucaoEvento[]
@@ -5871,6 +5879,8 @@ model ServicoExecucao {
 
   @@index([servicoId])
   @@index([clienteId])
+  // Consultado a cada abertura de card de chamado ("qual execução é desta?").
+  @@index([ticketId])
   @@index([status])
   @@index([responsavelId])
   @@index([prazoLimite])
@@ -6995,6 +7005,12 @@ model HelpdeskCategoria {
   areaId         String?  @map("area_id") // área padrão de roteamento
   slaPadraoHoras Int?     @map("sla_padrao_horas") // override por categoria
   cor            String? // hex opcional pra UI
+  /// Checklist sugerido para chamados desta categoria. Aponta para um Servico
+  /// (template com etapas/passos) — o agente inicia a execução pelo card do
+  /// chamado. Opcional: categoria sem serviço simplesmente não oferece o botão.
+  /// Não casamos por nome de propósito: existem serviços internos homônimos às
+  /// categorias, e justamente eles estão vazios.
+  servicoId      String?  @map("servico_id")
   ativo          Boolean  @default(true)
   ordem          Int      @default(0)
   empresaId      String?  @map("empresa_id")
@@ -7005,6 +7021,7 @@ model HelpdeskCategoria {
   children HelpdeskCategoria[] @relation("CategoriaHierarchy")
   area     Area?               @relation(fields: [areaId], references: [id], onDelete: SetNull)
   empresa  Empresa?            @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  servico  Servico?            @relation(fields: [servicoId], references: [id], onDelete: SetNull)
   tickets  HelpdeskTicket[]
 
   @@index([empresaId, ativo])
@@ -7098,6 +7115,8 @@ model HelpdeskTicket {
   watchers    HelpdeskWatcher[]
   eventos     HelpdeskEvento[]
   aiDecisions HelpdeskAiDecision[]
+  // Execuções de serviço iniciadas a partir deste chamado (checklist do card).
+  execucoes   ServicoExecucao[]
 
   @@index([empresaId, status, arquivado])
   @@index([responsavelId])

@@ -64,6 +64,18 @@ export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: 
         return helpdeskService.getById(input.id)
       }),
 
+    /**
+     * Inicia o checklist sugerido pela categoria do chamado (#HLP0396).
+     * `protectedProcedure` + assertCanAccess (vê o chamado) + canAtuarAgente
+     * (checado no service) — iniciar roteiro é ação de agente da TI.
+     */
+    iniciarChecklist: protectedProcedure
+      .input(z.object({ id: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        await helpdeskService.assertCanAccess(ctx.userId!, input.id)
+        return helpdeskService.iniciarChecklist(input.id, ctx.userId!)
+      }),
+
     /** Resolve número visível (#HLPNNNN) → id. Usado pelos links auto-gerados. */
     findByNumero: protectedProcedure
       .input(z.object({ numero: z.number().int().positive() }))

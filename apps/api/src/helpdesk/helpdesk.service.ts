@@ -26,6 +26,18 @@ import {
 import { NotificationService } from '../notification/notification.service'
 import { EmailService } from '../common/email.service'
 import { HelpdeskAiAgentService } from './helpdesk-ai-agent.service'
+import { ServicoService } from '../servico/servico.service'
+
+/**
+ * Cliente usado nas execucoes de servico nascidas de chamado interno.
+ *
+ * `servico_execucoes.cliente_id` e obrigatorio (9.156 linhas, nenhuma nula), e
+ * chamado interno de TI nao tem cliente. Aponta para o cadastro do proprio
+ * escritorio — decisao do Wagner, 17/09. Este id e o cadastro vivo (ativo, 58
+ * execucoes); os outros dois homonimos de mesmo CNPJ estao inativos e sem
+ * vinculo (um deles e residuo da importacao do legado, prefixo `jrg-`).
+ */
+const CLIENTE_INTERNO_ID = 'cmoa7pg6900019gg0ss6x2cqo'
 
 @Injectable()
 export class HelpdeskService {
@@ -34,6 +46,7 @@ export class HelpdeskService {
     // Guardado pra Fase 5 (envio de e-mail em resposta pública/atribuição)
     protected readonly emailService: EmailService,
     private readonly aiAgent: HelpdeskAiAgentService,
+    private readonly servicoService: ServicoService,
   ) {}
 
   // ── Helpers ────────────────────────────────────────────────────
@@ -640,13 +653,118 @@ export class HelpdeskService {
     // o front só as consome e compõe o papel do usuário por cima (sem repetir a
     // regra). Ver [[flags-de-estado-vem-do-backend]].
     const status = ticket.status as HelpdeskStatus
+    // Checklist do chamado (#HLP0396): o serviço que a categoria sugere e a
+    // execução já iniciada, se houver. Raw porque as colunas são novas e o
+    // client Prisma local fica stale (lock de DLL no Windows) — mesmo motivo
+    // do raw em orcamento.service. `.catch` tolera ambiente sem a migração.
+    type ChecklistRow = {
+      execucaoId: string | null; execucaoStatus: string | null
+      servicoId: string | null; servicoNome: string | null
+      etapas: number | null; passosTotal: number | null; passosFechados: number | null
+    }
+    const checklistRows = await prisma.$queryRawUnsafe<ChecklistRow[]>(
+      `SELECT e.id                AS "execucaoId",
+              e.status            AS "execucaoStatus",
+              s.id                AS "servicoId",
+              s.nome              AS "servicoNome",
+              (SELECT COUNT(*)::int FROM servico_etapas et WHERE et.servico_id = s.id)               AS "etapas",
+              (SELECT COUNT(*)::int FROM servico_execucao_passos p WHERE p.execucao_id = e.id)       AS "passosTotal",
+              (SELECT COUNT(*)::int FROM servico_execucao_passos p WHERE p.execucao_id = e.id
+                  AND (p.concluido OR p.ignorado))                                                   AS "passosFechados"
+         FROM helpdesk_tickets t
+         LEFT JOIN helpdesk_categorias c ON c.id = t.categoria_id
+         -- Serviço vem da categoria; se já há execução, dela (a categoria pode
+         -- ter sido trocada depois de o checklist começar).
+         LEFT JOIN servico_execucoes e ON e.ticket_id = t.id
+         LEFT JOIN servicos s ON s.id = COALESCE(e.servico_id, c.servico_id)
+        WHERE t.id = $1
+        ORDER BY e.iniciado_em DESC NULLS LAST
+        LIMIT 1`, id,
+    ).catch(() => [] as ChecklistRow[])
+    const cr = checklistRows[0]
+    const checklist = cr?.servicoId
+      ? {
+          servicoId: cr.servicoId,
+          servicoNome: cr.servicoNome,
+          etapas: cr.etapas ?? 0,
+          execucaoId: cr.execucaoId,
+          execucaoStatus: cr.execucaoStatus,
+          passosTotal: cr.passosTotal ?? 0,
+          passosFechados: cr.passosFechados ?? 0,
+        }
+      : null
     return {
-      ...ticket, mensagens, avaliacaoDisponivel, concluidoSemAvaliacao, avaliacaoPosConclusaoDias: janela,
+      ...ticket, mensagens, avaliacaoDisponivel, concluidoSemAvaliacao, avaliacaoPosConclusaoDias: janela, checklist,
       congelado: ticketCongelado(status, ticket.arquivado),
       bloqueiaMensagemPublica: bloqueiaMensagemPublica(status, ticket.arquivado, ticket.csatRespondidoEm != null),
       permiteTrocarResponsavel: permiteTrocarResponsavel(status, ticket.arquivado),
       reaberturaDisponivel: podeReabrirSolicitante(status, ticket.arquivado, ticket.csatRespondidoEm != null),
     }
+  }
+
+  /**
+   * Inicia, no chamado, o checklist que a categoria sugere (#HLP0396).
+   *
+   * Reusa o motor de Serviços em vez de criar um segundo: `createExecucao` já
+   * copia etapas e passos, replica as dependências entre passos, resolve
+   * responsável (claim-first por setor — o primeiro agente que marca um passo
+   * reivindica), grava evento e dispara notificação.
+   *
+   * É ação do agente, não automática: a categoria "Conta nova / desligamento"
+   * serve para admissão E para desligamento, então disparar sozinho acertaria
+   * o roteiro errado na metade dos casos. Quem lê o chamado decide.
+   */
+  async iniciarChecklist(ticketId: string, userId: string) {
+    if (!(await this.canAtuarAgente(userId))) {
+      throw new Error('Só agentes do HelpDesk podem iniciar o checklist de um chamado.')
+    }
+    const ticket = await prisma.helpdeskTicket.findUnique({
+      where: { id: ticketId },
+      select: { id: true, numero: true, titulo: true, categoriaId: true, empresaId: true, status: true, arquivado: true },
+    })
+    if (!ticket) throw new Error('Chamado não encontrado')
+    if (ticket.arquivado) throw new Error('Chamado arquivado — desarquive antes de iniciar o checklist.')
+
+    // Já existe execução deste chamado? Idempotente: devolve a que existe em
+    // vez de criar uma segunda (dois checklists no mesmo card não têm sentido).
+    const jaExiste = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT id FROM servico_execucoes WHERE ticket_id = $1 ORDER BY iniciado_em DESC LIMIT 1`, ticketId,
+    ).catch(() => [] as Array<{ id: string }>)
+    if (jaExiste[0]) return { execucaoId: jaExiste[0].id, criada: false }
+
+    if (!ticket.categoriaId) throw new Error('Chamado sem categoria — defina a categoria para o sistema saber qual checklist usar.')
+    const catRows = await prisma.$queryRawUnsafe<Array<{ servicoId: string | null; servicoNome: string | null; etapas: number }>>(
+      `SELECT c.servico_id AS "servicoId", s.nome AS "servicoNome",
+              (SELECT COUNT(*)::int FROM servico_etapas e WHERE e.servico_id = s.id) AS etapas
+         FROM helpdesk_categorias c
+         LEFT JOIN servicos s ON s.id = c.servico_id AND s.ativo
+        WHERE c.id = $1`, ticket.categoriaId,
+    ).catch(() => [] as Array<{ servicoId: string | null; servicoNome: string | null; etapas: number }>)
+    const cat = catRows[0]
+    if (!cat?.servicoId || !cat.servicoNome) {
+      throw new Error('Esta categoria de chamado ainda não tem checklist vinculado.')
+    }
+    // Serviço sem etapas geraria execução vazia — e há 37 serviços internos
+    // nessa situação na base (cascas criadas espelhando as categorias).
+    if (!cat.etapas) {
+      throw new Error(`O serviço "${cat.servicoNome}" não tem etapas cadastradas — nada a executar.`)
+    }
+
+    const execucao = await this.servicoService.createExecucao(
+      { servicoId: cat.servicoId, clienteId: CLIENTE_INTERNO_ID },
+      ticket.empresaId || undefined,
+    )
+    // createExecucao pode devolver null (guarda interna). Sem execução não há
+    // o que vincular, e seguir gravaria `ticket_id` em lugar nenhum.
+    if (!execucao?.id) {
+      throw new Error(`Não foi possível criar a execução de "${cat.servicoNome}". Confira o cadastro do serviço.`)
+    }
+    // Vínculo por raw: coluna nova, client local possivelmente stale.
+    await prisma.$executeRawUnsafe(
+      `UPDATE servico_execucoes SET ticket_id = $2 WHERE id = $1`, execucao.id, ticketId,
+    )
+    await this.addEvento(ticketId, userId, 'checklist_iniciado', `Checklist "${cat.servicoNome}" iniciado`)
+    return { execucaoId: execucao.id, criada: true }
   }
 
   /** Listagem do agente (kanban e tabela). Escopo via `resolverEscopoEfetivo`. */
