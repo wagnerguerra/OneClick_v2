@@ -4223,6 +4223,55 @@ export class OrcamentoService {
    * Os textos do item também são preservados: apagá-los deixaria a restauração
    * incompleta, devolvendo o item sem os textos que ele tinha.
    */
+  /**
+   * Disponibiliza/indisponibiliza vários itens do catálogo de uma vez.
+   *
+   * `disponivelOrcamento` decide se o item aparece no seletor de itens do
+   * orçamento. NÃO é exclusão (isso é `ativo`) e não mexe no serviço como
+   * template de workflow — um serviço indisponível continua executável.
+   *
+   * O catálogo é união de duas tabelas, então os ids são particionados pela
+   * origem e vão em dois updateMany: 3 consultas no total, em vez das 2N que
+   * um laço de updateCatalogo faria (ele sonda a tabela a cada item).
+   *
+   * Itens excluídos (ativo=false) são ignorados de propósito: disponibilidade
+   * de registro que o usuário considera inexistente não significa nada. O
+   * retorno diz quantos ficaram de fora para a tela poder avisar.
+   */
+  async bulkDisponivelCatalogo(ids: string[], disponivel: boolean, empresaId?: string) {
+    if (ids.length === 0) return { atualizados: 0, ignorados: 0 }
+
+    // Mesmo recorte do listCatalogo: só alcança o que o usuário vê. Templates
+    // globais (empresa_id NULL) entram — igual ao editar item a item, que
+    // também os alcança —, mas itens de outra empresa ficam de fora.
+    const escopo = empresaId ? { OR: [{ empresaId }, { empresaId: null }] } : {}
+
+    const doCatalogo = await prisma.servicoCatalogo.findMany({
+      where: { id: { in: ids } },
+      select: { id: true },
+    })
+    const idsCatalogo = new Set(doCatalogo.map(c => c.id))
+    const idsServico = ids.filter(id => !idsCatalogo.has(id))
+
+    const [rCatalogo, rServico] = await Promise.all([
+      idsCatalogo.size > 0
+        ? prisma.servicoCatalogo.updateMany({
+            where: { id: { in: [...idsCatalogo] }, ativo: true, ...escopo },
+            data: { disponivelOrcamento: disponivel },
+          })
+        : Promise.resolve({ count: 0 }),
+      idsServico.length > 0
+        ? prisma.servico.updateMany({
+            where: { id: { in: idsServico }, ativo: true, ...escopo },
+            data: { disponivelOrcamento: disponivel },
+          })
+        : Promise.resolve({ count: 0 }),
+    ])
+
+    const atualizados = rCatalogo.count + rServico.count
+    return { atualizados, ignorados: ids.length - atualizados }
+  }
+
   async deleteCatalogo(id: string): Promise<{ id: string }> {
     const cat = await prisma.servicoCatalogo.findUnique({ where: { id }, select: { id: true } })
     if (cat) {

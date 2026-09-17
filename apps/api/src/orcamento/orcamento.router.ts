@@ -621,6 +621,13 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
 
     // Desfaz a exclusão (#HLP0282). Exige permissão de escrita, não de exclusão:
     // restaurar devolve um item ao catálogo, não remove nada.
+    // Disponibilizar/indisponibilizar em massa. `writeProcedure` e nao
+    // `deleteProcedure`: tirar do seletor de orcamentos nao exclui nada — o
+    // item continua no catalogo e o servico continua executavel.
+    bulkDisponivelCatalogo: writeProcedure(MODULE)
+      .input(z.object({ ids: z.array(z.string()).min(1).max(500), disponivel: z.boolean() }))
+      .mutation(({ input, ctx }) => orcamentoService.bulkDisponivelCatalogo(input.ids, input.disponivel, ctx.empresaId)),
+
     restaurarCatalogo: writeProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => orcamentoService.restaurarCatalogo(input.id)),
