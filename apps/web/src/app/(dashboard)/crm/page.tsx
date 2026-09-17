@@ -177,6 +177,27 @@ function diasDesde(dateStr: string): number {
   return Math.floor((Date.now() - d.getTime()) / 86400000)
 }
 
+// Dia da data no fuso de quem esta olhando, como 'AAAA-MM-DD'. Fatiar o ISO
+// direto usaria a data UTC: card criado 21h no Brasil cairia no dia seguinte e
+// sumiria de um filtro "ate hoje".
+function diaLocal(dateStr: string): string {
+  const d = new Date(dateStr)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** 'AAAA-MM-DD' -> 'DD/MM/AAAA' (rotulo do resumo de filtros). */
+function diaBr(dia: string): string {
+  const [a, m, d] = dia.split('-')
+  return d && m && a ? `${d}/${m}/${a}` : dia
+}
+
+function rotuloPeriodo(de: string, ate: string): string | null {
+  if (de && ate) return `criados de ${diaBr(de)} a ${diaBr(ate)}`
+  if (de) return `criados a partir de ${diaBr(de)}`
+  if (ate) return `criados até ${diaBr(ate)}`
+  return null
+}
+
 /** Calcula status do SLA: 'ok' | 'warning' | 'expired' | null (sem SLA) */
 function getSlaStatus(updatedAt: string, slaDias: number | null | undefined): { status: 'ok' | 'warning' | 'expired'; dias: number; limite: number } | null {
   if (!slaDias) return null
@@ -219,13 +240,18 @@ export default function CrmPage() {
   // e instantaneo e nao custa uma ida ao servidor a cada troca.
   const [filtroResponsavel, setFiltroResponsavel] = useState('') // '' = todos | '__sem__' = sem responsavel | id do usuario
   const [filtroIdade, setFiltroIdade] = useState('')             // '' = qualquer | chave de FAIXAS_IDADE
+  // Periodo de criacao (#HLP0390): recorte absoluto por data de criacao, em
+  // 'AAAA-MM-DD'. Convive com "tempo de vida" (faixa relativa da mesma data) —
+  // os dois somam, entao "ate 7 dias" + "de 01/08 a 31/08" e a intersecao.
+  const [dataDe, setDataDe] = useState('')
+  const [dataAte, setDataAte] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   // Mantém o termo atual acessível ao fetchAll (usado tb. pelos refreshes via SSE)
   const searchRef = useRef('')
   // Filtro por campanha (funil) que gerou o lead
   const [campanhaFiltro, setCampanhaFiltro] = useState('')
   const campanhaFiltroRef = useRef('')
-  const [campanhasList, setCampanhasList] = useState<Array<{ slug: string; nome: string | null }>>([])
+  const [campanhasList, setCampanhasList] = useState<Array<{ slug: string; nome: string | null; ativo: boolean; roteador: boolean }>>([])
   const [viewMode, setViewMode] = useState<'kanban' | 'tabela'>(() => {
     if (typeof window !== 'undefined') return (localStorage.getItem('crm-view-mode') as 'kanban' | 'tabela') || 'kanban'
     return 'kanban'
@@ -462,7 +488,10 @@ export default function CrmPage() {
       setOpcoesAtividade(opAtiv)
       setOpcoesOrigem(opOrig)
       if (cfg?.declinioDias) setDeclinioDias(cfg.declinioDias)
-      setCampanhasList(((camps || []) as any[]).map(c => ({ slug: c.slug, nome: c.nome })))
+      // `ativo` e `roteador` vem junto porque o seletor de campanha do card so
+      // pode oferecer campanha vigente — listConfigs devolve tudo, inclusive
+      // desativadas e os funis "roteador", que nao sao campanha.
+      setCampanhasList(((camps || []) as any[]).map(c => ({ slug: c.slug, nome: c.nome, ativo: c.ativo !== false, roteador: c.roteador === true })))
     } catch {
       if (!silent) alerts.error('Erro', 'Falha ao carregar dados do CRM')
     } finally {
@@ -554,7 +583,9 @@ export default function CrmPage() {
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
   }, [oportunidades])
 
-  const filtrosAtivos = (filtroResponsavel ? 1 : 0) + (filtroIdade ? 1 : 0)
+  // O periodo conta como UM filtro, mesmo com as duas pontas preenchidas: quem
+  // le o badge pensa em "filtros aplicados", nao em campos.
+  const filtrosAtivos = (filtroResponsavel ? 1 : 0) + (filtroIdade ? 1 : 0) + (dataDe || dataAte ? 1 : 0)
 
   // Texto do rodape da tabela: dizer quantos cards sobraram sem dizer POR QUE
   // deixa o usuario achando que sumiu registro.
@@ -565,6 +596,7 @@ export default function CrmPage() {
         ? responsaveisDisponiveis.find(r => r.id === filtroResponsavel)?.name
         : null,
     filtroIdade ? FAIXAS_IDADE.find(f => f.chave === filtroIdade)?.rotulo.toLowerCase() : null,
+    rotuloPeriodo(dataDe, dataAte),
   ].filter(Boolean).join(' · ')
 
   // A busca é feita no servidor (listKanban com `search`); responsavel e tempo
@@ -583,9 +615,16 @@ export default function CrmPage() {
         if (dias < faixa.min) return false
         if (faixa.max !== undefined && dias > faixa.max) return false
       }
+      if (dataDe || dataAte) {
+        // Comparacao de strings 'AAAA-MM-DD' — ordem lexicografica e cronologica
+        // nesse formato. Ambas as pontas sao inclusivas.
+        const dia = diaLocal(o.createdAt)
+        if (dataDe && dia < dataDe) return false
+        if (dataAte && dia > dataAte) return false
+      }
       return true
     })
-  }, [oportunidades, filtroResponsavel, filtroIdade, filtrosAtivos])
+  }, [oportunidades, filtroResponsavel, filtroIdade, dataDe, dataAte, filtrosAtivos])
 
   const opsByEtapa = useMemo(() => {
     const map: Record<string, Oportunidade[]> = {}
@@ -1041,11 +1080,32 @@ export default function CrmPage() {
                   <span className="truncate">{f.rotulo}</span>
                 </DropdownMenuItem>
               ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">Criado no período</DropdownMenuLabel>
+              {/* Campos soltos, fora de DropdownMenuItem: item de menu rouba o
+                  clique e fecha o menu. O stopPropagation barra o typeahead do
+                  Radix, que senão engole a digitação da data. */}
+              <div
+                className="grid grid-cols-2 gap-2 px-2 pb-1.5 pt-0.5"
+                onKeyDown={e => e.stopPropagation()}
+                onPointerDown={e => e.stopPropagation()}
+              >
+                <div>
+                  <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">De</label>
+                  <Input type="date" value={dataDe} max={dataAte || undefined}
+                    onChange={e => setDataDe(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">Até</label>
+                  <Input type="date" value={dataAte} min={dataDe || undefined}
+                    onChange={e => setDataAte(e.target.value)} className="h-8 text-xs" />
+                </div>
+              </div>
               {filtrosAtivos > 0 && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onSelect={e => { e.preventDefault(); setFiltroResponsavel(''); setFiltroIdade('') }}
+                    onSelect={e => { e.preventDefault(); setFiltroResponsavel(''); setFiltroIdade(''); setDataDe(''); setDataAte('') }}
                     className="gap-2 text-[13px] text-muted-foreground"
                   >
                     <RotateCcw className="h-3.5 w-3.5" /> Limpar filtros
@@ -1469,7 +1529,7 @@ export default function CrmPage() {
               <SheetBody key={detailTab} className="px-6 py-5" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
                 {/* ── Detalhes Tab ── */}
                 {detailTab === 'detalhes' && (
-                  <DetailTab detail={detail} etapas={etapas} clientes={clientes} onSave={saveDetail} onMove={moverPara} saving={saving} tags={tags} opcoesAtividade={opcoesAtividade} opcoesOrigem={opcoesOrigem} loadClientes={async () => {
+                  <DetailTab detail={detail} etapas={etapas} clientes={clientes} onSave={saveDetail} onMove={moverPara} saving={saving} tags={tags} opcoesAtividade={opcoesAtividade} opcoesOrigem={opcoesOrigem} campanhas={campanhasList} loadClientes={async () => {
                     try { const c = await (trpc.cliente as any).listForSelect.query(); setClientes(c) } catch { /* ignore */ }
                   }} />
                 )}
@@ -1785,7 +1845,7 @@ export default function CrmPage() {
 // Detail Tab (inline edit)
 // ============================================================
 
-function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesAtividade, opcoesOrigem }: {
+function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesAtividade, opcoesOrigem, campanhas }: {
   detail: OportunidadeDetail
   etapas: Etapa[]
   clientes: ClienteSelect[]
@@ -1796,6 +1856,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
   tags: Array<{ id: string; nome: string; cor: string }>
   opcoesAtividade: Array<{ id: string; valor: string }>
   opcoesOrigem: Array<{ id: string; valor: string }>
+  campanhas: Array<{ slug: string; nome: string | null; ativo: boolean; roteador: boolean }>
 }) {
   const [titulo, setTitulo] = useState(detail.titulo)
   const [descricao, setDescricao] = useState(detail.descricao || '')
@@ -1810,7 +1871,25 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
   const [contatoCargo, setContatoCargo] = useState((detail as any).contatoCargo || '')
   const [contatoTelefone, setContatoTelefone] = useState((detail as any).contatoTelefone || '')
   const [contatoEmail, setContatoEmail] = useState((detail as any).contatoEmail || '')
+  // Campanha do funil (#HLP0394). Ate agora so a IA gravava esse vinculo, na
+  // entrada do lead: card criado a mao nascia sem campanha e campanha errada
+  // nao tinha conserto pela tela.
+  const [campanhaSlug, setCampanhaSlug] = useState((detail as any).campanhaSlug || '')
   const [, setDirty] = useState(false)
+  // A campanha ja vinculada entra na lista mesmo quando nao vem de listConfigs
+  // (campanha desativada). Sem isso o seletor abriria vazio num card que TEM
+  // campanha, e o primeiro "Salvar" apagaria o vinculo sem ninguem pedir.
+  const opcoesCampanha = useMemo(() => {
+    // `listConfigs` devolve TUDO (nao filtra por ativo, e inclui os funis
+    // "roteador", que nao sao campanha). Escolher so entre as vigentes.
+    const lista = campanhas
+      .filter(c => c.ativo && !c.roteador)
+      .map(c => ({ slug: c.slug, nome: c.nome }))
+    if (campanhaSlug && !lista.some(c => c.slug === campanhaSlug)) {
+      lista.unshift({ slug: campanhaSlug, nome: `${(detail as any).campanhaNome || campanhaSlug} (inativa)` })
+    }
+    return lista
+  }, [campanhas, campanhaSlug, detail])
   const [activeTagId, setActiveTagId] = useState((detail as any).tags?.[0]?.tagId || '')
 
   useEffect(() => { loadClientes() }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1829,6 +1908,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
     setContatoCargo((detail as any).contatoCargo || '')
     setContatoTelefone((detail as any).contatoTelefone || '')
     setContatoEmail((detail as any).contatoEmail || '')
+    setCampanhaSlug((detail as any).campanhaSlug || '')
     setActiveTagId((detail as any).tags?.[0]?.tagId || '')
     setDirty(false)
   }, [detail])
@@ -1887,6 +1967,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
       contatoCargo: contatoCargo.trim() || null,
       contatoTelefone: contatoTelefone.trim() || null,
       contatoEmail: contatoEmail.trim() || null,
+      campanhaSlug: campanhaSlug || null,
     })
     setDirty(false)
   }
@@ -1971,20 +2052,30 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
         </div>
       </div>
 
-      {/* Atividade + Origem */}
+      {/* Atividade + Origem + Campanha — os tres dizem de onde o lead veio. */}
       <div className="grid grid-cols-12 gap-3">
-        <div className="col-span-6">
+        <div className="col-span-4">
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Atividade</label>
           <Select value={atividade} onValueChange={v => { setAtividade(v); markDirty() }}>
             <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
             <SelectContent>{opcoesAtividade.map(a => <SelectItem key={a.id} value={a.valor}>{a.valor}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div className="col-span-6">
+        <div className="col-span-4">
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Origem</label>
           <Select value={origem} onValueChange={v => { setOrigem(v); markDirty() }}>
             <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
             <SelectContent>{opcoesOrigem.map(o => <SelectItem key={o.id} value={o.valor}>{o.valor}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div className="col-span-4">
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Campanha</label>
+          <Select value={campanhaSlug || '__none__'} onValueChange={v => { setCampanhaSlug(v === '__none__' ? '' : v); markDirty() }}>
+            <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Sem campanha" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Sem campanha</SelectItem>
+              {opcoesCampanha.map(c => <SelectItem key={c.slug} value={c.slug}>{c.nome || c.slug}</SelectItem>)}
+            </SelectContent>
           </Select>
         </div>
       </div>

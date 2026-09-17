@@ -287,14 +287,22 @@ export class CrmService {
         : []
       const userMap = new Map(users.map(u => [u.id, u]))
       // Campos novos (nome fantasia + CNAE) via SQL raw — client local pode estar stale.
-      const extras = await prisma.$queryRawUnsafe<Array<{ nomeFantasia: string | null; cnaeCodigo: string | null; cnaeDescricao: string | null }>>(
-        `SELECT nome_fantasia AS "nomeFantasia", cnae_codigo AS "cnaeCodigo", cnae_descricao AS "cnaeDescricao" FROM oportunidades WHERE id = $1`, id,
+      // Campanha entra junto: o detalhe precisa dela para o seletor abrir com o
+      // valor atual. O join é por slug porque nao existe FK (campanha_slug e
+      // texto solto) — ver o mesmo join em listKanban.
+      const extras = await prisma.$queryRawUnsafe<Array<{ nomeFantasia: string | null; cnaeCodigo: string | null; cnaeDescricao: string | null; campanhaSlug: string | null; campanhaNome: string | null }>>(
+        `SELECT o.nome_fantasia AS "nomeFantasia", o.cnae_codigo AS "cnaeCodigo", o.cnae_descricao AS "cnaeDescricao",
+                o.campanha_slug AS "campanhaSlug", c.nome AS "campanhaNome"
+           FROM oportunidades o LEFT JOIN lead_funil_config c ON c.slug = o.campanha_slug
+          WHERE o.id = $1`, id,
       ).catch(() => [])
       return {
         ...op,
         nomeFantasia: extras[0]?.nomeFantasia ?? null,
         cnaeCodigo: extras[0]?.cnaeCodigo ?? null,
         cnaeDescricao: extras[0]?.cnaeDescricao ?? null,
+        campanhaSlug: extras[0]?.campanhaSlug ?? null,
+        campanhaNome: extras[0]?.campanhaNome ?? null,
         responsavel: op.responsavelId ? userMap.get(op.responsavelId) || null : null,
         eventos: op.eventos.map(e => ({ ...e, user: e.userId ? userMap.get(e.userId) || null : null })),
         mensagens: op.mensagens.map(m => ({ ...m, user: m.userId ? userMap.get(m.userId) || null : null })),
@@ -501,6 +509,10 @@ export class CrmService {
     if (input.nomeFantasia !== undefined) { extrasVals.push(input.nomeFantasia || null); extrasCols.push(`nome_fantasia = $${extrasVals.length}`) }
     if (input.cnaeCodigo !== undefined) { extrasVals.push(input.cnaeCodigo || null); extrasCols.push(`cnae_codigo = $${extrasVals.length}`) }
     if (input.cnaeDescricao !== undefined) { extrasVals.push(input.cnaeDescricao || null); extrasCols.push(`cnae_descricao = $${extrasVals.length}`) }
+    // Campanha do funil: o Zod ja aceitava o campo (update = create.partial()),
+    // mas ninguem o gravava — vinha da API e era descartado em silencio. Raw
+    // pelo mesmo motivo dos demais: coluna nova, client local pode estar stale.
+    if (input.campanhaSlug !== undefined) { extrasVals.push(input.campanhaSlug || null); extrasCols.push(`campanha_slug = $${extrasVals.length}`) }
     if (extrasCols.length > 0) {
       await prisma.$executeRawUnsafe(`UPDATE oportunidades SET ${extrasCols.join(', ')} WHERE id = $1`, ...extrasVals)
         .catch(() => { /* colunas ausentes ainda */ })
