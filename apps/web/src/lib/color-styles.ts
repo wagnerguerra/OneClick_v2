@@ -1,7 +1,7 @@
 /**
  * Cores de CONCEITO / acento do sistema (claro + escuro) — fonte única.
  *
- * Um export nomeado por PAPEL (BADGE / STRONG / TEXT / SURFACE / BORDER / DOT),
+ * Um export nomeado por PAPEL (BADGE / PILL / STRONG / TEXT / SURFACE / BORDER / DOT / FILL),
  * cada um um `Record<ColorName, string>`. A ordem `PAPEL.cor` espelha o Tailwind
  * (`bg-emerald`, `text-rose`): `BADGE.emerald`, `TEXT.rose`, `SURFACE[cor]`.
  * Importe só os papéis que usar: `import { BADGE, TEXT } from '@/lib/color-styles'`
@@ -71,6 +71,30 @@ export const BADGE: Record<ColorName, string> = {
   red: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800',
   purple: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-800',
   slate: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800/50 dark:text-slate-300 dark:border-slate-700',
+}
+
+/**
+ * Pílula PASTEL sem borda: fundo `-100` + texto `-700` (dark `-900/30` + `-400`),
+ * SEM `border`. Para chips/pílulas de seleção (participante escolhido, opção de
+ * radio ativa, lembrete) onde a borda pesaria. Difere da `BADGE` só por não ter
+ * borda; se precisar de borda, use `BADGE`. Já traz o texto — NÃO combinar com TEXT.
+ */
+export const PILL: Record<ColorName, string> = {
+  emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  rose: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+  amber: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  sky: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  indigo: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+  lime: 'bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400',
+  violet: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+  cyan: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+  teal: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+  fuchsia: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-400',
+  orange: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  blue: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  red: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  purple: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  slate: 'bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300',
 }
 
 /**
