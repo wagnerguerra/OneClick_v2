@@ -151,6 +151,9 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
                 const chipStyle = c
                   ? { backgroundColor: c.fundo, color: c.texto }
                   : { backgroundColor: `color-mix(in srgb, ${l.cor} 18%, transparent)`, color: `color-mix(in srgb, ${l.cor} 70%, var(--color-foreground))` }
+                // Círculo do ícone (evento): fundo na cor de BORDA (acento forte);
+                // tarefa mantém o color-mix do chip.
+                const circleStyle = c ? { backgroundColor: c.borda, color: c.texto } : chipStyle
                 return (
                   <li
                     key={l.key}
@@ -159,7 +162,7 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
                   >
                     <span
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-inset ring-current/15"
-                      style={chipStyle}
+                      style={circleStyle}
                     >
                       <Icon className="h-4 w-4" />
                     </span>
