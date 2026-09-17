@@ -1817,21 +1817,19 @@ export default function AgendaPage() {
                                     draggingEventId === ev.id && 'opacity-40',
                                   )}
                                   style={{
-                                    // Eventos de meses adjacentes: bg apagado + sem borda lateral colorida
-                                    // (sinal visual de "fora do mês corrente").
-                                    // No dark mode, a `ev.tipo.cor` (pastel claro) destoaria sobre o
-                                    // fundo escuro — usamos alpha 30% pra integrar visualmente + texto
-                                    // claro fixo. Borda lateral mantém a saturação total.
+                                    // Mês adjacente / evento passado: cinza (fora de foco). Caso normal:
+                                    // cor do tipo adaptada ao tema via chipTipoEvento (fonte única).
+                                    // Borda lateral mantém a saturação total (corBorda).
                                     backgroundColor: !isCurrentMonth
                                       ? (isDark ? '#1e2028' : '#f3f4f6')
                                       : isPast
                                         ? (isDark ? '#252830' : '#e5e7eb')
-                                        : (isDark ? `${ev.tipo.cor}33` : ev.tipo.cor),
+                                        : chipTipoEvento(ev.tipo, isDark).backgroundColor,
                                     color: !isCurrentMonth
                                       ? (isDark ? '#6b7280' : '#9ca3af')
                                       : isPast
                                         ? (isDark ? '#9ca3af' : '#6b7280')
-                                        : (isDark ? '#e5e7eb' : ev.tipo.corTexto),
+                                        : chipTipoEvento(ev.tipo, isDark).color,
                                     borderLeft: !isCurrentMonth ? 'none' : `3px solid ${ev.tipo.corBorda}`,
                                     paddingLeft: !isCurrentMonth ? '11px' : undefined,
                                   }}
@@ -2056,10 +2054,7 @@ export default function AgendaPage() {
                         )}
                         <span
                           className="text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap"
-                          style={{
-                            backgroundColor: isDark ? `${ev.tipo.cor}33` : ev.tipo.cor,
-                            color: isDark ? '#e5e7eb' : ev.tipo.corTexto,
-                          }}
+                          style={chipTipoEvento(ev.tipo, isDark)}
                         >
                           {ev.tipo.nome}
                         </span>
