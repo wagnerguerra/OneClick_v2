@@ -1,20 +1,19 @@
 import type { CSSProperties } from 'react'
 
 /**
- * Cores de um TIPO DE EVENTO (agenda) — fonte única do uso correto.
- *
- * Cada tipo tem três cores distintas e com PAPÉIS distintos:
+ * Cores de um TIPO DE EVENTO (agenda). Cada tipo tem três cores com PAPÉIS
+ * distintos, e devem ser usadas DIRETO (`tipo.corBorda`, `tipo.cor`,
+ * `tipo.corTexto`):
  *  - `cor`      → **fundo** (preenchimento do chip/pílula do evento);
- *  - `corBorda` → **borda / dot / traço** (versão mais forte; é o que se usa em
- *                 bolinhas, barras verticais e bordas-esquerdas);
+ *  - `corBorda` → **borda / dot / traço** (versão mais forte; bolinhas, barras
+ *                 verticais e bordas-esquerdas — NÃO usar `cor` aqui);
  *  - `corTexto` → cor do texto sobre o fundo cheio (tema claro).
  *
- * Erro comum (que estes helpers evitam): usar `cor` (fundo) onde o certo é
- * `corBorda` (dot/borda), deixando o elemento pálido/errado.
+ * A única coisa que vale um helper é a ADAPTAÇÃO AO DARK do fundo (não é um
+ * simples getter): ver `chipTipoEvento` abaixo.
  */
 export interface TipoEventoCores {
   cor: string
-  corBorda?: string | null
   corTexto?: string | null
 }
 
@@ -38,13 +37,4 @@ export function chipTipoEvento(t: TipoEventoCores, isDark: boolean): CSSProperti
     backgroundColor: isDark ? `${t.cor}${DARK_FILL_ALPHA}` : t.cor,
     color: isDark ? DARK_TEXT : (t.corTexto ?? '#ffffff'),
   }
-}
-
-/**
- * Cor de **borda / dot / traço** de um tipo de evento — sempre `corBorda`
- * (cai em `cor` só se o tipo não tiver borda definida). É o que se deve usar em
- * bolinhas do select, barras verticais e bordas-esquerdas.
- */
-export function bordaTipoEvento(t: TipoEventoCores): string {
-  return t.corBorda || t.cor
 }

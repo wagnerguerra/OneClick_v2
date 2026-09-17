@@ -23,7 +23,7 @@ import {
 import { cn } from '@saas/ui'
 import { TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { chipTipoEvento, bordaTipoEvento } from '@/lib/event-type-colors'
+import { chipTipoEvento } from '@/lib/event-type-colors'
 import { useIsDark } from '@/hooks/use-is-dark'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { ModuloAcessoButton } from '@/components/modulo-acesso-button'
@@ -1499,7 +1499,7 @@ export default function AgendaPage() {
                   {tipos.map(t => (
                     <SelectItem key={t.id} value={t.id}>
                       <span className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: bordaTipoEvento(t) }} />
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda }} />
                         {t.nome}
                       </span>
                     </SelectItem>
@@ -2197,7 +2197,7 @@ export default function AgendaPage() {
               const recorrente = !!ev.lote && ev.recorrencia !== 'NENHUMA'
               return (
                 <>
-                  <div className="rounded-lg bg-muted px-4 py-3 border-l-4" style={{ borderLeftColor: bordaTipoEvento(ev.tipo) }}>
+                  <div className="rounded-lg bg-muted px-4 py-3 border-l-4" style={{ borderLeftColor: ev.tipo.corBorda }}>
                     <p className="text-sm font-semibold text-foreground">{ev.titulo}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{dataFmt} · {horarioFmt}</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">{ev.tipo.nome}{recorrente ? ` · ${RECORRENCIA_LABELS[ev.recorrencia]}` : ''}</p>
@@ -2781,7 +2781,7 @@ export default function AgendaPage() {
                           >
                             {selectedTipo ? (
                               <span className="flex items-center gap-2 min-w-0">
-                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: bordaTipoEvento(selectedTipo) }} />
+                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: selectedTipo.corBorda }} />
                                 <span className="truncate">{selectedTipo.nome}</span>
                               </span>
                             ) : (
@@ -2817,7 +2817,7 @@ export default function AgendaPage() {
                                       form.tipoId === t.id && 'bg-accent text-accent-foreground',
                                     )}
                                   >
-                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: bordaTipoEvento(t) }} />
+                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: t.corBorda }} />
                                     <span className="truncate">{t.nome}</span>
                                   </button>
                                 ))}
@@ -3679,7 +3679,7 @@ export default function AgendaPage() {
                       <div className="flex items-center gap-2 min-w-0">
                         <span
                           className="text-xs px-2.5 py-0.5 rounded-[2px] font-medium truncate"
-                          style={{ ...chipTipoEvento(t, isDark), borderLeft: `3px solid ${bordaTipoEvento(t)}` }}
+                          style={{ ...chipTipoEvento(t, isDark), borderLeft: `3px solid ${t.corBorda}` }}
                         >
                           {t.nome}
                         </span>
