@@ -261,7 +261,9 @@ export default function CrmPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [draftRestored, setDraftRestored] = useState(false)   // rascunho recuperado ao reabrir
-  const [form, setForm] = useState({ titulo: '', descricao: '', valor: '', etapaId: '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '' })
+  // Este literal duplica `formVazio()` e é DELE que sai o tipo do form —
+  // campo novo tem que entrar nos dois, senão o outro nem compila.
+  const [form, setForm] = useState({ titulo: '', descricao: '', valor: '', etapaId: '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '', campanhaSlug: '' })
   const [clientes, setClientes] = useState<ClienteSelect[]>([])
 
   // Detail modal
@@ -636,7 +638,16 @@ export default function CrmPage() {
   }, [filteredOps, etapas])
 
   // ── Create ──
-  const formVazio = () => ({ titulo: '', descricao: '', valor: '', etapaId: etapas[0]?.id || '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '' })
+  const formVazio = () => ({ titulo: '', descricao: '', valor: '', etapaId: etapas[0]?.id || '', clienteId: '', responsavelId: '', previsaoFechamento: '', origem: '', atividade: '', cpfCnpj: '', razaoSocial: '', nomeFantasia: '', cnaeCodigo: '', cnaeDescricao: '', contatoNome: '', contatoCargo: '', contatoTelefone: '', contatoEmail: '', tagId: '', campanhaSlug: '' })
+
+  // Campanhas ofertáveis: só as vigentes. `listConfigs` devolve tudo, inclusive
+  // desativadas e os funis "roteador", que não são campanha. Aqui (criação) não
+  // existe "campanha já vinculada" a preservar — isso é caso do card, tratado
+  // em `opcoesCampanha` dentro do DetailTab.
+  const campanhasOfertaveis = useMemo(
+    () => campanhasList.filter(c => c.ativo && !c.roteador),
+    [campanhasList],
+  )
 
   // Persiste o rascunho enquanto o Sheet está aberto e há conteúdo digitado.
   // Assim, se o usuário fechar (clique fora) sem salvar, os dados não somem.
@@ -711,6 +722,9 @@ export default function CrmPage() {
         previsaoFechamento: form.previsaoFechamento || undefined,
         origem: form.origem || undefined,
         atividade: form.atividade || undefined,
+        // O handler monta campo a campo — sem esta linha a campanha escolhida
+        // no formulario seria descartada silenciosamente.
+        campanhaSlug: form.campanhaSlug || undefined,
         cpfCnpj: form.cpfCnpj.trim() || undefined,
         razaoSocial: form.razaoSocial.trim() || undefined,
         nomeFantasia: form.nomeFantasia.trim() || undefined,
@@ -1363,20 +1377,30 @@ export default function CrmPage() {
                 <Input value={form.cnaeDescricao} onChange={e => setForm(f => ({ ...f, cnaeDescricao: e.target.value }))} placeholder="Descrição da atividade econômica" className="h-9 text-sm" />
               </div>
             </div>
-            {/* Atividade + Origem */}
+            {/* Atividade + Origem + Campanha — os tres dizem de onde o lead veio. */}
             <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-6">
+              <div className="col-span-4">
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Atividade</label>
                 <Select value={form.atividade} onValueChange={v => setForm(f => ({ ...f, atividade: v }))}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>{opcoesAtividade.map(a => <SelectItem key={a.id} value={a.valor}>{a.valor}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="col-span-6">
+              <div className="col-span-4">
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Origem</label>
                 <Select value={form.origem} onValueChange={v => setForm(f => ({ ...f, origem: v }))}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>{opcoesOrigem.map(o => <SelectItem key={o.id} value={o.valor}>{o.valor}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-4">
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Campanha</label>
+                <Select value={form.campanhaSlug || '__none__'} onValueChange={v => setForm(f => ({ ...f, campanhaSlug: v === '__none__' ? '' : v }))}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Sem campanha" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem campanha</SelectItem>
+                    {campanhasOfertaveis.map(c => <SelectItem key={c.slug} value={c.slug}>{c.nome || c.slug}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
             </div>
