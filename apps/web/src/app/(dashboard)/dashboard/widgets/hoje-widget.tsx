@@ -15,7 +15,7 @@ interface EventoHoje {
   diaInteiro?: boolean
   horaInicio?: string | null
   horaFim?: string | null
-  tipo?: { nome: string; cor: string | null; corTexto?: string | null } | null
+  tipo?: { nome: string; cor: string | null; corBorda?: string | null; corTexto?: string | null } | null
   participantes?: Array<{ usuario: { id: string; name: string } | null }>
 }
 interface TarefaHoje {
@@ -45,6 +45,7 @@ interface Linha {
   /** Eventos usam a MESMA lógica de cor da /agenda (coresTipoEvento); tarefas mantêm
    *  o color-mix. `corTexto` é a cor de texto do tipo (só evento). */
   isEvento?: boolean
+  corBorda?: string | null
   corTexto?: string | null
 }
 
@@ -86,6 +87,7 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
         icone: CalendarClock,
         cor: e.tipo?.cor || 'var(--color-primary)',
         isEvento: true,
+        corBorda: e.tipo?.corBorda ?? null,
         corTexto: e.tipo?.corTexto ?? null,
         titulo: e.titulo,
         pill: e.tipo?.nome || 'Evento',
@@ -147,7 +149,7 @@ export function HojeWidget({ title }: { canRead?: boolean; title?: string; expan
                 const Icon = l.icone
                 // Eventos: mesma lógica de cor da /agenda (fundo cheio+corTexto no
                 // claro; alpha+texto claro no dark). Tarefas: color-mix (como eram).
-                const c = l.isEvento ? coresTipoEvento({ cor: l.cor, corTexto: l.corTexto }, isDark) : null
+                const c = l.isEvento ? coresTipoEvento({ cor: l.cor, corBorda: l.corBorda, corTexto: l.corTexto }, isDark) : null
                 const chipStyle = c
                   ? { backgroundColor: c.fundo, color: c.texto }
                   : { backgroundColor: `color-mix(in srgb, ${l.cor} 18%, transparent)`, color: `color-mix(in srgb, ${l.cor} 70%, var(--color-foreground))` }
