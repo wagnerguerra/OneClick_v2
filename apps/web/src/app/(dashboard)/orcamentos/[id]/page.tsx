@@ -8,7 +8,7 @@ import {
   MoreVertical, Pause, Play, RotateCcw, AlertTriangle,
   Package, History, Type, ThumbsUp, ThumbsDown, CheckCircle2,
   Paperclip, Image as ImageIcon, Archive, MessageSquare, Files, Shield, Lock, Globe,
-  Sparkles, Star, Link2, Hash, Building2, Calendar, Layers, Bell,
+  Sparkles, Star, Link2, Hash, Building2, Calendar, Layers, Bell, Undo2,
 } from 'lucide-react'
 import {
   Button, Input, Badge, Card, CardHeader, CardContent, Label,
@@ -601,6 +601,9 @@ export default function OrcamentoDetailPage() {
   const canParalizar = isMaster || subPerms.acao_paralizar === true
   const canRetomar = isMaster || subPerms.acao_retomar === true
   const canReabrir = isMaster || subPerms.acao_reabrir === true
+  // Desfazer a aprovação interna. Separada de acao_aprovar de propósito: quem
+  // registra a venda não necessariamente pode desfazê-la.
+  const canRetroagir = isMaster || subPerms.acao_retroagir_aprovacao === true
   const canDuplicar = isMaster || subPerms.acao_duplicar === true
   const canChangeSolicitante = isMaster || subPerms.change_solicitante === true
   // Quem tem isto pode vender o serviço como um todo, sem dizer qual subserviço.
@@ -1182,6 +1185,31 @@ export default function OrcamentoDetailPage() {
     })
     if (!ok) return
     await applyStatusChange(opts.novoStatus, opts.successMsg)
+  }
+
+  // Retroagir a aprovação interna: desfaz a aprovação feita pelo escritório,
+  // devolve o orçamento a Enviado e cancela os serviços que ela criou. O motivo
+  // é obrigatório porque a ação fica na timeline e é avisada às partes
+  // interessadas — "por que isso voltou?" tem que ter resposta no próprio card.
+  async function handleRetroagirAprovacao() {
+    const motivo = await alerts.input({
+      title: 'Retroagir a aprovação?',
+      text: 'O orçamento volta para Enviado e os serviços criados por esta aprovação serão cancelados. '
+        + 'A ação fica registrada na timeline e as partes interessadas serão avisadas.',
+      inputLabel: 'Motivo da retroação',
+      inputPlaceholder: 'Ex.: aprovação registrada no orçamento errado',
+      inputType: 'textarea',
+      required: true,
+      confirmText: 'Retroagir aprovação',
+      icon: 'warning',
+    })
+    if (motivo === null || !motivo.trim()) return
+    try {
+      const r = await (trpc.orcamento as any).retroagirAprovacao.mutate({ id, motivo: motivo.trim() })
+      const n = r?.cancelados?.length ?? 0
+      alerts.success('Aprovação retroagida', n > 0 ? `${n} serviço(s) cancelado(s).` : 'Nenhum serviço havia sido criado.')
+      fetchOrc(true)
+    } catch (e) { alerts.error('Erro', (e as Error).message) }
   }
 
   async function handleEnviar() {
@@ -1854,6 +1882,14 @@ export default function OrcamentoDetailPage() {
                 {canLiberar && (
                   <Button size="sm" variant="success" className="gap-1.5" onClick={() => handleStatusAction('LIBERADO', 'Orçamento liberado para execução')}>
                     <DollarSign className="h-4 w-4" /> Liberar
+                  </Button>
+                )}
+                {/* Só para aprovação INTERNA: decisão registrada pelo cliente no
+                    link público não se desfaz por aqui (o backend recusa). */}
+                {canRetroagir && !orc.decisaoTipo && (
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={handleRetroagirAprovacao}
+                    title="Desfazer a aprovação interna e cancelar os serviços que ela criou">
+                    <Undo2 className="h-4 w-4" /> Retroagir aprovação
                   </Button>
                 )}
                 {canEncerrar && (

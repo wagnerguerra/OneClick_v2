@@ -2390,6 +2390,219 @@ export class OrcamentoService {
     return updated
   }
 
+  // ── Retroacao da aprovacao interna ─────────────────────────
+  //
+  // Desfaz uma aprovacao REGISTRADA PELO ESCRITORIO, devolvendo o orcamento a
+  // ENVIADO e cancelando os servicos que a aprovacao criou. E' correcao de erro
+  // ("aprovei o orcamento errado"), nao reabertura de negociacao — por isso NAO
+  // incrementa reaberturasCount e exige motivo.
+  //
+  // So vale para aprovacao interna. A aprovacao feita pelo cliente no link
+  // publico nao pode ser desfeita aqui: ela tem nome/CPF do declarante e e'
+  // prova auditavel; desfaze-la pelo escritorio apagaria o registro de uma
+  // decisao que nao foi nossa. Para esse caso o caminho continua sendo Reabrir.
+  //
+  // O discriminador interno-vs-cliente e' o mesmo que o front ja usa: o evento
+  // de status_change da aprovacao tem userId quando foi interna, e null quando
+  // veio do link publico (registrarDecisao grava null de proposito).
+  async retroagirAprovacao(id: string, motivo: string, userId?: string) {
+    const razao = (motivo || '').trim()
+    if (!razao) throw new Error('Informe o motivo da retroação — ela fica registrada na timeline.')
+
+    const orc = await prisma.orcamento.findUnique({ where: { id } })
+    if (!orc) throw new Error('Orçamento não encontrado')
+    if (orc.status !== 'APROVADO') {
+      throw new Error(
+        `Só é possível retroagir um orçamento aprovado. Este está em "${STATUS_LABELS[orc.status] || orc.status}".`,
+      )
+    }
+    // Decisao do cliente gravada = aprovacao veio do link publico.
+    if (orc.decisaoTipo) {
+      throw new Error(
+        'Este orçamento foi aprovado pelo cliente no link público — a decisão dele não pode ser desfeita aqui. '
+        + 'Use "Reabrir orçamento" se precisar voltar o fluxo.',
+      )
+    }
+
+    // Quem aprovou: ultimo status_change para APROVADO. Sem userId => cliente.
+    const eventoAprovacao = await prisma.orcamentoEvento.findFirst({
+      where: { orcamentoId: id, tipo: 'status_change', para: 'APROVADO' },
+      orderBy: { createdAt: 'desc' },
+      select: { userId: true },
+    })
+    if (!eventoAprovacao) {
+      throw new Error('Não encontrei o registro da aprovação na timeline — retroação bloqueada por segurança.')
+    }
+    if (!eventoAprovacao.userId) {
+      throw new Error(
+        'A aprovação deste orçamento não foi interna (não há usuário responsável por ela na timeline). '
+        + 'Só aprovações feitas pelo escritório podem ser retroagidas.',
+      )
+    }
+    const aprovadorId = eventoAprovacao.userId
+
+    // ── Desfaz os servicos que a aprovacao criou ──
+    // Processo primeiro: cancelar() ja cancela em cascata as execucoes dele que
+    // ainda nao terminaram, e grava o proprio evento. Execucoes CONCLUIDO/PULADO
+    // ficam como estao — trabalho entregue nao se apaga.
+    const processos = await prisma.processo.findMany({
+      where: { orcamentoId: id, status: { notIn: ['CONCLUIDO', 'CANCELADO'] } },
+      select: { id: true, nome: true },
+    })
+    const cancelados: string[] = []
+    const falhas: string[] = []
+    for (const p of processos) {
+      try {
+        await this.processoService.cancelar(p.id, `Aprovação do orçamento retroagida: ${razao}`, userId)
+        cancelados.push(p.nome)
+      } catch (e) {
+        falhas.push(`${p.nome} (${(e as Error).message})`)
+      }
+    }
+    // Execucoes soltas: caminhos antigos criaram execucao sem processo agregador.
+    // Sem isto sobraria servico vivo apontando para um orcamento nao aprovado.
+    const soltas = await prisma.servicoExecucao.findMany({
+      where: {
+        orcamentoId: id,
+        processoId: null,
+        status: { in: ['EM_ANDAMENTO', 'AGUARDANDO_INICIO'] },
+      },
+      select: { id: true, servico: { select: { nome: true } } },
+    }).catch(() => [] as Array<{ id: string; servico: { nome: string } | null }>)
+    for (const e of soltas) {
+      try {
+        await this.servicoService.cancelarExecucao(e.id)
+        cancelados.push(e.servico?.nome || 'serviço')
+      } catch (err) {
+        falhas.push(`${e.servico?.nome || 'serviço'} (${(err as Error).message})`)
+      }
+    }
+
+    // ── Volta o orcamento ──
+    // dtAprovado limpo para que a aprovacao seguinte volte a ser "primeira
+    // transicao" e re-dispare os side-effects (e-mails, criacao de servico).
+    const updated = await prisma.orcamento.update({
+      where: { id },
+      data: { status: 'ENVIADO' as any, dtAprovado: null },
+    })
+
+    const resumoServicos = cancelados.length > 0
+      ? ` ${cancelados.length} serviço(s) cancelado(s): ${cancelados.join(', ')}.`
+      : ' Nenhum serviço havia sido criado.'
+    const resumoFalhas = falhas.length > 0 ? ` Não foi possível cancelar: ${falhas.join('; ')}.` : ''
+    await this.addEvento(
+      id, userId, 'retroacao_aprovacao', 'APROVADO', 'ENVIADO',
+      `Aprovação interna retroagida. Motivo: ${razao}.${resumoServicos}${resumoFalhas}`,
+    )
+
+    // NAO revertemos a etapa do CRM aqui de proposito. sincronizarEtapaCrm so
+    // sabe mover para 'ganho' ou 'perda' — nao existe alvo "de volta para
+    // negociacao", e escolher uma etapa intermediaria por conta seria chutar o
+    // funil do comercial. A oportunidade segue em ganho e o ajuste, se
+    // necessario, e' feito no proprio CRM. Fica dito no evento da timeline.
+    this.notificarRetroacaoAprovacao(id, aprovadorId, razao, userId, cancelados)
+      .catch(e => console.warn('[Orcamento] Falha ao notificar retroação:', (e as Error).message))
+
+    this.emitEvent('kanban', { orcamentoId: id, empresaId: updated.empresaId, actorUserId: userId })
+    return { orcamento: updated, cancelados, falhas }
+  }
+
+  /**
+   * Avisa as partes interessadas de que a aprovação foi desfeita.
+   *
+   * "Partes interessadas" aqui são resolvidas de verdade (pessoas), não só as
+   * listas de e-mail da config: quem recebeu o aviso de aprovação precisa saber
+   * que ela caiu, e quem toca o orçamento precisa saber pelo sino.
+   */
+  private async notificarRetroacaoAprovacao(
+    id: string,
+    aprovadorId: string,
+    motivo: string,
+    userId?: string,
+    servicosCancelados: string[] = [],
+  ) {
+    const orc = await prisma.orcamento.findUnique({ where: { id } })
+    if (!orc) return
+
+    const config = await this.getConfig(orc.empresaId || undefined)
+    const empresa = orc.empresaId
+      ? await prisma.empresa.findUnique({ where: { id: orc.empresaId }, select: { razaoSocial: true, nomeFantasia: true, logoUrl: true } }).catch(() => null)
+      : null
+    const cliente = orc.clienteId
+      ? await prisma.cliente.findUnique({ where: { id: orc.clienteId }, select: { razaoSocial: true } }).catch(() => null)
+      : null
+    const autor = userId
+      ? await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null)
+      : null
+
+    // Criador: o model nao tem createdById — o autor esta no evento 'created'.
+    const eventoCriacao = await prisma.orcamentoEvento.findFirst({
+      where: { orcamentoId: id, tipo: 'created' },
+      orderBy: { createdAt: 'asc' },
+      select: { userId: true },
+    }).catch(() => null)
+
+    const numero = `#${String(orc.numero).padStart(4, '0')}`
+    const clienteNome = cliente?.razaoSocial || 'Cliente'
+    const empresaNome = empresa?.nomeFantasia || empresa?.razaoSocial || 'Empresa'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const linkInterno = `${baseUrl}/orcamentos/${id}`
+
+    // ── Sino: pessoas do orcamento ──
+    // Quem desfez nao precisa ser avisado do proprio ato.
+    const pessoas = [...new Set([
+      aprovadorId,
+      orc.responsavelId,
+      orc.solicitanteId,
+      eventoCriacao?.userId,
+    ].filter((u): u is string => !!u && u !== userId))]
+    if (pessoas.length > 0) {
+      await this.notificationService.criarParaUsers(pessoas, {
+        titulo: `Aprovação do orçamento ${numero} foi retroagida`,
+        mensagem: `${clienteNome} — voltou para Enviado. Motivo: ${motivo}`,
+        tipo: 'warning',
+        link: `/orcamentos/${id}`,
+        origem: 'orcamentos',
+        empresaId: orc.empresaId || null,
+      }).catch(e => console.warn('[Orcamento] Falha no sino da retroação:', (e as Error).message))
+    }
+
+    // ── E-mail: as mesmas listas que receberam o aviso de aprovacao ──
+    const dest = [...new Set([
+      ...this.parseEmails(config.emailComercial),
+      ...this.parseEmails(config.emailFinanceiro),
+      ...this.parseEmails(config.emailAprovacao),
+    ].filter(Boolean))]
+    if (dest.length === 0) return
+
+    const esc = (s: string) => s.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const blocoServicos = servicosCancelados.length > 0
+      ? `<p style="margin:12px 0 0"><b>Serviços cancelados:</b><br>${servicosCancelados.map(s => esc(s)).join('<br>')}</p>`
+      : '<p style="margin:12px 0 0">Nenhum serviço havia sido criado por esta aprovação.</p>'
+    const html = buildEmailLayout({
+      empresaNome,
+      logoUrl: empresa?.logoUrl,
+      preheader: `A aprovação do orçamento ${numero} foi desfeita`,
+      heroAccent: '#f59e0b',
+      heroTitle: `Aprovação retroagida · ${numero}`,
+      heroSubtitle: clienteNome,
+      bodyHtml:
+        `<p>A aprovação interna do orçamento <b>${numero}</b> (${esc(clienteNome)}) foi desfeita por `
+        + `<b>${esc(autor?.name || 'um usuário')}</b>. O orçamento voltou para <b>Enviado</b>.</p>`
+        + `<p style="margin:12px 0 0"><b>Motivo:</b> ${esc(motivo)}</p>`
+        + blocoServicos,
+      ctaLabel: 'Abrir orçamento',
+      ctaUrl: linkInterno,
+      iconName: 'triangle-alert',
+    })
+    try {
+      await this.emailService.sendMail({ to: dest, subject: `Aprovação retroagida · Orçamento ${numero} · ${clienteNome}`, html, attachments: shellAttachments('triangle-alert') })
+      await this.addEvento(id, userId, 'notificacao', null, null, `Notificação de retroação para ${dest.length} destinatário(s): ${dest.join(', ')}`)
+    } catch (e) {
+      console.warn('[Orcamento] Falha ao enviar e-mail de retroação:', (e as Error).message)
+    }
+  }
+
   // ── Edicao manual de datas ─────────────────────────────────
 
   // ── Helpers expostos ───────────────────────────────────────

@@ -228,6 +228,14 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string(), novoStatus: z.string(), motivo: z.string().optional(), manterDatas: z.boolean().optional() }))
       .mutation(({ input, ctx }) => orcamentoService.reabrir(input.id, input.novoStatus, input.motivo, ctx.userId, input.manterDatas)),
 
+    // Retroagir a aprovação INTERNA: desfaz a aprovação feita pelo escritório e
+    // cancela os serviços que ela criou. Sub-permissão própria, separada de
+    // `acao_aprovar` — quem vende não necessariamente pode desfazer a venda.
+    // O serviço recusa se a aprovação tiver vindo do cliente (link público).
+    retroagirAprovacao: writeSubProcedure(MODULE, 'acao_retroagir_aprovacao', 'Retroagir a aprovação interna do orçamento')
+      .input(z.object({ id: z.string(), motivo: z.string().min(1) }))
+      .mutation(({ input, ctx }) => orcamentoService.retroagirAprovacao(input.id, input.motivo, ctx.userId)),
+
     editarData: writeSubProcedure(MODULE, 'edit_timeline_dates', 'Alterar datas da timeline')
       .input(z.object({ id: z.string(), campo: z.string(), valor: z.string().nullable() }))
       .mutation(({ input, ctx }) => orcamentoService.editarData(input.id, input.campo, input.valor, ctx.userId)),
