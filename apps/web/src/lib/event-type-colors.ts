@@ -35,7 +35,7 @@ export interface CoresResolvidas {
  *  pálidas (o que acontecia ao deixá-las translúcidas sobre o fundo).
  *  `DARK_LAYER_PCT` = força da camada preta (quanto do preto). Maior = mais
  *  escuro; menor = mais colorido. */
-const DARK_LAYER_PCT = 70
+const DARK_LAYER_PCT = 75
 /** Reforço de saturação aplicado por cima do resultado escurecido: multiplica a
  *  chroma (oklch) via relative color syntax. 1 = sem reforço; 1.3 = +30%. */
 const DARK_SAT_BOOST = 1.5
