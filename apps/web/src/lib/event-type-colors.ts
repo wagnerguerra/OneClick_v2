@@ -21,7 +21,8 @@ export interface TipoEventoCores {
 }
 
 export interface CoresResolvidas {
-  /** Fundo do chip/pílula — claro: `cor` cheia · dark: `cor` + alpha (tint suave). */
+  /** Fundo do chip/pílula — claro: `cor` cheia · dark: a MESMA `cor` escurecida
+   *  (mix com preto), preservando o matiz. */
   fundo: string
   /** Texto sobre o fundo — claro: `corTexto` · dark: branco. */
   texto: string
@@ -29,14 +30,18 @@ export interface CoresResolvidas {
   borda: string
 }
 
-/** Tint de baixa opacidade (~20%) do fundo no dark — mesmo alpha da grade do mês. */
-const DARK_FILL_ALPHA = '33'
+/** No dark, o fundo é a MESMA `cor` do tema claro com uma "camada escura" por
+ *  cima (mix com preto) — escurece preservando o matiz, sem lavar/esbranquiçar as
+ *  cores pálidas (o que acontecia ao deixá-las translúcidas sobre o fundo).
+ *  `DARK_COR_PCT` = quanto da cor sobra; o resto é preto. Maior = mais colorido/
+ *  claro; menor = mais escuro. */
+const DARK_COR_PCT = 30
 /** Texto claro no dark (o `corTexto` mira o fundo cheio do tema claro). */
 const DARK_TEXT = '#e5e7eb'
 
 export function coresTipoEvento(t: TipoEventoCores, isDark: boolean): CoresResolvidas {
   return {
-    fundo: isDark ? `${t.cor}${DARK_FILL_ALPHA}` : t.cor,
+    fundo: isDark ? `color-mix(in srgb, ${t.cor} ${DARK_COR_PCT}%, #000)` : t.cor,
     texto: isDark ? DARK_TEXT : (t.corTexto ?? '#ffffff'),
     borda: t.corBorda || t.cor,
   }
