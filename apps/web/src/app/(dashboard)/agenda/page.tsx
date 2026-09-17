@@ -3834,27 +3834,27 @@ export default function AgendaPage() {
                 )}
               </div>
 
-              {/* Preview — claro e escuro lado a lado (cada um força o booleano
-                  do tema em coresTipoEvento; o dark fica sobre superfície escura
-                  pra o tint com alpha compositar como no app). */}
-              <div className="flex flex-wrap items-center gap-3">
+              {/* Preview — dois tiles (claro e escuro), cada um um escopo de tema
+                  (.light/.dark) que traz o fundo/borda dos TOKENS do sistema; a
+                  faixa do evento vem de coresTipoEvento com o booleano do tile. */}
+              <div>
                 <span className="text-[10px] text-muted-foreground">Preview:</span>
-                {([['Claro', false, 'bg-white ring-1 ring-black/10'], ['Escuro', true, 'bg-slate-900 ring-1 ring-white/10']] as const).map(([label, dark, surface]) => {
-                  const c = coresTipoEvento(tipoForm, dark)
-                  return (
-                    <div key={label} className="flex items-center gap-1.5">
-                      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</span>
-                      <span className={cn('rounded-md p-1.5', surface)}>
+                <div className="mt-1.5 grid grid-cols-2 gap-2 max-w-[380px]">
+                  {([['Claro', 'light', false], ['Escuro', 'dark', true]] as const).map(([label, scope, dark]) => {
+                    const c = coresTipoEvento(tipoForm, dark)
+                    return (
+                      <div key={label} className={cn(scope, 'rounded-lg border border-border bg-background p-2.5')}>
+                        <div className="mb-1.5 text-[9px] uppercase tracking-wide text-muted-foreground">{label}</div>
                         <span
                           className="inline-block text-xs px-3 py-1 rounded-[2px]"
                           style={{ backgroundColor: c.fundo, color: c.texto, borderLeft: `3px solid ${c.borda}` }}
                         >
                           {tipoForm.nome || 'Nome do tipo'}
                         </span>
-                      </span>
-                    </div>
-                  )
-                })}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
 
               {/* Ações */}

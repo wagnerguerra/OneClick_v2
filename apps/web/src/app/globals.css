@@ -1021,6 +1021,18 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
   }
 }
 
+/* Força tema CLARO num subtree — simétrico à classe `.dark`. Serve para previews
+   que mostram os dois temas lado a lado (ex.: preview do tipo no Gerenciador de
+   Tipos da /agenda), independente do tema atual do app. MANTER os valores em
+   sincronia com o bloco claro do @theme acima. */
+.light {
+  --color-background: #f6f7f9;
+  --color-foreground: #0f172a;
+  --color-card: #ffffff;
+  --color-muted-foreground: #64748b;
+  --color-border: #e5e8ee;
+}
+
 /* Bloco órfão no fluxo — sem conexões, precisa ser reconectado ou removido.
    Aplicado no Node React Flow via className. Outline tracejado amber +
    pulsing pra chamar atenção. */
