@@ -30,18 +30,23 @@ export interface CoresResolvidas {
   borda: string
 }
 
-/** No dark, o fundo é a MESMA `cor` do tema claro com uma "camada escura" por
- *  cima (mix com preto) — escurece preservando o matiz, sem lavar/esbranquiçar as
- *  cores pálidas (o que acontecia ao deixá-las translúcidas sobre o fundo).
- *  `DARK_COR_PCT` = quanto da cor sobra; o resto é preto. Maior = mais colorido/
- *  claro; menor = mais escuro. */
-const DARK_COR_PCT = 30
+/** No dark, o fundo é a MESMA `cor` do tema claro com uma "camada escura" (preto)
+ *  por cima — escurece preservando o matiz, sem lavar/esbranquiçar as cores
+ *  pálidas (o que acontecia ao deixá-las translúcidas sobre o fundo).
+ *  `DARK_LAYER_PCT` = força da camada preta (quanto do preto). Maior = mais
+ *  escuro; menor = mais colorido. */
+const DARK_LAYER_PCT = 70
+/** Reforço de saturação aplicado por cima do resultado escurecido: multiplica a
+ *  chroma (oklch) via relative color syntax. 1 = sem reforço; 1.3 = +30%. */
+const DARK_SAT_BOOST = 1.5
 /** Texto claro no dark (o `corTexto` mira o fundo cheio do tema claro). */
 const DARK_TEXT = '#e5e7eb'
 
 export function coresTipoEvento(t: TipoEventoCores, isDark: boolean): CoresResolvidas {
+  // Dark: cor escurecida (camada preta) + leve boost de chroma no resultado.
+  const fundoDark = `oklch(from color-mix(in srgb, #000 ${DARK_LAYER_PCT}%, ${t.cor}) l calc(c * ${DARK_SAT_BOOST}) h)`
   return {
-    fundo: isDark ? `color-mix(in srgb, ${t.cor} ${DARK_COR_PCT}%, #000)` : t.cor,
+    fundo: isDark ? fundoDark : t.cor,
     texto: isDark ? DARK_TEXT : (t.corTexto ?? '#ffffff'),
     borda: t.corBorda || t.cor,
   }
