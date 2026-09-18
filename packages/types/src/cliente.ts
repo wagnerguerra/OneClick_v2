@@ -225,3 +225,63 @@ export const listClienteSchema = paginationSchema.extend({
 export type CreateClienteInput = z.infer<typeof createClienteSchema>
 export type UpdateClienteInput = z.infer<typeof updateClienteSchema>
 export type ListClienteInput = z.infer<typeof listClienteSchema>
+
+// ============================================================
+// Registro de Inscrições (N por cliente) — estaduais e municipais
+// ============================================================
+
+export const INSCRICAO_TIPOS = ['ESTADUAL', 'MUNICIPAL'] as const
+export type InscricaoTipo = (typeof INSCRICAO_TIPOS)[number]
+
+export const INSCRICAO_TIPO_LABELS: Record<InscricaoTipo, string> = {
+  ESTADUAL: 'Estadual',
+  MUNICIPAL: 'Municipal',
+}
+
+const inscricaoBaseSchema = z.object({
+  tipo: z.enum(INSCRICAO_TIPOS).default('ESTADUAL'),
+  /** UF — obrigatória na estadual (ver refine abaixo). */
+  estado: z.string().trim().length(2, 'UF deve ter 2 letras').optional().nullable(),
+  /** Município — obrigatório na municipal (ver refine abaixo). */
+  municipio: z.string().trim().min(2, 'Informe o município').optional().nullable(),
+  inscricao: z.string().trim().min(1, 'Informe o número da inscrição'),
+  /**
+   * Aceita `Date` ou a string `YYYY-MM-DD` que vem do `<input type="date">`.
+   *
+   * O `z.coerce.date()` sozinho já converte a string em tempo de execução, mas
+   * declara a ENTRADA como `Date` — e aí a tela era obrigada a fazer
+   * `new Date('2026-09-18')` só para satisfazer o tipo. Isso reintroduziria o
+   * deslocamento de fuso que o `date.ts` do front existe para evitar: essa
+   * string vira meia-noite UTC e, em fuso negativo, pode ser lida como o dia
+   * anterior. Aceitar a string aqui mantém a conversão num lugar só, no
+   * servidor.
+   */
+  dataRegistro: z.union([z.string().trim().min(1), z.date()]).nullish()
+    .transform(v => (v == null || v === '' ? null : new Date(v))),
+  observacoes: z.string().trim().optional().nullable(),
+})
+
+// Mesmo molde do createFeriadoSchema: o tipo decide qual campo de lugar é
+// obrigatório. Deixar os dois opcionais no schema base e exigir por refine é o
+// que permite uma mensagem apontando o campo certo (`path`), em vez de um erro
+// genérico no formulário inteiro.
+export const createInscricaoSchema = inscricaoBaseSchema
+  .extend({ clienteId: z.string() })
+  .refine(v => v.tipo !== 'ESTADUAL' || !!v.estado, {
+    message: 'UF é obrigatória para inscrição estadual', path: ['estado'],
+  })
+  .refine(v => v.tipo !== 'MUNICIPAL' || !!v.municipio, {
+    message: 'Município é obrigatório para inscrição municipal', path: ['municipio'],
+  })
+
+export const updateInscricaoSchema = inscricaoBaseSchema
+  .extend({ id: z.string() })
+  .refine(v => v.tipo !== 'ESTADUAL' || !!v.estado, {
+    message: 'UF é obrigatória para inscrição estadual', path: ['estado'],
+  })
+  .refine(v => v.tipo !== 'MUNICIPAL' || !!v.municipio, {
+    message: 'Município é obrigatório para inscrição municipal', path: ['municipio'],
+  })
+
+export type CreateInscricaoInput = z.infer<typeof createInscricaoSchema>
+export type UpdateInscricaoInput = z.infer<typeof updateInscricaoSchema>

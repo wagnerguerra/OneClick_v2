@@ -1789,16 +1789,30 @@ model ClienteContato {
   @@map("cliente_contatos")
 }
 
-// Registro de Inscrições (estaduais) — N por cliente, por estado.
-// Migrado do legado (cad_cli_inscricoes). Convive com o campo único
-// Cliente.inscricaoEstadual (IE principal).
+// Registro de Inscrições — N por cliente. Estaduais (com UF) e municipais
+// (com o nome do município). Migrado do legado (cad_cli_inscricoes). Convive
+// com o campo único Cliente.inscricaoEstadual (IE principal).
 model ClienteInscricao {
-  id        String   @id @default(cuid())
-  clienteId String   @map("cliente_id")
-  estado    String // UF (2 letras)
+  id        String @id @default(cuid())
+  clienteId String @map("cliente_id")
+  /// ESTADUAL | MUNICIPAL. String e não enum do Postgres: a tabela já tem
+  /// linhas em produção, e o default cobre o histórico inteiro — tudo o que
+  /// existe hoje nasceu estadual, que era a única possibilidade.
+  tipo      String @default("ESTADUAL")
+  /// UF (2 letras). Obrigatória quando tipo = ESTADUAL, nula na municipal.
+  /// Era NOT NULL: virou opcional para caber a inscrição municipal.
+  estado    String?
+  /// Nome do município. Preenchido quando tipo = MUNICIPAL. Texto livre com
+  /// sugestão na digitação — não há cadastro de municípios no banco.
+  municipio String?
   inscricao String
-  descricao String? // observação livre da inscrição
-  createdAt DateTime @default(now()) @map("created_at")
+  /// Data em que a inscrição foi registrada no órgão. Não confundir com
+  /// `createdAt`, que é quando a linha foi criada aqui.
+  dataRegistro DateTime? @map("data_registro")
+  /// Observação livre. O campo se chamava `descricao`; o nome acompanhou o
+  /// rótulo da tela, e o @map preserva a COLUNA — nada é renomeado no banco.
+  observacoes  String?   @map("descricao")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
 
