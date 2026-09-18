@@ -482,6 +482,26 @@ export class HelpdeskService {
       tipo: input.tipo,
     })
 
+    // O chamado já nasce com o checklist do serviço criado. Era ação manual do
+    // agente, pelo botão no card; a objeção de então era que uma mesma
+    // CATEGORIA servia a casos opostos (admissão e desligamento) e o disparo
+    // automático acertaria o roteiro errado. Com o chamado vinculado ao
+    // SERVIÇO, quem escolheu o serviço já escolheu o roteiro.
+    //
+    // Tolerante de propósito: serviço inativo e serviço sem etapas (há 37 assim
+    // na base) são motivos legítimos para não existir checklist, e nenhum deles
+    // pode derrubar a abertura do chamado.
+    //
+    // A guarda evita o aviso no caminho NORMAL: chamado sem classificação é o
+    // caso comum (a tela não obriga serviço), e deixar o método lançar "sem
+    // serviço" gravaria warn em quase toda abertura — log que avisa sempre é
+    // log que ninguém lê.
+    if (input.servicoId || input.categoriaId) {
+      await this.criarExecucaoChecklist(ticket.id, userId).catch(e => {
+        console.warn('[Helpdesk] Checklist automático não criado:', (e as Error).message)
+      })
+    }
+
     // Notificação de novo ticket (sino in-app + e-mail). Quem recebe depende da
     // config `notificarTodosAgentes` — ver o método (R1.3).
     await this.notificarNovoTicket(ticket.id, empresaId)
@@ -777,21 +797,41 @@ export class HelpdeskService {
   }
 
   /**
-   * Inicia, no chamado, o checklist que a categoria sugere (#HLP0396).
+   * Cria o checklist do chamado por ação MANUAL do agente (#HLP0396).
+   *
+   * Ficou como resíduo: hoje o checklist nasce junto com o chamado (ver
+   * `criarExecucaoChecklist`). Serve para o chamado ANTERIOR a esse
+   * comportamento, que tem serviço e nunca teve execução — esse não passa
+   * nem pelo `create` nem por uma troca de serviço.
+   */
+  async iniciarChecklist(ticketId: string, userId: string) {
+    if (!(await this.canAtuarAgente(userId))) {
+      throw new Error('Só agentes do HelpDesk podem iniciar o checklist de um chamado.')
+    }
+    return this.criarExecucaoChecklist(ticketId, userId)
+  }
+
+  /**
+   * Cria, no chamado, a execução do checklist do serviço.
    *
    * Reusa o motor de Serviços em vez de criar um segundo: `createExecucao` já
    * copia etapas e passos, replica as dependências entre passos, resolve
    * responsável (claim-first por setor — o primeiro agente que marca um passo
    * reivindica), grava evento e dispara notificação.
    *
-   * É ação do agente, não automática: a categoria "Conta nova / desligamento"
-   * serve para admissão E para desligamento, então disparar sozinho acertaria
-   * o roteiro errado na metade dos casos. Quem lê o chamado decide.
+   * NÃO checa permissão, de propósito: roda dentro do `create`, e quem abre
+   * chamado normalmente não é agente da TI. O portão fica em quem chama —
+   * `iniciarChecklist`, o caminho manual, exige agente.
+   *
+   * Idempotente: execução já existente é devolvida em vez de duplicada. Por
+   * isso, trocar o serviço de um chamado que JÁ tem checklist não troca o
+   * roteiro — a execução em andamento manda, e é a mesma precedência que o
+   * `getById` aplica ao montar o payload.
+   *
+   * Lança em todo caso impeditivo (sem serviço, serviço inativo, serviço sem
+   * etapas). O chamador automático engole o erro; o manual mostra na tela.
    */
-  async iniciarChecklist(ticketId: string, userId: string) {
-    if (!(await this.canAtuarAgente(userId))) {
-      throw new Error('Só agentes do HelpDesk podem iniciar o checklist de um chamado.')
-    }
+  private async criarExecucaoChecklist(ticketId: string, userId: string | null) {
     const ticket = await prisma.helpdeskTicket.findUnique({
       where: { id: ticketId },
       select: { id: true, numero: true, titulo: true, servicoId: true, categoriaId: true, empresaId: true, status: true, arquivado: true },
@@ -941,8 +981,42 @@ export class HelpdeskService {
       return { ...rest, capa: anexos[0] ?? null, aguardandoResposta }
     })
 
+    // Checklist por chamado (#HLP0396) — alimenta o indicador no card do
+    // kanban. UMA consulta para a página inteira, não uma por card: o card só
+    // precisa saber que existe e quanto já andou.
+    //
+    // Raw pelo mesmo motivo do getById: as colunas são novas e o client local
+    // fica stale. A falha é TOLERADA (o card fica sem o indicador) mas sempre
+    // REGISTRADA: um `.catch` mudo aqui esconderia um erro de SQL — foi assim
+    // que o nome errado da tabela de passos passou despercebido.
+    type ChecklistLista = { ticketId: string; passosTotal: number; passosFechados: number }
+    const ids = mapped.map(t => t.id)
+    const checklistRows = ids.length
+      ? await prisma.$queryRawUnsafe<ChecklistLista[]>(
+          `SELECT e.ticket_id                                                 AS "ticketId",
+                  COUNT(p.id)::int                                            AS "passosTotal",
+                  (COUNT(p.id) FILTER (WHERE p.concluido OR p.ignorado))::int AS "passosFechados"
+             FROM servico_execucoes e
+             LEFT JOIN servico_execucoes_passos p ON p.execucao_id = e.id
+            WHERE e.ticket_id = ANY($1::text[])
+            GROUP BY e.ticket_id`, ids,
+        ).catch((e: Error) => {
+          console.warn('[Helpdesk] Checklist da listagem não carregado:', e.message)
+          return [] as ChecklistLista[]
+        })
+      : []
+    const checklistPorTicket = new Map(checklistRows.map(r => [r.ticketId, r]))
+
+    const comChecklist = mapped.map(t => {
+      const c = checklistPorTicket.get(t.id)
+      return {
+        ...t,
+        checklist: c ? { passosTotal: c.passosTotal, passosFechados: c.passosFechados } : null,
+      }
+    })
+
     return {
-      data: mapped,
+      data: comChecklist,
       total,
       page: input.page,
       limit: input.limit,
@@ -1027,6 +1101,12 @@ export class HelpdeskService {
       where: { id },
       select: {
         status: true, responsavelId: true, prioridade: true, categoriaId: true,
+        // servicoId é OBRIGATÓRIO aqui: todo ramo abaixo compara `data.X` com
+        // `before.X` para decidir se houve mudança. Sem o campo no select, ele
+        // chega `undefined` e a comparação dá sempre "mudou" — gravando evento
+        // "Serviço alterado" na timeline e recalculando SLA em TODO salvamento,
+        // sem erro nenhum na tela. Campo novo no modelo entra também aqui.
+        servicoId: true,
         areaId: true, prazoSla: true, pausadoEm: true, totalPausadoMs: true,
         primeiroAtendimentoEm: true, solicitanteId: true, titulo: true, descricao: true,
         arquivado: true, tipo: true, csatRespondidoEm: true,
@@ -1332,6 +1412,17 @@ export class HelpdeskService {
     }
 
     const updated = await prisma.helpdeskTicket.update({ where: { id }, data: patch })
+
+    // Serviço definido ou trocado: o checklist passa a existir aqui também, não
+    // só na criação. É o caminho do chamado que chega sem classificação (por
+    // e-mail, e do mobile) e do chamado antigo que o agente reclassifica.
+    // Depois do update de propósito — a execução é montada a partir do serviço
+    // JÁ gravado na linha, e não do que estava antes.
+    if (data.servicoId && data.servicoId !== before.servicoId) {
+      await this.criarExecucaoChecklist(id, userId).catch(e => {
+        console.warn('[Helpdesk] Checklist automático não criado na troca de serviço:', (e as Error).message)
+      })
+    }
 
     for (const ev of eventos) {
       await this.addEvento(id, userId, ev.tipo, ev.descricao, ev.metadata)

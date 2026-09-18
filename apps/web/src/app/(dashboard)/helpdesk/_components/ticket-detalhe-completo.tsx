@@ -442,16 +442,17 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
    * some da lista por continuar arquivado.
    */
   /**
-   * Inicia o checklist que a categoria sugere. O backend é idempotente: se já
-   * houver execução deste chamado, devolve a existente em vez de criar outra.
+   * Cria o checklist do serviço NESTE chamado. Hoje isso acontece sozinho, na
+   * criação do chamado e na troca de serviço; esta função ficou como recurso
+   * manual para chamado antigo, anterior ao início automático. O backend é
+   * idempotente: se já houver execução, devolve a existente.
    */
   async function handleIniciarChecklist() {
     if (!ticket?.checklist) return
     const ok = await alerts.confirm({
-      title: 'Iniciar o checklist?',
-      text: `"${ticket.checklist.servicoNome}" será iniciado neste chamado e passa a aparecer também em Meus Serviços. `
-        + 'Confira se o roteiro cabe neste caso — esta categoria atende mais de uma situação.',
-      confirmText: 'Iniciar',
+      title: 'Criar o checklist neste chamado?',
+      text: `"${ticket.checklist.servicoNome}" passa a aparecer também em Meus Serviços.`,
+      confirmText: 'Criar',
       icon: 'question',
     })
     if (!ok) return
@@ -1596,6 +1597,12 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                   Esta categoria de chamado não tem checklist vinculado.
                 </CardContent></Card>
               ) : !ticket.checklist.execucaoId ? (
+                /* Chamado com serviço já nasce com o checklist criado (ver
+                   criarExecucaoChecklist, chamado pelo create e pela troca de
+                   serviço no update). Cair aqui é o caso residual: chamado
+                   ANTERIOR a esse comportamento, ou criação automática que não
+                   completou. O botão existe só para destravar esses — não é
+                   mais um passo do fluxo normal. */
                 <Card><CardContent className="p-6 text-center space-y-3">
                   <ListChecks className="mx-auto h-8 w-8 text-muted-foreground/30" />
                   <p className="text-sm">
@@ -1603,16 +1610,16 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                     <span className="text-muted-foreground"> · {ticket.checklist.etapas} etapa(s)</span>
                   </p>
                   <p className="mx-auto max-w-sm text-[12px] text-muted-foreground">
-                    Iniciar cria a execução do roteiro e ela passa a aparecer também em Meus Serviços.
-                    Confira se o checklist cabe neste chamado antes — esta categoria atende mais de um caso.
+                    Este chamado é anterior ao início automático do checklist, então o roteiro
+                    ainda não foi criado aqui.
                   </p>
                   {podeAtuar ? (
-                    <Button size="sm" className="gap-1.5" onClick={handleIniciarChecklist} disabled={iniciandoChecklist}>
+                    <Button size="sm" variant="outline" className="gap-1.5" onClick={handleIniciarChecklist} disabled={iniciandoChecklist}>
                       {iniciandoChecklist ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ListChecks className="h-3.5 w-3.5" />}
-                      Iniciar checklist
+                      Criar checklist agora
                     </Button>
                   ) : (
-                    <p className="text-[11px] text-muted-foreground">Só agentes do HelpDesk podem iniciar o checklist.</p>
+                    <p className="text-[11px] text-muted-foreground">Só agentes do HelpDesk podem criar o checklist deste chamado.</p>
                   )}
                 </CardContent></Card>
               ) : (

@@ -8,6 +8,7 @@ import {
   Plus, Loader2, Search, AlertTriangle, MessageSquare,
   CheckCircle2, LayoutGrid, List as ListIcon, Inbox, Settings, Archive,
   Paperclip, Bot, BarChart3, XCircle, MoreVertical, ExternalLink, X, FilterX, SlidersHorizontal,
+  ListChecks,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors,
@@ -59,6 +60,12 @@ interface Ticket {
   capa: { id: string; fileName: string; fileUrl: string; mimeType: string | null } | null
   /** Solicitante mandou a última mensagem pública ⇒ card destacado (aguarda o agente). */
   aguardandoResposta?: boolean
+  /**
+   * Checklist do serviço vinculado ao chamado (#HLP0396). Nulo = chamado sem
+   * roteiro. Só a contagem: o card mostra o progresso, o conteúdo vive na aba
+   * Checklist do detalhe.
+   */
+  checklist?: { passosTotal: number; passosFechados: number } | null
   // Score da triagem IA (#HLP0083) — exibido como badge no card do kanban.
   // aiElegivel=true → atingiu o threshold (cor violeta), false → não elegível (cinza).
   aiScore?: number | null
@@ -1174,6 +1181,21 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
             {/* Score da triagem IA (#HLP0083). Violeta = atingiu threshold ou
                 tem plano; cinza = não-elegível. Tooltip via title detalha. */}
             {ticket.aiScore != null && <ScoreIaBadge ticket={ticket} />}
+            {/* Checklist vinculado (#HLP0396). O card mostra só o progresso —
+                o roteiro em si fica na aba Checklist do detalhe. Verde quando
+                fecha tudo, pra o quadro dizer "este já rodou" sem abrir. */}
+            {ticket.checklist && ticket.checklist.passosTotal > 0 && (
+              <span
+                className={cn(
+                  'inline-flex items-center gap-0.5 tabular-nums',
+                  ticket.checklist.passosFechados >= ticket.checklist.passosTotal && 'text-emerald-600 dark:text-emerald-400',
+                )}
+                title={`Checklist: ${ticket.checklist.passosFechados} de ${ticket.checklist.passosTotal} passo(s) concluído(s)`}
+              >
+                <ListChecks className="h-3.5 w-3.5" />
+                {ticket.checklist.passosFechados}/{ticket.checklist.passosTotal}
+              </span>
+            )}
             {ticket._count.anexos > 0 && (
               <span className="inline-flex items-center gap-0.5">
                 <Paperclip className="h-3.5 w-3.5" /> {ticket._count.anexos}
