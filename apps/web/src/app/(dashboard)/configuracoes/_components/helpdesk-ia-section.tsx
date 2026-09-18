@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { BADGE, TEXT, DOT, FILL } from '@/lib/color-styles'
+import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 import { MarkdownView } from '@/components/ui/markdown-view'
 
 interface Faixa { min: number; max: number | null; pontos: number }
@@ -408,20 +409,16 @@ export function HelpdeskIaSection() {
           <div className="rounded-lg border border-border p-3 bg-card">
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={estatisticas}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
                 <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
                 <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={v => `$${v.toFixed(2)}`} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
                 <Tooltip
-                  formatter={(value, name) => {
-                    if (name === 'totalUsd') return [`US$ ${Number(value).toFixed(4)}`, 'Gasto']
-                    if (name === 'tickets') return [value, 'Tickets']
-                    return [value, name]
-                  }}
-                  contentStyle={{ fontSize: 12 }}
+                  content={<ChartTooltip format={(value, name) => name === 'Gasto' ? `US$ ${Number(value).toFixed(4)}` : value} />}
+                  cursor={{ fill: CHART_CURSOR_FILL }}
                 />
-                <Bar yAxisId="left" dataKey="totalUsd" fill="#8b5cf6" name="totalUsd" radius={[4, 4, 0, 0]} />
-                <Bar yAxisId="right" dataKey="tickets" fill="#06b6d4" name="tickets" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="left" dataKey="totalUsd" fill="#8b5cf6" name="Gasto" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="right" dataKey="tickets" fill="#06b6d4" name="Tickets" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
             <div className="flex items-center gap-4 mt-2 text-[10px] text-muted-foreground justify-center">
