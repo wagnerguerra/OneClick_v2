@@ -1136,6 +1136,12 @@ export default function CrmPage() {
               <List className="h-4 w-4" />
             </button>
           </div>
+          {/* Cards fora do funil (arquivados + em Declinio). Sem gate de
+              permissão aqui: a tela é de leitura e o readProcedure do backend
+              já decide quem enxerga. */}
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/crm/arquivados')} title="Arquivados e declinados">
+            <Archive className="h-4 w-4" />
+          </Button>
           {canManageConfig && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
