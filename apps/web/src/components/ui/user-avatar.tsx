@@ -49,15 +49,26 @@ export function UserAvatar({ user, phone, className, bg = 'bg-slate-400', fg = '
   useEffect(() => { setImgError(false) }, [image])
 
   if (image && !imgError) {
-    // eslint-disable-next-line @next/next/no-img-element
+    // A CAIXA (span) carrega tamanho/forma via `className` e recorta em círculo —
+    // idêntica à do fallback de iniciais, que renderiza redonda. O <img> apenas
+    // preenche 100% da caixa (object-cover), com o tamanho FORÇADO por style
+    // inline (vence qualquer folha de estilo). Isso é imune ao quirk do Next em
+    // DEV, onde o Preflight do Tailwind (`img { height:auto; max-width:100% }`)
+    // pode vencer o utilitário `h-7` na cascata e a foto assumir a proporção
+    // natural (vira "pílula"); em prod as layers ficam certas e nunca acontece.
     return (
-      <img
-        src={resolveAssetUrl(image)}
-        alt={user?.name ?? ''}
+      <span
         title={title ?? user?.name ?? undefined}
-        className={cn('rounded-full object-cover', className)}
-        onError={() => setImgError(true)}
-      />
+        className={cn('rounded-full overflow-hidden shrink-0 inline-block', className)}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={resolveAssetUrl(image)}
+          alt={user?.name ?? ''}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          onError={() => setImgError(true)}
+        />
+      </span>
     )
   }
 
