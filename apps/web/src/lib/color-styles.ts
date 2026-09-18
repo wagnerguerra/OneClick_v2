@@ -145,9 +145,9 @@ export const TEXT: Record<ColorName, string> = {
  * `cn(SURFACE.sky, TEXT.sky)`. Se o texto é a própria cor da etiqueta, prefira `BADGE`.
  */
 export const SURFACE: Record<ColorName, string> = {
-  emerald: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800',
+  emerald: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800',
   rose: 'bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800',
-  amber: 'bg-amber-50 border-amber-200 dark:bg-amber-800/10 dark:border-amber-600/35',
+  amber: 'bg-amber-50 border-amber-200 dark:bg-amber-700/10 dark:border-amber-600/35',
   sky: 'bg-sky-50 border-sky-200 dark:bg-sky-950/30 dark:border-sky-800',
   indigo: 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800',
   lime: 'bg-lime-50 border-lime-200 dark:bg-lime-950/30 dark:border-lime-800',
@@ -156,7 +156,7 @@ export const SURFACE: Record<ColorName, string> = {
   teal: 'bg-teal-50 border-teal-200 dark:bg-teal-950/30 dark:border-teal-800',
   fuchsia: 'bg-fuchsia-50 border-fuchsia-200 dark:bg-fuchsia-950/30 dark:border-fuchsia-800',
   orange: 'bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-800',
-  blue: 'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800',
+  blue: 'bg-blue-100 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800',
   red: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800',
   purple: 'bg-purple-50 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800',
   slate: 'bg-slate-50 border-slate-200 dark:bg-slate-800/50 dark:border-slate-700',
