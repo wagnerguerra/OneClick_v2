@@ -528,8 +528,10 @@ export class AgendaDisparoService implements OnModuleInit {
 
     const renderCard = (ev: typeof corporativos[number]) => {
       const cor = ev.tipo.cor || '#0ea5e9'
+      // Cor de BORDA do tipo (acento mais forte) — vai na tira lateral do card, não o fundo.
+      const corBorda = ev.tipo.corBorda || cor
       const horarioBlock = ev.diaInteiro
-        ? '<span style="font-weight:700;color:#0ea5e9">Dia inteiro</span>'
+        ? '<span style="font-weight:700;color:#0f172a">Dia inteiro</span>'
         : `<div style="font-weight:700;font-size:14px;color:#0f172a;line-height:1.1" class="ev-time">${ev.horaInicio ?? ''}</div>
            <div style="font-weight:500;font-size:11px;color:#94a3b8;line-height:1;margin-top:2px" class="ev-time-end">${ev.horaFim ?? ''}</div>`
       const modalidadeLabel = ev.presenca === 'ONLINE' ? 'Online' : ev.presenca === 'HIBRIDO' ? 'Híbrido' : 'Presencial'
@@ -615,7 +617,7 @@ export class AgendaDisparoService implements OnModuleInit {
   <tr><td bgcolor="${molduraCor}" class="ev-border" style="background-color:${molduraCor};padding:${molduraPad};border-radius:10px">
     <table cellpadding="0" cellspacing="0" border="0" width="100%" class="ev-card" style="background:#ffffff;border-radius:9px;overflow:hidden">
       <tr>
-        <td width="4" bgcolor="${cor}" style="background-color:${cor};width:4px;padding:0;line-height:0;font-size:0">&nbsp;</td>
+        <td width="4" bgcolor="${corBorda}" style="background-color:${corBorda};width:4px;padding:0;line-height:0;font-size:0">&nbsp;</td>
         <td width="68" valign="middle" class="ev-time-cell" style="padding:14px 10px 14px 14px;text-align:center;border-right:1px solid #f1f5f9;vertical-align:middle;background:#f8fafc">
           ${horarioBlock}
         </td>
@@ -654,36 +656,13 @@ export class AgendaDisparoService implements OnModuleInit {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light dark">
-<meta name="supported-color-schemes" content="light dark">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
 <title>Agenda do dia · ${dataDisplay}</title>
 <style>
-  /* DARK MODE — adapta cores quando o cliente de email suportar prefers-color-scheme.
-     Apple Mail / Outlook 2019+ / iOS Mail respeitam. Gmail web (dark mode forçado)
-     faz inversão própria que geralmente fica decente porque mantemos fundos brancos
-     em containers chave. */
-  @media (prefers-color-scheme: dark) {
-    body, .bg-page { background: #0f172a !important; }
-    .card { background: #1e293b !important; border-color: rgba(255,255,255,0.08) !important; }
-    .brand-bar { background: #1e293b !important; border-color: rgba(255,255,255,0.08) !important; }
-    .brand-text { color: #f1f5f9 !important; }
-    .greeting-eyebrow { color: #94a3b8 !important; }
-    .ev-border { background-color: #334155 !important; }
-    .ev-card { background: #1e293b !important; }
-    .ev-time-cell { background: #0f172a !important; border-right-color: rgba(255,255,255,0.06) !important; }
-    .ev-time { color: #f1f5f9 !important; }
-    .ev-time-end { color: #64748b !important; }
-    .ev-title { color: #f1f5f9 !important; }
-    .ev-meta { color: #94a3b8 !important; }
-    .ev-section { border-color: rgba(255,255,255,0.08) !important; color: #94a3b8 !important; }
-    .ev-label { color: #cbd5e1 !important; }
-    .section-title { color: #f1f5f9 !important; }
-    .count-badge { background: rgba(255,255,255,0.08) !important; color: #cbd5e1 !important; }
-    .footer-text { color: #64748b !important; }
-    .total-text { color: #94a3b8 !important; }
-    .ev-chip { background: rgba(255,255,255,0.06) !important; color: #cbd5e1 !important; border-color: rgba(255,255,255,0.08) !important; }
-    .ev-creator { border-color: rgba(255,255,255,0.06) !important; color: #64748b !important; }
-  }
+  /* O email é SEMPRE claro (decisão do produto): não há bloco de dark adaptativo.
+     As metas color-scheme=light acima também sinalizam ao cliente para não
+     auto-inverter. (Antes havia um @media (prefers-color-scheme: dark) aqui.) */
   /* Reset Outlook */
   table { border-collapse: collapse; }
   img { -ms-interpolation-mode: bicubic; }
