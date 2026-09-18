@@ -668,7 +668,7 @@ export function SecaoComparar({ p, onIrParaConfigurar }: {
           {onIrParaConfigurar && (
             <Button
               type="button" variant="outline" size="sm"
-              className="mt-2 h-7 border-amber-300 bg-white/60 text-xs text-amber-900 hover:bg-white dark:border-amber-800 dark:bg-transparent dark:text-amber-300"
+              className="mt-2 h-7 border-amber-300 bg-white/60 text-xs text-amber-900 hover:bg-white dark:border-amber-800 dark:bg-transparent dark:text-amber-300 dark:hover:bg-amber-800/20"
               onClick={onIrParaConfigurar}
             >
               Preencher em Configurar
@@ -1293,7 +1293,7 @@ export function SecaoVisaoGeral({ p, cliente }: {
         </Button>
         <Button
           type="button" className="gap-2 text-white"
-          style={{ background: '#25D366' }}
+          style={{ background: '#1DA851' }}
           onClick={compartilhar}
         >
           <Share2 className="h-4 w-4" />Compartilhar no WhatsApp
