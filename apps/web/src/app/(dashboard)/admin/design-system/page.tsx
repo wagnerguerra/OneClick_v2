@@ -362,22 +362,31 @@ function ModuleColorsEditor() {
     setStatuses(prev => ({ ...prev, [slug]: s }))
   }
 
-  const MODULES: { slug: string; label: string; desc: string }[] = [
-    { slug: 'cadastros',     label: 'Cadastros',     desc: 'Verde — clientes, colaboradores, empresas' },
-    { slug: 'comercial',     label: 'Comercial',     desc: 'Rose — CRM, orçamentos, pipeline' },
-    { slug: 'corporativo',   label: 'Corporativo',   desc: 'Sky — TI, projetos, contratos' },
-    { slug: 'administrativo', label: 'Administrativo', desc: 'Sky claro — administrativo geral' },
-    { slug: 'legalizacao',   label: 'Legalização',   desc: 'Fuchsia — constituição, alterações' },
-    { slug: 'trabalhista',   label: 'Trabalhista',   desc: 'Lime — folha, holerites, eSocial' },
-    { slug: 'fiscal',        label: 'Fiscal',        desc: 'Indigo — CNDs, DCTFWeb, situação fiscal' },
-    { slug: 'contabil',      label: 'Contábil',      desc: 'Violet — balancetes, BI' },
-    { slug: 'ti',            label: 'TI',            desc: 'Cyan — ativos, helpdesk' },
-    { slug: 'qualidade',     label: 'Qualidade',     desc: 'Amber — não conformidades, melhorias' },
-    { slug: 'configuracoes', label: 'Configurações', desc: 'Orange — settings gerais' },
-    { slug: 'processos',     label: 'Processos',     desc: 'Violet — engine de processos' },
-    { slug: 'ajuda',         label: 'Ajuda',         desc: 'Cyan — cor da seção Ajuda/FAQ (var(--mod-ajuda))' },
-    { slug: 'perfil',        label: 'Perfil',        desc: 'Sky suave — perfil, usuário' },
-  ]
+  // A LISTA de módulos vem do DEFAULT_MODULE_COLORS (fonte canônica, em sync com o
+  // backend) — assim nunca falta nem sobra slug aqui (era hardcoded e tinha drift:
+  // sobrava 'processos', que nem é slug de cor, e faltava 'ferramentas'). Só o
+  // rótulo/descrição humanos ficam neste mapa; slug sem entrada cai num label = slug.
+  const MODULE_META: Record<string, { label: string; desc: string }> = {
+    cadastros:      { label: 'Cadastros',     desc: 'Verde — clientes, colaboradores, empresas' },
+    comercial:      { label: 'Comercial',     desc: 'Rose — CRM, orçamentos, pipeline' },
+    corporativo:    { label: 'Corporativo',   desc: 'Sky — TI, projetos, contratos' },
+    administrativo: { label: 'Administrativo', desc: 'Sky claro — administrativo geral' },
+    legalizacao:    { label: 'Legalização',   desc: 'Fuchsia — constituição, alterações' },
+    trabalhista:    { label: 'Trabalhista',   desc: 'Lime — folha, holerites, eSocial' },
+    fiscal:         { label: 'Fiscal',        desc: 'Indigo — CNDs, DCTFWeb, situação fiscal' },
+    contabil:       { label: 'Contábil',      desc: 'Violet — balancetes, BI' },
+    ferramentas:    { label: 'Ferramentas',   desc: 'Violet — ferramentas e utilitários do sistema' },
+    ti:             { label: 'TI',            desc: 'Cyan — ativos, helpdesk' },
+    qualidade:      { label: 'Qualidade',     desc: 'Amber — não conformidades, melhorias' },
+    configuracoes:  { label: 'Configurações', desc: 'Orange — settings gerais' },
+    ajuda:          { label: 'Ajuda',         desc: 'Cyan — cor da seção Ajuda/FAQ (var(--mod-ajuda))' },
+    perfil:         { label: 'Perfil',        desc: 'Sky suave — perfil, usuário' },
+  }
+  const MODULES: { slug: string; label: string; desc: string }[] = Object.keys(DEFAULT_MODULE_COLORS).map(slug => ({
+    slug,
+    label: MODULE_META[slug]?.label ?? slug,
+    desc: MODULE_META[slug]?.desc ?? '',
+  }))
 
   // Optimistic update — chamado a cada movimento do color picker.
   function handleInput(slug: string, label: string, color: string) {
