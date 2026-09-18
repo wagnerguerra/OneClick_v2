@@ -27,7 +27,7 @@ import {
   aplicarExemplos,
 } from './_lib/templates'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
+const MODULE_COLOR = 'var(--mod-ajuda, #0891b2)'
 
 // Empresa/logo de exemplo usados só no preview do sandbox.
 const PREVIEW_EMPRESA = 'Central Contábil'
@@ -130,7 +130,7 @@ export default function EmailTemplatesPage() {
       nome: 'Novo modelo',
       assunto: 'Assunto do e-mail',
       preheader: '',
-      accent: '#38bdf8',
+      accent: '#0891b2',
       heroTitle: 'Título de destaque',
       heroSubtitle: '',
       ctaLabel: '',
