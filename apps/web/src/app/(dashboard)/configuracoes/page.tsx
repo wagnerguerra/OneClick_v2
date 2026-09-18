@@ -1049,7 +1049,7 @@ export default function ConfiguracoesPage() {
 
                         {/* Resultado — Erro */}
                         {sqlResult[dbSubtab]?.error && (
-                          <div className={cn('rounded border px-3 py-2 text-xs font-mono whitespace-pre-wrap', BADGE.red)}>
+                          <div className={cn('min-w-0 rounded border px-3 py-2 text-xs font-mono whitespace-pre-wrap [overflow-wrap:anywhere]', BADGE.red)}>
                             {sqlResult[dbSubtab]!.error}
                           </div>
                         )}
