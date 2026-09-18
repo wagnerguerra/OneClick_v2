@@ -5,7 +5,7 @@ import { DollarSign, Receipt, Wallet, BarChart3, Info, Loader2, Search, Save } f
 import { Card, CardContent, Button, Input, Checkbox, cn, Dialog, DialogContent, DialogBody, DialogFooter, DialogClose, DialogTitle, DialogDescription } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, SURFACE, type ColorName } from '@/lib/color-styles'
 
 const MODULE_COLOR = 'var(--mod-contabil, #8b5cf6)'
 
@@ -58,8 +58,8 @@ interface KpiCardDef {
   label: string
   value: number
   icon: React.ElementType
-  color: string
-  bgColor: string
+  /** Cor de conceito do KPI (helper) — chip do ícone via SURFACE/TEXT, com par dark. */
+  tone: ColorName
   borderColor: string
   subtitle?: string
   negative?: boolean
@@ -79,8 +79,10 @@ function KpiCard({ def, onOpenDetail }: { def: KpiCardDef; onOpenDetail: (type: 
             {def.subtitle && <p className="text-[10px] text-muted-foreground">{def.subtitle}</p>}
           </div>
           <div className="flex flex-col items-center gap-2">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: def.bgColor }}>
-              <def.icon className="h-5 w-5" style={{ color: def.color }} />
+            {/* Chip: fundo via SURFACE (só a parte de bg, sem largura de borda) +
+                ícone via TEXT — ambos com par dark. */}
+            <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', SURFACE[def.tone])}>
+              <def.icon className={cn('h-5 w-5', TEXT[def.tone])} />
             </div>
             <button type="button" onClick={() => onOpenDetail(def.type)} className="text-muted-foreground hover:text-foreground transition-colors" title="Ver detalhes">
               <Info className="h-4 w-4" />
@@ -450,10 +452,10 @@ export function BiKpiCards({ data, loading, clienteId, ano, onKpisChanged }: BiK
   }
 
   const cards: KpiCardDef[] = [
-    { type: 'receita', label: 'Receita Bruta', value: data.receitaBruta, icon: DollarSign, color: '#059669', bgColor: '#ecfdf5', borderColor: '#10b981', subtitle: `Líquida: ${fmtCurrency(data.receitaLiquida)}` },
-    { type: 'custos_fixos', label: 'Custos Fixos', value: Math.abs(data.custosFixos), icon: Receipt, color: '#dc2626', bgColor: '#fef2f2', borderColor: '#ef4444', subtitle: `Lucro Bruto: ${fmtCurrency(data.lucroBruto)}` },
-    { type: 'despesas', label: 'Despesas', value: Math.abs(data.despesasOperacionais), icon: Wallet, color: '#d97706', bgColor: '#fffbeb', borderColor: '#f59e0b', subtitle: `EBITDA: ${fmtCurrency(data.ebitda)}` },
-    { type: 'lucro_liquido', label: 'Lucro Líquido', value: data.lucroLiquido, icon: BarChart3, color: MODULE_COLOR, bgColor: '#f5f3ff', borderColor: MODULE_COLOR, negative: true, subtitle: `Margem: ${fmtPercent(data.margemLiquida)}` },
+    { type: 'receita', label: 'Receita Bruta', value: data.receitaBruta, icon: DollarSign, tone: 'emerald', borderColor: '#10b981', subtitle: `Líquida: ${fmtCurrency(data.receitaLiquida)}` },
+    { type: 'custos_fixos', label: 'Custos Fixos', value: Math.abs(data.custosFixos), icon: Receipt, tone: 'red', borderColor: '#ef4444', subtitle: `Lucro Bruto: ${fmtCurrency(data.lucroBruto)}` },
+    { type: 'despesas', label: 'Despesas', value: Math.abs(data.despesasOperacionais), icon: Wallet, tone: 'amber', borderColor: '#f59e0b', subtitle: `EBITDA: ${fmtCurrency(data.ebitda)}` },
+    { type: 'lucro_liquido', label: 'Lucro Líquido', value: data.lucroLiquido, icon: BarChart3, tone: 'violet', borderColor: MODULE_COLOR, negative: true, subtitle: `Margem: ${fmtPercent(data.margemLiquida)}` },
   ]
 
   return (
