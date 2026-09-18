@@ -5211,7 +5211,28 @@ model Servico {
   itensComoSubservico OrcamentoItem[] @relation("ItemSubservico")
 
   // Categorias de chamado que usam este serviço como checklist sugerido.
+  // Legado: a categoria está sendo substituída pelo vínculo direto do chamado
+  // com o serviço (ticketsHelpdesk abaixo). Mantido enquanto houver chamado
+  // antigo apontando para categoria.
   categoriasHelpdesk HelpdeskCategoria[]
+
+  /**
+   * Tipos de chamado que este serviço atende (Incidente/Requisição/Dúvida/
+   * Melhoria). No HelpDesk o usuário escolhe o tipo e o seletor de serviço
+   * passa a listar só os que atendem aquele tipo.
+   *
+   * Lista, e não valor único: "Reset de senha" é Incidente para quem não
+   * consegue entrar e Requisição para quem quer trocar — o mesmo serviço
+   * serve aos dois, sem precisar de cadastro duplicado.
+   *
+   * Array de enum em vez de tabela de junção: são quatro valores fixos, e o
+   * Postgres suporta array de enum nativamente. Vazio = não aparece em
+   * nenhum filtro de tipo.
+   */
+  helpdeskTipos HelpdeskTipo[] @default([]) @map("helpdesk_tipos")
+
+  // Chamados que apontam este serviço (substitui o vínculo por categoria).
+  ticketsHelpdesk HelpdeskTicket[] @relation("HelpdeskTicketServico")
 
   @@index([areaId])
   @@index([categoriaServico])
@@ -7050,8 +7071,17 @@ model HelpdeskTicket {
   responsavelId String? @map("responsavel_id")
 
   // Categorização
+  /**
+   * Serviço interno da TI que classifica o chamado. Substitui a categoria:
+   * dele saem a área (roteamento), o SLA e o checklist executável.
+   *
+   * `categoriaId` abaixo fica como HISTÓRICO — os 364 chamados existentes
+   * apontam para categorias, e o app mobile ainda envia esse campo. Chamado
+   * novo pelo web grava `servicoId`; nada é migrado nem apagado.
+   */
+  servicoId   String? @map("servico_id")
   categoriaId String? @map("categoria_id")
-  areaId      String? @map("area_id") // herda da categoria, mas pode ser overridden
+  areaId      String? @map("area_id") // herda do serviço (antes: da categoria), mas pode ser overridden
 
   // Vínculo opcional com um ativo (TI). Quando setado, a página do ativo
   // mostra os tickets relacionados e a página do ticket exibe histórico
@@ -7106,6 +7136,7 @@ model HelpdeskTicket {
 
   solicitante User?                @relation("HelpdeskTicketSolicitante", fields: [solicitanteId], references: [id], onDelete: SetNull)
   responsavel User?                @relation("HelpdeskTicketResponsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
+  servico     Servico?             @relation("HelpdeskTicketServico", fields: [servicoId], references: [id], onDelete: SetNull)
   categoria   HelpdeskCategoria?   @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
   area        Area?                @relation(fields: [areaId], references: [id], onDelete: SetNull)
   empresa     Empresa?             @relation(fields: [empresaId], references: [id], onDelete: SetNull)
@@ -7123,6 +7154,8 @@ model HelpdeskTicket {
   @@index([solicitanteId])
   @@index([prazoSla])
   @@index([ativoId])
+  // Agrupamento dos indicadores por serviço (substitui o por categoria).
+  @@index([servicoId])
   @@map("helpdesk_tickets")
 }
 

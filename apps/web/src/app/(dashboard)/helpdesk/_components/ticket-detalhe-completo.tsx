@@ -146,6 +146,13 @@ interface Ticket {
     passosTotal: number
     passosFechados: number
   } | null
+  /** Serviço interno da TI que classifica o chamado (substituiu a categoria). */
+  servico?: {
+    id: string
+    nome: string
+    helpdeskTipos?: string[]
+    area: { id: string; name: string } | null
+  } | null
 }
 
 // Cores de status: fonte única em _lib/status-styles.
@@ -206,8 +213,10 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
   // Sidebar — edição inline
   const [savingField, setSavingField] = useState<string | null>(null)
   const [agentes, setAgentes] = useState<Array<{ id: string; name: string; image: string | null; areaName: string | null }>>([])
-  // Catálogo de categorias (pra reclassificar o ticket pela sidebar).
-  const [categorias, setCategorias] = useState<Array<{ id: string; nome: string; cor: string | null; parent: { id: string; nome: string } | null }>>([])
+  // Catálogo de serviços internos da TI (pra reclassificar o ticket pela
+  // sidebar). Substituiu o de categorias; a lista é filtrada pelo tipo do
+  // chamado, igual ao formulário de abertura.
+  const [servicosChamado, setServicosChamado] = useState<Array<{ id: string; nome: string; temChecklist: boolean }>>([])
 
   // Quem pode atuar (mover status, trocar prioridade, atribuir responsável):
   // mesma regra de /helpdesk → probeAtuarAgente. Colaborador (incluindo
@@ -322,11 +331,15 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
   }, [ticket])
 
   // Carrega o catálogo de categorias uma vez (pra reclassificação).
+  // Recarrega quando o tipo do chamado muda: o seletor de serviço só deve
+  // oferecer os que atendem aquele tipo. Sem o tipo nas dependências, trocar
+  // Incidente→Dúvida deixaria a lista velha na tela.
   useEffect(() => {
-    ;(trpc.helpdesk as any).listCategorias.query()
-      .then((data: typeof categorias) => setCategorias(data || []))
-      .catch(() => setCategorias([]))
-  }, [])
+    const tipo = ticket?.tipo
+    ;(trpc.helpdesk as any).listServicosChamado.query(tipo ? { tipo } : undefined)
+      .then((data: typeof servicosChamado) => setServicosChamado(data || []))
+      .catch(() => setServicosChamado([]))
+  }, [ticket?.tipo])
 
   async function patch(data: Record<string, unknown>, field: string) {
     setSavingField(field)
@@ -1732,29 +1745,42 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                   )}
                 </SideField>
 
-                <SideField label="Categoria" icon={Tag}>
+                {/* Serviço — substituiu a Categoria. Dele saem a área, o SLA e
+                    o checklist. A lista é filtrada pelo tipo do chamado. */}
+                <SideField label="Serviço" icon={Tag}>
                   {!podeAtuar ? (
-                    <p className="text-xs">{ticket.categoria ? `${ticket.categoria.parent ? ticket.categoria.parent.nome + ' › ' : ''}${ticket.categoria.nome}` : <span className="text-muted-foreground italic">—</span>}</p>
-                  ) : savingField === 'categoria' ? (
+                    <p className="text-xs">{ticket.servico?.nome ?? <span className="text-muted-foreground italic">—</span>}</p>
+                  ) : savingField === 'servico' ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   ) : (
                     <Select
-                      value={ticket.categoria?.id ?? '__null__'}
+                      value={ticket.servico?.id ?? '__null__'}
                       disabled={congelado}
-                      onValueChange={v => patch({ categoriaId: v === '__null__' ? null : v }, 'categoria')}
+                      onValueChange={v => patch({ servicoId: v === '__null__' ? null : v }, 'servico')}
                     >
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sem categoria" /></SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sem serviço" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__null__">— Sem categoria</SelectItem>
-                        {categorias.map(c => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.parent ? `${c.parent.nome} › ${c.nome}` : c.nome}
+                        <SelectItem value="__null__">— Sem serviço</SelectItem>
+                        {servicosChamado.map(s => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.nome}{s.temChecklist ? '' : ' (sem checklist)'}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   )}
                 </SideField>
+
+                {/* Categoria antiga — só leitura, e só quando existe. Os 364
+                    chamados anteriores à conversão mantêm a sua, e o app mobile
+                    continua abrindo chamado por categoria. */}
+                {ticket.categoria && (
+                  <SideField label="Categoria (legado)" icon={Tag}>
+                    <p className="text-xs text-muted-foreground">
+                      {ticket.categoria.parent ? `${ticket.categoria.parent.nome} › ` : ''}{ticket.categoria.nome}
+                    </p>
+                  </SideField>
+                )}
 
                 {ticket.area && (
                   <SideField label="Área" icon={Building2}>

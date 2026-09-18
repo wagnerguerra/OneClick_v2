@@ -4,7 +4,7 @@ import { router, readProcedure, writeProcedure, protectedProcedure } from '../tr
 import {
   createTicketSchema, updateTicketSchema, listTicketSchema,
   addMensagemSchema, editMensagemSchema, deleteMensagemSchema,
-  csatSchema, HELPDESK_STATUS,
+  csatSchema, HELPDESK_STATUS, HELPDESK_TIPO,
 } from '@saas/types'
 import { prisma } from '@saas/db'
 import { HelpdeskService } from './helpdesk.service'
@@ -14,9 +14,19 @@ const MODULE = 'helpdesk'
 
 export function createHelpdeskRouter(helpdeskService: HelpdeskService, aiAgent: HelpdeskAiAgentService) {
   return router({
-    // ── Catálogo de categorias ─────────────────────────────────
+    // ── Catálogo de categorias (legado) ────────────────────────
+    // Mantido porque o app mobile ainda abre chamado por categoria.
     listCategorias: protectedProcedure
       .query(({ ctx }) => helpdeskService.listCategorias(ctx.empresaId ?? null)),
+
+    /**
+     * Catálogo novo: serviços internos da TI que classificam o chamado.
+     * `tipo` filtra pelos serviços que atendem aquele tipo de chamado — é o
+     * que faz o seletor mudar quando o usuário troca Incidente/Dúvida/etc.
+     */
+    listServicosChamado: protectedProcedure
+      .input(z.object({ tipo: z.enum(HELPDESK_TIPO).optional() }).optional())
+      .query(({ input, ctx }) => helpdeskService.listServicosChamado(ctx.empresaId ?? null, input?.tipo)),
 
     // Probe: detecta canRead (agente) — usado pra mostrar painel /helpdesk
     probeAccess: readProcedure(MODULE)

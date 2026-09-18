@@ -22,6 +22,7 @@ import {
   helpdeskStatusRank,
   helpdeskPodeArquivar,
   HELPDESK_STATUS_LABELS,
+  type HelpdeskTipo,
 } from '@saas/types'
 import { NotificationService } from '../notification/notification.service'
 import { EmailService } from '../common/email.service'
@@ -59,9 +60,18 @@ export class HelpdeskService {
   private async calcularPrazoSla(
     prioridade: HelpdeskPrioridade,
     categoriaId: string | null | undefined,
+    servicoId?: string | null,
   ): Promise<Date> {
     let horas = HELPDESK_SLA_PADRAO_HORAS[prioridade]
-    if (categoriaId) {
+    // Serviço tem precedência sobre categoria: é a classificação nova, e a
+    // categoria só sobrevive para chamado antigo e para o mobile.
+    if (servicoId) {
+      const svc = await prisma.servico.findUnique({
+        where: { id: servicoId },
+        select: { slaHoras: true },
+      })
+      if (svc?.slaHoras) horas = svc.slaHoras
+    } else if (categoriaId) {
       const cat = await prisma.helpdeskCategoria.findUnique({
         where: { id: categoriaId },
         select: { slaPadraoHoras: true },
@@ -377,12 +387,70 @@ export class HelpdeskService {
     })
   }
 
+  /**
+   * Catálogo de classificação do chamado: serviços internos da TI.
+   *
+   * Substitui `listCategorias`. Do serviço escolhido saem a área (roteamento),
+   * o SLA e o checklist executável — três coisas que antes vinham da categoria.
+   *
+   * `tipo` filtra pelos serviços que atendem aquele tipo de chamado, que é o
+   * que faz o seletor mudar quando o usuário troca Incidente/Dúvida/etc.
+   * Serviço sem tipo algum não aparece em filtro de tipo — mas aparece na lista
+   * sem filtro, para não desaparecer do cadastro antes de alguém classificá-lo.
+   *
+   * Devolve todos os internos, marcando quais ainda não têm checklist
+   * (decisão do Wagner): dos 38 internos da TI hoje, só 1 tem etapas. Esconder
+   * os demais deixaria o seletor praticamente vazio e o chamado sem
+   * classificação; marcá-los deixa explícito o que a TI precisa cadastrar.
+   *
+   * Raw porque `helpdesk_tipos` é coluna nova e o client Prisma local fica
+   * stale (lock de DLL no Windows) — mesmo motivo do raw no orcamento.service.
+   */
+  async listServicosChamado(empresaId?: string | null, tipo?: HelpdeskTipo) {
+    type Row = {
+      id: string; nome: string; areaId: string | null; areaNome: string | null
+      slaHoras: number | null; etapas: number; tipos: string[] | null
+    }
+    const rows = await prisma.$queryRawUnsafe<Row[]>(
+      `SELECT s.id, s.nome, s.area_id AS "areaId", a.name AS "areaNome", s.sla_horas AS "slaHoras",
+              (SELECT COUNT(*)::int FROM servico_etapas e WHERE e.servico_id = s.id) AS etapas,
+              s.helpdesk_tipos::text[] AS tipos
+         FROM servicos s
+         LEFT JOIN areas a ON a.id = s.area_id
+        WHERE s.ativo
+          AND s.eh_servico_interno = true
+          AND ($1::text IS NULL OR $1 = ANY(s.helpdesk_tipos::text[]))
+          AND (s.empresa_id IS NULL OR s.empresa_id = $2 OR $2::text IS NULL)
+        ORDER BY a.name NULLS LAST, s.nome`,
+      tipo ?? null, empresaId ?? null,
+    ).catch(() => [] as Row[])
+    return rows.map(r => ({
+      id: r.id,
+      nome: r.nome,
+      area: r.areaId ? { id: r.areaId, name: r.areaNome ?? '' } : null,
+      slaHoras: r.slaHoras,
+      temChecklist: (r.etapas ?? 0) > 0,
+      etapas: r.etapas ?? 0,
+      tipos: r.tipos ?? [],
+    }))
+  }
+
   // ── CRUD: Tickets ──────────────────────────────────────────────
 
   async create(input: CreateTicketInput, userId: string, empresaId?: string | null) {
-    // Resolve categoria → área (roteamento)
+    // Roteamento de área: vem do SERVIÇO agora; categoria é o fallback, porque
+    // o app mobile ainda envia categoriaId e os chamados por e-mail não enviam
+    // nenhum dos dois. Chamado sem área fica visível só para master/admin — é
+    // o efeito que o próprio processarInbound documenta —, então errar aqui é
+    // sumir com o chamado da fila da equipe, sem erro nenhum na tela.
     let areaId: string | null = null
-    if (input.categoriaId) {
+    if (input.servicoId) {
+      const svc = await prisma.servico.findUnique({
+        where: { id: input.servicoId },
+        select: { areaId: true },
+      })
+      areaId = svc?.areaId ?? null
+    } else if (input.categoriaId) {
       const cat = await prisma.helpdeskCategoria.findUnique({
         where: { id: input.categoriaId },
         select: { areaId: true },
@@ -390,7 +458,7 @@ export class HelpdeskService {
       areaId = cat?.areaId ?? null
     }
 
-    const prazoSla = await this.calcularPrazoSla(input.prioridade, input.categoriaId)
+    const prazoSla = await this.calcularPrazoSla(input.prioridade, input.categoriaId, input.servicoId)
 
     const ticket = await prisma.helpdeskTicket.create({
       data: {
@@ -399,6 +467,7 @@ export class HelpdeskService {
         tipo: input.tipo,
         prioridade: input.prioridade,
         status: 'NOVO',
+        servicoId: input.servicoId || null,
         categoriaId: input.categoriaId || null,
         areaId,
         tags: input.tags ?? [],
@@ -593,6 +662,9 @@ export class HelpdeskService {
       include: {
         solicitante: { select: { id: true, name: true, email: true, image: true } },
         responsavel: { select: { id: true, name: true, email: true, image: true } },
+        // Serviço é a classificação nova; categoria segue no payload como
+        // histórico (chamado antigo e o que vem do mobile).
+        servico: { select: { id: true, nome: true, helpdeskTipos: true, area: { select: { id: true, name: true } } } },
         categoria: { include: { parent: { select: { id: true, nome: true } } } },
         area: { select: { id: true, name: true } },
         watchers: {
@@ -673,10 +745,12 @@ export class HelpdeskService {
                   AND (p.concluido OR p.ignorado))                                                   AS "passosFechados"
          FROM helpdesk_tickets t
          LEFT JOIN helpdesk_categorias c ON c.id = t.categoria_id
-         -- Serviço vem da categoria; se já há execução, dela (a categoria pode
-         -- ter sido trocada depois de o checklist começar).
+         -- Ordem de precedência do serviço: a execução em andamento (a
+         -- classificação pode ter sido trocada depois de o checklist começar),
+         -- depois o serviço do próprio chamado, e por último a categoria —
+         -- fallback para chamado antigo e para o que vem do mobile.
          LEFT JOIN servico_execucoes e ON e.ticket_id = t.id
-         LEFT JOIN servicos s ON s.id = COALESCE(e.servico_id, c.servico_id)
+         LEFT JOIN servicos s ON s.id = COALESCE(e.servico_id, t.servico_id, c.servico_id)
         WHERE t.id = $1
         ORDER BY e.iniciado_em DESC NULLS LAST
         LIMIT 1`, id,
@@ -720,7 +794,7 @@ export class HelpdeskService {
     }
     const ticket = await prisma.helpdeskTicket.findUnique({
       where: { id: ticketId },
-      select: { id: true, numero: true, titulo: true, categoriaId: true, empresaId: true, status: true, arquivado: true },
+      select: { id: true, numero: true, titulo: true, servicoId: true, categoriaId: true, empresaId: true, status: true, arquivado: true },
     })
     if (!ticket) throw new Error('Chamado não encontrado')
     if (ticket.arquivado) throw new Error('Chamado arquivado — desarquive antes de iniciar o checklist.')
@@ -732,17 +806,23 @@ export class HelpdeskService {
     ).catch(() => [] as Array<{ id: string }>)
     if (jaExiste[0]) return { execucaoId: jaExiste[0].id, criada: false }
 
-    if (!ticket.categoriaId) throw new Error('Chamado sem categoria — defina a categoria para o sistema saber qual checklist usar.')
+    // O serviço vem do próprio chamado agora. A categoria segue como fallback
+    // para chamado antigo e para o que o mobile abre — ela aponta um serviço
+    // pela coluna servico_id.
+    if (!ticket.servicoId && !ticket.categoriaId) {
+      throw new Error('Chamado sem serviço — defina o serviço para o sistema saber qual checklist usar.')
+    }
     const catRows = await prisma.$queryRawUnsafe<Array<{ servicoId: string | null; servicoNome: string | null; etapas: number }>>(
-      `SELECT c.servico_id AS "servicoId", s.nome AS "servicoNome",
+      `SELECT s.id AS "servicoId", s.nome AS "servicoNome",
               (SELECT COUNT(*)::int FROM servico_etapas e WHERE e.servico_id = s.id) AS etapas
-         FROM helpdesk_categorias c
-         LEFT JOIN servicos s ON s.id = c.servico_id AND s.ativo
-        WHERE c.id = $1`, ticket.categoriaId,
+         FROM helpdesk_tickets t
+         LEFT JOIN helpdesk_categorias c ON c.id = t.categoria_id
+         LEFT JOIN servicos s ON s.id = COALESCE(t.servico_id, c.servico_id) AND s.ativo
+        WHERE t.id = $1`, ticketId,
     ).catch(() => [] as Array<{ servicoId: string | null; servicoNome: string | null; etapas: number }>)
     const cat = catRows[0]
     if (!cat?.servicoId || !cat.servicoNome) {
-      throw new Error('Esta categoria de chamado ainda não tem checklist vinculado.')
+      throw new Error('O serviço deste chamado não foi encontrado ou está inativo.')
     }
     // Serviço sem etapas geraria execução vazia — e há 37 serviços internos
     // nessa situação na base (cascas criadas espelhando as categorias).
@@ -820,6 +900,7 @@ export class HelpdeskService {
         include: {
           solicitante: { select: { id: true, name: true, image: true } },
           responsavel: { select: { id: true, name: true, image: true } },
+          servico: { select: { id: true, nome: true } },
           categoria: { select: { id: true, nome: true, cor: true } },
           area: { select: { id: true, name: true } },
           _count: { select: { mensagens: true, anexos: true } },
@@ -1069,10 +1150,41 @@ export class HelpdeskService {
       if (!podeCom('change_prioridade')) throw new Error('Você não tem permissão para alterar a prioridade')
       patch.prioridade = data.prioridade
       // Recalcula SLA se ainda está em aberto
-      patch.prazoSla = await this.calcularPrazoSla(data.prioridade, data.categoriaId ?? before.categoriaId)
+      patch.prazoSla = await this.calcularPrazoSla(
+        data.prioridade,
+        data.categoriaId ?? before.categoriaId,
+        data.servicoId ?? before.servicoId,
+      )
       eventos.push({
         tipo: 'prioridade_alterada',
         descricao: `Prioridade: ${before.prioridade} → ${data.prioridade}`,
+      })
+    }
+
+    if (data.servicoId !== undefined && data.servicoId !== before.servicoId) {
+      if (!ehAgente) throw new Error('Só um agente da TI pode alterar o serviço do ticket')
+      patch.servicoId = data.servicoId
+      let nomeServico: string | null = null
+      if (data.servicoId) {
+        const svc = await prisma.servico.findUnique({
+          where: { id: data.servicoId },
+          select: { nome: true, areaId: true, slaHoras: true },
+        })
+        nomeServico = svc?.nome ?? null
+        // Re-roteia a área junto, como a categoria fazia.
+        if (svc?.areaId && !data.areaId) patch.areaId = svc.areaId
+        // O prazo também acompanha. Antes, trocar só a classificação NÃO
+        // recalculava o SLA — o prazo continuava o da classificação antiga,
+        // silenciosamente. Só recalcula se o usuário não mexeu no prazo à mão
+        // e se a prioridade não foi trocada no mesmo update (esse branch já
+        // recalculou acima).
+        if (data.prazoSla === undefined && data.prioridade === undefined) {
+          patch.prazoSla = await this.calcularPrazoSla(before.prioridade, null, data.servicoId)
+        }
+      }
+      eventos.push({
+        tipo: 'servico_alterado',
+        descricao: nomeServico ? `Serviço: ${nomeServico}` : 'Serviço removido',
       })
     }
 
@@ -2583,16 +2695,18 @@ export class HelpdeskService {
       .map(([periodo, v]) => ({ periodo, ...v }))
       .sort((a, b) => a.periodo.localeCompare(b.periodo))
 
-    // ── Relatório por categoria (volume + %) ──────────────────────
+    // ── Relatório por serviço (volume + %) ────────────────────────
+    // Era por categoria. O serviço é a classificação nova; chamado antigo (e o
+    // que vem do mobile) não tem serviço e cai em "Sem serviço".
     const porCategoria = await prisma.helpdeskTicket.groupBy({
-      by: ['categoriaId'],
+      by: ['servicoId'],
       where: criadosNoPeriodo,
       _count: { _all: true },
-      orderBy: { _count: { categoriaId: 'desc' } },
+      orderBy: { _count: { servicoId: 'desc' } },
     })
-    const catIds = porCategoria.map(c => c.categoriaId).filter((c): c is string => !!c)
+    const catIds = porCategoria.map(c => c.servicoId).filter((c): c is string => !!c)
     const catNames = catIds.length > 0
-      ? await prisma.helpdeskCategoria.findMany({ where: { id: { in: catIds } }, select: { id: true, nome: true, cor: true } })
+      ? await prisma.servico.findMany({ where: { id: { in: catIds } }, select: { id: true, nome: true } })
       : []
     const catMap = new Map(catNames.map(c => [c.id, c]))
 
@@ -2666,6 +2780,7 @@ export class HelpdeskService {
         id: true, numero: true, titulo: true, prioridade: true, status: true,
         prazoSla: true, createdAt: true,
         responsavel: { select: { name: true } },
+        servico: { select: { nome: true } },
         categoria: { select: { nome: true, cor: true } },
       },
       orderBy: { prazoSla: 'asc' },
@@ -2693,12 +2808,15 @@ export class HelpdeskService {
       porTipo: porTipoRaw.map(t => ({ tipo: t.tipo, total: t._count._all })),
       csatDist: [1, 2, 3, 4, 5].map(n => ({ nota: n, total: csatDist[n] ?? 0 })),
       serie,
+      // Nome da chave mantido (`porCategoria`) para não quebrar o app mobile,
+      // que consome este payload. O conteúdo agora é por serviço; `cor` vem
+      // nula porque Servico não tem campo de cor — a tela usa a do módulo.
       porCategoria: porCategoria.map(c => {
-        const cat = c.categoriaId ? catMap.get(c.categoriaId) : null
+        const cat = c.servicoId ? catMap.get(c.servicoId) : null
         return {
-          id: c.categoriaId,
-          nome: cat?.nome ?? 'Sem categoria',
-          cor: cat?.cor ?? null,
+          id: c.servicoId,
+          nome: cat?.nome ?? 'Sem serviço',
+          cor: null as string | null,
           total: c._count._all,
           pct: criados > 0 ? Math.round((c._count._all / criados) * 100) : 0,
         }
@@ -2713,7 +2831,12 @@ export class HelpdeskService {
         prazoSla: t.prazoSla?.toISOString() ?? null,
         createdAt: t.createdAt.toISOString(),
         responsavel: t.responsavel?.name ?? null,
-        categoria: t.categoria ? { nome: t.categoria.nome, cor: t.categoria.cor } : null,
+        // Chave mantida (`categoria`) para não quebrar o app mobile, que lê
+        // este payload; o conteúdo agora é o serviço do chamado, com fallback
+        // na categoria antiga enquanto houver chamado não classificado.
+        categoria: t.servico
+          ? { nome: t.servico.nome, cor: null as string | null }
+          : t.categoria ? { nome: t.categoria.nome, cor: t.categoria.cor } : null,
       })),
     }
   }

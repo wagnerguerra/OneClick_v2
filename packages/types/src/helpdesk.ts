@@ -145,6 +145,12 @@ export const createTicketSchema = z.object({
   descricao: z.string().min(1, 'Descrição é obrigatória'),
   tipo: z.enum(HELPDESK_TIPO).default('INCIDENTE'),
   prioridade: z.enum(HELPDESK_PRIORIDADE).default('MEDIA'),
+  /** Serviço interno da TI — de onde saem área, SLA e checklist. */
+  servicoId: z.string().optional().nullable(),
+  /**
+   * Legado, mantido no contrato: o app mobile ainda envia categoria e os
+   * chamados antigos apontam para ela. Não remover sem publicar o mobile.
+   */
   categoriaId: z.string().optional().nullable(),
   tags: z.array(z.string()).optional().default([]),
 })
@@ -156,6 +162,7 @@ export const updateTicketSchema = z.object({
   tipo: z.enum(HELPDESK_TIPO).optional(),
   prioridade: z.enum(HELPDESK_PRIORIDADE).optional(),
   status: z.enum(HELPDESK_STATUS).optional(),
+  servicoId: z.string().nullable().optional(),
   categoriaId: z.string().nullable().optional(),
   areaId: z.string().nullable().optional(),
   responsavelId: z.string().nullable().optional(),
@@ -169,6 +176,7 @@ export const listTicketSchema = z.object({
   scope: z.enum(['MEUS', 'AREA', 'TODOS']).default('MEUS'),
   status: z.array(z.enum(HELPDESK_STATUS)).optional(),
   prioridade: z.array(z.enum(HELPDESK_PRIORIDADE)).optional(),
+  servicoId: z.string().optional(),
   categoriaId: z.string().optional(),
   responsavelId: z.string().optional(),
   solicitanteId: z.string().optional(),

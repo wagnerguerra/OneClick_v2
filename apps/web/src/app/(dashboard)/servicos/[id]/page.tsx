@@ -32,6 +32,9 @@ import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
+// Rótulos dos tipos de chamado — serviço interno declara quais atende, e o
+// seletor de serviço do HelpDesk filtra por isso.
+import { HELPDESK_TIPO_LABELS } from '@saas/types'
 import { FluxoEditor, type FluxoNode, type FluxoEdge } from './_components/fluxo-editor'
 import { FluxoAssistant } from './_components/fluxo-assistant'
 import { MateriaisSection, type Material } from './_components/materiais-section'
@@ -330,6 +333,13 @@ export default function ServicoDetailPage() {
   /** Serviço de execução exclusivamente interna — não aparece no catálogo do orçamento.
    *  Mutuamente exclusivo com Recorrente/Extra/Fluxo (no UI é a 4ª pill do "Tipo de cadastro"). */
   const [ehServicoInterno, setEhServicoInterno] = useState(false)
+  /**
+   * Tipos de chamado do HelpDesk que este serviço atende. No formulário de
+   * abertura, escolher o tipo filtra o seletor de serviço por esta lista —
+   * serviço sem nenhum tipo marcado não aparece em filtro de tipo algum.
+   * Só faz sentido em serviço interno, que é o que classifica chamado.
+   */
+  const [helpdeskTipos, setHelpdeskTipos] = useState<string[]>([])
   /** Quando true, o registro é template de Obrigação Acessória — define o destino do botão "voltar". */
   const [ehObrigacaoAcessoria, setEhObrigacaoAcessoria] = useState(false)
   /** Quando categoriaServico=FLUXO, aponta pro serviço top-level dono do fluxo.
@@ -434,6 +444,7 @@ export default function ServicoDetailPage() {
         ?? (s.recorrenteMensal === true ? 'MENSAL' : 'EXTRA')
       setCategoriaServico(cat)
       setEhServicoInterno((s as any).ehServicoInterno === true)
+      setHelpdeskTipos(Array.isArray((s as any).helpdeskTipos) ? (s as any).helpdeskTipos : [])
       setEhObrigacaoAcessoria((s as any).ehObrigacaoAcessoria === true)
       setTipoNo((s as any).tipo === 'PERGUNTA' ? 'PERGUNTA' : 'ATIVIDADE')
       setServicoPaiId(s.servicoPaiId ?? '')
@@ -684,6 +695,9 @@ export default function ServicoDetailPage() {
           // Interno, Acessória e Fluxo forçam fora-do-catálogo; nas demais respeitam o toggle.
           disponivelOrcamento: ehServicoInterno || ehObrigacaoAcessoria || categoriaServico === 'FLUXO' ? false : disponivelOrcamento,
           ehServicoInterno,
+          // Só serviço interno classifica chamado; nos demais vai vazio para
+          // não deixar vínculo pendurado num serviço que saiu do HelpDesk.
+          helpdeskTipos: ehServicoInterno ? helpdeskTipos : [],
           ehObrigacaoAcessoria,
           recorrenteMensal: tipoNo === 'PERGUNTA' ? false : categoriaServico === 'MENSAL',
           categoriaServico,
@@ -1421,11 +1435,15 @@ export default function ServicoDetailPage() {
                                     setCategoriaServico('MENSAL')
                                     setDisponivelOrcamento(false)
                                     setServicoPaiId('')
+                                    setHelpdeskTipos([])
                                   } else {
                                     setTipoNo('ATIVIDADE')
                                     setEhServicoInterno(false)
                                     setEhObrigacaoAcessoria(false)
                                     setCategoriaServico(opt.v)
+                                    // Deixou de ser interno: os tipos de chamado
+                                    // não se aplicam mais.
+                                    setHelpdeskTipos([])
                                   }
                                 }}
                                 className={cn(
@@ -1442,6 +1460,45 @@ export default function ServicoDetailPage() {
                             )
                           })}
                         </div>
+                        {/* Tipos de chamado atendidos — só para serviço interno,
+                            que é o que classifica chamado no HelpDesk. Ao abrir
+                            um chamado, escolher o tipo filtra o seletor de
+                            serviço por esta lista. Vazio = não aparece em
+                            filtro de tipo nenhum. */}
+                        {ehServicoInterno && (
+                          <div className="pt-2">
+                            <Label className="text-[13px] font-semibold mb-1.5 block">
+                              Atende quais tipos de chamado?
+                            </Label>
+                            <div className="flex flex-wrap gap-2">
+                              {(Object.entries(HELPDESK_TIPO_LABELS) as Array<[string, string]>).map(([valor, rotulo]) => {
+                                const marcado = helpdeskTipos.includes(valor)
+                                return (
+                                  <button
+                                    key={valor}
+                                    type="button"
+                                    onClick={() => setHelpdeskTipos(atual => (
+                                      atual.includes(valor) ? atual.filter(t => t !== valor) : [...atual, valor]
+                                    ))}
+                                    className={cn(
+                                      'rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
+                                      marcado
+                                        ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300'
+                                        : 'border-border/60 text-muted-foreground hover:border-cyan-300',
+                                    )}
+                                  >
+                                    {rotulo}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                            <p className="mt-1.5 text-[11px] text-muted-foreground">
+                              {helpdeskTipos.length === 0
+                                ? 'Sem tipo marcado, este serviço não aparece no seletor do chamado.'
+                                : 'O serviço aparece no seletor quando o chamado for de um destes tipos.'}
+                            </p>
+                          </div>
+                        )}
                         {categoriaServico === 'FLUXO' && (
                           <div className="pt-2">
                             <Label className="text-[13px] font-semibold mb-1.5 block">
