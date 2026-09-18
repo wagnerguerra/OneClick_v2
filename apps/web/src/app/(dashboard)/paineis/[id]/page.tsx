@@ -287,7 +287,7 @@ export default function PainelEditorPage() {
             {blocoModal.open ? (
               <div className="absolute inset-0 flex items-center justify-center text-white/45 text-sm">Preview pausado durante a edição…</div>
             ) : (
-              <iframe key={previewKey} src={`/tv/${painel.slug}`} className="absolute inset-0 w-full h-full" title="preview" />
+              <iframe key={previewKey} src={`/tv/${painel.slug}`} scrolling="no" className="absolute inset-0 w-full h-full" title="preview" />
             )}
           </div>
           <p className="text-[11px] text-muted-foreground mt-2 px-1">Reflete o que está salvo. Após editar, clique em atualizar.</p>
