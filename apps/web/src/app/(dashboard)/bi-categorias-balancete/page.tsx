@@ -17,12 +17,11 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { TEXT, BADGE, STRONG, FILL } from '@/lib/color-styles'
+import { TEXT, BADGE, STRONG, FILL, SURFACE } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
-import Swal from 'sweetalert2'
 
 /* ---------- types ---------- */
 interface ClienteOption {
@@ -210,7 +209,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
           <div className="rounded-md border p-3">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-semibold">Contas na fórmula</p>
-              <button type="button" onClick={() => { setOperandos([]); setOperadores([]) }} className="text-[11px] text-red-500 hover:underline">Limpar lista</button>
+              <button type="button" onClick={() => { setOperandos([]); setOperadores([]) }} className={cn('text-[11px] hover:underline', TEXT.red)}>Limpar lista</button>
             </div>
             {operandos.length === 0 ? (
               <p className="text-[11px] text-muted-foreground">Use <strong>+ Adicionar</strong> abaixo.</p>
@@ -231,7 +230,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
                     <span className="flex-1 text-xs truncate"><code>{cId}</code> <span className="text-muted-foreground">{getNome(cId)}</span></span>
                     <button type="button" title="Subir" onClick={() => moveOperando(i, 'up')} disabled={i === 0} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"><ArrowUp className="h-4 w-4" /></button>
                     <button type="button" title="Descer" onClick={() => moveOperando(i, 'down')} disabled={i >= operandos.length - 1} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"><ArrowDown className="h-4 w-4" /></button>
-                    <button type="button" title="Remover" onClick={() => removeOperando(i)} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
+                    <button type="button" title="Remover" onClick={() => removeOperando(i)} className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-red-50 dark:hover:bg-red-950/30', TEXT.red)}><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
                 ))}
               </div>
@@ -410,6 +409,11 @@ export default function BiCategoriasBalancetePage() {
   const [importarOpen, setImportarOpen] = useState(false)
   const [novaOpen, setNovaOpen] = useState(false)
   const [novaForm, setNovaForm] = useState<{ conta: string; nome: string; tipo: 'R' | 'C' | 'F' }>({ conta: '', nome: '', tipo: 'R' })
+  // Modal "Copiar configuração para outro cliente" — padrão DialogHeaderIcon
+  const [copiarOpen, setCopiarOpen] = useState(false)
+  const [copiarBusca, setCopiarBusca] = useState('')
+  const [copiarSel, setCopiarSel] = useState('') // id do cliente destino
+  const [copiando, setCopiando] = useState(false)
   const [importarForm, setImportarForm] = useState({
     mesInicio: 1, anoInicio: new Date().getFullYear(),
     mesFim: new Date().getMonth() + 1, anoFim: new Date().getFullYear(),
@@ -493,6 +497,16 @@ export default function BiCategoriasBalancetePage() {
   /* --- derived --- */
   const selectedCliente = clientes.find((c) => c.id === clienteId)
   const selectedDocumento = selectedCliente?.documento ?? ''
+
+  // Clientes de destino do modal "Copiar configuração" (todos menos o atual),
+  // já com CNPJ formatado e filtrados pela busca do modal.
+  const destinosCopiar = useMemo(() => {
+    const q = copiarBusca.trim().toLowerCase()
+    return clientes
+      .filter(c => c.id !== clienteId)
+      .map(c => ({ ...c, cnpjFormatado: formatCnpj(c.documento) }))
+      .filter(c => !q || `${c.razaoSocial} ${c.documento}`.toLowerCase().includes(q))
+  }, [clientes, clienteId, copiarBusca])
 
   // Fechar combobox ao clicar fora
   useEffect(() => {
@@ -701,125 +715,31 @@ export default function BiCategoriasBalancetePage() {
     setNovaOpen(false)
   }
 
-  const handleCopiar = async () => {
+  // Abre o modal de cópia (a seleção do destino + a confirmação acontecem no
+  // próprio Dialog — ver JSX de `copiarOpen`).
+  const handleCopiar = () => {
     if (!selectedDocumento || !selectedCliente) return
-
-    // Filtrar clientes destino: apenas MENSAL, excluindo o atual
-    const destinos = clientes.filter(c => c.id !== clienteId)
-
-    if (destinos.length === 0) {
+    if (clientes.filter(c => c.id !== clienteId).length === 0) {
       alerts.warning('Sem clientes', 'Não há outros clientes disponíveis para copiar.')
       return
     }
+    setCopiarBusca(''); setCopiarSel(''); setCopiarOpen(true)
+  }
 
-    // Pré-formatar CNPJs para evitar chamar formatCnpj dentro de strings
-    const destinosFormatados = destinos.map(c => ({
-      ...c,
-      cnpjFormatado: formatCnpj(c.documento),
-      searchStr: `${c.razaoSocial} ${c.documento}`.toLowerCase(),
-    }))
-
-    const result = await Swal.fire({
-      title: 'Copiar Configuração de Categorias',
-      html: `
-        <div style="text-align:left;font-size:13px;">
-          <p><strong>Cliente Origem:</strong><br>${selectedCliente.razaoSocial} (${formatCnpj(selectedDocumento)})</p>
-          <hr style="margin:12px 0;">
-          <p style="margin-bottom:8px;"><strong>Selecione o cliente de destino:</strong></p>
-          <input type="text" id="swalBuscaCopiar" placeholder="Buscar cliente por nome ou CNPJ..." style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;margin-bottom:8px;outline:none;" autocomplete="off" />
-          <input type="hidden" id="swalCopiarDoc" value="" />
-          <div id="swalCopiarLista" style="height:220px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;"></div>
-          <div id="swalCopiarSelecionado" style="margin-top:6px;font-size:12px;color:#8b5cf6;font-weight:600;min-height:18px;"></div>
-          <p style="font-size:11px;color:#9ca3af;margin-top:4px;">Mostrando apenas clientes com situação MENSAL</p>
-          <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:10px 12px;margin-top:12px;font-size:12px;">
-            <strong>Esta ação irá:</strong>
-            <ul style="margin:4px 0 0 16px;padding:0;">
-              <li>Copiar todas as personalizações (nomes, pais, ordens)</li>
-              <li>Copiar todas as exclusões e categorias virtuais</li>
-              <li><strong style="color:#dc2626;">Substituir</strong> a configuração atual do cliente destino</li>
-            </ul>
-          </div>
-        </div>
-      `,
-      width: 600,
-      showCancelButton: true,
-      confirmButtonColor: MODULE_COLOR,
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Copiar',
-      cancelButtonText: 'Cancelar',
-      didOpen: () => {
-        const input = document.getElementById('swalBuscaCopiar') as HTMLInputElement
-        const lista = document.getElementById('swalCopiarLista') as HTMLDivElement
-        const hiddenDoc = document.getElementById('swalCopiarDoc') as HTMLInputElement
-        const selLabel = document.getElementById('swalCopiarSelecionado') as HTMLDivElement
-        let selectedDoc = ''
-
-        function render(filtro: string) {
-          const q = filtro.toLowerCase()
-          const filtered = q ? destinosFormatados.filter(c => c.searchStr.includes(q)) : destinosFormatados
-
-          if (filtered.length === 0) {
-            lista.innerHTML = '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:12px;">Nenhum cliente encontrado</div>'
-            return
-          }
-
-          lista.innerHTML = filtered.map(c => {
-            const isSelected = c.documento === selectedDoc
-            return `<div data-doc="${c.documento}" style="padding:7px 10px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:12px;display:flex;justify-content:space-between;align-items:center;${isSelected ? 'background:#8b5cf6;color:#fff;font-weight:600;' : ''}">`
-              + `<span>${c.razaoSocial}</span>`
-              + `<span style="font-size:10px;font-family:monospace;opacity:0.7;">${c.cnpjFormatado}</span>`
-              + `</div>`
-          }).join('')
-        }
-
-        // Event delegation — click na lista
-        lista.addEventListener('click', (e) => {
-          const item = (e.target as HTMLElement).closest('[data-doc]') as HTMLElement | null
-          if (!item) return
-          selectedDoc = item.getAttribute('data-doc') || ''
-          hiddenDoc.value = selectedDoc
-          const c = destinosFormatados.find(x => x.documento === selectedDoc)
-          selLabel.textContent = c ? `Selecionado: ${c.razaoSocial}` : ''
-          render(input.value)
-        })
-
-        // Hover via CSS injection
-        const style = document.createElement('style')
-        style.textContent = '#swalCopiarLista [data-doc]:hover { background: #8b5cf6 !important; color: #fff !important; }'
-        document.head.appendChild(style)
-
-        // Busca
-        input.addEventListener('input', () => render(input.value))
-        input.focus()
-
-        // Render inicial
-        render('')
-      },
-      preConfirm: () => {
-        const hiddenDoc = document.getElementById('swalCopiarDoc') as HTMLInputElement
-        if (!hiddenDoc?.value) { Swal.showValidationMessage('Clique em um cliente da lista para selecioná-lo'); return false }
-        return hiddenDoc.value
-      },
-    })
-
-    if (!result.isConfirmed || !result.value) return
-    const documentoDestino = result.value as string
-    const clienteDestino = destinos.find(c => c.documento === documentoDestino)
-
-    // Confirmação final
-    const confirma = await alerts.confirm({
-      title: 'Confirmar Cópia',
-      text: `Copiar configuração de "${selectedCliente.razaoSocial}" para "${clienteDestino?.razaoSocial || documentoDestino}"? A configuração atual do destino será substituída!`,
-      icon: 'warning',
-      confirmText: 'Sim, copiar',
-    })
-    if (!confirma) return
-
+  // Executa a cópia para o destino escolhido no Dialog. O próprio Dialog já é a
+  // confirmação (mostra o aviso de substituição + botão explícito "Copiar").
+  const confirmarCopiar = async () => {
+    const destino = clientes.find(c => c.id === copiarSel)
+    if (!selectedDocumento || !destino) return
+    setCopiando(true)
     try {
-      const res = await (trpc.bi as any).categoriasCopiar.mutate({ documentoOrigem: selectedDocumento, documentoDestino })
+      const res = await (trpc.bi as any).categoriasCopiar.mutate({ documentoOrigem: selectedDocumento, documentoDestino: destino.documento })
+      setCopiarOpen(false)
       alerts.success('Configuração Copiada!', `${res.copied ?? 0} categoria(s) copiada(s) com sucesso.`)
     } catch (e) {
       alerts.error('Erro ao Copiar', (e as Error).message || 'Erro desconhecido')
+    } finally {
+      setCopiando(false)
     }
   }
 
@@ -1558,7 +1478,7 @@ export default function BiCategoriasBalancetePage() {
             {(importarStatus.running || importarStatus.log.length > 0) && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Loader2 className={cn('h-4 w-4', importarStatus.running && 'animate-spin', 'text-violet-500')} />
+                  <Loader2 className={cn('h-4 w-4', importarStatus.running && 'animate-spin', TEXT.violet)} />
                   <span className="text-[13px] text-foreground">{importarStatus.message}</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
@@ -1670,6 +1590,81 @@ export default function BiCategoriasBalancetePage() {
       </Dialog>
 
       {/* Modal: Nova Categoria (padrão DialogHeaderIcon) */}
+      {/* Copiar configuração de categorias para outro cliente */}
+      <Dialog open={copiarOpen} onOpenChange={setCopiarOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeaderIcon icon={Copy} color="violet">
+            <DialogTitle>Copiar Configuração de Categorias</DialogTitle>
+            <DialogDescription>
+              De <strong className="text-foreground">{selectedCliente?.razaoSocial}</strong>
+              {selectedDocumento && ` (${formatCnpj(selectedDocumento)})`} para outro cliente.
+            </DialogDescription>
+          </DialogHeaderIcon>
+          <DialogBody>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Cliente de destino</Label>
+                <Input
+                  autoFocus
+                  className="h-9 text-sm"
+                  placeholder="Buscar cliente por nome ou CNPJ..."
+                  value={copiarBusca}
+                  onChange={(e) => setCopiarBusca(e.target.value)}
+                />
+              </div>
+              <div className="h-[240px] overflow-y-auto nice-scrollbar rounded-md border border-border">
+                {destinosCopiar.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground">Nenhum cliente encontrado</div>
+                ) : (
+                  destinosCopiar.map((c) => {
+                    const active = c.id === copiarSel
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setCopiarSel(c.id)}
+                        className={cn(
+                          'flex w-full items-center justify-between gap-2 border-b border-border px-3 py-2 text-left text-xs transition-colors last:border-b-0',
+                          active ? 'text-white' : 'hover:bg-muted/50',
+                        )}
+                        style={active ? { backgroundColor: MODULE_COLOR } : undefined}
+                      >
+                        <span className="truncate">{c.razaoSocial}</span>
+                        <span className={cn('shrink-0 font-mono text-[10px]', active ? 'text-white/80' : 'text-muted-foreground')}>{c.cnpjFormatado}</span>
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">Mostrando apenas clientes com situação MENSAL</p>
+              <div className={cn('rounded-md border px-3 py-2.5 text-[12px]', SURFACE.amber)}>
+                <p className="font-semibold">Esta ação irá:</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                  <li>Copiar todas as personalizações (nomes, pais, ordens)</li>
+                  <li>Copiar todas as exclusões e categorias virtuais</li>
+                  <li><strong className={TEXT.red}>Substituir</strong> a configuração atual do cliente destino</li>
+                </ul>
+              </div>
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" size="sm" disabled={copiando}>Cancelar</Button>
+            </DialogClose>
+            <Button
+              size="sm"
+              onClick={confirmarCopiar}
+              disabled={!copiarSel || copiando}
+              className="gap-1.5"
+              style={{ background: MODULE_COLOR, color: 'white' }}
+            >
+              {copiando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
+              {copiando ? 'Copiando...' : 'Copiar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={novaOpen} onOpenChange={setNovaOpen}>
         <DialogContent className="max-w-md">
           <DialogHeaderIcon icon={Plus} color="emerald">
