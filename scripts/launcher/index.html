@@ -2487,11 +2487,45 @@
           </div>
           <div style="display:flex;gap:8px;align-items:center;">
             <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer;margin-right:4px;">
-              <input id="nfeAutoStart" type="checkbox" onchange="nfeSaveAutoStart()" /> Iniciar automaticamente ao abrir
+              <input id="nfeAutoStart" type="checkbox" onchange="nfeSaveAutoStart()" /> Carregar pastas ao abrir
             </label>
             <button class="btn btn-blue" id="nfeRefreshBtn" onclick="nfeRefresh()">&#8635; Atualizar</button>
             <button class="btn btn-solid-green" id="nfeStartBtn" onclick="nfeStart()">&#9654; Iniciar</button>
             <button class="btn btn-solid-red" id="nfeStopBtn" onclick="nfeStop()" style="display:none;">&#9632; Parar</button>
+            <button class="btn btn-solid-blue" id="nfeVarrerBtn" onclick="nfeVarrerAgora()">&#128269; Varrer agora</button>
+          </div>
+        </div>
+
+        <!-- Agenda da varredura — substituiu o monitoramento contínuo -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">
+              Agenda da varredura
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer;">
+              <input id="nfeAgHabilitado" type="checkbox" onchange="nfeAgendaSalvar()" /> Ativada
+            </label>
+          </div>
+          <div style="padding:14px 16px;">
+            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">
+              <div>
+                <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;">Das</label>
+                <input id="nfeAgInicio" type="time" onchange="nfeAgendaSalvar()" style="background:var(--bg-input,#0f172a);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text-primary);font-size:13px;" />
+              </div>
+              <div>
+                <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;">Até</label>
+                <input id="nfeAgFim" type="time" onchange="nfeAgendaSalvar()" style="background:var(--bg-input,#0f172a);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text-primary);font-size:13px;" />
+              </div>
+              <div>
+                <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;">A cada (min)</label>
+                <input id="nfeAgIntervalo" type="number" min="5" step="5" onchange="nfeAgendaSalvar()" style="width:90px;background:var(--bg-input,#0f172a);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text-primary);font-size:13px;" />
+              </div>
+              <div>
+                <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;">Dias</label>
+                <div id="nfeAgDias" style="display:flex;gap:4px;"></div>
+              </div>
+            </div>
+            <div id="nfeAgResumo" style="margin-top:10px;font-size:11px;color:var(--text-muted);"></div>
           </div>
         </div>
 
@@ -4262,6 +4296,82 @@
       setTimeout(() => { nfeRefresh(); if (btn) btn.disabled = false; }, 500);
     }
 
+    // ── Agenda da varredura ────────────────────────────────────
+    // Quem dispara a varredura é o cron do processo principal; esta tela só
+    // edita a janela do dia. Por isso todo campo salva no `onchange` — não há
+    // botão "Salvar" para o usuário esquecer de clicar.
+    const NFE_DIAS = [['D', 0], ['S', 1], ['T', 2], ['Q', 3], ['Q', 4], ['S', 5], ['S', 6]];
+    const NFE_DIAS_NOME = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+
+    function nfeAgendaResumo(ag) {
+      const el = document.getElementById('nfeAgResumo');
+      if (!el) return;
+      if (!ag || !ag.habilitado) {
+        el.textContent = 'Agenda desativada — a varredura só roda pelo botão "Varrer agora".';
+        return;
+      }
+      const dias = Array.isArray(ag.dias) && ag.dias.length
+        ? ag.dias.slice().sort().map(d => NFE_DIAS_NOME[d].slice(0, 3)).join(', ')
+        : 'todos os dias';
+      const ult = ag.ultimaExecucao ? fmtNfeTime(ag.ultimaExecucao) : 'nunca';
+      el.textContent = `Varre das ${ag.horaInicio} às ${ag.horaFim}, a cada ${ag.intervaloMin} min, em: ${dias}. Última varredura: ${ult}.`;
+    }
+
+    async function nfeAgendaCarregar() {
+      if (!api.nfeAgendaGet) return;
+      const ag = (await api.nfeAgendaGet()) || {};
+      const hab = document.getElementById('nfeAgHabilitado');
+      if (hab) hab.checked = !!ag.habilitado;
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+      set('nfeAgInicio', ag.horaInicio || '19:00');
+      set('nfeAgFim', ag.horaFim || '07:00');
+      set('nfeAgIntervalo', ag.intervaloMin || 120);
+      const cont = document.getElementById('nfeAgDias');
+      if (cont) {
+        const dias = Array.isArray(ag.dias) ? ag.dias : [];
+        cont.innerHTML = NFE_DIAS.map(([rot, n]) => `
+          <label title="${NFE_DIAS_NOME[n]}" style="display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--text-muted);cursor:pointer;">
+            <span>${rot}</span>
+            <input type="checkbox" data-dia="${n}" ${dias.includes(n) ? 'checked' : ''} onchange="nfeAgendaSalvar()" />
+          </label>`).join('');
+      }
+      nfeAgendaResumo(ag);
+    }
+
+    async function nfeAgendaSalvar() {
+      if (!api.nfeAgendaSet) return;
+      const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+      const dias = Array.from(document.querySelectorAll('#nfeAgDias input[data-dia]'))
+        .filter(i => i.checked).map(i => Number(i.dataset.dia));
+      const agenda = {
+        habilitado: !!(document.getElementById('nfeAgHabilitado') || {}).checked,
+        horaInicio: val('nfeAgInicio') || '19:00',
+        horaFim: val('nfeAgFim') || '07:00',
+        // Piso de 5 min: o tique do cron roda de minuto em minuto, e um
+        // intervalo menor que a própria varredura empilharia pedidos.
+        intervaloMin: Math.max(5, Number(val('nfeAgIntervalo')) || 120),
+        dias,
+      };
+      const r = await api.nfeAgendaSet(agenda);
+      if (!r || !r.ok) { showToast('Agenda NFe', (r && r.error) || 'Falha ao salvar a agenda.'); return; }
+      nfeAgendaResumo(r.agenda);
+    }
+
+    async function nfeVarrerAgora() {
+      if (!api.nfeWatcherVarrer) return;
+      const btn = document.getElementById('nfeVarrerBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Varrendo…'; }
+      try {
+        const r = await api.nfeWatcherVarrer();
+        if (!r || r.ok === false) showToast('Varredura NFe', (r && r.error) || 'Falha na varredura.');
+        else showToast('Varredura NFe', `Concluída: ${r.clientes || 0} pasta(s) em ${r.segundos || 0}s.`);
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#128269; Varrer agora'; }
+        nfeRefresh();
+        nfeAgendaCarregar();
+      }
+    }
+
     // Navegar pra outra página (usado pelo card da Visão Geral)
     function goToPage(target) {
       const btn = document.querySelector(`.nav-item[data-page="${target}"]`);
@@ -4304,6 +4414,7 @@
       // NFe Watcher — status inicial + refresh periódico
       nfeRefresh();
       setInterval(nfeRefresh, 5000);
+      nfeAgendaCarregar();
 
       // Load settings into UI
       loadSettingsUI();
@@ -4459,8 +4570,10 @@
       // Watcher se marcado pra auto-start (ele depende do login pra falar com a API).
       try {
         if (document.getElementById('biSyncAutoConnect')?.checked) biSyncSaveCreds()
+        // Só CARREGA o cadastro de pastas — não vigia nada. Quem dispara
+        // varredura é a agenda (cron), não a abertura do app.
         if (localStorage.getItem('oc-nfe-auto') === '1' && typeof nfeStart === 'function') {
-          biSyncAppendLog('NFe Watcher: iniciando automaticamente…', 'info')
+          biSyncAppendLog('NFe: carregando cadastro de pastas…', 'info')
           nfeStart()
         }
       } catch (_) { /* noop */ }

@@ -12,7 +12,18 @@
  * Auth: header `X-Daemon-Secret` (env LAUNCHER_DAEMON_SECRET, copiado do .env da API).
  */
 
-const chokidar = require('chokidar')
+// chokidar foi REMOVIDO daqui de propósito (18/09/2026).
+//
+// Ele mantinha em memória um índice de cada arquivo da árvore vigiada, com
+// depth 10. Dez pastas contábeis reais somavam 1,9 GB no utilityProcess — 83%
+// da memória do Service Manager inteiro. Não era vazamento: era o custo de
+// vigiar o que não precisa ser vigiado.
+//
+// No lugar entrou varredura periódica por data de modificação, agendada numa
+// janela do dia. A memória passa a ser proporcional aos arquivos NOVOS, não
+// aos arquivos existentes. De bônus é mais confiável: watcher perde evento
+// quando o processo está ocupado, quando o volume de rede cai e volta, ou
+// quando o SO derruba o handle — varredura por mtime não perde.
 const fs = require('fs')
 const path = require('path')
 // FormData + Blob globais do Node 22 (web standard) — funciona com fetch global.
@@ -20,8 +31,16 @@ const path = require('path')
 // e causa "Unexpected end of form" no Multer.
 
 const POLL_INTERVAL_MS = 15_000  // a cada 15s — também detecta requests de sync manual
-const DEBOUNCE_MS = 2_000        // espera 2s estabilizar antes de enviar
 const BATCH_SIZE = 10            // menor pra não sobrecarregar a API (cada arquivo gera S3 + PDF + DB inserts)
+// Caminhos acumulados antes de despejar um lote. Teto de memória da varredura:
+// antes a árvore inteira virava um array, e uma pasta com 300 mil arquivos
+// materializava esse array E os chunks ao mesmo tempo.
+const JANELA_SCAN = 500
+// Folga para trás no filtro por mtime. Relógio do servidor de arquivos e
+// relógio local não batem exatamente; perder uma nota por dois minutos de
+// diferença seria o pior defeito possível aqui. Reenvio é inofensivo — a API
+// dedupa por SHA.
+const MARGEM_MTIME_MS = 30 * 60_000
 const BATCH_DELAY_MS = 800       // pausa entre chunks pra dar respiro pro servidor
 const MAX_DEPTH = 10             // níveis de subpasta — estruturas reais chegam a 9 (ANOS ANTERIORES\2024\NOTAS FISCAIS\...\SAIDA\Canceladas)
 const MAX_BATCH_BYTES = 25 * 1024 * 1024   // corpo máximo por request — chunks de 10 arquivos sem teto chegavam a 500MB e caíam com "fetch failed"
@@ -34,10 +53,11 @@ class NfeWatcher {
     this.apiUrl = apiUrl
     this.daemonSecret = daemonSecret
     this.onLog = onLog || (() => {})
-    this.watchers = new Map()       // clienteId -> { watcher, path, razaoSocial, fila, debounceTimer }
+    this.watchers = new Map()       // clienteId -> { path, razaoSocial, ultimaSync, varrendo }
     this.status = new Map()         // clienteId -> { lastSync, totalEnviados, ultimoErro, watching }
     this.pollTimer = null
     this.running = false
+    this.varrendoTudo = false       // trava da varredura agendada — uma de cada vez
     this.scanQueue = Promise.resolve()  // scans completos rodam UM por vez — em paralelo saturam o uplink e os uploads caem
   }
 
@@ -153,11 +173,11 @@ class NfeWatcher {
   async stop() {
     this.running = false
     if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null }
-    for (const [, entry] of this.watchers) {
-      if (entry.watcher) await entry.watcher.close()
-      if (entry.debounceTimer) clearTimeout(entry.debounceTimer)
-    }
+    // Sem watchers para fechar desde que o chokidar saiu — só descarta o
+    // cadastro em memória. Varredura em curso termina sozinha; o `varrendoTudo`
+    // impede que outra comece.
     this.watchers.clear()
+    this.status.clear()
     this.log('Parado.')
   }
 
@@ -192,11 +212,10 @@ class NfeWatcher {
       for (const c of configs) {
         try {
           const existing = this.watchers.get(c.id)
+          // Mesmo path = mantém o entry, e com ele a marca d'água `ultimaSync`
+          // que a varredura vai usando. Recriar aqui jogaria o incremental
+          // de volta para o `localSyncedAt` da API a cada poll de 15s.
           if (existing && existing.path === c.localFolderPath) continue
-          if (existing) {
-            if (existing.watcher) await existing.watcher.close()
-            if (existing.debounceTimer) clearTimeout(existing.debounceTimer)
-          }
           await this.iniciarWatcher(c)
         } catch (e) {
           this.log(`Falha ao iniciar watcher de ${c.razaoSocial}: ${e.message}`, 'error')
@@ -245,11 +264,46 @@ class NfeWatcher {
     }
   }
 
-  /** Varre toda a pasta recursivamente e enfileira todos XMLs/ZIPs encontrados. */
-  async scanCompletoEPromover(clienteId, entry) {
-    this.log(`Scan completo iniciado: ${entry.razaoSocial} (${entry.path})`, 'info')
-    const arquivos = []
+  /**
+   * Varre a pasta e envia XMLs/ZIPs, em JANELAS.
+   *
+   * Duas mudanças em relação à versão que acompanhava o chokidar:
+   *
+   * 1. INCREMENTAL — `opts.desde` (epoch ms) descarta arquivo cuja mtime seja
+   *    anterior. Sem isso, cada execução do cron reenviaria o acervo inteiro.
+   *    `desde` nulo = varredura completa (cliente que nunca sincronizou).
+   *    Há folga de MARGEM_MTIME_MS para trás, porque relógio de servidor de
+   *    arquivos e relógio local não batem exatamente — perder nota por causa
+   *    de dois minutos de diferença seria o pior defeito possível aqui.
+   *
+   * 2. EM JANELAS — antes o caminho de CADA arquivo da árvore ia para um array
+   *    único, e depois `montarChunks` construía outra estrutura com todos. Uma
+   *    pasta com 300 mil arquivos materializava as duas ao mesmo tempo. Agora
+   *    acumula no máximo JANELA_SCAN caminhos, envia, e descarta antes de
+   *    continuar — memória constante, independente do tamanho da pasta.
+   */
+  async scanCompletoEPromover(clienteId, entry, opts = {}) {
+    const desde = opts.desde ? opts.desde - MARGEM_MTIME_MS : null
+    const rotulo = desde ? 'Varredura incremental' : 'Varredura completa'
+    this.log(`${rotulo} iniciada: ${entry.razaoSocial} (${entry.path})`, 'info')
+
+    const cliente = { id: clienteId, razaoSocial: entry.razaoSocial }
     const stack = [entry.path]
+    let janela = []
+    let encontrados = 0
+    let enviados = 0
+
+    const despejarJanela = async () => {
+      if (janela.length === 0) return
+      const chunks = this.montarChunks(janela)
+      janela = []   // solta as referências antes de enviar
+      for (let i = 0; i < chunks.length; i++) {
+        await this.enviarBatch(cliente, entry, chunks[i])
+        enviados += chunks[i].length
+        if (i + 1 < chunks.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS))
+      }
+    }
+
     while (stack.length) {
       const dir = stack.pop()
       let items
@@ -264,25 +318,21 @@ class NfeWatcher {
           stack.push(fullPath)
         } else if (item.isFile()) {
           const lower = item.name.toLowerCase()
-          if (lower.endsWith('.xml') || lower.endsWith('.zip')) {
-            arquivos.push(fullPath)
+          if (!lower.endsWith('.xml') && !lower.endsWith('.zip')) continue
+          if (desde) {
+            let mtime = 0
+            try { mtime = fs.statSync(fullPath).mtimeMs } catch { continue }
+            if (mtime < desde) continue
           }
+          encontrados++
+          janela.push(fullPath)
+          if (janela.length >= JANELA_SCAN) await despejarJanela()
         }
       }
     }
-    this.log(`Scan completo: ${arquivos.length} arquivos encontrados (${entry.razaoSocial})`, 'info')
-    if (arquivos.length > 50_000) {
-      this.log(`Pasta de ${entry.razaoSocial} é muito grande (${arquivos.length} XMLs/ZIPs) — o monitoramento fica pesado. Considere apontar o cadastro pra subpasta FISCAL.`, 'warn')
-    }
+    await despejarJanela()
 
-    // Envia em chunks (limitados por quantidade e bytes) com pausa — não sobrecarrega API
-    const cliente = { id: clienteId, razaoSocial: entry.razaoSocial }
-    const chunks = this.montarChunks(arquivos)
-    for (let i = 0; i < chunks.length; i++) {
-      this.log(`Enviando chunk ${i + 1}/${chunks.length} (${chunks[i].length} arquivos) — ${entry.razaoSocial}`, 'info')
-      await this.enviarBatch(cliente, entry, chunks[i])
-      if (i + 1 < chunks.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS))
-    }
+    this.log(`${rotulo} concluída: ${encontrados} arquivo(s) candidato(s), ${enviados} enviado(s) — ${entry.razaoSocial}`, 'info')
   }
 
   async marcarRequestProcessado(clienteId) {
@@ -333,97 +383,56 @@ class NfeWatcher {
       return
     }
 
-    this.log(`Monitorando ${folderPath} (${cliente.razaoSocial})`)
-    const fila = new Set()
+    this.log(`Pasta registrada para varredura: ${folderPath} (${cliente.razaoSocial})`)
     const entry = {
-      watcher: null,
       path: folderPath,
       razaoSocial: cliente.razaoSocial,
-      fila,
-      debounceTimer: null,
+      // Marca d'água do incremental: usa o localSyncedAt que a própria API
+      // mantém, em vez de persistência local. Nulo = nunca sincronizou, e a
+      // primeira varredura leva o acervo inteiro (a API dedupa por SHA).
+      ultimaSync: cliente.localSyncedAt ? new Date(cliente.localSyncedAt).getTime() : null,
+      varrendo: false,
     }
-
-    // Detecta paths UNC (compartilhamentos de rede Windows: \\servidor\share\...)
-    // O fs.watch nativo do Node tem bug conhecido nesses paths — usa polling.
-    const isUNC = folderPath.startsWith('\\\\') || folderPath.startsWith('//')
-
-    // chokidar.watch() pode lançar síncrono — proteção
-    let watcher
-    try {
-      watcher = chokidar.watch(folderPath, {
-        ignored: (file) => {
-          if (/[\\/]\.[^\\/]+/.test(file)) return true
-          if (/node_modules|\$Recycle\.Bin|System Volume Information|\.git/i.test(file)) return true
-          return false
-        },
-        persistent: true,
-        ignoreInitial: true,
-        awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 500 },
-        depth: MAX_DEPTH,
-        usePolling: isUNC,                              // polling pra paths de rede
-        // Polling faz stat de CADA arquivo da árvore por ciclo, via threadpool do
-        // Node (4-32 threads). Em share SMB com dezenas de milhares de arquivos,
-        // 5s de intervalo saturava o threadpool do processo inteiro (até DNS
-        // ficava na fila). 60s ainda captura NFe com folga.
-        interval: isUNC ? 60_000 : 100,
-        binaryInterval: isUNC ? 60_000 : 300,
-        atomic: true,
-      })
-      if (isUNC) this.log(`(${cliente.razaoSocial}) path UNC detectado — polling 60s ativado`, 'info')
-    } catch (e) {
-      this.log(`Falha em chokidar.watch ${folderPath}: ${e.message}`, 'error')
-      this.status.set(cliente.id, { watching: false, ultimoErro: e.message, totalEnviados: 0 })
-      return
-    }
-
-    watcher.on('add', filePath => {
-      try {
-        const lower = filePath.toLowerCase()
-        if (lower.endsWith('.xml') || lower.endsWith('.zip')) {
-          fila.add(filePath)
-          this.agendarDrain(cliente, entry)
-        }
-      } catch (e) {
-        this.log(`Erro no handler add: ${e.message}`, 'error')
-      }
-    })
-
-    // Throttle de erros — chokidar pode disparar em loop. Limita 1 log a cada 10s.
-    // Após 5 erros em 30s, fecha o watcher pra parar o loop infinito.
-    entry.errCount = 0
-    entry.errResetTimer = null
-    entry.lastErrLog = 0
-    watcher.on('error', err => {
-      const now = Date.now()
-      entry.errCount++
-      if (now - entry.lastErrLog > 10_000) {
-        this.log(`Erro no watcher ${folderPath}: ${err.message}`, 'error')
-        entry.lastErrLog = now
-      }
-      // Reset count após 30s sem erros
-      if (entry.errResetTimer) clearTimeout(entry.errResetTimer)
-      entry.errResetTimer = setTimeout(() => { entry.errCount = 0 }, 30_000)
-      // Mata o watcher se for loop persistente — remove do mapa pra que o
-      // próximo poll recrie do zero (antes ficava órfão e nunca voltava)
-      if (entry.errCount > 5) {
-        this.log(`Watcher ${cliente.razaoSocial} morto após ${entry.errCount} erros consecutivos — será recriado no próximo poll`, 'error')
-        try { watcher.close() } catch { /* */ }
-        if (entry.debounceTimer) clearTimeout(entry.debounceTimer)
-        this.watchers.delete(cliente.id)
-        this.status.set(cliente.id, { watching: false, ultimoErro: `loop de erros: ${err.message}`, totalEnviados: this.status.get(cliente.id)?.totalEnviados ?? 0 })
-      }
-    })
-
-    entry.watcher = watcher
     this.watchers.set(cliente.id, entry)
     this.status.set(cliente.id, { watching: true, totalEnviados: 0, ultimoErro: null })
+  }
 
-    // Scan inicial: cliente que nunca sincronizou tem o acervo existente enviado
-    // automaticamente (a API dedupa por SHA, então re-scans não duplicam nada).
-    // Entra na fila serializada — scans em paralelo saturam o uplink e derrubam uploads.
-    if (!cliente.localSyncedAt) {
-      this.log(`${cliente.razaoSocial} nunca sincronizou — scan inicial do acervo entrou na fila`, 'info')
-      this.enfileirarScan(cliente.id, entry)
+  /**
+   * Varre todas as pastas registradas e envia o que mudou desde a última sync.
+   *
+   * É o que o cron do Service Manager chama. Serializa por cliente — varreduras
+   * simultâneas saturam o uplink, e foi por isso que o scan já era enfileirado.
+   */
+  async varrerTodos() {
+    if (this.varrendoTudo) {
+      this.log('Varredura já em andamento — pedido ignorado.', 'warn')
+      return { ok: false, error: 'varredura em andamento' }
+    }
+    this.varrendoTudo = true
+    const inicio = Date.now()
+    let clientes = 0
+    try {
+      // Config fresca: pasta pode ter sido trocada/desligada desde o último ciclo.
+      await this.refreshConfig()
+      for (const [clienteId, entry] of this.watchers) {
+        try {
+          await this.scanCompletoEPromover(clienteId, entry, { desde: entry.ultimaSync })
+          // Daqui pra frente só o que for mais novo que agora interessa.
+          entry.ultimaSync = inicio
+          clientes++
+        } catch (e) {
+          this.log(`Varredura falhou (${entry.razaoSocial}): ${e.message}`, 'error')
+          this.status.set(clienteId, {
+            ...(this.status.get(clienteId) ?? {}),
+            ultimoErro: e.message,
+          })
+        }
+      }
+      const seg = Math.round((Date.now() - inicio) / 1000)
+      this.log(`Varredura concluída: ${clientes} pasta(s) em ${seg}s`, 'info')
+      return { ok: true, clientes, segundos: seg }
+    } finally {
+      this.varrendoTudo = false
     }
   }
 
@@ -464,25 +473,6 @@ class NfeWatcher {
       } finally { clearTimeout(timer) }
     } catch (e) {
       this.log(`Heartbeat falhou: ${e.message}`, 'warn')
-    }
-  }
-
-  agendarDrain(cliente, entry) {
-    if (entry.debounceTimer) clearTimeout(entry.debounceTimer)
-    entry.debounceTimer = setTimeout(() => this.drenarFila(cliente, entry), DEBOUNCE_MS)
-  }
-
-  async drenarFila(cliente, entry) {
-    const paths = Array.from(entry.fila)
-    entry.fila.clear()
-    entry.debounceTimer = null
-    if (paths.length === 0) return
-
-    // Envia em chunks (limitados por quantidade e bytes) com pausa entre eles
-    const chunks = this.montarChunks(paths)
-    for (let i = 0; i < chunks.length; i++) {
-      await this.enviarBatch(cliente, entry, chunks[i])
-      if (i + 1 < chunks.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS))
     }
   }
 

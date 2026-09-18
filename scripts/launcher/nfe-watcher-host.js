@@ -50,6 +50,12 @@ port.on('message', async (e) => {
     if (msg.type === 'status') {
       return reply({ ok: true, running: watcher.running, watchers: watcher.getStatus() })
     }
+    // Varredura agendada — disparada pelo cron do Service Manager. Timeout do
+    // lado do main é longo: uma pasta grande leva minutos.
+    if (msg.type === 'varrer') {
+      const r = await watcher.varrerTodos()
+      return reply({ ok: r.ok !== false, ...r, running: watcher.running })
+    }
   } catch (err) {
     if (msg.id) reply({ ok: false, error: err.message })
   }
