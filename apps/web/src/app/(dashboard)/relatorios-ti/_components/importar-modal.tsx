@@ -5,6 +5,7 @@ import { FolderUp, Loader2, Upload, X, AlertCircle } from 'lucide-react'
 import {
   Button, cn,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@saas/ui'
 import { TEXT, SURFACE, FILL } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
@@ -291,16 +292,18 @@ export function ImportarModal({ pessoas, onClose, onPronto }: {
                         {a.data.split('-').reverse().join('/')}
                       </td>
                       <td className="px-3 py-2 align-top">
-                        <select
-                          value={a.autorId}
-                          onChange={e => setAchados(l => l.map(x =>
-                            x.chave === a.chave ? { ...x, autorId: e.target.value } : x))}
-                          className={cn('h-9 w-full rounded-md px-2 text-sm',
-                            a.autorId ? '' : 'border-amber-400')}
+                        <Select
+                          value={a.autorId || undefined}
+                          onValueChange={v => setAchados(l => l.map(x =>
+                            x.chave === a.chave ? { ...x, autorId: v } : x))}
                         >
-                          <option value="">— escolha —</option>
-                          {pessoas.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
+                          <SelectTrigger className={cn('h-9 w-full text-sm', !a.autorId && 'border-amber-400')}>
+                            <SelectValue placeholder="— escolha —" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {pessoas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                         {/* Sem casar, diz o que LEU — "não reconheci" sozinho
                             deixa a pessoa sem saber se o problema é o arquivo
                             ou o cadastro. */}
