@@ -16,7 +16,7 @@ import {
   Button, Input, Label, Card, CardHeader, CardContent, Checkbox,
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn,
 } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, SURFACE } from '@/lib/color-styles'
 import { useSession } from '@/lib/auth-client'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -444,7 +444,7 @@ export default function AssinaturaTemplatePage() {
               </CardHeader>
               <CardContent className="p-0">
                 {template.customHtmlEnabled && (
-                  <div className="bg-amber-50 dark:bg-amber-950/30 px-5 py-2 border-b border-amber-200 dark:border-amber-900 text-[11px] text-amber-900 dark:text-amber-200 flex items-start gap-2">
+                  <div className={cn('px-5 py-2 border-b text-[11px] flex items-start gap-2', SURFACE.amber, TEXT.amber)}>
                     <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                     <span>HTML custom ATIVO. Cores, visibilidade e logo override do tab Visual são ignorados — o HTML abaixo é a fonte da verdade. Não use <code>position:absolute</code>, <code>flex</code>, <code>grid</code> ou <code>&lt;style&gt;</code> — use só inline styles + tabelas.</span>
                   </div>
