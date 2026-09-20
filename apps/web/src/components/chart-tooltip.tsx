@@ -32,6 +32,8 @@ interface ChartTooltipProps {
   label?: ReactNode
   /** Formata o valor de cada série (recebe também o `name` da série). Ausente = valor cru. */
   format?: (value: number, name?: string) => ReactNode
+  /** Formata o rótulo (eixo X) do tooltip. Ausente = rótulo cru. */
+  labelFormat?: (label: ReactNode) => ReactNode
 }
 
 /**
@@ -43,11 +45,11 @@ export const CHART_CURSOR_FILL = 'color-mix(in srgb, var(--color-foreground) 10%
 
 // Cores INVERTIDAS de propósito (contraste com a página): no light o box é
 // escuro; no dark o box é cinza-claro. Texto acompanha a inversão.
-export function ChartTooltip({ active, payload, label, format }: ChartTooltipProps) {
+export function ChartTooltip({ active, payload, label, format, labelFormat }: ChartTooltipProps) {
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-lg border px-3 py-2 shadow-md text-xs border-slate-700 bg-slate-800 text-slate-100 dark:border-slate-300 dark:bg-slate-200 dark:text-slate-900">
-      {label != null && <p className="font-semibold mb-1 text-slate-50 dark:text-slate-900">{label}</p>}
+      {label != null && <p className="font-semibold mb-1 text-slate-50 dark:text-slate-900">{labelFormat ? labelFormat(label) : label}</p>}
       {payload.map((p, i) => {
         const dotColor = p.color || (p.payload as { fill?: string } | undefined)?.fill || p.fill
         return (

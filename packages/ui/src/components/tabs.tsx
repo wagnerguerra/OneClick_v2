@@ -15,7 +15,7 @@ const TabsList = React.forwardRef<
     className={cn(
       variant === 'pills'
         ? 'flex flex-col gap-1.5 bg-transparent'
-        : 'inline-flex items-center w-full bg-transparent border-b border-[#e9ebec]',
+        : 'inline-flex items-center w-full bg-transparent border-b border-border',
       className,
     )}
     {...props}
