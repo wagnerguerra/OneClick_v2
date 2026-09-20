@@ -25,7 +25,7 @@ import {
   Server,
 } from 'lucide-react'
 import { Button, Card, cn } from '@saas/ui'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, SURFACE } from '@/lib/color-styles'
 
 /* ------------------------------------------------------------------ */
 /* Tipos                                                               */
@@ -194,8 +194,8 @@ export default function DownloadsPage() {
           )}
 
           {!mobileLoading && mobileErro && (
-            <div className="rounded-md border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 p-4 space-y-1.5">
-              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300">
+            <div className={cn('rounded-md border p-4 space-y-1.5', SURFACE.rose)}>
+              <div className={cn('flex items-center gap-2', TEXT.rose)}>
                 <AlertTriangle className="h-4 w-4" />
                 <span className="font-semibold text-sm">Não foi possível verificar os downloads</span>
               </div>
@@ -367,8 +367,8 @@ export default function DownloadsPage() {
           )}
 
           {!chatLoading && !chatExe && (
-            <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-4 space-y-1.5">
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+            <div className={cn('rounded-md border p-4 space-y-1.5', SURFACE.amber)}>
+              <div className={cn('flex items-center gap-2', TEXT.amber)}>
                 <AlertTriangle className="h-4 w-4" />
                 <span className="font-semibold text-sm">Instalador não disponível</span>
               </div>
