@@ -31,6 +31,15 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${jakarta.variable} ${jakarta.className}`} suppressHydrationWarning>
+        {/* Aplica o tema (localStorage 'theme') ANTES da pintura, em TODA página —
+            inclusive as de auth, cujo layout não monta o useTheme (que só roda no
+            dashboard). Sem isso o dark nunca ativava fora do dashboard. Espelha o
+            applyTheme do use-theme.ts (classe .dark + data-swal2-theme). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('dark',d);e.dataset.swal2Theme=d?'dark':'light';}catch(_){}})();`,
+          }}
+        />
         <Providers>{children}</Providers>
       </body>
     </html>

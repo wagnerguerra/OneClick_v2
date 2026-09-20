@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Button, Input, Label, Checkbox } from '@saas/ui'
+import { Button, Input, Label, Checkbox, cn } from '@saas/ui'
+import { TEXT, SURFACE } from '@/lib/color-styles'
 import { authClient } from '@/lib/auth-client'
 import { Shield, Loader2, AlertCircle, KeyRound } from 'lucide-react'
 
@@ -80,16 +81,18 @@ export default function TwoFactorPage() {
 
   return (
     <div className="space-y-6">
-      {/* Logo */}
+      {/* Logo — troca clara/escura (a versão escura da logo some no dark) */}
       <div className="flex justify-center mb-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="OneClick" className="h-16 w-auto" />
+        <img src="/logo.png" alt="OneClick" className="h-16 w-auto dark:hidden" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-light.png" alt="OneClick" className="h-16 w-auto hidden dark:block" />
       </div>
 
       <div className="text-center space-y-1">
         <div className="flex justify-center">
           <div className="h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-            <Shield className="h-6 w-6 text-emerald-600" />
+            <Shield className={cn('h-6 w-6', TEXT.emerald)} />
           </div>
         </div>
         <h1 className="text-xl font-bold">Verificação em dois fatores</h1>
@@ -101,9 +104,9 @@ export default function TwoFactorPage() {
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 dark:bg-rose-900/10 dark:border-rose-900/30 p-3">
-          <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-          <p className="text-xs text-rose-700 dark:text-rose-300">{error}</p>
+        <div className={cn('flex items-start gap-2 rounded-md border p-3', SURFACE.rose)}>
+          <AlertCircle className={cn('h-4 w-4 shrink-0 mt-0.5', TEXT.rose)} />
+          <p className={cn('text-xs', TEXT.rose)}>{error}</p>
         </div>
       )}
 
