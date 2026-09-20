@@ -200,7 +200,7 @@ interface Orcamento {
   reaberturasCount?: number
   createdAt: string
   updatedAt: string
-  cliente: { id: string; razaoSocial: string; documento?: string; email?: string | null } | null
+  cliente: { id: string; razaoSocial: string; documento?: string; email?: string | null; logoUrl?: string | null } | null
   itens: OrcamentoItem[]
   mensagens: OrcamentoMensagem[]
   arquivos: OrcamentoArquivo[]
@@ -1846,8 +1846,14 @@ export default function OrcamentoDetailPage() {
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-end gap-4">
             <div className="relative shrink-0">
-              <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
-                <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
+                {orc.cliente?.logoUrl ? (
+                  // Logo do cliente quando houver; senão, o ícone do orçamento.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={resolveAssetUrl(orc.cliente.logoUrl)} alt={orc.cliente.razaoSocial} className="h-full w-full object-cover" />
+                ) : (
+                  <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                )}
               </div>
             </div>
             <div className="min-w-0">
