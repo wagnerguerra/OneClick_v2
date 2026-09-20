@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ElementType } from 'react'
+import { User } from 'lucide-react'
 import { cn } from '@saas/ui'
 import { resolveAssetUrl } from '@/lib/api-url'
 
@@ -15,16 +16,21 @@ import { resolveAssetUrl } from '@/lib/api-url'
  * cai automaticamente nas iniciais — não fica com o ícone de imagem quebrada.
  *
  * `phone` é usado como fonte das iniciais quando não há nome (contatos só com
- * telefone, ex.: WhatsApp). Sem nome e sem telefone → placeholder "?".
+ * telefone, ex.: WhatsApp).
+ *
+ * Fallback de ÍCONE (último recurso): sem foto e sem iniciais, renderiza `icon`
+ * (default `<User>`), honrando `bg`/`fg`/`bgColor` como as iniciais. Passe outro
+ * `icon` para um fallback semântico (ex.: `Cake`/`PartyPopper`) — e, nesse caso,
+ * NÃO passe o nome (senão vira iniciais em vez do ícone).
  *
  * O tamanho e o tamanho de fonte das iniciais vêm pelo `className`
  * (ex.: `"h-6 w-6 text-[10px]"`); `bg`/`fg` são as classes de cor de fundo e de
- * texto do fallback de iniciais (defaults `bg-slate-400`/`text-white`) — passe,
- * ex., `bg="bg-muted" fg="text-muted-foreground"` para o tom discreto.
+ * texto do fallback (iniciais ou ícone; defaults `bg-slate-400`/`text-white`) —
+ * passe, ex., `bg="bg-muted" fg="text-muted-foreground"` para o tom discreto.
  * Para a COR DO MÓDULO (editável no design-system), passe `bgColor` com a var/hook
  * (`bgColor="var(--mod-<slug>, #fallback)"` ou `useModuleColor('<slug>')`) — aplica
  * inline e ignora a classe `bg`, mantendo a forma canônica (não use `bg="bg-<c>-500"`
- * contando com o retint). `user = null` (sem `phone`) renderiza um placeholder "?".
+ * contando com o retint). Um `ring-*` (contorno) pode vir pelo `className`.
  */
 function iniciaisDe(nome: string) {
   const parts = nome.trim().split(/\s+/).filter(Boolean)
@@ -34,7 +40,7 @@ function iniciaisDe(nome: string) {
   return (primeira + ultima).toUpperCase()
 }
 
-export function UserAvatar({ user, phone, className, bg = 'bg-slate-400', fg = 'text-white', title, bgColor }: {
+export function UserAvatar({ user, phone, className, bg = 'bg-slate-400', fg = 'text-white', title, bgColor, icon: Icon = User }: {
   user: { name: string; image?: string | null } | null | undefined
   phone?: string | null
   className?: string
@@ -42,6 +48,8 @@ export function UserAvatar({ user, phone, className, bg = 'bg-slate-400', fg = '
   fg?: string
   title?: string
   bgColor?: string
+  /** Ícone de fallback (último recurso, sem foto e sem iniciais). Default `<User>`. */
+  icon?: ElementType
 }) {
   const image = user?.image
   const [imgError, setImgError] = useState(false)
@@ -72,13 +80,18 @@ export function UserAvatar({ user, phone, className, bg = 'bg-slate-400', fg = '
     )
   }
 
-  // Iniciais — nome; sem nome, cai no telefone; sem os dois, "?".
+  // Iniciais — nome; sem nome, cai no telefone; sem os dois, ícone de fallback.
   const base = (user?.name?.trim() || phone?.trim() || '')
   const initials = iniciaisDe(base)
   if (!initials) {
+    // Último recurso: o ícone (default <User>), honrando bg/fg/bgColor.
     return (
-      <span title={title} className={cn('rounded-full bg-muted text-muted-foreground flex items-center justify-center font-bold', className)}>
-        ?
+      <span
+        title={title ?? user?.name ?? undefined}
+        className={cn('rounded-full flex items-center justify-center', !bgColor && bg, fg, className)}
+        style={bgColor ? { backgroundColor: bgColor } : undefined}
+      >
+        <Icon className="h-1/2 w-1/2" />
       </span>
     )
   }
