@@ -16,7 +16,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription,
 } from '@saas/ui'
-import { BADGE, SURFACE, STRONG, TEXT } from '@/lib/color-styles'
+import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { CertAcessoModal } from '@/components/certificado/cert-acesso-modal'
 import { SenhaPfxInput } from '@/components/certificado/senha-pfx-input'
@@ -30,7 +30,7 @@ import { useTabLabel } from '@/hooks/use-tab-label'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-legalizacao, #e879f9)' // Legalização (fuchsia)
+const PRIMARY = 'var(--color-primary)'
 
 interface Certificado {
   id: string
@@ -605,7 +605,7 @@ export default function GestaoCertificadosPage() {
           <>
           {/* Barra de ações em massa — só aparece quando há seleção */}
           {canDelete && selecionados.size > 0 && (
-            <div className={cn('flex items-center justify-between gap-3 px-4 py-2 border-b', SURFACE.fuchsia)}>
+            <div className={cn('flex items-center justify-between gap-3 px-4 py-2 border-b', 'bg-primary/10')}>
               <div className="text-sm font-medium">
                 {selecionados.size} selecionado(s)
               </div>
@@ -659,7 +659,7 @@ export default function GestaoCertificadosPage() {
                     key={c.id}
                     className={cn(
                       'cursor-pointer whitespace-nowrap hover:bg-muted/50',
-                      selecionados.has(c.id) && 'bg-fuchsia-50/50 dark:bg-fuchsia-950/10',
+                      selecionados.has(c.id) && 'bg-primary/10',
                     )}
                     onClick={() => { setDetalhesId(c.id); setDetalhesOpen(true) }}
                   >
@@ -793,7 +793,7 @@ export default function GestaoCertificadosPage() {
       {/* Config do tenant: reautenticação obrigatória (engrenagem) */}
       <Dialog open={configOpen} onOpenChange={setConfigOpen}>
         <DialogContent className="sm:max-w-[460px]">
-          <DialogHeaderIcon icon={Settings2} color="violet">
+          <DialogHeaderIcon icon={Settings2}>
             <DialogTitle>Segurança dos certificados</DialogTitle>
             <DialogDescription>Vale para o módulo e para os certificados no cadastro do cliente.</DialogDescription>
           </DialogHeaderIcon>
@@ -801,7 +801,6 @@ export default function GestaoCertificadosPage() {
             <label className="flex items-start gap-3 cursor-pointer select-none">
               <Checkbox
                 className="mt-0.5"
-                accentColor={MODULE_COLOR}
                 checked={reautObrigatoria ?? true}
                 disabled={reautObrigatoria === null || savingConfig}
                 onCheckedChange={v => salvarReautConfig(!!v)}
@@ -871,7 +870,7 @@ function ReauthModal({ open, state, onClose }: {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="sm:max-w-[460px]">
-        <DialogHeaderIcon icon={Lock} color="fuchsia">
+        <DialogHeaderIcon icon={Lock}>
           <DialogTitle className="text-[15px]">{state.titulo}</DialogTitle>
           <DialogDescription>{state.descricao}</DialogDescription>
         </DialogHeaderIcon>
@@ -919,8 +918,7 @@ function ReauthModal({ open, state, onClose }: {
           <Button
             onClick={handleConfirm}
             disabled={executando || !senha}
-            style={{ backgroundColor: MODULE_COLOR }}
-            className="text-white gap-1.5"
+            className="gap-1.5"
           >
             {executando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
             Confirmar
@@ -987,7 +985,7 @@ function RenovarCertificadoModal({ target, onClose, onRenovado }: {
   return (
     <Dialog open={!!target} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="sm:max-w-[560px]">
-        <DialogHeaderIcon icon={RefreshCw} color="violet">
+        <DialogHeaderIcon icon={RefreshCw}>
           <DialogTitle>Renovar certificado</DialogTitle>
           <DialogDescription>
             {target && (
@@ -1008,10 +1006,10 @@ function RenovarCertificadoModal({ target, onClose, onRenovado }: {
             <label
               className={cn(
                 'flex items-center gap-3 px-4 py-3 border border-dashed rounded-md cursor-pointer transition-colors',
-                arquivo ? SURFACE.fuchsia : 'border-border hover:bg-muted/30',
+                arquivo ? 'bg-primary/10 border-primary/30' : 'border-border hover:bg-muted/30',
               )}
             >
-              {arquivo ? <FileLock className={cn('h-5 w-5', TEXT.fuchsia)} /> : <Upload className="h-5 w-5 text-muted-foreground" />}
+              {arquivo ? <FileLock className={cn('h-5 w-5', 'text-primary')} /> : <Upload className="h-5 w-5 text-muted-foreground" />}
               <div className="flex-1 min-w-0">
                 {arquivo ? (
                   <>
@@ -1082,8 +1080,7 @@ function RenovarCertificadoModal({ target, onClose, onRenovado }: {
           <Button
             onClick={handleSalvar}
             disabled={salvando || !arquivo || !senha || senha !== confirmaSenha}
-            style={{ backgroundColor: MODULE_COLOR }}
-            className="text-white gap-1.5"
+            className="gap-1.5"
           >
             {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             {salvando ? 'Renovando...' : 'Renovar'}
@@ -1279,7 +1276,7 @@ function LegacyImportModal({ open, onOpenChange, empresaId, onImported }: {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[860px] max-h-[88vh] overflow-y-auto">
-        <DialogHeaderIcon icon={DatabaseBackup} color="fuchsia">
+        <DialogHeaderIcon icon={DatabaseBackup}>
           <DialogTitle>Importar do OneClick V1</DialogTitle>
           <DialogDescription>
             {!job
@@ -1320,7 +1317,7 @@ function LegacyImportModal({ open, onOpenChange, empresaId, onImported }: {
                   className="h-full transition-all"
                   style={{
                     width: `${Math.min(100, (job.processed / Math.max(job.total, 1)) * 100)}%`,
-                    backgroundColor: job.fase === 'error' ? '#ef4444' : MODULE_COLOR,
+                    backgroundColor: job.fase === 'error' ? '#ef4444' : PRIMARY,
                   }}
                 />
               </div>
@@ -1395,7 +1392,7 @@ function LegacyImportModal({ open, onOpenChange, empresaId, onImported }: {
                           <td className="px-3 py-1 max-w-[180px] truncate text-muted-foreground">
                             {item.clienteRazao || '—'}
                             {item.vincularA === 'empresa' && (
-                              <span className={cn('ml-1 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold', STRONG.fuchsia)}>EMPRESA</span>
+                              <span className={cn('ml-1 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold', 'bg-primary/10 text-primary')}>EMPRESA</span>
                             )}
                           </td>
                           <td className="px-3 py-1">
@@ -1426,8 +1423,7 @@ function LegacyImportModal({ open, onOpenChange, empresaId, onImported }: {
             <Button
               onClick={handleExecutar}
               disabled={importando}
-              style={{ backgroundColor: MODULE_COLOR }}
-              className="text-white gap-1.5"
+              className="gap-1.5"
             >
               {importando ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />}
               {importando ? 'Importando...' : `Importar ${job.result.ok} certificado(s)`}
@@ -1651,7 +1647,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[920px] max-h-[92vh] overflow-y-auto">
-        <DialogHeaderIcon icon={UploadCloud} color="fuchsia">
+        <DialogHeaderIcon icon={UploadCloud}>
           <DialogTitle>Importar PFX em Lote</DialogTitle>
           <DialogDescription>
             Arraste múltiplos certificados .pfx/.p12 — o sistema valida cada um e cadastra os válidos automaticamente.
@@ -1702,7 +1698,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
               onClick={() => fileInputRef.current?.click()}
               className={cn(
                 'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors',
-                dragOver ? 'border-fuchsia-500 bg-fuchsia-50' : 'border-border hover:border-fuchsia-400 hover:bg-muted',
+                dragOver ? 'border-primary bg-primary/10' : 'border-border hover:border-primary hover:bg-muted',
               )}
             >
               <UploadCloud className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
@@ -1769,7 +1765,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
                       className="h-full transition-all"
                       style={{
                         width: `${Math.min(100, (job.processed / Math.max(job.total, 1)) * 100)}%`,
-                        backgroundColor: job.fase === 'error' ? '#ef4444' : MODULE_COLOR,
+                        backgroundColor: job.fase === 'error' ? '#ef4444' : PRIMARY,
                       }}
                     />
                   </div>
@@ -1840,7 +1836,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
                           <td className="px-3 py-1 max-w-[160px] truncate text-muted-foreground">
                             {f.alvoRazao || '—'}
                             {f.vincularA === 'empresa' && (
-                              <span className={cn('ml-1 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold', STRONG.fuchsia)}>EMPRESA</span>
+                              <span className={cn('ml-1 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold', 'bg-primary/10 text-primary')}>EMPRESA</span>
                             )}
                           </td>
                           <td className="px-3 py-1 tabular-nums">{venc}</td>
@@ -1872,8 +1868,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
             <Button
               onClick={handleAnalisar}
               disabled={!podeAnalisar}
-              style={{ backgroundColor: MODULE_COLOR }}
-              className="text-white gap-1.5"
+              className="gap-1.5"
             >
               <FileCheck className="h-4 w-4" /> Analisar {files.length > 0 ? `(${files.length})` : ''}
             </Button>
@@ -1882,8 +1877,7 @@ function BulkImportModal({ open, onOpenChange, empresaId, onImported }: {
             <Button
               onClick={handleImportar}
               disabled={importando}
-              style={{ backgroundColor: MODULE_COLOR }}
-              className="text-white gap-1.5"
+              className="gap-1.5"
             >
               {importando ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
               {importando ? 'Importando...' : `Importar ${okCount} certificado(s)`}

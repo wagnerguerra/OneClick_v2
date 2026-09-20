@@ -14,7 +14,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Dialog, DialogContent, DialogBody, DialogFooter, DialogTitle, DialogDescription, Switch,
 } from '@saas/ui'
-import { BADGE, SURFACE, type ColorName } from '@/lib/color-styles'
+import { BADGE, type ColorName } from '@/lib/color-styles'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
@@ -23,8 +23,6 @@ import { alerts } from '@/lib/alerts'
 import { useTabLabel } from '@/hooks/use-tab-label'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { useBeneficioFiscalPerms } from '@/hooks/use-beneficio-fiscal'
-
-const MODULE_COLOR = 'var(--mod-legalizacao, #e879f9)'
 
 type Status = 'NO_PRAZO' | 'VENCENDO' | 'VENCIDO' | 'SEM_DATA'
 
@@ -394,7 +392,7 @@ export default function BeneficiosFiscaisPage() {
 
         {/* Barra de ações em massa — aparece quando há seleção */}
         {podeSelecionar && selecionados.size > 0 && (
-          <div className={cn('flex items-center justify-between gap-3 px-4 py-2 border-b', SURFACE.fuchsia)}>
+          <div className={cn('flex items-center justify-between gap-3 px-4 py-2 border-b', 'bg-primary/10')}>
             <div className="text-sm font-medium">{selecionados.size} selecionado(s)</div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={() => setSelecionados(new Set())} disabled={orcando || excluindoLote}>
@@ -448,7 +446,7 @@ export default function BeneficiosFiscaisPage() {
                     className={cn(
                       'whitespace-nowrap',
                       !v.ativo && 'opacity-50',
-                      selecionados.has(v.id) && 'bg-fuchsia-50/50 dark:bg-fuchsia-950/10',
+                      selecionados.has(v.id) && 'bg-primary/10',
                     )}
                   >
                     {podeSelecionar && (
@@ -547,7 +545,7 @@ export default function BeneficiosFiscaisPage() {
       {/* Modal vínculo */}
       <Dialog open={!!vincModal} onOpenChange={o => !o && setVincModal(null)}>
         <DialogContent className="max-w-2xl">
-          <DialogHeaderIcon icon={Percent} color="fuchsia">
+          <DialogHeaderIcon icon={Percent}>
             <DialogTitle>{vincModal?._new ? 'Novo benefício do cliente' : 'Editar benefício'}</DialogTitle>
             <DialogDescription>Vincule um benefício fiscal do catálogo a um cliente.</DialogDescription>
           </DialogHeaderIcon>
@@ -601,7 +599,7 @@ export default function BeneficiosFiscaisPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setVincModal(null)}>Cancelar</Button>
-            <Button onClick={salvarVinculo} disabled={vincSaving} style={{ backgroundColor: MODULE_COLOR }}>
+            <Button onClick={salvarVinculo} disabled={vincSaving}>
               {vincSaving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
             </Button>
           </DialogFooter>
@@ -679,7 +677,7 @@ function CatalogoModal({ open, onClose, catalogo, servicos, onChanged }: {
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-2xl">
-        <DialogHeaderIcon icon={Settings2} color="fuchsia">
+        <DialogHeaderIcon icon={Settings2}>
           <DialogTitle>Catálogo de benefícios</DialogTitle>
           <DialogDescription>Benefícios disponíveis e o serviço usado para gerar orçamento.</DialogDescription>
         </DialogHeaderIcon>
@@ -741,7 +739,7 @@ function CatalogoModal({ open, onClose, catalogo, servicos, onChanged }: {
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setEdit(null)}>Cancelar</Button>
-                <Button size="sm" onClick={salvar} disabled={saving} style={{ backgroundColor: MODULE_COLOR }}>
+                <Button size="sm" onClick={salvar} disabled={saving}>
                   {saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
                 </Button>
               </div>

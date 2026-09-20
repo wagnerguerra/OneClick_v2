@@ -1047,7 +1047,7 @@ export default function CertidoesCndPage() {
       {/* Header */}
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-        <Button size="sm" className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white"
+        <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
           onClick={() => { setCompOpen(true); setCompStep('cnpj'); setCompDoc(''); setCompRazao(''); setCompEmail(''); setCompMsg(''); setCompProgress(null); setCompTipos(new Set(['federal', 'estadual', 'municipal', 'trabalhista', 'fgts', 'cgu', 'alvara_bombeiros', 'alvara_funcionamento'])); setCompForcar(false) }}>
           <Mail className="h-3.5 w-3.5" />Compilar e Enviar
         </Button>
@@ -1066,37 +1066,37 @@ export default function CertidoesCndPage() {
       <div className="flex items-center gap-0 border-b">
         <button type="button" onClick={() => setAbaAtiva('federal')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'federal' ? 'border-fuchsia-500 text-fuchsia-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'federal' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <Shield className="h-4 w-4" />Federais
         </button>
         <button type="button" onClick={() => setAbaAtiva('estadual')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'estadual' ? 'border-fuchsia-500 text-fuchsia-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'estadual' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <MapPin className="h-4 w-4" />Estaduais
         </button>
         <button type="button" onClick={() => setAbaAtiva('municipal')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'municipal' ? 'border-fuchsia-500 text-fuchsia-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'municipal' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <Landmark className="h-4 w-4" />Municipais
         </button>
         <button type="button" onClick={() => setAbaAtiva('trabalhista')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'trabalhista' ? 'border-fuchsia-500 text-fuchsia-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'trabalhista' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <FileText className="h-4 w-4" />Trabalhista
         </button>
         <button type="button" onClick={() => setAbaAtiva('fgts')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'fgts' ? 'border-fuchsia-500 text-fuchsia-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'fgts' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <DollarSign className="h-4 w-4" />FGTS
         </button>
         <button type="button" onClick={() => setAbaAtiva('cgu')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'cgu' ? 'border-fuchsia-500 text-fuchsia-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'cgu' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <Shield className="h-4 w-4" />CGU
         </button>
         <button type="button" onClick={() => setAbaAtiva('alvara')}
           className={cn('flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-            abaAtiva === 'alvara' ? 'border-fuchsia-500 text-fuchsia-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            abaAtiva === 'alvara' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
           <Flame className="h-4 w-4" />Alvarás
         </button>
       </div>
@@ -1118,12 +1118,12 @@ export default function CertidoesCndPage() {
           return (
             <button key={f.key} type="button" onClick={() => { setFiltroTipo(f.key); setLixeira(false); setPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
-                isActive ? cn(BADGE.fuchsia, 'shadow-sm')
-                  : 'border-border/40 text-muted-foreground hover:border-fuchsia-200 hover:text-foreground bg-card',
+                isActive ? cn('bg-primary/10 text-primary', 'shadow-sm')
+                  : 'border-border/40 text-muted-foreground hover:border-primary/30 hover:text-foreground bg-card',
               )}>
               <Icon className="h-3.5 w-3.5" />{f.label}
               <span className={cn('text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none',
-                isActive ? 'bg-fuchsia-200/60 dark:bg-fuchsia-800/40 text-fuchsia-700 dark:text-fuchsia-300' : 'bg-muted text-muted-foreground',
+                isActive ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground',
               )}>{f.count}</span>
             </button>
           )
@@ -1141,12 +1141,12 @@ export default function CertidoesCndPage() {
       <Card>
         <div className="flex items-center justify-between border-b px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-fuchsia-500" />
+            <Shield className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-semibold">CND Federal — SERPRO</h3>
           </div>
           <div className="flex items-center gap-2">
             <Input placeholder="Buscar..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} className="h-8 w-[200px] text-xs" />
-            <Button size="sm" className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white" onClick={openConsulta}>
+            <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground" onClick={openConsulta}>
               <Search className="h-3.5 w-3.5" />Consultar
             </Button>
             <Button size="sm" variant="outline" className="gap-1.5" onClick={openLote}>
@@ -1195,7 +1195,7 @@ export default function CertidoesCndPage() {
               const vencida = dias !== null && dias <= 0
               const proxVencer = dias !== null && dias > 0 && dias <= 15
               return (
-                <TableRow key={r.id} className={cn('hover:bg-muted/30', r.temPdf && 'cursor-pointer', fedSelected.has(r.id) && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')} onClick={() => r.temPdf && handleVerPdf(r)}>
+                <TableRow key={r.id} className={cn('hover:bg-muted/30', r.temPdf && 'cursor-pointer', fedSelected.has(r.id) && 'bg-primary/10')} onClick={() => r.temPdf && handleVerPdf(r)}>
                   <TableCell onClick={e => e.stopPropagation()}>
                     <Checkbox checked={fedSelected.has(r.id)}
                       onCheckedChange={(checked) => { setFedSelected(prev => { const n = new Set(prev); if (checked) n.add(r.id); else n.delete(r.id); return n }) }}
@@ -1303,7 +1303,7 @@ export default function CertidoesCndPage() {
       {/* ── Modal Consulta Individual ── */}
       <Dialog open={consultaOpen} onOpenChange={o => !o && setConsultaOpen(false)}>
         <DialogContent className="max-w-[500px]">
-          <DialogHeaderIcon icon={Search} color="fuchsia">
+          <DialogHeaderIcon icon={Search}>
             <DialogTitle>Nova Consulta CND</DialogTitle>
             <DialogDescription>Consulte a certidão negativa de débitos federais</DialogDescription>
           </DialogHeaderIcon>
@@ -1317,8 +1317,8 @@ export default function CertidoesCndPage() {
                   const t = clienteSearch.toLowerCase()
                   return c.razaoSocial.toLowerCase().includes(t) || c.documento.includes(t)
                 }).map(c => (
-                  <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', clienteSelecionado === c.id && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
-                    <input type="radio" name="cliente-cnd" checked={clienteSelecionado === c.id} onChange={() => { setClienteSelecionado(c.id); setConsultaDoc(c.documento) }} className="h-3.5 w-3.5 accent-fuchsia-500 cursor-pointer" />
+                  <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', clienteSelecionado === c.id && 'bg-primary/10')}>
+                    <input type="radio" name="cliente-cnd" checked={clienteSelecionado === c.id} onChange={() => { setClienteSelecionado(c.id); setConsultaDoc(c.documento) }} className="h-3.5 w-3.5 accent-[var(--color-primary)] cursor-pointer" />
                     <span className="flex-1 truncate cursor-pointer" onClick={() => { setClienteSelecionado(c.id); setConsultaDoc(c.documento) }}>{c.razaoSocial}</span>
                     <span className="font-mono text-[10px] text-muted-foreground shrink-0">{formatDoc(c.documento)}</span>
                   </div>
@@ -1334,7 +1334,7 @@ export default function CertidoesCndPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setConsultaOpen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={handleConsultar} disabled={consultaLoading} className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white">
+            <Button size="sm" onClick={handleConsultar} disabled={consultaLoading} className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground">
               {consultaLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
               Consultar
             </Button>
@@ -1345,7 +1345,7 @@ export default function CertidoesCndPage() {
       {/* ── Modal Consulta em Lote ── */}
       <Dialog open={loteOpen} onOpenChange={o => !o && setLoteOpen(false)}>
         <DialogContent className="max-w-[560px]">
-          <DialogHeaderIcon icon={Users} color="fuchsia">
+          <DialogHeaderIcon icon={Users}>
             <DialogTitle>Consulta em Lote</DialogTitle>
             <DialogDescription>Consulte CND de vários clientes mensais</DialogDescription>
           </DialogHeaderIcon>
@@ -1353,14 +1353,14 @@ export default function CertidoesCndPage() {
             <div className="flex items-center justify-between">
               <Badge variant="outline" className="text-[10px]">{loteSelecionados.size} selecionado(s)</Badge>
               <div className="flex gap-2">
-                <button className="text-[10px] text-fuchsia-600 hover:underline" onClick={() => setLoteSelecionados(new Set(clientes.map(c => c.id)))}>Todos</button>
-                <button className="text-[10px] text-fuchsia-600 hover:underline" onClick={() => setLoteSelecionados(new Set())}>Nenhum</button>
+                <button className="text-[10px] text-primary hover:underline" onClick={() => setLoteSelecionados(new Set(clientes.map(c => c.id)))}>Todos</button>
+                <button className="text-[10px] text-primary hover:underline" onClick={() => setLoteSelecionados(new Set())}>Nenhum</button>
               </div>
             </div>
             <Input placeholder="Buscar..." value={loteSearch} onChange={e => setLoteSearch(e.target.value)} className="h-8 text-xs" />
             <div className="border rounded-lg max-h-[250px] overflow-y-auto nice-scrollbar">
               {clientes.filter(c => !loteSearch || c.razaoSocial.toLowerCase().includes(loteSearch.toLowerCase())).map(c => (
-                <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', loteSelecionados.has(c.id) && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
+                <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', loteSelecionados.has(c.id) && 'bg-primary/10')}>
                   <Checkbox checked={loteSelecionados.has(c.id)} onCheckedChange={() => {
                     setLoteSelecionados(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n })
                   }} className="cursor-pointer" />
@@ -1388,7 +1388,7 @@ export default function CertidoesCndPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setLoteOpen(false)}>Fechar</Button>
-            <Button size="sm" onClick={handleConsultarLote} disabled={loteRunning || loteSelecionados.size === 0} className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white">
+            <Button size="sm" onClick={handleConsultarLote} disabled={loteRunning || loteSelecionados.size === 0} className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground">
               {loteRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
               Consultar ({loteSelecionados.size})
             </Button>
@@ -1399,7 +1399,7 @@ export default function CertidoesCndPage() {
       {/* ── Modal Agendamento ── */}
       <Dialog open={scheduleOpen} onOpenChange={o => { if (!o) { setScheduleOpen(false); stopProgressPolling() } }}>
         <DialogContent className="max-w-[620px]">
-          <DialogHeaderIcon icon={CalendarClock} color="fuchsia">
+          <DialogHeaderIcon icon={CalendarClock}>
             <DialogTitle>Agendamento Automático — CND</DialogTitle>
             <DialogDescription>Configure a consulta automática de certidões</DialogDescription>
           </DialogHeaderIcon>
@@ -1417,7 +1417,7 @@ export default function CertidoesCndPage() {
                       <Switch
                         checked={cfg.enabled}
                         onCheckedChange={(v) => setCfg({ enabled: v })}
-                        className={cn(cfg.enabled && 'bg-fuchsia-500')}
+                        className={cn(cfg.enabled && 'bg-primary')}
                       />
                       Agendamento {cfg.enabled ? 'ativado' : 'desativado'}
                     </label>
@@ -1434,7 +1434,7 @@ export default function CertidoesCndPage() {
                             if (newDias.length === 0) return
                             setCfg({ cron: buildCron(newDias, parsed.horas) })
                           }} className={cn('rounded-md px-2.5 py-1.5 text-[11px] font-medium border transition-all',
-                            active ? 'bg-fuchsia-500 text-white border-fuchsia-500 shadow-sm' : 'text-muted-foreground border-border/60 hover:border-fuchsia-400')}>
+                            active ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'text-muted-foreground border-border/60 hover:border-primary')}>
                             {d.label}
                           </button>
                         )
@@ -1453,7 +1453,7 @@ export default function CertidoesCndPage() {
                             if (newHoras.length === 0) return
                             setCfg({ cron: buildCron(parsed.dias, newHoras) })
                           }} className={cn('rounded px-2 py-1 text-[11px] font-mono font-medium border min-w-[36px] transition-all',
-                            active ? 'bg-fuchsia-500 text-white border-fuchsia-500 shadow-sm' : 'text-muted-foreground border-border/60 hover:border-fuchsia-400')}>
+                            active ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'text-muted-foreground border-border/60 hover:border-primary')}>
                             {String(h).padStart(2, '0')}h
                           </button>
                         )
@@ -1464,16 +1464,16 @@ export default function CertidoesCndPage() {
                   {/* Progresso */}
                   {scheduleProgress && scheduleProgress.status === 'running' && (
                     <div className="rounded-lg border overflow-hidden">
-                      <div className="flex items-center justify-between px-3 py-2 bg-fuchsia-50 dark:bg-fuchsia-950/20 border-b">
-                        <div className="flex items-center gap-2 text-xs"><Loader2 className="h-3.5 w-3.5 animate-spin text-fuchsia-500" /><span className="font-medium">Processando {scheduleProgress.current}/{scheduleProgress.total}</span></div>
+                      <div className="flex items-center justify-between px-3 py-2 bg-primary/10 border-b">
+                        <div className="flex items-center gap-2 text-xs"><Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /><span className="font-medium">Processando {scheduleProgress.current}/{scheduleProgress.total}</span></div>
                       </div>
-                      <div className="h-1.5 bg-muted"><div className="h-full bg-fuchsia-500 transition-all duration-500" style={{ width: `${scheduleProgress.total > 0 ? (scheduleProgress.current / scheduleProgress.total) * 100 : 0}%` }} /></div>
+                      <div className="h-1.5 bg-muted"><div className="h-full bg-primary transition-all duration-500" style={{ width: `${scheduleProgress.total > 0 ? (scheduleProgress.current / scheduleProgress.total) * 100 : 0}%` }} /></div>
                       <div className="max-h-[200px] overflow-y-auto divide-y nice-scrollbar">
                         {scheduleProgress.items.map((item, idx) => (
-                          <div key={idx} className={cn('flex items-center gap-2 px-3 py-1.5 text-[11px]', item.status === 'processando' && 'bg-fuchsia-50/50 dark:bg-fuchsia-950/20')}>
+                          <div key={idx} className={cn('flex items-center gap-2 px-3 py-1.5 text-[11px]', item.status === 'processando' && 'bg-primary/10')}>
                             {item.status === 'pendente' && <Clock className="h-3 w-3 text-muted-foreground/40" />}
-                            {item.status === 'processando' && <Loader2 className="h-3 w-3 text-fuchsia-500 animate-spin" />}
-                            {item.status === 'ok' && <CheckCircle2 className="h-3 w-3 text-fuchsia-500" />}
+                            {item.status === 'processando' && <Loader2 className="h-3 w-3 text-primary animate-spin" />}
+                            {item.status === 'ok' && <CheckCircle2 className="h-3 w-3 text-primary" />}
                             {item.status === 'erro' && <AlertTriangle className="h-3 w-3 text-red-500" />}
                             <span className={cn('flex-1 truncate', item.status === 'processando' && 'font-medium')}>{item.razaoSocial}</span>
                             {item.erro && <span className="text-[10px] text-red-500 truncate max-w-[150px]">{item.erro}</span>}
@@ -1490,7 +1490,7 @@ export default function CertidoesCndPage() {
             <Button variant="outline" size="sm" onClick={handleRunNow} disabled={scheduleProgress?.status === 'running'} className="gap-1.5">
               <Play className="h-3.5 w-3.5" />Executar Agora
             </Button>
-            <Button size="sm" onClick={handleSaveSchedule} disabled={scheduleSaving} className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white">
+            <Button size="sm" onClick={handleSaveSchedule} disabled={scheduleSaving} className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground">
               {scheduleSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
               Salvar
             </Button>
@@ -1505,7 +1505,7 @@ export default function CertidoesCndPage() {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-8 w-8 items-center justify-center rounded bg-fuchsia-500 text-white shrink-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground shrink-0">
                   <FileOutput className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
@@ -1528,7 +1528,7 @@ export default function CertidoesCndPage() {
             <div className="flex items-center border-b px-4 shrink-0">
               <button type="button" onClick={() => setPdfTab('cnd')}
                 className={cn('flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
-                  pdfTab === 'cnd' ? 'border-fuchsia-500 text-fuchsia-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+                  pdfTab === 'cnd' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
                 <FileOutput className="h-3.5 w-3.5" />CND Federal
               </button>
               <button type="button" onClick={() => {
@@ -1536,14 +1536,14 @@ export default function CertidoesCndPage() {
                 if (!sitfisUrl && !sitfisLoading && !sitfisErro) handleCarregarSitfis()
               }}
                 className={cn('flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
-                  pdfTab === 'sitfis' ? 'border-fuchsia-500 text-fuchsia-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+                  pdfTab === 'sitfis' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
                 <Shield className="h-3.5 w-3.5" />Situação Fiscal
                 {sitfisLoading && <Loader2 className="h-3 w-3 animate-spin" />}
               </button>
               {pdfRecord?.tipoCertidao && pdfRecord.tipoCertidao !== 'Negativa' && (
                 <button type="button" onClick={() => setPdfTab('darf')}
                   className={cn('flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
-                    pdfTab === 'darf' ? 'border-fuchsia-500 text-fuchsia-600' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+                    pdfTab === 'darf' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
                   <DollarSign className="h-3.5 w-3.5" />Emitir DARF
                   {darfLoading && <Loader2 className="h-3 w-3 animate-spin" />}
                 </button>
@@ -1567,7 +1567,7 @@ export default function CertidoesCndPage() {
                 <>
                   {sitfisLoading && (
                     <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-                      <Loader2 className="h-8 w-8 animate-spin text-fuchsia-500" />
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
                       <p className="text-sm">Consultando situação fiscal via SERPRO...</p>
                       <p className="text-xs">Isso pode levar alguns segundos</p>
                     </div>
@@ -1668,7 +1668,7 @@ export default function CertidoesCndPage() {
                         className="w-full h-9 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                     </div>
 
-                    <Button className="w-full gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white" onClick={handleEmitirDarf} disabled={darfLoading}>
+                    <Button className="w-full gap-1.5 bg-primary hover:bg-primary text-primary-foreground" onClick={handleEmitirDarf} disabled={darfLoading}>
                       {darfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <DollarSign className="h-4 w-4" />}
                       Emitir DARF
                     </Button>
@@ -1681,8 +1681,8 @@ export default function CertidoesCndPage() {
                     )}
 
                     {darfConsolidado && (
-                      <div className={cn('rounded-md border p-3 space-y-1.5 text-xs', SURFACE.fuchsia)}>
-                        <p className={cn('font-semibold mb-2', TEXT.fuchsia)}>Valores Consolidados</p>
+                      <div className={cn('rounded-md border p-3 space-y-1.5 text-xs', 'bg-primary/10')}>
+                        <p className={cn('font-semibold mb-2', 'text-primary')}>Valores Consolidados</p>
                         {typeof darfConsolidado.valorPrincipalMoedaCorrente === 'number' && (
                           <div className="flex justify-between"><span className="text-muted-foreground">Principal</span><span className="font-mono font-medium">R$ {Number(darfConsolidado.valorPrincipalMoedaCorrente).toFixed(2)}</span></div>
                         )}
@@ -1709,7 +1709,7 @@ export default function CertidoesCndPage() {
                   <div className="flex-1 min-w-0">
                     {darfLoading ? (
                       <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-                        <Loader2 className="h-8 w-8 animate-spin text-fuchsia-500" />
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         <p className="text-sm">Emitindo DARF via SICALC/SERPRO...</p>
                       </div>
                     ) : darfBlobUrl ? (
@@ -1757,12 +1757,12 @@ export default function CertidoesCndPage() {
           <Card>
             <div className="flex items-center justify-between border-b px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-fuchsia-500" />
+                <MapPin className="h-4 w-4 text-primary" />
                 <h3 className="text-sm font-semibold">CND Estadual — SEFAZ ES</h3>
               </div>
               <div className="flex items-center gap-2">
                 <Input placeholder="Buscar..." value={estSearch} onChange={e => { setEstSearch(e.target.value); setEstPage(1) }} className="h-8 w-[200px] text-xs" />
-                <Button size="sm" className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white" disabled={estConsultando}
+                <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground" disabled={estConsultando}
                   onClick={async () => {
                     if (clientes.length === 0) {
                       alerts.error('Erro', 'Nenhum cliente carregado. Acesse a aba Federal primeiro.')
@@ -1890,7 +1890,7 @@ export default function CertidoesCndPage() {
           {/* Modal progresso lote estadual */}
           <Dialog open={estLoteOpen} onOpenChange={open => { if (!open && estLoteProgress?.status !== 'running') { setEstLoteOpen(false); if (estLotePollRef.current) { clearInterval(estLotePollRef.current); estLotePollRef.current = null } } }}>
             <DialogContent className="max-w-lg">
-              <DialogHeaderIcon icon={MapPin} color="fuchsia">
+              <DialogHeaderIcon icon={MapPin}>
                 <DialogTitle>CND Estadual — Lote SEFAZ ES</DialogTitle>
                 <DialogDescription>
                   {estLoteProgress?.status === 'running' ? 'Consultando...' : estLoteProgress?.status === 'done' ? 'Concluído' : 'Iniciando...'}
@@ -1906,7 +1906,7 @@ export default function CertidoesCndPage() {
                         <span className="font-medium">{estLoteProgress.current} / {estLoteProgress.total}</span>
                       </div>
                       <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-fuchsia-500 transition-all duration-500"
+                        <div className="h-full rounded-full bg-primary transition-all duration-500"
                           style={{ width: estLoteProgress.total > 0 ? `${(estLoteProgress.current / estLoteProgress.total) * 100}%` : '0%' }} />
                       </div>
                     </div>
@@ -1945,7 +1945,7 @@ export default function CertidoesCndPage() {
                             {item.status === 'emitida' && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />}
                             {item.status === 'nao_emitida' && <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />}
                             {item.status === 'erro' && <XCircle className="h-3 w-3 text-red-500 shrink-0" />}
-                            {item.status === 'processando' && <Loader2 className="h-3 w-3 text-fuchsia-500 animate-spin shrink-0" />}
+                            {item.status === 'processando' && <Loader2 className="h-3 w-3 text-primary animate-spin shrink-0" />}
                             {item.status === 'pendente' && <span className="h-3 w-3 text-muted-foreground shrink-0 text-center">·</span>}
                             <span className={cn('truncate',
                               item.status === 'pendente' && 'text-muted-foreground',
@@ -1973,12 +1973,12 @@ export default function CertidoesCndPage() {
           {estPdfOpen && estPdfData && (
             <Dialog open={estPdfOpen} onOpenChange={setEstPdfOpen}>
               <DialogContent className="max-w-4xl max-h-[90vh]">
-                <DialogHeaderIcon icon={MapPin} color="fuchsia">
+                <DialogHeaderIcon icon={MapPin}>
                   <DialogTitle>CND Estadual — SEFAZ ES</DialogTitle>
                 </DialogHeaderIcon>
                 <DialogBody>
                   <object data={`data:application/pdf;base64,${estPdfData}`} type="application/pdf" width="100%" height="600px">
-                    <p className="text-sm text-muted-foreground text-center py-8">Seu navegador não suporta visualização de PDF inline. <a href={`data:application/pdf;base64,${estPdfData}`} download="cnd-estadual-es.pdf" className="text-fuchsia-500 hover:underline">Baixar PDF</a></p>
+                    <p className="text-sm text-muted-foreground text-center py-8">Seu navegador não suporta visualização de PDF inline. <a href={`data:application/pdf;base64,${estPdfData}`} download="cnd-estadual-es.pdf" className="text-primary hover:underline">Baixar PDF</a></p>
                   </object>
                 </DialogBody>
               </DialogContent>
@@ -1995,7 +1995,7 @@ export default function CertidoesCndPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={() => { setMunFiltroStatus(null); setMunPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                !munFiltroStatus ? 'bg-fuchsia-100 dark:bg-fuchsia-900/30 border-fuchsia-300 dark:border-fuchsia-700 text-fuchsia-700 dark:text-fuchsia-400 ring-1 ring-fuchsia-400/30' : 'bg-fuchsia-50 dark:bg-fuchsia-900/20 border-fuchsia-200 dark:border-fuchsia-800 text-fuchsia-600')}>
+                !munFiltroStatus ? 'bg-primary/15 border-primary text-primary ring-1 ring-primary/30' : 'bg-primary/10 border-primary/30 text-primary')}>
               <Shield className="h-3 w-3" />{munTotais.total} Total
             </button>
             <button type="button" onClick={() => { setMunFiltroStatus(munFiltroStatus === 'negativa' ? null : 'negativa'); setMunPage(1) }}
@@ -2044,7 +2044,7 @@ export default function CertidoesCndPage() {
           <Card>
             <div className="flex items-center justify-between border-b px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <Landmark className="h-4 w-4 text-fuchsia-500" />
+                <Landmark className="h-4 w-4 text-primary" />
                 <h3 className="text-sm font-semibold">CND Municipal</h3>
                 <Select value={munMunicipio} onValueChange={v => { setMunMunicipio(v); setMunPage(1); setMunFiltroStatus(null) }}>
                   <SelectTrigger className="h-7 w-[140px] text-xs"><SelectValue /></SelectTrigger>
@@ -2058,7 +2058,7 @@ export default function CertidoesCndPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Input placeholder="Buscar..." value={munSearch} onChange={e => { setMunSearch(e.target.value); setMunPage(1) }} className="h-8 w-[200px] text-xs" />
-                <Button size="sm" className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white"
+                <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
                   onClick={async () => {
                     setMunConsultaOpen(true)
                     setMunConsultaStatus('idle')
@@ -2134,7 +2134,7 @@ export default function CertidoesCndPage() {
                 ) : munData.length === 0 ? (
                   <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground text-sm">{munFiltroStatus ? 'Nenhum resultado para este filtro' : 'Nenhuma certidão municipal consultada'}</TableCell></TableRow>
                 ) : munData.map(r => (
-                  <TableRow key={r.id} className={cn('hover:bg-muted/30', munSelected.has(r.id) && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
+                  <TableRow key={r.id} className={cn('hover:bg-muted/30', munSelected.has(r.id) && 'bg-primary/10')}>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <Checkbox
                         checked={munSelected.has(r.id)}
@@ -2257,7 +2257,7 @@ export default function CertidoesCndPage() {
                           if (!c.razaoSocial.toLowerCase().includes(t) && !c.documento.replace(/\D/g, '').includes(t.replace(/\D/g, ''))) return false
                           return true
                         }).map(c => (
-                          <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0 cursor-pointer', munConsultaSelecionado === c.id && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
+                          <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0 cursor-pointer', munConsultaSelecionado === c.id && 'bg-primary/10')}>
                             <input type="radio" name="cliente-cnd-mun" checked={munConsultaSelecionado === c.id} onChange={() => { setMunConsultaSelecionado(c.id); setMunConsultaDoc(c.documento) }} className="h-3.5 w-3.5 accent-violet-500 cursor-pointer" />
                             <span className="flex-1 truncate" onClick={() => { setMunConsultaSelecionado(c.id); setMunConsultaDoc(c.documento) }}>{c.razaoSocial}</span>
                             <span className="font-mono text-[10px] text-muted-foreground shrink-0">{formatDoc(c.documento)}</span>
@@ -2269,8 +2269,8 @@ export default function CertidoesCndPage() {
                       </div>
                     </div>
                     {munConsultaStatus === 'loading' && (
-                      <div className="flex items-center gap-3 rounded-lg border bg-fuchsia-50/50 dark:bg-fuchsia-950/20 px-4 py-3">
-                        <Loader2 className="h-5 w-5 animate-spin text-fuchsia-500 shrink-0" />
+                      <div className="flex items-center gap-3 rounded-lg border bg-primary/10 px-4 py-3">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
                         <div><p className="text-xs font-medium">Consultando CND Municipal...</p><p className="text-[10px] text-muted-foreground">{munConsultaEtapa || 'Aguarde enquanto a certidão é gerada'}</p></div>
                       </div>
                     )}
@@ -2336,12 +2336,12 @@ export default function CertidoesCndPage() {
           {munPdfOpen && munPdfData && (
             <Dialog open={munPdfOpen} onOpenChange={setMunPdfOpen}>
               <DialogContent className="max-w-4xl max-h-[90vh]">
-                <DialogHeaderIcon icon={Landmark} color="fuchsia">
+                <DialogHeaderIcon icon={Landmark}>
                   <DialogTitle>CND Municipal — {munMunicipio}</DialogTitle>
                 </DialogHeaderIcon>
                 <DialogBody>
                   <object data={`data:application/pdf;base64,${munPdfData}`} type="application/pdf" width="100%" height="600px">
-                    <p className="text-sm text-muted-foreground text-center py-8">Seu navegador não suporta PDF inline. <a href={`data:application/pdf;base64,${munPdfData}`} download="cnd-municipal-vitoria.pdf" className="text-fuchsia-500 hover:underline">Baixar PDF</a></p>
+                    <p className="text-sm text-muted-foreground text-center py-8">Seu navegador não suporta PDF inline. <a href={`data:application/pdf;base64,${munPdfData}`} download="cnd-municipal-vitoria.pdf" className="text-primary hover:underline">Baixar PDF</a></p>
                   </object>
                 </DialogBody>
               </DialogContent>
@@ -2375,7 +2375,7 @@ export default function CertidoesCndPage() {
           {/* Modal progresso lote municipal */}
           <Dialog open={munLoteOpen} onOpenChange={open => { if (!open && munLoteProgress?.status !== 'running') { setMunLoteOpen(false); if (munLotePollRef.current) { clearInterval(munLotePollRef.current); munLotePollRef.current = null } } }}>
             <DialogContent className="max-w-lg">
-              <DialogHeaderIcon icon={Landmark} color="fuchsia">
+              <DialogHeaderIcon icon={Landmark}>
                 <DialogTitle>CND Municipal — Lote {munMunicipio}</DialogTitle>
                 <DialogDescription>{munLoteProgress?.status === 'running' ? 'Consultando...' : munLoteProgress?.status === 'done' ? 'Concluído' : 'Iniciando...'}</DialogDescription>
               </DialogHeaderIcon>
@@ -2388,7 +2388,7 @@ export default function CertidoesCndPage() {
                         <span className="font-medium">{munLoteProgress.current} / {munLoteProgress.total}</span>
                       </div>
                       <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-fuchsia-500 transition-all duration-500" style={{ width: munLoteProgress.total > 0 ? `${(munLoteProgress.current / munLoteProgress.total) * 100}%` : '0%' }} />
+                        <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: munLoteProgress.total > 0 ? `${(munLoteProgress.current / munLoteProgress.total) * 100}%` : '0%' }} />
                       </div>
                     </div>
                     {munLoteProgress.status === 'running' && (
@@ -2407,7 +2407,7 @@ export default function CertidoesCndPage() {
                           {item.status === 'emitida' && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />}
                           {item.status === 'nao_emitida' && <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />}
                           {item.status === 'erro' && <XCircle className="h-3 w-3 text-red-500 shrink-0" />}
-                          {item.status === 'processando' && <Loader2 className="h-3 w-3 text-fuchsia-500 animate-spin shrink-0" />}
+                          {item.status === 'processando' && <Loader2 className="h-3 w-3 text-primary animate-spin shrink-0" />}
                           {item.status === 'pendente' && <span className="h-3 w-3 text-muted-foreground shrink-0 text-center">·</span>}
                           <span className={cn('truncate', item.status === 'pendente' && 'text-muted-foreground', item.status === 'erro' && TEXT.red)}>
                             {item.razaoSocial}{item.erro && <span className="ml-1 text-[10px] text-red-400">({item.erro})</span>}
@@ -2432,7 +2432,7 @@ export default function CertidoesCndPage() {
           <Card>
             <div className="flex items-center justify-between border-b px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <Flame className="h-4 w-4 text-fuchsia-500" />
+                <Flame className="h-4 w-4 text-primary" />
                 <h3 className="text-sm font-semibold">Alvarás</h3>
                 <Select value={alvTipo} onValueChange={v => { setAlvTipo(v as 'bombeiros' | 'funcionamento'); setAlvPage(1) }}>
                   <SelectTrigger className="h-7 w-[200px] text-xs"><SelectValue /></SelectTrigger>
@@ -2456,7 +2456,7 @@ export default function CertidoesCndPage() {
               <div className="flex items-center gap-2">
                 {alvTipo === 'bombeiros' && <>
                 <Input placeholder="Buscar..." value={alvSearch} onChange={e => { setAlvSearch(e.target.value); setAlvPage(1) }} className="h-8 w-[200px] text-xs" />
-                <Button size="sm" className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white" disabled={alvConsultando}
+                <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground" disabled={alvConsultando}
                   onClick={async () => {
                     const nome = prompt('Digite a Razão Social do cliente:')
                     if (!nome || nome.length < 3) return
@@ -2505,7 +2505,7 @@ export default function CertidoesCndPage() {
             {alvTipo === 'funcionamento' && (<>
               <div className="flex items-center justify-end gap-2 border-b px-4 py-2">
                 <Input placeholder="Buscar..." value={alvFuncSearch} onChange={e => { setAlvFuncSearch(e.target.value); setAlvFuncPage(1) }} className="h-8 w-[200px] text-xs" />
-                <Button size="sm" className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white"
+                <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
                   onClick={async () => {
                     const doc = prompt('Digite o CNPJ do cliente:')
                     if (!doc || doc.length < 11) return
@@ -2557,7 +2557,7 @@ export default function CertidoesCndPage() {
                   ) : alvFuncData.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground text-sm">Nenhum alvará de funcionamento consultado</TableCell></TableRow>
                   ) : alvFuncData.map(r => (
-                    <TableRow key={r.id} className={cn('hover:bg-muted/30', alvFuncSelected.has(r.id) && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
+                    <TableRow key={r.id} className={cn('hover:bg-muted/30', alvFuncSelected.has(r.id) && 'bg-primary/10')}>
                       <TableCell onClick={e => e.stopPropagation()}>
                         <Checkbox checked={alvFuncSelected.has(r.id)}
                           onCheckedChange={(checked) => { setAlvFuncSelected(prev => { const n = new Set(prev); if (checked) n.add(r.id); else n.delete(r.id); return n }) }}
@@ -2630,7 +2630,7 @@ export default function CertidoesCndPage() {
                 ) : alvData.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground text-sm">Nenhum alvará consultado</TableCell></TableRow>
                 ) : alvData.map(r => (
-                  <TableRow key={r.id} className={cn('hover:bg-muted/30', alvSelected.has(r.id) && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
+                  <TableRow key={r.id} className={cn('hover:bg-muted/30', alvSelected.has(r.id) && 'bg-primary/10')}>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <Checkbox checked={alvSelected.has(r.id)}
                         onCheckedChange={(checked) => { setAlvSelected(prev => { const n = new Set(prev); if (checked) n.add(r.id); else n.delete(r.id); return n }) }}
@@ -2689,7 +2689,7 @@ export default function CertidoesCndPage() {
           {/* Modal progresso lote alvará */}
           <Dialog open={alvLoteOpen} onOpenChange={open => { if (!open && alvLoteProgress?.status !== 'running') { setAlvLoteOpen(false); if (alvLotePollRef.current) { clearInterval(alvLotePollRef.current); alvLotePollRef.current = null } } }}>
             <DialogContent className="max-w-lg">
-              <DialogHeaderIcon icon={Flame} color="fuchsia">
+              <DialogHeaderIcon icon={Flame}>
                 <DialogTitle>Alvará Bombeiros — Lote</DialogTitle>
                 <DialogDescription>
                   {alvLoteProgress?.status === 'running' ? 'Consultando...' : alvLoteProgress?.status === 'done' ? 'Concluído' : 'Iniciando...'}
@@ -2704,7 +2704,7 @@ export default function CertidoesCndPage() {
                         <span className="font-medium">{alvLoteProgress.current} / {alvLoteProgress.total}</span>
                       </div>
                       <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-fuchsia-500 transition-all duration-500"
+                        <div className="h-full rounded-full bg-primary transition-all duration-500"
                           style={{ width: alvLoteProgress.total > 0 ? `${(alvLoteProgress.current / alvLoteProgress.total) * 100}%` : '0%' }} />
                       </div>
                     </div>
@@ -2740,7 +2740,7 @@ export default function CertidoesCndPage() {
                             {item.status === 'encontrado' && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />}
                             {item.status === 'nao_encontrado' && <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />}
                             {item.status === 'erro' && <XCircle className="h-3 w-3 text-red-500 shrink-0" />}
-                            {item.status === 'processando' && <Loader2 className="h-3 w-3 text-fuchsia-500 animate-spin shrink-0" />}
+                            {item.status === 'processando' && <Loader2 className="h-3 w-3 text-primary animate-spin shrink-0" />}
                             {item.status === 'pendente' && <span className="h-3 w-3 text-muted-foreground shrink-0 text-center">·</span>}
                             <span className={cn('truncate',
                               item.status === 'pendente' && 'text-muted-foreground',
@@ -2767,7 +2767,7 @@ export default function CertidoesCndPage() {
           {alvPdfOpen && alvPdfData && (
             <Dialog open={alvPdfOpen} onOpenChange={setAlvPdfOpen}>
               <DialogContent className="max-w-4xl max-h-[90vh]">
-                <DialogHeaderIcon icon={Flame} color="fuchsia"><DialogTitle>Alvará de Licença — Corpo de Bombeiros</DialogTitle></DialogHeaderIcon>
+                <DialogHeaderIcon icon={Flame}><DialogTitle>Alvará de Licença — Corpo de Bombeiros</DialogTitle></DialogHeaderIcon>
                 <DialogBody className="p-0"><iframe src={`data:application/pdf;base64,${alvPdfData}`} className="w-full h-[70vh]" /></DialogBody>
                 <DialogFooter><Button variant="outline" size="sm" onClick={() => setAlvPdfOpen(false)}>Fechar</Button></DialogFooter>
               </DialogContent>
@@ -2785,7 +2785,7 @@ export default function CertidoesCndPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={() => { setTrbFiltroStatus(null); setTrbPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                !trbFiltroStatus ? 'bg-fuchsia-100 dark:bg-fuchsia-900/30 border-fuchsia-300 dark:border-fuchsia-700 text-fuchsia-700 dark:text-fuchsia-400 ring-1 ring-fuchsia-400/30' : 'bg-fuchsia-50 dark:bg-fuchsia-900/20 border-fuchsia-200 dark:border-fuchsia-800 text-fuchsia-600')}>
+                !trbFiltroStatus ? 'bg-primary/15 border-primary text-primary ring-1 ring-primary/30' : 'bg-primary/10 border-primary/30 text-primary')}>
               <Shield className="h-3 w-3" />{trbTotais.total} Total
             </button>
             <button type="button" onClick={() => { setTrbFiltroStatus(trbFiltroStatus === 'negativa' ? null : 'negativa'); setTrbPage(1) }}
@@ -2827,12 +2827,12 @@ export default function CertidoesCndPage() {
           <Card>
             <div className="flex items-center justify-between border-b px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-fuchsia-500" />
+                <FileText className="h-4 w-4 text-primary" />
                 <h3 className="text-sm font-semibold">CNDT — Certidão Negativa de Débitos Trabalhistas</h3>
               </div>
               <div className="flex items-center gap-2">
                 <Input placeholder="Buscar..." value={trbSearch} onChange={e => { setTrbSearch(e.target.value); setTrbPage(1) }} className="h-8 w-[200px] text-xs" />
-                <Button size="sm" className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white"
+                <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
                   onClick={() => { setTrbConsultaOpen(true); setTrbConsultaStatus('idle'); setTrbConsultaMsg(''); setTrbConsultaDoc(''); setTrbConsultaEtapa('') }}>
                   <Search className="h-3.5 w-3.5" />Consultar
                 </Button>
@@ -2885,7 +2885,7 @@ export default function CertidoesCndPage() {
                 ) : trbData.length === 0 ? (
                   <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground text-sm">{trbFiltroStatus ? 'Nenhum resultado para este filtro' : 'Nenhuma CNDT consultada'}</TableCell></TableRow>
                 ) : trbData.map(r => (
-                  <TableRow key={r.id} className={cn('hover:bg-muted/30', trbSelected.has(r.id) && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
+                  <TableRow key={r.id} className={cn('hover:bg-muted/30', trbSelected.has(r.id) && 'bg-primary/10')}>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <Checkbox checked={trbSelected.has(r.id)}
                         onCheckedChange={(checked) => { setTrbSelected(prev => { const n = new Set(prev); if (checked) n.add(r.id); else n.delete(r.id); return n }) }}
@@ -2952,7 +2952,7 @@ export default function CertidoesCndPage() {
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div className="bg-background rounded-xl shadow-2xl border w-full max-w-md flex flex-col max-h-[80vh]">
                   <div className="shrink-0 flex items-center gap-2 border-b px-5 py-3">
-                    <FileText className="h-4 w-4 text-fuchsia-500" />
+                    <FileText className="h-4 w-4 text-primary" />
                     <h3 className="text-base font-semibold">CNDT — Consulta Individual</h3>
                     <button onClick={() => trbConsultaStatus !== 'loading' && setTrbConsultaOpen(false)} className="ml-auto rounded-md p-1.5 hover:bg-muted transition-colors"><X className="h-4 w-4" /></button>
                   </div>
@@ -2966,8 +2966,8 @@ export default function CertidoesCndPage() {
                       </div>
                     )}
                     {trbConsultaStatus === 'loading' && (
-                      <div className="flex items-center gap-3 rounded-lg border bg-fuchsia-50/50 dark:bg-fuchsia-950/20 px-4 py-3">
-                        <Loader2 className="h-5 w-5 animate-spin text-fuchsia-500 shrink-0" />
+                      <div className="flex items-center gap-3 rounded-lg border bg-primary/10 px-4 py-3">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
                         <div><p className="text-xs font-medium">Consultando CNDT...</p><p className="text-[10px] text-muted-foreground">{trbConsultaEtapa || 'Aguarde enquanto a certidão é gerada'}</p></div>
                       </div>
                     )}
@@ -3019,7 +3019,7 @@ export default function CertidoesCndPage() {
           {trbPdfOpen && trbPdfData && (
             <Dialog open={trbPdfOpen} onOpenChange={setTrbPdfOpen}>
               <DialogContent className="max-w-4xl max-h-[90vh]">
-                <DialogHeaderIcon icon={FileText} color="fuchsia">
+                <DialogHeaderIcon icon={FileText}>
                   <DialogTitle>CNDT — Certidão</DialogTitle>
                 </DialogHeaderIcon>
                 <DialogBody className="p-0">
@@ -3035,19 +3035,19 @@ export default function CertidoesCndPage() {
           {/* Modal Lote */}
           <Dialog open={trbLoteOpen} onOpenChange={open => { if (!open && trbLoteProgress?.status !== 'running') { setTrbLoteOpen(false); if (trbLotePollRef.current) { clearInterval(trbLotePollRef.current); trbLotePollRef.current = null } } }}>
             <DialogContent className="max-w-lg max-h-[80vh]">
-              <DialogHeaderIcon icon={FileText} color="fuchsia">
+              <DialogHeaderIcon icon={FileText}>
                 <DialogTitle>CNDT — Consulta em Lote</DialogTitle>
               </DialogHeaderIcon>
               <DialogBody className="space-y-3">
                 {trbLoteProgress && (
                   <>
                     <div className="flex items-center gap-3">
-                      {trbLoteProgress.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-fuchsia-500" />}
-                      {trbLoteProgress.status === 'done' && <CheckCircle2 className="h-4 w-4 text-fuchsia-500" />}
+                      {trbLoteProgress.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                      {trbLoteProgress.status === 'done' && <CheckCircle2 className="h-4 w-4 text-primary" />}
                       <p className="text-sm font-medium">{trbLoteProgress.current}/{trbLoteProgress.total} — {trbLoteProgress.currentCliente}</p>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
-                      <div className="bg-fuchsia-500 h-2 rounded-full transition-all" style={{ width: `${(trbLoteProgress.current / trbLoteProgress.total) * 100}%` }} />
+                      <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${(trbLoteProgress.current / trbLoteProgress.total) * 100}%` }} />
                     </div>
                     <div className="flex gap-3 text-xs">
                       <span className={TEXT.emerald}>{trbLoteProgress.emitidas} emitidas</span>
@@ -3058,8 +3058,8 @@ export default function CertidoesCndPage() {
                       {trbLoteProgress.items.map((item, i) => (
                         <div key={i} className="flex items-center justify-between px-3 py-1.5 border-b last:border-b-0 text-xs">
                           <span className="truncate flex-1">{item.razaoSocial}</span>
-                          {item.status === 'processando' && <Loader2 className="h-3 w-3 animate-spin text-fuchsia-500" />}
-                          {item.status === 'emitida' && <CheckCircle2 className="h-3 w-3 text-fuchsia-500" />}
+                          {item.status === 'processando' && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                          {item.status === 'emitida' && <CheckCircle2 className="h-3 w-3 text-primary" />}
                           {item.status === 'nao_emitida' && <XCircle className="h-3 w-3 text-red-500" />}
                           {item.status === 'erro' && <AlertTriangle className="h-3 w-3 text-amber-500" />}
                           {item.status === 'pendente' && <Clock className="h-3 w-3 text-muted-foreground" />}
@@ -3088,7 +3088,7 @@ export default function CertidoesCndPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={() => { setFgtsFiltroStatus(null); setFgtsPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                !fgtsFiltroStatus ? 'bg-fuchsia-100 dark:bg-fuchsia-900/30 border-fuchsia-300 dark:border-fuchsia-700 text-fuchsia-700 dark:text-fuchsia-400 ring-1 ring-fuchsia-400/30' : 'bg-fuchsia-50 dark:bg-fuchsia-900/20 border-fuchsia-200 dark:border-fuchsia-800 text-fuchsia-600')}>
+                !fgtsFiltroStatus ? 'bg-primary/15 border-primary text-primary ring-1 ring-primary/30' : 'bg-primary/10 border-primary/30 text-primary')}>
               <Shield className="h-3 w-3" />{fgtsTotais.total} Total
             </button>
             <button type="button" onClick={() => { setFgtsFiltroStatus(fgtsFiltroStatus === 'regular' ? null : 'regular'); setFgtsPage(1) }}
@@ -3137,12 +3137,12 @@ export default function CertidoesCndPage() {
           <Card>
             <div className="flex items-center justify-between border-b px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-fuchsia-500" />
+                <DollarSign className="h-4 w-4 text-primary" />
                 <h3 className="text-sm font-semibold">CRF — Certificado de Regularidade do FGTS</h3>
               </div>
               <div className="flex items-center gap-2">
                 <Input placeholder="Buscar..." value={fgtsSearch} onChange={e => { setFgtsSearch(e.target.value); setFgtsPage(1) }} className="h-8 w-[200px] text-xs" />
-                <Button size="sm" className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white"
+                <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
                   onClick={() => { setFgtsConsultaOpen(true); setFgtsConsultaStatus('idle'); setFgtsConsultaMsg(''); setFgtsConsultaDoc(''); setFgtsConsultaEtapa('') }}>
                   <Search className="h-3.5 w-3.5" />Consultar
                 </Button>
@@ -3195,7 +3195,7 @@ export default function CertidoesCndPage() {
                 ) : fgtsData.length === 0 ? (
                   <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground text-sm">{fgtsFiltroStatus ? 'Nenhum resultado para este filtro' : 'Nenhum CRF/FGTS consultado'}</TableCell></TableRow>
                 ) : fgtsData.map(r => (
-                  <TableRow key={r.id} className={cn('hover:bg-muted/30', fgtsSelected.has(r.id) && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
+                  <TableRow key={r.id} className={cn('hover:bg-muted/30', fgtsSelected.has(r.id) && 'bg-primary/10')}>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <Checkbox checked={fgtsSelected.has(r.id)}
                         onCheckedChange={(checked) => { setFgtsSelected(prev => { const n = new Set(prev); if (checked) n.add(r.id); else n.delete(r.id); return n }) }}
@@ -3261,7 +3261,7 @@ export default function CertidoesCndPage() {
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div className="bg-background rounded-xl shadow-2xl border w-full max-w-md flex flex-col max-h-[80vh]">
                   <div className="shrink-0 flex items-center gap-2 border-b px-5 py-3">
-                    <DollarSign className="h-4 w-4 text-fuchsia-500" />
+                    <DollarSign className="h-4 w-4 text-primary" />
                     <h3 className="text-base font-semibold">CRF/FGTS — Consulta Individual</h3>
                     <button onClick={() => fgtsConsultaStatus !== 'loading' && setFgtsConsultaOpen(false)} className="ml-auto rounded-md p-1.5 hover:bg-muted transition-colors"><X className="h-4 w-4" /></button>
                   </div>
@@ -3275,8 +3275,8 @@ export default function CertidoesCndPage() {
                       </div>
                     )}
                     {fgtsConsultaStatus === 'loading' && (
-                      <div className="flex items-center gap-3 rounded-lg border bg-fuchsia-50/50 dark:bg-fuchsia-950/20 px-4 py-3">
-                        <Loader2 className="h-5 w-5 animate-spin text-fuchsia-500 shrink-0" />
+                      <div className="flex items-center gap-3 rounded-lg border bg-primary/10 px-4 py-3">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
                         <div><p className="text-xs font-medium">Consultando CRF/FGTS...</p><p className="text-[10px] text-muted-foreground">{fgtsConsultaEtapa || 'Aguarde enquanto o certificado é gerado'}</p></div>
                       </div>
                     )}
@@ -3328,7 +3328,7 @@ export default function CertidoesCndPage() {
           {fgtsPdfOpen && fgtsPdfData && (
             <Dialog open={fgtsPdfOpen} onOpenChange={setFgtsPdfOpen}>
               <DialogContent className="max-w-4xl max-h-[90vh]">
-                <DialogHeaderIcon icon={DollarSign} color="fuchsia">
+                <DialogHeaderIcon icon={DollarSign}>
                   <DialogTitle>CRF/FGTS — Certificado</DialogTitle>
                 </DialogHeaderIcon>
                 <DialogBody className="p-0">
@@ -3344,19 +3344,19 @@ export default function CertidoesCndPage() {
           {/* Modal Lote */}
           <Dialog open={fgtsLoteOpen} onOpenChange={open => { if (!open && fgtsLoteProgress?.status !== 'running') { setFgtsLoteOpen(false); if (fgtsLotePollRef.current) { clearInterval(fgtsLotePollRef.current); fgtsLotePollRef.current = null } } }}>
             <DialogContent className="max-w-lg max-h-[80vh]">
-              <DialogHeaderIcon icon={DollarSign} color="fuchsia">
+              <DialogHeaderIcon icon={DollarSign}>
                 <DialogTitle>CRF/FGTS — Consulta em Lote</DialogTitle>
               </DialogHeaderIcon>
               <DialogBody className="space-y-3">
                 {fgtsLoteProgress && (
                   <>
                     <div className="flex items-center gap-3">
-                      {fgtsLoteProgress.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-fuchsia-500" />}
-                      {fgtsLoteProgress.status === 'done' && <CheckCircle2 className="h-4 w-4 text-fuchsia-500" />}
+                      {fgtsLoteProgress.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                      {fgtsLoteProgress.status === 'done' && <CheckCircle2 className="h-4 w-4 text-primary" />}
                       <p className="text-sm font-medium">{fgtsLoteProgress.current}/{fgtsLoteProgress.total} — {fgtsLoteProgress.currentCliente}</p>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
-                      <div className="bg-fuchsia-500 h-2 rounded-full transition-all" style={{ width: `${(fgtsLoteProgress.current / fgtsLoteProgress.total) * 100}%` }} />
+                      <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${(fgtsLoteProgress.current / fgtsLoteProgress.total) * 100}%` }} />
                     </div>
                     <div className="flex gap-3 text-xs">
                       <span className={TEXT.emerald}>{fgtsLoteProgress.emitidas} regulares</span>
@@ -3367,8 +3367,8 @@ export default function CertidoesCndPage() {
                       {fgtsLoteProgress.items.map((item, i) => (
                         <div key={i} className="flex items-center justify-between px-3 py-1.5 border-b last:border-b-0 text-xs">
                           <span className="truncate flex-1">{item.razaoSocial}</span>
-                          {item.status === 'processando' && <Loader2 className="h-3 w-3 animate-spin text-fuchsia-500" />}
-                          {item.status === 'emitida' && <CheckCircle2 className="h-3 w-3 text-fuchsia-500" />}
+                          {item.status === 'processando' && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                          {item.status === 'emitida' && <CheckCircle2 className="h-3 w-3 text-primary" />}
                           {item.status === 'nao_emitida' && <XCircle className="h-3 w-3 text-red-500" />}
                           {item.status === 'erro' && <AlertTriangle className="h-3 w-3 text-amber-500" />}
                           {item.status === 'pendente' && <Clock className="h-3 w-3 text-muted-foreground" />}
@@ -3396,7 +3396,7 @@ export default function CertidoesCndPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={() => { setCguFiltroStatus(null); setCguPage(1) }}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:shadow-sm',
-                !cguFiltroStatus ? 'bg-fuchsia-100 dark:bg-fuchsia-900/30 border-fuchsia-300 dark:border-fuchsia-700 text-fuchsia-700 dark:text-fuchsia-400 ring-1 ring-fuchsia-400/30' : 'bg-fuchsia-50 dark:bg-fuchsia-900/20 border-fuchsia-200 dark:border-fuchsia-800 text-fuchsia-600')}>
+                !cguFiltroStatus ? 'bg-primary/15 border-primary text-primary ring-1 ring-primary/30' : 'bg-primary/10 border-primary/30 text-primary')}>
               <Shield className="h-3 w-3" />{cguTotais.total} Total
             </button>
             <button type="button" onClick={() => { setCguFiltroStatus(cguFiltroStatus === 'nada_consta' ? null : 'nada_consta'); setCguPage(1) }}
@@ -3423,12 +3423,12 @@ export default function CertidoesCndPage() {
           <Card>
             <div className="flex items-center justify-between border-b px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-fuchsia-500" />
+                <Shield className="h-4 w-4 text-primary" />
                 <h3 className="text-sm font-semibold">CGU — Certidão Negativa Correcional</h3>
               </div>
               <div className="flex items-center gap-2">
                 <Input placeholder="Buscar..." value={cguSearch} onChange={e => { setCguSearch(e.target.value); setCguPage(1) }} className="h-8 w-[200px] text-xs" />
-                <Button size="sm" className="gap-1.5 bg-fuchsia-500 hover:bg-fuchsia-600 text-white"
+                <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary text-primary-foreground"
                   onClick={() => { setCguConsultaOpen(true); setCguConsultaStatus('idle'); setCguConsultaMsg(''); setCguConsultaDoc(''); setCguConsultaEtapa('') }}>
                   <Search className="h-3.5 w-3.5" />Consultar
                 </Button>
@@ -3480,7 +3480,7 @@ export default function CertidoesCndPage() {
                 ) : cguData.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground text-sm">{cguFiltroStatus ? 'Nenhum resultado para este filtro' : 'Nenhuma certidão CGU consultada'}</TableCell></TableRow>
                 ) : cguData.map(r => (
-                  <TableRow key={r.id} className={cn('hover:bg-muted/30', cguSelected.has(r.id) && 'bg-fuchsia-50/40 dark:bg-fuchsia-950/20')}>
+                  <TableRow key={r.id} className={cn('hover:bg-muted/30', cguSelected.has(r.id) && 'bg-primary/10')}>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <Checkbox checked={cguSelected.has(r.id)}
                         onCheckedChange={(checked) => { setCguSelected(prev => { const n = new Set(prev); if (checked) n.add(r.id); else n.delete(r.id); return n }) }}
@@ -3542,7 +3542,7 @@ export default function CertidoesCndPage() {
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div className="bg-background rounded-xl shadow-2xl border w-full max-w-md flex flex-col max-h-[80vh]">
                   <div className="shrink-0 flex items-center gap-2 border-b px-5 py-3">
-                    <Shield className="h-4 w-4 text-fuchsia-500" />
+                    <Shield className="h-4 w-4 text-primary" />
                     <h3 className="text-base font-semibold">CGU — Consulta Individual</h3>
                     <button onClick={() => cguConsultaStatus !== 'loading' && setCguConsultaOpen(false)} className="ml-auto rounded-md p-1.5 hover:bg-muted transition-colors"><X className="h-4 w-4" /></button>
                   </div>
@@ -3551,8 +3551,8 @@ export default function CertidoesCndPage() {
                       <div><label className="text-xs font-medium mb-1 block">CNPJ / CPF</label><Input value={cguConsultaDoc} onChange={e => setCguConsultaDoc(e.target.value)} placeholder="00.000.000/0000-00" className="text-xs h-9" /></div>
                     )}
                     {cguConsultaStatus === 'loading' && (
-                      <div className="flex items-center gap-3 rounded-lg border bg-fuchsia-50/50 dark:bg-fuchsia-950/20 px-4 py-3">
-                        <Loader2 className="h-5 w-5 animate-spin text-fuchsia-500 shrink-0" />
+                      <div className="flex items-center gap-3 rounded-lg border bg-primary/10 px-4 py-3">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
                         <div><p className="text-xs font-medium">Consultando CGU...</p><p className="text-[10px] text-muted-foreground">{cguConsultaEtapa || 'Aguarde'}</p></div>
                       </div>
                     )}
@@ -3597,7 +3597,7 @@ export default function CertidoesCndPage() {
           {cguPdfOpen && cguPdfData && (
             <Dialog open={cguPdfOpen} onOpenChange={setCguPdfOpen}>
               <DialogContent className="max-w-4xl max-h-[90vh]">
-                <DialogHeaderIcon icon={Shield} color="fuchsia"><DialogTitle>CGU — Certidão</DialogTitle></DialogHeaderIcon>
+                <DialogHeaderIcon icon={Shield}><DialogTitle>CGU — Certidão</DialogTitle></DialogHeaderIcon>
                 <DialogBody className="p-0"><iframe src={`data:application/pdf;base64,${cguPdfData}`} className="w-full h-[70vh]" /></DialogBody>
                 <DialogFooter><Button variant="outline" size="sm" onClick={() => setCguPdfOpen(false)}>Fechar</Button></DialogFooter>
               </DialogContent>
@@ -3606,16 +3606,16 @@ export default function CertidoesCndPage() {
 
           <Dialog open={cguLoteOpen} onOpenChange={open => { if (!open && cguLoteProgress?.status !== 'running') { setCguLoteOpen(false); if (cguLotePollRef.current) { clearInterval(cguLotePollRef.current); cguLotePollRef.current = null } } }}>
             <DialogContent className="max-w-lg max-h-[80vh]">
-              <DialogHeaderIcon icon={Shield} color="fuchsia"><DialogTitle>CGU — Consulta em Lote</DialogTitle></DialogHeaderIcon>
+              <DialogHeaderIcon icon={Shield}><DialogTitle>CGU — Consulta em Lote</DialogTitle></DialogHeaderIcon>
               <DialogBody className="space-y-3">
                 {cguLoteProgress && (
                   <>
                     <div className="flex items-center gap-3">
-                      {cguLoteProgress.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-fuchsia-500" />}
-                      {cguLoteProgress.status === 'done' && <CheckCircle2 className="h-4 w-4 text-fuchsia-500" />}
+                      {cguLoteProgress.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                      {cguLoteProgress.status === 'done' && <CheckCircle2 className="h-4 w-4 text-primary" />}
                       <p className="text-sm font-medium">{cguLoteProgress.current}/{cguLoteProgress.total} — {cguLoteProgress.currentCliente}</p>
                     </div>
-                    <div className="w-full bg-muted rounded-full h-2"><div className="bg-fuchsia-500 h-2 rounded-full transition-all" style={{ width: `${(cguLoteProgress.current / cguLoteProgress.total) * 100}%` }} /></div>
+                    <div className="w-full bg-muted rounded-full h-2"><div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${(cguLoteProgress.current / cguLoteProgress.total) * 100}%` }} /></div>
                     <div className="flex gap-3 text-xs">
                       <span className={TEXT.emerald}>{cguLoteProgress.emitidas} nada consta</span>
                       <span className={TEXT.red}>{cguLoteProgress.naoEmitidas} consta/erro</span>
@@ -3625,8 +3625,8 @@ export default function CertidoesCndPage() {
                       {cguLoteProgress.items.map((item, i) => (
                         <div key={i} className="flex items-center justify-between px-3 py-1.5 border-b last:border-b-0 text-xs">
                           <span className="truncate flex-1">{item.razaoSocial}</span>
-                          {item.status === 'processando' && <Loader2 className="h-3 w-3 animate-spin text-fuchsia-500" />}
-                          {item.status === 'emitida' && <CheckCircle2 className="h-3 w-3 text-fuchsia-500" />}
+                          {item.status === 'processando' && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                          {item.status === 'emitida' && <CheckCircle2 className="h-3 w-3 text-primary" />}
                           {item.status === 'nao_emitida' && <XCircle className="h-3 w-3 text-red-500" />}
                           {item.status === 'erro' && <AlertTriangle className="h-3 w-3 text-amber-500" />}
                           {item.status === 'pendente' && <Clock className="h-3 w-3 text-muted-foreground" />}
@@ -3648,7 +3648,7 @@ export default function CertidoesCndPage() {
       {compOpen && (
         <Dialog open={compOpen} onOpenChange={open => { if (!open && compStep !== 'progresso') { setCompOpen(false); if (compPollRef.current) { clearInterval(compPollRef.current); compPollRef.current = null } } }}>
           <DialogContent className="max-w-2xl max-h-[90vh]">
-            <DialogHeaderIcon icon={Mail} color="fuchsia">
+            <DialogHeaderIcon icon={Mail}>
               <DialogTitle>Compilar e Enviar Certidões</DialogTitle>
               <DialogDescription>
                 {compStep === 'cnpj' && 'Informe o CNPJ do cliente'}
@@ -3709,19 +3709,19 @@ export default function CertidoesCndPage() {
               {compStep === 'progresso' && compProgress && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    {compProgress.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-fuchsia-500" />}
-                    {compProgress.status === 'done' && <CheckCircle2 className="h-4 w-4 text-fuchsia-500" />}
+                    {compProgress.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                    {compProgress.status === 'done' && <CheckCircle2 className="h-4 w-4 text-primary" />}
                     <p className="text-sm font-medium">{compProgress.current}/{compProgress.total}</p>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
-                    <div className="bg-fuchsia-500 h-2 rounded-full transition-all" style={{ width: `${compProgress.total > 0 ? (compProgress.current / compProgress.total) * 100 : 0}%` }} />
+                    <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${compProgress.total > 0 ? (compProgress.current / compProgress.total) * 100 : 0}%` }} />
                   </div>
                   <div className="border rounded-lg max-h-[250px] overflow-y-auto nice-scrollbar">
                     {compProgress.items.map((item, i) => (
                       <div key={i} className="flex items-center justify-between px-3 py-2 border-b last:border-b-0 text-xs">
                         <span className="truncate flex-1">{item.label}</span>
-                        {item.status === 'processando' && <Loader2 className="h-3 w-3 animate-spin text-fuchsia-500" />}
-                        {item.status === 'sucesso' && <CheckCircle2 className="h-3 w-3 text-fuchsia-500" />}
+                        {item.status === 'processando' && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                        {item.status === 'sucesso' && <CheckCircle2 className="h-3 w-3 text-primary" />}
                         {item.status === 'falha' && <span className="flex items-center gap-1 text-red-500"><XCircle className="h-3 w-3" /><span className="max-w-[120px] truncate">{item.mensagem}</span></span>}
                         {item.status === 'sem_pdf' && <span className="flex items-center gap-1 text-amber-500"><AlertTriangle className="h-3 w-3" />Sem PDF</span>}
                         {item.status === 'pendente' && <Clock className="h-3 w-3 text-muted-foreground" />}
@@ -3771,7 +3771,7 @@ export default function CertidoesCndPage() {
                               </td>
                               <td className="px-1 py-2">
                                 {item.status === 'processando' ? (
-                                  <Loader2 className="h-3 w-3 animate-spin text-fuchsia-500" />
+                                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
                                 ) : (item.status === 'falha' || item.status === 'sem_pdf') ? (
                                   <button type="button" title="Tentar novamente" className="rounded p-1.5 hover:bg-muted transition-colors"
                                     onClick={async () => {
@@ -3829,7 +3829,7 @@ export default function CertidoesCndPage() {
                           <button key={i} type="button"
                             onClick={() => setCompEmail(c.email)}
                             className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all hover:shadow-sm cursor-pointer',
-                              compEmail === c.email ? 'bg-fuchsia-100 dark:bg-fuchsia-900/30 border-fuchsia-300 dark:border-fuchsia-700 text-fuchsia-700 dark:text-fuchsia-400 ring-1 ring-fuchsia-400/30' : 'bg-muted/30 border-border text-muted-foreground hover:bg-muted/50')}>
+                              compEmail === c.email ? 'bg-primary/15 border-primary text-primary ring-1 ring-primary/30' : 'bg-muted/30 border-border text-muted-foreground hover:bg-muted/50')}>
                             <Mail className="h-2.5 w-2.5" />
                             {c.nome ? `${c.nome} — ${c.email}` : c.email}
                           </button>
