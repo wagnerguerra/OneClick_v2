@@ -17,8 +17,6 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { getApiUrl } from '@/lib/api-url'
 
-const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
-
 interface ClienteCount {
   clienteId: string | null  // null = notas sem cliente vinculado
   razaoSocial: string
@@ -265,9 +263,8 @@ export default function NfseGaleriaPage() {
                     onClick={() => setClienteAtivo(key)}
                     className={cn(
                       'w-full text-left px-2 py-2 rounded transition-colors',
-                      ativo ? 'text-white shadow-sm' : 'hover:bg-muted/60',
+                      ativo ? 'bg-primary text-primary-foreground shadow-sm' : 'hover:bg-muted/60',
                     )}
-                    style={ativo ? { backgroundColor: MODULE_COLOR } : undefined}
                   >
                     <div className="flex items-start gap-2">
                       <Building2 className={cn(
@@ -391,10 +388,9 @@ export default function NfseGaleriaPage() {
                     className={cn(
                       'w-full text-left px-2 py-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
                       selecionado?.id === n.id
-                        ? 'text-white shadow-sm'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'hover:bg-muted/60',
                     )}
-                    style={selecionado?.id === n.id ? { backgroundColor: MODULE_COLOR } : undefined}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold flex items-center gap-1.5">
