@@ -32,13 +32,15 @@ export function useSidebar() {
   }, [pathname])
 
   const toggle = useCallback(() => {
-    setCollapsed((prev) => {
-      const next = !prev
-      localStorage.setItem(SIDEBAR_KEY, String(next))
-      window.dispatchEvent(new CustomEvent('oc-prefs', { detail: { chave: 'sidebar' } }))
-      return next
-    })
-  }, [])
+    // Efeitos colaterais (persistir + notificar) ficam AQUI, no handler do clique
+    // — não dentro do updater do setState. O updater roda durante o render; um
+    // `dispatchEvent` síncrono ali chama os listeners na hora, e o `LayoutCustomizer`
+    // fazia `setState` no meio do render do `DashboardLayout` (erro do React).
+    const next = !collapsed
+    setCollapsed(next)
+    localStorage.setItem(SIDEBAR_KEY, String(next))
+    window.dispatchEvent(new CustomEvent('oc-prefs', { detail: { chave: 'sidebar' } }))
+  }, [collapsed])
 
   const openMobile = useCallback(() => setMobileOpen(true), [])
   const closeMobile = useCallback(() => setMobileOpen(false), [])
