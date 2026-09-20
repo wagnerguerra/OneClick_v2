@@ -13,6 +13,8 @@ import { PageTransition } from '@/components/dashboard/page-transition'
 import { RouteProgress } from '@/components/dashboard/route-progress'
 import { ApiHealthMonitor } from '@/components/dashboard/api-health-monitor'
 import { FloatingFeedbackButton } from '@/components/dashboard/floating-feedback-button'
+// ⚠️ DEBUG TEMPORÁRIO — remover antes do PR (ver uso abaixo).
+import { PrimaryDebugTool } from '@/components/dashboard/primary-debug-tool'
 import { TarefasRail } from '@/components/dashboard/tarefas-rail'
 import { NotesRail } from '@/components/dashboard/notes-rail'
 import { ChatToastListener } from '@/components/chat/chat-toast-listener'
@@ -82,6 +84,10 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
       </div>
       <ApiHealthMonitor />
       <FloatingFeedbackButton />
+      {/* ⚠️ DEBUG TEMPORÁRIO (branch feat/module-color-to-primary) — REMOVER ANTES DO PR
+          (este bloco + primary-debug-tool.tsx + a skin [data-skin="debug"] no globals.css).
+          Gated em não-produção como rede de segurança. */}
+      {process.env.NODE_ENV !== 'production' && <PrimaryDebugTool />}
       <TarefasRail />
       <NotesRail />
       <ChatToastListener />

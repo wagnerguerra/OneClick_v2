@@ -78,6 +78,11 @@
 .dark[data-skin="coral"]     { --color-primary: #fb7185; --color-primary-hover: #fda4af; --color-ring: #fb7185; }
 .dark[data-skin="lilas"]     { --color-primary: #a78bfa; --color-primary-hover: #c4b5fd; --color-ring: #a78bfa; }
 .dark[data-skin="grafite"]   { --color-primary: #94a3b8; --color-primary-hover: #cbd5e1; --color-ring: #94a3b8; }
+/* ⚠️ DEBUG — skin de depuração (NÃO listada no menu de skins). Magenta vívido pra
+   evidenciar o que respeita a cor primária. REMOVER antes do PR (junto com o
+   PrimaryDebugTool e sua montagem no layout). branch feat/module-color-to-primary. */
+[data-skin="debug"]      { --color-primary: #ff00d4; --color-primary-hover: #d600b0; --color-primary-foreground: #ffffff; --color-ring: #ff00d4; }
+.dark[data-skin="debug"] { --color-primary: #ff4de3; --color-primary-hover: #ff7aea; --color-primary-foreground: #ffffff; --color-ring: #ff4de3; }
 
 /* Pulso do badge do sino (modelo LuminAux: scale 1→1.15→1, 1.6s, infinito) e
    entrada do drawer de notificações pela direita. */
