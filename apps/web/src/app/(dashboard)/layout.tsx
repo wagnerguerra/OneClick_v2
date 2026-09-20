@@ -55,7 +55,7 @@ function DashboardLayoutInner({ children, collapsed, toggle, mobileOpen, openMob
     >
       <RouteProgress />
       <div onMouseEnter={() => collapsed && setHoverSidebar(true)} onMouseLeave={() => setHoverSidebar(false)}>
-        <Sidebar collapsed={!sidebarAberta} onToggle={toggle} mobileOpen={mobileOpen} onCloseMobile={closeMobile} />
+        <Sidebar collapsed={!sidebarAberta} reduzida={collapsed} onToggle={toggle} mobileOpen={mobileOpen} onCloseMobile={closeMobile} />
       </div>
       <div
         className={cn(
