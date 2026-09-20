@@ -400,7 +400,7 @@ export default function ErrosClientePage() {
                                 {e.modulo}
                               </span>
                             )}
-                            <p className="text-[12px] font-medium text-foreground line-clamp-2 flex-1">{e.message}</p>
+                            <p className="text-[12px] font-medium text-foreground line-clamp-2 flex-1 min-w-0 [overflow-wrap:anywhere]">{e.message}</p>
                           </div>
                           {e.url && (
                             <p className="text-[10px] text-muted-foreground truncate font-mono mt-0.5" title={e.url}>{e.url}</p>
