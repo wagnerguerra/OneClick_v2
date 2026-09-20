@@ -16,7 +16,7 @@ import {
 } from 'recharts'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 type IndicadoresData = inferRouterOutputs<AppRouter>['orcamento']['reportIndicadores']
 type ListaItem = IndicadoresData['listas']['aprovados'][number]
@@ -85,7 +85,7 @@ export function IndicadoresDashboard() {
           <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} className="h-8 w-[140px] text-xs" />
           <span className="text-xs text-muted-foreground">até</span>
           <Input type="date" value={dataFim} min={dataInicio} onChange={e => setDataFim(e.target.value)} className="h-8 w-[140px] text-xs" />
-          <Button size="sm" onClick={consultar} disabled={loading} className="h-8 gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}>
+          <Button size="sm" onClick={consultar} disabled={loading} className="h-8 gap-1.5 text-white" style={{ backgroundColor: PRIMARY }}>
             <CalendarDays className="h-3.5 w-3.5" /> Consultar
           </Button>
         </div>
@@ -152,13 +152,13 @@ export function IndicadoresDashboard() {
   )
 }
 
-function Kpi({ label, value, sub, icon: Icon, cor = MODULE_COLOR }: { label: string; value: string; sub: string; icon: typeof Send; cor?: string }) {
+function Kpi({ label, value, sub, icon: Icon, cor = PRIMARY }: { label: string; value: string; sub: string; icon: typeof Send; cor?: string }) {
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[13px] font-medium text-muted-foreground">{label}</p>
-          <p className="mt-2 text-xl font-bold leading-tight" style={{ color: cor === MODULE_COLOR ? undefined : cor }}>{value}</p>
+          <p className="mt-2 text-xl font-bold leading-tight" style={{ color: cor === PRIMARY ? undefined : cor }}>{value}</p>
           <p className="mt-1 text-[11px] text-muted-foreground">{sub}</p>
         </div>
         <div className="h-9 w-9 shrink-0 rounded-md flex items-center justify-center" style={{ backgroundColor: `${cor}18` }}>

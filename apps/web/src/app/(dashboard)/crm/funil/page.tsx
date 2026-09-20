@@ -20,7 +20,7 @@ type LeadOutputs = inferRouterOutputs<AppRouter>['lead']
 type Sessao = LeadOutputs['listSessoes'][number]
 type ReportFunil = LeadOutputs['reportFunil']
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Cfg {
   id: string | null
@@ -419,13 +419,13 @@ export default function CrmFunilPage() {
                 return (
                   <div key={i} className="flex flex-col items-end">
                     <span className="mb-0.5 pr-1 text-[10px] text-muted-foreground">Visitante{time ? ` · ${time}` : ''}</span>
-                    <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-3xl rounded-br-md px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm" style={{ background: MODULE_COLOR }}>{m.conteudo}</div>
+                    <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-3xl rounded-br-md px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm" style={{ background: PRIMARY }}>{m.conteudo}</div>
                   </div>
                 )
               }
               return (
                 <div key={i} className="flex items-end gap-2.5">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white shadow-sm" style={{ background: MODULE_COLOR }}><Sparkles className="h-3.5 w-3.5" /></div>
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white shadow-sm" style={{ background: PRIMARY }}><Sparkles className="h-3.5 w-3.5" /></div>
                   <div className="flex min-w-0 max-w-[85%] flex-col items-start">
                     <span className="mb-0.5 pl-1 text-[10px] text-muted-foreground">Atendente{time ? ` · ${time}` : ''}</span>
                     <div className="whitespace-pre-wrap break-words rounded-3xl rounded-tl-md border border-border/70 bg-card px-4 py-2.5 text-sm leading-relaxed shadow-sm">{m.conteudo}</div>

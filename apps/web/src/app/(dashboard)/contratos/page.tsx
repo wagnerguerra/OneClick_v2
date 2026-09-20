@@ -19,7 +19,7 @@ import { alerts } from '@/lib/alerts'
 import { CONTRATO_STATUS_LABELS, CONTRATO_STATUS_COLORS, type ContratoStatus } from '@saas/types'
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Contrato {
   id: string
@@ -159,7 +159,7 @@ export default function ContratosPage() {
     <div className="space-y-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={abrirNovo}>
+          <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={abrirNovo}>
             <Plus className="h-4 w-4" /> Novo Contrato
           </Button>
       </>}>
@@ -360,7 +360,7 @@ export default function ContratosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNovoOpen(false)} disabled={salvando}>Cancelar</Button>
-            <Button size="sm" onClick={handleCriar} disabled={salvando} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+            <Button size="sm" onClick={handleCriar} disabled={salvando} style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5">
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Criar contrato
             </Button>

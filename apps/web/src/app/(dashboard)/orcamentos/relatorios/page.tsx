@@ -26,7 +26,7 @@ import {
 } from 'recharts'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 type OrcOut = inferRouterOutputs<AppRouter>['orcamento']
 type FunilData = OrcOut['reportFunil']
@@ -153,7 +153,7 @@ export default function RelatoriosOrcamentosPage() {
                 'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
                 active ? 'text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
-              style={active ? { borderBottomColor: MODULE_COLOR } : undefined}
+              style={active ? { borderBottomColor: PRIMARY } : undefined}
             >
               <Icon className="h-3.5 w-3.5" /> {t.label}
             </button>
@@ -548,7 +548,7 @@ function SatisfacaoTab({ data }: { data: PesquisaData | null }) {
           <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Comentários ({data.comentarios.length})</h4>
           <div className="space-y-2 max-h-[360px] overflow-y-auto nice-scrollbar">
             {data.comentarios.map((c: { texto: string }, i: number) => (
-              <p key={i} className="text-sm border-l-2 pl-3 py-1 text-muted-foreground" style={{ borderColor: MODULE_COLOR }}>{c.texto}</p>
+              <p key={i} className="text-sm border-l-2 pl-3 py-1 text-muted-foreground" style={{ borderColor: PRIMARY }}>{c.texto}</p>
             ))}
           </div>
         </Card>
@@ -557,7 +557,7 @@ function SatisfacaoTab({ data }: { data: PesquisaData | null }) {
   )
 }
 
-function StatCard({ label, value, icon: Icon, cor = MODULE_COLOR }: { label: string; value: string; icon: ElementType; cor?: string }) {
+function StatCard({ label, value, icon: Icon, cor = PRIMARY }: { label: string; value: string; icon: ElementType; cor?: string }) {
   return (
     <Card className="p-4 flex items-center gap-3">
       <div className="h-10 w-10 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: `${cor}18` }}>

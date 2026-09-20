@@ -20,7 +20,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { CLAUSULA_CATEGORIA_LABELS, type ClausulaCategoria } from '@saas/types'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Clausula {
   id: string
@@ -246,7 +246,7 @@ export default function ContratoTemplatesPage() {
     <div className="space-y-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={openCreate}>
+          <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={openCreate}>
             <Plus className="h-4 w-4" /> Novo Modelo
           </Button>
       </>}>
@@ -271,7 +271,7 @@ export default function ContratoTemplatesPage() {
         <Card className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <FileBox className="h-10 w-10 opacity-30 mb-3" />
           <p className="text-sm mb-3">Nenhum modelo cadastrado</p>
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={openCreate}>
+          <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={openCreate}>
             <Plus className="h-4 w-4" /> Criar primeiro modelo
           </Button>
         </Card>
@@ -390,7 +390,7 @@ export default function ContratoTemplatesPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditorOpen(false)} disabled={salvando}>Cancelar</Button>
-            <Button size="sm" onClick={handleSalvar} disabled={salvando} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+            <Button size="sm" onClick={handleSalvar} disabled={salvando} style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5">
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {editing ? 'Salvar' : 'Criar'}
             </Button>
@@ -470,7 +470,7 @@ export default function ContratoTemplatesPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOrgOpen(false)} disabled={orgSavingClausulas}>Cancelar</Button>
-            <Button size="sm" onClick={salvarOrganizacao} disabled={orgSavingClausulas} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+            <Button size="sm" onClick={salvarOrganizacao} disabled={orgSavingClausulas} style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5">
               {orgSavingClausulas ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Salvar organização
             </Button>

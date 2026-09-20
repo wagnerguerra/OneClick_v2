@@ -52,7 +52,7 @@ import { CrmResumoModal } from '../_components/crm-resumo-modal'
 // Constantes
 // ============================================================
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 const STATUS_COLORS: Record<string, string> = {
   NOVO: '#818cf8', A_ENVIAR: '#94a3b8', ENVIADO: '#3b82f6', APROVADO: '#10b981',
@@ -1673,7 +1673,7 @@ export default function OrcamentoDetailPage() {
               return (
                 <Button
                   size="sm"
-                  style={{ backgroundColor: semItens ? undefined : MODULE_COLOR }}
+                  style={{ backgroundColor: semItens ? undefined : PRIMARY }}
                   className="text-white gap-1.5"
                   onClick={abrirEnvio}
                   disabled={semItens}
@@ -1750,7 +1750,7 @@ export default function OrcamentoDetailPage() {
             )}
             {/* FINALIZADO → ENCERRADO */}
             {orc.status === 'FINALIZADO' && canEncerrar && (
-              <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={() => handleStatusActionConfirm({
+              <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={() => handleStatusActionConfirm({
                 novoStatus: 'ENCERRADO',
                 title: 'Encerrar orçamento?',
                 text: 'O orçamento será arquivado no fluxo. O ciclo está completo.',
@@ -1802,7 +1802,7 @@ export default function OrcamentoDetailPage() {
               onClick={() => setIaOpen(true)}
               className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90"
             >
-              <Sparkles className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Sparkles className="h-4 w-4" style={{ color: PRIMARY }} />
             </Button>
             {canEnviarPesquisa && (
               <Button
@@ -1812,7 +1812,7 @@ export default function OrcamentoDetailPage() {
                 onClick={abrirEnviarPesquisa}
                 className="bg-white dark:bg-card hover:bg-white/90 dark:hover:bg-card/90"
               >
-                <Star className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <Star className="h-4 w-4" style={{ color: PRIMARY }} />
               </Button>
             )}
             <BackButton href="/orcamentos" />
@@ -1838,7 +1838,7 @@ export default function OrcamentoDetailPage() {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={headerCover} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${PRIMARY} 0%, var(--color-primary) 100%)` }} />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
         {/* Controles de capa — base do background, visiveis apenas para Master ao passar o mouse */}
@@ -1888,7 +1888,7 @@ export default function OrcamentoDetailPage() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={resolveAssetUrl(orc.cliente.logoUrl)} alt={orc.cliente.razaoSocial} className="h-full w-full object-cover" />
                 ) : (
-                  <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                  <FileText className="h-10 w-10" style={{ color: PRIMARY }} />
                 )}
               </div>
             </div>
@@ -2811,7 +2811,7 @@ export default function OrcamentoDetailPage() {
               </div>
               <div className="border-t border-border/60 pt-2 mt-2 flex items-center justify-between">
                 <span className="text-sm font-semibold">Total Geral</span>
-                <span className="text-base font-bold" style={{ color: MODULE_COLOR }}>{formatCurrency(totalGeral)}</span>
+                <span className="text-base font-bold" style={{ color: PRIMARY }}>{formatCurrency(totalGeral)}</span>
               </div>
             </div>
           </Card>
@@ -3052,7 +3052,7 @@ export default function OrcamentoDetailPage() {
                   <div key={arq.id} className="flex items-center gap-2 text-xs group">
                     <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
-                      <a href={arq.fileUrl} target="_blank" rel="noopener noreferrer" className="truncate block hover:underline font-medium" style={{ color: MODULE_COLOR }}>{arq.fileName}</a>
+                      <a href={arq.fileUrl} target="_blank" rel="noopener noreferrer" className="truncate block hover:underline font-medium" style={{ color: PRIMARY }}>{arq.fileName}</a>
                       <span className="text-muted-foreground text-[10px]">{formatDate(arq.createdAt)}</span>
                     </div>
                     {/* Público (aparece na proposta do cliente) x Privado */}
@@ -3282,7 +3282,7 @@ export default function OrcamentoDetailPage() {
       <Sheet open={pesquisaSheet} onOpenChange={setPesquisaSheet}>
         <SheetContent side="right" size="md" className="p-0">
           <div className="flex items-center gap-2.5 border-b px-5 py-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 14%, transparent)`, color: MODULE_COLOR }}>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${PRIMARY} 14%, transparent)`, color: PRIMARY }}>
               <Star className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -3387,7 +3387,7 @@ export default function OrcamentoDetailPage() {
       {/* Modal: enviar pesquisa de satisfação ao cliente */}
       <Dialog open={pesquisaEnviarModal} onOpenChange={setPesquisaEnviarModal}>
         <DialogContent className="sm:max-w-[520px]">
-          <DialogHeaderIcon icon={Star} color="rose">
+          <DialogHeaderIcon icon={Star}>
             <DialogTitle className="text-[15px]">Pesquisa de satisfação</DialogTitle>
             <DialogDescription className="text-[11px]">Envie o link da pesquisa ao cliente por e-mail ou copie para enviar por outro canal.</DialogDescription>
           </DialogHeaderIcon>
@@ -3409,7 +3409,7 @@ export default function OrcamentoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPesquisaEnviarModal(false)} disabled={pesquisaBusy}>Fechar</Button>
-            <Button onClick={enviarPesquisaEmail} disabled={pesquisaBusy} style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5">
+            <Button onClick={enviarPesquisaEmail} disabled={pesquisaBusy} style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5">
               {pesquisaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar por e-mail
             </Button>
           </DialogFooter>
@@ -3432,7 +3432,7 @@ export default function OrcamentoDetailPage() {
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddForma() } }}
                 className="h-9 text-sm flex-1"
               />
-              <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={handleAddForma} disabled={!novaForma.trim()}>
+              <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white" onClick={handleAddForma} disabled={!novaForma.trim()}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -3471,7 +3471,7 @@ export default function OrcamentoDetailPage() {
           </DialogHeaderIcon>
           <DialogBody className="space-y-4">
             <label className="flex items-start gap-2.5 rounded-md border border-border bg-muted/30 px-3 py-2.5 cursor-pointer">
-              <Checkbox checked={enviarNotificar} onCheckedChange={v => setEnviarNotificar(v === true)} accentColor="var(--mod-comercial, #3b82f6)" className="mt-0.5" />
+              <Checkbox checked={enviarNotificar} onCheckedChange={v => setEnviarNotificar(v === true)} accentColor="var(--color-primary)" className="mt-0.5" />
               <div className="text-xs">
                 <p className="font-semibold text-foreground">Notificar o cliente por e-mail</p>
                 <p className="text-muted-foreground">{enviarNotificar ? 'O cliente receberá o e-mail com o link da proposta.' : 'O orçamento será marcado como Enviado, mas o cliente NÃO será notificado (envio por outro canal).'}</p>
@@ -3509,7 +3509,7 @@ export default function OrcamentoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEnviarModal(false)} disabled={enviando}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleEnviar} disabled={enviando}>
+            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={handleEnviar} disabled={enviando}>
               {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {orc?.status === 'ENVIADO' ? 'Reenviar' : 'Enviar'}
             </Button>
@@ -3655,7 +3655,7 @@ export default function OrcamentoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setTextoPadraoModal(null)}>Fechar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={copiarTextoPadrao}>
+            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={copiarTextoPadrao}>
               <CopyIcon className="h-4 w-4" /> Copiar
             </Button>
           </DialogFooter>
@@ -3688,7 +3688,7 @@ export default function OrcamentoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(false)} disabled={emailEnviando}>Cancelar</Button>
-            <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={enviarEmail} disabled={emailEnviando}>
+            <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: PRIMARY }} onClick={enviarEmail} disabled={emailEnviando}>
               {emailEnviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               Enviar
             </Button>
@@ -3823,7 +3823,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
       ) : (
         <div
           className={cn(avatarSize, 'rounded-full shrink-0 flex items-center justify-center text-white font-bold ring-2 ring-background shadow-sm mt-0.5')}
-          style={{ backgroundColor: MODULE_COLOR }}
+          style={{ backgroundColor: PRIMARY }}
         >
           {iniciais}
         </div>
@@ -3908,7 +3908,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
                   <Button
                     size="sm"
                     className="gap-1.5 text-white"
-                    style={{ backgroundColor: MODULE_COLOR }}
+                    style={{ backgroundColor: PRIMARY }}
                     onClick={salvarEdicao}
                     disabled={salvando || textoVazio}
                   >
@@ -3961,7 +3961,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
         {respondendo && onResponder && (
           <div className="mt-3 space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
             <Label className="text-[12px] font-semibold flex items-center gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />
+              <MessageSquare className="h-3.5 w-3.5" style={{ color: PRIMARY }} />
               Respondendo a {nome}
             </Label>
             <RichEditor
@@ -3976,7 +3976,7 @@ function MensagemItem({ msg, usuarios, currentUserId, isMaster, respostas = [], 
               <Button
                 size="sm"
                 className="gap-1.5 text-white"
-                style={{ backgroundColor: MODULE_COLOR }}
+                style={{ backgroundColor: PRIMARY }}
                 onClick={enviarResposta}
                 disabled={enviandoResposta || respostaVazia}
               >
@@ -4107,7 +4107,7 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
       {/* ── Header: titulo + botao Nova mensagem ── */}
       <div className="flex items-center justify-between gap-2">
         <h5 className="text-[13px] font-semibold flex items-center gap-1.5">
-          <MessageSquare className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />
+          <MessageSquare className="h-3.5 w-3.5" style={{ color: PRIMARY }} />
           Mensagens
           {mensagensLocais.length > 0 && (
             <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{mensagensLocais.length}</Badge>
@@ -4116,7 +4116,7 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
         <Button
           size="sm"
           className="gap-1.5 text-white"
-          style={{ backgroundColor: MODULE_COLOR }}
+          style={{ backgroundColor: PRIMARY }}
           onClick={() => setNovaMsgModal(true)}
         >
           <Plus className="h-3.5 w-3.5" /> Nova mensagem
@@ -4217,7 +4217,7 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
             <Button
               size="sm"
               className="gap-1.5 text-white"
-              style={{ backgroundColor: MODULE_COLOR }}
+              style={{ backgroundColor: PRIMARY }}
               onClick={handleAdicionar}
               disabled={enviando || mensagemVazia}
             >
@@ -4235,7 +4235,7 @@ function MensagensCard({ orcamentoId, mensagens, usuarios = [], onChange, bare =
   return (
     <Card>
       <CardHeader className="border-b border-border/60 px-5 py-3 flex flex-row items-center gap-2">
-        <FileText className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+        <FileText className="h-4 w-4" style={{ color: PRIMARY }} />
         <h3 className="text-sm font-semibold flex-1">Mensagens internas</h3>
         <Badge variant="secondary" className="text-[10px]">{mensagensLocais.length}</Badge>
       </CardHeader>

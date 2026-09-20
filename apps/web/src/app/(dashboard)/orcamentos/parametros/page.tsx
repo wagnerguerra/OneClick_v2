@@ -24,7 +24,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 const TIPO_LABELS: Record<string, string> = {
   SERVICO: 'Serviço',
@@ -387,7 +387,7 @@ export default function ParametrosOrcamentosPage() {
     <div className="space-y-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={abrirNovo}>
+          <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={abrirNovo}>
             <Plus className="h-4 w-4" /> Novo Item
           </Button>
           <Button variant="outline" size="sm" onClick={() => fetchData()} className="gap-1.5" title="Atualizar">
@@ -489,7 +489,7 @@ export default function ParametrosOrcamentosPage() {
                   <Button variant="outline" size="sm" className="gap-1.5" onClick={() => handleBulkDisponivel(true)} disabled={bulking}>
                     <CheckCircle2 className="h-3.5 w-3.5" /> Disponibilizar
                   </Button>
-                  <Button size="sm" className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }} onClick={() => handleBulkDisponivel(false)} disabled={bulking}>
+                  <Button size="sm" className="gap-1.5" style={{ backgroundColor: PRIMARY }} onClick={() => handleBulkDisponivel(false)} disabled={bulking}>
                     {bulking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <EyeOff className="h-3.5 w-3.5" />}
                     Tornar indisponível
                   </Button>
@@ -653,7 +653,7 @@ export default function ParametrosOrcamentosPage() {
                 id="disponivel"
                 checked={form.disponivelOrcamento}
                 onCheckedChange={v => setForm(f => ({ ...f, disponivelOrcamento: v === true }))}
-                accentColor="var(--mod-comercial, #fb7185)"
+                accentColor="var(--color-primary)"
                 className="mt-0.5"
               />
               <label htmlFor="disponivel" className="cursor-pointer flex-1">
@@ -714,7 +714,7 @@ export default function ParametrosOrcamentosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEditOpen(false)} disabled={saving}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
+            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {editing ? 'Salvar' : 'Adicionar'}
             </Button>
@@ -767,7 +767,7 @@ export default function ParametrosOrcamentosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setTextoEdit(null)} disabled={textoSaving}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleSaveTexto} disabled={textoSaving}>
+            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={handleSaveTexto} disabled={textoSaving}>
               {textoSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {textoEdit?.id ? 'Salvar' : 'Adicionar'}
             </Button>

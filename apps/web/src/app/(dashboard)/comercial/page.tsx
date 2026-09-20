@@ -25,7 +25,7 @@ import {
 } from 'recharts'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 const PERIODOS = [
   { value: '30', label: 'Últimos 30 dias' },
@@ -223,7 +223,7 @@ export default function ComercialPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-6 w-6 animate-spin" style={{ color: MODULE_COLOR }} />
+          <Loader2 className="h-6 w-6 animate-spin" style={{ color: PRIMARY }} />
           <span className="ml-2 text-sm text-muted-foreground">Carregando painel...</span>
         </div>
       ) : erro ? (
@@ -236,18 +236,18 @@ export default function ComercialPage() {
           {/* ── KPIs ───────────────────────────────────────── */}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-              <Target className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> CRM — Pipeline
+              <Target className="h-3.5 w-3.5" style={{ color: PRIMARY }} /> CRM — Pipeline
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <StatCard icon={Target} label="Oportunidades ativas" value={oportunidadesAtivas} color="#818cf8" />
               <StatCard icon={TrendingUp} label="Valor em pipeline" value={formatCompact(pipelineValor)} color="#34d399" sub={formatCurrency(pipelineValor)} />
-              <StatCard icon={Percent} label="Taxa de conversão" value={`${taxaConversao}%`} color={MODULE_COLOR} />
+              <StatCard icon={Percent} label="Taxa de conversão" value={`${taxaConversao}%`} color={PRIMARY} />
             </div>
           </div>
 
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-              <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Orçamentos
+              <CircleDollarSign className="h-3.5 w-3.5" style={{ color: PRIMARY }} /> Orçamentos
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <StatCard icon={FileText} label="Em aberto" value={orcEmAberto} color="#60a5fa" />
@@ -259,11 +259,11 @@ export default function ComercialPage() {
 
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-              <FileCheck className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Contratos — Carteira
+              <FileCheck className="h-3.5 w-3.5" style={{ color: PRIMARY }} /> Contratos — Carteira
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <StatCard icon={FileCheck} label="Contratos vigentes" value={vigentes} color="#34d399" />
-              <StatCard icon={Landmark} label="MRR (receita recorrente)" value={formatCompact(mrr)} color={MODULE_COLOR} sub={formatCurrency(mrr)} />
+              <StatCard icon={Landmark} label="MRR (receita recorrente)" value={formatCompact(mrr)} color={PRIMARY} sub={formatCurrency(mrr)} />
               <StatCard icon={CalendarClock} label="A vencer (30 dias)" value={aVencer30} color="#fbbf24" sub={`${ct?.aVencer60 ?? 0} em até 60 dias`} />
             </div>
           </div>
@@ -272,7 +272,7 @@ export default function ComercialPage() {
           {mrrAvulso && (
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-                <CircleDollarSign className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Receita — recorrente vs. avulsa
+                <CircleDollarSign className="h-3.5 w-3.5" style={{ color: PRIMARY }} /> Receita — recorrente vs. avulsa
               </p>
               <Card className="p-4">
                 {recAvTotal > 0 ? (
@@ -310,7 +310,7 @@ export default function ComercialPage() {
                     <button
                       onClick={() => router.push('/comercial/relatorios?tab=mrr')}
                       className="self-start text-[11px] font-medium hover:underline"
-                      style={{ color: MODULE_COLOR }}
+                      style={{ color: PRIMARY }}
                     >
                       Ver relatório completo de MRR →
                     </button>
@@ -336,7 +336,7 @@ export default function ComercialPage() {
                       <Tooltip content={<ChartTooltip format={(v: number, n?: string) => (n === 'Valor' ? formatCurrency(v) : v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
                       <Bar dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
                         {funilChart.map((e: any) => (
-                          <Cell key={e.etapaId} fill={e.cor || MODULE_COLOR} opacity={0.85} />
+                          <Cell key={e.etapaId} fill={e.cor || PRIMARY} opacity={0.85} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -416,7 +416,7 @@ export default function ComercialPage() {
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     <Bar dataKey="ganhos" name="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="total" name="Total" fill={MODULE_COLOR} opacity={0.4} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="total" name="Total" fill={PRIMARY} opacity={0.4} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -427,7 +427,7 @@ export default function ComercialPage() {
           {aVencer.length ? (
             <Card className="overflow-hidden">
               <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-                <CalendarClock className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <CalendarClock className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h3 className="text-[13px] font-semibold text-foreground">Contratos a vencer (próximos 60 dias)</h3>
               </div>
               <Table>

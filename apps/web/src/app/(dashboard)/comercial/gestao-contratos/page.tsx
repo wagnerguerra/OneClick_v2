@@ -26,7 +26,7 @@ import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 const PAGE_SIZE = 20
 
 type Registro = {
@@ -361,7 +361,7 @@ export default function GestaoContratosPage() {
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <FileText className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+            <FileText className="h-4 w-4" style={{ color: PRIMARY }} />
             <span className="text-sm font-semibold">Indicações de variação dos contratos</span>
             {/* Com o card destacado lá em cima o recorte já se vê, mas a faixa
                 rola: se o card ativo saiu da vista, some a única pista de que a

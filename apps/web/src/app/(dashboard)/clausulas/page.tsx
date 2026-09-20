@@ -22,7 +22,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { CLAUSULA_CATEGORIA_LABELS, type ClausulaCategoria } from '@saas/types'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Clausula {
   id: string
@@ -212,7 +212,7 @@ export default function ClausulasPage() {
     <div className="space-y-5">
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={openCreate}>
+          <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={openCreate}>
             <Plus className="h-4 w-4" /> Nova Cláusula
           </Button>
       </>}>
@@ -259,7 +259,7 @@ export default function ClausulasPage() {
         <Card className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <FileText className="h-10 w-10 opacity-30 mb-3" />
           <p className="text-sm mb-3">Nenhuma cláusula cadastrada ainda</p>
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={openCreate}>
+          <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={openCreate}>
             <Plus className="h-4 w-4" /> Nova Cláusula
           </Button>
         </Card>
@@ -308,7 +308,7 @@ export default function ClausulasPage() {
                   {isOpen
                     ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                  <Tag className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                  <Tag className="h-3.5 w-3.5 text-primary shrink-0" />
                   <h3 className="text-xs font-semibold uppercase tracking-wider flex-1">{CLAUSULA_CATEGORIA_LABELS[cat]}</h3>
                   <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{items.length}</Badge>
                 </button>
@@ -470,7 +470,7 @@ export default function ClausulasPage() {
               size="sm"
               onClick={handleSalvar}
               disabled={salvando}
-              style={{ backgroundColor: MODULE_COLOR }}
+              style={{ backgroundColor: PRIMARY }}
               className="text-white gap-1.5"
             >
               {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileCheck2 className="h-4 w-4" />}
@@ -483,7 +483,7 @@ export default function ClausulasPage() {
       {/* Modal Histórico */}
       <Dialog open={histOpen} onOpenChange={setHistOpen}>
         <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
-          <DialogHeaderIcon icon={History} color="rose">
+          <DialogHeaderIcon icon={History}>
             <DialogTitle className="flex items-center gap-2">
               Histórico — <code className="text-sm font-mono bg-muted px-1.5 py-0.5 rounded">{histCodigo}</code>
             </DialogTitle>

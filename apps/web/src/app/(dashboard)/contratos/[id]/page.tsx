@@ -30,8 +30,8 @@ import { AssinarWebPkiModal } from '../_components/assinar-webpki-modal'
 // Constantes (padrão visual /orcamentos)
 // ============================================================
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
-const MODULE_RGBA = 'color-mix(in srgb, var(--mod-comercial, #fb7185) 18%, transparent)'
+const PRIMARY = 'var(--color-primary)'
+const MODULE_RGBA = 'color-mix(in srgb, var(--color-primary) 18%, transparent)'
 
 // ============================================================
 // Tipos
@@ -257,7 +257,7 @@ export default function ContratoDetailPage() {
       showCancelButton: true,
       confirmButtonText: 'Encerrar',
       cancelButtonText: 'Voltar',
-      confirmButtonColor: MODULE_COLOR,
+      confirmButtonColor: PRIMARY,
       icon: 'question',
     })
     if (!result.isConfirmed) return
@@ -345,7 +345,7 @@ export default function ContratoDetailPage() {
             <>
               <Button
                 size="sm"
-                style={{ backgroundColor: MODULE_COLOR }}
+                style={{ backgroundColor: PRIMARY }}
                 className="text-white gap-1.5"
                 onClick={() => handleAssinarServerSide('CONTRATADA')}
                 disabled={serverSignLoading}
@@ -435,7 +435,7 @@ export default function ContratoDetailPage() {
                 className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 overflow-hidden shadow-lg"
                 style={{ boxShadow: 'inset 0 0 0 3px var(--color-border)' }}
               >
-                <FileText className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                <FileText className="h-10 w-10" style={{ color: PRIMARY }} />
               </div>
               <div>
                 <h2 className="text-xl font-semibold uppercase">{contrato.cliente.razaoSocial}</h2>
@@ -487,27 +487,27 @@ export default function ContratoDetailPage() {
           >
             <TabsTrigger
               value="detalhes"
-              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5"
+              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5"
             >
               <FileText className="h-3.5 w-3.5" /> Detalhes
             </TabsTrigger>
             <TabsTrigger
               value="clausulas"
-              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5"
+              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5"
             >
               <FileCheck2 className="h-3.5 w-3.5" /> Cláusulas
               <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{contrato.snapshots.length}</Badge>
             </TabsTrigger>
             <TabsTrigger
               value="assinaturas"
-              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5"
+              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5"
             >
               <FileSignature className="h-3.5 w-3.5" /> Assinaturas
               <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{contrato.assinaturas.length}/2</Badge>
             </TabsTrigger>
             <TabsTrigger
               value="timeline"
-              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-rose-600 dark:data-[state=active]:!bg-transparent dark:data-[state=active]:!text-rose-400 gap-1.5"
+              className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary dark:data-[state=active]:!bg-transparent gap-1.5"
             >
               <History className="h-3.5 w-3.5" /> Timeline
               <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{contrato.eventos.length}</Badge>
@@ -522,13 +522,13 @@ export default function ContratoDetailPage() {
           ══════════════════════════════════════════════════════════ */}
       {isLocked && contrato.status !== 'CANCELADO' && (
         <Card className="relative overflow-hidden border-slate-200/80 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900/40 dark:to-slate-900/10 dark:border-slate-700/40 shadow-sm">
-          <div className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: MODULE_COLOR }} />
+          <div className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: PRIMARY }} />
           <div className="flex items-center gap-4 p-4 pl-5">
             <div
               className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-slate-900 shadow-sm"
-              style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 8%, transparent)` }}
+              style={{ backgroundColor: `color-mix(in srgb, ${PRIMARY} 8%, transparent)` }}
             >
-              <Lock className="h-5 w-5" style={{ color: MODULE_COLOR }} />
+              <Lock className="h-5 w-5" style={{ color: PRIMARY }} />
             </div>
             <div className="flex-1 min-w-0">
               <h4 className="text-sm font-semibold text-foreground">Contrato congelado para edição</h4>
@@ -566,7 +566,7 @@ export default function ContratoDetailPage() {
           <div className="lg:col-span-2 space-y-4">
             <Card>
               <div className="border-b px-4 py-2.5 flex items-center gap-2">
-                <FileText className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <FileText className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h3 className="text-sm font-semibold">Dados gerais</h3>
               </div>
               <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -591,7 +591,7 @@ export default function ContratoDetailPage() {
             {contrato.servicos.length > 0 && (
               <Card>
                 <div className="border-b px-4 py-2.5 flex items-center gap-2">
-                  <Briefcase className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                  <Briefcase className="h-4 w-4" style={{ color: PRIMARY }} />
                   <h3 className="text-sm font-semibold">Serviços contratados</h3>
                   <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{contrato.servicos.length}</Badge>
                 </div>

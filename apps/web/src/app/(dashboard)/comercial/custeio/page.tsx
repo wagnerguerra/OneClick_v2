@@ -20,7 +20,7 @@ import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 type Linha = {
   clienteId: string
@@ -148,7 +148,7 @@ export default function CusteioPage() {
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar className="mb-0 sm:mb-0" actions={<>
           <Input type="month" value={refMes} onChange={e => setRefMes(e.target.value)} className="h-9 w-[150px] text-sm" />
-          <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={recalcular} disabled={recalculando || loading}>
+          <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: PRIMARY }} onClick={recalcular} disabled={recalculando || loading}>
             {recalculando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             {recalculando ? 'Recalculando…' : 'Recalcular mês'}
           </Button>
@@ -168,7 +168,7 @@ export default function CusteioPage() {
 
       {/* Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard icon={Users} label="Clientes custeados" value={linhas.length} color={MODULE_COLOR} loading={loading} />
+        <StatCard icon={Users} label="Clientes custeados" value={linhas.length} color={PRIMARY} loading={loading} />
         <StatCard icon={Wallet} label="Custo total" value={fmtMoeda(custoTotal)} color="#f43f5e" loading={loading} />
         <StatCard icon={TrendingUp} label="Receita de referência" value={fmtMoeda(receitaTotal)} color="#10b981" loading={loading} />
         <StatCard icon={Calculator} label="Margem média" value={margemMedia == null ? '—' : `${margemMedia}%`} color="#6366f1" loading={loading} />
@@ -179,7 +179,7 @@ export default function CusteioPage() {
       {/* Tabela */}
       <Card className="overflow-hidden">
         <div className="flex items-center gap-2 border-b border-border/60 bg-muted/20 px-4 py-3">
-          <Calculator className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+          <Calculator className="h-4 w-4" style={{ color: PRIMARY }} />
           <span className="text-sm font-semibold">Rentabilidade por cliente — {refMes.split('-').reverse().join('/')}</span>
         </div>
         <div className="relative">
@@ -231,7 +231,7 @@ export default function CusteioPage() {
       {/* Modal de parâmetros */}
       <Dialog open={showParams} onOpenChange={setShowParams}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeaderIcon icon={Settings2} color="rose">
+          <DialogHeaderIcon icon={Settings2}>
             <DialogTitle>Parâmetros de custeio</DialogTitle>
           </DialogHeaderIcon>
           <DialogBody className="max-h-[65vh] space-y-4">
@@ -300,7 +300,7 @@ export default function CusteioPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setShowParams(false)}>Fechar</Button>
-            <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={salvarParams} disabled={savingParams || !params}>
+            <Button size="sm" className="gap-1.5 text-white" style={{ backgroundColor: PRIMARY }} onClick={salvarParams} disabled={savingParams || !params}>
               {savingParams ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               {savingParams ? 'Salvando…' : 'Salvar'}
             </Button>

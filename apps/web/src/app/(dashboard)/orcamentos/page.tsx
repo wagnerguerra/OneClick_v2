@@ -69,7 +69,7 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const PAGE_SIZES = [10, 20, 50]
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 interface UserRef { id: string; name: string; image?: string | null }
 
@@ -875,7 +875,7 @@ export default function OrcamentosPage() {
             <SlidersHorizontal className="h-4 w-4" />
             Filtros
             {filtrosAtivos > 0 && (
-              <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-white text-[10px] font-semibold leading-none" style={{ backgroundColor: MODULE_COLOR }}>{filtrosAtivos}</span>
+              <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-white text-[10px] font-semibold leading-none" style={{ backgroundColor: PRIMARY }}>{filtrosAtivos}</span>
             )}
           </button>
           <button
@@ -982,7 +982,7 @@ export default function OrcamentosPage() {
               </div>
               <div className="flex items-end">
                 <label className="inline-flex items-center gap-2 h-9 cursor-pointer select-none">
-                  <Checkbox className="cursor-pointer" accentColor={MODULE_COLOR} checked={incluirParalizados} onCheckedChange={v => { setIncluirParalizados(v === true); setPage(1) }} />
+                  <Checkbox className="cursor-pointer" accentColor={PRIMARY} checked={incluirParalizados} onCheckedChange={v => { setIncluirParalizados(v === true); setPage(1) }} />
                   <span className="text-sm text-foreground">Incluir paralizados</span>
                 </label>
               </div>
@@ -1231,7 +1231,7 @@ export default function OrcamentosPage() {
           onClose={() => setRelatorioColuna(null)}
           status={relatorioColuna}
           statusLabel={STATUS_LABELS[relatorioColuna] || relatorioColuna}
-          moduleColor={MODULE_COLOR}
+          moduleColor={PRIMARY}
         />
       )}
 
@@ -1364,11 +1364,11 @@ export default function OrcamentosPage() {
             </div>
 
             {/* Notificar áreas (pills) — mesma lista e mesmo efeito do balão do FAB */}
-            <AreasNotificarPicker areas={areasNotificaveis} value={areasNotificar} onChange={setAreasNotificar} accent={MODULE_COLOR} required />
+            <AreasNotificarPicker areas={areasNotificaveis} value={areasNotificar} onChange={setAreasNotificar} accent={PRIMARY} required />
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5" onClick={handleCreate} disabled={creating || !form.clienteId}>
+            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5" onClick={handleCreate} disabled={creating || !form.clienteId}>
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Criar Orcamento
             </Button>
@@ -1700,7 +1700,7 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
       {/* Body */}
       <div className="px-3 pb-2 space-y-1">
         {valor > 0 && (
-          <span className="text-xs font-semibold" style={{ color: MODULE_COLOR }}>{formatCurrency(valor)}</span>
+          <span className="text-xs font-semibold" style={{ color: PRIMARY }}>{formatCurrency(valor)}</span>
         )}
         {orc.itens && orc.itens.length > 0 && (
           <div className="space-y-0.5 pt-0.5">
@@ -1721,7 +1721,7 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
                       'text-[10px] font-medium pl-3 w-fit',
                       restantes.length > 0 && 'underline decoration-dotted underline-offset-2 cursor-help',
                     )}
-                    style={{ color: MODULE_COLOR }}
+                    style={{ color: PRIMARY }}
                   >
                     + {ocultos} {ocultos === 1 ? 'outro item' : 'outros itens'}
                   </div>
@@ -1767,7 +1767,7 @@ function KanbanCardContent({ orc, clienteNome, onDuplicar, onArquivar, onCancela
             </span>
           )}
           {orc.pesquisaRespondida && (
-            <span className="text-[10px] flex items-center gap-0.5" style={{ color: 'var(--mod-comercial, #fb7185)' }} title="Cliente respondeu a pesquisa de satisfação">
+            <span className="text-[10px] flex items-center gap-0.5" style={{ color: 'var(--color-primary)' }} title="Cliente respondeu a pesquisa de satisfação">
               <Star className="h-3 w-3 fill-current" />
             </span>
           )}

@@ -17,7 +17,7 @@ import {
 import { ServicoDetalheModal } from '../_components/servico-detalhe-modal'
 import { getApiUrl } from '@/lib/api-url'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 function RelatorioInner() {
   const params = useSearchParams()
@@ -163,9 +163,9 @@ function RelatorioInner() {
                       const active = filtroArea === a.nome
                       return (
                         <button key={a.nome} type="button" onClick={() => toggleArea(a.nome)}
-                          className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition-colors ${active ? 'bg-[var(--mod-comercial,#fb7185)]/10 font-semibold' : 'hover:bg-muted/40'}`}>
+                          className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition-colors ${active ? 'bg-[var(--color-primary)]/10 font-semibold' : 'hover:bg-muted/40'}`}>
                           <span className="truncate flex items-center gap-1.5">
-                            {active && <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: MODULE_COLOR }} />}
+                            {active && <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: PRIMARY }} />}
                             {a.nome}
                           </span>
                           <span className="text-muted-foreground shrink-0">{a.count} · {brl(a.soma)}</span>
@@ -183,9 +183,9 @@ function RelatorioInner() {
                       const active = filtroTipo === t.nome
                       return (
                         <button key={t.nome} type="button" onClick={() => toggleTipo(t.nome)}
-                          className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition-colors ${active ? 'bg-[var(--mod-comercial,#fb7185)]/10 font-semibold' : 'hover:bg-muted/40'}`}>
+                          className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left transition-colors ${active ? 'bg-[var(--color-primary)]/10 font-semibold' : 'hover:bg-muted/40'}`}>
                           <span className="truncate flex items-center gap-1.5">
-                            {active && <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: MODULE_COLOR }} />}
+                            {active && <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: PRIMARY }} />}
                             {t.nome}
                           </span>
                           <span className="text-muted-foreground shrink-0">{t.count} · {brl(t.soma)}</span>

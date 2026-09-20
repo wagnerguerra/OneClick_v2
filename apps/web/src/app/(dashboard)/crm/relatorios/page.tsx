@@ -23,7 +23,7 @@ import {
 } from 'recharts'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 const TABS = [
   { key: 'funil', label: 'Funil de Vendas', icon: TrendingUp },
@@ -107,7 +107,7 @@ export default function CrmRelatoriosPage() {
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
                 isActive ? 'text-white shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
               )}
-              style={isActive ? { backgroundColor: MODULE_COLOR } : undefined}
+              style={isActive ? { backgroundColor: PRIMARY } : undefined}
             >
               <Icon className="h-3.5 w-3.5" />
               {tab.label}
@@ -175,7 +175,7 @@ function TabFunil({ dias }: { dias?: number }) {
                       className="h-8 rounded flex items-center px-2 transition-all"
                       style={{
                         width: `${width}%`,
-                        backgroundColor: etapa.cor || MODULE_COLOR,
+                        backgroundColor: etapa.cor || PRIMARY,
                         opacity: 0.85,
                       }}
                     >
@@ -203,10 +203,10 @@ function TabFunil({ dias }: { dias?: number }) {
                 <Tooltip content={<ChartTooltip format={(v, n) => (n === 'valor' ? formatCurrency(v) : v)} />} cursor={{ fill: CHART_CURSOR_FILL }} />
                 <Bar yAxisId="left" dataKey="count" name="Quantidade" radius={[4, 4, 0, 0]}>
                   {data.etapas.map((e: any) => (
-                    <Cell key={e.etapaId} fill={e.cor || MODULE_COLOR} opacity={0.85} />
+                    <Cell key={e.etapaId} fill={e.cor || PRIMARY} opacity={0.85} />
                   ))}
                 </Bar>
-                <Bar yAxisId="right" dataKey="valor" name="Valor" radius={[4, 4, 0, 0]} fill={MODULE_COLOR} opacity={0.3} />
+                <Bar yAxisId="right" dataKey="valor" name="Valor" radius={[4, 4, 0, 0]} fill={PRIMARY} opacity={0.3} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -275,7 +275,7 @@ function TabDesempenho({ dias }: { dias?: number }) {
               <Tooltip content={<ChartTooltip />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="ganhos" name="Ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
               <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="total" name="Total" fill={MODULE_COLOR} radius={[4, 4, 0, 0]} opacity={0.4} />
+              <Bar dataKey="total" name="Total" fill={PRIMARY} radius={[4, 4, 0, 0]} opacity={0.4} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -502,7 +502,7 @@ function TabTempoMedio() {
               <Tooltip content={<ChartTooltip format={(v) => `${v} dias`} />} cursor={{ fill: CHART_CURSOR_FILL }} />
               <Bar dataKey="mediaDias" name="Dias" radius={[4, 4, 0, 0]}>
                 {data.map((e: any) => (
-                  <Cell key={e.etapaId} fill={e.cor || MODULE_COLOR} opacity={0.85} />
+                  <Cell key={e.etapaId} fill={e.cor || PRIMARY} opacity={0.85} />
                 ))}
                 <LabelList dataKey="mediaDias" position="top" style={{ fontSize: 10, fontWeight: 600 }} formatter={(v) => `${v}d`} />
               </Bar>
@@ -529,7 +529,7 @@ function TabTempoMedio() {
                     className="h-full rounded flex items-center px-2 transition-all"
                     style={{
                       width: `${width}%`,
-                      backgroundColor: etapa.cor || MODULE_COLOR,
+                      backgroundColor: etapa.cor || PRIMARY,
                       opacity: 0.8,
                     }}
                   >
@@ -568,7 +568,7 @@ function KpiCard({ label, value }: { label: string; value: string }) {
 function LoadingState() {
   return (
     <div className="flex items-center justify-center py-20">
-      <Loader2 className="h-6 w-6 animate-spin" style={{ color: MODULE_COLOR }} />
+      <Loader2 className="h-6 w-6 animate-spin" style={{ color: PRIMARY }} />
       <span className="ml-2 text-sm text-muted-foreground">Carregando dados...</span>
     </div>
   )

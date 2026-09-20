@@ -104,7 +104,7 @@ function ConversaIATab({ oportunidadeId }: { oportunidadeId: string }) {
             <div
               className={cn('rounded-2xl px-3 py-2 max-w-[85%] text-xs leading-relaxed whitespace-pre-wrap',
                 m.role === 'user' ? 'text-white rounded-br-sm' : 'bg-muted border rounded-bl-sm')}
-              style={m.role === 'user' ? { background: MODULE_COLOR } : undefined}
+              style={m.role === 'user' ? { background: PRIMARY } : undefined}
             >
               {m.conteudo}
             </div>
@@ -148,7 +148,7 @@ interface Stats {
 
 interface ClienteSelect { id: string; razaoSocial: string }
 
-const MODULE_COLOR = 'var(--mod-comercial, #fb7185)'
+const PRIMARY = 'var(--color-primary)'
 
 // Rascunho da "Nova Oportunidade" — persistido no navegador para não perder o
 // que o usuário digitou caso o Sheet feche (clique fora) antes de salvar.
@@ -1055,7 +1055,7 @@ export default function CrmPage() {
                 {filtrosAtivos > 0 && (
                   <span
                     className="ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white"
-                    style={{ backgroundColor: MODULE_COLOR }}
+                    style={{ backgroundColor: PRIMARY }}
                   >
                     {filtrosAtivos}
                   </span>
@@ -1077,7 +1077,7 @@ export default function CrmPage() {
                   className="gap-2 text-[13px]"
                 >
                   <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                    {filtroResponsavel === op.valor && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: MODULE_COLOR }} />}
+                    {filtroResponsavel === op.valor && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: PRIMARY }} />}
                   </span>
                   <span className="truncate">{op.rotulo}</span>
                 </DropdownMenuItem>
@@ -1091,7 +1091,7 @@ export default function CrmPage() {
                   className="gap-2 text-[13px]"
                 >
                   <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                    {filtroIdade === f.chave && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: MODULE_COLOR }} />}
+                    {filtroIdade === f.chave && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: PRIMARY }} />}
                   </span>
                   <span className="truncate">{f.rotulo}</span>
                 </DropdownMenuItem>
@@ -1326,7 +1326,7 @@ export default function CrmPage() {
                   return (
                     <button key={e.id} onClick={() => setForm(f => ({ ...f, etapaId: e.id }))}
                       className={cn('relative flex items-center justify-center text-[11px] font-medium py-2 transition-all flex-1 min-w-0', idx > 0 && 'pl-3', isActive || isPast ? 'text-white' : 'text-muted-foreground hover:text-foreground', !isActive && 'cursor-pointer')}
-                      style={{ backgroundColor: isActive || isPast ? MODULE_COLOR : 'var(--color-muted)', opacity: isActive ? 1 : isPast ? 0.7 : 1, clipPath: idx === 0 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%)' : idx < arr.length - 1 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%)' : 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%)' }}
+                      style={{ backgroundColor: isActive || isPast ? PRIMARY : 'var(--color-muted)', opacity: isActive ? 1 : isPast ? 0.7 : 1, clipPath: idx === 0 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%)' : idx < arr.length - 1 ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%)' : 'polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%)' }}
                     >
                       <span className="truncate px-1">{e.nome.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())}</span>
                     </button>
@@ -1544,7 +1544,7 @@ export default function CrmPage() {
                         ? 'text-foreground'
                         : 'border-transparent text-muted-foreground hover:text-foreground'
                     )}
-                    style={detailTab === tab.key ? { borderBottomColor: MODULE_COLOR } : undefined}
+                    style={detailTab === tab.key ? { borderBottomColor: PRIMARY } : undefined}
                   >
                     <tab.icon className="h-3.5 w-3.5" />
                     {tab.label}
@@ -1570,7 +1570,7 @@ export default function CrmPage() {
                       <p className="text-[11px] text-muted-foreground leading-snug">
                         Tarefas com prazo, lembretes e participantes. Aparecem também na lista de tarefas de cada participante e disparam os lembretes escolhidos.
                       </p>
-                      <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 shrink-0"
+                      <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5 shrink-0"
                         onClick={() => { setTarefaEditando(null); setTarefaModalOpen(true) }}>
                         <Plus className="h-4 w-4" />Nova tarefa
                       </Button>
@@ -1680,7 +1680,7 @@ export default function CrmPage() {
                         }}
                       />
                       <div className="flex justify-end">
-                        <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={addMensagem} disabled={saving || !novaMensagemPura}>
+                        <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white" onClick={addMensagem} disabled={saving || !novaMensagemPura}>
                           <Send className="h-4 w-4 mr-1.5" />
                           Registrar anotação
                         </Button>
@@ -1848,7 +1848,7 @@ export default function CrmPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setConfigModal(false)}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={async () => {
+            <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white" onClick={async () => {
               try {
                 await (trpc.crm as any).saveConfig.mutate({ key: 'declinio_dias', value: String(declinioDias) })
                 alerts.success('Salvo', 'Configuracao atualizada')
@@ -2021,7 +2021,7 @@ function DetailTab({ detail, etapas, onSave, onMove, loadClientes, tags, opcoesA
                   !isActive && 'cursor-pointer',
                 )}
                 style={{
-                  backgroundColor: isActive || isPast ? MODULE_COLOR : 'var(--color-muted)',
+                  backgroundColor: isActive || isPast ? PRIMARY : 'var(--color-muted)',
                   opacity: isActive ? 1 : isPast ? 0.7 : 1,
                   clipPath: idx === 0
                     ? 'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%)'
@@ -2383,7 +2383,7 @@ function KanbanCardContent({ op, etapas, onDelete, showMenu, declinioDias = 30 }
       <div className="flex items-start justify-between gap-1 px-3 pt-2.5 pb-1">
         <div className="min-w-0 flex-1">
           {empresaCliente && (
-            <p className="text-[10px] font-semibold uppercase tracking-wide truncate mb-0.5" style={{ color: MODULE_COLOR }}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide truncate mb-0.5" style={{ color: PRIMARY }}>
               {empresaCliente}
             </p>
           )}
