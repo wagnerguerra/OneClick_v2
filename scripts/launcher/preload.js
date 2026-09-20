@@ -141,6 +141,10 @@ contextBridge.exposeInMainWorld('api', {
   nfeWatcherRefresh: () => ipcRenderer.invoke('nfe-watcher:refresh'),
   nfeWatcherStart: () => ipcRenderer.invoke('nfe-watcher:start'),
   nfeWatcherStop: () => ipcRenderer.invoke('nfe-watcher:stop'),
+  // Varredura agendada (substituiu o monitoramento contínuo)
+  nfeWatcherVarrer: () => ipcRenderer.invoke('nfe-watcher:varrer'),
+  nfeAgendaGet: () => ipcRenderer.invoke('nfe-agenda:get'),
+  nfeAgendaSet: (agenda) => ipcRenderer.invoke('nfe-agenda:set', agenda),
   onNfeWatcherLog: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('nfe-watcher:log', handler);

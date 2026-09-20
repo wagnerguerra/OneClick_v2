@@ -275,14 +275,15 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 <button
                   type="button"
                   onClick={() => { setAbrirEmpresas(v => !v); setAbrirPerfil(false) }}
-                  className="flex max-w-[220px] items-center gap-2 rounded-lg border border-[#e6ebf2] bg-white px-3 py-1.5 text-[13px] font-medium hover:bg-slate-50 dark:border-[#1b2739] dark:bg-[#0e1726] dark:hover:bg-[#16233a]"
+                  title={atual?.razaoSocial}
+                  className="flex max-w-[180px] items-center gap-2 rounded-lg border border-[#e6ebf2] bg-white px-3 py-1.5 text-[13px] font-medium hover:bg-slate-50 sm:max-w-[300px] lg:max-w-[480px] dark:border-[#1b2739] dark:bg-[#0e1726] dark:hover:bg-[#16233a]"
                 >
                   <Building2 className="h-4 w-4 shrink-0 text-[#1a6dff]" />
                   <span className="truncate">{atual?.razaoSocial}</span>
                   <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
                 </button>
                 {abrirEmpresas && (
-                  <div className="absolute right-0 top-full z-50 mt-2 w-[280px] overflow-hidden rounded-xl border border-[#e6ebf2] bg-white shadow-lg dark:border-[#1b2739] dark:bg-[#0e1726]">
+                  <div className="absolute right-0 top-full z-50 mt-2 w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-[#e6ebf2] bg-white shadow-lg dark:border-[#1b2739] dark:bg-[#0e1726]">
                     <p className="border-b border-[#eef2f7] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:border-[#1b2739]">
                       Suas empresas
                     </p>
@@ -298,7 +299,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                       >
                         <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-[#1a6dff]" />
                         <span className="min-w-0">
-                          <span className="block truncate font-medium">{v.razaoSocial}</span>
+                          <span className="block break-words font-medium">{v.razaoSocial}</span>
                           <span className="block text-[11px] text-slate-500">{v.nivel.toLowerCase()}</span>
                         </span>
                       </button>
@@ -389,7 +390,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       <main className="-mt-40 w-full flex-1 px-5 pb-16 pt-8 sm:px-7">
         {clienteId
           ? (
-            <PortalContexto.Provider value={{ clienteId, vinculo: atual }}>
+            <PortalContexto.Provider value={{ clienteId, vinculo: atual, usuarioNome: sessao?.user?.name ?? null }}>
               {/*
                 A `key` no caminho é o que faz a animação rodar de novo a cada
                 página: sem ela o React reaproveita o nó e a troca acontece sem

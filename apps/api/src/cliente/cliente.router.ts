@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { prisma } from '@saas/db'
 import { router, readProcedure, writeProcedure, protectedProcedure, writeSubProcedure, deleteSubProcedure, writeSubOrModuleWrite, hasSubPermission } from '../trpc/trpc.service'
-import { createClienteSchema, updateClienteSchema, listClienteSchema } from '@saas/types'
+import { createClienteSchema, updateClienteSchema, listClienteSchema, createInscricaoSchema, updateInscricaoSchema } from '@saas/types'
 import { ClienteService } from './cliente.service'
 import { LegacyImportService } from './legacy-import.service'
 import { SciService } from './sci.service'
@@ -324,18 +324,26 @@ export function createClienteRouter(
       .input(z.object({ arquivoId: z.string() }))
       .mutation(({ input, ctx }) => clienteService.removeArquivo(input.arquivoId, ctx.isMaster, ctx.empresaId)),
 
-    // === REGISTRO DE INSCRIÇÕES (estaduais — N por cliente, migrado do legado) ===
+    // === REGISTRO DE INSCRIÇÕES (N por cliente — estaduais e municipais) ===
     listInscricoes: readProcedure(MODULE)
       .input(z.object({ clienteId: z.string() }))
       .query(({ input }) => clienteService.listInscricoes(input.clienteId)),
 
+    /** Sugestão de municípios enquanto se digita (inscrição municipal). */
+    listMunicipios: readProcedure(MODULE)
+      .input(z.object({ termo: z.string().optional() }).optional())
+      .query(({ input, ctx }) => clienteService.listMunicipios(input?.termo, ctx.isMaster, ctx.empresaId)),
+
+    // Os schemas vêm de @saas/types e carregam o refine que exige UF na
+    // estadual e município na municipal — a regra mora num lugar só, e o
+    // formulário da tela valida contra exatamente o mesmo schema.
     addInscricao: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
-      .input(z.object({ clienteId: z.string(), estado: z.string().trim().min(2).max(2), inscricao: z.string().trim().min(1), descricao: z.string().trim().optional() }))
-      .mutation(({ input, ctx }) => clienteService.addInscricao(input.clienteId, input.estado, input.inscricao, input.descricao, ctx.isMaster, ctx.empresaId)),
+      .input(createInscricaoSchema)
+      .mutation(({ input, ctx }) => clienteService.addInscricao(input, ctx.isMaster, ctx.empresaId)),
 
     updateInscricao: writeSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
-      .input(z.object({ id: z.string(), estado: z.string().trim().min(2).max(2), inscricao: z.string().trim().min(1), descricao: z.string().trim().optional() }))
-      .mutation(({ input, ctx }) => clienteService.updateInscricao(input.id, input.estado, input.inscricao, input.descricao, ctx.isMaster, ctx.empresaId)),
+      .input(updateInscricaoSchema)
+      .mutation(({ input, ctx }) => clienteService.updateInscricao(input, ctx.isMaster, ctx.empresaId)),
 
     removeInscricao: deleteSubProcedure(MODULE, 'manage_registration', 'Gerenciar aba de registro / legalização')
       .input(z.object({ id: z.string() }))

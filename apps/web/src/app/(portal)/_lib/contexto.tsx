@@ -40,7 +40,9 @@ export interface VinculoPortal {
 export const PortalContexto = createContext<{
   clienteId: string
   vinculo: VinculoPortal | null
-}>({ clienteId: '', vinculo: null })
+  /** Nome de quem está logado — a saudação da home ("Bom dia, Maria"). */
+  usuarioNome: string | null
+}>({ clienteId: '', vinculo: null, usuarioNome: null })
 
 export function usePortal() {
   return useContext(PortalContexto)

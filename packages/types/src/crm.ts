@@ -49,6 +49,20 @@ export const listOportunidadeSchema = paginationSchema.extend({
   isActive: z.boolean().optional(),
 })
 
+/**
+ * Cards que sairam do funil ativo — a tela /crm/arquivados.
+ *
+ * Duas situacoes no mesmo lugar porque, para quem procura, sao a mesma
+ * pergunta ("o card sumiu do quadro, onde esta?"):
+ *   - arquivados: isActive = false (o automatico, apos o prazo de declinio)
+ *   - declinio:   ainda ativos, na etapa de Declinio, aguardando o prazo
+ */
+export const listForaDoFunilSchema = paginationSchema.extend({
+  situacao: z.enum(['todos', 'arquivados', 'declinio']).default('todos'),
+  responsavelId: z.string().optional(),
+})
+export type ListForaDoFunilInput = z.infer<typeof listForaDoFunilSchema>
+
 export type CreateOportunidadeInput = z.infer<typeof createOportunidadeSchema>
 export type UpdateOportunidadeInput = z.infer<typeof updateOportunidadeSchema>
 export type ListOportunidadeInput = z.infer<typeof listOportunidadeSchema>

@@ -1,7 +1,7 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma, buildPaginatedResponse, getPrismaSkipTake } from '@saas/db'
 import type { Prisma } from '@saas/db'
-import type { CreateClienteInput, UpdateClienteInput, ListClienteInput } from '@saas/types'
+import type { CreateClienteInput, UpdateClienteInput, ListClienteInput, CreateInscricaoInput, UpdateInscricaoInput } from '@saas/types'
 import { limparCnpj, ehMatrizCnpj } from '@saas/types'
 import { BiSyncEventsService } from '../bi/bi-sync-events.service'
 import { isValidDocumento } from './documento.util'
@@ -1274,29 +1274,102 @@ export class ClienteService {
   }
 
   // ============================================================
-  // REGISTRO DE INSCRIÇÕES (estaduais — N por cliente, migrado do legado)
+  // REGISTRO DE INSCRIÇÕES (N por cliente — estaduais e municipais)
   // ============================================================
   async listInscricoes(clienteId: string) {
     return prisma.clienteInscricao.findMany({
       where: { clienteId },
-      orderBy: [{ estado: 'asc' }, { createdAt: 'asc' }],
+      // Ordem só do carregamento inicial: a tela ordena por coluna no clique.
+      orderBy: [{ tipo: 'asc' }, { estado: 'asc' }, { municipio: 'asc' }, { createdAt: 'asc' }],
     })
   }
 
-  async addInscricao(clienteId: string, estado: string, inscricao: string, descricao?: string | null, isMaster?: boolean, empresaId?: string | null) {
-    await this.assertClienteAtivo(clienteId, isMaster, empresaId)
+  /**
+   * Monta os campos de lugar a partir do tipo. UM dos dois, nunca os dois.
+   *
+   * Limpar o outro importa: quem começa preenchendo "Estadual / ES" e troca
+   * para "Municipal" deixaria para trás uma UF que a tela não mostra mais, e
+   * o registro passaria a afirmar duas coisas — uma delas invisível.
+   * O Zod (createInscricaoSchema) já garante que o campo do tipo escolhido
+   * veio preenchido; aqui só normalizamos.
+   */
+  private camposLugarInscricao(input: { tipo: string; estado?: string | null; municipio?: string | null }) {
+    const ehEstadual = input.tipo === 'ESTADUAL'
+    return {
+      tipo: input.tipo,
+      estado: ehEstadual ? (input.estado || '').trim().toUpperCase() : null,
+      municipio: ehEstadual ? null : (input.municipio || '').trim(),
+    }
+  }
+
+  async addInscricao(input: CreateInscricaoInput, isMaster?: boolean, empresaId?: string | null) {
+    await this.assertClienteAtivo(input.clienteId, isMaster, empresaId)
     return prisma.clienteInscricao.create({
-      data: { clienteId, estado: estado.toUpperCase(), inscricao: inscricao.trim(), descricao: descricao?.trim() || null },
+      data: {
+        clienteId: input.clienteId,
+        ...this.camposLugarInscricao(input),
+        inscricao: input.inscricao.trim(),
+        dataRegistro: input.dataRegistro ?? null,
+        observacoes: input.observacoes?.trim() || null,
+      },
     })
   }
 
-  async updateInscricao(id: string, estado: string, inscricao: string, descricao?: string | null, isMaster?: boolean, empresaId?: string | null) {
+  async updateInscricao(input: UpdateInscricaoInput, isMaster?: boolean, empresaId?: string | null) {
     const r = await prisma.clienteInscricao.updateMany({
-      where: { id, cliente: this.clientePaiWhere(isMaster, empresaId) },
-      data: { estado: estado.toUpperCase(), inscricao: inscricao.trim(), descricao: descricao?.trim() || null },
+      where: { id: input.id, cliente: this.clientePaiWhere(isMaster, empresaId) },
+      data: {
+        ...this.camposLugarInscricao(input),
+        inscricao: input.inscricao.trim(),
+        dataRegistro: input.dataRegistro ?? null,
+        observacoes: input.observacoes?.trim() || null,
+      },
     })
     if (r.count === 0) throw new Error('Inscrição não encontrada ou fora do seu acesso.')
-    return { id }
+    return { id: input.id }
+  }
+
+  /**
+   * Municípios já conhecidos na base — alimenta a sugestão enquanto se digita
+   * o município de uma inscrição municipal.
+   *
+   * Não existe cadastro de municípios no banco, então as fontes são as duas
+   * que a casa realmente tem: a cidade dos clientes (o acervo que já existe,
+   * e que no começo é a única fonte) e os municípios já digitados em outras
+   * inscrições (o que este próprio campo vai acumulando).
+   *
+   * Deduplica sem diferenciar maiúsculas: "Vitória" e "VITÓRIA" digitados em
+   * lugares diferentes são o mesmo município, e sugerir os dois faria o
+   * usuário escolher entre duas grafias da mesma coisa.
+   */
+  async listMunicipios(termo?: string, isMaster?: boolean, empresaId?: string) {
+    const t = (termo || '').trim()
+    const filtroTexto = t ? { contains: t, mode: 'insensitive' as const } : {}
+    const [clientes, inscricoes] = await Promise.all([
+      prisma.cliente.findMany({
+        where: { cidade: { not: null, ...filtroTexto }, ...empresaFilter(isMaster, empresaId) },
+        select: { cidade: true },
+        distinct: ['cidade'],
+        orderBy: { cidade: 'asc' },
+        take: 50,
+      }).catch(() => [] as Array<{ cidade: string | null }>),
+      prisma.clienteInscricao.findMany({
+        where: { municipio: { not: null, ...filtroTexto }, cliente: this.clientePaiWhere(isMaster, empresaId) },
+        select: { municipio: true },
+        distinct: ['municipio'],
+        orderBy: { municipio: 'asc' },
+        take: 50,
+      }).catch(() => [] as Array<{ municipio: string | null }>),
+    ])
+
+    const porChave = new Map<string, string>()
+    for (const nome of [...clientes.map(c => c.cidade), ...inscricoes.map(i => i.municipio)]) {
+      const limpo = (nome || '').trim()
+      if (!limpo) continue
+      const chave = limpo.toLocaleLowerCase('pt-BR')
+      if (!porChave.has(chave)) porChave.set(chave, limpo)
+    }
+    return [...porChave.values()].sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 20)
   }
 
   async removeInscricao(id: string, isMaster?: boolean, empresaId?: string | null) {

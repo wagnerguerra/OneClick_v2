@@ -707,13 +707,15 @@ export default function HelpdeskIndicadoresPage() {
             {/* Por categoria */}
             <Card><CardContent className="p-4">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                <Tag className="h-4 w-4" /> Tickets por categoria
+                <Tag className="h-4 w-4" /> Tickets por serviço
               </h3>
               {data.porCategoria.length === 0 ? <Empty /> : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs">Categoria</TableHead>
+                      {/* A chave do payload segue `porCategoria` para não
+                          quebrar o app mobile; o conteúdo é por serviço. */}
+                      <TableHead className="text-xs">Serviço</TableHead>
                       <TableHead className="text-right text-xs">Volume</TableHead>
                       <TableHead className="text-right text-xs">%</TableHead>
                     </TableRow>

@@ -228,6 +228,14 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
       .input(z.object({ id: z.string(), novoStatus: z.string(), motivo: z.string().optional(), manterDatas: z.boolean().optional() }))
       .mutation(({ input, ctx }) => orcamentoService.reabrir(input.id, input.novoStatus, input.motivo, ctx.userId, input.manterDatas)),
 
+    // Retroagir a aprovação INTERNA: desfaz a aprovação feita pelo escritório e
+    // cancela os serviços que ela criou. Sub-permissão própria, separada de
+    // `acao_aprovar` — quem vende não necessariamente pode desfazer a venda.
+    // O serviço recusa se a aprovação tiver vindo do cliente (link público).
+    retroagirAprovacao: writeSubProcedure(MODULE, 'acao_retroagir_aprovacao', 'Retroagir a aprovação interna do orçamento')
+      .input(z.object({ id: z.string(), motivo: z.string().min(1) }))
+      .mutation(({ input, ctx }) => orcamentoService.retroagirAprovacao(input.id, input.motivo, ctx.userId)),
+
     editarData: writeSubProcedure(MODULE, 'edit_timeline_dates', 'Alterar datas da timeline')
       .input(z.object({ id: z.string(), campo: z.string(), valor: z.string().nullable() }))
       .mutation(({ input, ctx }) => orcamentoService.editarData(input.id, input.campo, input.valor, ctx.userId)),
@@ -613,6 +621,13 @@ export function createOrcamentoRouter(orcamentoService: OrcamentoService) {
 
     // Desfaz a exclusão (#HLP0282). Exige permissão de escrita, não de exclusão:
     // restaurar devolve um item ao catálogo, não remove nada.
+    // Disponibilizar/indisponibilizar em massa. `writeProcedure` e nao
+    // `deleteProcedure`: tirar do seletor de orcamentos nao exclui nada — o
+    // item continua no catalogo e o servico continua executavel.
+    bulkDisponivelCatalogo: writeProcedure(MODULE)
+      .input(z.object({ ids: z.array(z.string()).min(1).max(500), disponivel: z.boolean() }))
+      .mutation(({ input, ctx }) => orcamentoService.bulkDisponivelCatalogo(input.ids, input.disponivel, ctx.empresaId)),
+
     restaurarCatalogo: writeProcedure(MODULE)
       .input(z.object({ id: z.string() }))
       .mutation(({ input }) => orcamentoService.restaurarCatalogo(input.id)),

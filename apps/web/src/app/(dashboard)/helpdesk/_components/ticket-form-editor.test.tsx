@@ -2,7 +2,10 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 
 vi.mock('@/lib/trpc', () => ({
-  trpc: { helpdesk: { listCategorias: { query: () => Promise.resolve([]) } } },
+  trpc: { helpdesk: {
+    listCategorias: { query: () => Promise.resolve([]) },
+    listServicosChamado: { query: () => Promise.resolve([]) },
+  } },
 }))
 vi.mock('@/hooks/use-current-user-profile', () => ({
   useCurrentUserProfile: () => ({ profile: { isMaster: false, role: 'USER' } }),
@@ -33,7 +36,7 @@ describe('descrição restaurada na tela', () => {
   it('mostra o texto do rascunho dentro do editor', async () => {
     localStorage.setItem(CHAVE, JSON.stringify({
       titulo: '', descricao: '<p>teste</p>',
-      tipo: null, prioridade: 'MEDIA', categoriaId: null, anexos: [],
+      tipo: null, prioridade: 'MEDIA', servicoId: null, anexos: [],
     }))
 
     const { container } = render(<Formulario />)

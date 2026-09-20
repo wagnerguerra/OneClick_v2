@@ -247,6 +247,22 @@ export function createGestaoArquivosRouter(
       .input(z.object({ clienteId: z.string(), itemId: z.string() }))
       .mutation(({ input, ctx }) => driveService.excluirDefinitivo(input, contexto(ctx))),
 
+    /**
+     * Copia a estrutura de pastas deste cliente para outros.
+     *
+     * `SUB_CONFIGURAR`, e não escrita comum: arrumar a estrutura de um cliente
+     * a partir de outro é o mesmo tipo de ato que vincular pasta e mapear
+     * área — configuração do módulo, não o dia a dia de arquivo.
+     */
+    driveCopiarEstrutura: writeSubProcedure(MODULE, SUB_CONFIGURAR, 'copiar a estrutura de pastas')
+      .input(z.object({
+        origemId: z.string(),
+        destinoIds: z.array(z.string()).min(1).max(50),
+        comAreas: z.boolean().default(true),
+        simular: z.boolean().default(true),
+      }))
+      .mutation(({ input, ctx }) => driveService.copiarEstrutura(input, contexto(ctx))),
+
     /** Arrastar e soltar no Drive. `destinoId` nulo leva para a raiz. */
     driveMover: writeProcedure(MODULE)
       .input(z.object({

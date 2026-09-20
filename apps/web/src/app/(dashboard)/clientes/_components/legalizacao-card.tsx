@@ -20,6 +20,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { toDateInputValue } from '@/lib/date'
 import { useClientesPerms } from './use-clientes-perms'
+import { RegistroInscricoesCard } from './registro-inscricoes-card'
 import type { UseFormRegister } from 'react-hook-form'
 import type { CreateClienteInput } from '@saas/types'
 
@@ -476,6 +477,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
 
   const pills: Array<{ id: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
     { id: 'pop', label: 'Registros Gerais', icon: FileText },
+    { id: 'inscricoes', label: 'Inscrições', icon: FileLock },
     { id: 'socios', label: 'Sócios', icon: Users },
     { id: 'acessos', label: 'Acessos', icon: KeyRound },
     { id: 'vencimentos', label: 'Vencimentos', icon: Clock },
@@ -621,6 +623,23 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
 
         {/* Conteudo */}
         <div key={activeTab} className="flex-1" style={{ animation: 'fadeSlideIn 0.25s ease-out' }}>
+          {/* Registro de Inscrições — veio da aba Fiscal. A sub-permissão que
+              guarda estas mutações no backend sempre se chamou
+              `manage_registration` ("Gerenciar aba de registro / legalização"),
+              então o lugar novo é o que o nome já dizia. */}
+          {activeTab === 'inscricoes' && (
+            <>
+              <div className="px-5 py-3 border-b border-border">
+                <h4 className="text-[13px] font-semibold text-foreground">Registro de Inscrições</h4>
+              </div>
+              <div className="p-5">
+                {clienteId
+                  ? <RegistroInscricoesCard clienteId={clienteId} />
+                  : <p className="text-xs text-muted-foreground">Salve o cliente para registrar inscrições.</p>}
+              </div>
+            </>
+          )}
+
           {/* POP: Registros Gerais */}
           {activeTab === 'pop' && (
             <>

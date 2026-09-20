@@ -1082,6 +1082,9 @@ export class ServicoService {
         valorPadrao: input.valorPadrao ?? null,
         disponivelOrcamento: input.disponivelOrcamento ?? true,
         ehServicoInterno: input.ehServicoInterno ?? false,
+        // Tipos de chamado que este serviço atende (filtro do seletor no
+        // HelpDesk). Vazio = não aparece em filtro de tipo nenhum.
+        helpdeskTipos: (input.helpdeskTipos as any) ?? [],
         ehObrigacaoAcessoria: input.ehObrigacaoAcessoria ?? false,
         recorrenteMensal: input.recorrenteMensal ?? (categoria === 'MENSAL'),
         // PERGUNTA: pré-preenche opções padrão se nenhuma foi enviada.

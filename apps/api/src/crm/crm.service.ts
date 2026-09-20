@@ -1,6 +1,6 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { prisma } from '@saas/db'
-import type { CreateOportunidadeInput, UpdateOportunidadeInput, ListOportunidadeInput } from '@saas/types'
+import type { CreateOportunidadeInput, UpdateOportunidadeInput, ListOportunidadeInput, ListForaDoFunilInput } from '@saas/types'
 import { OrcamentoService } from '../orcamento/orcamento.service'
 import { CrmEventsService } from './crm-events.service'
 import { NotificationService } from '../notification/notification.service'
@@ -123,6 +123,107 @@ export class CrmService {
     ])
 
     return { data, total, page: input.page || 1, limit: input.limit || 50, totalPages: Math.ceil(total / (input.limit || 50)) }
+  }
+
+  /**
+   * Cards que sairam do funil ativo — alimenta a tela /crm/arquivados.
+   *
+   * Junta DUAS situacoes na mesma consulta porque, para quem procura, elas sao
+   * a mesma pergunta ("o card sumiu do quadro, onde foi parar?"):
+   *   - ARQUIVADO: isActive = false. O listKanban filtra isActive: true, entao
+   *     hoje esse card desaparece sem nenhum lugar no sistema onde ve-lo.
+   *   - DECLINIO:  ainda ativo, parado na etapa de Declinio, esperando o prazo
+   *     do arquivamento automatico (ver limparDecliniosVencidos).
+   *
+   * A etapa de Declinio e identificada pelo NOME conter "decl" — a MESMA regra
+   * que limparDecliniosVencidos e a confirmacao do front ja usam. E fragil:
+   * renomear a etapa para "Recusado" quebra os tres de uma vez e em silencio.
+   * Repetir o criterio aqui nao e bom, mas inventar um diferente seria pior. A
+   * correcao de verdade e uma flag `ehDeclinio` na CrmEtapa, como ja existem
+   * ehGanho e ehPerda; fica registrada aqui para quando houver migracao.
+   */
+  async listForaDoFunil(input: ListForaDoFunilInput, isMaster: boolean, empresaId?: string) {
+    const page = input.page || 1
+    const limit = input.limit || 50
+
+    const etapasDecl = await prisma.crmEtapa.findMany({
+      where: { nome: { contains: 'decl', mode: 'insensitive' } },
+      select: { id: true },
+    })
+    const declIds = etapasDecl.map(e => e.id)
+    const temEtapaDeclinio = declIds.length > 0
+
+    const arquivados = { isActive: false }
+    const emDeclinio = temEtapaDeclinio ? { isActive: true, etapaId: { in: declIds } } : null
+
+    // Pedir "em declinio" sem existir etapa de declinio e resposta vazia, nao
+    // erro: e so um funil que nao usa essa etapa.
+    if (input.situacao === 'declinio' && !emDeclinio) {
+      return { data: [], total: 0, page, limit, totalPages: 0, temEtapaDeclinio }
+    }
+
+    const and: Array<Record<string, unknown>> = []
+    if (input.situacao === 'arquivados') and.push(arquivados)
+    else if (input.situacao === 'declinio') and.push(emDeclinio!)
+    else and.push({ OR: emDeclinio ? [arquivados, emDeclinio] : [arquivados] })
+
+    if (input.responsavelId) and.push({ responsavelId: input.responsavelId })
+    if (input.search) {
+      const t = input.search.trim()
+      and.push({
+        OR: [
+          { titulo: { contains: t, mode: 'insensitive' } },
+          { razaoSocial: { contains: t, mode: 'insensitive' } },
+          { nomeFantasia: { contains: t, mode: 'insensitive' } },
+          { contatoNome: { contains: t, mode: 'insensitive' } },
+          { cpfCnpj: { contains: t, mode: 'insensitive' } },
+        ],
+      })
+    }
+
+    const where: Record<string, unknown> = { AND: and }
+    if (!isMaster && empresaId) where.empresaId = empresaId
+
+    const [rows, total] = await Promise.all([
+      prisma.oportunidade.findMany({
+        where,
+        include: { etapa: { select: { id: true, nome: true, cor: true, ehGanho: true, ehPerda: true } } },
+        // Sem coluna de "arquivado em": o arquivamento so vira isActive=false.
+        // updatedAt e a melhor aproximacao que existe, e e por ele que a tela
+        // ordena — o mais recente primeiro.
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.oportunidade.count({ where }),
+    ])
+
+    // Responsavel e cliente vem por consulta propria, como no listKanban:
+    // Oportunidade guarda clienteId/responsavelId soltos, sem relacao Prisma —
+    // por isso `include: { cliente: ... }` nao existe aqui.
+    const userIds = [...new Set(rows.map(o => o.responsavelId).filter(Boolean))] as string[]
+    const clienteIds = [...new Set(rows.map(o => o.clienteId).filter(Boolean))] as string[]
+    const [users, clientes] = await Promise.all([
+      userIds.length > 0
+        ? prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, image: true } }).catch(() => [])
+        : Promise.resolve([] as Array<{ id: string; name: string; image: string | null }>),
+      clienteIds.length > 0
+        ? prisma.cliente.findMany({ where: { id: { in: clienteIds } }, select: { id: true, razaoSocial: true, nomeFantasia: true } }).catch(() => [])
+        : Promise.resolve([] as Array<{ id: string; razaoSocial: string; nomeFantasia: string | null }>),
+    ])
+    const userMap = new Map(users.map(u => [u.id, u]))
+    const clienteMap = new Map(clientes.map(c => [c.id, c]))
+
+    const data = rows.map(o => ({
+      ...o,
+      // A situacao e derivada aqui, no backend, e vai pronta no payload — a
+      // tela nao repete a regra (ver PADRAO_ESTADOS_E_PERMISSOES).
+      situacao: o.isActive ? ('DECLINIO' as const) : ('ARQUIVADO' as const),
+      responsavel: o.responsavelId ? userMap.get(o.responsavelId) ?? null : null,
+      cliente: o.clienteId ? clienteMap.get(o.clienteId) ?? null : null,
+    }))
+
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit), temEtapaDeclinio }
   }
 
   async listKanban(isMaster: boolean, empresaId?: string, search?: string, campanhaSlug?: string) {
@@ -287,14 +388,22 @@ export class CrmService {
         : []
       const userMap = new Map(users.map(u => [u.id, u]))
       // Campos novos (nome fantasia + CNAE) via SQL raw — client local pode estar stale.
-      const extras = await prisma.$queryRawUnsafe<Array<{ nomeFantasia: string | null; cnaeCodigo: string | null; cnaeDescricao: string | null }>>(
-        `SELECT nome_fantasia AS "nomeFantasia", cnae_codigo AS "cnaeCodigo", cnae_descricao AS "cnaeDescricao" FROM oportunidades WHERE id = $1`, id,
+      // Campanha entra junto: o detalhe precisa dela para o seletor abrir com o
+      // valor atual. O join é por slug porque nao existe FK (campanha_slug e
+      // texto solto) — ver o mesmo join em listKanban.
+      const extras = await prisma.$queryRawUnsafe<Array<{ nomeFantasia: string | null; cnaeCodigo: string | null; cnaeDescricao: string | null; campanhaSlug: string | null; campanhaNome: string | null }>>(
+        `SELECT o.nome_fantasia AS "nomeFantasia", o.cnae_codigo AS "cnaeCodigo", o.cnae_descricao AS "cnaeDescricao",
+                o.campanha_slug AS "campanhaSlug", c.nome AS "campanhaNome"
+           FROM oportunidades o LEFT JOIN lead_funil_config c ON c.slug = o.campanha_slug
+          WHERE o.id = $1`, id,
       ).catch(() => [])
       return {
         ...op,
         nomeFantasia: extras[0]?.nomeFantasia ?? null,
         cnaeCodigo: extras[0]?.cnaeCodigo ?? null,
         cnaeDescricao: extras[0]?.cnaeDescricao ?? null,
+        campanhaSlug: extras[0]?.campanhaSlug ?? null,
+        campanhaNome: extras[0]?.campanhaNome ?? null,
         responsavel: op.responsavelId ? userMap.get(op.responsavelId) || null : null,
         eventos: op.eventos.map(e => ({ ...e, user: e.userId ? userMap.get(e.userId) || null : null })),
         mensagens: op.mensagens.map(m => ({ ...m, user: m.userId ? userMap.get(m.userId) || null : null })),
@@ -501,6 +610,10 @@ export class CrmService {
     if (input.nomeFantasia !== undefined) { extrasVals.push(input.nomeFantasia || null); extrasCols.push(`nome_fantasia = $${extrasVals.length}`) }
     if (input.cnaeCodigo !== undefined) { extrasVals.push(input.cnaeCodigo || null); extrasCols.push(`cnae_codigo = $${extrasVals.length}`) }
     if (input.cnaeDescricao !== undefined) { extrasVals.push(input.cnaeDescricao || null); extrasCols.push(`cnae_descricao = $${extrasVals.length}`) }
+    // Campanha do funil: o Zod ja aceitava o campo (update = create.partial()),
+    // mas ninguem o gravava — vinha da API e era descartado em silencio. Raw
+    // pelo mesmo motivo dos demais: coluna nova, client local pode estar stale.
+    if (input.campanhaSlug !== undefined) { extrasVals.push(input.campanhaSlug || null); extrasCols.push(`campanha_slug = $${extrasVals.length}`) }
     if (extrasCols.length > 0) {
       await prisma.$executeRawUnsafe(`UPDATE oportunidades SET ${extrasCols.join(', ')} WHERE id = $1`, ...extrasVals)
         .catch(() => { /* colunas ausentes ainda */ })
@@ -508,6 +621,31 @@ export class CrmService {
     const campos = [...Object.keys(data), ...extrasCols.map(c => c.split(' ')[0])].join(', ')
     this.addEvento(id, userId, 'edicao', `Campos alterados: ${campos}`)
     return result
+  }
+
+  /**
+   * Devolve ao funil um card arquivado (isActive = false).
+   *
+   * Metodo proprio em vez de `update({ isActive: true })` por causa da
+   * timeline: o update generico registra "Campos alterados: isActive", que
+   * nao diz nada a quem le o historico do card depois.
+   *
+   * O card volta NA MESMA ETAPA em que estava. Se era Declinio, ele reaparece
+   * em Declinio e o prazo de arquivamento recomeca — previsivel, e melhor do
+   * que este metodo escolher por conta propria uma etapa de destino que o
+   * usuario nao pediu.
+   */
+  async reativar(id: string, userId?: string) {
+    const op = await prisma.oportunidade.findUnique({
+      where: { id },
+      select: { id: true, isActive: true, etapa: { select: { nome: true } } },
+    })
+    if (!op) throw new Error('Oportunidade nao encontrada')
+    if (op.isActive) return { id, reativada: false }
+
+    await prisma.oportunidade.update({ where: { id }, data: { isActive: true } })
+    await this.addEvento(id, userId, 'edicao', `Card reativado e devolvido ao funil (etapa: ${op.etapa?.nome ?? 'sem etapa'})`)
+    return { id, reativada: true }
   }
 
   async moverEtapa(id: string, etapaId: string, userId?: string, empresaId?: string) {

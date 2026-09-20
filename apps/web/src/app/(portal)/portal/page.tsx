@@ -1,105 +1,43 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import {
-  FolderOpen, CalendarCheck, LifeBuoy, FileCheck2, ShieldCheck, Receipt,
-  ArrowRight, Clock, Upload, Inbox, Download, Sparkles,
-} from 'lucide-react'
+import { FolderOpen, Upload, Inbox } from 'lucide-react'
 
+import { trpc } from '@/lib/trpc'
 import { usePortal } from '../_lib/contexto'
+import {
+  AcessoRapido, Alertas, BlocoDocumentos, BlocoEquipe, BlocoObrigacoes, BlocoPendencias,
+  BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CartaoAjuda, Saudacao, diasAte,
+  type Alerta, type AreaDaEquipe, type Consulta, type Obrigacao, type PastaDrive,
+  type Pendencia, type ResumoObrigacoes,
+} from '../_components/painel-inicio'
+import { ContatoEquipeModal } from '../_components/contato-equipe-modal'
+import { CalendarioPortal } from '../_components/calendario-portal'
 
 /**
- * Início do Portal do Cliente.
+ * Início do Portal do Cliente — a mesa de trabalho do cliente.
  *
- * Repaginada sobre a gramática do LuminAux (starter-builder), que é a
- * referência visual do portal: sobrancelha em caixa alta com traço, título
- * grande com a segunda linha em cor, cards com chip de ícone, passos numerados
- * com o algarismo fantasma no canto, e faixa azul de fecho.
+ * Até 15/09/2026 esta página era uma capa de site: hero, título digitando,
+ * terminal decorativo, faixa de números e banner de chamada. O dono do produto
+ * pediu "cara de portal", e a pesquisa nos portais de cliente contábeis
+ * (TaxDome, Canopy, Onvio, Acessórias, Nibo) aponta a mesma ordem:
  *
- * O que NÃO veio do modelo: a linguagem de landing page. Aquilo ali vende um
- * produto; isto aqui é a casa de quem já é cliente. As mesmas peças, ditas no
- * indicativo — "seus documentos", não "ship your next app".
+ *   1. saudação curta com empresa e data — quem tem vários CNPJs precisa saber
+ *      de qual está vendo;
+ *   2. alerta, só quando há risco;
+ *   3. o que o cliente precisa fazer (pendências com prazo e o botão de enviar);
+ *   4. o andamento do mês (obrigações);
+ *   5. documentos recentes;
+ *   6. ao lado: com quem falar, atalhos e ajuda.
  *
- * A honestidade sobre o que ainda não existe foi mantida de propósito: cada
- * card diz se está no ar ou em breve. Prometer botão que não faz nada é pior
- * do que dizer o que falta.
+ * Saiu o que é conteúdo fixo — a pesquisa é unânime em tirar da home tudo que
+ * não muda entre uma visita e outra, e o passo-a-passo de "como funciona" era
+ * exatamente isso.
+ *
+ * Os blocos moram em `painel-inicio.tsx`; esta página só decide o que buscar
+ * e o que montar, a partir dos módulos que o escritório liberou.
  */
-
-interface Recurso {
-  titulo: string
-  descricao: string
-  icone: typeof FolderOpen
-  /** Fundo do chip do ícone — a linguagem visual da referência. */
-  cor: string
-  href?: string
-  /**
-   * Módulo a que este card pertence.
-   *
-   * Card de módulo que o escritório não liberou some da home — prometer aqui
-   * o que o menu esconde e a rota recusa seria anunciar uma porta que não
-   * existe. Pendências não tem: ela vive dentro de Documentos.
-   */
-  modulo?: string
-}
-
-const RECURSOS: Recurso[] = [
-  {
-    titulo: 'Documentos',
-    descricao: 'Baixe guias e relatórios, e envie suas notas e extratos — organizados em pastas.',
-    icone: FolderOpen, cor: 'bg-[#eaf1ff] text-[#1a6dff]', href: '/portal/documentos', modulo: 'documentos',
-  },
-  {
-    titulo: 'Pendências',
-    descricao: 'O que o escritório está esperando de você, com prazo. Resolve ao anexar.',
-    // As pendências vivem dentro de Documentos: sem o arquivo ao lado, uma
-    // tela só de cobrança não resolve nada.
-    icone: Clock, cor: 'bg-[#fdf0e6] text-[#d97b34]', href: '/portal/documentos', modulo: 'documentos',
-  },
-  {
-    titulo: 'Obrigações do mês',
-    descricao: 'O calendário das entregas da sua empresa e a situação de cada uma.',
-    icone: CalendarCheck, cor: 'bg-[#e9f6ee] text-[#1f9254]', href: '/portal/obrigacoes', modulo: 'obrigacoes',
-  },
-  {
-    titulo: 'Certidões',
-    descricao: 'Situação e PDF da última emissão de cada certidão negativa.',
-    icone: FileCheck2, cor: 'bg-[#eef0fd] text-[#5b62d6]', modulo: 'certidoes',
-  },
-  {
-    titulo: 'Certificado digital',
-    descricao: 'Titular, validade e aviso de vencimento do certificado da empresa.',
-    icone: ShieldCheck, cor: 'bg-[#fdeef5] text-[#c2477f]', modulo: 'certificado',
-  },
-  {
-    titulo: 'Notas fiscais',
-    descricao: 'As notas capturadas da sua empresa, com XML e DANFE.',
-    icone: Receipt, cor: 'bg-[#e8f4f7] text-[#2b7f95]', modulo: 'notas',
-  },
-  {
-    titulo: 'Atendimento',
-    descricao: 'Abra um chamado e acompanhe as respostas sem depender do WhatsApp.',
-    icone: LifeBuoy, cor: 'bg-[#f2eefd] text-[#7c4dd1]', modulo: 'chamados',
-  },
-]
-
-/** Passos numerados, no formato do "How it works" do modelo. */
-const PASSOS: Array<{ titulo: string; descricao: string; icone: typeof Upload }> = [
-  {
-    titulo: 'O escritório publica',
-    descricao: 'Guias, relatórios e documentos aparecem aqui assim que ficam prontos.',
-    icone: Download,
-  },
-  {
-    titulo: 'Você envia o que falta',
-    descricao: 'Arraste o arquivo para a pasta certa. As pendências se resolvem ao anexar.',
-    icone: Upload,
-  },
-  {
-    titulo: 'Fica tudo registrado',
-    descricao: 'Quem enviou, quando e o quê — sem depender de e-mail nem de WhatsApp.',
-    icone: Inbox,
-  },
-]
 
 const ROTULO_NIVEL: Record<string, string> = {
   ADMINISTRADOR: 'Administrador',
@@ -108,201 +46,155 @@ const ROTULO_NIVEL: Record<string, string> = {
 }
 
 /**
- * Sobrancelha do modelo: traço, texto em caixa alta espaçado, na cor de
- * destaque. É o que separa uma seção da outra sem precisar de linha divisória.
+ * O pedaço da API do portal que a home lê. Tipado aqui, e não com `any`, para
+ * que uma mudança de formato quebre a compilação em vez da tela.
  */
-function Sobrancelha({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="flex items-center justify-center gap-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1a6dff]">
-      <span aria-hidden="true" className="h-px w-6 bg-[#1a6dff]/50" />
-      {children}
-    </p>
-  )
+interface PortalApiDaHome {
+  solicitacoes: { pendentes: { query(i: { clienteId: string }): Promise<Pendencia[]> } }
+  obrigacoes: {
+    listar: { query(i: { clienteId: string; competencia: string }): Promise<Obrigacao[]> }
+    resumo: { query(i: { clienteId: string; competencia: string }): Promise<ResumoObrigacoes> }
+  }
+  arquivos: { drive: { query(i: { clienteId: string; subPastaId: null }): Promise<PastaDrive> } }
+  equipe: { query(i: { clienteId: string }): Promise<AreaDaEquipe[]> }
+}
+
+/** Competência corrente, AAAAMM. Sem ela o resumo contaria o histórico inteiro. */
+function competenciaDe(d: Date): string {
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** Liga a promessa ao estado: `undefined` enquanto consulta, `null` se falhar. */
+function consultar<T>(promessa: Promise<T>, definir: (v: Consulta<T>) => void, vivo: () => boolean) {
+  definir(undefined)
+  promessa
+    .then((v) => { if (vivo()) definir(v) })
+    .catch(() => { if (vivo()) definir(null) })
 }
 
 export default function PortalInicioPage() {
-  const { vinculo } = usePortal()
-  const semArea = !vinculo || vinculo.areas.length === 0
+  const { clienteId, vinculo, usuarioNome } = usePortal()
 
-  /**
-   * Só os cards de módulos liberados.
-   *
-   * O "em breve" continua existindo para o que está liberado mas ainda não
-   * tem tela: são coisas diferentes. Um módulo desligado pelo escritório não
-   * deve nem ser mencionado; um ligado sem tela é promessa em construção.
-   */
-  const liberados = new Set(vinculo?.modulos ?? [])
-  const visiveis = RECURSOS.filter(r => !r.modulo || liberados.has(r.modulo))
+  const liberados = useMemo(() => new Set(vinculo?.modulos ?? []), [vinculo])
+  const temDocumentos = liberados.has('documentos')
+  const temObrigacoes = liberados.has('obrigacoes')
+  const podeEditar = Boolean(vinculo?.podeEditar)
 
-  // `gap-10` no celular: 56px entre seções é respiro no desktop e rolagem
-  // desperdiçada numa tela de 390px.
+  // "Hoje" só no cliente: no servidor sairia no fuso e no instante dele.
+  const [hoje, setHoje] = useState<Date | null>(null)
+  useEffect(() => { setHoje(new Date()) }, [])
+  const referencia = hoje ?? new Date()
+  const competencia = competenciaDe(referencia)
+  const mes = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(referencia)
+
+  const [pendencias, setPendencias] = useState<Consulta<Pendencia[]>>(undefined)
+  const [obrigacoes, setObrigacoes] = useState<Consulta<Obrigacao[]>>(undefined)
+  const [resumo, setResumo] = useState<Consulta<ResumoObrigacoes>>(undefined)
+  const [pasta, setPasta] = useState<Consulta<PastaDrive>>(undefined)
+  const [equipe, setEquipe] = useState<Consulta<AreaDaEquipe[]>>(undefined)
+  const [escrevendoPara, setEscrevendoPara] = useState<AreaDaEquipe | null>(null)
+
+  // Só consulta o que o escritório liberou: a rota de um módulo desligado
+  // responde "não encontrado", e isso não é um dado para mostrar.
+  useEffect(() => {
+    if (!clienteId) return
+    let ativo = true
+    const vivo = () => ativo
+    const api = trpc.portal as unknown as PortalApiDaHome
+
+    consultar(api.equipe.query({ clienteId }), setEquipe, vivo)
+    if (temDocumentos) {
+      consultar(api.solicitacoes.pendentes.query({ clienteId }), setPendencias, vivo)
+      consultar(api.arquivos.drive.query({ clienteId, subPastaId: null }), setPasta, vivo)
+    }
+    if (temObrigacoes) {
+      consultar(api.obrigacoes.listar.query({ clienteId, competencia }), setObrigacoes, vivo)
+      consultar(api.obrigacoes.resumo.query({ clienteId, competencia }), setResumo, vivo)
+    }
+    return () => { ativo = false }
+  }, [clienteId, temDocumentos, temObrigacoes, competencia])
+
+  const alertas: Alerta[] = []
+  if (hoje && Array.isArray(pendencias)) {
+    const vencidas = pendencias.filter((p) => p.prazo && diasAte(p.prazo, hoje) < 0).length
+    if (vencidas > 0) {
+      alertas.push({
+        texto: vencidas === 1 ? '1 pendência passou do prazo.' : `${vencidas} pendências passaram do prazo.`,
+        acao: podeEditar ? 'Enviar agora' : 'Ver pendências',
+        href: '/portal/documentos',
+      })
+    }
+  }
+  if (resumo && resumo.atrasadas > 0) {
+    alertas.push({
+      texto: resumo.atrasadas === 1
+        ? `1 obrigação de ${mes} está com a entrega atrasada.`
+        : `${resumo.atrasadas} obrigações de ${mes} estão com a entrega atrasada.`,
+      acao: 'Ver obrigações',
+      href: '/portal/obrigacoes',
+    })
+  }
+
   return (
-    <div className="flex flex-col gap-10 pb-4 sm:gap-14">
-      {/* ── Abertura ───────────────────────────────────────────────────
-          O modelo abre com selo, título de duas linhas (a segunda em cor) e
-          dois botões. Aqui a segunda linha é a frase que diz o que o portal
-          faz, e o nome da empresa vem logo abaixo — é ele que ancora "onde
-          eu estou", e como título gigante quebraria mal em razão social
-          longa. */}
-      <section className="flex flex-col items-start gap-4 pt-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eaf1ff] px-3 py-1 text-[11px] font-semibold text-[#1a6dff] dark:bg-[#16233a] dark:text-[#7db0ff]">
-          <Sparkles className="h-3 w-3" />
-          Portal do cliente
-        </span>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-4 xl:max-w-[86rem]">
+      <Saudacao
+        nome={usuarioNome}
+        razaoSocial={vinculo?.razaoSocial ?? 'Sua empresa'}
+        nivel={ROTULO_NIVEL[vinculo?.nivel ?? ''] ?? '—'}
+        acoes={temDocumentos ? (
+          <>
+            {podeEditar && (
+              <Link href="/portal/documentos" className={BOTAO_PRIMARIO}>
+                <Upload className="h-4 w-4" />
+                Enviar arquivo
+              </Link>
+            )}
+            <Link href="/portal/documentos" className={podeEditar ? BOTAO_SECUNDARIO : BOTAO_PRIMARIO}>
+              <FolderOpen className="h-4 w-4" />
+              Abrir documentos
+            </Link>
+          </>
+        ) : undefined}
+      />
 
-        <h1 className="max-w-3xl text-[34px] font-bold leading-[1.1] tracking-tight text-balance text-slate-900 sm:text-[42px] dark:text-slate-100">
-          Seus documentos,
-          <br />
-          <span className="text-[#1a6dff]">no lugar certo.</span>
-        </h1>
+      <Alertas itens={alertas} />
 
-        <p className="max-w-xl text-[15px] leading-relaxed text-slate-600 dark:text-slate-400">
-          <span className="font-semibold text-slate-900 dark:text-slate-100">
-            {vinculo?.razaoSocial ?? 'Sua empresa'}
-          </span>
-          {' · '}
-          acesso {ROTULO_NIVEL[vinculo?.nivel ?? ''] ?? '—'}
-          {semArea
-            ? <>, ainda sem área liberada — fale com o escritório.</>
-            : <> em {vinculo!.areas.length} área(s) contratada(s).</>}
-        </p>
+      {/* Três colunas no monitor largo: calendário, o miolo e a coluna de
+          contato. Abaixo disso o calendário desce para a coluna da direita
+          (tablet) ou para o fim da pilha (celular) — ele é contexto do mês, e
+          quem abre o portal no telefone veio resolver pendência. */}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[19rem_minmax(0,1fr)_20rem]">
+        <CalendarioPortal
+          clienteId={clienteId}
+          className="order-last lg:order-none lg:col-start-2 lg:row-start-1 xl:col-start-1 xl:row-start-1"
+        />
 
-        <div className="mt-1 flex flex-wrap items-center gap-2.5">
-          <Link
-            href="/portal/documentos"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#1a6dff] px-5 py-2.5 text-[13.5px] font-semibold text-white transition-colors hover:bg-[#0b4fd0]"
-          >
-            <FolderOpen className="h-4 w-4" />
-            Abrir documentos
-          </Link>
-          <a
-            href="#recursos"
-            className="inline-flex items-center gap-2 rounded-lg border border-[#dbe7fb] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-slate-700 transition-colors hover:bg-[#f2f7ff] dark:border-[#1b2739] dark:bg-[#0e1726] dark:text-slate-300 dark:hover:bg-[#16233a]"
-          >
-            O que tem aqui
-          </a>
-        </div>
-      </section>
-
-      {/* ── Como funciona ──────────────────────────────────────────────
-          Passos numerados com o algarismo fantasma no canto, como no modelo.
-          A numeração não é enfeite: o vaivém de documento É uma sequência, e
-          a ordem diz quem faz o quê. */}
-      <section className="flex flex-col gap-6">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <Sobrancelha>Como funciona</Sobrancelha>
-          <h2 className="max-w-2xl text-[26px] font-bold leading-tight tracking-tight text-balance text-slate-900 sm:text-[30px] dark:text-slate-100">
-            Do envio à entrega, sem caixa de e-mail no meio
-          </h2>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          {PASSOS.map((p, i) => (
-            <div
-              key={p.titulo}
-              className="relative overflow-hidden rounded-2xl border border-[#e6ebf2] bg-white p-5 dark:border-[#1b2739] dark:bg-[#0e1726]"
-            >
-              <span
-                aria-hidden="true"
-                className="absolute right-4 top-2 text-[44px] font-bold leading-none text-[#1a6dff]/10 dark:text-[#7db0ff]/10"
-              >
-                {i + 1}
+        <div className="flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-span-2 lg:row-start-1 xl:col-start-2 xl:row-span-1">
+          {temDocumentos && <BlocoPendencias pendencias={pendencias} podeEditar={podeEditar} hoje={hoje} />}
+          {temObrigacoes && <BlocoObrigacoes lista={obrigacoes} resumo={resumo} mes={mes} hoje={hoje} />}
+          {temDocumentos && <BlocoDocumentos pasta={pasta} hoje={hoje} />}
+          {!temDocumentos && !temObrigacoes && (
+            <section className="anim-subir flex flex-col items-center gap-2 rounded-2xl border border-[#e6ebf2] bg-white px-6 py-12 text-center dark:border-[#1b2739] dark:bg-[#0e1726]">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-[#16233a] dark:text-slate-400">
+                <Inbox className="h-5 w-5" />
               </span>
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#eaf1ff] text-[#1a6dff] dark:bg-[#16233a] dark:text-[#7db0ff]">
-                <p.icone className="h-5 w-5" />
-              </span>
-              <p className="mt-3 text-[14px] font-bold text-slate-900 dark:text-slate-100">{p.titulo}</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
-                {p.descricao}
+              <p className="text-[14px] font-semibold text-slate-900 dark:text-slate-100">Nenhuma área liberada ainda</p>
+              <p className="max-w-md text-[12.5px] leading-relaxed text-slate-500 dark:text-slate-400">
+                O escritório libera as áreas do portal em etapas. Assim que uma entrar, o que ela
+                traz para a sua empresa aparece aqui.
               </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Recursos ───────────────────────────────────────────────────── */}
-      <section id="recursos" className="flex flex-col gap-6 scroll-mt-24">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <Sobrancelha>O que você encontra aqui</Sobrancelha>
-          <h2 className="max-w-2xl text-[26px] font-bold leading-tight tracking-tight text-balance text-slate-900 sm:text-[30px] dark:text-slate-100">
-            Tudo o que o escritório compartilha com você
-          </h2>
-          <p className="max-w-xl text-[13.5px] leading-relaxed text-slate-600 dark:text-slate-400">
-            As áreas entram em etapas. Assim que uma for liberada, ela aparece no menu
-            do topo — e aqui sem o selo de &ldquo;em breve&rdquo;.
-          </p>
+            </section>
+          )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visiveis.map(r => {
-            const conteudo = (
-              <>
-                <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${r.cor}`}>
-                  <r.icone className="h-5 w-5" />
-                </span>
-                <span className="mt-3 flex items-center gap-2">
-                  <span className="text-[14px] font-bold text-slate-900 dark:text-slate-100">{r.titulo}</span>
-                  {!r.href && (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-[#16233a] dark:text-slate-400">
-                      em breve
-                    </span>
-                  )}
-                </span>
-                <span className="mt-1 block text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
-                  {r.descricao}
-                </span>
-                {r.href && (
-                  <span className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-[#1a6dff]">
-                    Abrir <ArrowRight className="h-3.5 w-3.5" />
-                  </span>
-                )}
-              </>
-            )
-            const classe = 'flex flex-col rounded-2xl border border-[#e6ebf2] bg-white p-5 dark:border-[#1b2739] dark:bg-[#0e1726]'
-            return r.href
-              ? (
-                <Link
-                  key={r.titulo}
-                  href={r.href}
-                  className={`${classe} transition-all hover:-translate-y-0.5 hover:border-[#dbe7fb] hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none`}
-                >
-                  {conteudo}
-                </Link>
-              )
-              : <div key={r.titulo} className={`${classe} opacity-75`}>{conteudo}</div>
-          })}
-        </div>
-      </section>
+        <aside className="flex flex-col gap-5 lg:col-start-2 lg:row-start-2 xl:col-start-3 xl:row-start-1">
+          <BlocoEquipe equipe={equipe} onEscrever={setEscrevendoPara} />
+          <AcessoRapido liberados={liberados} />
+          <CartaoAjuda />
+        </aside>
+      </div>
 
-      {/* ── Fecho ──────────────────────────────────────────────────────
-          A faixa azul com a onda é a assinatura de fecho do modelo. Aqui ela
-          tem função: dizer para onde ir enquanto o portal não faz tudo. */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a6dff] to-[#0b4fd0] px-6 py-12 text-center text-white sm:px-10">
-        {/* A onda é decorativa e fica atrás do conteúdo; `aria-hidden` para
-            não virar ruído em leitor de tela. */}
-        <svg
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-24 w-full text-white/[0.07]"
-          viewBox="0 0 1200 120"
-          preserveAspectRatio="none"
-        >
-          <path d="M0,64 C200,110 400,10 600,48 C800,86 1000,26 1200,64 L1200,120 L0,120 Z" fill="currentColor" />
-        </svg>
-
-        <div className="relative flex flex-col items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider">
-            <LifeBuoy className="h-3 w-3" />
-            Estamos por perto
-          </span>
-          <h2 className="max-w-2xl text-[24px] font-bold leading-tight tracking-tight text-balance sm:text-[28px]">
-            Precisa de algo que ainda não está aqui?
-          </h2>
-          <p className="max-w-xl text-[13.5px] leading-relaxed text-white/80">
-            Enquanto as demais áreas não entram, continue falando com a sua equipe de
-            atendimento no escritório pelos canais de sempre.
-          </p>
-        </div>
-      </section>
+      <ContatoEquipeModal clienteId={clienteId} area={escrevendoPara} onClose={() => setEscrevendoPara(null)} />
     </div>
   )
 }

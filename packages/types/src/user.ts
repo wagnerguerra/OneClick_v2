@@ -492,6 +492,14 @@ export const MODULE_SUB_PERMISSIONS: Record<string, SubPermissionDef[]> = {
     { key: 'acao_enviar', label: 'Enviar orçamentos', group: 'Ações' },
     { key: 'enviar_pesquisa', label: 'Enviar/copiar o link da pesquisa de satisfação', group: 'Ações' },
     { key: 'acao_aprovar', label: 'Aprovar/reprovar orçamentos', group: 'Ações' },
+    {
+      key: 'acao_retroagir_aprovacao',
+      label: 'Retroagir a aprovação interna do orçamento',
+      group: 'Ações',
+      observacao: 'Desfaz uma aprovação registrada pelo escritório, devolvendo o orçamento a Enviado e '
+        + 'cancelando os serviços que a aprovação criou. Não vale para aprovação feita pelo cliente no '
+        + 'link público. Separada de "Aprovar/reprovar" de propósito: desfazer é poder de correção, não de venda.',
+    },
     { key: 'acao_liberar', label: 'Liberar orçamentos', group: 'Ações' },
     { key: 'acao_encerrar', label: 'Encerrar orçamentos', group: 'Ações' },
     { key: 'acao_paralizar', label: 'Paralisar/pausar orçamentos', group: 'Ações' },

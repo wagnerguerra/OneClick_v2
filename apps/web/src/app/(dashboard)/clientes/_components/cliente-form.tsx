@@ -9,7 +9,7 @@ import {
   FileText, ShoppingCart, Receipt, Plus, Send,
   Briefcase, FileBarChart, History, File, Calculator, Shield,
   ListChecks, StickyNote, FileInput, MessageSquareQuote, Users, ListTodo,
-  ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2, Check, Hash, Calendar, ClipboardCheck, Sparkles, Paperclip,
+  ExternalLink, X, Loader2, Building2, Phone, Star, Pencil, Trash2, Link2, Hash, Calendar, ClipboardCheck, Sparkles, Paperclip,
   Globe, FileSearch, LogOut,
   CircleUser, CheckCircle2, XCircle, Download, Mail, AlertTriangle, MailWarning, Clock, MailOpen, HardDriveDownload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, MoreVertical,
@@ -2782,18 +2782,8 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
                 <CaracteristicasFiscais control={control} tributacao={tributacaoAtual} />
               </div>
 
-              {/* Registro de Inscrições — mesmo padrão visual de "Dados Fiscais"
-                  (header-bar full-width + conteúdo em p-5). */}
-              <div className="px-5 py-3 border-b border-border dark:border-border">
-                <h4 className="text-[13px] font-semibold text-foreground">Registro de Inscrições</h4>
-              </div>
-              <div className="p-5">
-                {isEdit && clienteId ? (
-                  <RegistroInscricoesCard clienteId={clienteId} />
-                ) : (
-                  <p className="text-xs text-muted-foreground">Salve o cliente para registrar inscrições.</p>
-                )}
-              </div>
+              {/* Registro de Inscrições saiu daqui: virou pill própria na aba
+                  Legalização (registro-inscricoes-card.tsx). */}
             </div>
           )}
 
@@ -3082,159 +3072,10 @@ function LogsTab({ clienteId }: { clienteId: string }) {
 
 const MODULE_COLOR_CLIENTES = 'var(--mod-cadastros, #10b981)'
 
-const UF_LIST = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
-
-interface InscricaoRow { id: string; estado: string; inscricao: string; descricao: string | null; createdAt: string }
-
-/* ================================================================== */
-/* Registro de Inscrições (estaduais — N por cliente, migrado do legado) */
-/* ================================================================== */
-function RegistroInscricoesCard({ clienteId }: { clienteId: string }) {
-  const { canWrite, canDelete } = useClientesPerms()
-  const [rows, setRows] = useState<InscricaoRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [estado, setEstado] = useState('')
-  const [inscricao, setInscricao] = useState('')
-  const [descricaoNova, setDescricaoNova] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [editId, setEditId] = useState<string | null>(null)
-  const [editEstado, setEditEstado] = useState('')
-  const [editInscricao, setEditInscricao] = useState('')
-  const [editDescricao, setEditDescricao] = useState('')
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await (trpc.cliente as any).listInscricoes.query({ clienteId })
-      setRows(data as InscricaoRow[])
-    } catch { setRows([]) } finally { setLoading(false) }
-  }, [clienteId])
-  useEffect(() => { void load() }, [load])
-
-  async function handleAdd() {
-    if (!estado || !inscricao.trim()) { alerts.error('Preencha o estado e a inscrição.'); return }
-    setSaving(true)
-    try {
-      await (trpc.cliente as any).addInscricao.mutate({ clienteId, estado, inscricao: inscricao.trim(), descricao: descricaoNova.trim() || undefined })
-      setEstado(''); setInscricao(''); setDescricaoNova('')
-      await load()
-    } catch (e) { alerts.error('Erro', (e as Error).message || 'Não foi possível adicionar.') }
-    finally { setSaving(false) }
-  }
-
-  function startEdit(r: InscricaoRow) { setEditId(r.id); setEditEstado(r.estado); setEditInscricao(r.inscricao); setEditDescricao(r.descricao || '') }
-  function cancelEdit() { setEditId(null); setEditEstado(''); setEditInscricao(''); setEditDescricao('') }
-  async function saveEdit() {
-    if (!editId) return
-    if (!editEstado || !editInscricao.trim()) { alerts.error('Preencha o estado e a inscrição.'); return }
-    setSaving(true)
-    try {
-      await (trpc.cliente as any).updateInscricao.mutate({ id: editId, estado: editEstado, inscricao: editInscricao.trim(), descricao: editDescricao.trim() || undefined })
-      cancelEdit()
-      await load()
-    } catch (e) { alerts.error('Erro', (e as Error).message || 'Não foi possível salvar.') }
-    finally { setSaving(false) }
-  }
-
-  async function handleRemove(id: string) {
-    const ok = await alerts.confirmDelete('esta inscrição')
-    if (!ok) return
-    try {
-      await (trpc.cliente as any).removeInscricao.mutate({ id })
-      await load()
-    } catch (e) { alerts.error('Erro', (e as Error).message || 'Não foi possível remover.') }
-  }
-
-  return (
-    <div>
-      {loading ? (
-        <div className="flex justify-center py-4"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
-      ) : rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Sem registro</p>
-      ) : (
-        <div className="overflow-x-auto rounded-md border border-border nice-scrollbar">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <th className="w-24 px-3 py-2 text-left">Estado</th>
-                <th className="px-3 py-2 text-left">Inscrição</th>
-                <th className="px-3 py-2 text-left">Descrição</th>
-                {(canWrite || canDelete) && <th className="w-20 px-3 py-2" />}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => editId === r.id ? (
-                <tr key={r.id} className="border-b border-border/60 last:border-0 bg-muted/20">
-                  <td className="px-3 py-1.5">
-                    <Select value={editEstado || '__none__'} onValueChange={(v) => setEditEstado(v === '__none__' ? '' : v)}>
-                      <SelectTrigger className="h-8 w-24 text-sm"><SelectValue placeholder="UF" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">UF</SelectItem>
-                        {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <Input value={editInscricao} onChange={(e) => setEditInscricao(e.target.value)} className="h-8 text-sm" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void saveEdit() } if (e.key === 'Escape') cancelEdit() }} />
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <Input value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} placeholder="Opcional" className="h-8 text-sm" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void saveEdit() } if (e.key === 'Escape') cancelEdit() }} />
-                  </td>
-                  <td className="px-3 py-1.5 text-right whitespace-nowrap">
-                    <button type="button" onClick={() => void saveEdit()} disabled={saving} className={cn('mr-2 hover:text-emerald-700', TEXT.emerald)} title="Salvar"><Check className="h-4 w-4" /></button>
-                    <button type="button" onClick={cancelEdit} className="text-muted-foreground hover:text-foreground" title="Cancelar"><X className="h-4 w-4" /></button>
-                  </td>
-                </tr>
-              ) : (
-                <tr key={r.id} className="border-b border-border/60 last:border-0">
-                  <td className="px-3 py-2 font-medium text-foreground">{r.estado}</td>
-                  <td className="px-3 py-2 text-foreground">{r.inscricao}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{r.descricao || '—'}</td>
-                  {(canWrite || canDelete) && (
-                    <td className="px-3 py-2 text-right whitespace-nowrap">
-                      {canWrite && (
-                        <button type="button" onClick={() => startEdit(r)} className="mr-2 text-muted-foreground hover:text-sky-600 dark:hover:text-sky-400" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
-                      )}
-                      {canDelete && (
-                        <button type="button" onClick={() => handleRemove(r.id)} className="text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400" title="Remover"><Trash2 className="h-3.5 w-3.5" /></button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {canWrite && (
-        <div className="mt-3 flex flex-wrap items-end gap-2">
-          <div className="space-y-1">
-            <Label className="text-[11px]">Estado</Label>
-            <Select value={estado || '__none__'} onValueChange={(v) => setEstado(v === '__none__' ? '' : v)}>
-              <SelectTrigger className="h-9 w-24 text-sm"><SelectValue placeholder="UF" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">UF</SelectItem>
-                {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1 min-w-[150px] space-y-1">
-            <Label className="text-[11px]">Inscrição</Label>
-            <Input value={inscricao} onChange={(e) => setInscricao(e.target.value)} placeholder="Número da inscrição" className="h-9 text-sm" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd() } }} />
-          </div>
-          <div className="flex-1 min-w-[140px] space-y-1">
-            <Label className="text-[11px]">Descrição</Label>
-            <Input value={descricaoNova} onChange={(e) => setDescricaoNova(e.target.value)} placeholder="Opcional" className="h-9 text-sm" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAdd() } }} />
-          </div>
-          <Button type="button" size="sm" onClick={handleAdd} disabled={saving}>
-            <Plus className="h-4 w-4" /> Adicionar
-          </Button>
-        </div>
-      )}
-    </div>
-  )
-}
+// UF_LIST, InscricaoRow e RegistroInscricoesCard saíram daqui: o componente
+// virou arquivo próprio (registro-inscricoes-card.tsx) e passou a viver na pill
+// "Inscrições" da aba Legalização. A lista de UFs de lá é a UFS_BRASIL de
+// @saas/types — esta cópia chumbada existia só para este componente.
 
 /* ================================================================== */
 /* AtividadesBeneficiosSidebar (#5/#6/#7) — substitui Áreas Contratadas */

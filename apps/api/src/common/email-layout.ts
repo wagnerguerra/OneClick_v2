@@ -68,10 +68,16 @@ export function buildEmailLayout(params: {
   accentTint?: string
   /** links do rodapé. Default: Abrir OneClick · Central de Ajuda. */
   footerLinks?: Array<{ label: string; url: string }>
+  /**
+   * Aviso fixo do rodapé. Default: "não responda". Existe para o e-mail que
+   * SE PODE responder — a mensagem do cliente pelo portal vai com `replyTo`,
+   * e mandar "não responda" logo abaixo dela diria o contrário do que é.
+   */
+  rodapeAviso?: string
 }): string {
   const {
     empresaNome, logoUrl, preheader, heroAccent, heroTitle, heroSubtitle,
-    bodyHtml, ctaLabel, ctaUrl, footerExtra, iconName, accentTint, footerLinks,
+    bodyHtml, ctaLabel, ctaUrl, footerExtra, iconName, accentTint, footerLinks, rodapeAviso,
   } = params
   const FONT = "'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://app.oneclick.central-rnc.com.br').replace(/\/$/, '')
@@ -164,7 +170,7 @@ export function buildEmailLayout(params: {
         <td class="px-32" style="padding:20px 32px 28px;text-align:center;font-size:12px;color:#9ca3af;line-height:1.6;">
           ${footerLinksBlock}
           ${footerExtra ? `<p style="margin:0 0 8px;color:#6b7280;">${footerExtra}</p>` : ''}
-          <p style="margin:0;">Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.</p>
+          <p style="margin:0;">${rodapeAviso ?? 'Este é um e-mail automático. Por favor, não responda diretamente a esta mensagem.'}</p>
           <p style="margin:10px 0 0;font-weight:700;color:#10b981;letter-spacing:0.2px;">${empresaNome} &middot; ${new Date().getFullYear()}</p>
         </td>
       </tr>

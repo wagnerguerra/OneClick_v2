@@ -31,6 +31,13 @@ import { GestaoArquivosLoteService } from './gestao-arquivos-lote.service'
 /** Mesma conta OAuth já usada pela ingestão de XML (`GOOGLE_DRIVE_OAUTH_*`). */
 const drive = new DriveClient()
 
+/** Um nó da árvore de pastas da origem, para a cópia de estrutura. */
+interface NoDePasta {
+  id: string
+  nome: string
+  filhas: NoDePasta[]
+}
+
 export interface ItemDrive {
   id: string
   nome: string
@@ -229,6 +236,230 @@ export class GestaoArquivosDriveService {
       data: { portalDriveFolderId: escolhida.id, portalDriveFolderNome: escolhida.name },
     })
     return { ok: true, nome: escolhida.name }
+  }
+
+  /**
+   * Copia a ESTRUTURA DE PASTAS de um cliente para outros.
+   *
+   * O que se copia é o esqueleto: pastas, nunca arquivos. Documento de um
+   * cliente dentro da pasta de outro é vazamento, e "copiar estrutura" nunca
+   * quis dizer isso — o escritório quer a mesma arrumação (ARQUIVO, COMERCIAL,
+   * CONTABIL…) repetida na empresa nova.
+   *
+   * Decisões que valem a pena ler antes de mexer:
+   *
+   *  - **Mescla por NOME, não duplica.** Pasta que já existe no destino é
+   *    reaproveitada (e descemos dentro dela). Rodar duas vezes não cria
+   *    "FISCAL" e "FISCAL (1)" — a segunda passada não faz nada, que é o que
+   *    se espera de padronizar uma estrutura.
+   *  - **Simulação primeiro.** `simular: true` percorre tudo e conta o que
+   *    criaria, sem escrever. A tela mostra isso antes de confirmar: criar
+   *    pasta no Drive de dezenas de clientes não é coisa que se descobre
+   *    depois.
+   *  - **Destino sem pasta vinculada é RELATADO, não criado.** Vincular pasta
+   *    é ato deliberado (`vincularCliente`), com regra própria sobre estar
+   *    dentro da raiz configurada. Criar aqui, de repente, contornaria isso.
+   *  - **O mapa de áreas só viaja se o destino contratou a área.** Sem isso, o
+   *    portal do destino mostraria pasta recortada por uma área que aquele
+   *    cliente não tem — `definirAreaDaPasta` recusa pelo mesmo motivo.
+   *
+   * Origem e TODOS os destinos passam pelo escopo do módulo: sem isso, trocar
+   * ids na requisição escreveria no Drive de um cliente que a pessoa nem vê.
+   */
+  async copiarEstrutura(
+    input: { origemId: string; destinoIds: string[]; comAreas: boolean; simular: boolean },
+    ctx: ContextoInterno,
+  ) {
+    const escopo = await resolverEscopo(ctx)
+    if (!alcancaCliente(escopo, input.origemId)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
+    }
+    const origem = await prisma.cliente.findFirst({
+      where: { id: input.origemId, ...filtroDeCliente(escopo, ctx) },
+      select: { id: true, razaoSocial: true, empresaId: true, portalDriveFolderId: true },
+    })
+    if (!origem?.empresaId) throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
+    if (!origem.portalDriveFolderId) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Este cliente ainda não tem uma pasta do Drive vinculada.',
+      })
+    }
+
+    const destinos = input.destinoIds.filter(id => id !== input.origemId)
+    if (destinos.length === 0) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Escolha ao menos um cliente de destino.' })
+    }
+    for (const id of destinos) {
+      if (!alcancaCliente(escopo, id)) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Cliente não encontrado.' })
+      }
+    }
+
+    const arvore = await this.arvoreDePastas(origem.portalDriveFolderId)
+    const mapa = input.comAreas
+      ? await prisma.gestaoArquivosPastaArea.findMany({
+          where: { clienteId: origem.id },
+          select: { pastaId: true, areaId: true },
+        })
+      : []
+    const areaPorPasta = new Map(mapa.map(m => [m.pastaId, m.areaId]))
+
+    const clientesDestino = await prisma.cliente.findMany({
+      where: { id: { in: destinos }, ...filtroDeCliente(escopo, ctx) },
+      select: { id: true, razaoSocial: true, empresaId: true, portalDriveFolderId: true },
+    })
+
+    const resultados: Array<{
+      clienteId: string
+      nome: string
+      status: 'ok' | 'sem-pasta' | 'falhou'
+      criadas: number
+      existentes: number
+      areasMapeadas: number
+      areasPuladas: number
+      erro?: string
+    }> = []
+
+    for (const destino of clientesDestino) {
+      if (!destino.portalDriveFolderId) {
+        resultados.push({
+          clienteId: destino.id, nome: destino.razaoSocial, status: 'sem-pasta',
+          criadas: 0, existentes: 0, areasMapeadas: 0, areasPuladas: 0,
+        })
+        continue
+      }
+      try {
+        const contas = await this.replicarEm({
+          destino: { id: destino.id, empresaId: destino.empresaId, raiz: destino.portalDriveFolderId },
+          nos: arvore,
+          areaPorPasta,
+          simular: input.simular,
+          userId: ctx.userId,
+        })
+        resultados.push({ clienteId: destino.id, nome: destino.razaoSocial, status: 'ok', ...contas })
+      } catch (e) {
+        this.logger.warn(`Falha ao copiar estrutura para ${destino.id}: ${String(e)}`)
+        resultados.push({
+          clienteId: destino.id, nome: destino.razaoSocial, status: 'falhou',
+          criadas: 0, existentes: 0, areasMapeadas: 0, areasPuladas: 0,
+          erro: 'Não foi possível falar com o Google Drive agora.',
+        })
+      }
+    }
+
+    return {
+      simulado: input.simular,
+      origem: { id: origem.id, nome: origem.razaoSocial },
+      pastasNaOrigem: this.contarNos(arvore),
+      resultados,
+    }
+  }
+
+  /** Teto de profundidade e de nós — árvore torta não pode virar milhares de chamadas ao Google. */
+  private static readonly PROFUNDIDADE_MAX = 5
+  private static readonly PASTAS_MAX = 300
+
+  /** A árvore de pastas (só pastas) abaixo de uma raiz. */
+  private async arvoreDePastas(
+    raiz: string,
+    nivel = 1,
+    orcamento = { restantes: GestaoArquivosDriveService.PASTAS_MAX },
+  ): Promise<NoDePasta[]> {
+    if (nivel > GestaoArquivosDriveService.PROFUNDIDADE_MAX || orcamento.restantes <= 0) return []
+    const filhas = await drive.listSubfolders(raiz)
+    const nos: NoDePasta[] = []
+    for (const f of filhas) {
+      if (orcamento.restantes <= 0) break
+      orcamento.restantes -= 1
+      nos.push({
+        id: f.id,
+        nome: f.name,
+        filhas: await this.arvoreDePastas(f.id, nivel + 1, orcamento),
+      })
+    }
+    return nos
+  }
+
+  private contarNos(nos: NoDePasta[]): number {
+    return nos.reduce((total, no) => total + 1 + this.contarNos(no.filhas), 0)
+  }
+
+  /** Repete a árvore num destino, reaproveitando o que já existe lá pelo nome. */
+  private async replicarEm(p: {
+    destino: { id: string; empresaId: string | null; raiz: string }
+    nos: NoDePasta[]
+    areaPorPasta: Map<string, string>
+    simular: boolean
+    userId: string
+  }): Promise<{ criadas: number; existentes: number; areasMapeadas: number; areasPuladas: number }> {
+    const contas = { criadas: 0, existentes: 0, areasMapeadas: 0, areasPuladas: 0 }
+
+    // As áreas que ESTE destino contratou: o mapa só viaja para as que existem
+    // aqui, e a consulta é uma só para a árvore inteira.
+    const contratadas = new Set(
+      p.areaPorPasta.size === 0 ? [] : (await prisma.clienteAreaContratada.findMany({
+        where: {
+          clienteId: p.destino.id,
+          areaId: { in: [...new Set(p.areaPorPasta.values())] },
+          contratado: true,
+          dataEncerramento: null,
+        },
+        select: { areaId: true },
+      })).map(a => a.areaId),
+    )
+
+    const descer = async (nos: NoDePasta[], paiNoDestino: string | null) => {
+      // Na simulação não há pasta de destino real abaixo do primeiro nível que
+      // não existe: `paiNoDestino` nulo significa "este ramo seria todo novo".
+      const existentes = paiNoDestino
+        ? await drive.listSubfolders(paiNoDestino)
+        : []
+      for (const no of nos) {
+        const igual = existentes.find(e => e.name.trim().toLowerCase() === no.nome.trim().toLowerCase())
+        let idNoDestino: string | null = igual?.id ?? null
+
+        if (igual) {
+          contas.existentes += 1
+        } else {
+          contas.criadas += 1
+          if (!p.simular && paiNoDestino) {
+            const criada = await drive.createFolder(no.nome, paiNoDestino)
+            idNoDestino = criada.id
+          } else {
+            idNoDestino = null
+          }
+        }
+
+        const areaId = p.areaPorPasta.get(no.id)
+        if (areaId) {
+          if (!contratadas.has(areaId)) {
+            contas.areasPuladas += 1
+          } else {
+            contas.areasMapeadas += 1
+            if (!p.simular && idNoDestino && p.destino.empresaId) {
+              await prisma.gestaoArquivosPastaArea.upsert({
+                where: { clienteId_pastaId: { clienteId: p.destino.id, pastaId: idNoDestino } },
+                create: {
+                  empresaId: p.destino.empresaId,
+                  clienteId: p.destino.id,
+                  pastaId: idNoDestino,
+                  areaId,
+                  pastaNome: no.nome,
+                  definidoPorId: p.userId,
+                },
+                update: { areaId, pastaNome: no.nome, definidoPorId: p.userId },
+              })
+            }
+          }
+        }
+
+        if (no.filhas.length > 0) await descer(no.filhas, idNoDestino)
+      }
+    }
+
+    await descer(p.nos, p.destino.raiz)
+    return contas
   }
 
   /**

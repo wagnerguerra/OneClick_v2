@@ -4,7 +4,10 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 // O hook carrega categorias e lê o perfil ao ativar. Nada disso importa para o
 // rascunho; os dublês existem só para o hook montar.
 vi.mock('@/lib/trpc', () => ({
-  trpc: { helpdesk: { listCategorias: { query: () => Promise.resolve([]) } } },
+  trpc: { helpdesk: {
+    listCategorias: { query: () => Promise.resolve([]) },
+    listServicosChamado: { query: () => Promise.resolve([]) },
+  } },
 }))
 vi.mock('@/hooks/use-current-user-profile', () => ({
   useCurrentUserProfile: () => ({ profile: { isMaster: false, role: 'USER' } }),
@@ -67,7 +70,7 @@ describe('rascunho do novo ticket', () => {
     // nunca voltava, e o sintoma era idêntico ao bug original do ticket.
     localStorage.setItem(CHAVE, JSON.stringify({
       titulo: 'Rascunho anterior', descricao: '<p>texto</p>',
-      tipo: 'DUVIDA', prioridade: 'MEDIA', categoriaId: null, anexos: [],
+      tipo: 'DUVIDA', prioridade: 'MEDIA', servicoId: null, anexos: [],
     }))
     const { result } = abrir()
     await waitFor(() => expect(result.current.titulo).toBe('Rascunho anterior'))
@@ -96,7 +99,7 @@ describe('rascunho do novo ticket', () => {
     // criado já com o texto.
     localStorage.setItem(CHAVE, JSON.stringify({
       titulo: '', descricao: '<p>teste</p>',
-      tipo: null, prioridade: 'MEDIA', categoriaId: null, anexos: [],
+      tipo: null, prioridade: 'MEDIA', servicoId: null, anexos: [],
     }))
     const { result } = abrir()
     await waitFor(() => expect(result.current.descricao).toBe('<p>teste</p>'))

@@ -1,4 +1,7 @@
 import { z } from 'zod'
+// Tipos de chamado do HelpDesk — o serviço declara quais atende, e o seletor
+// de serviço do formulário de abertura filtra por isso.
+import { HELPDESK_TIPO } from './helpdesk'
 
 export const prioridadeServicoSchema = z.enum(['BAIXA', 'MEDIA', 'ALTA', 'URGENTE'])
 export type PrioridadeServico = z.infer<typeof prioridadeServicoSchema>
@@ -95,6 +98,13 @@ export const createServicoSchema = z.object({
   /** Marca como serviço de execução exclusivamente interna — não entra no catálogo
    *  de orçamento. Listado numa aba dedicada em /servicos. */
   ehServicoInterno: z.boolean().optional(),
+  /**
+   * Tipos de chamado do HelpDesk que este serviço atende. No formulário de
+   * abertura, escolher o tipo filtra o seletor de serviço por esta lista.
+   * Vários porque o mesmo serviço serve a mais de um caso ("Reset de senha" é
+   * Incidente para quem não entra e Requisição para quem quer trocar).
+   */
+  helpdeskTipos: z.array(z.enum(HELPDESK_TIPO)).optional(),
   /** Marca o registro como obrigação acessória — entrega recorrente (mensal, anual etc).
    *  Listado em /obrigacoes; cabe no /servicos só pra fins de criação/edição uniforme. */
   ehObrigacaoAcessoria: z.boolean().optional(),

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, readProcedure, writeProcedure, deleteProcedure } from '../trpc/trpc.service'
-import { createOportunidadeSchema, updateOportunidadeSchema, listOportunidadeSchema, updateCrmEtapaSchema } from '@saas/types'
+import { createOportunidadeSchema, updateOportunidadeSchema, listOportunidadeSchema, listForaDoFunilSchema, updateCrmEtapaSchema } from '@saas/types'
 import { CrmService } from './crm.service'
 import { ImportComercialService } from './import-comercial.service'
 
@@ -38,6 +38,20 @@ export function createCrmRouter(crmService: CrmService, importComercialService?:
     list: readProcedure(MODULE)
       .input(listOportunidadeSchema)
       .query(({ input, ctx }) => crmService.list(input, ctx.isMaster ?? false, ctx.empresaId)),
+
+    /** Cards fora do funil ativo: arquivados + em Declinio. Tela /crm/arquivados. */
+    listForaDoFunil: readProcedure(MODULE)
+      .input(listForaDoFunilSchema)
+      .query(({ input, ctx }) => crmService.listForaDoFunil(input, ctx.isMaster ?? false, ctx.empresaId)),
+
+    /**
+     * Devolve um card arquivado ao funil. Mutacao propria em vez de
+     * `update({ isActive: true })`: o update generico registra na timeline
+     * "Campos alterados: isActive", que nao diz nada a quem le o historico.
+     */
+    reativar: writeProcedure(MODULE)
+      .input(z.object({ id: z.string() }))
+      .mutation(({ input, ctx }) => crmService.reativar(input.id, ctx.userId)),
 
     listKanban: readProcedure(MODULE)
       .input(z.object({ search: z.string().optional(), campanhaSlug: z.string().optional() }).optional())

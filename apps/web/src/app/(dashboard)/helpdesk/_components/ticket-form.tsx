@@ -43,13 +43,22 @@ const PRIORIDADE_ICON: Record<HelpdeskPrioridade, typeof Snowflake> = {
   BAIXA: Snowflake, MEDIA: AlertCircle, ALTA: AlertTriangle, URGENTE: Zap,
 }
 
-export interface Categoria {
+/**
+ * Serviço interno da TI que classifica o chamado. Substituiu a categoria: dele
+ * saem a área (roteamento), o SLA e o checklist executável.
+ *
+ * `temChecklist` vem marcado porque a maioria dos serviços internos ainda não
+ * tem etapas cadastradas — o seletor mostra todos e sinaliza quais não
+ * entregam roteiro, em vez de esconder e deixar o chamado sem classificação.
+ */
+export interface ServicoChamado {
   id: string
   nome: string
-  cor: string | null
-  slaPadraoHoras: number | null
-  parent: { id: string; nome: string } | null
   area: { id: string; name: string } | null
+  slaHoras: number | null
+  temChecklist: boolean
+  etapas: number
+  tipos: string[]
 }
 
 export interface TicketCriado { id: string; numero: number; hash: string }
@@ -76,7 +85,8 @@ interface RascunhoTicket {
   descricao: string
   tipo: HelpdeskTipo | null
   prioridade: HelpdeskPrioridade
-  categoriaId: string | null
+  /** Rascunho antigo guardava `categoriaId`; some sozinho, o campo só fica vazio. */
+  servicoId: string | null
   anexos: AnexoStaged[]
 }
 
@@ -113,7 +123,7 @@ function escapeHtml(s: string): string {
  * por opção, sem ramificar a lógica:
  *  - `pageUrl`: anexa um rodapé "📍 Página: <link>" (HYPERLINK) à descrição.
  *  - `tags`: tags extras no create (ex.: 'fab-feedback').
- * O `active` liga a carga de categorias e reseta os campos ao desativar (fechar).
+ * O `active` liga a carga de serviços e reseta os campos ao desativar (fechar).
  * No sucesso, chama `onCreated(ticket)` — quem monta decide o que fazer (a modal
  * avisa+fecha; o balão mostra a tela de sucesso).
  */
@@ -153,8 +163,8 @@ export function useTicketForm(opts: {
   // Sem tipo default — obriga a escolha explícita (os chips deixam claro).
   const [tipo, setTipo] = useState<HelpdeskTipo | null>(null)
   const [prioridade, setPrioridade] = useState<HelpdeskPrioridade>('MEDIA')
-  const [categoriaId, setCategoriaId] = useState<string | null>(null)
-  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [servicoId, setServicoId] = useState<string | null>(null)
+  const [servicos, setServicos] = useState<ServicoChamado[]>([])
   const [anexos, setAnexos] = useState<AnexoStaged[]>([])
   const [loadingCats, setLoadingCats] = useState(false)
   const [salvando, setSalvando] = useState(false)
@@ -223,7 +233,7 @@ export function useTicketForm(opts: {
           setDescricao(d.descricao ?? '')
           setTipo(d.tipo ?? null)
           setPrioridade(d.prioridade ?? 'MEDIA')
-          setCategoriaId(d.categoriaId ?? null)
+          setServicoId(d.servicoId ?? null)
           setAnexos(d.anexos ?? [])
           restaurado = true
         }
@@ -240,27 +250,38 @@ export function useTicketForm(opts: {
     if (!active || typeof window === 'undefined' || suprimirGravacao.current) return
     if (puloDeAbertura.current) { puloDeAbertura.current = false; return }
     const rascunho: RascunhoTicket = {
-      titulo, descricao, tipo, prioridade, categoriaId,
+      titulo, descricao, tipo, prioridade, servicoId,
       anexos: anexosPersistiveis(anexos),
     }
     try {
       if (rascunhoTemConteudo(rascunho)) localStorage.setItem(RASCUNHO_KEY, JSON.stringify(rascunho))
       else localStorage.removeItem(RASCUNHO_KEY)
     } catch { /* quota/privado — tolera perder o rascunho */ }
-  }, [active, titulo, descricao, tipo, prioridade, categoriaId, anexos])
+  }, [active, titulo, descricao, tipo, prioridade, servicoId, anexos])
 
+  // A lista de serviços depende do TIPO: escolher Incidente/Dúvida/etc refaz a
+  // consulta. Sem tipo escolhido, traz todos os internos — o usuário costuma
+  // clicar no tipo primeiro, mas quem restaurou rascunho já chega com um.
   useEffect(() => {
     if (!active) return
     setLoadingCats(true)
-    ;(trpc.helpdesk as any).listCategorias.query()
-      .then((data: Categoria[]) => setCategorias(data || []))
-      .catch(() => setCategorias([]))
+    ;(trpc.helpdesk as any).listServicosChamado.query(tipo ? { tipo } : undefined)
+      .then((data: ServicoChamado[]) => setServicos(data || []))
+      .catch(() => setServicos([]))
       .finally(() => setLoadingCats(false))
-  }, [active])
+  }, [active, tipo])
+
+  // Trocar o tipo pode tirar o serviço escolhido da lista. Manter a escolha
+  // gravaria um chamado classificado com serviço que não atende aquele tipo —
+  // erro silencioso, porque o seletor mostraria vazio e o valor iria junto.
+  useEffect(() => {
+    if (!servicoId || servicos.length === 0) return
+    if (!servicos.some(s => s.id === servicoId)) setServicoId(null)
+  }, [servicos, servicoId])
 
   const reset = useCallback(() => {
     setTitulo(''); setDescricao(''); setTipo(null)
-    setPrioridade('MEDIA'); setCategoriaId(null); setAnexos([])
+    setPrioridade('MEDIA'); setServicoId(null); setAnexos([])
     // Destrava a gravação. Importa no balão do FAB: lá o `active` continua
     // `true` na tela de sucesso, então a trava posta ao criar o ticket ficaria
     // presa — e o PRÓXIMO ticket, escrito sem fechar o balão, não seria salvo.
@@ -319,7 +340,7 @@ export function useTicketForm(opts: {
         descricao: corpo,
         tipo,
         prioridade,
-        categoriaId: categoriaId ?? null,
+        servicoId: servicoId ?? null,
         ...(tags && tags.length ? { tags } : {}),
       }) as TicketCriado
       // Anexos prontos viram HelpdeskAnexo do ticket recém-criado.
@@ -341,12 +362,12 @@ export function useTicketForm(opts: {
     } finally {
       setSalvando(false)
     }
-  }, [titulo, descricao, tipo, prioridade, categoriaId, anexos, pageUrl, tags, onCreated, autoTitulo, limparRascunho])
+  }, [titulo, descricao, tipo, prioridade, servicoId, anexos, pageUrl, tags, onCreated, autoTitulo, limparRascunho])
 
   return {
     titulo, setTitulo, descricao, setDescricao, tipo, setTipo,
     prioridade, setPrioridade, mostrarPrioridade,
-    categoriaId, setCategoriaId, categorias, loadingCats,
+    servicoId, setServicoId, servicos, loadingCats,
     anexos, setAnexos, salvando, canSubmit, submit, reset, autoTitulo: !!autoTitulo,
     rascunhoRestaurado, descartarRascunho, restauracaoSeq,
     /** Há algo digitado? Habilita o "Descartar" e o aviso de saída. */
@@ -434,10 +455,10 @@ export function TicketFormFields({ form, variant = 'modal', onSubmitShortcut }: 
         <p className="text-[10px] text-muted-foreground">A TI vai classificar a prioridade ao receber o ticket.</p>
       )}
 
-      {/* Categoria */}
+      {/* Serviço — substituiu a categoria. A lista muda com o tipo escolhido. */}
       <div className="space-y-1.5">
-        <Label className="text-[13px] font-semibold">Categoria</Label>
-        <CategoriaSelect categorias={form.categorias} loading={form.loadingCats} value={form.categoriaId} onChange={form.setCategoriaId} />
+        <Label className="text-[13px] font-semibold">Serviço</Label>
+        <ServicoSelect servicos={form.servicos} loading={form.loadingCats} value={form.servicoId} onChange={form.setServicoId} semTipo={!form.tipo} />
       </div>
 
       {/* Título — obrigatório no modal; opcional no FAB (auto-gerado se vazio). */}
@@ -486,30 +507,28 @@ export function TicketFormFields({ form, variant = 'modal', onSubmitShortcut }: 
 }
 
 /**
- * Combobox de categoria — agrupa por categoria-pai (root), exibe hierarquia com
- * indent e busca por nome. (Movido de novo-ticket-modal.tsx para ser reusado.)
+ * Combobox de serviço — substituiu o de categoria.
+ *
+ * Sem hierarquia pai › filho: serviço não tem esse conceito, então a área faz
+ * o papel de agrupador visual (subtítulo). Serviço sem etapas aparece marcado,
+ * porque hoje a maioria dos internos da TI ainda não tem roteiro cadastrado e
+ * esconder deixaria o seletor quase vazio.
  */
-function CategoriaSelect({ categorias, loading, value, onChange }: {
-  categorias: Categoria[]
+function ServicoSelect({ servicos, loading, value, onChange, semTipo }: {
+  servicos: ServicoChamado[]
   loading: boolean
   value: string | null
   onChange: (v: string | null) => void
+  semTipo: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
 
-  const selected = categorias.find(c => c.id === value)
+  const selected = servicos.find(s => s.id === value)
   const q = query.trim().toLowerCase()
-  const filtered = q ? categorias.filter(c => c.nome.toLowerCase().includes(q)) : categorias
-
-  const roots = filtered.filter(c => !c.parent)
-  const byParent = new Map<string, Categoria[]>()
-  for (const c of filtered) {
-    if (!c.parent) continue
-    const arr = byParent.get(c.parent.id) ?? []
-    arr.push(c)
-    byParent.set(c.parent.id, arr)
-  }
+  const filtered = q
+    ? servicos.filter(s => s.nome.toLowerCase().includes(q) || (s.area?.name ?? '').toLowerCase().includes(q))
+    : servicos
 
   return (
     <div className="relative">
@@ -522,11 +541,15 @@ function CategoriaSelect({ categorias, loading, value, onChange }: {
       >
         {selected ? (
           <span className="flex items-center gap-2 truncate">
-            {selected.cor && <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: selected.cor }} />}
-            <span className="truncate">{selected.parent ? `${selected.parent.nome} › ${selected.nome}` : selected.nome}</span>
+            <span className="truncate">{selected.nome}</span>
+            {!selected.temChecklist && (
+              <span className="shrink-0 text-[10px] text-muted-foreground">(sem checklist)</span>
+            )}
           </span>
         ) : (
-          <span className="text-muted-foreground">Selecione a categoria</span>
+          <span className="text-muted-foreground">
+            {semTipo ? 'Escolha o tipo primeiro' : 'Selecione o serviço'}
+          </span>
         )}
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-2" />
       </button>
@@ -537,7 +560,7 @@ function CategoriaSelect({ categorias, loading, value, onChange }: {
               autoFocus
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Buscar categoria..."
+              placeholder="Buscar serviço..."
               className="h-7 text-xs"
             />
           </div>
@@ -546,39 +569,29 @@ function CategoriaSelect({ categorias, loading, value, onChange }: {
               <p className="px-3 py-3 text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5">
                 <Loader2 className="h-3 w-3 animate-spin" /> Carregando...
               </p>
-            ) : roots.length === 0 ? (
-              <p className="px-3 py-3 text-xs text-muted-foreground text-center">Nenhuma categoria</p>
-            ) : roots.map(root => {
-              const filhos = byParent.get(root.id) ?? []
-              return (
-                <div key={root.id}>
-                  <button
-                    type="button"
-                    onClick={() => { onChange(root.id); setOpen(false); setQuery('') }}
-                    className={cn(
-                      'w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 font-medium',
-                      value === root.id && 'bg-accent text-accent-foreground',
-                    )}
-                  >
-                    {root.cor && <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: root.cor }} />}
-                    {root.nome}
-                  </button>
-                  {filhos.map(filho => (
-                    <button
-                      key={filho.id}
-                      type="button"
-                      onClick={() => { onChange(filho.id); setOpen(false); setQuery('') }}
-                      className={cn(
-                        'w-full text-left px-3 py-1 text-xs hover:bg-muted flex items-center gap-2 text-muted-foreground',
-                        value === filho.id && 'bg-accent text-accent-foreground',
-                      )}
-                    >
-                      <span className="pl-3">↳ {filho.nome}</span>
-                    </button>
-                  ))}
-                </div>
-              )
-            })}
+            ) : filtered.length === 0 ? (
+              <p className="px-3 py-3 text-xs text-muted-foreground text-center">
+                {semTipo ? 'Nenhum serviço' : 'Nenhum serviço para este tipo de chamado'}
+              </p>
+            ) : filtered.map(s => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => { onChange(s.id); setOpen(false); setQuery('') }}
+                className={cn(
+                  'w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-start justify-between gap-2',
+                  value === s.id && 'bg-accent text-accent-foreground',
+                )}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{s.nome}</span>
+                  {s.area && <span className="block truncate text-[10px] text-muted-foreground">{s.area.name}</span>}
+                </span>
+                {!s.temChecklist && (
+                  <span className="shrink-0 pt-0.5 text-[10px] text-muted-foreground italic">sem checklist</span>
+                )}
+              </button>
+            ))}
           </div>
           {value && (
             <div className="border-t p-1">
@@ -587,7 +600,7 @@ function CategoriaSelect({ categorias, loading, value, onChange }: {
                 onClick={() => { onChange(null); setOpen(false); setQuery('') }}
                 className="w-full text-left px-3 py-1.5 text-[11px] text-muted-foreground hover:bg-muted flex items-center gap-1.5 italic"
               >
-                <X className="h-3 w-3" /> Sem categoria
+                <X className="h-3 w-3" /> Sem serviço
               </button>
             </div>
           )}

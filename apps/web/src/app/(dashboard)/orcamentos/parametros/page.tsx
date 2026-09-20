@@ -103,6 +103,11 @@ export default function ParametrosOrcamentosPage() {
   // Default: só os itens adicionáveis aos orçamentos (disponivelOrcamento=true).
   // O filtro permite ver os demais (todos/ativos/inativos/indisponíveis) quando preciso.
   const [statusFilter, setStatusFilter] = useState<string>('disponiveis')
+  // Seleção em massa para disponibilizar/indisponibilizar. Mesmo idioma do
+  // /servicos (input nativo + indeterminate via ref), que é a outra tela com
+  // seleção em lote sobre os mesmos registros.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulking, setBulking] = useState(false)
 
   // Modal create/edit
   const [editOpen, setEditOpen] = useState(false)
@@ -168,6 +173,57 @@ export default function ParametrosOrcamentosPage() {
       return true
     })
   }, [items, search, tipoFilter, statusFilter])
+
+  function toggleSelected(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // "Todos" opera sobre o que está FILTRADO, não sobre o catálogo inteiro —
+  // marcar 186 itens ao buscar por 3 seria armadilha.
+  function toggleSelectAll() {
+    if (filtered.length > 0 && filtered.every(i => selectedIds.has(i.id))) setSelectedIds(new Set())
+    else setSelectedIds(new Set(filtered.map(i => i.id)))
+  }
+
+  // Trocar filtro ou busca zera a seleção: o que está marcado sai da vista e
+  // agir sobre item invisível é o caminho curto para estrago silencioso.
+  useEffect(() => { setSelectedIds(new Set()) }, [statusFilter, tipoFilter, search])
+
+  async function handleBulkDisponivel(disponivel: boolean) {
+    const ids = [...selectedIds]
+    if (ids.length === 0) return
+    const rotulo = ids.length === 1 ? '1 item' : `${ids.length} itens`
+    const ok = await alerts.confirm({
+      title: disponivel ? `Disponibilizar ${rotulo}?` : `Tornar ${rotulo} indisponível?`,
+      text: disponivel
+        ? 'Os itens voltam a aparecer no seletor de itens dos orçamentos.'
+        : 'Os itens deixam de aparecer no seletor de itens dos orçamentos. Orçamentos já existentes não mudam, e os serviços continuam executáveis.',
+      confirmText: disponivel ? 'Disponibilizar' : 'Tornar indisponível',
+      icon: 'question',
+    })
+    if (!ok) return
+    setBulking(true)
+    try {
+      const r = await (trpc.orcamento as any).bulkDisponivelCatalogo.mutate({ ids, disponivel }) as { atualizados: number; ignorados: number }
+      setSelectedIds(new Set())
+      await fetchData(true)
+      alerts.success(
+        'Catálogo atualizado',
+        r.ignorados > 0
+          ? `${r.atualizados} item(ns) atualizado(s). ${r.ignorados} ignorado(s) (excluídos ou de outra empresa).`
+          : `${r.atualizados} item(ns) atualizado(s).`,
+      )
+    } catch (e) {
+      alerts.error('Erro', (e as Error).message)
+    } finally {
+      setBulking(false)
+    }
+  }
 
   // Excluído não entra em contagem nenhuma além da própria pílula "Excluídos".
   const stats = useMemo(() => ({
@@ -417,9 +473,46 @@ export default function ParametrosOrcamentosPage() {
           </div>
         </div>
 
+        {/* Barra de ação da seleção em massa. Os botões de disponibilidade não
+            aparecem na visão "Excluídos": item excluído não é afetado. */}
+        {selectedIds.size > 0 && (
+          <div className="flex flex-col gap-2 border-b border-border/60 bg-muted/30 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-xs text-muted-foreground">
+              <strong className="text-foreground">{selectedIds.size}</strong> {selectedIds.size === 1 ? 'item selecionado' : 'itens selecionados'}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())} disabled={bulking}>
+                Limpar seleção
+              </Button>
+              {statusFilter !== 'excluidos' && (
+                <>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => handleBulkDisponivel(true)} disabled={bulking}>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Disponibilizar
+                  </Button>
+                  <Button size="sm" className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }} onClick={() => handleBulkDisponivel(false)} disabled={bulking}>
+                    {bulking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <EyeOff className="h-3.5 w-3.5" />}
+                    Tornar indisponível
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         <Table>
           <TableHeader>
             <TableRow>
+              {/* Seleção em massa é operação de desktop — no celular só come espaço. */}
+              <TableHead className="hidden w-[40px] text-center sm:table-cell">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5 rounded cursor-pointer align-middle"
+                  checked={filtered.length > 0 && filtered.every(i => selectedIds.has(i.id))}
+                  ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && !filtered.every(i => selectedIds.has(i.id)) }}
+                  onChange={toggleSelectAll}
+                  aria-label="Selecionar todos"
+                />
+              </TableHead>
               <TableHead className="hidden sm:table-cell w-[100px]">Tipo</TableHead>
               <TableHead>Nome</TableHead>
               <TableHead className="w-[140px] text-right">Valor Padrão</TableHead>
@@ -429,16 +522,25 @@ export default function ParametrosOrcamentosPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-10">
+              <TableRow><TableCell colSpan={6} className="text-center py-10">
                 <div className="flex items-center justify-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Carregando...</div>
               </TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+              <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                 <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
                 Nenhum item encontrado
               </TableCell></TableRow>
             ) : filtered.map(item => (
-              <TableRow key={item.id} className="whitespace-nowrap">
+              <TableRow key={item.id} className={cn('whitespace-nowrap', selectedIds.has(item.id) && 'bg-muted/30')}>
+                <TableCell className="hidden text-center sm:table-cell">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 rounded cursor-pointer align-middle"
+                    checked={selectedIds.has(item.id)}
+                    onChange={() => toggleSelected(item.id)}
+                    aria-label={`Selecionar ${item.nome}`}
+                  />
+                </TableCell>
                 <TableCell className="hidden sm:table-cell">
                   <Badge style={{ backgroundColor: TIPO_COLORS[item.tipo] }} className="text-white text-[10px]">
                     {TIPO_LABELS[item.tipo] || item.tipo}

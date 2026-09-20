@@ -95,6 +95,9 @@ function createNfeWatcherController({ apiUrl, daemonSecret, onLog }) {
     get running() { return running; },
     async start() { return rpc('start', 30_000); },
     async stop() { return rpc('stop', 15_000); },
+    // Varredura agendada. Timeout largo: pasta grande leva minutos, e cortar
+    // no meio deixaria arquivos para trás sem ninguém perceber.
+    async varrer() { return rpc('varrer', 30 * 60_000); },
     async refreshConfig() { return rpc('refresh', 30_000); },
     // Status com cache: se o filho estiver ocupado num scan, devolve o último conhecido.
     async getStatus() {
@@ -174,6 +177,22 @@ function loadSettings() {
     activeProjectKey: 'core',
     autoStart: false,
     autoStartServices: false,
+    /**
+     * Agenda da varredura de pastas locais (NFe). Substituiu o monitoramento
+     * contínuo, que segurava 1,9 GB vigiando árvores inteiras.
+     *
+     * Nasce DESLIGADA de propósito: quem define a janela é o operador, e uma
+     * varredura disparando sozinha logo após a atualização pegaria a máquina
+     * de surpresa no meio do expediente.
+     */
+    nfeAgenda: {
+      habilitado: false,
+      horaInicio: '19:00',    // fora do expediente por padrão
+      horaFim: '07:00',       // cruza a meia-noite — tratado no agendador
+      intervaloMin: 120,
+      dias: [1, 2, 3, 4, 5],  // 0=domingo … 6=sábado
+      ultimaExecucao: null,   // ISO — usado para respeitar o intervalo
+    },
     // Config da sincronizacao da FOLHA (ETL importar_empresa.py rodando na LAN)
     folha: {
       etlDir: '',        // caminho do repo Folhas_Pagamento
@@ -207,12 +226,23 @@ function normalizeSettings(settings, defaults = null) {
     activeProjectKey: 'core',
     autoStart: false,
     autoStartServices: false,
+    nfeAgenda: {
+      habilitado: false, horaInicio: '19:00', horaFim: '07:00',
+      intervaloMin: 120, dias: [1, 2, 3, 4, 5], ultimaExecucao: null,
+    },
     folha: {
       etlDir: '', python: 'python', dbUrl: '', syncUrl: '', syncToken: '',
       sciPassword: '', sciHost: '', schedEnabled: false, filaEnabled: true, schedDia: 10, ultimaRef: null,
     },
   };
   const merged = { ...base, ...(settings || {}) };
+  // Mesmo tratamento dado a projectDirs e folha: sem esta mesclagem, um
+  // settings.json gravado por versão anterior (sem nfeAgenda) sobrescreveria o
+  // objeto inteiro e a agenda ficaria sem os campos que o agendador lê.
+  merged.nfeAgenda = {
+    ...(base.nfeAgenda || {}),
+    ...((settings && settings.nfeAgenda) || {}),
+  };
   merged.projectDirs = {
     ...(base.projectDirs || {}),
     ...((settings && settings.projectDirs) || {}),
@@ -1495,6 +1525,16 @@ function registerIpcHandlers() {
   ipcMain.handle('nfe-watcher:stop', async () => {
     if (!nfeWatcher) return { ok: false };
     return nfeWatcher.stop();
+  });
+  // Varredura sob demanda — o botão "Varrer agora" da tela.
+  ipcMain.handle('nfe-watcher:varrer', async () => {
+    if (!nfeWatcher) return { ok: false, error: 'Watcher não inicializado' };
+    return nfeWatcher.varrer();
+  });
+  ipcMain.handle('nfe-agenda:get', () => loadSettings().nfeAgenda);
+  ipcMain.handle('nfe-agenda:set', (_e, agenda) => {
+    const r = saveSettings({ nfeAgenda: { ...loadSettings().nfeAgenda, ...(agenda || {}) } });
+    return r.ok ? { ok: true, agenda: loadSettings().nfeAgenda } : r;
   });
 
   ipcMain.handle('get-docker-status', async () => {
@@ -3560,11 +3600,42 @@ function registerIpcHandlers() {
       deployEmit(90, 'restart', '→ Reiniciando containers e verificando saúde...', 'info')
       deployCheckAbort('restart', 90)
       deployCurrentStep = 'restart'
-      const up = await sshExec(cfg, 'cd /opt/oneclick && docker compose up -d --force-recreate api web 2>&1 && sleep 12 && curl -s -o /dev/null -w "API:%{http_code}\\n" http://127.0.0.1:4100/api/health', (line) => deployEmit(95, 'restart', line, 'info'))
+      // Health por TENTATIVAS, não por espera fixa.
+      //
+      // Antes era `sleep 12 && curl`. A API leva mais de 12s para abrir a porta
+      // (bem mais quando a VPS está sob carga), então o curl batia antes e o
+      // deploy reprovava um deploy que tinha dado certo — e, pior, abortava
+      // ANTES de gravar o `.deployed-sha` logo abaixo, deixando o Service
+      // Manager achando que a publicação ficou pendente. Aconteceu no deploy do
+      // 4295cff6: a API estava no ar, respondendo 200, e o painel dizia falha.
+      //
+      // Agora tenta a cada 3s por até 90s e aceita o primeiro 200/204. Continua
+      // reprovando quem realmente não sobe — só para de reprovar quem sobe
+      // devagar. `|| true` no curl para o `-e` do shell não matar o laço num
+      // connection refused, que é o esperado nas primeiras tentativas.
+      const HEALTH_TENTATIVAS = 30
+      const HEALTH_INTERVALO_S = 3
+      const cmdHealth = [
+        'cd /opt/oneclick',
+        'docker compose up -d --force-recreate api web 2>&1',
+        `for i in $(seq 1 ${HEALTH_TENTATIVAS}); do`,
+        '  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://127.0.0.1:4100/api/health || true)',
+        '  if [ "$code" = "200" ] || [ "$code" = "204" ]; then echo "API:$code (tentativa $i)"; exit 0; fi',
+        `  echo "aguardando API... ($i/${HEALTH_TENTATIVAS}, ultimo=$code)"`,
+        `  sleep ${HEALTH_INTERVALO_S}`,
+        'done',
+        `echo "API:000 (sem resposta em ${HEALTH_TENTATIVAS * HEALTH_INTERVALO_S}s)"; exit 1`,
+      ].join('\n')
+      // Timeout do canal maior que a janela do laço, senão o ssh corta antes.
+      const up = await sshExec(cfg, cmdHealth, (line) => deployEmit(95, 'restart', line, 'info'), (HEALTH_TENTATIVAS * HEALTH_INTERVALO_S + 60) * 1000)
       if (up.code !== 0 || !/(API:200|API:204)/.test(up.stdout || '')) {
-        deployEmit(98, 'restart', `✗ Reinício ou verificação de saúde falhou`, 'err')
+        const semResposta = /API:000/.test(up.stdout || '')
+        const motivo = semResposta
+          ? `API não respondeu em ${HEALTH_TENTATIVAS * HEALTH_INTERVALO_S}s após o restart`
+          : 'Reinício ou verificação de saúde falhou'
+        deployEmit(98, 'restart', `✗ ${motivo}`, 'err')
         deployRunning = false
-        return { ok: false, error: 'Reinício ou verificação de saúde falhou' }
+        return { ok: false, error: motivo }
       }
       // Carimbo do que EFETIVAMENTE subiu. O `git reset` na VPS acontece lá no
       // começo, então o commit estar lá não prova que ele foi publicado: um
@@ -4029,6 +4100,59 @@ function registerIpcHandlers() {
   }
   setInterval(folhaSchedulerTick, 60 * 60 * 1000) // checa de hora em hora
   setTimeout(folhaSchedulerTick, 30 * 1000)       // catch-up logo apos subir
+
+  // ── Agendador da varredura de pastas locais (NFe) ──────────────
+  //
+  // Substituiu o monitoramento contínuo do chokidar, que segurava 1,9 GB
+  // vigiando árvores inteiras. Aqui nada fica vigiado: a cada ciclo dentro da
+  // janela configurada, varre por data de modificação e envia o que mudou.
+  //
+  // Mesmo molde do scheduler da folha acima: checagem periódica barata + um
+  // catch-up depois de subir.
+  function dentroDaJanela(agora, inicio, fim) {
+    const min = agora.getHours() * 60 + agora.getMinutes()
+    const [hi, mi] = String(inicio || '00:00').split(':').map(Number)
+    const [hf, mf] = String(fim || '23:59').split(':').map(Number)
+    const ini = (hi || 0) * 60 + (mi || 0)
+    const end = (hf || 0) * 60 + (mf || 0)
+    // Janela que cruza a meia-noite (ex.: 19:00 → 07:00) é dois intervalos.
+    return ini <= end ? (min >= ini && min <= end) : (min >= ini || min <= end)
+  }
+
+  let nfeAgendaBusy = false
+  async function nfeAgendaTick() {
+    try {
+      const ag = loadSettings().nfeAgenda || {}
+      if (!ag.habilitado) return
+      if (!nfeWatcher) return
+      if (nfeAgendaBusy) return
+
+      const agora = new Date()
+      const dias = Array.isArray(ag.dias) ? ag.dias : []
+      if (dias.length > 0 && !dias.includes(agora.getDay())) return
+      if (!dentroDaJanela(agora, ag.horaInicio, ag.horaFim)) return
+
+      // Respeita o intervalo mínimo entre varreduras.
+      const ultima = ag.ultimaExecucao ? new Date(ag.ultimaExecucao).getTime() : 0
+      const intervaloMs = Math.max(5, Number(ag.intervaloMin) || 120) * 60_000
+      if (Date.now() - ultima < intervaloMs) return
+
+      nfeAgendaBusy = true
+      // Carimba ANTES de varrer: uma varredura de 20 minutos não pode deixar o
+      // tique seguinte disparar outra por cima.
+      saveSettings({ nfeAgenda: { ...ag, ultimaExecucao: new Date().toISOString() } })
+      try {
+        // start() é idempotente e só carrega o cadastro — não cria vigilância.
+        if (!nfeWatcher.running) await nfeWatcher.start()
+        await nfeWatcher.varrer()
+      } finally { nfeAgendaBusy = false }
+    } catch (e) {
+      console.warn('[nfeAgenda] falha no tique:', e.message)
+      nfeAgendaBusy = false
+    }
+  }
+  setInterval(nfeAgendaTick, 60 * 1000)   // checa de minuto em minuto; o intervalo real é da agenda
+  setTimeout(nfeAgendaTick, 45 * 1000)    // catch-up logo apos subir
 
   ipcMain.handle('open-external', (_e, url) => shell.openExternal(url));
 

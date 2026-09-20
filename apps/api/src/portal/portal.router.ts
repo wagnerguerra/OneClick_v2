@@ -4,8 +4,11 @@ import { router, publicProcedure, portalSessaoProcedure, portalProcedure, portal
 import type { PortalArquivosService } from './portal-arquivos.service'
 import type { GestaoArquivosDriveService } from '../gestao-arquivos/gestao-arquivos-drive.service'
 import type { PortalObrigacoesService } from './portal-obrigacoes.service'
+import type { PortalContatoService } from './portal-contato.service'
 import type { ConviteValido } from './portal-tipos'
 import { listarVinculos } from './portal-escopo'
+import { listarEquipe } from './portal-equipe'
+import { itensDoCalendario, type ItemDoCalendario } from './portal-calendario'
 
 /**
  * O router declara o que USA do serviço, em vez de importar a classe.
@@ -40,6 +43,7 @@ export function createPortalRouter(
   arquivosService: PortalArquivosService,
   driveService: GestaoArquivosDriveService,
   obrigacoesService: PortalObrigacoesService,
+  contatoService: PortalContatoService,
 ) {
   return router({
     /**
@@ -229,6 +233,72 @@ export function createPortalRouter(
     meuAcesso: portalProcedure
       .input(z.object({ clienteId: z.string() }))
       .query(({ ctx }) => ctx.portal),
+
+    /**
+     * Quem atende esta empresa no escritório, por área — o "sua equipe" da
+     * home. Sem módulo próprio: saber com quem falar não é funcionalidade que
+     * o escritório liga e desliga. O recorte (áreas do vínculo, só ativos, só
+     * nome/e-mail/foto) mora em `portal-equipe.ts`.
+     */
+    equipe: portalProcedure
+      .input(z.object({ clienteId: z.string() }))
+      .query(({ ctx }) => listarEquipe(ctx.portal)),
+
+    /**
+     * O calendário do mês: vencimentos, feriados e os eventos da agenda em que
+     * o cliente aparece.
+     *
+     * As obrigações entram AQUI, e não dentro do serviço do calendário, porque
+     * elas são de um módulo que o escritório liga e desliga — com o módulo
+     * desligado a rota devolve o mês sem elas, em vez de o calendário decidir
+     * sozinho o que mostrar. Feriado e evento não têm módulo: são contexto do
+     * mês, não funcionalidade liberável.
+     */
+    calendario: portalProcedure
+      .input(z.object({
+        clienteId: z.string(),
+        ano: z.number().int().min(2000).max(2100),
+        mes: z.number().int().min(1).max(12),
+      }))
+      .query(async ({ input, ctx }): Promise<ItemDoCalendario[]> => {
+        const competencia = `${input.ano}${String(input.mes).padStart(2, '0')}`
+        const [doMes, obrigacoes] = await Promise.all([
+          itensDoCalendario(ctx.portal, input.ano, input.mes),
+          ctx.portal.modulos.includes('obrigacoes')
+            ? obrigacoesService.listar(ctx.portal, { competencia })
+            : Promise.resolve([]),
+        ])
+        return [
+          ...doMes,
+          ...obrigacoes.map((o) => ({
+            id: `obrigacao-${o.id}`,
+            tipo: 'obrigacao' as const,
+            titulo: o.nome,
+            data: o.prazo.slice(0, 10),
+            hora: null,
+            detalhe: o.area,
+            situacao: o.situacao,
+          })),
+        ]
+      }),
+
+    /**
+     * O cliente escreve para o responsável de uma área, pelo portal.
+     *
+     * Recebe a ÁREA, nunca um endereço: quem recebe é decidido no servidor, a
+     * partir do cadastro (ver `portal-contato.service.ts`). Os limites de
+     * tamanho repetem os do serviço para a tela recusar antes de ir e voltar.
+     */
+    contato: router({
+      enviar: portalProcedure
+        .input(z.object({
+          clienteId: z.string(),
+          areaId: z.string().min(1),
+          assunto: z.string().trim().min(3).max(150),
+          mensagem: z.string().trim().min(5).max(5000),
+        }))
+        .mutation(({ input, ctx }) => contatoService.enviar(ctx.portal, ctx.userId, input)),
+    }),
 
     convite: router({
       /** Abre a tela do convite. Devolve o mínimo para a pessoa se reconhecer. */
