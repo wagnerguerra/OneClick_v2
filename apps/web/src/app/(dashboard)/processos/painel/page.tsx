@@ -21,14 +21,14 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { SEGMENTO_SLUGS, SEGMENTO_META, type SegmentoSlug } from '@saas/types'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
+const PRIMARY = 'var(--color-primary)'
 
 // Paleta de status do painel — fonte única p/ ícones de KPI, cabeçalhos de coluna,
 // barras do gantt e swatches de legenda (estilo inline/SVG, onde não cabe classe
-// Tailwind). "andamento" = cor do módulo; os demais são status universais.
+// Tailwind). "andamento" = cor primária do sistema; os demais são status universais.
 const STATUS_COR = {
   atrasado:   '#ef4444', // red-500
-  andamento:  MODULE_COLOR,
+  andamento:  PRIMARY,
   aguardando: '#f59e0b', // amber-500
   pausado:    '#64748b', // slate-500
   concluido:  '#10b981', // emerald-500
@@ -58,7 +58,7 @@ type Coluna = 'atrasados' | 'em_andamento' | 'aguardando' | 'pausados' | 'conclu
 
 const COLUNAS: { id: Coluna; label: string; icon: typeof Workflow; cor: string; bg: string }[] = [
   { id: 'atrasados',    label: 'Atrasados',         icon: AlertTriangle, cor: STATUS_COR.atrasado,   bg: 'bg-red-50 dark:bg-red-950/20' },
-  { id: 'em_andamento', label: 'Em andamento',      icon: PlayCircle,    cor: STATUS_COR.andamento,  bg: 'bg-sky-50 dark:bg-sky-950/30' },
+  { id: 'em_andamento', label: 'Em andamento',      icon: PlayCircle,    cor: STATUS_COR.andamento,  bg: 'bg-primary/10' },
   { id: 'aguardando',   label: 'Aguardando início', icon: Clock,         cor: STATUS_COR.aguardando, bg: 'bg-amber-50 dark:bg-amber-950/20' },
   { id: 'pausados',     label: 'Pausados',          icon: Pause,         cor: STATUS_COR.pausado,    bg: 'bg-slate-50 dark:bg-slate-900/30' },
   { id: 'concluidos',   label: 'Concluídos (7d)',   icon: CheckCircle2,  cor: STATUS_COR.concluido,  bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
@@ -195,7 +195,7 @@ export default function PainelOperacionalPage() {
           <ArrowLeft className="h-3.5 w-3.5" />Processos
         </Button>
         <span>/</span>
-        <span className="font-medium" style={{ color: MODULE_COLOR }}>Painel Operacional</span>
+        <span className="font-medium text-primary">Painel Operacional</span>
       </div>
 
       {/* Header */}
@@ -324,7 +324,7 @@ export default function PainelOperacionalPage() {
                 className={cn(
                   'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                   ativo
-                    ? 'bg-sky-100 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400'
+                    ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >

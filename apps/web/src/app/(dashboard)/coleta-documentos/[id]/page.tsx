@@ -21,8 +21,6 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { SITUACAO_BADGE, TIPO_BADGE } from '../_components/badges'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
-
 /**
  * Os botões de ação do trâmite — quais aparecem vem PRONTO do backend
  * (`transicoesDisponiveis`, cruzando situação × papel do usuário). Aqui só
@@ -275,8 +273,7 @@ export default function ColetaDetalhePage() {
                 <ol className="relative space-y-4 border-l border-border pl-4 ml-1">
                   {detalhe.logs.map((l) => (
                     <li key={l.id} className="relative">
-                      <span className="absolute -left-[21.5px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-background"
-                        style={{ background: MODULE_COLOR }} />
+                      <span className="absolute -left-[21.5px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-primary" />
                       <p className="text-sm font-medium leading-snug">{l.evento}</p>
                       {l.situacao && (
                         <Badge variant="outline" className={cn('mt-1 text-[10px]', SITUACAO_BADGE[l.situacao])}>

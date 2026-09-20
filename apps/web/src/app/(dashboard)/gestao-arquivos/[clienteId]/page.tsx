@@ -21,7 +21,7 @@ import { Explorador } from '../_components/explorador'
 import { useFontesDoEscritorio } from '../_components/fontes-escritorio'
 import { CopiarEstruturaModal } from '../_components/copiar-estrutura-modal'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
+const PRIMARY = 'var(--color-primary)'
 const MODULE = 'gestao-arquivos'
 
 interface LinhaLog {
@@ -271,10 +271,9 @@ export default function GestaoArquivosClientePage() {
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-lg border px-3 h-9 text-xs font-medium transition-colors',
                 ativa
-                  ? 'text-white border-transparent'
+                  ? 'bg-primary text-primary-foreground border-transparent'
                   : 'bg-card border-border text-muted-foreground hover:bg-muted/50',
               )}
-              style={ativa ? { backgroundColor: MODULE_COLOR } : undefined}
             >
               <Icone className="h-4 w-4" /> {a.rotulo}
             </button>
@@ -292,7 +291,7 @@ export default function GestaoArquivosClientePage() {
       {aba === 'explorador' && (
         <Explorador
           fontes={fontes}
-          cor={MODULE_COLOR}
+          cor={PRIMARY}
           recarregar={versao}
           onExcluir={a => { setAExcluir(a); setMotivo('') }}
         />

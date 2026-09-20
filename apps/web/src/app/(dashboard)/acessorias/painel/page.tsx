@@ -25,8 +25,6 @@ import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
 import { BADGE, TEXT } from '@/lib/color-styles'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
-
 type Foco = 'a_vencer' | 'nao_lidas' | 'atrasadas' | 'todas'
 
 interface Linha {
@@ -392,13 +390,11 @@ export default function PainelEntregasPage() {
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex overflow-hidden rounded-md border border-border">
               <button type="button" onClick={() => setVisao('obrigacao')}
-                className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs', visao === 'obrigacao' ? 'text-white' : 'bg-card text-muted-foreground hover:bg-muted')}
-                style={visao === 'obrigacao' ? { backgroundColor: MODULE_COLOR } : undefined}>
+                className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs', visao === 'obrigacao' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-muted')}>
                 <ListChecks className="h-3.5 w-3.5" />Por obrigação
               </button>
               <button type="button" onClick={() => setVisao('cliente')}
-                className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs', visao === 'cliente' ? 'text-white' : 'bg-card text-muted-foreground hover:bg-muted')}
-                style={visao === 'cliente' ? { backgroundColor: MODULE_COLOR } : undefined}>
+                className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs', visao === 'cliente' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-muted')}>
                 <Users className="h-3.5 w-3.5" />Por cliente
               </button>
             </div>
@@ -1115,8 +1111,7 @@ function CartaoFoco({ ativo, onClick, icone, cor, valor, titulo, nota }: {
   // cartão de texto mais longo fica mais alto que os vizinhos.
   return (
     <button type="button" onClick={onClick} className="h-full text-left">
-      <Card className={cn('flex h-full flex-col p-4 transition-colors hover:bg-muted/40', ativo && 'border-current')}
-        style={ativo ? { borderColor: MODULE_COLOR } : undefined}>
+      <Card className={cn('flex h-full flex-col p-4 transition-colors hover:bg-muted/40', ativo && 'border-primary')}>
         <div className={cn('flex items-center gap-1.5', cor)}>
           {icone}
           <span className="text-2xl font-bold tabular-nums">{valor}</span>

@@ -19,7 +19,6 @@ import { BADGE, FILL } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
 const PAGE_SIZES = [10, 20, 50]
 
 interface ProcessoListItem {
@@ -103,8 +102,7 @@ export default function ProcessosPage() {
           <Button
             size="sm"
             onClick={() => router.push('/processos/painel')}
-            style={{ backgroundColor: MODULE_COLOR }}
-            className="text-white gap-1.5"
+            className="gap-1.5"
           >
             <LayoutDashboard className="h-4 w-4" />
             Painel Operacional

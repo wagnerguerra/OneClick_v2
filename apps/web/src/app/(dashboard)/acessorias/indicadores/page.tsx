@@ -20,8 +20,6 @@ import { AbasAcessorias } from '../_components/abas-acessorias'
 import { BadgeEntrega } from '../_components/badge-entrega'
 import { BADGE, TEXT } from '@/lib/color-styles'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
-
 /** Preferência de régua, por navegador — mesmo padrão da agenda e da caixa postal. */
 const LS_REGUA = 'acessorias-indicadores-regua'
 
@@ -385,8 +383,7 @@ function Avatar({ cartao }: { cartao: Cartao }) {
     return <img src={cartao.imagem} alt="" className="h-full w-full rounded-full object-cover" />
   }
   return (
-    <div className="flex h-full w-full items-center justify-center rounded-full text-sm font-semibold text-white"
-      style={{ backgroundColor: MODULE_COLOR }}>
+    <div className="flex h-full w-full items-center justify-center rounded-full text-sm font-semibold bg-primary text-primary-foreground">
       {iniciais || '—'}
     </div>
   )
@@ -427,7 +424,7 @@ function CartaoIndicador({ cartao, destaque, onAbrir }: {
   const total = MEDIDAS.reduce((soma, m) => soma + cartao[m.campo], 0)
   const [emFoco, setEmFoco] = useState<Medida | null>(null)
   return (
-    <Card className={cn('overflow-hidden', destaque && 'border-current')} style={destaque ? { borderColor: MODULE_COLOR } : undefined}>
+    <Card className={cn('overflow-hidden', destaque && 'border-primary')}>
       <div className="flex flex-col items-center gap-2 border-b border-border/60 bg-muted/20 px-4 pb-5 pt-4">
         <RoscaSituacao cartao={cartao} tamanho={destaque ? 76 : 96} destaque={emFoco} />
         <div className="min-w-0 text-center">
@@ -482,7 +479,7 @@ function FiltroColuna({ valor, onChange }: { valor: string; onChange: (v: string
         'w-full rounded px-1.5 py-0.5 text-[11px] font-normal normal-case tracking-normal',
         'placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1',
       )}
-      style={valor ? { borderColor: MODULE_COLOR } : undefined}
+      style={valor ? { borderColor: 'var(--color-primary)' } : undefined}
     />
   )
 }

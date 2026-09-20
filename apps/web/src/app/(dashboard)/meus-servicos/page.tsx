@@ -28,7 +28,7 @@ import { PRIORIDADE_LABELS, PRIORIDADE_COLORS, type PrioridadeServico } from '@s
 import { ClienteCombobox } from '../orcamentos/_components/cliente-combobox'
 import { ExecucaoChecklistModal } from '../_components/execucao-checklist-modal'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
+const PRIMARY = 'var(--color-primary)'
 
 interface ExecucaoMinha {
   id: string
@@ -729,7 +729,7 @@ export default function MeusServicosPage() {
   const colunasKanban: KanbanCol[] = useMemo(() => {
     const agora = Date.now()
     const cols: Record<string, KanbanCol> = {
-      em_andamento: { key: 'em_andamento', titulo: 'Em Andamento', cor: MODULE_COLOR, items: [] },
+      em_andamento: { key: 'em_andamento', titulo: 'Em Andamento', cor: PRIMARY, items: [] },
       atrasados: { key: 'atrasados', titulo: 'Atrasados', cor: '#ef4444', items: [] },
       pausados: { key: 'pausados', titulo: 'Pausados', cor: '#f59e0b', items: [] },
     }
@@ -748,7 +748,7 @@ export default function MeusServicosPage() {
   // Lista de filtros (chips) — mantém função de filtragem mas no padrão visual CRM/Orçamentos:
   // barra horizontal de chips em vez de KPIs em cards grandes.
   const filtros: Array<{ key: FilterKind; label: string; icon: typeof Play; cor: string; count: number }> = [
-    { key: 'em_andamento', label: 'Em Andamento', icon: Play, cor: MODULE_COLOR, count: kpis.emAndamento },
+    { key: 'em_andamento', label: 'Em Andamento', icon: Play, cor: PRIMARY, count: kpis.emAndamento },
     { key: 'atrasados', label: 'Atrasados', icon: AlertTriangle, cor: '#ef4444', count: kpis.atrasados },
     { key: 'pausados', label: 'Pausados', icon: Pause, cor: '#f59e0b', count: kpis.pausados },
     { key: 'todos', label: 'Ativos', icon: ListChecks, cor: '#94a3b8', count: kpis.ativos },
@@ -762,8 +762,7 @@ export default function MeusServicosPage() {
             <Button
               size="sm"
               onClick={abrirNovoServico}
-              style={{ backgroundColor: MODULE_COLOR }}
-              className="text-white gap-1.5"
+              className="gap-1.5"
             >
               <Plus className="h-4 w-4" /> Novo Serviço
             </Button>
@@ -966,10 +965,10 @@ export default function MeusServicosPage() {
                               {atualKb && exec.status === 'EM_ANDAMENTO' && (
                                 <div
                                   className="rounded-sm border border-dashed px-1.5 py-1 text-[10px] flex flex-col gap-0.5"
-                                  style={{ borderColor: `color-mix(in srgb, ${MODULE_COLOR} 33%, transparent)`, backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 4%, transparent)` }}
+                                  style={{ borderColor: `color-mix(in srgb, ${PRIMARY} 33%, transparent)`, backgroundColor: `color-mix(in srgb, ${PRIMARY} 4%, transparent)` }}
                                   title={`Etapa: ${atualKb.etapaNome} · Passo: ${atualKb.passoNome}`}
                                 >
-                                  <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wider" style={{ color: MODULE_COLOR }}>
+                                  <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wider" style={{ color: PRIMARY }}>
                                     <ListChecks className="h-2.5 w-2.5" /> {atualKb.etapaNome}
                                   </span>
                                   <span className="text-foreground/85 leading-tight line-clamp-2">
@@ -1011,7 +1010,7 @@ export default function MeusServicosPage() {
                                         ? '#10b981'
                                         : exec.pausado
                                           ? '#f59e0b'
-                                          : MODULE_COLOR,
+                                          : PRIMARY,
                                     }}
                                   />
                                 </div>
@@ -1249,7 +1248,7 @@ export default function MeusServicosPage() {
                         >
                           <span
                             className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold"
-                            style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 10%, transparent)`, color: MODULE_COLOR }}
+                            style={{ backgroundColor: `color-mix(in srgb, ${PRIMARY} 10%, transparent)`, color: PRIMARY }}
                           >
                             <ListChecks className="h-3 w-3" /> {atual.etapaNome}
                           </span>
@@ -1334,7 +1333,7 @@ export default function MeusServicosPage() {
                               ? '#10b981'
                               : exec.pausado
                                 ? '#f59e0b' // amber-500: barra "congelada" indica pausa
-                                : MODULE_COLOR,
+                                : PRIMARY,
                           }}
                         />
                       </div>
@@ -1433,7 +1432,7 @@ export default function MeusServicosPage() {
         open={checklistOpen}
         onOpenChange={setChecklistOpen}
         execucaoId={checklistExecId}
-        accentColor={MODULE_COLOR}
+        accentColor={PRIMARY}
         onChange={() => fetchData({ silent: true })}
       />
 
@@ -1479,8 +1478,7 @@ export default function MeusServicosPage() {
               size="sm"
               onClick={handleSalvarConfig}
               disabled={configSalvando}
-              style={{ backgroundColor: MODULE_COLOR }}
-              className="text-white gap-1.5"
+              className="gap-1.5"
             >
               {configSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Salvar
@@ -1554,8 +1552,7 @@ export default function MeusServicosPage() {
               size="sm"
               onClick={handleCriarExecucao}
               disabled={novoSalvando || !novoServicoId || !novoClienteId}
-              style={{ backgroundColor: MODULE_COLOR }}
-              className="text-white gap-1.5"
+              className="gap-1.5"
             >
               {novoSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Iniciar serviço

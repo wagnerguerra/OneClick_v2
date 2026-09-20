@@ -5,11 +5,9 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@saas/ui'
 import { useAbasPermitidas } from './abas'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
-
 /**
  * Pills de navegação do módulo, no mesmo desenho das páginas de detalhe
- * (orçamentos, clientes): cápsula arredondada, pill ativa na cor do módulo.
+ * (orçamentos, clientes): cápsula arredondada, pill ativa na cor primária.
  *
  * Fica DENTRO de cada página, logo abaixo do cabeçalho — por isso é componente
  * e não parte do layout, que só consegue desenhar acima do conteúdo.
@@ -36,9 +34,8 @@ export function AbasAcessorias() {
               href={a.href}
               className={cn(
                 'flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors',
-                ativo ? 'bg-card shadow-sm' : 'text-foreground/60 hover:text-foreground',
+                ativo ? 'bg-card shadow-sm text-primary' : 'text-foreground/60 hover:text-foreground',
               )}
-              style={ativo ? { color: MODULE_COLOR } : undefined}
             >
               <Icone className="h-3.5 w-3.5" />
               {a.label}

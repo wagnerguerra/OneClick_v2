@@ -31,9 +31,6 @@ import { ColetaKanban, type KanbanRow } from './_components/kanban'
 
 const PAGE_SIZES = [10, 20, 50]
 
-/** Cor do bloco Administrativo — usada no contador do botão de filtros. */
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
-
 interface Row {
   numero: number
   id: string
@@ -271,7 +268,7 @@ export default function ColetaDocumentosPage() {
             <SlidersHorizontal className="h-4 w-4" />
             Filtros
             {qtdFiltros > 0 && (
-              <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none text-white" style={{ backgroundColor: MODULE_COLOR }}>{qtdFiltros}</span>
+              <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none bg-primary text-primary-foreground">{qtdFiltros}</span>
             )}
           </button>
           <div className="flex items-center border rounded-lg overflow-hidden">

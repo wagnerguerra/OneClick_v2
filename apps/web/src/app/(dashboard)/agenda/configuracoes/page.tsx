@@ -612,10 +612,9 @@ export default function AgendaConfiguracoesPage() {
                     className={cn(
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                       active
-                        ? 'text-white shadow-sm'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'text-muted-foreground hover:bg-background hover:text-foreground',
                     )}
-                    style={active ? { backgroundColor: 'var(--mod-administrativo, #38bdf8)' } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     {tab.label}
@@ -708,7 +707,7 @@ export default function AgendaConfiguracoesPage() {
                     <h4 className="text-[13px] font-semibold text-foreground">Salas cadastradas</h4>
                     <p className="text-[11px] text-muted-foreground mt-0.5">{salas.length} sala(s) cadastrada(s)</p>
                   </div>
-                  <Button size="sm" onClick={openSalaNew} className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white">
+                  <Button size="sm" onClick={openSalaNew} className="gap-1.5">
                     <Plus className="h-3.5 w-3.5" />Nova sala
                   </Button>
                 </div>
@@ -836,7 +835,7 @@ export default function AgendaConfiguracoesPage() {
                                   className={cn(
                                     'h-8 px-2.5 text-[11px] font-medium rounded-md border transition-colors',
                                     ativo
-                                      ? 'bg-sky-500 text-white border-sky-500 hover:bg-sky-600'
+                                      ? 'bg-primary text-primary-foreground border-primary hover:bg-primary-hover'
                                       : 'bg-background border-border text-muted-foreground hover:bg-muted',
                                   )}
                                 >
@@ -978,7 +977,7 @@ export default function AgendaConfiguracoesPage() {
                             size="sm"
                             onClick={enviarTeste}
                             disabled={enviandoTeste || !testeDestId}
-                            className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white"
+                            className="gap-1.5"
                           >
                             {enviandoTeste ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                             Enviar teste
@@ -1155,7 +1154,7 @@ export default function AgendaConfiguracoesPage() {
                       <div className="flex items-center gap-3">
                         <input type="range" min={440} max={1000} step={20} value={tpl.larguraMax}
                           onChange={e => setTplField('larguraMax', Number(e.target.value))}
-                          className="flex-1 accent-[var(--mod-administrativo,#38bdf8)] cursor-pointer" />
+                          className="flex-1 accent-[var(--color-primary)] cursor-pointer" />
                         <Input type="number" min={440} max={1000} step={20} value={tpl.larguraMax}
                           onChange={e => setTplField('larguraMax', Math.min(1000, Math.max(440, Number(e.target.value) || 600)))}
                           className="h-9 w-24 text-sm" />
@@ -1193,7 +1192,7 @@ export default function AgendaConfiguracoesPage() {
                           <div className="flex items-center gap-3">
                             <input type="range" min={0} max={600} step={10} value={tpl.logoLargura}
                               onChange={e => setTplField('logoLargura', Number(e.target.value))}
-                              className="flex-1 accent-[var(--mod-administrativo,#38bdf8)] cursor-pointer" />
+                              className="flex-1 accent-[var(--color-primary)] cursor-pointer" />
                             <Input type="number" min={0} max={1000} step={10} value={tpl.logoLargura}
                               onChange={e => setTplField('logoLargura', Math.min(1000, Math.max(0, Number(e.target.value) || 0)))}
                               className="h-9 w-24 text-sm" />
@@ -1329,7 +1328,7 @@ export default function AgendaConfiguracoesPage() {
                     </div>
 
                     <div className="flex items-center gap-2 pt-1">
-                      <Button onClick={() => salvarModelo()} disabled={savingTpl} style={{ backgroundColor: 'var(--mod-administrativo, #38bdf8)' }} className="text-white gap-1.5">{savingTpl ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Salvar</Button>
+                      <Button onClick={() => salvarModelo()} disabled={savingTpl} className="gap-1.5">{savingTpl ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Salvar</Button>
                       <Button variant="outline" onClick={enviarTesteModelo} disabled={enviandoTesteModelo} className="gap-1.5">{enviandoTesteModelo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar teste pra mim</Button>
                     </div>
                   </div>
@@ -1413,7 +1412,7 @@ export default function AgendaConfiguracoesPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setSalaModalOpen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={saveSala} disabled={savingSala} className="bg-sky-500 hover:bg-sky-600 text-white gap-1.5">
+            <Button size="sm" onClick={saveSala} disabled={savingSala} className="gap-1.5">
               {savingSala && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Salvar
             </Button>

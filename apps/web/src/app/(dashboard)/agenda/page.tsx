@@ -479,7 +479,7 @@ export default function AgendaPage() {
           className="text-sm min-h-[96px] resize-y"
         />
         <div className="flex justify-end">
-          <Button size="sm" className="bg-sky-500 hover:bg-sky-600 text-white gap-1.5" onClick={addAnotacaoEvento} disabled={!novaAnotacao.trim()}>
+          <Button size="sm" className="gap-1.5" onClick={addAnotacaoEvento} disabled={!novaAnotacao.trim()}>
             <Send className="h-4 w-4" /> Adicionar
           </Button>
         </div>
@@ -522,7 +522,7 @@ export default function AgendaPage() {
                   />
                   <div className="flex justify-end gap-1.5">
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditandoAnotacaoId(null); setEditandoAnotacaoTexto('') }}>Cancelar</Button>
-                    <Button size="sm" className="h-7 text-xs bg-sky-500 hover:bg-sky-600 text-white" onClick={salvarEdicaoAnotacao} disabled={!editandoAnotacaoTexto.trim()}>Salvar</Button>
+                    <Button size="sm" className="h-7 text-xs" onClick={salvarEdicaoAnotacao} disabled={!editandoAnotacaoTexto.trim()}>Salvar</Button>
                   </div>
                 </div>
               ) : (
@@ -1384,8 +1384,7 @@ export default function AgendaPage() {
       <PageHeaderBar actions={<>
         <Button
           size="sm"
-          style={{ backgroundColor: 'var(--mod-administrativo, #38bdf8)' }}
-          className="text-white gap-1.5"
+          className="gap-1.5"
           onClick={() => openNewEvent()}
         >
           <Plus className="h-4 w-4" /> Novo Evento
@@ -1670,7 +1669,7 @@ export default function AgendaPage() {
         <div className="flex-1 min-w-0 flex flex-col">
           {/* Botões mobile (visíveis apenas em telas menores) */}
           <div className="mb-3 flex flex-wrap items-center gap-2 xl:hidden">
-            <Button size="sm" className="h-9 gap-1.5 bg-sky-500 text-white hover:bg-sky-600" onClick={() => openNewEvent()}>
+            <Button size="sm" className="h-9 gap-1.5" onClick={() => openNewEvent()}>
               <Plus className="h-4 w-4" />Novo Evento
             </Button>
             <Select value={filtroTipo || '__all__'} onValueChange={v => setFiltroTipo(v === '__all__' ? '' : v)}>
@@ -2166,7 +2165,7 @@ export default function AgendaPage() {
               </Link>
             </Button>
             {dayModalDate >= formatDate(new Date()) && (
-              <Button size="sm" onClick={() => { setDayModalOpen(false); openNewEvent(dayModalDate) }} className="gap-1.5 bg-sky-500 hover:bg-sky-600 text-white">
+              <Button size="sm" onClick={() => { setDayModalOpen(false); openNewEvent(dayModalDate) }} className="gap-1.5">
                 <Plus className="h-3.5 w-3.5" />Novo evento
               </Button>
             )}
@@ -2364,7 +2363,7 @@ export default function AgendaPage() {
                           onClick={() => setViewTab(t.value as typeof viewTab)}
                           className={cn(
                             'px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5',
-                            viewTab === t.value ? cn('border-sky-500', TEXT.sky) : 'border-transparent text-muted-foreground hover:text-foreground'
+                            viewTab === t.value ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
                           )}
                         >
                           <t.icon className="h-3.5 w-3.5 shrink-0" />{t.label}
@@ -3139,7 +3138,7 @@ export default function AgendaPage() {
                         <TabsTrigger
                           key={t.value}
                           value={t.value}
-                          className="gap-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap rounded-none border-b-2 -mb-px border-transparent text-muted-foreground transition-all hover:text-foreground hover:border-border data-[state=active]:border-sky-500 data-[state=active]:text-sky-600 dark:data-[state=active]:text-sky-400 data-[state=active]:shadow-none"
+                          className="gap-2 px-4 py-2.5 text-xs font-medium whitespace-nowrap rounded-none border-b-2 -mb-px border-transparent text-muted-foreground transition-all hover:text-foreground hover:border-border data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"
                         >
                           <t.icon className="h-3.5 w-3.5 shrink-0" />{t.label}
                         </TabsTrigger>

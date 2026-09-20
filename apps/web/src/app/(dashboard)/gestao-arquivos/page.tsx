@@ -15,8 +15,6 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { NotificacoesModal } from './_components/notificacoes-modal'
-
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
 const MODULE = 'gestao-arquivos'
 
 interface ClienteLinha {
@@ -143,8 +141,7 @@ export default function GestaoArquivosPage() {
             Não lidos
             {totalNovos > 0 && (
               <span
-                className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-white text-[10px] font-semibold leading-none"
-                style={{ backgroundColor: MODULE_COLOR }}
+                className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none"
               >
                 {totalNovos}
               </span>
@@ -207,8 +204,7 @@ export default function GestaoArquivosPage() {
                   <TableCell className="py-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] text-white"
-                        style={{ background: MODULE_COLOR }}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] bg-primary text-primary-foreground"
                       >
                         <FolderOpen className="h-4 w-4" />
                       </div>
@@ -244,8 +240,7 @@ export default function GestaoArquivosPage() {
                   <TableCell className="text-center">
                     {c.novos > 0 ? (
                       <Badge
-                        className="text-white tabular-nums"
-                        style={{ backgroundColor: MODULE_COLOR }}
+                        className="bg-primary text-primary-foreground tabular-nums"
                       >
                         {c.novos}
                       </Badge>

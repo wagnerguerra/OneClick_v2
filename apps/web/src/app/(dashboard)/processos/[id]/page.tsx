@@ -21,8 +21,6 @@ import { TEXT, BADGE, SURFACE, FILL, BORDER, DOT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)' // sky (bloco Administrativo)
-
 // Paleta do fluxo (SVG) — cor de contorno por estado. Fonte única: os nós do DAG
 // (corDoBloco, tema claro) e a legenda leem daqui, pra nunca divergirem.
 const FLUXO_STROKE = {
@@ -303,33 +301,33 @@ export default function ProcessoDetalhePage() {
 
         {/* Faixa do módulo com as abas — bleed-edge */}
         <div className="relative -mx-4 sm:-mx-6 overflow-hidden bg-muted/30">
-          {/* Overlay: tinta suave da cor do módulo crescendo p/ a direita.
+          {/* Overlay: tinta suave da cor primária crescendo p/ a direita.
               Base em token (bg-muted/30) garante um fundo coerente nos dois temas. */}
           <div
             className="absolute inset-0"
-            style={{ backgroundImage: 'linear-gradient(to right, transparent 0%, color-mix(in srgb, var(--mod-administrativo, #38bdf8) 22%, transparent) 100%)' }}
+            style={{ backgroundImage: 'linear-gradient(to right, transparent 0%, color-mix(in srgb, var(--color-primary) 22%, transparent) 100%)' }}
           />
 
           {/* TabsList em pills centralizadas — dentro do mesmo wrapper */}
           <div className="relative z-10 px-4 sm:px-6 py-2 overflow-x-auto nice-scrollbar flex justify-center">
             <TabsList className="min-w-max !shadow-sm !border !border-border/60 gap-1.5 !p-1 !bg-muted/60 dark:!bg-muted/40 !rounded-full backdrop-blur-sm w-fit h-auto">
-              <TabsTrigger value="visao" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
+              <TabsTrigger value="visao" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-primary gap-1.5">
                 <Layers className="h-3.5 w-3.5" />Visão geral
               </TabsTrigger>
-              <TabsTrigger value="fluxo" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
+              <TabsTrigger value="fluxo" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-primary gap-1.5">
                 <Workflow className="h-3.5 w-3.5" />Fluxo
               </TabsTrigger>
-              <TabsTrigger value="execucoes" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
+              <TabsTrigger value="execucoes" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-primary gap-1.5">
                 <ListChecks className="h-3.5 w-3.5" />Execuções
-                <span className="ml-1 text-[10px] px-1.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400 tabular-nums">{totalExec}</span>
+                <span className="ml-1 text-[10px] px-1.5 rounded-full bg-primary/10 text-primary tabular-nums">{totalExec}</span>
               </TabsTrigger>
-              <TabsTrigger value="pendencias" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
+              <TabsTrigger value="pendencias" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-primary gap-1.5">
                 <AlertCircle className="h-3.5 w-3.5" />Pendências
                 {pendentes > 0 && (
                   <span className="ml-1 text-[10px] px-1.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 tabular-nums">{pendentes}</span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="timeline" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-sky-700 dark:data-[state=active]:!text-sky-300 gap-1.5">
+              <TabsTrigger value="timeline" className="!relative !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-card data-[state=active]:!shadow-sm data-[state=active]:!text-primary gap-1.5">
                 <History className="h-3.5 w-3.5" />Timeline
               </TabsTrigger>
             </TabsList>
@@ -561,7 +559,6 @@ export default function ProcessoDetalhePage() {
                               onClick={() => handleIniciarSucessor(exec.id)}
                               disabled={iniciandoId === exec.id}
                               className="gap-1.5"
-                              style={{ backgroundColor: MODULE_COLOR }}
                             >
                               {iniciandoId === exec.id
                                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />

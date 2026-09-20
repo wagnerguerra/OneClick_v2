@@ -17,8 +17,6 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AbasAcessorias } from '../_components/abas-acessorias'
 import { SURFACE, TEXT } from '@/lib/color-styles'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #0ea5e9)'
-
 interface Divergencia {
   campo: string
   label: string
@@ -266,7 +264,7 @@ export default function DivergenciasPage() {
                               {d.nosso ?? 'vazio'}
                             </span>
                             <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            <span className="truncate font-medium" style={{ color: MODULE_COLOR }}>{d.deles}</span>
+                            <span className="truncate font-medium text-primary">{d.deles}</span>
                             {d.apenasCompleta && (
                               <Badge variant="outline" className="text-[9px]">só completa</Badge>
                             )}

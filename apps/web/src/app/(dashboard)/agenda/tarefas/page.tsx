@@ -173,7 +173,7 @@ export default function TarefasPage() {
                 className={cn(
                   'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
                   ativo
-                    ? 'bg-sky-500 text-white'
+                    ? 'bg-primary text-primary-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground',
                 )}
               >

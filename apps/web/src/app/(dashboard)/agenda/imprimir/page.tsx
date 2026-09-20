@@ -22,8 +22,6 @@ import { useEmpresaAtiva } from '@/hooks/use-empresa-ativa'
 import { resolveAssetUrl } from '@/lib/api-url'
 import { stripHtml } from '@/lib/html'
 
-const MODULE_COLOR = 'var(--mod-administrativo, #38bdf8)'
-
 type Participante = {
   id: string
   nomeAvulso: string | null
@@ -168,8 +166,7 @@ function ImprimirAgendaConteudo() {
           />
         </label>
         <Button
-          size="sm" className="gap-1.5 text-white"
-          style={{ backgroundColor: MODULE_COLOR }}
+          size="sm" className="gap-1.5"
           onClick={() => window.print()}
         >
           <Printer className="h-4 w-4" /> Imprimir
