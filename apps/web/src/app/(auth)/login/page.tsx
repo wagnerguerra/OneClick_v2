@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { loginSchema, type LoginInput } from '@saas/types'
-import { Button, Label } from '@saas/ui'
+import { Button, Label, Checkbox } from '@saas/ui'
 import { signIn } from '@/lib/auth-client'
 import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 
@@ -232,12 +232,11 @@ export default function LoginPage() {
 
           {/* Lembrar-me — controla duração da sessão (7 dias se marcado, até fechar o navegador se não) */}
           <div className="flex items-center gap-2 pt-0.5">
-            <input
-              type="checkbox"
+            <Checkbox
               id="remember"
               checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-border text-primary accent-primary cursor-pointer"
+              onCheckedChange={(v) => setRememberMe(v === true)}
+              className="h-3.5 w-3.5"
             />
             <label
               htmlFor="remember"
