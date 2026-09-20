@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ListChecks, AlertTriangle, Clock, CheckCircle2, ArrowRight } from 'lucide-react'
 import { Card, CardContent, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
-import { TEXT, BADGE, type ColorName } from '@/lib/color-styles'
+import { TEXT, BADGE, PILL, type ColorName } from '@/lib/color-styles'
 import { getApiUrl } from '@/lib/api-url'
 import { EmptyState } from './empty-state'
 
@@ -237,7 +237,7 @@ function ServicosExpanded({ titulo: _titulo }: { titulo: string }) {
 
       {filtro && (
         <div className="shrink-0 mb-2 text-[11px] text-muted-foreground">
-          Filtrando: <strong style={{ color: SITUACAO_CORES[filtro].dot }}>{SITUACAO_CORES[filtro].label}</strong>
+          Filtrando: <strong className={TEXT[SITUACAO_CORES[filtro].tone]}>{SITUACAO_CORES[filtro].label}</strong>
           {' · '}
           <button
             type="button"
@@ -277,7 +277,7 @@ function ServicosExpanded({ titulo: _titulo }: { titulo: string }) {
                       <span className="text-[13px] font-semibold truncate flex-1" title={it.servicoNome}>
                         {it.servicoNome}
                       </span>
-                      <span className={cn('text-[10px] font-bold uppercase tracking-wider shrink-0 px-1.5 py-0.5 rounded', BADGE[cor.tone])}>
+                      <span className={cn('text-[10px] font-bold uppercase tracking-wider shrink-0 px-1.5 py-0.5 rounded-full', PILL[cor.tone])}>
                         {prazoLabel}
                       </span>
                     </div>
@@ -511,10 +511,7 @@ function ServicosInitial({ title, bloco }: { title?: string; bloco?: string }) {
                         <span className="text-[12px] font-medium truncate flex-1">
                           {it.servicoNome}
                         </span>
-                        <span
-                          className="text-[10px] font-medium tabular-nums shrink-0"
-                          style={{ color: cor.dot }}
-                        >
+                        <span className={cn('text-[10px] font-medium tabular-nums shrink-0 px-1.5 py-0.5 rounded-full', PILL[cor.tone])}>
                           {prazoLabel}
                         </span>
                       </div>
