@@ -43,6 +43,7 @@ export type ColorName =
   | 'cyan'
   | 'teal'
   | 'fuchsia'
+  | 'pink'
   | 'orange'
   | 'blue'
   | 'red'
@@ -66,6 +67,7 @@ export const BADGE: Record<ColorName, string> = {
   cyan: 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/30 dark:text-cyan-400 dark:border-cyan-800',
   teal: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-400 dark:border-teal-800',
   fuchsia: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-950/30 dark:text-fuchsia-400 dark:border-fuchsia-800',
+  pink: 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/30 dark:text-pink-400 dark:border-pink-800',
   orange: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-400 dark:border-orange-800',
   blue: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800',
   red: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800',
@@ -90,6 +92,7 @@ export const PILL: Record<ColorName, string> = {
   cyan: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
   teal: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
   fuchsia: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-400',
+  pink: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
   orange: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
   blue: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   red: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
@@ -113,6 +116,7 @@ export const STRONG: Record<ColorName, string> = {
   cyan: 'bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-900 dark:text-cyan-200 dark:border-cyan-700',
   teal: 'bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900 dark:text-teal-200 dark:border-teal-700',
   fuchsia: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-900 dark:text-fuchsia-200 dark:border-fuchsia-700',
+  pink: 'bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-900 dark:text-pink-200 dark:border-pink-700',
   orange: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700',
   blue: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700',
   red: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900 dark:text-red-200 dark:border-red-700',
@@ -132,6 +136,7 @@ export const TEXT: Record<ColorName, string> = {
   cyan: 'text-cyan-600 dark:text-cyan-400',
   teal: 'text-teal-600 dark:text-teal-400',
   fuchsia: 'text-fuchsia-600 dark:text-fuchsia-400',
+  pink: 'text-pink-600 dark:text-pink-400',
   orange: 'text-orange-600 dark:text-orange-400',
   blue: 'text-blue-600 dark:text-blue-400',
   red: 'text-red-600 dark:text-red-400',
@@ -155,6 +160,7 @@ export const SURFACE: Record<ColorName, string> = {
   cyan: 'bg-cyan-50 border-cyan-200 dark:bg-cyan-950/30 dark:border-cyan-800',
   teal: 'bg-teal-50 border-teal-200 dark:bg-teal-950/30 dark:border-teal-800',
   fuchsia: 'bg-fuchsia-50 border-fuchsia-200 dark:bg-fuchsia-950/30 dark:border-fuchsia-800',
+  pink: 'bg-pink-50 border-pink-200 dark:bg-pink-950/30 dark:border-pink-800',
   orange: 'bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-800',
   blue: 'bg-blue-100 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800',
   red: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800',
@@ -174,6 +180,7 @@ export const BORDER: Record<ColorName, string> = {
   cyan: 'border-cyan-200 dark:border-cyan-800',
   teal: 'border-teal-200 dark:border-teal-800',
   fuchsia: 'border-fuchsia-200 dark:border-fuchsia-800',
+  pink: 'border-pink-200 dark:border-pink-800',
   orange: 'border-orange-200 dark:border-orange-800',
   blue: 'border-blue-200 dark:border-blue-800',
   red: 'border-red-200 dark:border-red-800',
@@ -187,6 +194,7 @@ export const BORDER: Record<ColorName, string> = {
  * (barra de progresso, medidor, célula), use `FILL` — mesma cor, intenção outra.
  */
 export const DOT: Record<ColorName, string> = {
+  pink: 'bg-pink-500',
   emerald: 'bg-emerald-500',
   rose: 'bg-rose-500',
   amber: 'bg-amber-500',
@@ -212,6 +220,7 @@ export const DOT: Record<ColorName, string> = {
  * retinge pro `var(--mod-<slug>)` (fill vira a cor do módulo). NÃO usar em texto/borda.
  */
 export const FILL: Record<ColorName, string> = {
+  pink: 'bg-pink-500',
   emerald: 'bg-emerald-500',
   rose: 'bg-rose-500',
   amber: 'bg-amber-500',
