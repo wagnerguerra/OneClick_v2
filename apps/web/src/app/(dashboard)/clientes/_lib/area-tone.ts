@@ -15,10 +15,10 @@ import {
  * (visível no dark, ao contrário do cinza fixo antigo que sumia).
  */
 export const AREA_BADGE_MAP: Record<string, { tone: ColorName; Icon: LucideIcon }> = {
-  contabil:       { tone: 'indigo',  Icon: Calculator },
+  contabil:       { tone: 'blue',    Icon: Calculator },
   fiscal:         { tone: 'violet',  Icon: FileText },
   trabalhista:    { tone: 'lime',    Icon: Users },
-  societario:     { tone: 'blue',    Icon: Briefcase },
+  societario:     { tone: 'emerald', Icon: Briefcase },
   legalizacao:    { tone: 'rose',    Icon: Building2 },
   administrativo: { tone: 'sky',     Icon: ClipboardList },
   financeiro:     { tone: 'cyan',    Icon: Wallet },
