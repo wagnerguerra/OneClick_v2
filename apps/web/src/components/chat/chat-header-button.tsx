@@ -793,7 +793,7 @@ export function ChatHeaderButton({ embed = false }: ChatHeaderButtonProps = {}) 
           title={`Status: ${STATUS_LABEL[meuStatus ?? minhaPresenca]}`}
         />
         {totalUnread > 0 && (
-          <span className="header-badge-pulse absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#dc2626] px-1 text-[10px] font-bold text-white ring-2 ring-card dark:bg-[#f87171]">
+          <span className="header-badge-pulse absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white ring-2 ring-card dark:bg-red-400">
             {totalUnread > 9 ? '9+' : totalUnread}
           </span>
         )}

@@ -8,7 +8,7 @@ import { Button, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
 import { useSession } from '@/lib/auth-client'
 import { getApiUrl } from '@/lib/api-url'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, SURFACE } from '@/lib/color-styles'
 
 interface Notification {
   id: string
@@ -25,11 +25,13 @@ interface Notification {
   removivel: boolean
 }
 
-const TIPO_CONFIG: Record<string, { icon: typeof Info; color: string; bg: string; border: string }> = {
-  info:    { icon: Info,         color: TEXT.sky,     bg: 'bg-sky-50 dark:bg-sky-900/20',         border: 'border-sky-200 dark:border-sky-800' },
-  success: { icon: CheckCircle2, color: TEXT.emerald, bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800' },
-  warning: { icon: AlertTriangle,color: TEXT.amber,   bg: 'bg-amber-50 dark:bg-amber-900/20',     border: 'border-amber-200 dark:border-amber-800' },
-  error:   { icon: AlertCircle,  color: TEXT.rose,    bg: 'bg-rose-50 dark:bg-rose-900/20',       border: 'border-rose-200 dark:border-rose-800' },
+// `color`/`bg` derivam do helper (o chip do ícone usa só bg+cor; `border` era
+// código morto — não consumido no render — então foi removido).
+const TIPO_CONFIG: Record<string, { icon: typeof Info; color: string; bg: string }> = {
+  info:    { icon: Info,         color: TEXT.sky,     bg: SURFACE.sky },
+  success: { icon: CheckCircle2, color: TEXT.emerald, bg: SURFACE.emerald },
+  warning: { icon: AlertTriangle,color: TEXT.amber,   bg: SURFACE.amber },
+  error:   { icon: AlertCircle,  color: TEXT.rose,    bg: SURFACE.rose },
 }
 
 function formatRelativo(d: string): string {
@@ -304,7 +306,7 @@ export function NotificationBell() {
         <Bell className="h-5 w-5" />
         {pendentes > 0 && (
           // Pulso do modelo: scale 1 → 1.15 → 1, 1.6s, infinito, ease-in-out
-          <span className="header-badge-pulse absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#dc2626] px-1 text-[10px] font-bold text-white ring-2 ring-card dark:bg-[#f87171]">
+          <span className="header-badge-pulse absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white ring-2 ring-card dark:bg-red-400">
             {pendentes > 9 ? '9+' : pendentes}
           </span>
         )}

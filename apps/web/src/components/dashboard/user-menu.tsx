@@ -3,9 +3,6 @@
 import { useRouter } from 'next/navigation'
 import { LogOut, User, Settings, HelpCircle, Crown, DownloadCloud } from 'lucide-react'
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -13,9 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@saas/ui'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { signOut } from '@/lib/auth-client'
 import { refreshCurrentUserProfile } from '@/hooks/use-current-user-profile'
-import { resolveAssetUrl } from '@/lib/api-url'
 
 interface UserMenuProps {
   name: string
@@ -28,10 +25,6 @@ interface UserMenuProps {
 const ROLE_LABELS: Record<string, string> = {
   COLABORADOR_INTERNO: 'Colaborador Interno', PRESTADOR_SERVICO: 'Prestador de Serviço',
   COLABORADOR_CLIENTE: 'Colab. Cliente', GESTOR: 'Gestor', COORDENADOR: 'Coordenador', DIRETOR: 'Diretor',
-}
-
-function getInitials(name: string) {
-  return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
 }
 
 function getFirstName(name: string) {
@@ -49,12 +42,12 @@ export function UserMenu({ name, email, role, image, isMaster }: UserMenuProps) 
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-2 rounded-lg p-1 pr-2 hover:bg-muted transition-colors outline-none">
           <div className="relative">
-            <Avatar className="h-8 w-8">
-              {image && <AvatarImage src={resolveAssetUrl(image)} alt={name} />}
-              <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
-                {getInitials(name)}
-              </AvatarFallback>
-            </Avatar>
+            <UserAvatar
+              user={{ name, image }}
+              className="h-8 w-8 text-xs"
+              bg="bg-primary"
+              fg="text-primary-foreground"
+            />
             {isMaster && (
               <span
                 className="absolute -top-1 -right-1 flex items-center justify-center"
