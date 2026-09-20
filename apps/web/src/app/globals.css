@@ -588,6 +588,15 @@ html:has([data-portal-root]) { scroll-behavior: smooth; }
   }
   html body[data-scroll-locked] {
     margin-right: 0 !important;
+    /* O react-remove-scroll (Radix Select/Dialog/etc.) põe `overflow: hidden` no
+       body ao travar o scroll. Como o scroller da app é o `html` (`overflow-y:
+       scroll` acima), isso transforma o body num container de scroll novo (scrollTop
+       0) e ROUBA o contexto do `position: sticky` — a barra de página (título +
+       trilha) desgruda pro topo do documento e some, só voltando ao fechar. Aqui o
+       lock real vem do bloqueio de wheel/touch por JS, não desse overflow; então
+       revertê-lo conserta o sticky SEM destravar o scroll. `html body[...]` vence a
+       regra injetada pelo Radix (mesma especificidade, `html` na frente desempata). */
+    overflow: visible !important;
   }
   /* Mesma história com o SweetAlert2, que é outra biblioteca e compensa de
      outro jeito: ele mexe só no `body` (`overflow: hidden` + `padding-right`
