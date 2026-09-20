@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { MessageSquare, X, Users } from 'lucide-react'
 import { cn } from '@saas/ui'
-import { resolveAssetUrl } from '@/lib/api-url'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { TEXT } from '@/lib/color-styles'
 
 interface ToastPayload {
@@ -96,7 +96,6 @@ export function ChatToastListener() {
       {toasts.map(t => {
         // Strip HTML do conteúdo pra preview limpo
         const preview = t.mensagemConteudo.replace(/<@[a-z0-9]+>/gi, '@usuário').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-        const initials = (t.autorNome || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
         const titulo = t.conversaIsGrupo
           ? `${t.conversaNome} · ${t.autorNome}`
           : t.autorNome
@@ -118,23 +117,16 @@ export function ChatToastListener() {
             )}
           >
             {/* Avatar do autor */}
-            {t.autorImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={resolveAssetUrl(t.autorImage)}
-                alt={t.autorNome}
-                className="h-9 w-9 rounded-full object-cover shrink-0"
-              />
-            ) : (
-              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                {initials}
-              </div>
-            )}
+            <UserAvatar
+              user={{ name: t.autorNome, image: t.autorImage }}
+              className="h-9 w-9 text-xs shrink-0"
+              gradient="bg-gradient-to-br from-sky-500 to-indigo-500"
+            />
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <MessageSquare className={cn('h-3 w-3 shrink-0', TEXT.sky)} />
-                <span className="text-[10px] font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider">Nova mensagem</span>
+                <span className={cn('text-[10px] font-bold uppercase tracking-wider', TEXT.sky)}>Nova mensagem</span>
               </div>
               <div className="text-[13px] font-semibold leading-tight mt-0.5 truncate flex items-center gap-1">
                 {t.conversaIsGrupo && <Users className="h-3 w-3 text-violet-500 shrink-0" />}

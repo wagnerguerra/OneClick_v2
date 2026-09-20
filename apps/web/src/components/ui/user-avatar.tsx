@@ -42,7 +42,7 @@ function iniciaisDe(nome: string) {
   return (primeira + ultima).toUpperCase()
 }
 
-export function UserAvatar({ user, phone, className, bg = 'bg-slate-400', fg = 'text-white', title, bgColor, icon: Icon = User }: {
+export function UserAvatar({ user, phone, className, bg = 'bg-slate-400', fg = 'text-white', title, bgColor, gradient, icon: Icon = User }: {
   user: { name: string; image?: string | null } | null | undefined
   phone?: string | null
   className?: string
@@ -50,6 +50,11 @@ export function UserAvatar({ user, phone, className, bg = 'bg-slate-400', fg = '
   fg?: string
   title?: string
   bgColor?: string
+  /**
+   * Classes de gradiente do fallback (ex.: `bg-gradient-to-br from-sky-500 to-indigo-500`).
+   * Quando presente, o fundo das iniciais/ícone vem daqui em vez de `bg`/`bgColor`.
+   */
+  gradient?: string
   /** Ícone de fallback (último recurso, sem foto e sem iniciais). Default `<User>`. */
   icon?: ElementType
 }) {
@@ -90,8 +95,8 @@ export function UserAvatar({ user, phone, className, bg = 'bg-slate-400', fg = '
     return (
       <span
         title={title ?? user?.name ?? undefined}
-        className={cn('rounded-full flex items-center justify-center', !bgColor && bg, fg, className)}
-        style={bgColor ? { backgroundColor: bgColor } : undefined}
+        className={cn('rounded-full flex items-center justify-center', gradient || (!bgColor && bg), fg, className)}
+        style={!gradient && bgColor ? { backgroundColor: bgColor } : undefined}
       >
         <Icon className="h-1/2 w-1/2" />
       </span>
@@ -100,8 +105,8 @@ export function UserAvatar({ user, phone, className, bg = 'bg-slate-400', fg = '
   return (
     <span
       title={title ?? user?.name ?? undefined}
-      className={cn('rounded-full flex items-center justify-center font-bold', !bgColor && bg, fg, className)}
-      style={bgColor ? { backgroundColor: bgColor } : undefined}
+      className={cn('rounded-full flex items-center justify-center font-bold', gradient || (!bgColor && bg), fg, className)}
+      style={!gradient && bgColor ? { backgroundColor: bgColor } : undefined}
     >
       {initials}
     </span>
