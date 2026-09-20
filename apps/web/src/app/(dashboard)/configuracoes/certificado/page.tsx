@@ -33,8 +33,6 @@ interface CertInfo {
   cnpjContratante: string | null
 }
 
-const MODULE_COLOR = 'var(--mod-configuracoes, #f97316)'
-
 const TABS = [
   { key: 'certificado', label: 'Certificado PJ', icon: Shield },
   { key: 'certificado-pf', label: 'Certificado PF', icon: CircleUser },
@@ -259,10 +257,9 @@ function CertificadoSettingsPageInner() {
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    style={isActive ? { backgroundColor: MODULE_COLOR } : undefined}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
-                      isActive ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-white dark:hover:bg-white/5',
+                      isActive ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-white dark:hover:bg-white/5',
                     )}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />

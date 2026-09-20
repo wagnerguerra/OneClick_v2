@@ -641,10 +641,9 @@ export default function ConfiguracoesPage() {
                     className={cn(
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                       activeGroup === group
-                        ? 'text-white shadow-sm'
+                        ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground'
                     )}
-                    style={activeGroup === group ? { backgroundColor: 'var(--mod-configuracoes, #f97316)' } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     {group}
@@ -684,7 +683,7 @@ export default function ConfiguracoesPage() {
                           className={cn(
                             'px-4 py-2.5 text-xs font-medium transition-all flex items-center gap-2 border-b-2 -mb-px',
                             dbSubtab === tab.key
-                              ? 'border-orange-500 text-orange-600'
+                              ? 'border-primary text-primary'
                               : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                           )}
                         >
@@ -796,7 +795,7 @@ export default function ConfiguracoesPage() {
                         {expandedConsole && (
                           <div className="flex items-center justify-between pb-3 border-b border-hairline">
                             <div className="flex items-center gap-2">
-                              <Terminal className="h-4 w-4 text-orange-500" />
+                              <Terminal className="h-4 w-4 text-primary" />
                               <span className="text-sm font-semibold">Console SQL</span>
                               <span className="text-xs text-muted-foreground">— {DB_SUBTABS.find(t => t.key === dbSubtab)?.label}</span>
                             </div>
@@ -813,28 +812,28 @@ export default function ConfiguracoesPage() {
 
                         {/* Painel do template ativo com variáveis */}
                         {activeTemplate[dbSubtab] && Object.keys(templateVars[dbSubtab] || {}).length > 0 && (
-                          <div className="rounded border border-orange-200 bg-orange-50/50 dark:bg-orange-950/20">
-                            <div className="flex items-center justify-between px-3 py-2 border-b border-orange-200/60 dark:border-orange-800/40">
+                          <div className="rounded border border-primary/30 bg-primary/10">
+                            <div className="flex items-center justify-between px-3 py-2 border-b border-primary/20">
                               <div className="flex items-center gap-2">
-                                <Bookmark className="h-3.5 w-3.5 text-orange-500" />
-                                <span className="text-xs font-semibold text-orange-700">{activeTemplate[dbSubtab]!.name}</span>
-                                <span className="text-[10px] text-orange-500 bg-orange-100 px-1.5 py-0.5 rounded">template</span>
+                                <Bookmark className="h-3.5 w-3.5 text-primary" />
+                                <span className="text-xs font-semibold text-primary">{activeTemplate[dbSubtab]!.name}</span>
+                                <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">template</span>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => { setActiveTemplate(prev => ({ ...prev, [dbSubtab]: null })); setTemplateVars(prev => ({ ...prev, [dbSubtab]: {} })) }}
-                                className="text-orange-400 hover:text-orange-600"
+                                className="text-primary/70 hover:text-primary"
                                 title="Desvincular template"
                               >
                                 <X className="h-3.5 w-3.5" />
                               </button>
                             </div>
                             <div className="px-3 py-2.5">
-                              <div className="text-[10px] text-orange-600 font-medium mb-2">Variáveis — preencha os valores para execução:</div>
+                              <div className="text-[10px] text-primary font-medium mb-2">Variáveis — preencha os valores para execução:</div>
                               <div className="grid grid-cols-12 gap-2">
                                 {Object.keys(templateVars[dbSubtab]!).map((varName) => (
                                   <div key={varName} className="col-span-12 md:col-span-4">
-                                    <Label className="text-[11px] text-orange-700 font-mono">{`{{${varName}}}`}</Label>
+                                    <Label className="text-[11px] text-primary font-mono">{`{{${varName}}}`}</Label>
                                     <Input
                                       placeholder={varName.replace(/_/g, ' ')}
                                       value={templateVars[dbSubtab]![varName] || ''}
@@ -848,9 +847,9 @@ export default function ConfiguracoesPage() {
                                 ))}
                               </div>
                               {/* Preview do SQL resolvido */}
-                              <div className="mt-2 pt-2 border-t border-orange-200/60 dark:border-orange-800/40">
-                                <div className="text-[10px] text-orange-600 font-medium mb-1">Preview:</div>
-                                <div className="text-[11px] font-mono text-orange-900 dark:text-orange-200 bg-orange-100/60 dark:bg-orange-900/20 rounded px-2 py-1.5 max-h-[60px] overflow-auto whitespace-pre-wrap nice-scrollbar">
+                              <div className="mt-2 pt-2 border-t border-primary/20">
+                                <div className="text-[10px] text-primary font-medium mb-1">Preview:</div>
+                                <div className="text-[11px] font-mono text-primary bg-primary/10 rounded px-2 py-1.5 max-h-[60px] overflow-auto whitespace-pre-wrap nice-scrollbar">
                                   {resolveTemplate(activeTemplate[dbSubtab]!.sql, templateVars[dbSubtab]!)}
                                 </div>
                               </div>
@@ -902,7 +901,7 @@ export default function ConfiguracoesPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => setShowSaveDialog(prev => ({ ...prev, [dbSubtab]: true }))}
-                                  className="flex items-center gap-2 text-orange-600 border-orange-300 hover:bg-orange-50"
+                                  className="flex items-center gap-2 text-primary border-primary/30 hover:bg-primary/10"
                                 >
                                   <Bookmark className="h-3.5 w-3.5" />
                                   Salvar consulta
@@ -992,7 +991,7 @@ export default function ConfiguracoesPage() {
                                       </div>
                                       {editingQueryId !== q.id && (
                                         <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
-                                          <button type="button" onClick={(e) => { e.stopPropagation(); setEditingQueryId(q.id); setEditingQueryName(q.name) }} className="text-muted-foreground hover:text-orange-600" title="Renomear">
+                                          <button type="button" onClick={(e) => { e.stopPropagation(); setEditingQueryId(q.id); setEditingQueryName(q.name) }} className="text-muted-foreground hover:text-primary" title="Renomear">
                                             <Pencil className="h-3.5 w-3.5" />
                                           </button>
                                           <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteSavedQuery(q.id) }} className="text-red-400 hover:text-red-600" title="Excluir consulta">
@@ -1024,10 +1023,10 @@ export default function ConfiguracoesPage() {
                                       {/* Templates */}
                                       {templates.length > 0 && (
                                         <>
-                                          <div className="px-3 py-1.5 bg-orange-50/80 dark:bg-orange-950/20 border-b border-orange-100 dark:border-orange-900/40 flex items-center gap-1.5">
-                                            <Bookmark className="h-3 w-3 text-orange-500" />
-                                            <span className="text-[10px] font-semibold text-orange-600 uppercase tracking-wider">Templates</span>
-                                            <span className="text-[10px] text-orange-400">({templates.length})</span>
+                                          <div className="px-3 py-1.5 bg-primary/10 border-b border-primary/20 flex items-center gap-1.5">
+                                            <Bookmark className="h-3 w-3 text-primary" />
+                                            <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">Templates</span>
+                                            <span className="text-[10px] text-primary/70">({templates.length})</span>
                                           </div>
                                           {templates.map(renderQueryItem)}
                                         </>
@@ -1166,7 +1165,7 @@ export default function ConfiguracoesPage() {
                           className={cn(
                             'px-4 py-2.5 text-xs font-medium transition-all flex items-center gap-2 border-b-2 -mb-px',
                             googleSubtab === tab.key
-                              ? 'border-orange-500 text-orange-600'
+                              ? 'border-primary text-primary'
                               : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                           )}
                         >
@@ -1211,7 +1210,7 @@ export default function ConfiguracoesPage() {
               <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
                   <h4 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-orange-500" />
+                    <Bell className="h-4 w-4 text-primary" />
                     Notificações — controle de remoção pelo usuário
                   </h4>
                   <Button
@@ -1226,7 +1225,7 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 <div className="flex-1 p-5 space-y-4" style={{ animation: 'fadeSlideIn 0.2s ease-out' }}>
-                  <div className="rounded border border-orange-200/70 bg-orange-50/50 dark:bg-orange-950/20 dark:border-orange-900/40 px-3 py-2.5 text-[11px] text-orange-900 dark:text-orange-200 leading-relaxed">
+                  <div className="rounded border border-primary/30 bg-primary/10 px-3 py-2.5 text-[11px] text-primary leading-relaxed">
                     Por origem, define se o usuário pode remover a notificação manualmente
                     do sino. Origens <strong>não removíveis</strong> ficam no painel até a
                     condição que as gerou ser resolvida pelo sistema (ex: o evento da agenda
@@ -1297,7 +1296,7 @@ export default function ConfiguracoesPage() {
                                         type="button"
                                         onClick={() => resetNotifOrigem(o.origem)}
                                         title={`Restaurar padrão (${o.removivelPadrao ? 'removível' : 'não removível'})`}
-                                        className="text-[10px] text-orange-600 hover:underline"
+                                        className="text-[10px] text-primary hover:underline"
                                       >
                                         padrão
                                       </button>

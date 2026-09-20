@@ -23,8 +23,6 @@ import {
   type FeriadoTipo,
 } from '@saas/types'
 
-const MODULE_COLOR = 'var(--mod-configuracoes, #f97316)' // Orange — Configurações
-
 interface Feriado {
   id: string
   nome: string
@@ -178,7 +176,7 @@ function MesCalendario({
     <div
       className={cn(
         'rounded-lg border bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md',
-        isMesAtual ? 'border-orange-300 ring-1 ring-orange-200/50' : 'border-border/60',
+        isMesAtual ? 'border-primary/40 ring-1 ring-primary/20' : 'border-border/60',
       )}
     >
       {/* Header do mês */}
@@ -186,7 +184,7 @@ function MesCalendario({
         <h5
           className={cn(
             'text-[13px] font-bold tracking-tight',
-            isMesAtual ? TEXT.orange : 'text-foreground',
+            isMesAtual ? 'text-primary' : 'text-foreground',
           )}
         >
           {MESES_PT[mes]}
@@ -268,8 +266,8 @@ function MesCalendario({
                   isFds ? 'text-foreground/40' : 'text-foreground/80',
                   'hover:bg-muted hover:border-border/60',
                 ),
-            isToday && !tem && 'bg-orange-500 text-white font-bold shadow-sm border-orange-500',
-            isToday && tem && 'ring-2 ring-orange-500 ring-offset-1 z-10',
+            isToday && !tem && 'bg-primary text-primary-foreground font-bold shadow-sm border-primary',
+            isToday && tem && 'ring-2 ring-primary ring-offset-1 z-10',
           )
 
           return (
@@ -485,9 +483,8 @@ export function CalendarioSection() {
               title="Visualização em tabela"
               className={cn(
                 'flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors',
-                view === 'tabela' ? 'text-white' : 'text-muted-foreground hover:text-foreground',
+                view === 'tabela' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
-              style={view === 'tabela' ? { backgroundColor: MODULE_COLOR } : undefined}
             >
               <List className="h-3.5 w-3.5" />Tabela
             </button>
@@ -497,14 +494,13 @@ export function CalendarioSection() {
               title="Visualização em calendário (12 meses)"
               className={cn(
                 'flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-border/60',
-                view === 'calendario' ? 'text-white' : 'text-muted-foreground hover:text-foreground',
+                view === 'calendario' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
-              style={view === 'calendario' ? { backgroundColor: MODULE_COLOR } : undefined}
             >
               <LayoutGrid className="h-3.5 w-3.5" />Calendário
             </button>
           </div>
-          <Button size="sm" onClick={abrirNovo} style={{ backgroundColor: MODULE_COLOR, color: 'white' }}>
+          <Button size="sm" onClick={abrirNovo}>
             <Plus className="h-4 w-4" />Novo feriado
           </Button>
         </div>
@@ -614,7 +610,7 @@ export function CalendarioSection() {
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-10">
                     <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       Carregando feriados...
                     </div>
                   </TableCell>
@@ -852,7 +848,7 @@ export function CalendarioSection() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               <X className="h-4 w-4" />Cancelar
             </Button>
-            <Button onClick={salvar} disabled={saving} style={{ backgroundColor: MODULE_COLOR, color: 'white' }}>
+            <Button onClick={salvar} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {editing ? 'Salvar' : 'Cadastrar'}
             </Button>
