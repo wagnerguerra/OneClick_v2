@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Bug, RefreshCw, Search, Loader2, CheckCircle2, AlertTriangle, AlertOctagon, Trash2, ChevronDown, ChevronUp, User as UserIcon, RotateCw,
+  Bug, RefreshCw, Search, Loader2, CheckCircle2, AlertTriangle, AlertOctagon, Trash2, ChevronDown, ChevronUp, RotateCw,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   FileText, BarChart3, ListTree, StickyNote, TrendingUp,
 } from 'lucide-react'
@@ -21,6 +21,7 @@ import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { BADGE, PILL, TEXT, BORDER } from '@/lib/color-styles'
 import { ChartTooltip } from '@/components/chart-tooltip'
 
@@ -418,9 +419,9 @@ export default function ErrosClientePage() {
                     </TableCell>
                     <TableCell>
                       {e.user ? (
-                        <span className="inline-flex items-center gap-1.5 text-[11px]">
-                          <UserIcon className="h-3 w-3 text-muted-foreground" />
-                          {e.user.name}
+                        <span className="inline-flex items-center gap-1.5 text-[11px] min-w-0">
+                          <UserAvatar user={e.user} className="h-5 w-5 text-[9px] shrink-0" />
+                          <span className="truncate">{e.user.name}</span>
                         </span>
                       ) : (
                         <span className="text-[10px] text-muted-foreground italic">Anônimo</span>
