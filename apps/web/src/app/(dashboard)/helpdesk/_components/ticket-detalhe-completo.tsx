@@ -40,7 +40,7 @@ import {
   type HelpdeskStatus, type HelpdeskPrioridade,
 } from '@saas/types'
 
-const MODULO_COLOR = 'var(--mod-ti, #22d3ee)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Mensagem {
   id: string
@@ -881,11 +881,11 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
         {/* Header bleed-edge */}
         <div
           className={cn('relative overflow-hidden', variant === 'page' ? '-mx-4 sm:-mx-6 -mt-4 sm:-mt-6' : 'rounded-lg')}
-          style={{ backgroundColor: `color-mix(in srgb, ${MODULO_COLOR} 12%, transparent)` }}
+          style={{ backgroundColor: `color-mix(in srgb, ${PRIMARY} 12%, transparent)` }}
         >
           <div
             className="absolute inset-0"
-            style={{ backgroundImage: `linear-gradient(to right, color-mix(in srgb, ${MODULO_COLOR} 0%, transparent) 0%, color-mix(in srgb, ${MODULO_COLOR} 80%, transparent) 100%)` }}
+            style={{ backgroundImage: `linear-gradient(to right, color-mix(in srgb, ${PRIMARY} 0%, transparent) 0%, color-mix(in srgb, ${PRIMARY} 80%, transparent) 100%)` }}
           />
           <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -895,7 +895,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                     className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 overflow-hidden shadow-lg"
                     style={{ boxShadow: 'inset 0 0 0 3px #d4d4d4' }}
                   >
-                    <Headphones className="h-10 w-10" style={{ color: MODULO_COLOR }} />
+                    <Headphones className="h-10 w-10" style={{ color: PRIMARY }} />
                   </div>
                 )}
                 <div className="min-w-0">
@@ -986,18 +986,18 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
               só quando sobra espaço (`sm:justify-center`). */}
           <div className="relative z-10 flex justify-start overflow-x-auto nice-scrollbar px-4 pb-2 sm:justify-center sm:px-6">
             <SlidingTabsList activeValue={activeTab} className="min-w-max !shadow-sm !border !border-b !border-white/80 dark:!border-white/25 gap-1.5 !p-1 !bg-white/40 dark:!bg-black/30 !rounded-full backdrop-blur-sm w-fit">
-              <TabsTrigger value="conversa" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-700 dark:data-[state=active]:!text-cyan-300 gap-1.5">
+              <TabsTrigger value="conversa" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary gap-1.5">
                 <MessageSquare className="h-3.5 w-3.5" /> Conversação
                 {ticket.mensagens.length > 0 && (
                   <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">{ticket.mensagens.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="timeline" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-700 dark:data-[state=active]:!text-cyan-300 gap-1.5">
+              <TabsTrigger value="timeline" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary gap-1.5">
                 <History className="h-3.5 w-3.5" /> Histórico
               </TabsTrigger>
               {/* Só aparece quando a categoria do chamado tem checklist vinculado. */}
               {ticket.checklist && (
-                <TabsTrigger value="checklist" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-cyan-700 dark:data-[state=active]:!text-cyan-300 gap-1.5">
+                <TabsTrigger value="checklist" className="!relative !z-10 !rounded-full !border-b-0 !px-4 !py-1.5 !text-xs !font-semibold !text-foreground/70 hover:!text-foreground transition-colors data-[state=active]:!bg-transparent data-[state=active]:!shadow-none data-[state=active]:!text-primary gap-1.5">
                   <ListChecks className="h-3.5 w-3.5" /> Checklist
                   {ticket.checklist.execucaoId && (
                     <Badge variant="secondary" className="text-[10px] ml-1.5 h-4 px-1.5">
@@ -1029,7 +1029,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                 em todas (impressão de abas "misturadas"). Agora são só desta aba. */}
             <TabsContent value="conversa" className="space-y-4 mt-0">
             {/* Descrição inicial — primeiro card da conversa */}
-            <Card className="border-l-4 border-l-cyan-500/70 overflow-hidden">
+            <Card className="border-l-4 border-l-primary/70 overflow-hidden">
               {/* Header com avatar + autor + timestamp */}
               <div className="px-4 py-3 bg-muted/30 border-b flex items-center gap-3">
                 {ticket.solicitante?.image ? (
@@ -1074,7 +1074,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
               {/* Conteúdo da descrição + anexos enviados na solicitação */}
               <CardContent className="px-5 py-4">
                 <RichContent
-                  className="text-sm leading-relaxed [&_a]:text-cyan-600 dark:[&_a]:text-cyan-400"
+                  className="text-sm leading-relaxed [&_a]:text-primary"
                   html={linkifyHelpdesk(ticket.descricao)}
                 />
                 <AnexoThumbs anexos={anexosIniciais} onOpen={setAnexoPreview} />
@@ -1403,7 +1403,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                       </div>
                       {/* Mensagem citada (resposta a) */}
                       {msg.respostaPara && (
-                        <div className="mb-2 border-l-2 border-cyan-400 bg-muted/40 rounded-r px-2.5 py-1.5 text-xs">
+                        <div className="mb-2 border-l-2 border-primary bg-muted/40 rounded-r px-2.5 py-1.5 text-xs">
                           <p className="font-semibold text-muted-foreground mb-0.5">↩ {msg.respostaPara.autorNome || 'Mensagem'}</p>
                           <div className="text-muted-foreground line-clamp-2 [&_*]:inline [&_p]:m-0" dangerouslySetInnerHTML={{ __html: msg.respostaPara.conteudo }} />
                         </div>
@@ -1414,7 +1414,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                           sem elas, parágrafos ficavam colados e a linha em
                           branco digitada pelo autor sumia. */}
                       <RichContent
-                        className="text-sm [&_a]:text-cyan-600 dark:[&_a]:text-cyan-400"
+                        className="text-sm [&_a]:text-primary"
                         html={linkifyHelpdesk(msg.conteudo)}
                       />
                       {/* Anexos vinculados a esta mensagem — abrem no visualizador inline */}
@@ -1465,7 +1465,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                   )}
                   {/* Respondendo a uma mensagem específica */}
                   {respondendoA && (
-                    <div className="flex items-start gap-2 border-l-2 border-cyan-400 bg-muted/40 rounded-r px-2.5 py-1.5 text-xs">
+                    <div className="flex items-start gap-2 border-l-2 border-primary bg-muted/40 rounded-r px-2.5 py-1.5 text-xs">
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-muted-foreground mb-0.5">↩ Respondendo a {respondendoA.autor?.name || 'mensagem'}</p>
                         <div className="text-muted-foreground line-clamp-2 [&_*]:inline [&_p]:m-0" dangerouslySetInnerHTML={{ __html: respondendoA.conteudo }} />
@@ -1535,8 +1535,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                       size="sm"
                       onClick={enviarMensagem}
                       disabled={enviando || (!novaMsg.replace(/<[^>]+>/g, '').trim() && !msgAnexos.some(a => a.status === 'ready'))}
-                      style={{ backgroundColor: MODULO_COLOR }}
-                      className="text-white gap-1.5"
+                      className="gap-1.5"
                     >
                       {enviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                       Enviar
@@ -1563,12 +1562,12 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                   {ticket.eventos.map(ev => (
                     <div key={ev.id} className="flex items-start gap-3 px-4 py-3">
                       <div className="shrink-0 mt-0.5">
-                        {ev.tipo === 'criado' && <FileText className={cn('h-4 w-4', TEXT.cyan)} />}
-                        {ev.tipo === 'atribuido' && <UserCog className={cn('h-4 w-4', TEXT.cyan)} />}
-                        {ev.tipo === 'status_alterado' && <Layers className={cn('h-4 w-4', TEXT.cyan)} />}
-                        {ev.tipo === 'mensagem_publica' && <MessageSquare className={cn('h-4 w-4', TEXT.cyan)} />}
+                        {ev.tipo === 'criado' && <FileText className="h-4 w-4 text-primary" />}
+                        {ev.tipo === 'atribuido' && <UserCog className="h-4 w-4 text-primary" />}
+                        {ev.tipo === 'status_alterado' && <Layers className="h-4 w-4 text-primary" />}
+                        {ev.tipo === 'mensagem_publica' && <MessageSquare className="h-4 w-4 text-primary" />}
                         {ev.tipo === 'nota_interna' && <Lock className={cn('h-4 w-4', TEXT.amber)} />}
-                        {ev.tipo === 'anexo_adicionado' && <Paperclip className={cn('h-4 w-4', TEXT.cyan)} />}
+                        {ev.tipo === 'anexo_adicionado' && <Paperclip className="h-4 w-4 text-primary" />}
                         {ev.tipo === 'csat_recebido' && <Star className={cn('h-4 w-4', TEXT.emerald)} />}
                         {!['criado','atribuido','status_alterado','mensagem_publica','nota_interna','anexo_adicionado','csat_recebido'].includes(ev.tipo) && (
                           <History className="h-4 w-4 text-muted-foreground" />
@@ -1841,7 +1840,7 @@ export function TicketDetalheCompleto({ ticketId, variant, onClose, onChanged }:
                     </button>
                     <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
                       <div
-                        className="h-full bg-cyan-500 transition-all"
+                        className="h-full bg-primary transition-all"
                         style={{ width: `${ticket.checklist.passosTotal > 0 ? Math.round((ticket.checklist.passosFechados / ticket.checklist.passosTotal) * 100) : 0}%` }}
                       />
                     </div>
@@ -2407,7 +2406,7 @@ function ChecklistDoChamado({ execucaoId, onChanged }: { execucaoId: string; onC
           <p className="text-sm font-semibold">{data.servico.nome}</p>
           <p className="text-[11px] text-muted-foreground tabular-nums">{fechados}/{total} passos · {pct}%</p>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-            <div className="h-full transition-all" style={{ width: `${pct}%`, backgroundColor: data.status === 'CONCLUIDO' ? '#10b981' : '#06b6d4' }} />
+            <div className="h-full transition-all" style={{ width: `${pct}%`, backgroundColor: data.status === 'CONCLUIDO' ? '#10b981' : 'var(--color-primary)' }} />
           </div>
         </div>
 
@@ -2427,7 +2426,7 @@ function ChecklistDoChamado({ execucaoId, onChanged }: { execucaoId: string; onC
                         'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors',
                         p.concluido && 'border-emerald-500 bg-emerald-500',
                         p.ignorado && 'border-amber-400 bg-amber-400',
-                        !fechado && 'border-border hover:border-cyan-500',
+                        !fechado && 'border-border hover:border-primary',
                       )}
                       title={p.concluido ? 'Concluído (clique para reabrir)' : p.ignorado ? 'Ignorado' : 'Marcar como concluído'}
                     >
@@ -2447,7 +2446,7 @@ function ChecklistDoChamado({ execucaoId, onChanged }: { execucaoId: string; onC
           </div>
         ))}
 
-        <Link href={`/meus-servicos?exec=${execucaoId}`} className="block text-xs text-cyan-700 hover:underline dark:text-cyan-300">
+        <Link href={`/meus-servicos?exec=${execucaoId}`} className="block text-xs text-primary hover:underline">
           Abrir checklist completo →
         </Link>
       </CardContent>
@@ -2504,7 +2503,7 @@ function AnexoThumbs({ anexos, onOpen }: { anexos: Anexo[]; onOpen: (a: Anexo) =
         return isImg ? (
           <button key={a.id} type="button" onClick={() => onOpen(a)} title={a.fileName} className="block shrink-0 group">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={resolveAssetUrl(a.fileUrl)} alt={a.fileName} className="h-20 w-20 rounded-md border border-border object-cover transition group-hover:ring-2 group-hover:ring-cyan-400" />
+            <img src={resolveAssetUrl(a.fileUrl)} alt={a.fileName} className="h-20 w-20 rounded-md border border-border object-cover transition group-hover:ring-2 group-hover:ring-primary" />
           </button>
         ) : (
           <button key={a.id} type="button" onClick={() => onOpen(a)} title={a.fileName}

@@ -22,7 +22,7 @@ import { PROJETO_STATUS_LABELS, PROJETO_STATUS_ORDEM, type ProjetoStatus } from 
 const STATUS_ORDEM = PROJETO_STATUS_ORDEM
 
 // Cor do bloco TI — fallback do stripe do card quando o projeto não tem cor própria.
-const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
+const PRIMARY = 'var(--color-primary)'
 
 // Cores semânticas: NOVO=cinza (novidade fria), ANDAMENTO=âmbar (em movimento),
 // PENDENTE=roxo (aguardando algo), CONCLUIDO=verde (sucesso).
@@ -293,7 +293,7 @@ function KanbanCard({
       onClick={() => { if (!isDraggingAny) router.push(`/projetos/${projeto.id}`) }}
     >
       <div className="flex">
-        <div className="w-1 shrink-0" style={{ backgroundColor: projeto.cor || MODULE_COLOR }} />
+        <div className="w-1 shrink-0" style={{ backgroundColor: projeto.cor || PRIMARY }} />
         <div className="flex-1 min-w-0">
           <KanbanCardContent
             projeto={projeto}
@@ -351,7 +351,7 @@ function KanbanCardOverlay({
       }}
     >
       <div className="flex">
-        <div className="w-1 shrink-0" style={{ backgroundColor: projeto.cor || MODULE_COLOR }} />
+        <div className="w-1 shrink-0" style={{ backgroundColor: projeto.cor || PRIMARY }} />
         <div className="flex-1 min-w-0">
           <KanbanCardContent
             projeto={projeto}

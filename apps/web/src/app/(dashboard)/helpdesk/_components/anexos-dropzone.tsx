@@ -207,7 +207,7 @@ export function AnexosDropzone({
         className={cn(
           'rounded-md border-2 border-dashed transition-colors cursor-pointer',
           compact ? 'px-3 py-2' : 'px-4 py-6',
-          dragging ? 'border-cyan-400 bg-cyan-50/40 dark:bg-cyan-950/30' : 'border-border/60 hover:border-cyan-300',
+          dragging ? 'border-primary bg-primary/10' : 'border-border/60 hover:border-primary/50',
         )}
       >
         <div className={cn('flex items-center justify-center gap-2 text-muted-foreground', compact ? 'text-[11px]' : 'text-xs')}>
@@ -248,7 +248,7 @@ export function AnexosDropzone({
                 <p className="truncate font-medium">{item.fileName}</p>
                 <p className="text-[10px] text-muted-foreground">{fmtBytes(item.tamanho)}</p>
               </div>
-              {item.status === 'uploading' && <Loader2 className={cn('h-3.5 w-3.5 animate-spin', TEXT.cyan)} />}
+              {item.status === 'uploading' && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
               {item.status === 'error' && <span className={cn('text-[10px] font-medium', TEXT.rose)}>erro</span>}
               {item.status === 'ready' && <Paperclip className={cn('h-3 w-3', TEXT.emerald)} />}
               <button

@@ -32,8 +32,8 @@ import {
   type HelpdeskStatus, type HelpdeskPrioridade, type HelpdeskTipo,
 } from '@saas/types'
 
-// Cor do módulo (helpdesk = ti, slug cyan). var() preferencial + fallback.
-const MOD = 'var(--mod-ti, #22d3ee)'
+// Cor primária do sistema (adapta ao tema/skin).
+const PRIMARY = 'var(--color-primary)'
 
 // ── Tipos do retorno do endpoint helpdesk.dashboard ────────────────
 interface Dashboard {
@@ -487,7 +487,7 @@ export default function HelpdeskIndicadoresPage() {
         <>
           {/* KPI cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <Kpi label="Criados no período" value={data.kpis.criados} icon={Inbox} tone="cyan" />
+            <Kpi label="Criados no período" value={data.kpis.criados} icon={Inbox} tone="primary" />
             <Kpi label="Resolvidos" value={data.kpis.resolvidos} icon={CheckCircle2} tone="emerald" />
             <Kpi
               label="Backlog em aberto"
@@ -546,8 +546,8 @@ export default function HelpdeskIndicadoresPage() {
                 <AreaChart data={data.serie} margin={{ left: -18, right: 8, top: 4, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradCriados" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.5} />
-                      <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.5} />
+                      <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradResolvidos" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10b981" stopOpacity={0.5} />
@@ -559,7 +559,7 @@ export default function HelpdeskIndicadoresPage() {
                   <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" tickLine={false} axisLine={false} allowDecimals={false} />
                   <Tooltip content={<ChartTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Area type="monotone" dataKey="criados" name="Criados" stroke="#22d3ee" fill="url(#gradCriados)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="criados" name="Criados" stroke="var(--color-primary)" fill="url(#gradCriados)" strokeWidth={2} />
                   <Area type="monotone" dataKey="resolvidos" name="Resolvidos" stroke="#10b981" fill="url(#gradResolvidos)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -650,7 +650,7 @@ export default function HelpdeskIndicadoresPage() {
                           <span className="font-medium tabular-nums">{t.total}</span>
                         </div>
                         <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                          <div className="h-full rounded-full" style={{ width: `${(t.total / max) * 100}%`, backgroundColor: MOD }} />
+                          <div className="h-full rounded-full" style={{ width: `${(t.total / max) * 100}%`, backgroundColor: PRIMARY }} />
                         </div>
                       </div>
                     )
@@ -725,7 +725,7 @@ export default function HelpdeskIndicadoresPage() {
                       <TableRow key={c.id ?? 'sem'}>
                         <TableCell className="text-sm">
                           <span className="flex items-center gap-2">
-                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.cor || MOD }} />
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.cor || PRIMARY }} />
                             <span className="truncate">{c.nome}</span>
                           </span>
                         </TableCell>
@@ -819,7 +819,7 @@ function slaTone(pct: number | null): KpiTone {
   return 'rose'
 }
 
-type KpiTone = 'cyan' | 'rose' | 'emerald' | 'violet' | 'amber' | 'slate'
+type KpiTone = 'primary' | 'rose' | 'emerald' | 'violet' | 'amber' | 'slate'
 
 function Kpi({ label, value, sub, icon: Icon, tone }: {
   label: string
@@ -829,7 +829,7 @@ function Kpi({ label, value, sub, icon: Icon, tone }: {
   tone: KpiTone
 }) {
   const styles: Record<KpiTone, string> = {
-    cyan: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-300',
+    primary: 'bg-primary/10 border-primary/30 text-primary',
     rose: 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300',
     emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-300',
     violet: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-300',

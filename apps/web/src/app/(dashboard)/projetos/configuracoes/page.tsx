@@ -15,7 +15,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Config {
   id: string
@@ -139,7 +139,7 @@ export default function ProjetosConfiguracoesPage() {
             <div className="px-4 py-3 border-b border-border flex items-center gap-3">
               <div
                 className="h-9 w-9 rounded-md flex items-center justify-center"
-                style={{ background: `color-mix(in srgb, ${MODULE_COLOR} 15%, transparent)`, color: MODULE_COLOR }}
+                style={{ background: `color-mix(in srgb, ${PRIMARY} 15%, transparent)`, color: PRIMARY }}
               >
                 <Archive className="h-4 w-4" />
               </div>
@@ -214,8 +214,7 @@ export default function ProjetosConfiguracoesPage() {
                   size="sm"
                   onClick={executarAgora}
                   disabled={!canWrite || executando}
-                  className="gap-1.5 text-white"
-                  style={{ background: MODULE_COLOR }}
+                  className="gap-1.5"
                 >
                   {executando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
                   Executar agora

@@ -10,6 +10,6 @@ export function linkifyHelpdesk(html: string): string {
   return html.replace(
     /#HLP(\d{1,8})\b/g,
     (_match, numero: string) =>
-      `<a href="/helpdesk/n/${numero}" class="text-cyan-600 hover:underline font-semibold">#HLP${numero}</a>`,
+      `<a href="/helpdesk/n/${numero}" class="text-primary hover:underline font-semibold">#HLP${numero}</a>`,
   )
 }

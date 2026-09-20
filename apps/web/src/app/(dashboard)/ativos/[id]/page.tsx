@@ -25,7 +25,7 @@ import {
   calcularValorDepreciado, type AtivoStatus, type AtivoManutencaoTipo, type AtivoAnexoTipo,
 } from '@saas/types'
 
-const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
+const PRIMARY = 'var(--color-primary)'
 
 // Deriva da fonte unica (BADGE) — traz o dark:text-<c>-400 do helper.
 const STATUS_CHIP_CLS: Record<string, string> = {
@@ -237,11 +237,9 @@ export default function AtivoDetalhePage() {
         value={activeTab}
         onValueChange={setActiveTab}
         className="space-y-0"
-        // Cor da aba ativa = cor do módulo (var, editável no design-system),
-        // porém theme-adaptativa: mistura com o foreground → escurece no claro
-        // (contraste sobre a barra clara) e clareia no dark. O color-mix mora no
-        // style inline (seguro); a classe arbitrária só referencia a var.
-        style={{ ['--mod-accent']: 'color-mix(in srgb, var(--mod-ti, #22d3ee) 70%, var(--color-foreground))' } as React.CSSProperties}
+        // Cor da aba ativa = cor primária do sistema (adapta ao tema/skin). A
+        // classe arbitrária só referencia a var.
+        style={{ ['--mod-accent']: 'var(--color-primary)' } as React.CSSProperties}
       >
 
       {/* Topo — PADRAO_PAGINAS §1.1 */}
@@ -259,7 +257,7 @@ export default function AtivoDetalhePage() {
           <Button size="sm" variant="outline" onClick={handleDelete} className={cn('gap-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30', TEXT.rose, BORDER.rose)}>
             <Trash2 className="h-3.5 w-3.5" /> Baixar
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}>
+          <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             Salvar
           </Button>
@@ -293,9 +291,9 @@ export default function AtivoDetalhePage() {
         </div>
       </PageHeaderBar>
 
-      {/* Faixa das abas — mantém a cor do módulo (TI), 18% sobre o fundo. */}
+      {/* Faixa das abas — cor primária do sistema, 18% sobre o fundo. */}
       <div className="relative -mx-4 sm:-mx-6 mb-4 sm:mb-5 overflow-hidden group/cover"
-           style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 18%, transparent)` }}>
+           style={{ backgroundColor: `color-mix(in srgb, ${PRIMARY} 18%, transparent)` }}>
 
         {/* Tabs principais (pills com slide) — padrão das demais páginas de detalhe.
             Classes !-prefixadas vencem as regras globais de [role="tablist"]. */}

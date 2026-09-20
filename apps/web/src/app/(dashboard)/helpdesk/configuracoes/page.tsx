@@ -17,7 +17,7 @@ import { BADGE } from '@/lib/color-styles'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Config {
   slaPorPrioridade: { BAIXA: number; MEDIA: number; ALTA: number; URGENTE: number }
@@ -152,7 +152,7 @@ export default function HelpdeskConfiguracoesPage() {
             <div className="px-4 py-3 border-b border-border flex items-center gap-3">
               <div
                 className="h-9 w-9 rounded-md flex items-center justify-center shrink-0"
-                style={{ background: `color-mix(in srgb, ${MODULE_COLOR} 15%, transparent)`, color: MODULE_COLOR }}
+                style={{ background: `color-mix(in srgb, ${PRIMARY} 15%, transparent)`, color: PRIMARY }}
               >
                 <Bell className="h-4 w-4" />
               </div>
@@ -217,7 +217,7 @@ export default function HelpdeskConfiguracoesPage() {
             <div className="px-4 py-3 border-b border-border flex items-center gap-3">
               <div
                 className="h-9 w-9 rounded-md flex items-center justify-center shrink-0"
-                style={{ background: `color-mix(in srgb, ${MODULE_COLOR} 15%, transparent)`, color: MODULE_COLOR }}
+                style={{ background: `color-mix(in srgb, ${PRIMARY} 15%, transparent)`, color: PRIMARY }}
               >
                 <Clock className="h-4 w-4" />
               </div>
@@ -275,7 +275,7 @@ export default function HelpdeskConfiguracoesPage() {
             <div className="px-4 py-3 border-b border-border flex items-center gap-3">
               <div
                 className="h-9 w-9 rounded-md flex items-center justify-center shrink-0"
-                style={{ background: `color-mix(in srgb, ${MODULE_COLOR} 15%, transparent)`, color: MODULE_COLOR }}
+                style={{ background: `color-mix(in srgb, ${PRIMARY} 15%, transparent)`, color: PRIMARY }}
               >
                 <Inbox className="h-4 w-4" />
               </div>

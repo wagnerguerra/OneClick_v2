@@ -39,7 +39,7 @@ import {
 } from '@saas/types'
 
 // Cor do bloco TI — fallback quando o projeto não tem cor própria.
-const MODULE_COLOR = 'var(--mod-ti, #22d3ee)'
+const PRIMARY = 'var(--color-primary)'
 
 const STATUS_COLOR: Record<TarefaStatus, string> = {
   BACKLOG: '#94a3b8',
@@ -186,7 +186,7 @@ export default function ProjetoDetailPage() {
     )
   }
 
-  const projetoCor = projeto.cor || MODULE_COLOR
+  const projetoCor = projeto.cor || PRIMARY
 
   return (
     <div className="space-y-0 pb-6">

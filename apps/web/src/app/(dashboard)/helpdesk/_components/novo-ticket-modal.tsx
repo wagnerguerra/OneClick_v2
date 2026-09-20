@@ -8,8 +8,6 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { alerts } from '@/lib/alerts'
 import { useTicketForm, TicketFormFields } from './ticket-form'
 
-const MODULO_COLOR = 'var(--mod-ti, #22d3ee)'
-
 /**
  * Modal completa de novo ticket. Desde o #HLP0330 os campos e a submissão vêm do
  * formulário COMPARTILHADO (`useTicketForm`/`TicketFormFields`), o mesmo usado
@@ -39,7 +37,7 @@ export function NovoTicketModal({ open, onOpenChange, onCreated, permitePriorida
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[640px]">
-        <DialogHeaderIcon icon={Headphones} color="cyan">
+        <DialogHeaderIcon icon={Headphones}>
           <DialogTitle>Novo Ticket</DialogTitle>
           <DialogDescription>
             Descreva o problema ou solicitação. A equipe da TI será notificada.
@@ -70,8 +68,7 @@ export function NovoTicketModal({ open, onOpenChange, onCreated, permitePriorida
           <Button
             onClick={form.submit}
             disabled={form.salvando || !form.canSubmit}
-            style={{ backgroundColor: MODULO_COLOR }}
-            className="text-white gap-1.5"
+            className="gap-1.5"
           >
             {form.salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Criar ticket

@@ -39,8 +39,6 @@ import { TicketDetalheCompletoSheet } from './_components/ticket-detalhe-complet
 import { HELPDESK_STATUS_COR } from './_lib/status-styles'
 import { UserAvatar } from '@/components/ui/user-avatar'
 
-const MODULO_COLOR = 'var(--mod-ti, #22d3ee)'
-
 interface Ticket {
   id: string
   numero: number
@@ -550,7 +548,7 @@ export default function HelpdeskPage() {
               <SlidersHorizontal className="h-4 w-4" />
               Filtros
               {filtrosAtivos > 0 && (
-                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none text-white" style={{ backgroundColor: MODULO_COLOR }}>{filtrosAtivos}</span>
+                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none bg-primary text-primary-foreground">{filtrosAtivos}</span>
               )}
             </button>
           {/* Toggle Kanban/Lista — só TI (podeAtuar). Demais usuários veem só Lista. */}
@@ -577,8 +575,7 @@ export default function HelpdeskPage() {
           <Button
             size="sm"
             onClick={() => setNovoOpen(true)}
-            style={{ backgroundColor: MODULO_COLOR }}
-            className="text-white gap-1.5"
+            className="gap-1.5"
           >
             <Plus className="h-4 w-4" /> Novo Ticket
           </Button>
@@ -1072,12 +1069,12 @@ function KanbanCard({ ticket, cor, dragging = false }: { ticket: Ticket; cor: st
         'rounded-md bg-white dark:bg-[#1f242e] cursor-pointer group overflow-hidden border border-border/50 relative',
         dragging ? 'shadow-lg' : 'hover:shadow-md transition-shadow',
         // Solicitante respondeu — destaca o card (bola do lado do agente).
-        ticket.aguardandoResposta && 'ring-2 ring-cyan-400 dark:ring-cyan-500 border-cyan-400/50 shadow-[0_0_0_3px] shadow-cyan-400/15',
+        ticket.aguardandoResposta && 'ring-2 ring-primary border-primary/50 shadow-[0_0_0_3px] shadow-primary/15',
       )}
     >
       {/* Selo "nova resposta" — solicitante respondeu, aguarda o agente */}
       {ticket.aguardandoResposta && (
-        <div className="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-cyan-500 text-white text-[9px] font-semibold px-1.5 py-0.5 shadow-sm">
+        <div className="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-[9px] font-semibold px-1.5 py-0.5 shadow-sm">
           <span className="relative flex h-1.5 w-1.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white/80 opacity-75" />
             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
