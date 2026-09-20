@@ -30,7 +30,9 @@ import { resolveAssetUrl } from '@/lib/api-url'
  * Para a COR DO MÓDULO (editável no design-system), passe `bgColor` com a var/hook
  * (`bgColor="var(--mod-<slug>, #fallback)"` ou `useModuleColor('<slug>')`) — aplica
  * inline e ignora a classe `bg`, mantendo a forma canônica (não use `bg="bg-<c>-500"`
- * contando com o retint). Um `ring-*` (contorno) pode vir pelo `className`.
+ * contando com o retint). Um `ring-*` (contorno) pode vir pelo `className` — mas use
+ * um tom DISTINTO do `bg`: no fallback (iniciais/ícone) o círculo é preenchido com
+ * `bg`, então um ring da MESMA cor do `bg` fica invisível (só aparece sobre foto).
  */
 function iniciaisDe(nome: string) {
   const parts = nome.trim().split(/\s+/).filter(Boolean)

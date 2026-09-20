@@ -97,7 +97,7 @@ export function RamaisWidget({ title, expanded, bloco }: { canRead?: boolean; ti
                   <div className="shrink-0">
                     <UserAvatar
                       user={{ name: c.nomeCompleto, image: c.fotoUrl }}
-                      className="h-12 w-12 text-sm ring-2 ring-emerald-100 dark:ring-emerald-900/40"
+                      className="h-12 w-12 text-sm ring-2 ring-emerald-200 dark:ring-emerald-900/60"
                       bg="bg-emerald-100 dark:bg-emerald-900/40"
                       fg="text-emerald-700 dark:text-emerald-300"
                     />
