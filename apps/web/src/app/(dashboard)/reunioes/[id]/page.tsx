@@ -23,7 +23,7 @@ import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Participante {
   id: string; usuarioId: string | null; nome: string | null; presente: boolean
@@ -210,7 +210,7 @@ export default function ReuniaoDetalhePage() {
           {/* ── Pauta e ata ── */}
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3 pb-2.5 -mx-5 px-5 border-b border-border">
-              <FileText className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <FileText className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-[13px] font-semibold text-foreground">Pauta e ata</h4>
             </div>
             {editandoAta ? (
@@ -257,7 +257,7 @@ export default function ReuniaoDetalhePage() {
           <Card className="p-5">
             <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 -mx-5 px-5 border-b border-border">
               <div className="flex items-center gap-2">
-                <ListTodo className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <ListTodo className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h4 className="text-[13px] font-semibold text-foreground">Plano de ação</h4>
               </div>
               {podeGerenciarAcoes && (
@@ -317,14 +317,14 @@ export default function ReuniaoDetalhePage() {
           {/* ── Mensagens ── */}
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3 pb-2.5 -mx-5 px-5 border-b border-border">
-              <MessageSquare className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <MessageSquare className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-[13px] font-semibold text-foreground">Mensagens</h4>
             </div>
             <div className="flex items-start gap-2 mb-4">
               <textarea value={msgTexto} onChange={(e) => setMsgTexto(e.target.value)} rows={2}
                 placeholder="Escreva uma interação..."
                 className="flex-1 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
-              <Button type="button" size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 mt-0.5"
+              <Button type="button" size="sm" className="gap-1.5 mt-0.5"
                 disabled={enviandoMsg || !msgTexto.trim()} onClick={enviarMensagem}>
                 {enviandoMsg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}Enviar
               </Button>
@@ -360,7 +360,7 @@ export default function ReuniaoDetalhePage() {
         <div className="space-y-5">
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3">
-              <Info className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Info className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-sm font-semibold">Dados</h4>
             </div>
             <dl className="space-y-2 text-xs">
@@ -386,7 +386,7 @@ export default function ReuniaoDetalhePage() {
 
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3">
-              <Users className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Users className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-sm font-semibold">Participantes ({r.participantes.length})</h4>
             </div>
             {r.participantes.length === 0 ? (
@@ -406,13 +406,13 @@ export default function ReuniaoDetalhePage() {
           {r.arquivos.length > 0 && (
             <Card className="p-5">
               <div className="flex items-center gap-2 mb-3">
-                <Paperclip className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <Paperclip className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h4 className="text-sm font-semibold">Anexos</h4>
               </div>
               <div className="space-y-2">
                 {r.arquivos.map((a) => (
                   <a key={a.id} href={`${getApiUrl()}${a.arquivoPath}`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-xs hover:border-[var(--mod-qualidade,#fbbf24)] transition-colors">
+                    className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-xs hover:border-primary transition-colors">
                     <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <span className="truncate">{a.nome}</span>
                   </a>
@@ -423,7 +423,7 @@ export default function ReuniaoDetalhePage() {
 
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3">
-              <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <History className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-sm font-semibold">Atividades</h4>
             </div>
             {r.logs.length === 0 ? (

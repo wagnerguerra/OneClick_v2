@@ -16,7 +16,7 @@ import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { TEXT } from '@/lib/color-styles'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 
 const CONFIG_TABS = [
   { key: 'aprovadores', label: 'Aprovadores', icon: ShieldCheck },
@@ -87,7 +87,7 @@ export default function AquisicoesConfiguracoesPage() {
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                       activeTab === t.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
                     )}
-                    style={activeTab === t.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                    style={activeTab === t.key ? { backgroundColor: PRIMARY } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     {t.label}
@@ -192,7 +192,7 @@ function AprovadoresTab() {
                   checked={u.aprovador}
                   disabled={salvando === u.id}
                   onCheckedChange={() => alternar(u)}
-                  accentColor={MODULE_COLOR}
+                  accentColor={PRIMARY}
                   className="shrink-0"
                   title={u.aprovador ? 'Remover como aprovador' : 'Tornar aprovador'}
                 />

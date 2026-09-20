@@ -23,7 +23,7 @@ import { masks } from '@/lib/masks'
 import { STATUS_COTACAO_LABELS } from '@saas/types'
 import { BADGE, SURFACE, TEXT } from '@/lib/color-styles'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 const brl = (v: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 const COTACAO_TABS = [
@@ -153,7 +153,7 @@ export default function CotacaoDetalhePage() {
             </Button>
           )}
           {!convertida && c.fornecedores.length > 0 && c.itens.length > 0 && (
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white"
+            <Button size="sm"
               disabled={acting} onClick={() => setEnviarOpen(true)}>
               <Send className="h-4 w-4" />Enviar aos fornecedores
             </Button>
@@ -215,7 +215,7 @@ export default function CotacaoDetalhePage() {
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                       activeTab === t.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
                     )}
-                    style={activeTab === t.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                    style={activeTab === t.key ? { backgroundColor: PRIMARY } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     <span className="flex-1">{t.label}</span>
@@ -811,13 +811,13 @@ function ComparativoPainel({ cotacao, bloqueado, acao }: {
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       <Card className="p-4">
         <div className="mb-2 flex items-center gap-2">
-          <Split className="h-4 w-4 shrink-0" style={{ color: MODULE_COLOR }} />
+          <Split className="h-4 w-4 shrink-0" style={{ color: PRIMARY }} />
           <h5 className="text-[13px] font-semibold">Premiação atual</h5>
           <Badge variant="secondary" className="ml-auto text-[10px] tabular-nums">
             {atual.itensPremiados}/{atual.itensTotal} itens
           </Badge>
         </div>
-        <p className="text-2xl font-bold tabular-nums" style={{ color: MODULE_COLOR }}>{brl(atual.total)}</p>
+        <p className="text-2xl font-bold tabular-nums" style={{ color: PRIMARY }}>{brl(atual.total)}</p>
         <p className="text-[11px] text-muted-foreground tabular-nums">
           itens {brl(atual.subtotal)} + frete {brl(atual.frete)}
           {atual.qtdPedidos > 0 && ` · ${atual.qtdPedidos} pedido(s)`}
@@ -942,7 +942,7 @@ function EnviarModal({ cotacao, onClose, onDone }: { cotacao: Cotacao; onClose: 
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white"
+          <Button size="sm"
             disabled={enviando || sel.length === 0} onClick={enviar}>
             {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Enviar {sel.length > 0 ? `(${sel.length})` : ''}

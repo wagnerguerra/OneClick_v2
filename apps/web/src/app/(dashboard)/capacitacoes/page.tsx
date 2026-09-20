@@ -19,7 +19,7 @@ import { alerts } from '@/lib/alerts'
 import { CAPACITACAO_STATUS_LABEL, CAPACITACAO_AMBITO_LABEL } from '@saas/types'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 const PAGE_SIZES = [10, 20, 50]
 
 export const STATUS_COLORS: Record<string, string> = {
@@ -165,7 +165,7 @@ export default function CapacitacoesPage() {
                 resposta a isso. */}
             <Button variant={vencidas ? 'default' : 'outline'} size="xs"
               className={vencidas ? 'text-white' : ''}
-              style={vencidas ? { backgroundColor: MODULE_COLOR } : undefined}
+              style={vencidas ? { backgroundColor: PRIMARY } : undefined}
               onClick={() => { setVencidas((v) => !v); setPage(1) }}>
               <AlertTriangle className="h-3.5 w-3.5" />Avaliação vencida
             </Button>

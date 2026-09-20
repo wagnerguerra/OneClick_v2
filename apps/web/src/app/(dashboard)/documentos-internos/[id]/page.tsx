@@ -24,7 +24,7 @@ import { DOCUMENTO_SITUACAO_LABEL } from '@saas/types'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { SITUACAO_COLORS } from '../page'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Elaborador { id: string; usuarioId: string | null; nome: string | null }
 interface Versao {
@@ -185,7 +185,7 @@ export default function DocumentoInternoDetalhePage() {
             </Button>
           )}
           {podeGerenciar && (
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={() => setRevAberta(true)}>
+            <Button size="sm" onClick={() => setRevAberta(true)}>
               <Plus className="h-4 w-4" />Nova revisão
             </Button>
           )}
@@ -217,7 +217,7 @@ export default function DocumentoInternoDetalhePage() {
         {/* ── Histórico de revisões ── */}
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
-            <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+            <History className="h-4 w-4" style={{ color: PRIMARY }} />
             <h4 className="text-[13px] font-semibold text-foreground">Histórico de revisões</h4>
           </div>
 
@@ -300,7 +300,7 @@ export default function DocumentoInternoDetalhePage() {
         <div className="space-y-5">
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3">
-              <Info className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Info className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-sm font-semibold">Dados do documento</h4>
             </div>
             {/* Só o cabeçalho se edita. O conteúdo de uma revisão nunca muda:
@@ -393,7 +393,7 @@ export default function DocumentoInternoDetalhePage() {
               <Label className="text-[13px] font-semibold">Elaboradores</Label>
               <div className="mt-1.5">
                 <UserMultiPicker users={usuarios} value={revElaboradores} onChange={setRevElaboradores}
-                  placeholder="Quem elaborou esta revisão" accentClass="bg-[var(--mod-qualidade,#fbbf24)] border-[var(--mod-qualidade,#fbbf24)]" />
+                  placeholder="Quem elaborou esta revisão" accentClass="bg-primary border-primary" />
               </div>
               <p className="text-[11px] text-muted-foreground mt-1">
                 Vínculo por pessoa, e não texto solto — é o que permite responder depois
@@ -411,7 +411,7 @@ export default function DocumentoInternoDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setRevAberta(false)} disabled={enviando}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={publicarRevisao} disabled={enviando || !arquivo}>
+            <Button size="sm" onClick={publicarRevisao} disabled={enviando || !arquivo}>
               {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}Publicar revisão
             </Button>
           </DialogFooter>

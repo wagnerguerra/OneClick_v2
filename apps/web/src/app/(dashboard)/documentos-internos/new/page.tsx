@@ -145,7 +145,7 @@ export default function NovoDocumentoInternoPage() {
             <Label className="text-[13px] font-semibold">Elaboradores</Label>
             <div className="mt-1.5">
               <UserMultiPicker users={usuarios} value={elaboradores} onChange={setElaboradores}
-                placeholder="Quem elaborou o documento" accentClass="bg-[var(--mod-qualidade,#fbbf24)] border-[var(--mod-qualidade,#fbbf24)]" />
+                placeholder="Quem elaborou o documento" accentClass="bg-primary border-primary" />
             </div>
           </div>
           <div className="col-span-12">

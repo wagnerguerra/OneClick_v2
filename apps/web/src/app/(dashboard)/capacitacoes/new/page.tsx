@@ -187,7 +187,7 @@ export default function NovaCapacitacaoPage() {
             <Label className="text-[13px] font-semibold">Participantes</Label>
             <div className="mt-1.5">
               <UserMultiPicker users={usuarios} value={participantes} onChange={setParticipantes}
-                placeholder="Quem vai participar" accentClass="bg-[var(--mod-qualidade,#fbbf24)] border-[var(--mod-qualidade,#fbbf24)]" />
+                placeholder="Quem vai participar" accentClass="bg-primary border-primary" />
             </div>
           </div>
           <div className="col-span-12">

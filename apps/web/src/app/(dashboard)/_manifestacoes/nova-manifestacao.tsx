@@ -116,7 +116,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
   return (
     <Dialog open onOpenChange={o => { if (!o && !salvando) onClose() }}>
       <DialogContent className="max-w-3xl">
-        <DialogHeaderIcon icon={config.icone} color="amber">
+        <DialogHeaderIcon icon={config.icone}>
           <DialogTitle>{config.rotuloNovo}</DialogTitle>
           <DialogDescription>{config.subtitulo}</DialogDescription>
         </DialogHeaderIcon>
@@ -133,7 +133,7 @@ export function NovaManifestacaoModal({ config, onClose, onCriado }: {
               return (
                 <button key={o.v} type="button" onClick={() => setOrigem(o.v)}
                   className={cn('rounded-lg border px-3 py-2.5 text-left transition-colors',
-                    origem === o.v ? 'border-amber-400 bg-amber-50/60 dark:bg-amber-950/20' : 'border-border hover:bg-muted/20')}>
+                    origem === o.v ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/20')}>
                   <span className="flex items-center gap-1.5 text-[13px] font-semibold">
                     <Ico className="h-3.5 w-3.5" />{o.t}
                   </span>

@@ -27,7 +27,7 @@ import { AnexosCard } from '../_components/compra-tabs'
 import { MensagensTab } from '../_components/compra-mensagens'
 import { BADGE } from '@/lib/color-styles'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 const brl = (v: number) => (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 // Observações saiu de aba própria e voltou para "Dados", logo abaixo do frete:
@@ -127,7 +127,7 @@ export default function PedidoDetalhePage() {
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
           {editavel && <Button variant="success" size="sm" onClick={salvar} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Salvar</Button>}
-          {(c.status === 'NOVO' || c.status === 'REPROVADO') && <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" disabled={acting} onClick={() => acao(() => (trpc.compra as any).enviar.mutate({ id: c.id }), 'Enviado para aprovação.')}><Send className="h-4 w-4" />Enviar p/ aprovação</Button>}
+          {(c.status === 'NOVO' || c.status === 'REPROVADO') && <Button size="sm" disabled={acting} onClick={() => acao(() => (trpc.compra as any).enviar.mutate({ id: c.id }), 'Enviado para aprovação.')}><Send className="h-4 w-4" />Enviar p/ aprovação</Button>}
           {c.status === 'AGUARDANDO_APROVACAO' && podeAprovar && <>
             <Button variant="success" size="sm" disabled={acting} onClick={() => acao(() => (trpc.compra as any).aprovar.mutate({ id: c.id }), 'Pedido aprovado.')}><Check className="h-4 w-4" />Aprovar</Button>
             <Button variant="destructive" size="sm" disabled={acting} onClick={() => { setMotivo(''); setReprovarOpen(true) }}><Ban className="h-4 w-4" />Reprovar</Button>
@@ -182,7 +182,7 @@ export default function PedidoDetalhePage() {
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                       activeTab === t.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
                     )}
-                    style={activeTab === t.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                    style={activeTab === t.key ? { backgroundColor: PRIMARY } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     {t.label}
@@ -242,7 +242,7 @@ export default function PedidoDetalhePage() {
               )}
               <div className="flex justify-end gap-6 mt-4 pt-3 border-t border-border text-sm">
                 <span className="text-muted-foreground">Frete: <strong className="tabular-nums text-foreground">{brl(freteNum)}</strong></span>
-                <span className="text-muted-foreground">Total: <strong className="tabular-nums" style={{ color: MODULE_COLOR }}>{brl(c.total)}</strong></span>
+                <span className="text-muted-foreground">Total: <strong className="tabular-nums" style={{ color: PRIMARY }}>{brl(c.total)}</strong></span>
               </div>
             </>)}
 

@@ -19,7 +19,7 @@ import { alerts } from '@/lib/alerts'
 import { BackButton } from '@/components/ui/back-button'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 const PAGE_SIZES = [10, 20, 50]
 
 interface Row {
@@ -113,14 +113,14 @@ export default function AcoesReunioesPage() {
             </Select>
             <Button variant={vencidas ? 'default' : 'outline'} size="xs"
               className={vencidas ? 'text-white' : ''}
-              style={vencidas ? { backgroundColor: MODULE_COLOR } : undefined}
+              style={vencidas ? { backgroundColor: PRIMARY } : undefined}
               onClick={() => { setVencidas((v) => !v); setPage(1) }}>
               <AlertTriangle className="h-3.5 w-3.5" />Só vencidas
             </Button>
             {podeVerTodas && (
               <Button variant={todos ? 'default' : 'outline'} size="xs"
                 className={todos ? 'text-white' : ''}
-                style={todos ? { backgroundColor: MODULE_COLOR } : undefined}
+                style={todos ? { backgroundColor: PRIMARY } : undefined}
                 onClick={() => { setTodos((v) => !v); setPage(1) }}>
                 <Users className="h-3.5 w-3.5" />Toda a equipe
               </Button>

@@ -18,7 +18,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 const PAGE_SIZES = [10, 20, 50]
 
 interface Row {
@@ -146,7 +146,7 @@ export default function ReunioesPage() {
             {/* O badge de pendências que o v1 mostrava no menu, agora como filtro. */}
             <Button variant={pendentes ? 'default' : 'outline'} size="xs"
               className={pendentes ? 'text-white' : ''}
-              style={pendentes ? { backgroundColor: MODULE_COLOR } : undefined}
+              style={pendentes ? { backgroundColor: PRIMARY } : undefined}
               onClick={() => { setPendentes((v) => !v); setPage(1) }}>
               <AlertTriangle className="h-3.5 w-3.5" />Com ação pendente
             </Button>

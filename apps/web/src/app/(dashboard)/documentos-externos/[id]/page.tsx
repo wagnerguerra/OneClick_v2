@@ -18,7 +18,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Versao {
   id: string; revisao: number; dataRegistro: string
@@ -138,7 +138,7 @@ export default function DocumentoExternoDetalhePage() {
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
           {podeEscrever && (
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={abrirNovaRevisao}>
+            <Button size="sm" onClick={abrirNovaRevisao}>
               <Plus className="h-4 w-4" />Nova revisão
             </Button>
           )}
@@ -163,7 +163,7 @@ export default function DocumentoExternoDetalhePage() {
         {/* ── Histórico de revisões ── */}
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
-            <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+            <History className="h-4 w-4" style={{ color: PRIMARY }} />
             <h4 className="text-[13px] font-semibold text-foreground">Histórico de revisões</h4>
           </div>
 
@@ -184,7 +184,7 @@ export default function DocumentoExternoDetalhePage() {
                     )}
                     {ehUrl(v.link) && (
                       <a href={v.link!.trim()} target="_blank" rel="noopener noreferrer"
-                        className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium hover:underline" style={{ color: MODULE_COLOR }}>
+                        className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium hover:underline" style={{ color: PRIMARY }}>
                         <ExternalLink className="h-3 w-3" />Abrir no emissor
                       </a>
                     )}
@@ -229,7 +229,7 @@ export default function DocumentoExternoDetalhePage() {
         <div className="space-y-5">
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3">
-              <Info className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Info className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-sm font-semibold">Dados do documento</h4>
             </div>
             {/* Só o cabeçalho se edita. Mudou a norma, publica-se revisão nova. */}
@@ -308,7 +308,7 @@ export default function DocumentoExternoDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setRevAberta(false)} disabled={publicando}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={publicarRevisao} disabled={publicando}>
+            <Button size="sm" onClick={publicarRevisao} disabled={publicando}>
               {publicando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}Publicar revisão
             </Button>
           </DialogFooter>

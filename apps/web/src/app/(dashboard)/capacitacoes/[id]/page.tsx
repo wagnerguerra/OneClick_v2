@@ -25,7 +25,7 @@ import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 import { STATUS_COLORS } from '../page'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Participante {
   id: string; usuarioId: string | null; nome: string | null
@@ -155,7 +155,7 @@ export default function CapacitacaoDetalhePage() {
             </Button>
           </>)}
           {podeAvaliar && (c.status === 'AUTORIZADA' || c.status === 'AVALIADA') && (
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white"
+            <Button size="sm"
               onClick={() => {
                 setAtingiu(c.objetivosAtingidos ?? true)
                 setAvForma(c.avaliacaoForma ?? '')
@@ -205,7 +205,7 @@ export default function CapacitacaoDetalhePage() {
           <Card className="p-5">
             <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 -mx-5 px-5 border-b border-border">
               <div className="flex items-center gap-2">
-                <Users className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <Users className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h4 className="text-[13px] font-semibold text-foreground">
                   Participantes <span className="text-muted-foreground font-normal">({confirmados} de {c.participantes.length} confirmaram)</span>
                 </h4>
@@ -221,7 +221,7 @@ export default function CapacitacaoDetalhePage() {
             {editandoParticipantes ? (
               <div className="space-y-3">
                 <UserMultiPicker users={usuarios} value={novosParticipantes} onChange={setNovosParticipantes}
-                  placeholder="Escolha os participantes" accentClass="bg-[var(--mod-qualidade,#fbbf24)] border-[var(--mod-qualidade,#fbbf24)]" />
+                  placeholder="Escolha os participantes" accentClass="bg-primary border-primary" />
                 {/* Quem já confirmou não sai por edição — a confirmação é um
                     fato, e apagá-la reescreveria a história da capacitação. */}
                 <p className="text-[11px] text-muted-foreground">
@@ -277,7 +277,7 @@ export default function CapacitacaoDetalhePage() {
           {(c.avaliadaEm || c.avaliacaoForma) && (
             <Card className="p-5">
               <div className="flex items-center gap-2 mb-3 pb-2.5 -mx-5 px-5 border-b border-border">
-                <ClipboardCheck className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <ClipboardCheck className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h4 className="text-[13px] font-semibold text-foreground">Avaliação de eficácia</h4>
                 {c.objetivosAtingidos != null && (
                   <Badge variant="outline" className={cn('text-[10px]',
@@ -310,7 +310,7 @@ export default function CapacitacaoDetalhePage() {
         <div className="space-y-5">
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3">
-              <Info className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Info className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-sm font-semibold">Dados</h4>
             </div>
             <dl className="space-y-2 text-xs">
@@ -341,13 +341,13 @@ export default function CapacitacaoDetalhePage() {
           {c.anexos.length > 0 && (
             <Card className="p-5">
               <div className="flex items-center gap-2 mb-3">
-                <Paperclip className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <Paperclip className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h4 className="text-sm font-semibold">Anexos</h4>
               </div>
               <div className="space-y-2">
                 {c.anexos.map((a) => (
                   <a key={a.id} href={`${getApiUrl()}${a.arquivoPath}`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-xs hover:border-amber-300 dark:hover:border-amber-800 transition-colors">
+                    className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-xs hover:border-primary transition-colors">
                     <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <span className="truncate">{a.descricao || a.arquivoNome}</span>
                   </a>
@@ -358,7 +358,7 @@ export default function CapacitacaoDetalhePage() {
 
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3">
-              <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <History className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-sm font-semibold">Atividades</h4>
             </div>
             {c.logs.length === 0 ? (
@@ -444,7 +444,7 @@ export default function CapacitacaoDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setAvaliando(false)} disabled={acting}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white"
+            <Button size="sm"
               disabled={acting || !avForma.replace(/<[^>]*>/g, '').trim() || (!atingiu && !avAcoes.replace(/<[^>]*>/g, '').trim())}
               onClick={() => {
                 setAvaliando(false)

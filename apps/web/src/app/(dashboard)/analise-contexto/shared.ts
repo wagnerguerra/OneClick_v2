@@ -1,7 +1,7 @@
 /** Chaves visuais compartilhadas entre a listagem e o detalhe. */
 import { BADGE } from '@/lib/color-styles'
 
-export const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+export const PRIMARY = 'var(--color-primary)'
 
 export const ANALISE_BADGE: Record<string, string> = {
   EXTERNA: BADGE.sky,

@@ -22,7 +22,7 @@ import { alerts } from '@/lib/alerts'
 import { BADGE, TEXT } from '@/lib/color-styles'
 import { NC_SITUACAO_LABEL, NC_ACAO_TIPO_LABEL, NC_ACAO_TIPOS } from '@saas/types'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
-import { MODULE_COLOR, NC_SITUACAO_BADGE, dataBR, dataHoraBR } from '../shared'
+import { PRIMARY, NC_SITUACAO_BADGE, dataBR, dataHoraBR } from '../shared'
 
 interface Acao {
   id: string; tipo: string; descricao: string; prazo: string | null
@@ -220,13 +220,13 @@ export default function NaoConformidadeDetalhePage() {
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
           {podeEscrever && !encerrada && nc.situacao === 'AGUARDANDO_CAUSA' && (
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white"
+            <Button size="sm"
               onClick={() => { setCausaTexto(nc.causa ?? ''); setCausaAberta(true) }}>
               <Check className="h-4 w-4" />Registrar causa
             </Button>
           )}
           {podeAvaliar && (
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white"
+            <Button size="sm"
               onClick={() => { setAvTexto(''); setAvEficaz(null); setAvAberta(true) }}>
               <Check className="h-4 w-4" />Avaliar eficácia
             </Button>
@@ -268,7 +268,7 @@ export default function NaoConformidadeDetalhePage() {
           {/* ── Fato gerador + causa ── */}
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
-              <Info className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Info className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-[13px] font-semibold text-foreground">Fato gerador</h4>
             </div>
             <RichContent className="text-sm [&_p]:my-1" html={nc.detalhamento} />
@@ -306,7 +306,7 @@ export default function NaoConformidadeDetalhePage() {
           <Card className="p-5">
             <div className="flex items-center justify-between gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
               <div className="flex items-center gap-2">
-                <ClipboardList className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <ClipboardList className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h4 className="text-[13px] font-semibold text-foreground">Plano de ação</h4>
               </div>
               {podeEscrever && !encerrada && (
@@ -374,7 +374,7 @@ export default function NaoConformidadeDetalhePage() {
               <div className="flex items-center gap-2">
                 {nc.eficaz != null
                   ? (nc.eficaz ? <ThumbsUp className="h-4 w-4 text-emerald-500" /> : <ThumbsDown className="h-4 w-4 text-rose-500" />)
-                  : <Check className="h-4 w-4" style={{ color: MODULE_COLOR }} />}
+                  : <Check className="h-4 w-4" style={{ color: PRIMARY }} />}
                 <h4 className="text-[13px] font-semibold text-foreground">Avaliação de eficácia</h4>
               </div>
               {podeEscrever && !encerrada && (
@@ -447,7 +447,7 @@ export default function NaoConformidadeDetalhePage() {
           {/* ── Mensagens ── */}
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
-              <MessageSquare className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <MessageSquare className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-[13px] font-semibold text-foreground">Mensagens</h4>
             </div>
             {podeEscrever && (
@@ -494,7 +494,7 @@ export default function NaoConformidadeDetalhePage() {
           {nc.arquivos.length > 0 && (
             <Card className="p-5">
               <div className="flex items-center gap-2 mb-3">
-                <Paperclip className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <Paperclip className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h4 className="text-sm font-semibold">Arquivos</h4>
               </div>
               <div className="space-y-1.5">
@@ -511,7 +511,7 @@ export default function NaoConformidadeDetalhePage() {
 
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3">
-              <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <History className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-sm font-semibold">Histórico</h4>
             </div>
             {nc.logs.length === 0 ? (

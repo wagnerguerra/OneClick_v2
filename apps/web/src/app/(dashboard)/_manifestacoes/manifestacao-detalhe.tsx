@@ -15,7 +15,7 @@ import { SURFACE, TEXT } from '@/lib/color-styles'
 import { STATUS_LABEL } from './manifestacao-page'
 import type { Config } from './tipos'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #f59e0b)'
+const PRIMARY = 'var(--color-primary)'
 
 /**
  * A tratativa de uma manifestação.
@@ -108,10 +108,10 @@ export function ManifestacaoDetalhe({ config, id, podeTratar, onClose, onMudou }
         <SheetDescription className="sr-only">Detalhe e tratativa do registro.</SheetDescription>
 
         <div className="relative overflow-hidden"
-          style={{ backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 12%, transparent)` }}>
+          style={{ backgroundColor: `color-mix(in srgb, ${PRIMARY} 12%, transparent)` }}>
           <div
             className="absolute inset-0"
-            style={{ backgroundImage: `linear-gradient(to right, color-mix(in srgb, ${MODULE_COLOR} 0%, transparent) 0%, color-mix(in srgb, ${MODULE_COLOR} 22%, transparent) 100%)` }}
+            style={{ backgroundImage: `linear-gradient(to right, color-mix(in srgb, ${PRIMARY} 0%, transparent) 0%, color-mix(in srgb, ${PRIMARY} 22%, transparent) 100%)` }}
           />
           <div className="relative z-10 flex items-start gap-3 px-6 py-4">
             <div className="min-w-0 flex-1">

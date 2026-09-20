@@ -13,7 +13,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 
 interface ItemRow { descricao: string; unidade: string; quantidade: number; valorUnitario: number }
 interface FornOpc { id: string; razaoSocial: string; documento: string }
@@ -111,7 +111,7 @@ export default function NovoPedidoPage() {
                       'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                       activeTab === t.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
                     )}
-                    style={activeTab === t.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                    style={activeTab === t.key ? { backgroundColor: PRIMARY } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     {t.label}
@@ -171,7 +171,7 @@ export default function NovoPedidoPage() {
               <div className="flex justify-end gap-6 mt-4 pt-3 border-t border-border text-sm">
                 <span className="text-muted-foreground">Itens: <strong className="tabular-nums text-foreground">{brl(totalItens)}</strong></span>
                 <span className="text-muted-foreground">Frete: <strong className="tabular-nums text-foreground">{brl(freteNum)}</strong></span>
-                <span className="text-muted-foreground">Total: <strong className="tabular-nums" style={{ color: MODULE_COLOR }}>{brl(total)}</strong></span>
+                <span className="text-muted-foreground">Total: <strong className="tabular-nums" style={{ color: PRIMARY }}>{brl(total)}</strong></span>
               </div>
             </>)}
 

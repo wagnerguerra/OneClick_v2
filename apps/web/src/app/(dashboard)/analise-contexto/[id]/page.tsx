@@ -24,7 +24,7 @@ import {
 } from '@saas/types'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { BADGE, TEXT } from '@/lib/color-styles'
-import { MODULE_COLOR, ANALISE_BADGE, TIPO_BADGE, riscoClasse, dataBR } from '../shared'
+import { PRIMARY, ANALISE_BADGE, TIPO_BADGE, riscoClasse, dataBR } from '../shared'
 
 interface Acao {
   id: string
@@ -223,7 +223,7 @@ export default function AnaliseContextoDetalhePage() {
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
           {podeEscrever && !r.avaliado && (
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white"
+            <Button size="sm"
               onClick={() => { setAvTexto(r.avaliacao ?? ''); setAvEficaz(r.eficaz); setAvData(hoje()); setAvAberta(true) }}>
               <Check className="h-4 w-4" />Registrar avaliação
             </Button>
@@ -259,7 +259,7 @@ export default function AnaliseContextoDetalhePage() {
           <Card className="p-5">
             <div className="flex items-center justify-between gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
               <div className="flex items-center gap-2">
-                <ClipboardList className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <ClipboardList className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h4 className="text-[13px] font-semibold text-foreground">Plano de ação</h4>
               </div>
               {podeEscrever && (
@@ -340,7 +340,7 @@ export default function AnaliseContextoDetalhePage() {
               <div className="flex items-center gap-2">
                 {r.avaliado
                   ? (r.eficaz ? <ThumbsUp className="h-4 w-4 text-emerald-500" /> : <ThumbsDown className="h-4 w-4 text-rose-500" />)
-                  : <Check className="h-4 w-4" style={{ color: MODULE_COLOR }} />}
+                  : <Check className="h-4 w-4" style={{ color: PRIMARY }} />}
                 <h4 className="text-[13px] font-semibold text-foreground">Avaliação de eficácia</h4>
               </div>
               {podeEscrever && r.avaliado && (
@@ -372,7 +372,7 @@ export default function AnaliseContextoDetalhePage() {
         <div className="space-y-5">
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3">
-              <Info className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Info className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-sm font-semibold">Dados do registro</h4>
             </div>
             <div className="space-y-3">

@@ -26,10 +26,10 @@ import { UserAvatar } from '@/components/ui/user-avatar'
  * o que faz a conversa ser conversa, veio (coluna `parent_id`).
  */
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 // Borda do balão = a cor do módulo amaciada (~50%), acompanhando a var editável
 // no design-system em vez de um literal âmbar.
-const MODULE_BORDER = `color-mix(in srgb, ${MODULE_COLOR} 50%, transparent)`
+const PRIMARY_BORDER = `color-mix(in srgb, ${PRIMARY} 50%, transparent)`
 
 export interface MensagemRow {
   id: string; texto: string; createdAt: string; updatedAt?: string | null
@@ -113,7 +113,7 @@ function MensagemItem({ msg, currentUserId, respostas = [], onExcluir, onEditar,
     <div className={cn('group flex items-start', isReply ? 'gap-3' : 'gap-5')}>
       <UserAvatar
         user={{ name: nome, image: msg.autor?.image }}
-        bgColor={MODULE_COLOR}
+        bgColor={PRIMARY}
         className={cn(avatar, 'shrink-0 ring-2 ring-background shadow-sm mt-0.5')}
       />
 
@@ -157,7 +157,7 @@ function MensagemItem({ msg, currentUserId, respostas = [], onExcluir, onEditar,
         {/* Balão com a cauda angular no canto superior esquerdo — mesmo desenho
             das mensagens do orçamento, com a borda na cor do módulo. */}
         <div className="relative">
-          <div className="relative -ml-px bg-muted/60 dark:bg-muted/30 rounded-2xl rounded-tl-none px-4 py-3 border" style={{ borderColor: MODULE_BORDER }}>
+          <div className="relative -ml-px bg-muted/60 dark:bg-muted/30 rounded-2xl rounded-tl-none px-4 py-3 border" style={{ borderColor: PRIMARY_BORDER }}>
             {editando ? (
               <div className="space-y-2">
                 <RichEditor value={texto} onChange={setTexto} placeholder="Edite o conteúdo da mensagem..." />
@@ -165,7 +165,7 @@ function MensagemItem({ msg, currentUserId, respostas = [], onExcluir, onEditar,
                   <Button type="button" size="sm" variant="outline" onClick={() => { setTexto(msg.texto); setEditando(false) }} disabled={salvando}>
                     Cancelar
                   </Button>
-                  <Button type="button" size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={salvar} disabled={salvando || richVazio(texto)}>
+                  <Button type="button" size="sm" className="gap-1.5" onClick={salvar} disabled={salvando || richVazio(texto)}>
                     {salvando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Salvar
                   </Button>
                 </div>
@@ -177,21 +177,21 @@ function MensagemItem({ msg, currentUserId, respostas = [], onExcluir, onEditar,
           <svg className="absolute pointer-events-none overflow-visible" style={{ left: -11, top: 0 }} width="14" height="14" viewBox="0 0 14 14" aria-hidden>
             <path d="M 0 0 L 14 0 L 14 14 L 12 14 L 12 13 Z" className="fill-card" />
             <path d="M 0 0 L 14 0 L 14 14 L 12 14 L 12 13 Z" className="fill-muted/60 dark:fill-muted/30" />
-            <path d="M 12 13 L 0 0 L 13 0" style={{ stroke: MODULE_BORDER }} fill="none" strokeWidth="1" strokeLinejoin="miter" />
+            <path d="M 12 13 L 0 0 L 13 0" style={{ stroke: PRIMARY_BORDER }} fill="none" strokeWidth="1" strokeLinejoin="miter" />
           </svg>
         </div>
 
         {respondendo && onResponder && (
           <div className="mt-3 space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
             <Label className="text-[12px] font-semibold flex items-center gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} /> Respondendo a {nome}
+              <MessageSquare className="h-3.5 w-3.5" style={{ color: PRIMARY }} /> Respondendo a {nome}
             </Label>
             <RichEditor value={resposta} onChange={setResposta} placeholder="Escreva sua resposta..." />
             <div className="flex items-center justify-end gap-2">
               <Button type="button" size="sm" variant="outline" onClick={() => { setResposta(''); setRespondendo(false) }} disabled={enviandoResposta}>
                 Cancelar
               </Button>
-              <Button type="button" size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={enviarResposta} disabled={enviandoResposta || richVazio(resposta)}>
+              <Button type="button" size="sm" className="gap-1.5" onClick={enviarResposta} disabled={enviandoResposta || richVazio(resposta)}>
                 {enviandoResposta ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Responder
               </Button>
             </div>
@@ -267,11 +267,11 @@ export function MensagensTab({ compraId, currentUserId }: { compraId: string; cu
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h5 className="text-[13px] font-semibold flex items-center gap-1.5">
-          <MessageSquare className="h-3.5 w-3.5" style={{ color: MODULE_COLOR }} />
+          <MessageSquare className="h-3.5 w-3.5" style={{ color: PRIMARY }} />
           Mensagens
           {msgs.length > 0 && <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{msgs.length}</Badge>}
         </h5>
-        <Button type="button" size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={() => setNovaAberta(true)}>
+        <Button type="button" size="sm" className="gap-1.5" onClick={() => setNovaAberta(true)}>
           <Plus className="h-3.5 w-3.5" /> Nova mensagem
         </Button>
       </div>
@@ -318,7 +318,7 @@ export function MensagensTab({ compraId, currentUserId }: { compraId: string; cu
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" size="sm" onClick={() => setNovaAberta(false)} disabled={enviando}>Cancelar</Button>
-            <Button type="button" size="sm" className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }} onClick={adicionar} disabled={enviando || richVazio(nova)}>
+            <Button type="button" size="sm" className="gap-1.5" onClick={adicionar} disabled={enviando || richVazio(nova)}>
               {enviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Salvar mensagem
             </Button>
           </DialogFooter>

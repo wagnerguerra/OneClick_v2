@@ -19,7 +19,7 @@ import { alerts } from '@/lib/alerts'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { CAMPOS_CONTROLE, type CampoControle } from '../campos'
 
-const MODULE_COLOR = 'var(--mod-qualidade, #fbbf24)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Versao {
   id: string; versao: number; dataVersao: string
@@ -136,7 +136,7 @@ export default function TabelaRegistroDetalhePage() {
       {/* Topo — PADRAO_PAGINAS §1.1 */}
       <PageHeaderBar actions={<>
           {podeEscrever && (
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={abrirNovaVersao}>
+            <Button size="sm" onClick={abrirNovaVersao}>
               <Plus className="h-4 w-4" />Nova versão
             </Button>
           )}
@@ -161,7 +161,7 @@ export default function TabelaRegistroDetalhePage() {
         {/* ── Histórico de versões ── */}
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
-            <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+            <History className="h-4 w-4" style={{ color: PRIMARY }} />
             <h4 className="text-[13px] font-semibold text-foreground">Histórico de versões</h4>
           </div>
 
@@ -204,7 +204,7 @@ export default function TabelaRegistroDetalhePage() {
         <div className="space-y-5">
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3">
-              <Info className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Info className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-sm font-semibold">Dados do registro</h4>
             </div>
             {/* Só o cabeçalho se edita. O conteúdo de uma versão nunca muda:
@@ -266,7 +266,7 @@ export default function TabelaRegistroDetalhePage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setVerAberta(false)} disabled={publicando}>Cancelar</Button>
-            <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white" onClick={publicarVersao} disabled={publicando}>
+            <Button size="sm" onClick={publicarVersao} disabled={publicando}>
               {publicando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}Publicar versão
             </Button>
           </DialogFooter>
