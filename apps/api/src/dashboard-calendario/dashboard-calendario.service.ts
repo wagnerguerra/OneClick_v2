@@ -14,8 +14,12 @@ export interface PrazoItem {
   horaInicio?: string | null
   /** Link interno pra abrir o item */
   link?: string | null
-  /** Cor hex opcional pra customização visual */
+  /** Cor hex opcional pra customização visual — para agenda, é a cor de FUNDO do tipo. */
   cor?: string | null
+  /** Cor de BORDA do tipo de evento (acento forte) — usada na tira/traço do evento. */
+  corBorda?: string | null
+  /** Cor de TEXTO do tipo de evento (sobre o fundo). */
+  corTexto?: string | null
   /** Flag: prazo já passou */
   atrasado?: boolean
 }
@@ -143,7 +147,7 @@ export class DashboardCalendarioService {
             : []),
         ],
       },
-      include: { tipo: { select: { cor: true } } },
+      include: { tipo: { select: { cor: true, corBorda: true, corTexto: true } } },
       take: 500,
     })
 
@@ -155,6 +159,8 @@ export class DashboardCalendarioService {
       horaInicio: e.diaInteiro ? null : e.horaInicio,
       link: `/agenda?eventoId=${e.id}`,
       cor: e.tipo?.cor ?? null,
+      corBorda: e.tipo?.corBorda ?? null,
+      corTexto: e.tipo?.corTexto ?? null,
     }))
   }
 
