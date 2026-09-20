@@ -7,7 +7,7 @@ import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, DefRow } from '../_components/article-blocks'
 
 const MODULO_COLOR = 'var(--mod-configuracoes, #f97316)'
-const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
+const FAQ_COLOR = 'var(--color-primary)'
 
 export default function FaqCalendarioFeriadosPage() {
   return (

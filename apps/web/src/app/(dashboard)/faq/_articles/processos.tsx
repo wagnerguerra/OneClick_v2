@@ -11,7 +11,7 @@ import {
 } from '../_components/article-blocks'
 
 const MODULO_COLOR = 'var(--mod-processos, #8b5cf6)'
-const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
+const FAQ_COLOR = 'var(--color-primary)'
 
 export default function FaqProcessosPage() {
   return (

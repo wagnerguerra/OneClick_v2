@@ -27,7 +27,7 @@ import {
   aplicarExemplos,
 } from './_lib/templates'
 
-const MODULE_COLOR = 'var(--mod-ajuda, #0891b2)'
+const MODULE_COLOR = 'var(--color-primary)'
 
 // Empresa/logo de exemplo usados só no preview do sandbox.
 const PREVIEW_EMPRESA = 'Central Contábil'

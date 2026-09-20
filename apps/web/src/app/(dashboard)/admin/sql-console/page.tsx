@@ -30,7 +30,7 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   loading: () => <div className="h-[220px] bg-muted flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>,
 })
 
-const MODULE_COLOR = 'var(--mod-ajuda, #0891b2)'
+const MODULE_COLOR = 'var(--color-primary)'
 const tint = (pct: number) => `color-mix(in srgb, ${MODULE_COLOR} ${pct}%, transparent)`
 
 type RunResult =
@@ -135,7 +135,7 @@ export default function SqlConsolePage() {
       {/* Modal de detalhes do banco */}
       <Dialog open={dbModal} onOpenChange={setDbModal}>
         <DialogContent className="max-w-md">
-          <DialogHeaderIcon icon={Database} color="cyan">
+          <DialogHeaderIcon icon={Database}>
             <DialogTitle>Detalhes do banco</DialogTitle>
             <DialogDescription>Conexão do ambiente atual (produção mostra o banco de produção).</DialogDescription>
           </DialogHeaderIcon>

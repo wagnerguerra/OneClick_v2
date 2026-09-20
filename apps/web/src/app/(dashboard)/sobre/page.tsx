@@ -22,8 +22,8 @@ import {
 import { Card, CardContent, Badge } from '@saas/ui'
 import { PageHeaderBar } from '@/components/page-header-bar'
 
-// Cor de acento do bloco "Ajuda" (cyan), via a var editável do módulo.
-const ACCENT = 'var(--mod-ajuda, #0891b2)'
+// Acento primário do sistema (antes: cor do módulo Ajuda).
+const ACCENT = 'var(--color-primary)'
 
 // Versão atual do sistema web — fonte: apps/web/package.json (campo "version").
 const VERSAO_WEB = '0.1.0'

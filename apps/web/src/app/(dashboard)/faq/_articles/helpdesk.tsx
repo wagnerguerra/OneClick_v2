@@ -10,7 +10,7 @@ import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, QuickLink, DefRow } from '../_components/article-blocks'
 
 const MODULO_COLOR = 'var(--mod-ti, #22d3ee)' // cyan — grupo TI
-const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
+const FAQ_COLOR = 'var(--color-primary)'
 
 export default function FaqHelpdeskPage() {
   return (

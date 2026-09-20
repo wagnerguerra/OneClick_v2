@@ -7,7 +7,7 @@ import type { ComponentType, ReactNode } from 'react'
 import { PageHeader } from '@/components/page-header'
 import { FaqToc } from './faq-toc'
 
-export const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)' // cyan-600 (cor da seção FAQ)
+export const FAQ_COLOR = 'var(--color-primary)' // acento primário do sistema (antes: cor do módulo Ajuda)
 
 interface Props {
   modulo: string

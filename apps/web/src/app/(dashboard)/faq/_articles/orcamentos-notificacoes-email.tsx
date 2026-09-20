@@ -8,7 +8,7 @@ import { ArticleShell } from '../_components/article-shell'
 import { Section, Step, Callout, DefRow, QuickLink, CasoPratico } from '../_components/article-blocks'
 
 const MODULO_COLOR = '#fb7185' // rosa — módulo comercial/orçamentos
-const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'    // ciano — padrão FAQ
+const FAQ_COLOR = 'var(--color-primary)'    // acento primário do sistema (padrão FAQ)
 
 export default function FaqOrcamentosNotificacoesEmailPage() {
   return (

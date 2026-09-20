@@ -10,7 +10,7 @@ import {
 } from '../_components/article-blocks'
 
 const MODULO_COLOR = 'var(--mod-fiscal, #0369a1)'
-const FAQ_COLOR = 'var(--mod-ajuda, #0891b2)'
+const FAQ_COLOR = 'var(--color-primary)'
 const IMG = '/materiais/faq/reforma-tributaria'
 
 export default function FaqReformaTributariaPage() {
