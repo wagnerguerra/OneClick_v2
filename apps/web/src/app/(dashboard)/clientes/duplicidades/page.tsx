@@ -17,7 +17,7 @@ import { alerts } from '@/lib/alerts'
 import { masks } from '@/lib/masks'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Cadastro {
   id: string
@@ -287,7 +287,7 @@ export default function DuplicidadesPage() {
                       )}
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-lg font-bold tabular-nums" style={{ color: c.totalVinculos > 0 ? MODULE_COLOR : undefined }}>
+                      <p className="text-lg font-bold tabular-nums" style={{ color: c.totalVinculos > 0 ? PRIMARY : undefined }}>
                         {c.totalVinculos}
                       </p>
                       <p className="text-[10px] text-muted-foreground">registros</p>

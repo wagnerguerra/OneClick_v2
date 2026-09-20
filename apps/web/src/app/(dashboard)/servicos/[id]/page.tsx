@@ -46,7 +46,7 @@ import { PassoCamposClienteSection } from './_components/passo-campos-cliente-se
 import { FeixeDeLinhas } from '@/components/ui/feixe-de-linhas'
 import { useTheme } from '@/hooks/use-theme'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // Emerald (Cadastros / Serviços)
+const PRIMARY = 'var(--color-primary)'
 
 /** Formata centavos em string BRL "1.234,56" (sem prefixo R$, que vem do adornment). */
 function formatBRLFromCents(cents: number): string {
@@ -1121,7 +1121,7 @@ export default function ServicoDetailPage() {
             registro, e a trilha volta a ser só trilha. */}
         <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
           <div className="relative overflow-hidden">
-            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${PRIMARY} 0%, var(--color-primary) 100%)` }} />
             {/* Feixe de linhas do modelo. Entra ENTRE o gradiente e o véu escuro:
                 por cima do véu ele brigaria com o texto branco; por baixo do
                 gradiente, não apareceria. As linhas são brancas porque o fundo
@@ -1135,7 +1135,7 @@ export default function ServicoDetailPage() {
                 <div className="flex items-end gap-4">
                   <div className="relative shrink-0">
                     <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
-                      <ListChecks className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                      <ListChecks className="h-10 w-10" style={{ color: PRIMARY }} />
                     </div>
                   </div>
                   <div className="min-w-0">
@@ -1324,7 +1324,7 @@ export default function ServicoDetailPage() {
                           'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                           active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground',
                         )}
-                        style={active ? { backgroundColor: MODULE_COLOR } : undefined}
+                        style={active ? { backgroundColor: PRIMARY } : undefined}
                       >
                         <Icon className="h-3.5 w-3.5 shrink-0" />
                         <span>{p.label}</span>
@@ -1532,7 +1532,7 @@ export default function ServicoDetailPage() {
                     <div className="flex items-center justify-between border-b border-border pb-2 -mx-5 px-5">
                       <h4 className="text-[13px] font-semibold text-foreground">Responsáveis</h4>
                       <Button onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5"
-                        style={{ backgroundColor: MODULE_COLOR }}>
+                        style={{ backgroundColor: PRIMARY }}>
                         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                         Salvar
                       </Button>
@@ -1994,7 +1994,7 @@ export default function ServicoDetailPage() {
 
                 {/* Rodapé fixo com botão Salvar — vale pra qualquer pill */}
                 <div className="mt-auto border-t border-border px-5 py-3 bg-card flex justify-end">
-                  <Button onClick={salvarVisao} disabled={saving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
+                  <Button onClick={salvarVisao} disabled={saving} className="gap-1.5" style={{ backgroundColor: PRIMARY }}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Salvar alterações
                   </Button>
@@ -2617,7 +2617,7 @@ export default function ServicoDetailPage() {
                   </p>
                 </div>
                 <Button onClick={salvarSubservicos} disabled={salvandoSub || !mudouSub} size="sm"
-                  className="gap-1.5 shrink-0" style={{ backgroundColor: MODULE_COLOR }}>
+                  className="gap-1.5 shrink-0" style={{ backgroundColor: PRIMARY }}>
                   {salvandoSub ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Salvar
                 </Button>
@@ -2699,7 +2699,7 @@ export default function ServicoDetailPage() {
                     texto e o valor padrão dele.
                   </p>
                 </div>
-                <Button onClick={abrirNovaVariacao} size="sm" className="gap-1.5 shrink-0" style={{ backgroundColor: MODULE_COLOR }}>
+                <Button onClick={abrirNovaVariacao} size="sm" className="gap-1.5 shrink-0" style={{ backgroundColor: PRIMARY }}>
                   <Plus className="h-3.5 w-3.5" /> Nova variação
                 </Button>
               </div>
@@ -2779,7 +2779,7 @@ export default function ServicoDetailPage() {
                     notas ou documentação automática quando este serviço for executado.
                   </p>
                 </div>
-                <Button onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5 shrink-0" style={{ backgroundColor: MODULE_COLOR }}>
+                <Button onClick={salvarVisao} disabled={saving} size="sm" className="gap-1.5 shrink-0" style={{ backgroundColor: PRIMARY }}>
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Salvar alterações
                 </Button>
@@ -2860,7 +2860,7 @@ export default function ServicoDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEncModalOpen(false)} disabled={encSaving}>Cancelar</Button>
-            <Button onClick={salvarEncadeamento} disabled={encSaving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
+            <Button onClick={salvarEncadeamento} disabled={encSaving} className="gap-1.5" style={{ backgroundColor: PRIMARY }}>
               {encSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingEnc ? 'Salvar' : 'Adicionar'}
             </Button>
@@ -2907,7 +2907,7 @@ export default function ServicoDetailPage() {
               Cancelar
             </Button>
             <Button onClick={salvarVariacao} disabled={varSalvando} size="sm" className="gap-1.5"
-              style={{ backgroundColor: MODULE_COLOR }}>
+              style={{ backgroundColor: PRIMARY }}>
               {varSalvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
             </Button>

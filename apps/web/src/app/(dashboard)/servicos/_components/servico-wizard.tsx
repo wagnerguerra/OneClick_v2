@@ -24,7 +24,7 @@ import { WizardShell, type WizardStep } from '@/components/ui/wizard-shell'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 type PrioridadeVal = 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'
 type TipoKey = 'MENSAL' | 'EXTRA' | 'INTERNO' | 'ACESSORIA'
@@ -198,7 +198,7 @@ export function ServicoWizard({ open, onOpenChange, areas }: ServicoWizardProps)
           <WizardShell
             steps={visibleSteps}
             current={step}
-            color={MODULE_COLOR}
+            color={PRIMARY}
             onNavigate={setStep}
             onBack={onBack}
             onNext={onNext}

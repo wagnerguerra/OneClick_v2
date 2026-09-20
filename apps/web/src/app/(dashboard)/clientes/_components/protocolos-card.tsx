@@ -159,7 +159,7 @@ export function ProtocolosCard({ clienteId }: { clienteId: string }) {
           onClick={() => setCardAberto(v => !v)}
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
-          <FileInput className="h-4 w-4 shrink-0" style={{ color: 'var(--mod-cadastros, #10b981)' }} />
+          <FileInput className="h-4 w-4 shrink-0" style={{ color: 'var(--color-primary)' }} />
           <span className="text-[13px] font-semibold text-foreground">Protocolos</span>
           {items.length > 0 && (
             <Badge variant="secondary" className="h-4 px-1.5 text-[10px] tabular-nums">{items.length}</Badge>

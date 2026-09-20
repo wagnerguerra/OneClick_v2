@@ -31,7 +31,7 @@ import { WizardShell, type WizardStep } from '@/components/ui/wizard-shell'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 const STEPS: WizardStep[] = [
   { key: 'checklist', title: 'Checklist', optional: true },
@@ -266,7 +266,7 @@ export function FluxoAssistant({ open, onOpenChange, servicoId, servicoNome, ser
           <WizardShell
             steps={STEPS}
             current={step}
-            color={MODULE_COLOR}
+            color={PRIMARY}
             onNavigate={setStep}
             onBack={onBack}
             onNext={onNext}

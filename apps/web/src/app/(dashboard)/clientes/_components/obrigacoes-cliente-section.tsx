@@ -21,7 +21,7 @@ import { areaTone } from '../_lib/area-tone'
 import { useClientesPerms } from './use-clientes-perms'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 interface ClienteObrigacao {
   id: string
@@ -409,7 +409,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                   'flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium transition-colors',
                   view === 'tabela' ? 'text-white' : 'text-muted-foreground hover:text-foreground',
                 )}
-                style={view === 'tabela' ? { backgroundColor: MODULE_COLOR } : undefined}
+                style={view === 'tabela' ? { backgroundColor: PRIMARY } : undefined}
               >
                 <List className="h-3.5 w-3.5" />Tabela
               </button>
@@ -421,7 +421,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
                   'flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium transition-colors border-l border-border/60',
                   view === 'calendario' ? 'text-white' : 'text-muted-foreground hover:text-foreground',
                 )}
-                style={view === 'calendario' ? { backgroundColor: MODULE_COLOR } : undefined}
+                style={view === 'calendario' ? { backgroundColor: PRIMARY } : undefined}
               >
                 <LayoutGrid className="h-3.5 w-3.5" />Calendário
               </button>
@@ -429,7 +429,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
             <Button type="button" variant="outline" size="sm" onClick={abrirGrupo}>
               <ListPlus className="h-4 w-4 text-orange-500" />Aplicar grupo
             </Button>
-            <Button type="button" size="sm" onClick={abrirAdicionar} style={{ backgroundColor: MODULE_COLOR, color: 'white' }}>
+            <Button type="button" size="sm" onClick={abrirAdicionar} style={{ backgroundColor: PRIMARY, color: 'white' }}>
               <Plus className="h-4 w-4" />Adicionar individual
             </Button>
           </div>
@@ -769,7 +769,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
               type="button"
               onClick={adicionarObrigacao}
               disabled={!obrSelecionada || adicionando}
-              style={{ backgroundColor: MODULE_COLOR, color: 'white' }}
+              style={{ backgroundColor: PRIMARY, color: 'white' }}
             >
               {adicionando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Adicionar

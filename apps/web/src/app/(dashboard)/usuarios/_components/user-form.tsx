@@ -240,12 +240,12 @@ export function UserForm({ mode, userId, title, description, defaultValues }: Us
             identidade à esquerda e as abas na base. */}
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           <div className="relative overflow-hidden">
-            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${PRIMARY} 0%, var(--color-primary) 100%)` }} />
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
             <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">
               <div className="flex items-end gap-4">
                 <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-card shadow-lg ring-4 ring-white/50">
-                  <User className="h-10 w-10" style={{ color: MODULE_COLOR }} />
+                  <User className="h-10 w-10" style={{ color: PRIMARY }} />
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -312,7 +312,7 @@ export function UserForm({ mode, userId, title, description, defaultValues }: Us
 // Card principal com pills laterais (padrão Cadastros)
 // ============================================================
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // Cadastros = emerald
+const PRIMARY = 'var(--color-primary)'
 
 const USER_TABS = [
   { key: 'dados', label: 'Dados Pessoais', icon: User },

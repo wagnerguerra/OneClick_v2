@@ -563,7 +563,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
               // eslint-disable-next-line @next/next/no-img-element
               <img src={resolveAssetUrl(capaEfetiva)} alt="" className="absolute inset-0 h-full w-full object-cover" />
             ) : (
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, var(--mod-cadastros, #10b981) 0%, var(--color-primary) 100%)' }} />
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%)' }} />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
             {false && (
@@ -1177,7 +1177,7 @@ function DetalhesCard({ register, control, watch, errors, setValue, clienteId, w
                       ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
                   )}
-                  style={activeTab === tab.key ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                  style={activeTab === tab.key ? { backgroundColor: 'var(--color-primary)' } : undefined}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   {tab.label}
@@ -1853,7 +1853,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
                       ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
                   )}
-                  style={activeTab === tab.key ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                  style={activeTab === tab.key ? { backgroundColor: 'var(--color-primary)' } : undefined}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   {tab.label}
@@ -1974,7 +1974,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
                           h.tipo === 'cliente'
                             ? 'bg-card border border-border/60'
                             : 'text-white'
-                        )} style={h.tipo !== 'cliente' ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}>
+                        )} style={h.tipo !== 'cliente' ? { backgroundColor: 'var(--color-primary)' } : undefined}>
                           <div className="flex items-center gap-2 mb-1">
                             <span className={cn('text-[10px] font-semibold', h.tipo === 'cliente' && 'text-foreground')} style={h.tipo !== 'cliente' ? { color: 'rgba(255,255,255,0.8)' } : undefined}>
                               {h.tipo === 'cliente' ? 'Cliente' : (h.user?.name || 'Equipe')}
@@ -2009,7 +2009,7 @@ function ComercialCard({ register, control, watch, chatMsg, setChatMsg, chatAsCl
                       <Checkbox checked={chatAsCliente} onCheckedChange={(v) => setChatAsCliente(!!v)} />
                       Registrar como fala do cliente
                     </label>
-                    <Button type="button" size="sm" disabled={!chatMsg.trim() || histSending} onClick={sendHistorico} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
+                    <Button type="button" size="sm" disabled={!chatMsg.trim() || histSending} onClick={sendHistorico} style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}>
                       {histSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                       {histSending ? 'Enviando...' : 'Enviar'}
                     </Button>
@@ -2188,7 +2188,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
             <h4 className="font-semibold text-xs mb-1">Parametros</h4>
             <p className="text-[10px] text-muted-foreground mb-3">Parametros do contrato para acompanhamento no grafico.</p>
             <div className="flex flex-col gap-2 w-full">
-              <Button type="button" size="sm" onClick={() => setShowParamModal(true)} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }} className="w-full">→ Atualizar Parametros</Button>
+              <Button type="button" size="sm" onClick={() => setShowParamModal(true)} style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }} className="w-full">→ Atualizar Parametros</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setShowErpModal(true)} className="w-full"><ExternalLink className="h-3 w-3" /> Verificar no ERP</Button>
             </div>
           </div>
@@ -2202,7 +2202,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3"><File className="h-6 w-6 text-muted-foreground" /></div>
             <h4 className="font-semibold text-xs mb-1">Arquivos</h4>
             <p className="text-[10px] text-muted-foreground mb-3">Contratos, aditivos e documentos.</p>
-            <Button type="button" size="sm" onClick={openFilesModal} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
+            <Button type="button" size="sm" onClick={openFilesModal} style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}>
               → Gerenciar Arquivos {filesLoaded && files.length > 0 && <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white/30 px-1 text-[10px]">{files.length}</span>}
             </Button>
           </div>
@@ -2700,7 +2700,7 @@ function FiscalCard({ register, control, clienteId, isEdit, documento, canEdit }
                       ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
                   )}
-                  style={activeTab === tab.key ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                  style={activeTab === tab.key ? { backgroundColor: 'var(--color-primary)' } : undefined}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   {tab.label}
@@ -3070,7 +3070,7 @@ function LogsTab({ clienteId }: { clienteId: string }) {
 // Hook de permissões do módulo clientes extraído para `./use-clientes-perms`
 // (compartilhado com os cards de cada aba).
 
-const MODULE_COLOR_CLIENTES = 'var(--mod-cadastros, #10b981)'
+const PRIMARY_CLIENTES = 'var(--color-primary)'
 
 // UF_LIST, InscricaoRow e RegistroInscricoesCard saíram daqui: o componente
 // virou arquivo próprio (registro-inscricoes-card.tsx) e passou a viver na pill
@@ -3253,7 +3253,7 @@ function AtividadesBeneficiosSidebar({ clienteId }: { clienteId: string }) {
                   <div
                     key={a.id}
                     className="group/chip inline-flex items-center gap-1 rounded-full border pl-2.5 pr-1 py-0.5 text-[11px] font-medium transition-colors"
-                    style={{ borderColor: `color-mix(in srgb, ${MODULE_COLOR_CLIENTES} 35%, transparent)`, color: MODULE_COLOR_CLIENTES, backgroundColor: `color-mix(in srgb, ${MODULE_COLOR_CLIENTES} 10%, transparent)` }}
+                    style={{ borderColor: `color-mix(in srgb, ${PRIMARY_CLIENTES} 35%, transparent)`, color: PRIMARY_CLIENTES, backgroundColor: `color-mix(in srgb, ${PRIMARY_CLIENTES} 10%, transparent)` }}
                   >
                     <span
                       className={canManageAtiv ? 'cursor-pointer' : ''}

@@ -606,7 +606,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     ? 'text-white shadow-sm'
                     : 'text-muted-foreground hover:bg-muted/60',
                 )}
-                style={activeTab === pill.id ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                style={activeTab === pill.id ? { backgroundColor: 'var(--color-primary)' } : undefined}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
                 <span className="flex-1 truncate">{pill.label}</span>

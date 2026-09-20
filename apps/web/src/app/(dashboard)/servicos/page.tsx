@@ -37,7 +37,7 @@ import { CSS } from '@dnd-kit/utilities'
 // Tipos
 // ============================================================
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // Emerald (Cadastros)
+const PRIMARY = 'var(--color-primary)'
 const PAGE_SIZES = [10, 20, 50]
 
 /** Formata centavos em string BRL "1.234,56" (sem prefixo R$, que vem do adornment). */
@@ -1576,7 +1576,7 @@ export default function ServicosPage() {
                             className="h-full rounded-full transition-all"
                             style={{
                               width: `${tPassos > 0 ? (cPassos / tPassos) * 100 : 0}%`,
-                              backgroundColor: (exec as any).pausado ? '#f59e0b' : MODULE_COLOR,
+                              backgroundColor: (exec as any).pausado ? '#f59e0b' : PRIMARY,
                             }}
                           />
                         </div>
@@ -1807,7 +1807,7 @@ export default function ServicosPage() {
                   checked={formDisponivelOrcamento}
                   disabled={formEhServicoInterno || formEhObrigacaoAcessoria}
                   onCheckedChange={(v) => setFormDisponivelOrcamento(v === true)}
-                  accentColor="var(--mod-cadastros, #10b981)"
+                  accentColor="var(--color-primary)"
                   className="disabled:opacity-40"
                 />
                 <Label htmlFor="disponivel-orc" className={cn('text-xs font-medium cursor-pointer', (formEhServicoInterno || formEhObrigacaoAcessoria) && 'opacity-50')}>
@@ -2062,7 +2062,7 @@ export default function ServicosPage() {
           </DialogBody>
           <DialogFooter className="px-6 py-3 shrink-0 border-t border-border/40">
             <Button variant="outline" onClick={() => setServicoModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveServico} disabled={saving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
+            <Button onClick={handleSaveServico} disabled={saving} className="gap-1.5" style={{ backgroundColor: PRIMARY }}>
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingServico ? 'Salvar' : 'Criar'}
             </Button>
@@ -2121,7 +2121,7 @@ export default function ServicosPage() {
                 <Checkbox
                   checked={encObrigatorio}
                   onCheckedChange={(v) => setEncObrigatorio(v === true)}
-                  accentColor="var(--mod-cadastros, #10b981)"
+                  accentColor="var(--color-primary)"
                   className="mt-0.5"
                 />
                 <div>
@@ -2135,7 +2135,7 @@ export default function ServicosPage() {
                 <Checkbox
                   checked={encIniciaAuto}
                   onCheckedChange={(v) => setEncIniciaAuto(v === true)}
-                  accentColor="var(--mod-cadastros, #10b981)"
+                  accentColor="var(--color-primary)"
                   className="mt-0.5"
                 />
                 <div>
@@ -2149,7 +2149,7 @@ export default function ServicosPage() {
                 <Checkbox
                   checked={encHerdaResponsavel}
                   onCheckedChange={(v) => setEncHerdaResponsavel(v === true)}
-                  accentColor="var(--mod-cadastros, #10b981)"
+                  accentColor="var(--color-primary)"
                   className="mt-0.5"
                 />
                 <div>
@@ -2254,7 +2254,7 @@ export default function ServicosPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEncModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveEnc} disabled={encSaving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
+            <Button onClick={handleSaveEnc} disabled={encSaving} className="gap-1.5" style={{ backgroundColor: PRIMARY }}>
               {encSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingEnc ? 'Salvar' : 'Adicionar'}
             </Button>
@@ -2306,10 +2306,10 @@ export default function ServicosPage() {
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Progresso</span>
-                    <span className="font-semibold" style={{ color: MODULE_COLOR }}>{progressPct}% ({concluidos}/{totalPassos})</span>
+                    <span className="font-semibold" style={{ color: PRIMARY }}>{progressPct}% ({concluidos}/{totalPassos})</span>
                   </div>
                   <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%`, backgroundColor: MODULE_COLOR }} />
+                    <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%`, backgroundColor: PRIMARY }} />
                   </div>
                 </div>
 
@@ -2318,7 +2318,7 @@ export default function ServicosPage() {
                   return (
                     <div key={etapaNome} className="space-y-2">
                       <div className="flex items-center gap-2 border-b border-border/60 pb-1.5">
-                        <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: MODULE_COLOR }} />
+                        <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: PRIMARY }} />
                         <h5 className="text-xs font-semibold text-foreground">{etapaNome}</h5>
                         <span className="text-[10px] text-muted-foreground">({passos.filter(p => p.concluido).length}/{passos.length})</span>
                       </div>
@@ -2395,7 +2395,7 @@ export default function ServicosPage() {
                     <Button variant="destructive" size="sm" onClick={() => handleCancelarExecucao(selectedExecucao.id)} className="gap-1.5">
                       <XCircle className="h-4 w-4" />Cancelar
                     </Button>
-                    <Button size="sm" onClick={() => handleConcluirExecucao(selectedExecucao.id)} className="gap-1.5" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)' }}>
+                    <Button size="sm" onClick={() => handleConcluirExecucao(selectedExecucao.id)} className="gap-1.5" style={{ backgroundColor: 'var(--color-primary)' }}>
                       <CheckCircle2 className="h-4 w-4" />Concluir
                     </Button>
                   </>
@@ -2685,7 +2685,7 @@ function PassoExtras({ passoId, editavel }: { passoId: string; editavel: boolean
                 rows={2}
                 className="flex-1 text-[11px]"
               />
-              <Button size="xs" onClick={enviarComentario} disabled={enviando || !novoComentario.trim()} className="gap-1 shrink-0" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)' }}>
+              <Button size="xs" onClick={enviarComentario} disabled={enviando || !novoComentario.trim()} className="gap-1 shrink-0" style={{ backgroundColor: 'var(--color-primary)' }}>
                 {enviando ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
               </Button>
             </div>
@@ -2701,7 +2701,7 @@ function PassoExtras({ passoId, editavel }: { passoId: string; editavel: boolean
               {anexos.map(a => (
                 <div key={a.id} className="flex items-center gap-2 text-[11px] bg-card rounded px-2 py-1 group">
                   <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
-                  <a href={a.fileUrl} target="_blank" rel="noopener noreferrer" className="truncate flex-1 hover:underline" style={{ color: 'var(--mod-cadastros, #10b981)' }}>
+                  <a href={a.fileUrl} target="_blank" rel="noopener noreferrer" className="truncate flex-1 hover:underline" style={{ color: 'var(--color-primary)' }}>
                     {a.fileName}
                   </a>
                   {a.fileSize && <span className="text-[10px] text-muted-foreground">{Math.round(a.fileSize / 1024)} KB</span>}

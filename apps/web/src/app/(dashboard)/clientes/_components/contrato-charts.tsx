@@ -187,7 +187,7 @@ export function ContratoChartModal({
             <div className="flex items-end gap-3 flex-wrap">
               <div className="space-y-1"><Label>Início</Label><Input type="date" value={chartDatei} onChange={(e) => setChartDatei(e.target.value)} className="h-8" /></div>
               <div className="space-y-1"><Label>Fim</Label><Input type="date" value={chartDatef} onChange={(e) => setChartDatef(e.target.value)} className="h-8" /></div>
-              <Button type="button" size="sm" onClick={onLoad} disabled={chartLoading} style={{ backgroundColor: 'var(--mod-cadastros, #10b981)', color: '#fff' }}>
+              <Button type="button" size="sm" onClick={onLoad} disabled={chartLoading} style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}>
                 {chartLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />} Atualizar
               </Button>
             </div>

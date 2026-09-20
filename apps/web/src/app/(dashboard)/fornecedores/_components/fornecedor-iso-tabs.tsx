@@ -16,7 +16,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl, resolveAssetUrl } from '@/lib/api-url'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 interface AnexoRow {
   id: string
@@ -88,7 +88,7 @@ export function FornecedorIsoTabs({ fornecedorId, currentUserId }: { fornecedorI
                     'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                     tab === t.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground',
                   )}
-                  style={tab === t.key ? { backgroundColor: MODULE_COLOR } : undefined}
+                  style={tab === t.key ? { backgroundColor: PRIMARY } : undefined}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   {t.label}
@@ -406,7 +406,7 @@ export function MensagensTab({ fornecedorId, currentUserId }: { fornecedorId: st
     <div className="space-y-4">
       <div className="flex items-start gap-2">
         <Textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={2} placeholder="Escreva uma interação/observação..." className="flex-1 resize-none" />
-        <Button type="button" size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 mt-0.5" disabled={enviando || !texto.trim()} onClick={enviar}>
+        <Button type="button" size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5 mt-0.5" disabled={enviando || !texto.trim()} onClick={enviar}>
           {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Enviar
         </Button>
       </div>

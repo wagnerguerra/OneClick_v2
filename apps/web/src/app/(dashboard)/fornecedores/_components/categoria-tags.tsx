@@ -12,7 +12,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Categoria { id: string; nome: string; _count?: { vinculos: number } }
 
@@ -82,7 +82,7 @@ export function CategoriaTagsInput({ value, onChange }: { value: string[]; onCha
         onClick={() => setFocused(true)}
       >
         {selected.map((c) => (
-          <span key={c.id} className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium text-white" style={{ backgroundColor: MODULE_COLOR }}>
+          <span key={c.id} className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium text-white" style={{ backgroundColor: PRIMARY }}>
             {c.nome}
             <button type="button" onClick={(e) => { e.stopPropagation(); remove(c.id) }} className="hover:opacity-70"><X className="h-3 w-3" /></button>
           </span>

@@ -19,7 +19,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 /**
  * Bloco → slug da cor, os mesmos da barra lateral. Sem isto a tela seria uma
@@ -226,10 +226,10 @@ export default function PermissoesEmMassaPage() {
         {/* ── quem recebe ── */}
         <Card className="flex max-h-[calc(100vh-220px)] flex-col p-3">
           <div className="mb-2 flex items-center gap-2">
-            <Users className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+            <Users className="h-4 w-4" style={{ color: PRIMARY }} />
             <span className="text-sm font-semibold text-foreground">Quem recebe</span>
             {selecionados.size > 0 && (
-              <Badge variant="default" className="ml-auto text-[10px]" style={{ backgroundColor: MODULE_COLOR }}>
+              <Badge variant="default" className="ml-auto text-[10px]" style={{ backgroundColor: PRIMARY }}>
                 {selecionados.size}
               </Badge>
             )}

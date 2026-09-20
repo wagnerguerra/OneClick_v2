@@ -33,7 +33,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // Emerald (Cadastros)
+const PRIMARY = 'var(--color-primary)'
 
 interface ServicoLite {
   id: string
@@ -549,7 +549,7 @@ export default function GruposPage() {
           </DialogBody>
           <DialogFooter className="px-6 py-3 shrink-0 border-t border-border/40">
             <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving} className="gap-1.5" style={{ backgroundColor: MODULE_COLOR }}>
+            <Button onClick={handleSave} disabled={saving} className="gap-1.5" style={{ backgroundColor: PRIMARY }}>
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {editing ? 'Salvar' : 'Criar'}
             </Button>

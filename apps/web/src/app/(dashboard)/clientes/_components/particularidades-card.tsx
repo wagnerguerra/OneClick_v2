@@ -8,7 +8,7 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { TEXT } from '@/lib/color-styles'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 
 interface ParticularidadeRow {
   clienteAreaContratadaId: string
@@ -128,14 +128,14 @@ export function ParticularidadesCard({ clienteId }: { clienteId: string }) {
                   'flex items-center gap-2 w-full rounded-md px-3 py-2 text-[11px] font-medium transition-colors text-left',
                   isActive ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-muted/60',
                 )}
-                style={isActive ? { backgroundColor: MODULE_COLOR } : undefined}
+                style={isActive ? { backgroundColor: PRIMARY } : undefined}
               >
                 <span className="flex-1 truncate">{row.areaNome}</span>
                 {!row.canEdit && <Lock className="h-3 w-3 shrink-0 opacity-70" />}
                 {dirty.has(row.clienteAreaContratadaId)
                   ? <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', isActive ? 'bg-white' : 'bg-amber-500')} />
                   : hasText
-                    ? <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: isActive ? '#fff' : MODULE_COLOR }} />
+                    ? <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: isActive ? '#fff' : PRIMARY }} />
                     : <span className="h-1.5 w-1.5 shrink-0" />}
               </button>
             )

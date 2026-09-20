@@ -373,7 +373,7 @@ export function NotificacoesSection({
                         ? 'text-white shadow-sm'
                         : 'text-muted-foreground hover:bg-white dark:hover:bg-accent hover:text-foreground',
                     )}
-                    style={active ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                    style={active ? { backgroundColor: 'var(--color-primary)' } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     <span className="flex-1">{p.label}</span>
@@ -543,7 +543,7 @@ export function NotificacoesSection({
                                     ? 'text-white border-transparent shadow-sm'
                                     : 'bg-card hover:bg-muted text-foreground',
                                 )}
-                                style={ativo ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                                style={ativo ? { backgroundColor: 'var(--color-primary)' } : undefined}
                               >
                                 {d}
                               </button>
@@ -562,7 +562,7 @@ export function NotificacoesSection({
                                     ? 'text-white border-transparent shadow-sm'
                                     : 'bg-card hover:bg-muted text-foreground',
                                 )}
-                                style={ativo ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                                style={ativo ? { backgroundColor: 'var(--color-primary)' } : undefined}
                                 title="Sempre o último dia do mês (28/29/30/31 conforme o mês)"
                               >
                                 Último
@@ -592,7 +592,7 @@ export function NotificacoesSection({
                                     ? 'text-white border-transparent shadow-sm'
                                     : 'bg-card hover:bg-muted text-foreground',
                                 )}
-                                style={ativo ? { backgroundColor: 'var(--mod-cadastros, #10b981)' } : undefined}
+                                style={ativo ? { backgroundColor: 'var(--color-primary)' } : undefined}
                               >
                                 {label}
                               </button>
@@ -674,7 +674,7 @@ export function NotificacoesSection({
                           <Trash2 className="h-3.5 w-3.5" /> Remover
                         </Button>
                       )}
-                      <Button size="sm" onClick={salvarRecorrencia} disabled={savingRec} className="gap-1.5" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)' }}>
+                      <Button size="sm" onClick={salvarRecorrencia} disabled={savingRec} className="gap-1.5" style={{ backgroundColor: 'var(--color-primary)' }}>
                         {savingRec ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                         Salvar
                       </Button>
@@ -886,7 +886,7 @@ export function NotificacoesSection({
                 {testandoEnvio ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                 Enviar teste
               </Button>
-              <Button size="sm" onClick={salvarRegra} disabled={savingRegra} className="gap-1.5" style={{ backgroundColor: 'var(--mod-cadastros, #10b981)' }}>
+              <Button size="sm" onClick={salvarRegra} disabled={savingRegra} className="gap-1.5" style={{ backgroundColor: 'var(--color-primary)' }}>
                 {savingRegra ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 {editingId ? 'Atualizar regra' : 'Criar regra'}
               </Button>

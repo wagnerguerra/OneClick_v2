@@ -17,7 +17,7 @@ import { exportToExcel, exportToCsv, type ExportColumn } from '@/lib/export-data
 import { TEXT } from '@/lib/color-styles'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)'
+const PRIMARY = 'var(--color-primary)'
 const COR_ENTRADA = '#10b981'
 const COR_SAIDA = '#f43f5e'
 
@@ -114,7 +114,7 @@ function MultiSelect({ label, options, selected, onChange }: {
           </div>
           {options.map(o => (
             <label key={o.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
-              <Checkbox accentColor={MODULE_COLOR} checked={selected.has(o.value)} onCheckedChange={() => toggle(o.value)} />
+              <Checkbox accentColor={PRIMARY} checked={selected.has(o.value)} onCheckedChange={() => toggle(o.value)} />
               <span className="truncate">{o.label}</span>
             </label>
           ))}
@@ -218,7 +218,7 @@ export default function RelatoriosClientesPage() {
             <button key={t.id} type="button" onClick={() => setTab(t.id)}
               className={cn('inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
                 active ? 'border-current' : 'border-transparent text-muted-foreground hover:text-foreground')}
-              style={active ? { color: MODULE_COLOR, borderColor: MODULE_COLOR } : undefined}>
+              style={active ? { color: PRIMARY, borderColor: PRIMARY } : undefined}>
               <Icon className="h-4 w-4" /> {t.label}
             </button>
           )
@@ -243,7 +243,7 @@ export default function RelatoriosClientesPage() {
                 <Label className="text-[11px] font-medium text-muted-foreground">Tipo de cliente</Label>
                 <MultiSelect label="Tipos" options={SITUACAO_OPTS} selected={tipos} onChange={setTipos} />
               </div>
-              <Button size="sm" style={{ backgroundColor: MODULE_COLOR }} className="text-white gap-1.5 h-9" onClick={carregarMov} disabled={movLoading}>
+              <Button size="sm" style={{ backgroundColor: PRIMARY }} className="text-white gap-1.5 h-9" onClick={carregarMov} disabled={movLoading}>
                 {movLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />} Filtrar
               </Button>
 
@@ -323,7 +323,7 @@ export default function RelatoriosClientesPage() {
                   return (
                     <button key={a.areaId} type="button" onClick={() => { const n = new Set(areaSel); if (n.has(a.areaId)) n.delete(a.areaId); else n.add(a.areaId); setAreaSel(n) }}
                       className={cn('text-left rounded-lg border p-3 transition-colors', active ? 'text-white' : 'bg-card border-border hover:bg-muted/40')}
-                      style={active ? { backgroundColor: MODULE_COLOR, borderColor: MODULE_COLOR } : undefined}>
+                      style={active ? { backgroundColor: PRIMARY, borderColor: PRIMARY } : undefined}>
                       <p className={cn('text-[10px] uppercase tracking-wider truncate', active ? 'text-white/80' : 'text-muted-foreground')}>{a.areaNome}</p>
                       <p className="text-xl font-bold tabular-nums">{a.total}</p>
                     </button>

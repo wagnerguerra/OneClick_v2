@@ -28,7 +28,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { SectionCard } from '@/components/section-card'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+const PRIMARY = 'var(--color-primary)'
 
 const EMPRESA_TABS = [
   { key: 'dados-legais', label: 'Dados Legais', icon: Scale },
@@ -440,7 +440,7 @@ export function EmpresaForm({ mode, empresaId, title, defaultValues, resumo }: E
              vale o gradiente da cor do módulo, que é o que o padrão prevê. */
           <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
             <div className="relative overflow-hidden">
-              <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${MODULE_COLOR} 0%, var(--color-primary) 100%)` }} />
+              <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${PRIMARY} 0%, var(--color-primary) 100%)` }} />
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
 
               <div className="relative z-10 px-5 pb-5 pt-24 text-white sm:px-6 sm:pt-28">

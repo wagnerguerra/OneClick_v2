@@ -46,7 +46,7 @@ interface SocioFormProps {
 
 const UF_OPTIONS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
 
-const MODULE_COLOR = 'var(--mod-cadastros, #10b981)' // emerald (Cadastros)
+const PRIMARY = 'var(--color-primary)'
 
 // Sub-abas laterais (padrão da casa: pills compactas na cor do módulo).
 // `editOnly` só aparecem no modo edição (dependem de socioId).
@@ -226,7 +226,7 @@ export function SocioForm({ mode, socioId, title, description, defaultValues }: 
                       'flex items-center gap-2 w-full rounded-md px-3 py-2 text-[11px] font-medium transition-colors text-left',
                       active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-muted/60',
                     )}
-                    style={active ? { backgroundColor: MODULE_COLOR } : undefined}
+                    style={active ? { backgroundColor: PRIMARY } : undefined}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     <span className="flex-1 truncate">{t.label}</span>
