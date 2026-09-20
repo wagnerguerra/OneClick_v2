@@ -34,9 +34,11 @@ const buttonVariants = cva(
         'outline-success':
           'border border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-transparent hover:bg-emerald-500 hover:text-white',
 
-        // Soft (light background)
+        // Soft (light background). Texto/ícone seguem a primária (var) nos dois
+        // temas — a --color-primary já clareia no dark, então não se fixa um azul
+        // (`dark:text-blue-400` fixava azul e não acompanhava a skin).
         soft:
-          'bg-primary/15 text-primary dark:text-blue-400 hover:bg-primary/25',
+          'bg-primary/15 text-primary hover:bg-primary/25',
         'soft-destructive':
           'bg-destructive/10 text-destructive hover:bg-destructive/20',
         'soft-success':

@@ -12,7 +12,7 @@ import {
   PieChart, Pie, Cell, Legend, LabelList,
 } from 'recharts'
 
-const MODULE_COLOR = 'var(--mod-contabil, #8b5cf6)'
+const PRIMARY = 'var(--color-primary)'
 const GREEN = 'rgba(16, 185, 129, 0.85)'
 const GREEN_SOLID = '#10b981'
 const RED = 'rgba(239, 68, 68, 0.85)'
@@ -35,7 +35,9 @@ interface KpisResponse extends KpiData {
   mesesCustosDespesas: MesCustoDespesa[]
 }
 
-const ANO_COLORS = ['#8b5cf6', '#f59e0b', '#0ea5e9', '#ec4899']
+// Paleta qualitativa p/ comparação de anos. O 1º (a "série principal") passa a
+// ser a cor primária do sistema; os demais seguem hues distintos p/ leitura.
+const ANO_COLORS = ['var(--color-primary)', '#f59e0b', '#0ea5e9', '#ec4899']
 
 interface VisaoGeralProps {
   clienteId: string
@@ -202,7 +204,7 @@ export function BiVisaoGeral({ clienteId, anos, meses }: VisaoGeralProps) {
                             key={`valor_${a}`}
                             dataKey={`valor_${a}`}
                             yAxisId="left"
-                            fill={isComparativo ? ANO_COLORS[idx % ANO_COLORS.length] : MODULE_COLOR}
+                            fill={isComparativo ? ANO_COLORS[idx % ANO_COLORS.length] : PRIMARY}
                             radius={[4, 4, 0, 0]}
                             opacity={isComparativo ? 0.7 + idx * 0.1 : 0.85}
                             name={String(a)}

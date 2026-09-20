@@ -306,7 +306,7 @@ function CadastroModal({ open, onClose, tipoSugerido, onImported }: {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); else { setTipo(tipoSugerido ?? 'cliente'); void refreshCounts() } }}>
       <DialogContent className="max-w-lg">
-        <DialogHeaderIcon icon={Users} color="violet">
+        <DialogHeaderIcon icon={Users}>
           <DialogTitle>Cadastro de clientes / fornecedores</DialogTitle>
           <DialogDescription>Planilha persistente usada para vincular o CNPJ pelo código no extrato. Suba uma vez; fica salva.</DialogDescription>
         </DialogHeaderIcon>

@@ -113,7 +113,7 @@ export function Stepper({ labels, current, maxStep, onGo }: { labels: string[]; 
                     ? 'bg-muted/50 text-foreground hover:bg-muted cursor-pointer'
                     : 'bg-muted/30 text-muted-foreground/60 cursor-not-allowed',
               )}
-              style={active ? { backgroundColor: 'var(--mod-contabil, #a78bfa)' } : undefined}
+              style={active ? { backgroundColor: 'var(--color-primary)' } : undefined}
             >
               <span className={cn('flex h-4 w-4 items-center justify-center rounded-full text-[10px]', active ? 'bg-white/25' : 'bg-foreground/10')}>{i + 1}</span>
               {label}

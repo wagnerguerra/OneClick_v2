@@ -7,7 +7,7 @@ import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
 import { TEXT, SURFACE, type ColorName } from '@/lib/color-styles'
 
-const MODULE_COLOR = 'var(--mod-contabil, #8b5cf6)'
+const PRIMARY = 'var(--color-primary)'
 
 interface FonteItem { contaLonga: string; nomeConta: string; valor: number; isDeducao?: boolean }
 interface MesCustoDespesa { mes: number; custosFixos: number; despesas: number }
@@ -58,8 +58,9 @@ interface KpiCardDef {
   label: string
   value: number
   icon: React.ElementType
-  /** Cor de conceito do KPI (helper) — chip do ícone via SURFACE/TEXT, com par dark. */
-  tone: ColorName
+  /** Cor de conceito do KPI (helper) — chip do ícone via SURFACE/TEXT, com par
+   *  dark. `'primary'` usa a cor primária do sistema. */
+  tone: ColorName | 'primary'
   borderColor: string
   subtitle?: string
   negative?: boolean
@@ -81,8 +82,8 @@ function KpiCard({ def, onOpenDetail }: { def: KpiCardDef; onOpenDetail: (type: 
           <div className="flex flex-col items-center gap-2">
             {/* Chip: fundo via SURFACE (só a parte de bg, sem largura de borda) +
                 ícone via TEXT — ambos com par dark. */}
-            <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', SURFACE[def.tone])}>
-              <def.icon className={cn('h-5 w-5', TEXT[def.tone])} />
+            <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', def.tone === 'primary' ? 'bg-primary/10' : SURFACE[def.tone])}>
+              <def.icon className={cn('h-5 w-5', def.tone === 'primary' ? 'text-primary' : TEXT[def.tone])} />
             </div>
             <button type="button" onClick={() => onOpenDetail(def.type)} className="text-muted-foreground hover:text-foreground transition-colors" title="Ver detalhes">
               <Info className="h-4 w-4" />
@@ -179,18 +180,18 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="max-w-2xl">
-        <DialogHeaderIcon icon={type === 'receita' ? DollarSign : type === 'custos_fixos' ? Wallet : type === 'despesas' ? Receipt : BarChart3} color="violet">
+        <DialogHeaderIcon icon={type === 'receita' ? DollarSign : type === 'custos_fixos' ? Wallet : type === 'despesas' ? Receipt : BarChart3}>
           <DialogTitle>{titles[type]}</DialogTitle>
           <DialogDescription>{subtitles[type]}</DialogDescription>
         </DialogHeaderIcon>
 
         {/* Tabs */}
         <div className="flex border-b px-5">
-          <button type="button" onClick={() => setTab('resumo')} className={cn('px-4 py-2.5 text-xs font-medium border-b-2 transition-colors', tab === 'resumo' ? 'border-violet-500 text-violet-600 dark:text-violet-400' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+          <button type="button" onClick={() => setTab('resumo')} className={cn('px-4 py-2.5 text-xs font-medium border-b-2 transition-colors', tab === 'resumo' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
             Resumo
           </button>
-          <button type="button" onClick={() => { setTab('contas'); loadContas() }} className={cn('px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5', tab === 'contas' ? 'border-violet-500 text-violet-600 dark:text-violet-400' : 'border-transparent text-muted-foreground hover:text-foreground')}>
-            Contas {contasSelecionadas.size > 0 && <span className="rounded bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-200 px-1.5 py-0.5 text-[10px] font-bold">{contasSelecionadas.size}</span>}
+          <button type="button" onClick={() => { setTab('contas'); loadContas() }} className={cn('px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5', tab === 'contas' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            Contas {contasSelecionadas.size > 0 && <span className="rounded bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-bold">{contasSelecionadas.size}</span>}
           </button>
         </div>
 
@@ -289,7 +290,7 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
                       <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                       <Input placeholder="Buscar conta ou nome..." value={contasSearch} onChange={e => setContasSearch(e.target.value)} className="h-7 text-xs" style={{ paddingLeft: '2rem' }} />
                     </div>
-                    <button type="button" onClick={toggleAll} className="text-[11px] text-violet-600 dark:text-violet-400 hover:underline shrink-0">
+                    <button type="button" onClick={toggleAll} className="text-[11px] text-primary hover:underline shrink-0">
                       {contasFiltradas.every(c => contasSelecionadas.has(c.conta)) ? 'Desmarcar todas' : 'Selecionar todas'}
                     </button>
                     {contasSelecionadas.size > 0 && (
@@ -301,7 +302,7 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                     <span>{contasDisponiveis.length} conta(s) disponíveis · {contasSelecionadas.size} selecionada(s)</span>
                     {contasSelecionadas.size > 0 && (
-                      <span className="font-semibold text-violet-600 dark:text-violet-400">
+                      <span className="font-semibold text-primary">
                         Total selecionado: {fmtCurrencyFull(contasDisponiveis.filter(c => contasSelecionadas.has(c.conta)).reduce((s, c) => s + c.valor, 0))}
                       </span>
                     )}
@@ -324,7 +325,7 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
                         {contasFiltradas.map(c => {
                           const checked = contasSelecionadas.has(c.conta)
                           return (
-                            <tr key={c.conta} className={cn('border-b hover:bg-muted/20 cursor-pointer', checked && 'bg-violet-50/50 dark:bg-violet-900/10')} onClick={() => toggleConta(c.conta)}>
+                            <tr key={c.conta} className={cn('border-b hover:bg-muted/20 cursor-pointer', checked && 'bg-primary/10')} onClick={() => toggleConta(c.conta)}>
                               <td className="px-2 py-1 text-center" onClick={e => e.stopPropagation()}>
                                 <Checkbox checked={checked} onCheckedChange={() => toggleConta(c.conta)} className="h-3.5 w-3.5" />
                               </td>
@@ -343,7 +344,7 @@ function KpiDetailModal({ type, data, clienteId, ano, onClose, onKpisChanged }: 
                     <p className="text-[11px] text-muted-foreground">
                       {contasSelecionadas.size === 0 ? 'Nenhuma seleção = cálculo padrão do sistema' : `${contasSelecionadas.size} conta(s) selecionada(s) serão usadas no cálculo`}
                     </p>
-                    <Button size="sm" onClick={handleSaveContas} disabled={savingContas} style={{ backgroundColor: MODULE_COLOR }} className="gap-1.5 text-white hover:opacity-90">
+                    <Button size="sm" onClick={handleSaveContas} disabled={savingContas} className="gap-1.5">
                       {savingContas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                       Salvar seleção
                     </Button>
@@ -455,7 +456,7 @@ export function BiKpiCards({ data, loading, clienteId, ano, onKpisChanged }: BiK
     { type: 'receita', label: 'Receita Bruta', value: data.receitaBruta, icon: DollarSign, tone: 'emerald', borderColor: '#10b981', subtitle: `Líquida: ${fmtCurrency(data.receitaLiquida)}` },
     { type: 'custos_fixos', label: 'Custos Fixos', value: Math.abs(data.custosFixos), icon: Receipt, tone: 'red', borderColor: '#ef4444', subtitle: `Lucro Bruto: ${fmtCurrency(data.lucroBruto)}` },
     { type: 'despesas', label: 'Despesas', value: Math.abs(data.despesasOperacionais), icon: Wallet, tone: 'amber', borderColor: '#f59e0b', subtitle: `EBITDA: ${fmtCurrency(data.ebitda)}` },
-    { type: 'lucro_liquido', label: 'Lucro Líquido', value: data.lucroLiquido, icon: BarChart3, tone: 'violet', borderColor: MODULE_COLOR, negative: true, subtitle: `Margem: ${fmtPercent(data.margemLiquida)}` },
+    { type: 'lucro_liquido', label: 'Lucro Líquido', value: data.lucroLiquido, icon: BarChart3, tone: 'primary', borderColor: PRIMARY, negative: true, subtitle: `Margem: ${fmtPercent(data.margemLiquida)}` },
   ]
 
   return (

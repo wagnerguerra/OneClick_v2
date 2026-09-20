@@ -154,7 +154,7 @@ export function VersionHistoryDialog({ modelId, modelNome, open, onOpenChange, c
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
-        <DialogHeaderIcon icon={History} color="violet">
+        <DialogHeaderIcon icon={History}>
           <DialogTitle>Histórico de versões do modelo</DialogTitle>
           <DialogDescription className="truncate">{modelNome}</DialogDescription>
         </DialogHeaderIcon>

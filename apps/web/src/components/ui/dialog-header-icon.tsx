@@ -32,12 +32,16 @@ import type { ReactNode } from 'react'
 import { TEXT } from '@/lib/color-styles'
 
 type IconColor =
-  | 'sky' | 'emerald' | 'rose' | 'amber' | 'violet' | 'indigo'
+  | 'primary' | 'sky' | 'emerald' | 'rose' | 'amber' | 'violet' | 'indigo'
   | 'cyan' | 'orange' | 'fuchsia' | 'lime' | 'slate' | 'red' | 'purple' | 'blue'
 
 // bg = superfície própria do quadrado do ícone (local); a cor do ícone deriva
 // do papel TEXT da fonte única. slate mantém literal (dark -300, não casa TEXT).
+// `primary` (DEFAULT) = a cor primária do sistema (var --color-primary, adapta
+// ao tema sozinha). Só passe outra cor quando a intenção é semântica
+// (criar=emerald, excluir=rose, aviso=amber…); a cor do módulo NÃO se usa mais.
 const COLOR_CLASSES: Record<IconColor, string> = {
+  primary:  'bg-primary/10 text-primary',
   sky:      cn('bg-sky-100 dark:bg-sky-950/40', TEXT.sky),
   emerald:  cn('bg-emerald-100 dark:bg-emerald-950/40', TEXT.emerald),
   rose:     cn('bg-rose-100 dark:bg-rose-950/40', TEXT.rose),
@@ -57,7 +61,8 @@ const COLOR_CLASSES: Record<IconColor, string> = {
 interface Props {
   /** Ícone Lucide à esquerda (renderizado em h-6 w-6 dentro de um box h-12 w-12). */
   icon: LucideIcon
-  /** Cor temática do ícone — bg do quadrado + cor do ícone. Padrão: sky. */
+  /** Cor temática do ícone — bg do quadrado + cor do ícone. Padrão: primary
+   *  (cor do sistema). Passe outra só para intenção semântica. */
   color?: IconColor
   /**
    * Cor de acento por VALOR/variável (ex.: a cor do módulo `var(--mod-<slug>)`).
@@ -89,7 +94,7 @@ interface Props {
   children: ReactNode
 }
 
-export function DialogHeaderIcon({ icon: Icon, color = 'sky', accentColor, className, srOnly, bgImage, children }: Props) {
+export function DialogHeaderIcon({ icon: Icon, color = 'primary', accentColor, className, srOnly, bgImage, children }: Props) {
   if (srOnly) {
     return (
       <DialogHeader className={cn('sr-only', className)}>

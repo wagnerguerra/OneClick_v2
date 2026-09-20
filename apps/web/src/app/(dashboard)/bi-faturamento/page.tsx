@@ -19,8 +19,6 @@ import { BiMatriz } from './_components/bi-matriz'
 import { BiAnalise } from './_components/bi-analise'
 import { BiGerenciar } from './_components/bi-gerenciar'
 
-const MODULE_COLOR = 'var(--mod-contabil, #a78bfa)'
-
 interface ClienteOption {
   id: string
   razaoSocial: string
@@ -220,7 +218,7 @@ export default function BiFaturamentoPage() {
                               setClienteId(c.id)
                               setComboOpen(false)
                             }}
-                            className="group flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs hover:bg-violet-500 hover:text-white aria-selected:bg-violet-500 aria-selected:text-white"
+                            className="group flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs hover:bg-primary hover:text-primary-foreground aria-selected:bg-primary aria-selected:text-primary-foreground"
                           >
                             <Check className={cn('h-3.5 w-3.5 shrink-0', c.id === clienteId ? 'opacity-100' : 'opacity-0')} />
                             <div className="min-w-0 flex-1">
@@ -249,10 +247,9 @@ export default function BiFaturamentoPage() {
                     className={cn(
                       'rounded px-3 py-1 text-[11px] font-medium transition-all border',
                       anosSelecionados.includes(a)
-                        ? 'text-white border-transparent'
+                        ? 'bg-primary text-primary-foreground border-transparent'
                         : 'text-muted-foreground border-border/60 bg-background hover:bg-muted/50',
                     )}
-                    style={anosSelecionados.includes(a) ? { backgroundColor: MODULE_COLOR } : undefined}
                   >
                     {a}
                   </button>
@@ -268,8 +265,7 @@ export default function BiFaturamentoPage() {
                 </Label>
                 <button
                   onClick={toggleAllMeses}
-                  className="text-[10px] font-medium hover:underline"
-                  style={{ color: MODULE_COLOR }}
+                  className="text-[10px] font-medium text-primary hover:underline"
                 >
                   {mesesSelecionados.length === 12 ? 'Desmarcar todos' : 'Selecionar todos'}
                 </button>
@@ -282,10 +278,9 @@ export default function BiFaturamentoPage() {
                     className={cn(
                       'rounded px-2.5 py-1 text-[11px] font-medium transition-all border',
                       mesesSelecionados.includes(m.value)
-                        ? 'text-white border-transparent shadow-sm'
+                        ? 'bg-primary text-primary-foreground border-transparent shadow-sm'
                         : 'text-muted-foreground border-border/60 bg-background hover:bg-muted/50',
                     )}
-                    style={mesesSelecionados.includes(m.value) ? { backgroundColor: MODULE_COLOR } : undefined}
                   >
                     {m.label}
                   </button>
@@ -352,10 +347,9 @@ export default function BiFaturamentoPage() {
                       className={cn(
                         'w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2',
                         activeTab === tab.key
-                          ? 'text-white shadow-sm'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'text-muted-foreground hover:bg-background hover:text-foreground',
                       )}
-                      style={activeTab === tab.key ? { backgroundColor: MODULE_COLOR } : undefined}
                     >
                       <Icon className="h-3.5 w-3.5 shrink-0" />
                       {tab.label}

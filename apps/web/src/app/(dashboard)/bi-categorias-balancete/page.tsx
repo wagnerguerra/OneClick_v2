@@ -17,7 +17,7 @@ import {
 } from '@saas/ui'
 import { cn } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
-import { TEXT, BADGE, STRONG, FILL, SURFACE } from '@/lib/color-styles'
+import { TEXT, BADGE, SURFACE } from '@/lib/color-styles'
 import Link from 'next/link'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
@@ -64,8 +64,6 @@ const CATEGORIAS_DRE = [
   { value: 'IR_CS',                 label: 'IR / CS',               defaultSinal: -1 },
   { value: 'DISTRIBUICAO_LUCROS',   label: 'Distribuição de Lucros', defaultSinal: -1 },
 ] as const
-
-const MODULE_COLOR = 'var(--mod-contabil, #a78bfa)'
 
 // Tipo da categoria. Canônico = R/C/F; valores legados minúsculos
 // (real/calculada/referencia) são normalizados pro canônico.
@@ -185,7 +183,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="max-w-2xl">
-        <DialogHeaderIcon icon={Calculator} color="violet">
+        <DialogHeaderIcon icon={Calculator}>
           <DialogTitle>Editar fórmula</DialogTitle>
           <DialogDescription>{nome}</DialogDescription>
         </DialogHeaderIcon>
@@ -226,7 +224,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
                       </Select>
                     )}
                     {i === 0 && <span className="w-[5.5rem] shrink-0" />}
-                    <span className={cn('inline-flex items-center justify-center rounded px-1.5 text-[10px] font-bold shrink-0', STRONG.violet)}>{i + 1}</span>
+                    <span className={cn('inline-flex items-center justify-center rounded px-1.5 text-[10px] font-bold shrink-0', 'bg-primary/10 text-primary')}>{i + 1}</span>
                     <span className="flex-1 text-xs truncate"><code>{cId}</code> <span className="text-muted-foreground">{getNome(cId)}</span></span>
                     <button type="button" title="Subir" onClick={() => moveOperando(i, 'up')} disabled={i === 0} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"><ArrowUp className="h-4 w-4" /></button>
                     <button type="button" title="Descer" onClick={() => moveOperando(i, 'down')} disabled={i >= operandos.length - 1} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"><ArrowDown className="h-4 w-4" /></button>
@@ -258,7 +256,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
                     {inFormula ? (
                       <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0', BADGE.emerald)}>na fórmula</span>
                     ) : (
-                      <button type="button" onClick={() => addOperando(c.conta)} className="text-[11px] font-medium shrink-0 rounded px-2 py-0.5" style={{ color: MODULE_COLOR }}>+ Adicionar</button>
+                      <button type="button" onClick={() => addOperando(c.conta)} className="text-[11px] font-medium shrink-0 rounded px-2 py-0.5 text-primary">+ Adicionar</button>
                     )}
                   </div>
                 )
@@ -271,7 +269,7 @@ function FormulaModal({ conta, nome, categorias, currentFormula, onSave, onClose
           <DialogClose asChild>
             <Button type="button" variant="outline" size="sm">Fechar</Button>
           </DialogClose>
-          <Button type="button" size="sm" onClick={handleSave} style={{ backgroundColor: MODULE_COLOR }} className="text-white hover:opacity-90">Salvar</Button>
+          <Button type="button" size="sm" onClick={handleSave}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -351,7 +349,7 @@ function PaiSelect({ value, options, excludeConta, onChange }: {
                 value="__nenhum__ raiz nenhum"
                 onSelect={() => { onChange(null); setOpen(false) }}
                 className={cn(
-                  'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground hover:!bg-violet-500 hover:!text-white',
+                  'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground hover:!bg-primary hover:!text-primary-foreground',
                   !value && 'font-semibold',
                 )}
                 style={{ background: 'transparent', color: 'inherit' }}
@@ -364,7 +362,7 @@ function PaiSelect({ value, options, excludeConta, onChange }: {
                   value={`${c.conta} ${c.nomeSci || ''} ${c.nomeExibido || ''}`}
                   onSelect={() => { onChange(c.conta); setOpen(false) }}
                   className={cn(
-                    'pai-select-item flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground hover:!bg-violet-500 hover:!text-white',
+                    'pai-select-item flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground hover:!bg-primary hover:!text-primary-foreground',
                     c.conta === value && 'font-semibold',
                   )}
                   style={{ background: 'transparent', color: 'inherit' }}
@@ -988,8 +986,8 @@ export default function BiCategoriasBalancetePage() {
           color: inherit !important;
         }
         .pai-select-item:hover {
-          background: var(--mod-contabil, #8b5cf6) !important;
-          color: #fff !important;
+          background: var(--color-primary) !important;
+          color: var(--color-primary-foreground) !important;
         }
         .pai-select-item:hover .pai-select-sub {
           color: rgba(255,255,255,0.8) !important;
@@ -1061,7 +1059,7 @@ export default function BiCategoriasBalancetePage() {
                                 })
                               } else { setClienteId(c.id); setComboOpen(false) }
                             }}
-                            className="group flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs hover:bg-violet-500 hover:text-white aria-selected:bg-violet-500 aria-selected:text-white"
+                            className="group flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs hover:bg-primary hover:text-primary-foreground aria-selected:bg-primary aria-selected:text-primary-foreground"
                           >
                             <Check className={cn('h-3.5 w-3.5 shrink-0', c.id === clienteId ? 'opacity-100' : 'opacity-0')} />
                             <div className="min-w-0 flex-1">
@@ -1164,7 +1162,7 @@ export default function BiCategoriasBalancetePage() {
                 <DropdownMenuItem onClick={handleExportBackup} disabled={!clienteId}><Download className="mr-2 h-4 w-4" /> Exportar Backup</DropdownMenuItem>
                 <DropdownMenuItem onClick={handleImportBackup} disabled={!clienteId}><Upload className="mr-2 h-4 w-4" /> Importar Backup (JSON)</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleImportarBalancete} disabled={!clienteId} className="font-medium hover:!text-white" style={{ color: MODULE_COLOR }}><RefreshCw className="mr-2 h-4 w-4" /> Importar Balancete (SCI)</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleImportarBalancete} disabled={!clienteId} className="font-medium text-primary hover:!text-white"><RefreshCw className="mr-2 h-4 w-4" /> Importar Balancete (SCI)</DropdownMenuItem>
                 <DropdownMenuItem onClick={handleExcluirBalancete} disabled={!clienteId} className={cn(TEXT.red, 'focus:text-red-600 hover:!text-white')}><Trash2 className="mr-2 h-4 w-4" /> Excluir Balancete</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLinkPublico} disabled={!clienteId}><Link2 className="mr-2 h-4 w-4" /> Link Público BI</DropdownMenuItem>
@@ -1178,8 +1176,7 @@ export default function BiCategoriasBalancetePage() {
               size="sm"
               disabled={!clienteId || !dirty || saving}
               onClick={handleSave}
-              style={{ backgroundColor: MODULE_COLOR }}
-              className="gap-1.5 text-white hover:opacity-90 h-[32px] text-xs"
+              className="gap-1.5 h-[32px] text-xs"
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               Salvar
@@ -1254,7 +1251,7 @@ export default function BiCategoriasBalancetePage() {
                       data-match={isMatch || undefined}
                       className={cn(
                         'group border-b transition-colors hover:bg-muted/20',
-                        selected.has(cat.conta) && 'bg-violet-50/60 dark:bg-violet-900/10',
+                        selected.has(cat.conta) && 'bg-primary/10',
                         isGroup && !isMatch && 'bg-muted/10',
                         isMatch
                           ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 shadow-[0_1px_6px_rgba(245,158,11,0.2)]'
@@ -1327,7 +1324,7 @@ export default function BiCategoriasBalancetePage() {
                               className={cn(
                                 'h-7 w-full text-[11px]',
                                 catDreIsOverride
-                                  ? cn(TEXT.violet, 'font-medium')
+                                  ? 'text-primary font-medium'
                                   : catDreIsInherited
                                     ? 'text-muted-foreground italic'
                                     : 'text-muted-foreground',
@@ -1372,7 +1369,7 @@ export default function BiCategoriasBalancetePage() {
                             className={cn(
                               'rounded p-1 transition-colors',
                               cat.tipo === 'C' || cat.tipo === 'calculada'
-                                ? cn(TEXT.violet, 'hover:bg-violet-50 dark:hover:bg-violet-900/20')
+                                ? 'text-primary hover:bg-primary/10'
                                 : 'text-muted-foreground/30 cursor-not-allowed',
                             )}
                           >
@@ -1422,7 +1419,7 @@ export default function BiCategoriasBalancetePage() {
       {/* Modal: Importar Balancete do SCI (padrão DialogHeaderIcon) */}
       <Dialog open={importarOpen} onOpenChange={(o) => { if (!importarStatus.running) setImportarOpen(o) }}>
         <DialogContent className="max-w-lg">
-          <DialogHeaderIcon icon={Download} color="violet">
+          <DialogHeaderIcon icon={Download}>
             <DialogTitle>Importar Balancete do SCI</DialogTitle>
             <DialogDescription>Consulta o Firebird mês a mês e atualiza as linhas do balancete</DialogDescription>
           </DialogHeaderIcon>
@@ -1483,12 +1480,12 @@ export default function BiCategoriasBalancetePage() {
             {(importarStatus.running || importarStatus.log.length > 0) && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Loader2 className={cn('h-4 w-4', importarStatus.running && 'animate-spin', TEXT.violet)} />
+                  <Loader2 className={cn('h-4 w-4', importarStatus.running && 'animate-spin', 'text-primary')} />
                   <span className="text-[13px] text-foreground">{importarStatus.message}</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                   <div
-                    className={cn('h-full transition-all', FILL.violet)}
+                    className={cn('h-full transition-all', 'bg-primary')}
                     style={{ width: `${importarStatus.progress}%` }}
                   />
                 </div>
@@ -1511,7 +1508,6 @@ export default function BiCategoriasBalancetePage() {
                 size="sm"
                 onClick={handleImportarConfirmar}
                 className="gap-1.5"
-                style={{ background: MODULE_COLOR, color: 'white' }}
               >
                 <Download className="h-3.5 w-3.5" />
                 Importar
@@ -1598,7 +1594,7 @@ export default function BiCategoriasBalancetePage() {
       {/* Copiar configuração de categorias para outro cliente */}
       <Dialog open={copiarOpen} onOpenChange={setCopiarOpen}>
         <DialogContent className="max-w-xl">
-          <DialogHeaderIcon icon={Copy} color="violet">
+          <DialogHeaderIcon icon={Copy}>
             <DialogTitle>Copiar Configuração de Categorias</DialogTitle>
             <DialogDescription>
               De <strong className="text-foreground">{selectedCliente?.razaoSocial}</strong>
@@ -1630,12 +1626,11 @@ export default function BiCategoriasBalancetePage() {
                         onClick={() => setCopiarSel(c.id)}
                         className={cn(
                           'flex w-full items-center justify-between gap-2 border-b border-border px-3 py-2 text-left text-xs transition-colors last:border-b-0',
-                          active ? 'text-white' : 'hover:bg-muted/50',
+                          active ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50',
                         )}
-                        style={active ? { backgroundColor: MODULE_COLOR } : undefined}
                       >
                         <span className="truncate">{c.razaoSocial}</span>
-                        <span className={cn('shrink-0 font-mono text-[10px]', active ? 'text-white/80' : 'text-muted-foreground')}>{c.cnpjFormatado}</span>
+                        <span className={cn('shrink-0 font-mono text-[10px]', active ? 'text-primary-foreground/80' : 'text-muted-foreground')}>{c.cnpjFormatado}</span>
                       </button>
                     )
                   })
@@ -1661,7 +1656,6 @@ export default function BiCategoriasBalancetePage() {
               onClick={confirmarCopiar}
               disabled={!copiarSel || copiando}
               className="gap-1.5"
-              style={{ background: MODULE_COLOR, color: 'white' }}
             >
               {copiando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
               {copiando ? 'Copiando...' : 'Copiar'}
@@ -1720,7 +1714,6 @@ export default function BiCategoriasBalancetePage() {
               size="sm"
               onClick={handleNovaConfirmar}
               className="gap-1.5"
-              style={{ background: MODULE_COLOR, color: 'white' }}
             >
               <Plus className="h-3.5 w-3.5" />
               Criar
