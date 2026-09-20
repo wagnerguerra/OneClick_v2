@@ -504,12 +504,16 @@ export default function ParametrosOrcamentosPage() {
             <TableRow>
               {/* Seleção em massa é operação de desktop — no celular só come espaço. */}
               <TableHead className="hidden w-[40px] text-center sm:table-cell">
-                <input
-                  type="checkbox"
-                  className="h-3.5 w-3.5 rounded cursor-pointer align-middle"
-                  checked={filtered.length > 0 && filtered.every(i => selectedIds.has(i.id))}
-                  ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && !filtered.every(i => selectedIds.has(i.id)) }}
-                  onChange={toggleSelectAll}
+                <Checkbox
+                  className="h-3.5 w-3.5 cursor-pointer align-middle"
+                  checked={
+                    filtered.length > 0 && filtered.every(i => selectedIds.has(i.id))
+                      ? true
+                      : selectedIds.size > 0 && !filtered.every(i => selectedIds.has(i.id))
+                        ? 'indeterminate'
+                        : false
+                  }
+                  onCheckedChange={() => toggleSelectAll()}
                   aria-label="Selecionar todos"
                 />
               </TableHead>
@@ -533,11 +537,10 @@ export default function ParametrosOrcamentosPage() {
             ) : filtered.map(item => (
               <TableRow key={item.id} className={cn('whitespace-nowrap', selectedIds.has(item.id) && 'bg-muted/30')}>
                 <TableCell className="hidden text-center sm:table-cell">
-                  <input
-                    type="checkbox"
-                    className="h-3.5 w-3.5 rounded cursor-pointer align-middle"
+                  <Checkbox
+                    className="h-3.5 w-3.5 cursor-pointer align-middle"
                     checked={selectedIds.has(item.id)}
-                    onChange={() => toggleSelected(item.id)}
+                    onCheckedChange={() => toggleSelected(item.id)}
                     aria-label={`Selecionar ${item.nome}`}
                   />
                 </TableCell>

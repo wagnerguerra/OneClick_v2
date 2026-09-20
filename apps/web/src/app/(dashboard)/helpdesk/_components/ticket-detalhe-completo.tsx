@@ -2436,7 +2436,7 @@ function ChecklistDoChamado({ execucaoId, onChanged }: { execucaoId: string; onC
                     <div className="min-w-0 flex-1">
                       <p className={cn('leading-snug', fechado && 'text-muted-foreground line-through')}>
                         {p.passoNome}
-                        {p.obrigatorio && !fechado && <span className="ml-1 text-[10px] font-semibold text-red-600/70">obrig.</span>}
+                        {p.obrigatorio && !fechado && <span className="ml-1 text-[10px] font-semibold text-red-600/70 dark:text-red-400/70">obrig.</span>}
                       </p>
                       {p.observacao && <p className="mt-0.5 text-[11px] italic text-muted-foreground">{p.observacao}</p>}
                     </div>
