@@ -10,9 +10,7 @@ import { PageHeaderBar } from '@/components/page-header-bar'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
-// Tom escurecido p/ preenchimento sólido com texto branco (robusto p/ qualquer cor do bloco em prod).
-const MODULE_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
+const PRIMARY = 'var(--color-primary)'
 const MESES = ['', 'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 function fmtComp(ref: number): string {
@@ -326,7 +324,7 @@ export default function FolhaBiPage() {
       {clientes.length === 0 && !erroClientes && !loading && (
         <Card className="border-dashed p-6">
           <div className="flex items-start gap-3">
-            <Database className="mt-0.5 h-5 w-5 shrink-0" style={{ color: MODULE_COLOR }} />
+            <Database className="mt-0.5 h-5 w-5 shrink-0" style={{ color: PRIMARY }} />
             <div className="space-y-1">
               <p className="font-medium text-foreground">Nenhum cliente elegível</p>
               <p className="text-sm text-muted-foreground">
@@ -422,7 +420,7 @@ export default function FolhaBiPage() {
             {lote.total > 1 && (
               <Card className="p-3 text-sm">
                 <div className="flex items-center gap-2">
-                  <Loader2 className={cn('h-4 w-4 shrink-0', lote.ativos > 0 && 'animate-spin')} style={{ color: MODULE_COLOR }} />
+                  <Loader2 className={cn('h-4 w-4 shrink-0', lote.ativos > 0 && 'animate-spin')} style={{ color: PRIMARY }} />
                   <span className="font-medium text-foreground">
                     {lote.concluidos} de {lote.total} sincronizadas
                   </span>
@@ -438,7 +436,7 @@ export default function FolhaBiPage() {
               <Card className={cn('p-3 text-sm', jobDaSelecao.status === 'ERRO' && 'border-rose-500/40')}>
                 <div className="flex items-start gap-2">
                   {jobAtivo
-                    ? <><Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" style={{ color: MODULE_COLOR }} />
+                    ? <><Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" style={{ color: PRIMARY }} />
                         <span className="text-foreground">
                           {jobDaSelecao.status === 'PENDENTE'
                             ? 'Na fila — aguardando o Service Manager que roda perto do SCI.'
@@ -751,7 +749,7 @@ function GuiaCard({ label, value, accent, big, sub }: { label: string; value?: n
       style={{ borderLeft: `4px solid ${accent}` }}>
       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
       {/* Valor tingido pelo accent, mas puxado para o foreground p/ legibilidade:
-          o lime do módulo puro fica claro demais sobre o card branco no light. Como
+          o accent puro pode não contrastar o bastante sobre o card. Como
           --color-foreground é escuro no light e claro no dark, um único color-mix
           serve aos dois temas (escurece no claro, clareia no escuro). A borda
           esquerda segue com o accent puro (vívido). */}
@@ -803,28 +801,28 @@ function Inss({ inss }: { inss: any }) {
     <div className="space-y-4">
       {/* ===== Cards da guia ===== */}
       <div className="flex flex-wrap gap-3">
-        <GuiaCard big accent={MODULE_COLOR}
+        <GuiaCard big accent={PRIMARY}
           label={ded ? 'INSS a recolher (liquido)' : 'INSS total — guia'}
           value={ded ? g.liquido : g.bruta}
           sub={ded ? `guia ${brl(g.bruta)} − deducoes FPAS ${brl(g.deducoes)}` : 'empregado + patronal (CPP + GILRAT + Terceiros)'} />
         <GuiaCard label="INSS empregado (descontado)" value={g.emp} accent="#8a7bd8" />
-        <GuiaCard label="Patronal (CPP)" value={g.patronal} accent={MODULE_COLOR} sub={pct(al.patronal)} />
-        <GuiaCard label="GILRAT" value={g.gilrat} accent={MODULE_COLOR} sub={`RAT ${pct(al.rat)} × FAP ${al.fap ?? '—'} = ${pct(al.gilrat)}`} />
-        <GuiaCard label="Terceiros / Outras Entidades" value={g.terc} accent={MODULE_COLOR} sub={pct(al.terc)} />
-        {g.ratApo > 0.005 && <GuiaCard label="Adicional RAT (Apos. Especial)" value={g.ratApo} accent={MODULE_COLOR} sub={`sobre base ${brl(g.ratApoBase)}`} />}
+        <GuiaCard label="Patronal (CPP)" value={g.patronal} accent={PRIMARY} sub={pct(al.patronal)} />
+        <GuiaCard label="GILRAT" value={g.gilrat} accent={PRIMARY} sub={`RAT ${pct(al.rat)} × FAP ${al.fap ?? '—'} = ${pct(al.gilrat)}`} />
+        <GuiaCard label="Terceiros / Outras Entidades" value={g.terc} accent={PRIMARY} sub={pct(al.terc)} />
+        {g.ratApo > 0.005 && <GuiaCard label="Adicional RAT (Apos. Especial)" value={g.ratApo} accent={PRIMARY} sub={`sobre base ${brl(g.ratApoBase)}`} />}
         {g.aut > 0.005 && <GuiaCard label="Autonomos (RPA)" value={g.aut} accent="#8a7bd8" sub={`retido + CPP 20% + SEST/SENAT · ${aut.n} autonomo(s)`} />}
       </div>
 
       {/* ===== Deducoes FPAS ===== */}
       {ded && (
-        <Card className="p-4 text-sm" style={{ borderLeft: `3px solid ${MODULE_COLOR}` }}>
+        <Card className="p-4 text-sm" style={{ borderLeft: `3px solid ${PRIMARY}` }}>
           <b className="text-foreground">Deducoes do FPAS (reembolso ao empregador).</b>{' '}
           <span className="text-muted-foreground">Salario-familia e salario-maternidade sao adiantados pela empresa e abatidos da guia.</span>
           <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 tabular-nums">
             <span className="text-muted-foreground">Guia bruta <b className="text-foreground">{brl(g.bruta)}</b></span>
             {g.dedFam > 0.005 && <span className="text-muted-foreground">− salario-familia <b className="text-foreground">{brl(g.dedFam)}</b></span>}
             {g.dedMat > 0.005 && <span className="text-muted-foreground">− salario-maternidade <b className="text-foreground">{brl(g.dedMat)}</b></span>}
-            <span className="font-semibold" style={{ color: MODULE_COLOR }}>= INSS a recolher {brl(g.liquido)}</span>
+            <span className="font-semibold" style={{ color: PRIMARY }}>= INSS a recolher {brl(g.liquido)}</span>
           </div>
           {dedColabs.length > 0 && (
             <div className="mt-2">
@@ -866,7 +864,7 @@ function Inss({ inss }: { inss: any }) {
       </p>
 
       {concom && (
-        <Card className="p-3 text-xs text-muted-foreground" style={{ borderLeft: `3px solid ${MODULE_COLOR}` }}>
+        <Card className="p-3 text-xs text-muted-foreground" style={{ borderLeft: `3px solid ${PRIMARY}` }}>
           <b className="text-foreground">Simples Nacional — atividade concomitante (Anexo III/IV).</b> Patronal e GILRAT incidem so sobre a
           proporcao da receita do <b className="text-foreground">Anexo IV</b>: {brl(concom.r4)} ÷ {brl(concom.r4 + concom.rd)} ={' '}
           <b className="text-foreground">{(concom.prop * 100).toFixed(4).replace('.', ',')}%</b>. Terceiros = isento (LC 123).
@@ -1049,7 +1047,7 @@ function Fgts({ fgts, comp }: { fgts: any; comp?: string }) {
     <div className="space-y-4">
       {/* ===== Cards da guia ===== */}
       <div className="flex flex-wrap gap-3">
-        <GuiaCard big accent={MODULE_COLOR}
+        <GuiaCard big accent={PRIMARY}
           label={is13 ? 'Guia de 13º (anual) — FGTS' : 'Guia mensal — FGTS'} value={g.guia}
           sub={`${is13 ? 'folha de 13º' : 'competencia'} ${comp ?? ''}${show13 && !is13 ? ' · inclui 13º (adto + rescisao)' : ''}`} />
         {resc && <GuiaCard label="Guia(s) rescisoria(s) — FGTS" value={resc.total?.total} accent="#e0808a"
@@ -1239,7 +1237,7 @@ function Irrf({ irrf }: { irrf: any }) {
     <div className="space-y-4">
       {/* ===== Cards da guia ===== */}
       <div className="flex flex-wrap gap-3">
-        <GuiaCard big accent={MODULE_COLOR} label="Guia IRRF — DARF 0561" value={irrf.guia0561}
+        <GuiaCard big accent={PRIMARY} label="Guia IRRF — DARF 0561" value={irrf.guia0561}
           sub={`${irrf.nComRetencao} colaborador(es) com retencao · apuracao pela data de pagamento`} />
         {irrf.guia0588 > 0.005 && <GuiaCard accent="#8a7bd8" label="Guia IRRF — DARF 0588 (Autonomos)" value={irrf.guia0588} sub={`${aut.n} autonomo(s) · RPA`} />}
       </div>
@@ -1400,12 +1398,12 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
       <div className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <Settings2 className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+            <Settings2 className="h-4 w-4" style={{ color: PRIMARY }} />
             <h3 className="text-sm font-semibold text-foreground">Configurar agrupamento de verbas</h3>
           </div>
           <div className="flex items-center gap-2">
             {msg && <span className="text-xs text-muted-foreground">{msg}</span>}
-            <button onClick={aplicar} disabled={busy} className="rounded-lg px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50" style={{ backgroundColor: MODULE_FILL }}>Aplicar (resolver)</button>
+            <button onClick={aplicar} disabled={busy} className="rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground disabled:opacity-50">Aplicar (resolver)</button>
             <Button variant="outline" size="icon-xs" onClick={onClose}><X /></Button>
           </div>
         </div>
@@ -1416,10 +1414,9 @@ function ConfigAgrupamento({ onClose, onChanged }: { onClose: () => void; onChan
             <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Esquemas</div>
             {(snap?.esquemas ?? []).map((e: any) => (
               <button key={e.id} onClick={() => { setSelEsq(e.id); setSelGrupo(null) }}
-                className={cn('mb-1 rounded-md px-2 py-1.5 text-left', e.id === selEsq ? 'text-white' : 'text-foreground hover:bg-muted/40')}
-                style={e.id === selEsq ? { backgroundColor: MODULE_FILL } : undefined}>
+                className={cn('mb-1 rounded-md px-2 py-1.5 text-left', e.id === selEsq ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/40')}>
                 <div className="truncate">{e.nome}</div>
-                <div className={cn('text-[10px]', e.id === selEsq ? 'text-white/70' : 'text-muted-foreground')}>{e.escopo}{e.ativo ? '' : ' · inativo'}</div>
+                <div className={cn('text-[10px]', e.id === selEsq ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{e.escopo}{e.ativo ? '' : ' · inativo'}</div>
               </button>
             ))}
             <div className="mt-2 space-y-1 border-t border-border pt-2">
@@ -1546,7 +1543,7 @@ function Provisoes({ provisoes, empresa, refNum }: { provisoes: any; empresa: nu
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <GuiaCard accent={MODULE_COLOR} label={`Provisão de ${tlabel} · do mês`} value={d.total?.mes?.total} sub="1/12 avos + acerto (custo do mês)" />
+        <GuiaCard accent={PRIMARY} label={`Provisão de ${tlabel} · do mês`} value={d.total?.mes?.total} sub="1/12 avos + acerto (custo do mês)" />
         <GuiaCard accent="#8a7bd8" label={`Provisão de ${tlabel} · acumulado`} value={d.total?.acum?.total} sub="saldo provisionado" />
       </div>
 
@@ -1784,8 +1781,7 @@ function RelatorioProvisao({ empresa, refNum, tipo }: { empresa: number; refNum:
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 text-xs">
         <Button variant="outline" size="xs" onClick={() => { setPorCentro((v) => !v); setExp(new Set()) }}
-          style={porCentro ? { backgroundColor: MODULE_FILL } : undefined}
-          className={porCentro ? 'border-transparent text-white hover:text-white' : undefined}>Agrupar por centro de custo</Button>
+          className={porCentro ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground' : undefined}>Agrupar por centro de custo</Button>
         <Button variant="outline" size="xs" onClick={() => setExp(new Set([...colabs.map((c) => `c${c.cod}`), ...centros.map((c) => `ce:${c.label}`)]))}>Expandir tudo</Button>
         <Button variant="outline" size="xs" onClick={() => setExp(new Set())}>Recolher</Button>
         <span className="text-[11px] text-muted-foreground">clique num {porCentro ? 'centro/colaborador' : 'colaborador'} p/ abrir o movimento da conta (saldo final → demais valores)</span>
@@ -2140,8 +2136,7 @@ function Selecao({ label, value, onChange, className, children }: {
 function Pill({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: any; label: string }) {
   return (
     <button onClick={onClick}
-      className={cn('flex items-center gap-1.5 rounded-md px-3 py-1 text-sm', active ? 'text-white' : 'text-muted-foreground hover:text-foreground')}
-      style={active ? { backgroundColor: MODULE_FILL } : undefined}>
+      className={cn('flex items-center gap-1.5 rounded-md px-3 py-1 text-sm', active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
       <Icon className="h-3.5 w-3.5" /> {label}
     </button>
   )
@@ -2150,8 +2145,7 @@ function Pill({ active, onClick, icon: Icon, label }: { active: boolean; onClick
 function SubPill({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
   return (
     <button onClick={onClick}
-      className={cn('rounded-md px-3 py-1 font-medium', active ? 'text-white' : 'text-muted-foreground hover:text-foreground')}
-      style={active ? { backgroundColor: MODULE_FILL } : undefined}>
+      className={cn('rounded-md px-3 py-1 font-medium', active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
       {label}
     </button>
   )
@@ -2159,7 +2153,7 @@ function SubPill({ active, onClick, label }: { active: boolean; onClick: () => v
 
 function Stat({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/50 dark:bg-accent p-3" style={strong ? { backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 10%, transparent)` } : undefined}>
+    <div className="rounded-lg border border-border bg-muted/50 dark:bg-accent p-3" style={strong ? { backgroundColor: `color-mix(in srgb, ${PRIMARY} 10%, transparent)` } : undefined}>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={cn('mt-1 tabular-nums text-foreground', strong ? 'text-lg font-semibold' : 'text-base font-medium')}>{value}</p>
     </div>

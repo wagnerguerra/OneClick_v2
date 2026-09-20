@@ -28,7 +28,7 @@ import { BADGE, TEXT, BORDER } from '@/lib/color-styles'
 
 const PAGE_SIZES = [10, 20, 50]
 
-const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
+const PRIMARY = 'var(--color-primary)'
 
 /** Indicadores do topo — os mesmos números do painel de relatórios. */
 interface Indicadores {
@@ -59,7 +59,7 @@ function Indicador({ label, valor, hint, cor, icone: Icone, ativo, onClick, dest
   onClick?: () => void
   destaque?: boolean
 }) {
-  const corFinal = cor ?? MODULE_COLOR
+  const corFinal = cor ?? PRIMARY
   return (
     <button
       type="button"
@@ -440,7 +440,7 @@ export default function ControleFeriasPage() {
                 className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs font-medium transition-colors hover:bg-muted/50"
                 title="Remover o recorte do indicador"
               >
-                <span className="h-2 w-2 rounded-full" style={{ background: MODULE_COLOR }} />
+                <span className="h-2 w-2 rounded-full" style={{ background: PRIMARY }} />
                 Somente {INDICADOR_LABEL[fIndicador]}
                 <X className="h-3.5 w-3.5 text-muted-foreground" />
               </button>

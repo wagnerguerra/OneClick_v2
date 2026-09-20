@@ -15,9 +15,6 @@ import { FolhaImportTab } from './_components/folha-import'
 import { FolhaLancamentosTab } from './_components/folha-lancamentos'
 import { FolhaExportTab } from './_components/folha-export'
 
-// Preenchimento sólido com texto BRANCO: escurece o tom do módulo com preto, para
-// o branco ficar legível seja qual for a cor do bloco em prod (clara ou escura).
-const MODULE_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
 
 interface ClienteOption { id: string; razaoSocial: string; documento: string }
 
@@ -143,7 +140,7 @@ export default function FolhaPagamentoPage() {
                 {TABS.map(tab => {
                   const Icon = tab.icon
                   return (
-                    <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={cn('w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2', activeTab === tab.key ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-accent hover:text-foreground')} style={activeTab === tab.key ? { backgroundColor: MODULE_FILL } : undefined}>
+                    <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={cn('w-full text-left px-3 py-2 rounded text-xs font-medium transition-all flex items-center gap-2', activeTab === tab.key ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
                       <Icon className="h-3.5 w-3.5 shrink-0" />
                       {tab.label}
                     </button>

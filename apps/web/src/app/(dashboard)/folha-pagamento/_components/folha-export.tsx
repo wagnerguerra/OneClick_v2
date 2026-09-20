@@ -6,9 +6,9 @@ import { Button, Card, Select, SelectTrigger, SelectValue, SelectContent, Select
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-// Cor do módulo Trabalhista (editável no design-system) — superfície sutil via color-mix.
-const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
-const MOD_SURFACE = { backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 10%, transparent)`, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)` }
+// Superfície sutil da cor primária do sistema via color-mix.
+const PRIMARY = 'var(--color-primary)'
+const MOD_SURFACE = { backgroundColor: `color-mix(in srgb, ${PRIMARY} 10%, transparent)`, borderColor: `color-mix(in srgb, ${PRIMARY} 35%, transparent)` }
 
 interface Importacao { id: string; competencia: string; status: string; totalLancamentos: number }
 interface Filial { id: string; codigoFilial: string; cnpj: string }
@@ -145,7 +145,7 @@ export function FolhaExportTab({ clienteId }: { clienteId: string }) {
           {filiais.length > 1 && (
             <Card className="p-5 border" style={MOD_SURFACE}>
               <div className="flex items-center gap-3 mb-3">
-                <Building2 className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <Building2 className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h4 className="text-sm font-semibold">Exportar por filial</h4>
               </div>
               <p className="text-[11px] text-muted-foreground mb-3">

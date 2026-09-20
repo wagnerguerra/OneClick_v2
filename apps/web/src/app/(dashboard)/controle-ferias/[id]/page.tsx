@@ -22,9 +22,7 @@ import { corSaldo, corSaldoTexto } from '../_lib/cores'
 import { InlineEditCell } from '@/components/ui/inline-edit-cell'
 import { BADGE } from '@/lib/color-styles'
 
-const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
-// Tom escurecido p/ preenchimento sólido com texto branco (robusto p/ qualquer cor do bloco em prod).
-const MODULE_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
+const PRIMARY = 'var(--color-primary)'
 
 interface Evento {
   id: string; ordem: number; dataInicio: string; dataFim: string
@@ -270,7 +268,7 @@ export default function ControleFeriasDetalhePage() {
       <PageHeaderBar actions={<>
           {podeEscrever && (
             <>
-              <Button size="sm" style={{ backgroundColor: MODULE_FILL }} className="text-white hover:opacity-90" onClick={() => setGozoAberto(true)}>
+              <Button size="sm" onClick={() => setGozoAberto(true)}>
                 <Plus className="h-4 w-4" />Lançar gozo
               </Button>
               <Button variant="outline" size="sm" onClick={alternarHistorico}>
@@ -324,7 +322,7 @@ export default function ControleFeriasDetalhePage() {
               ficava partida ao meio. */}
           <Card className="p-5">
             <div className="mb-3 flex items-center gap-2">
-              <Info className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <Info className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-[13px] font-semibold text-foreground">Dados deste período</h4>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -380,7 +378,7 @@ export default function ControleFeriasDetalhePage() {
                 as duas metades do card; uma divisória em cima dela seria a mesma
                 linha duas vezes. */}
             <div className="flex items-center gap-2 mt-7 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
-              <CalendarDays className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <CalendarDays className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-[13px] font-semibold text-foreground">Gozos do período</h4>
             </div>
             {p.eventos.length === 0 ? (
@@ -442,7 +440,7 @@ export default function ControleFeriasDetalhePage() {
           {(p.historicoColaborador?.length ?? 0) > 0 && (
             <Card className="p-5">
               <div className="flex items-center gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
-                <History className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <History className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h4 className="text-[13px] font-semibold text-foreground">Períodos anteriores</h4>
                 <Badge variant="secondary" className="text-[10px]">{p.historicoColaborador.length}</Badge>
                 <span className="ml-auto text-[11px] text-muted-foreground">
@@ -566,7 +564,7 @@ export default function ControleFeriasDetalhePage() {
         <div className="space-y-5">
           <Card className="p-5">
             <div className="mb-3 flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+              <CalendarDays className="h-4 w-4" style={{ color: PRIMARY }} />
               <h4 className="text-sm font-semibold">Próximo período</h4>
             </div>
 
@@ -668,7 +666,7 @@ export default function ControleFeriasDetalhePage() {
           <Card className="p-5">
             <div className="flex items-center justify-between gap-2 mb-4 pb-2.5 -mx-5 px-5 border-b border-border">
               <div className="flex items-center gap-2">
-                <Paperclip className="h-4 w-4" style={{ color: MODULE_COLOR }} />
+                <Paperclip className="h-4 w-4" style={{ color: PRIMARY }} />
                 <h4 className="text-[13px] font-semibold text-foreground">Recibos e avisos</h4>
               </div>
               {podeEscrever && (

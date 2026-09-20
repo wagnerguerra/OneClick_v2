@@ -13,9 +13,7 @@ import { getApiUrl } from '@/lib/api-url'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { BackButton } from '@/components/ui/back-button'
 
-const COR = 'var(--mod-trabalhista, #a3e635)'
-// Tom escurecido p/ botões sólidos com texto branco (robusto p/ qualquer cor do bloco em prod).
-const COR_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
+const PRIMARY = 'var(--color-primary)'
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 const brl = (n: number) => (n ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -136,8 +134,8 @@ function CompetenciasList({ competencias, loading, empresaId, podeGerir, onOpen,
   return (
     <div className="space-y-4">
       {aberta && (
-        <button onClick={() => onOpen(aberta.id)} className="w-full flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors hover:bg-muted/40" style={{ borderColor: COR, background: `color-mix(in srgb, ${'var(--mod-trabalhista, #a3e635)'} 8%, transparent)` }}>
-          <span className="inline-flex items-center gap-2 text-sm font-semibold"><BellRing className="h-4 w-4" style={{ color: COR }} /> Meus apontamentos do mês — {MESES[aberta.mes - 1]}/{aberta.ano}</span>
+        <button onClick={() => onOpen(aberta.id)} className="w-full flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors hover:bg-muted/40" style={{ borderColor: PRIMARY, background: `color-mix(in srgb, ${PRIMARY} 8%, transparent)` }}>
+          <span className="inline-flex items-center gap-2 text-sm font-semibold"><BellRing className="h-4 w-4" style={{ color: PRIMARY }} /> Meus apontamentos do mês — {MESES[aberta.mes - 1]}/{aberta.ano}</span>
           <span className="text-[11px] text-muted-foreground">Lançar / revisar →</span>
         </button>
       )}
@@ -153,7 +151,7 @@ function CompetenciasList({ competencias, loading, empresaId, podeGerir, onOpen,
             <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Dias úteis</Label><Input type="number" className="h-9 text-sm" value={form.diasUteis} onChange={e => setForm(f => ({ ...f, diasUteis: +e.target.value }))} /></div>
             <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Diária VA</Label><Input type="number" step="0.01" className="h-9 text-sm" value={form.diariaVA} onChange={e => setForm(f => ({ ...f, diariaVA: +e.target.value }))} /></div>
             <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Diária VT</Label><Input type="number" step="0.01" className="h-9 text-sm" value={form.diariaVT} onChange={e => setForm(f => ({ ...f, diariaVT: +e.target.value }))} /></div>
-            <div className="col-span-12 sm:col-span-2"><Button size="sm" className="w-full gap-1.5 text-white hover:opacity-90" style={{ background: COR_FILL }} onClick={abrir} disabled={abrindo}>{abrindo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Abrir competência</Button></div>
+            <div className="col-span-12 sm:col-span-2"><Button size="sm" className="w-full gap-1.5" onClick={abrir} disabled={abrindo}>{abrindo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Abrir competência</Button></div>
           </div>
         </Card>
       )}
@@ -166,7 +164,7 @@ function CompetenciasList({ competencias, loading, empresaId, podeGerir, onOpen,
               return (
                 <button key={c.id} onClick={() => onOpen(c.id)} className="group w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left cursor-pointer">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold transition-colors group-hover:text-[color-mix(in_srgb,var(--mod-trabalhista,#a3e635)_55%,var(--color-foreground))]">{MESES[c.mes - 1]}/{c.ano}</span>
+                    <span className="text-sm font-semibold transition-colors group-hover:text-[color-mix(in_srgb,var(--color-primary)_55%,var(--color-foreground))]">{MESES[c.mes - 1]}/{c.ano}</span>
                     <span className="text-[11px] text-muted-foreground">{c.diasUteis} dias úteis · VA {brl(Number(c.diariaVA))}/dia · VT {brl(Number(c.diariaVT))}/dia</span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -255,7 +253,7 @@ function ConfigView({ empresaId }: { empresaId: string }) {
           )}
         </div>
 
-        <Button size="sm" className="gap-1.5 text-white hover:opacity-90" style={{ background: COR_FILL }} onClick={salvarCfg} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar</Button>
+        <Button size="sm" className="gap-1.5" onClick={salvarCfg} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar</Button>
       </Card>
 
       <Card className="p-0 overflow-hidden">
@@ -288,7 +286,7 @@ function ConfigView({ empresaId }: { empresaId: string }) {
       </Card>
 
       <Card className="p-4 space-y-3">
-        <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" style={{ color: COR }} /><h3 className="text-sm font-semibold">Cartões avulsos (ESCRITÓRIO / RESERVA)</h3></div>
+        <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" style={{ color: PRIMARY }} /><h3 className="text-sm font-semibold">Cartões avulsos (ESCRITÓRIO / RESERVA)</h3></div>
         <p className="text-[11px] text-muted-foreground">Cartões não vinculados a colaborador, com valores fixos somados ao fechamento.</p>
         <div className="border rounded-lg divide-y">
           {cartoes.map(c => (
@@ -305,7 +303,7 @@ function ConfigView({ empresaId }: { empresaId: string }) {
           <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">VA</Label><Input type="number" step="0.01" className="h-9 text-sm" value={novoCartao.valorVA} onChange={e => setNovoCartao(c => ({ ...c, valorVA: +e.target.value }))} /></div>
           <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">VT</Label><Input type="number" step="0.01" className="h-9 text-sm" value={novoCartao.valorVT} onChange={e => setNovoCartao(c => ({ ...c, valorVT: +e.target.value }))} /></div>
           <div className="col-span-4 sm:col-span-2 space-y-1"><Label className="text-[12px] font-semibold">Mobilidade</Label><Input type="number" step="0.01" className="h-9 text-sm" value={novoCartao.valorMobilidade} onChange={e => setNovoCartao(c => ({ ...c, valorMobilidade: +e.target.value }))} /></div>
-          <div className="col-span-12 sm:col-span-2"><Button size="sm" className="w-full gap-1.5 text-white hover:opacity-90" style={{ background: COR_FILL }} onClick={addCartao}><Plus className="h-4 w-4" /> Adicionar</Button></div>
+          <div className="col-span-12 sm:col-span-2"><Button size="sm" className="w-full gap-1.5" onClick={addCartao}><Plus className="h-4 w-4" /> Adicionar</Button></div>
         </div>
       </Card>
     </div>
@@ -426,7 +424,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
               <Button variant="outline" size="sm" className="gap-1.5" onClick={exportar}><FileSpreadsheet className="h-4 w-4" /> Exportar XLSX</Button>
               <Button variant="outline" size="sm" className="gap-1.5" onClick={imprimir} disabled={acao}><Printer className="h-4 w-4" /> Imprimir / PDF</Button>
               {fechada ? <Button variant="outline" size="sm" className="gap-1.5" onClick={reabrir} disabled={acao}><Unlock className="h-4 w-4" /> Reabrir</Button>
-                : <Button size="sm" className="gap-1.5 text-white hover:opacity-90" style={{ background: COR_FILL }} onClick={fechar} disabled={acao}>{acao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Fechar</Button>}
+                : <Button size="sm" className="gap-1.5" onClick={fechar} disabled={acao}>{acao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Fechar</Button>}
             </>
           )}
           <BackButton onClick={onBack} title="Voltar para a lista" />
@@ -444,7 +442,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
 
       <div className="flex gap-4 border-b">
         {([['apontamentos', 'Apontamentos'], ...(podeGerir ? [['saldo', 'Saldo VT'], ['fechamento', 'Fechamento']] : [])] as [string, string][]).map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k as any)} className={`px-1 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${tab === k ? 'text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`} style={tab === k ? { borderBottomColor: COR } : undefined}>{l}</button>
+          <button key={k} onClick={() => setTab(k as any)} className={`px-1 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${tab === k ? 'text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`} style={tab === k ? { borderBottomColor: PRIMARY } : undefined}>{l}</button>
         ))}
       </div>
 
@@ -554,7 +552,7 @@ function CompetenciaDetail({ id, podeGerir, onBack }: { id: string; podeGerir: b
                 <td className="px-3 py-2 text-right">{brl(recargas.reduce((s, r) => s + r.valorVA, 0))}</td>
                 <td className="px-3 py-2 text-right">{brl(recargas.reduce((s, r) => s + r.valorVT, 0))}</td>
                 <td className="px-3 py-2 text-right">{brl(recargas.reduce((s, r) => s + r.valorMobilidade, 0))}</td>
-                <td className="px-4 py-2 text-right" style={{ color: COR }}>{brl(recargas.reduce((s, r) => s + r.total, 0))}</td>
+                <td className="px-4 py-2 text-right" style={{ color: PRIMARY }}>{brl(recargas.reduce((s, r) => s + r.total, 0))}</td>
               </tr></tfoot>
             </table>
           </div>

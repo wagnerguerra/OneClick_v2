@@ -7,12 +7,9 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { STRONG } from '@/lib/color-styles'
 
-// Cor do módulo Trabalhista (editável no design-system). MODULE_COLOR = tom vívido
-// (ícones/acentos). MODULE_FILL = tom escurecido para preenchimento sólido com
-// texto BRANCO (legível seja qual for a cor do bloco em prod). Superfície sutil via color-mix.
-const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
-const MODULE_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
-const MOD_SURFACE = { backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 10%, transparent)`, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)` }
+// Superfície sutil da cor primária do sistema via color-mix.
+const PRIMARY = 'var(--color-primary)'
+const MOD_SURFACE = { backgroundColor: `color-mix(in srgb, ${PRIMARY} 10%, transparent)`, borderColor: `color-mix(in srgb, ${PRIMARY} 35%, transparent)` }
 
 interface Filial { id: string; cnpj: string; codigoFilial: string; endereco: string; contaLiquido: number; contaLiquidoAlt: number | null; ativo: boolean; setores: Array<{ id: string; nome: string; tipoContabil: string }> }
 interface EventoConta { id: string; codigoEvento: number; descricao: string; tipo: 'PROVENTO' | 'DESCONTO'; contaCustoDebito: number | null; contaCustoCredito: number | null; contaDespesaDebito: number | null; contaDespesaCredito: number | null; geraLancamento: boolean }
@@ -74,10 +71,10 @@ export function FolhaConfigTab({ clienteId }: { clienteId: string }) {
 
       {/* Sub-tabs */}
       <div className="flex gap-2 border-b pb-2">
-        <button onClick={() => setTab('filiais')} style={tab === 'filiais' ? { backgroundColor: MODULE_FILL } : undefined} className={cn('px-3 py-1.5 text-xs font-medium rounded-md transition', tab === 'filiais' ? 'text-white' : 'text-muted-foreground hover:bg-muted')}>
+        <button onClick={() => setTab('filiais')} className={cn('px-3 py-1.5 text-xs font-medium rounded-md transition', tab === 'filiais' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
           <Building2 className="h-3.5 w-3.5 inline mr-1.5" />Filiais e Setores
         </button>
-        <button onClick={() => setTab('eventos')} style={tab === 'eventos' ? { backgroundColor: MODULE_FILL } : undefined} className={cn('px-3 py-1.5 text-xs font-medium rounded-md transition', tab === 'eventos' ? 'text-white' : 'text-muted-foreground hover:bg-muted')}>
+        <button onClick={() => setTab('eventos')} className={cn('px-3 py-1.5 text-xs font-medium rounded-md transition', tab === 'eventos' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
           <MapPin className="h-3.5 w-3.5 inline mr-1.5" />Tabela De-Para (Eventos)
         </button>
       </div>
@@ -138,7 +135,7 @@ function FiliaisSection({ clienteId, filiais, onReload }: { clienteId: string; f
             <div className="space-y-1"><label className="text-[10px] font-semibold uppercase text-muted-foreground">Conta Líquido</label><Input type="number" value={form.contaLiquido} onChange={e => setForm({ ...form, contaLiquido: Number(e.target.value) })} className="h-8 text-xs" /></div>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAddFilial} style={{ backgroundColor: MODULE_FILL }} className="gap-1 text-xs text-white hover:opacity-90"><Save className="h-3.5 w-3.5" /><span>Salvar</span></Button>
+            <Button size="sm" onClick={handleAddFilial} className="gap-1 text-xs"><Save className="h-3.5 w-3.5" /><span>Salvar</span></Button>
             <Button size="sm" variant="outline" onClick={() => setAdding(false)} className="text-xs">Cancelar</Button>
           </div>
         </Card>
@@ -261,7 +258,7 @@ function EventosSection({ clienteId, eventos, onReload }: { clienteId: string; e
                 <td className="px-2 py-1.5 text-center font-mono text-muted-foreground">{e.contaDespesaDebito ?? '—'}</td>
                 <td className="px-2 py-1.5 text-center font-mono text-muted-foreground">{e.contaDespesaCredito ?? '—'}</td>
                 <td className="px-2 py-1.5 text-center">
-                  <Checkbox checked={e.geraLancamento} onCheckedChange={() => handleToggleGera(e.id, e.geraLancamento)} accentColor={MODULE_COLOR} className="h-3.5 w-3.5" />
+                  <Checkbox checked={e.geraLancamento} onCheckedChange={() => handleToggleGera(e.id, e.geraLancamento)} className="h-3.5 w-3.5" />
                 </td>
                 <td className="px-2 py-1.5">
                   <button onClick={() => handleDelete(e.id)} className="text-red-400 hover:text-red-600"><Trash2 className="h-3 w-3" /></button>

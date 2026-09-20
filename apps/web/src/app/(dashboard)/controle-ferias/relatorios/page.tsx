@@ -24,7 +24,7 @@ import { corSaldoTexto, tituloSaldo } from '../_lib/cores'
 import { BADGE, BORDER } from '@/lib/color-styles'
 import { ChartTooltip, CHART_CURSOR_FILL } from '@/components/chart-tooltip'
 
-const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
+const PRIMARY = 'var(--color-primary)'
 
 /**
  * Estilo dos gráficos — receita do LuminAux (`/luminaux/charts/recharts`).
@@ -63,8 +63,8 @@ function DegradeBarra({ id, horizontal = false }: { id: string; horizontal?: boo
   return (
     <defs>
       <linearGradient id={id} x1="0" y1="0" x2={horizontal ? '1' : '0'} y2={horizontal ? '0' : '1'}>
-        <stop offset="0%" stopColor={MODULE_COLOR} stopOpacity={horizontal ? 0.45 : 1} />
-        <stop offset="100%" stopColor={MODULE_COLOR} stopOpacity={horizontal ? 1 : 0.45} />
+        <stop offset="0%" stopColor={PRIMARY} stopOpacity={horizontal ? 0.45 : 1} />
+        <stop offset="100%" stopColor={PRIMARY} stopOpacity={horizontal ? 1 : 0.45} />
       </linearGradient>
     </defs>
   )
@@ -184,8 +184,8 @@ function Kpi({ label, valor, hint, cor, icone: Icone, destaque }: {
           {hint && <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{hint}</p>}
         </div>
         {Icone && (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${cor ?? MODULE_COLOR} 15%, transparent)` }}>
-            <Icone className="h-4 w-4" style={{ color: cor ?? MODULE_COLOR }} />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${cor ?? PRIMARY} 15%, transparent)` }}>
+            <Icone className="h-4 w-4" style={{ color: cor ?? PRIMARY }} />
           </span>
         )}
       </div>
@@ -327,7 +327,7 @@ export default function RelatoriosFeriasPage() {
               onClick={() => setAba(a.id)}
               className={cn('-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors',
                 ativa ? 'border-current' : 'border-transparent text-muted-foreground hover:text-foreground')}
-              style={ativa ? { color: MODULE_COLOR, borderColor: MODULE_COLOR } : undefined}
+              style={ativa ? { color: PRIMARY, borderColor: PRIMARY } : undefined}
             >
               <Icone className="h-4 w-4" />{a.label}
             </button>
@@ -620,8 +620,8 @@ export default function RelatoriosFeriasPage() {
                             <span
                               className="inline-flex h-6 min-w-[26px] items-center justify-center rounded px-1 font-semibold"
                               style={{
-                                background: `color-mix(in srgb, ${MODULE_COLOR} ${Math.min(70, 18 + d * 2)}%, transparent)`,
-                                color: `color-mix(in srgb, ${MODULE_COLOR} 70%, #0f172a)`,
+                                background: `color-mix(in srgb, ${PRIMARY} ${Math.min(70, 18 + d * 2)}%, transparent)`,
+                                color: `color-mix(in srgb, ${PRIMARY} 70%, #0f172a)`,
                               }}
                             >{d}</span>
                           ) : <span className="text-muted-foreground/40">·</span>}
@@ -730,7 +730,7 @@ export default function RelatoriosFeriasPage() {
             <Kpi label="Dias provisionados" valor={prov.resumo.dias} hint={`${prov.resumo.colaboradores} colaborador(es)`} icone={CalendarDays} />
             <Kpi label="Férias" valor={reais(prov.resumo.base)} icone={Wallet} />
             <Kpi label="1/3 constitucional" valor={reais(prov.resumo.terco)} icone={Coins} />
-            <Kpi label="Total com encargos" valor={reais(provTotalComEncargos)} hint={`Férias + 1/3 + ${(encargosPct * 100).toFixed(1)}% de encargos`} cor={MODULE_COLOR} icone={Coins} />
+            <Kpi label="Total com encargos" valor={reais(provTotalComEncargos)} hint={`Férias + 1/3 + ${(encargosPct * 100).toFixed(1)}% de encargos`} cor={PRIMARY} icone={Coins} />
           </div>
 
           <Card className="p-3">

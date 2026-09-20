@@ -7,15 +7,12 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { STRONG, SURFACE, TEXT } from '@/lib/color-styles'
 
-// Cor do módulo Trabalhista (editável no design-system). Fill vívido leva texto
-// escuro (o lime é claro); superfícies/badge sutis via color-mix em `style` inline
-// (CSS puro, sem depender do retint .mod- nem de classe arbitrária do JIT). Texto
-// sobre a superfície tintada usa `text-foreground` (legível nos 2 temas).
-const MODULE_COLOR = 'var(--mod-trabalhista, #a3e635)'
-// Tom escurecido p/ preenchimento sólido com texto branco (robusto p/ qualquer cor do bloco).
-const MODULE_FILL = 'color-mix(in srgb, var(--mod-trabalhista, #a3e635) 50%, black)'
-const MOD_SURFACE: CSSProperties = { backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 10%, transparent)`, borderColor: `color-mix(in srgb, ${MODULE_COLOR} 35%, transparent)` }
-const MOD_BADGE_STYLE: CSSProperties = { backgroundColor: `color-mix(in srgb, ${MODULE_COLOR} 18%, transparent)` }
+// Cor primária do sistema. Superfícies/badge sutis via color-mix em `style` inline
+// (CSS puro, sem depender de classe arbitrária do JIT). Texto sobre a superfície
+// tintada usa `text-foreground` (legível nos 2 temas).
+const PRIMARY = 'var(--color-primary)'
+const MOD_SURFACE: CSSProperties = { backgroundColor: `color-mix(in srgb, ${PRIMARY} 10%, transparent)`, borderColor: `color-mix(in srgb, ${PRIMARY} 35%, transparent)` }
+const MOD_BADGE_STYLE: CSSProperties = { backgroundColor: `color-mix(in srgb, ${PRIMARY} 18%, transparent)` }
 
 interface Importacao {
   id: string; competencia: string; dataImportacao: string; arquivoOrigem: string | null
@@ -135,7 +132,7 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
                 <FileText className="h-3.5 w-3.5" />
                 {arquivo ? arquivo.name : 'Selecionar arquivo...'}
               </Button>
-              <Button size="sm" onClick={handleImportar} disabled={importing || !arquivo || !competencia} style={{ backgroundColor: MODULE_FILL }} className="gap-1.5 h-9 text-xs text-white hover:opacity-90">
+              <Button size="sm" onClick={handleImportar} disabled={importing || !arquivo || !competencia} className="gap-1.5 h-9 text-xs">
                 {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                 Importar
               </Button>
@@ -174,7 +171,7 @@ export function FolhaImportTab({ clienteId }: { clienteId: string }) {
             </table>
           </div>
           <div className="mt-4 flex items-center gap-3">
-            <Button size="sm" onClick={() => handleContabilizar(ultimoResultado.importacaoId)} disabled={contabilizando} style={{ backgroundColor: MODULE_FILL }} className="gap-1.5 text-xs text-white hover:opacity-90">
+            <Button size="sm" onClick={() => handleContabilizar(ultimoResultado.importacaoId)} disabled={contabilizando} className="gap-1.5 text-xs">
               {contabilizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
               Contabilizar
             </Button>
