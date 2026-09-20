@@ -35,6 +35,7 @@ export default function FolhaPagamentoPage() {
   const [clienteId, setClienteId] = useState('')
   const [comboOpen, setComboOpen] = useState(false)
   const comboRef = useRef<HTMLDivElement>(null)
+  const comboListRef = useRef<HTMLDivElement>(null)
   const [activeTab, setActiveTab] = useState('config')
 
   // Fechar combobox ao clicar fora
@@ -93,8 +94,11 @@ export default function FolhaPagamentoPage() {
                 {comboOpen && (
                   <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border bg-popover shadow-lg">
                     <Command className="rounded-lg" shouldFilter={true}>
-                      <Command.Input placeholder="Buscar por nome ou CNPJ..." className="w-full border-b border-border bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground" />
-                      <Command.List className="max-h-[250px] overflow-y-auto p-1 nice-scrollbar">
+                      <Command.Input placeholder="Buscar por nome ou CNPJ..." className="w-full border-b border-border bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground"
+                        // Ao filtrar, o cmdk faz scrollIntoView do item destacado e a lista
+                        // "pula"; voltamos pro topo (melhores matches) apos o scroll do cmdk.
+                        onValueChange={() => requestAnimationFrame(() => { if (comboListRef.current) comboListRef.current.scrollTop = 0 })} />
+                      <Command.List ref={comboListRef} className="max-h-[250px] overflow-y-auto p-1 nice-scrollbar">
                         <Command.Empty className="px-3 py-4 text-center text-xs text-muted-foreground">Nenhum cliente encontrado</Command.Empty>
                         {clientes.map(c => (
                           <Command.Item key={c.id} value={`${c.razaoSocial} ${c.documento}`} onSelect={() => { setClienteId(c.id); setComboOpen(false) }} className="group flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground aria-selected:bg-accent aria-selected:text-accent-foreground">

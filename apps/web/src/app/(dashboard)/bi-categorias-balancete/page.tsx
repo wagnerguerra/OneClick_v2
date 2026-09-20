@@ -392,6 +392,7 @@ export default function BiCategoriasBalancetePage() {
   const [clienteId, setClienteId] = useState<string>('')
   const [comboOpen, setComboOpen] = useState(false)
   const comboRef = useRef<HTMLDivElement>(null)
+  const comboListRef = useRef<HTMLDivElement>(null)
   const [year, setYear] = useState(CURRENT_YEAR)
 
   const [categorias, setCategorias] = useState<Categoria[]>([])
@@ -1040,8 +1041,12 @@ export default function BiCategoriasBalancetePage() {
                       <Command.Input
                         placeholder="Buscar por nome ou CNPJ..."
                         className="w-full border-b border-border bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground"
+                        // Ao filtrar, o cmdk faz scrollIntoView do item destacado e a
+                        // lista "pula". Voltamos pro topo (melhores matches) depois do
+                        // scroll interno do cmdk (rAF roda apos os efeitos do frame).
+                        onValueChange={() => requestAnimationFrame(() => { if (comboListRef.current) comboListRef.current.scrollTop = 0 })}
                       />
-                      <Command.List className="max-h-[250px] overflow-y-auto nice-scrollbar p-1">
+                      <Command.List ref={comboListRef} className="max-h-[250px] overflow-y-auto nice-scrollbar p-1">
                         <Command.Empty className="px-3 py-4 text-center text-xs text-muted-foreground">
                           Nenhum cliente encontrado
                         </Command.Empty>

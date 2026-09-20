@@ -69,6 +69,7 @@ export default function BiFaturamentoPage() {
   const [clienteId, setClienteId] = useState('')
   const [comboOpen, setComboOpen] = useState(false)
   const comboRef = useRef<HTMLDivElement>(null)
+  const comboListRef = useRef<HTMLDivElement>(null)
   const currentYear = new Date().getFullYear()
   const anosDisponiveis = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3]
   const [anosSelecionados, setAnosSelecionados] = useState<number[]>([currentYear])
@@ -203,8 +204,11 @@ export default function BiFaturamentoPage() {
                       <Command.Input
                         placeholder="Buscar por nome ou CNPJ..."
                         className="w-full border-b border-border bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground"
+                        // Ao filtrar, o cmdk faz scrollIntoView do item destacado e a lista
+                        // "pula"; voltamos pro topo (melhores matches) apos o scroll do cmdk.
+                        onValueChange={() => requestAnimationFrame(() => { if (comboListRef.current) comboListRef.current.scrollTop = 0 })}
                       />
-                      <Command.List className="max-h-[250px] overflow-y-auto nice-scrollbar p-1">
+                      <Command.List ref={comboListRef} className="max-h-[250px] overflow-y-auto nice-scrollbar p-1">
                         <Command.Empty className="px-3 py-4 text-center text-xs text-muted-foreground">
                           Nenhum cliente encontrado
                         </Command.Empty>
