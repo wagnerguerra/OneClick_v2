@@ -11,8 +11,6 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { useCurrentUserProfile } from '@/hooks/use-current-user-profile'
 
-const MOD = 'var(--mod-legalizacao, #7c3aed)'
-
 /**
  * Painel de acesso ao certificado (#HLP0301) — a lógica + UI das fases
  * reauth/painel SEM o chrome de modal. Usado:
@@ -242,7 +240,7 @@ export function CertAcessoPanel({ certId, titular, active, autoDownload = true, 
         {erro && <p className="text-xs text-rose-600">{erro}</p>}
         <div className="flex justify-end gap-2">
           {onCancel && <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>}
-          <Button type="button" onClick={autenticar} disabled={autenticando} className="text-white gap-1.5" style={{ backgroundColor: MOD }}>
+          <Button type="button" onClick={autenticar} disabled={autenticando} className="gap-1.5">
             {autenticando ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Continuar
           </Button>
         </div>
@@ -255,7 +253,7 @@ export function CertAcessoPanel({ certId, titular, active, autoDownload = true, 
       return (
         <Dialog open onOpenChange={(o) => { if (!o) onCancel?.() }}>
           <DialogContent className="sm:max-w-[440px]">
-            <DialogHeaderIcon icon={ShieldCheck} color="violet">
+            <DialogHeaderIcon icon={ShieldCheck}>
               <DialogTitle>Confirme seu acesso</DialogTitle>
               <DialogDescription>{titular}</DialogDescription>
             </DialogHeaderIcon>

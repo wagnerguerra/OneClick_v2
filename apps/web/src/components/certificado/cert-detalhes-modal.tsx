@@ -148,7 +148,7 @@ export function CertDetalhesModal({ open, onOpenChange, certId, showAcessosTab =
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[640px] max-h-[88vh] overflow-y-auto">
-          <DialogHeaderIcon icon={ShieldCheck} color="fuchsia">
+          <DialogHeaderIcon icon={ShieldCheck}>
             <DialogTitle>{cert?.titular || 'Carregando...'}</DialogTitle>
             {cert && (
               <DialogDescription>
@@ -162,14 +162,14 @@ export function CertDetalhesModal({ open, onOpenChange, certId, showAcessosTab =
               <button
                 type="button"
                 onClick={() => setTab('geral')}
-                className={cn('px-3 py-2 text-xs font-semibold border-b-2 -mb-px', tab === 'geral' ? 'border-fuchsia-500 text-fuchsia-700' : 'border-transparent text-muted-foreground')}
+                className={cn('px-3 py-2 text-xs font-semibold border-b-2 -mb-px', tab === 'geral' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground')}
               >
                 Geral
               </button>
               <button
                 type="button"
                 onClick={() => setTab('acessos')}
-                className={cn('px-3 py-2 text-xs font-semibold border-b-2 -mb-px', tab === 'acessos' ? 'border-fuchsia-500 text-fuchsia-700' : 'border-transparent text-muted-foreground')}
+                className={cn('px-3 py-2 text-xs font-semibold border-b-2 -mb-px', tab === 'acessos' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground')}
               >
                 Trilha de auditoria
               </button>

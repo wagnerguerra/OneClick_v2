@@ -13,8 +13,6 @@ import { alerts } from '@/lib/alerts'
 import { ClienteCombobox } from '@/app/(dashboard)/orcamentos/_components/cliente-combobox'
 import { SenhaPfxInput } from './senha-pfx-input'
 
-const MOD = 'var(--mod-legalizacao, #7c3aed)'
-
 type ClienteOpt = { id: string; razaoSocial: string; documento?: string | null }
 
 /**
@@ -100,7 +98,7 @@ export function CertCadastroModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[560px]">
-        <DialogHeaderIcon icon={ShieldCheck} color="fuchsia">
+        <DialogHeaderIcon icon={ShieldCheck}>
           <DialogTitle>{title}</DialogTitle>
           {subtitle && <DialogDescription>{subtitle}</DialogDescription>}
         </DialogHeaderIcon>
@@ -111,10 +109,10 @@ export function CertCadastroModal({
               <label
                 className={cn(
                   'flex items-center gap-3 px-4 py-3 border border-dashed rounded-md cursor-pointer transition-colors',
-                  arquivo ? 'border-fuchsia-300 bg-fuchsia-50/50 dark:bg-fuchsia-900/10' : 'border-border hover:bg-muted/30',
+                  arquivo ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/30',
                 )}
               >
-                {arquivo ? <FileLock className="h-5 w-5 text-fuchsia-600" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
+                {arquivo ? <FileLock className="h-5 w-5 text-primary" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
                 <div className="flex-1 min-w-0">
                   {arquivo ? (
                     <>
@@ -179,9 +177,9 @@ export function CertCadastroModal({
 
           {/* Nota (por chamador) — ou o aviso de segurança padrão */}
           {note ?? (
-            <div className="flex items-start gap-2 p-3 rounded-md bg-fuchsia-50/50 dark:bg-fuchsia-900/10 border border-fuchsia-200 dark:border-fuchsia-800">
-              <Lock className="h-4 w-4 text-fuchsia-600 mt-0.5 shrink-0" />
-              <p className="text-[11px] text-fuchsia-900 dark:text-fuchsia-300 leading-relaxed">
+            <div className="flex items-start gap-2 p-3 rounded-md bg-primary/10 border border-primary/20">
+              <Lock className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-[11px] text-primary leading-relaxed">
                 A senha será cifrada com AES-256-GCM antes de gravar no banco. O arquivo PFX é armazenado com permissões restritas e SHA-256 para verificação de integridade. Toda operação é registrada na trilha de auditoria.
               </p>
             </div>
@@ -192,8 +190,7 @@ export function CertCadastroModal({
           <Button
             onClick={handleSalvar}
             disabled={salvando || !arquivo || !senha || senha !== confirmaSenha}
-            style={{ backgroundColor: MOD }}
-            className="text-white gap-1.5"
+            className="gap-1.5"
           >
             {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
             {salvando ? 'Cadastrando...' : 'Cadastrar certificado'}
