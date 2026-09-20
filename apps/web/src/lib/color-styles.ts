@@ -126,8 +126,8 @@ export const STRONG: Record<ColorName, string> = {
 
 /** Texto colorido (claro -600 / escuro -400). */
 export const TEXT: Record<ColorName, string> = {
-  emerald: 'text-emerald-600 dark:text-emerald-400',
-  rose: 'text-rose-600 dark:text-rose-500',
+  emerald: 'text-emerald-700 dark:text-emerald-500',
+  rose: 'text-rose-700 dark:text-rose-600',
   amber: 'text-amber-700 dark:text-amber-300',
   sky: 'text-sky-600 dark:text-sky-400',
   indigo: 'text-indigo-600 dark:text-indigo-400',
