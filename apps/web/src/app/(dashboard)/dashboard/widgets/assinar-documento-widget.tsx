@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { PenLine, ShieldCheck, Lock } from 'lucide-react'
 import { Button, Card, CardContent, cn } from '@saas/ui'
+import { TEXT } from '@/lib/color-styles'
 import { useUserPermissions } from '@/hooks/use-user-permissions'
 import { AssinarPdfModal } from '../../ferramentas/_components/assinar-pdf-modal'
 
@@ -56,7 +57,7 @@ export function AssinarDocumentoWidget({ canRead, title, bloco, compact }: {
         >
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-900/30">
             {podeAssinar
-              ? <PenLine className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              ? <PenLine className={cn('h-4 w-4', TEXT.emerald)} />
               : <Lock className="h-4 w-4 text-muted-foreground" />}
           </div>
           <span className="line-clamp-2 px-2 text-center text-xs font-semibold leading-tight text-foreground/80">
@@ -76,7 +77,7 @@ export function AssinarDocumentoWidget({ canRead, title, bloco, compact }: {
         <CardContent className="flex h-full flex-col gap-3 p-4 @sm:p-5">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 @sm:h-10 @sm:w-10 dark:bg-emerald-900/20">
-              <PenLine className="h-4 w-4 text-emerald-600 @sm:h-5 @sm:w-5" />
+              <PenLine className={cn('h-4 w-4 @sm:h-5 @sm:w-5', TEXT.emerald)} />
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-sm font-semibold">{titulo}</h3>

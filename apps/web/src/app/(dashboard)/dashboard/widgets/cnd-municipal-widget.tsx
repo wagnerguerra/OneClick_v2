@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Landmark, CheckCircle2, Clock, XCircle, AlertTriangle } from 'lucide-react'
-import { Card, CardContent } from '@saas/ui'
+import { Card, CardContent, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
 import { EmptyState } from './empty-state'
 import { KpiPill } from './kpi-pill'
 
@@ -30,7 +31,7 @@ export function CndMunicipalWidget({ title, bloco }: { canRead?: boolean; title?
         <div className="flex flex-col @[420px]:flex-row @[420px]:items-center @[420px]:justify-between gap-3">
           <Link href="/certidoes-cnd?aba=municipal" className="flex items-center gap-3 hover:opacity-80 transition-opacity min-w-0">
             <div className="flex h-9 w-9 @sm:h-10 @sm:w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 dark:bg-violet-900/20">
-              <Landmark className="h-4 w-4 @sm:h-5 @sm:w-5 text-violet-600" />
+              <Landmark className={cn('h-4 w-4 @sm:h-5 @sm:w-5', TEXT.violet)} />
             </div>
             <div className="min-w-0">
               <h3 className="text-sm font-semibold truncate">{titulo}</h3>
@@ -50,7 +51,7 @@ export function CndMunicipalWidget({ title, bloco }: { canRead?: boolean; title?
             <div className="grid grid-cols-[1fr_120px_100px_80px] @[640px]:grid-cols-[1fr_140px_120px_90px] gap-2 px-3 py-1.5 bg-muted/40 font-semibold">
               <div>Cliente</div><div>Município</div><div className="hidden @[560px]:block">Tipo</div><div>Validade</div>
             </div>
-            <div className="overflow-y-auto max-h-full">
+            <div className="overflow-y-auto max-h-full nice-scrollbar">
               {items.slice(0, 8).map(i => (
                 <div key={i.id} className="grid grid-cols-[1fr_120px_100px_80px] @[640px]:grid-cols-[1fr_140px_120px_90px] gap-2 px-3 py-1 border-t hover:bg-muted/20">
                   <div className="truncate">{i.razaoSocial || '—'}</div>

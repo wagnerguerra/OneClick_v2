@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { UserPlus2, UserMinus2, ArrowRight } from 'lucide-react'
-import { Card, CardContent } from '@saas/ui'
+import { Card, CardContent, cn } from '@saas/ui'
 import { trpc } from '@/lib/trpc'
+import { TEXT } from '@/lib/color-styles'
 import { EmptyState } from './empty-state'
 
 interface Item {
@@ -77,12 +78,12 @@ function MovimentacaoWidget({
           <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl @sm:h-10 @sm:w-10 ${
             entrada ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-rose-50 dark:bg-rose-900/20'
           }`}>
-            <Icon className={`h-4 w-4 @sm:h-5 @sm:w-5 ${entrada ? 'text-emerald-600' : 'text-rose-600'}`} />
+            <Icon className={cn('h-4 w-4 @sm:h-5 @sm:w-5', entrada ? TEXT.emerald : TEXT.rose)} />
           </div>
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold">{titulo}</h3>
             <p className="truncate text-xs text-muted-foreground">
-              <strong className={`tabular-nums ${entrada ? 'text-emerald-600' : 'text-rose-600'}`}>{dados.total}</strong>
+              <strong className={cn('tabular-nums', entrada ? TEXT.emerald : TEXT.rose)}>{dados.total}</strong>
               {' '}nos últimos {dados.dias} dias
             </p>
           </div>

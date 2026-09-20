@@ -9,7 +9,7 @@ import {
 } from '@saas/ui'
 import { DialogHeaderIcon } from '@/components/ui/dialog-header-icon'
 import { trpc } from '@/lib/trpc'
-import { TEXT } from '@/lib/color-styles'
+import { TEXT, PILL } from '@/lib/color-styles'
 import { getModuleLabelForHref, getGroupLabelForHref, getGroupHexForHref } from '@/lib/navigation'
 import { EmptyState } from './empty-state'
 
@@ -28,14 +28,14 @@ interface Novidade {
 const TIPOS: Record<string, {
   label: string
   icon: typeof Sparkles
-  cor: string
-  fundo: string
+  /** Pílula (fundo+texto) da natureza — papel PILL do helper (fundo -100 + texto -700, com par dark). */
+  pill: string
   /** Cor do cabeçalho do modal (paleta do DialogHeaderIcon). */
   modal: 'emerald' | 'sky' | 'amber'
 }> = {
-  NOVO: { label: 'Novo', icon: Sparkles, cor: 'text-emerald-700 dark:text-emerald-400', fundo: 'bg-emerald-100 dark:bg-emerald-900/30', modal: 'emerald' },
-  MELHORIA: { label: 'Melhoria', icon: Wrench, cor: 'text-sky-700 dark:text-sky-400', fundo: 'bg-sky-100 dark:bg-sky-900/30', modal: 'sky' },
-  CORRECAO: { label: 'Correção', icon: Bug, cor: 'text-amber-700 dark:text-amber-400', fundo: 'bg-amber-100 dark:bg-amber-900/30', modal: 'amber' },
+  NOVO: { label: 'Novo', icon: Sparkles, pill: PILL.emerald, modal: 'emerald' },
+  MELHORIA: { label: 'Melhoria', icon: Wrench, pill: PILL.sky, modal: 'sky' },
+  CORRECAO: { label: 'Correção', icon: Bug, pill: PILL.amber, modal: 'amber' },
 }
 
 /** Data por extenso — no modal cabe a data inteira, ao contrário da lista. */
@@ -133,13 +133,13 @@ export function NovidadesWidget({ canRead, title, bloco, expanded }: {
             const Icone = t.icon
             const corpo = (
               <div className="flex gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-muted/50">
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-inset ring-current/15 ${t.fundo} ${t.cor}`}>
+                <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-inset ring-current/15', t.pill)}>
                   <Icone className="h-4 w-4" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="truncate text-sm font-semibold text-foreground">{n.titulo}</p>
-                    <span className={`inline-flex shrink-0 items-center rounded-full px-2 py-px text-[11px] font-medium ${t.fundo} ${t.cor}`}>{t.label}</span>
+                    <span className={cn('inline-flex shrink-0 items-center rounded-full px-2 py-px text-[11px] font-medium', t.pill)}>{t.label}</span>
                   </div>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
                     {n.descricao ? <>{n.descricao}<span className="px-1">·</span></> : null}{quando(n.publicadoEm)}
