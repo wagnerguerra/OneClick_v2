@@ -11,8 +11,6 @@ import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 import { TEXT } from '@/lib/color-styles'
 
-const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
-
 type Fonte = 'nfe' | 'nfse'
 const FONTES: { k: Fonte; label: string; icon: typeof Landmark; requestedField: string; statusField: string }[] = [
   { k: 'nfe', label: 'NFe SEFAZ', icon: Landmark, requestedField: 'nfeDistSyncRequestedAt', statusField: 'nfeDistSyncStatus' },
@@ -207,7 +205,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
 
           {fase === 'processando' && (
             <div className="flex flex-col items-center justify-center py-8 gap-4">
-              <Loader2 className="h-8 w-8 animate-spin" style={{ color: MODULE_COLOR }} />
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <div className="text-center">
                 <p className="text-sm font-medium">{sel?.razaoSocial}</p>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -219,7 +217,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
               {progresso && progresso.pct > 0 && (
                 <div className="w-full max-w-[360px]">
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, progresso.pct)}%`, background: MODULE_COLOR }} />
+                    <div className="h-full rounded-full transition-all bg-primary" style={{ width: `${Math.min(100, progresso.pct)}%` }} />
                   </div>
                   <p className="text-[11px] text-muted-foreground text-center mt-1.5 tabular-nums">{progresso.pct}%{progresso.total > 0 ? ` · ${progresso.atual}/${progresso.total}` : ''}</p>
                 </div>
@@ -232,7 +230,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
               {resultado.ok ? <CheckCircle2 className="h-10 w-10 text-emerald-500" /> : <XCircle className="h-10 w-10 text-rose-500" />}
               {resultado.ok && resultado.novas != null && (
                 <div className="flex flex-col items-center">
-                  <span className="text-4xl font-bold tabular-nums" style={{ color: MODULE_COLOR }}>{resultado.novas}</span>
+                  <span className="text-4xl font-bold tabular-nums text-primary">{resultado.novas}</span>
                   <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">nota{resultado.novas === 1 ? '' : 's'} obtida{resultado.novas === 1 ? '' : 's'}</span>
                 </div>
               )}
@@ -253,7 +251,7 @@ export function BuscarNotasModal({ open, onOpenChange }: { open: boolean; onOpen
           {fase === 'select' && (
             <>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button onClick={buscar} disabled={!sel} className="text-white" style={{ backgroundColor: MODULE_COLOR }}>
+              <Button onClick={buscar} disabled={!sel}>
                 <Download className="h-4 w-4 mr-1.5" /> Buscar notas
               </Button>
             </>

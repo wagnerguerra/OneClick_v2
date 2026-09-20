@@ -22,7 +22,6 @@ import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 
-const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
 /** Quantos documentos por página na coluna Documentos. */
 const ITEMS_POR_PAGINA = 30
 
@@ -68,7 +67,7 @@ function origemBadge(origem: OrigemNota): { label: string; classes: string; titl
     case 'nfe-sefaz':       return { label: 'SEFAZ',     classes: STRONG.violet,  title: 'Baixado da API NFeDistribuicaoDFe da SEFAZ' }
     case 'nfse-adn':        return { label: 'ADN',       classes: STRONG.emerald, title: 'Baixado do ADN gov.br (NFS-e Nacional)' }
     case 'nfse-municipal':  return { label: 'Municipal', classes: STRONG.teal,    title: 'NFS-e em leiaute municipal' }
-    case 'lote':            return { label: 'Lote',      classes: STRONG.indigo,  title: 'Upload em lote de XMLs (cor do módulo Fiscal — retingida por .mod-fiscal)' }
+    case 'lote':            return { label: 'Lote',      classes: 'bg-primary/10 text-primary',  title: 'Upload em lote de XMLs (cor primária do sistema)' }
     case 'manual':          return { label: 'Manual',    classes: STRONG.slate,   title: 'Upload manual direto' }
   }
 }
@@ -528,15 +527,14 @@ export default function DanfeGaleriaPage() {
                     onClick={() => setClienteAtivo(key)}
                     className={cn(
                       'w-full text-left px-2 py-2 rounded transition-colors',
-                      ativo ? 'text-white shadow-sm' : 'hover:bg-muted/60',
+                      ativo ? 'bg-primary text-primary-foreground shadow-sm' : 'hover:bg-muted/60',
                     )}
-                    style={ativo ? { backgroundColor: MODULE_COLOR } : undefined}
                   >
                     <div className="flex items-start gap-2">
-                      <Building2 className={cn('h-3.5 w-3.5 shrink-0 mt-0.5', ativo ? 'text-white' : 'text-muted-foreground')} />
+                      <Building2 className={cn('h-3.5 w-3.5 shrink-0 mt-0.5', ativo ? 'text-primary-foreground' : 'text-muted-foreground')} />
                       <div className="min-w-0 flex-1">
                         <div className="text-xs font-semibold truncate">{c.razaoSocial}</div>
-                        <div className={cn('text-[10px] mt-0.5', ativo ? 'text-white/80' : 'text-muted-foreground')}>
+                        <div className={cn('text-[10px] mt-0.5', ativo ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
                           {c.totalDanfes > 0 && <>{c.totalDanfes} NFe</>}
                           {c.totalDanfes > 0 && c.totalNfse > 0 && <> · </>}
                           {c.totalNfse > 0 && <>{c.totalNfse} NFS-e</>}
@@ -662,14 +660,13 @@ export default function DanfeGaleriaPage() {
                     disabled={!d.pdfKey}
                     className={cn(
                       'w-full text-left px-2 py-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-                      ativo ? 'text-white shadow-sm' : 'hover:bg-muted/60',
+                      ativo ? 'bg-primary text-primary-foreground shadow-sm' : 'hover:bg-muted/60',
                     )}
-                    style={ativo ? { backgroundColor: MODULE_COLOR } : undefined}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold flex items-center gap-1.5 min-w-0">
                         {TipoIcon && (
-                          <TipoIcon className={cn('h-3 w-3 shrink-0', ativo ? 'text-white' : isEntrada ? TEXT.emerald : TEXT.sky)} />
+                          <TipoIcon className={cn('h-3 w-3 shrink-0', ativo ? 'text-primary-foreground' : isEntrada ? TEXT.emerald : TEXT.sky)} />
                         )}
                         <Badge className={cn(
                           'text-[8px] py-0 px-1 border-0 shrink-0',
@@ -687,7 +684,7 @@ export default function DanfeGaleriaPage() {
                         {d.status}
                       </Badge>
                     </div>
-                    <div className={cn('text-[10px] truncate mt-0.5', ativo ? 'text-white/80' : 'text-muted-foreground')} title={d.emitenteRazao}>
+                    <div className={cn('text-[10px] truncate mt-0.5', ativo ? 'text-primary-foreground/80' : 'text-muted-foreground')} title={d.emitenteRazao}>
                       {d.emitenteRazao}
                     </div>
                     <div className={cn('flex items-center justify-between text-[10px] mt-0.5 gap-1.5', ativo ? 'text-white/80' : 'text-muted-foreground')}>

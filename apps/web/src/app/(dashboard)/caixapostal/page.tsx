@@ -1677,7 +1677,7 @@ export default function CaixaPostalPage() {
           ) : selectedCliente ? (
             <div className="flex items-center gap-1.5">
               {canBulkActions && (
-                <Button size="sm" onClick={() => handleConsultarCliente(selectedCliente, false)} disabled={mensagensLoading} className="gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white">
+                <Button size="sm" onClick={() => handleConsultarCliente(selectedCliente, false)} disabled={mensagensLoading} className="gap-1.5">
                   {mensagensLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
                   Consultar API
                 </Button>
@@ -1741,7 +1741,7 @@ export default function CaixaPostalPage() {
               {canBulkActions && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button size="sm" className="gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white">
+                    <Button size="sm" className="gap-1.5">
                       <Play className="h-3.5 w-3.5" />Consultar em Lote
                     </Button>
                   </DropdownMenuTrigger>
@@ -2041,14 +2041,13 @@ export default function CaixaPostalPage() {
               const Icon = f.icon
               return (
                 <button key={f.key} type="button" onClick={() => { setFiltroStatus(f.key); setPaginaClientes(1) }}
-                  style={isActive ? { backgroundColor: 'var(--mod-fiscal, #0369a1)' } : undefined}
                   className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
-                    isActive ? 'border-transparent text-white shadow-sm'
+                    isActive ? 'border-transparent bg-primary text-primary-foreground shadow-sm'
                       : 'border-border/40 text-muted-foreground hover:border-input hover:text-foreground bg-card',
                   )}>
                   <Icon className="h-3.5 w-3.5" />{f.label}
                   <span className={cn('text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none',
-                    isActive ? 'bg-white/25 text-white' : 'bg-muted text-muted-foreground',
+                    isActive ? 'bg-white/25 text-primary-foreground' : 'bg-muted text-muted-foreground',
                   )}>{f.count}</span>
                 </button>
               )

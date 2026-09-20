@@ -285,7 +285,7 @@ export default function DctfwebPage() {
             <SelectTrigger className="h-9 w-[130px] text-xs font-mono"><SelectValue /></SelectTrigger>
             <SelectContent>{getCompetencias().map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
-          <Button size="sm" className="gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white" onClick={openSyncModal}>
+          <Button size="sm" className="gap-1.5" onClick={openSyncModal}>
             <RefreshCw className="h-3.5 w-3.5" />Sincronizar
           </Button>
         </div>
@@ -337,14 +337,13 @@ export default function DctfwebPage() {
           const isActive = filtroStatus === f.key
           return (
             <button key={f.key} type="button" onClick={() => { setFiltroStatus(f.key); setPage(1) }}
-              style={isActive ? { backgroundColor: 'var(--mod-fiscal, #0369a1)' } : undefined}
               className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
-                isActive ? 'border-transparent text-white shadow-sm'
+                isActive ? 'border-transparent bg-primary text-primary-foreground shadow-sm'
                   : 'border-border/40 text-muted-foreground hover:border-input hover:text-foreground bg-card',
               )}>
               {f.label}
               <span className={cn('text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none',
-                isActive ? 'bg-white/25 text-white' : 'bg-muted text-muted-foreground',
+                isActive ? 'bg-white/25 text-primary-foreground' : 'bg-muted text-muted-foreground',
               )}>{f.count}</span>
             </button>
           )
@@ -538,7 +537,7 @@ export default function DctfwebPage() {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-8 w-8 items-center justify-center rounded bg-indigo-500 text-white shrink-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground shrink-0">
                   <ListChecks className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
@@ -569,7 +568,7 @@ export default function DctfwebPage() {
                 return (
                   <button key={tab.key} type="button" onClick={() => { setPdfTab(tab.key); loadPdf(pdfRecord, tab.key) }}
                     className={cn('flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
-                      pdfTab === tab.key ? cn('border-indigo-500', TEXT.indigo) : 'border-transparent text-muted-foreground hover:text-foreground')}>
+                      pdfTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
                     <Icon className="h-3.5 w-3.5" />{tab.label}
                     {pdfTab === tab.key && pdfLoading && <Loader2 className="h-3 w-3 animate-spin" />}
                   </button>
@@ -581,7 +580,7 @@ export default function DctfwebPage() {
             <div className="flex-1 overflow-hidden">
               {pdfLoading ? (
                 <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-                  <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   <p className="text-sm">Consultando SERPRO...</p>
                 </div>
               ) : pdfErro ? (
@@ -609,7 +608,7 @@ export default function DctfwebPage() {
       {/* Modal Sincronizar */}
       <Dialog open={syncOpen} onOpenChange={o => !o && setSyncOpen(false)}>
         <DialogContent className="max-w-[560px]">
-          <DialogHeaderIcon icon={Users} color="indigo">
+          <DialogHeaderIcon icon={Users}>
             <DialogTitle>Sincronizar DCTFWeb</DialogTitle>
             <DialogDescription>Selecione os clientes para consultar a competência {competencia}</DialogDescription>
           </DialogHeaderIcon>
@@ -617,14 +616,14 @@ export default function DctfwebPage() {
             <div className="flex items-center justify-between">
               <Badge variant="outline" className="text-[10px]">{syncSelecionados.size} selecionado(s)</Badge>
               <div className="flex gap-2">
-                <button className={cn('text-[10px] hover:underline', TEXT.indigo)} onClick={() => setSyncSelecionados(new Set(syncClientes.map(c => c.id)))}>Todos</button>
-                <button className={cn('text-[10px] hover:underline', TEXT.indigo)} onClick={() => setSyncSelecionados(new Set())}>Nenhum</button>
+                <button className="text-[10px] hover:underline text-primary" onClick={() => setSyncSelecionados(new Set(syncClientes.map(c => c.id)))}>Todos</button>
+                <button className="text-[10px] hover:underline text-primary" onClick={() => setSyncSelecionados(new Set())}>Nenhum</button>
               </div>
             </div>
             <Input placeholder="Buscar..." value={syncSearch} onChange={e => setSyncSearch(e.target.value)} className="h-8 text-xs" />
             <div className="border rounded-lg max-h-[280px] overflow-y-auto nice-scrollbar">
               {syncClientes.filter(c => !syncSearch || c.razaoSocial.toLowerCase().includes(syncSearch.toLowerCase()) || c.documento.includes(syncSearch)).map(c => (
-                <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', syncSelecionados.has(c.id) && 'bg-indigo-50/40 dark:bg-indigo-950/20')}>
+                <div key={c.id} className={cn('flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/30 border-b last:border-b-0', syncSelecionados.has(c.id) && 'bg-primary/10')}>
                   <Checkbox checked={syncSelecionados.has(c.id)} onCheckedChange={() => {
                     setSyncSelecionados(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n })
                   }} className="h-3.5 w-3.5 cursor-pointer" />
@@ -655,7 +654,7 @@ export default function DctfwebPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setSyncOpen(false)}>Fechar</Button>
-            <Button size="sm" onClick={handleSincronizarLote} disabled={syncLoading || syncSelecionados.size === 0} className="gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white">
+            <Button size="sm" onClick={handleSincronizarLote} disabled={syncLoading || syncSelecionados.size === 0} className="gap-1.5">
               {syncLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
               Sincronizar ({syncSelecionados.size})
             </Button>

@@ -19,8 +19,6 @@ import { BADGE, TEXT } from '@/lib/color-styles'
 import { trpc } from '@/lib/trpc'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
-
 interface ClienteAgregado {
   clienteId: string | null
   razaoSocial: string
@@ -108,7 +106,7 @@ export default function DanfePage() {
           <Button variant="outline" size="sm" onClick={() => setBuscarOpen(true)} className="gap-1.5">
             <Download className="h-3.5 w-3.5" /> Buscar notas
           </Button>
-          <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-1.5 text-white" style={{ backgroundColor: MODULE_COLOR }}>
+          <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-1.5">
             <Upload className="h-3.5 w-3.5" /> Upload XML
           </Button>
       </>}>
@@ -323,7 +321,7 @@ function UploadModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => { reset(); onClose() }}>Cancelar</Button>
-          <Button onClick={handleUpload} disabled={uploading || files.length === 0} className="text-white" style={{ backgroundColor: MODULE_COLOR }}>
+          <Button onClick={handleUpload} disabled={uploading || files.length === 0}>
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {uploading ? 'Enviando...' : 'Enviar'}
           </Button>

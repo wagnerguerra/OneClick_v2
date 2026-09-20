@@ -20,7 +20,7 @@ import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
 import { getApiUrl } from '@/lib/api-url'
 
-const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
+const PRIMARY = 'var(--color-primary)'
 
 const ITEM_STATUS_TONE: Record<string, ColorName> = {
   OK: 'emerald',
@@ -143,7 +143,7 @@ export default function LoteDetalhePage() {
             <span className="tabular-nums font-semibold">{pct}%</span>
           </div>
           <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: MODULE_COLOR }} />
+            <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: PRIMARY }} />
           </div>
           <div className="flex gap-4 mt-2 text-[11px]">
             <span className={TEXT.emerald}><CheckCircle2 className="inline h-3 w-3 mr-1" />{lote.sucesso} OK</span>

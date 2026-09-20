@@ -180,7 +180,7 @@ export default function SituacaoFiscalPage() {
           showCancelButton: true,
           confirmButtonText: 'Forçar nova consulta',
           cancelButtonText: 'Manter resultado atual',
-          confirmButtonColor: 'var(--mod-fiscal, #0369a1)',
+          confirmButtonColor: 'var(--color-primary)',
         })
 
         if (forcar) {
@@ -399,7 +399,7 @@ export default function SituacaoFiscalPage() {
       {/* Modal Nova Consulta */}
       <Dialog open={consultaOpen} onOpenChange={setConsultaOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeaderIcon icon={Search} accentColor="var(--mod-fiscal, #0369a1)">
+          <DialogHeaderIcon icon={Search}>
             <DialogTitle>Consultar Situação Fiscal</DialogTitle>
             <DialogDescription>Selecione um cliente mensal ou informe o CNPJ/CPF para consultar junto à Receita Federal via SERPRO.</DialogDescription>
           </DialogHeaderIcon>
@@ -429,7 +429,7 @@ export default function SituacaoFiscalPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConsultaOpen(false)}>Cancelar</Button>
-            <Button style={{ backgroundColor: 'var(--mod-fiscal, #0369a1)' }} className="text-white hover:opacity-90" onClick={confirmarConsulta}>Consultar</Button>
+            <Button onClick={confirmarConsulta}>Consultar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

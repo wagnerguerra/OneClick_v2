@@ -29,7 +29,7 @@ import { trpc } from '@/lib/trpc'
 import { trpcMutate } from '@/lib/trpc-fetch'
 import { alerts } from '@/lib/alerts'
 
-const MODULE_COLOR = 'var(--mod-fiscal, #0369a1)'
+const PRIMARY = 'var(--color-primary)'
 
 type SchedulerSlug = 'nfe-dist' | 'nfse-dist'
 
@@ -196,7 +196,7 @@ export default function AgendamentoPage() {
                   ? 'text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
-              style={tab === s.slug ? { borderBottomColor: MODULE_COLOR } : {}}
+              style={tab === s.slug ? { borderBottomColor: PRIMARY } : {}}
             >
               <Icon className="h-3.5 w-3.5" /> {s.label}
             </button>
@@ -247,7 +247,7 @@ export default function AgendamentoPage() {
           {status.ultimaExecucao && (
             <Card className="p-4">
               <div className="flex items-start gap-3">
-                <TabIcon className="h-4 w-4 mt-0.5 shrink-0" style={{ color: MODULE_COLOR }} />
+                <TabIcon className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
                 <div className="flex-1 min-w-0">
                   <div className="text-[11px] font-semibold uppercase text-muted-foreground mb-1">
                     Última execução
@@ -489,10 +489,9 @@ function ConfigPanel({ status, onChange }: { status: SchedulerStatus; onChange: 
               onClick={dispararAgora}
               disabled={disparando || status.clientesAtivos === 0}
               className="gap-1.5"
-              style={{ backgroundColor: MODULE_COLOR }}
             >
               {disparando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />}
-              <span className="text-white">Disparar</span>
+              <span>Disparar</span>
             </Button>
           </div>
         </div>
