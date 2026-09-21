@@ -563,7 +563,7 @@ function ParametrosDialog({ open, onClose, clienteAreaContratadaId, areaNome, cl
                               min={0} max={5} step={0.5}
                               value={p.valor}
                               onChange={e => updateParam(p._index, { valor: parseFloat(e.target.value) })}
-                              className="w-full h-1.5 accent-emerald-600"
+                              className="w-full h-1.5 accent-[var(--color-primary)]"
                             />
                             <div className="text-[10px] text-muted-foreground mt-0.5">
                               {p.valor} — {VALOR_LABELS[p.valor] || ''}

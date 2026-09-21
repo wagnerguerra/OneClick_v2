@@ -214,7 +214,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
             type="text"
             value={cat.nomeExibicao}
             onChange={e => updateCat(cat.conta, { nomeExibicao: e.target.value })}
-            className="flex-1 min-w-0 text-[11px] bg-transparent border-0 px-1 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 rounded"
+            className="flex-1 min-w-0 text-[11px] bg-transparent border-0 px-1 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary/30 rounded"
             title="Nome de exibicao"
           />
 
@@ -223,7 +223,7 @@ export function ContabilCard({ clienteId, documento }: { clienteId: string; docu
             type="number"
             value={cat.ordem}
             onChange={e => updateCat(cat.conta, { ordem: Number(e.target.value) })}
-            className="shrink-0 w-[50px] text-[10px] text-center bg-transparent border border-border/30 rounded px-1 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+            className="shrink-0 w-[50px] text-[10px] text-center bg-transparent border border-border/30 rounded px-1 py-1 focus:outline-none focus:ring-1 focus:ring-primary/30"
             title="Ordem"
           />
 

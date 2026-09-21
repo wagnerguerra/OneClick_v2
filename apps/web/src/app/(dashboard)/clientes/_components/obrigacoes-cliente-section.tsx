@@ -536,7 +536,7 @@ export function ObrigacoesClienteSection({ clienteId }: { clienteId: string }) {
             {loading ? (
               <TableRow><TableCell colSpan={5} className="text-center py-10">
                 <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin text-emerald-500" /> Carregando...
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" /> Carregando...
                 </div>
               </TableCell></TableRow>
             ) : !items.length ? (

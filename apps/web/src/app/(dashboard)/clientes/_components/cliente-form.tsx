@@ -654,7 +654,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                     />
                   ) : (
-                    <Handshake className="h-10 w-10 text-emerald-500" />
+                    <Handshake className="h-10 w-10 text-primary" />
                   )}
                 </div>
                 {/* Antes abria o seletor de arquivo direto; agora o modal, que
@@ -2139,7 +2139,7 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
   function handleFileDrop(e: React.DragEvent) {
     e.preventDefault()
     e.stopPropagation()
-    e.currentTarget.classList.remove('border-emerald-400')
+    e.currentTarget.classList.remove('border-primary')
     if (e.dataTransfer.files.length > 0) {
       uploadFiles(e.dataTransfer.files)
     }
@@ -2247,14 +2247,14 @@ function ContratosPanel({ clienteId }: { clienteId?: string }) {
               {/* Upload area */}
               <div className="px-5 py-3 border-b border-border shrink-0">
                 <div
-                  className="flex flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-border/60 px-4 py-5 cursor-pointer hover:border-emerald-400/50 transition-colors"
+                  className="flex flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-border/60 px-4 py-5 cursor-pointer hover:border-primary/50 transition-colors"
                   onClick={handleFileClick}
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('border-emerald-400') }}
-                  onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-emerald-400') }}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('border-primary') }}
+                  onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-primary') }}
                   onDrop={handleFileDrop}
                 >
                   {uploading ? (
-                    <><Loader2 className="h-6 w-6 animate-spin text-emerald-500" /><p className="text-xs text-muted-foreground">Enviando arquivos...</p></>
+                    <><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="text-xs text-muted-foreground">Enviando arquivos...</p></>
                   ) : (
                     <><FileText className="h-6 w-6 text-muted-foreground/40" /><p className="text-xs font-medium">Clique ou arraste arquivos aqui</p><p className="text-[10px] text-muted-foreground">PDF, Word, Excel, imagens, ZIP</p></>
                   )}
@@ -4061,7 +4061,7 @@ function ContatosTab({ clienteId }: { clienteId?: string }) {
                 {contatos.map((c) => (
                   <tr key={c.id} className={cn(
                     'border-b border-border group transition-colors',
-                    c.principal ? 'bg-emerald-50/60' : 'hover:bg-muted/30'
+                    c.principal ? 'bg-primary/5' : 'hover:bg-muted/30'
                   )}>
                     {/* Estrela principal */}
                     <td className="py-2.5 px-3 text-center">

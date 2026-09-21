@@ -211,7 +211,7 @@ export function ContratoChartModal({
           <div className="flex-1 overflow-y-auto nice-scrollbar p-5">
             {chartLoading ? (
               <div className="flex flex-col items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-emerald-500 mb-3" />
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
                 <p className="text-sm text-muted-foreground">Carregando dados do SCI...</p>
               </div>
             ) : !data ? (
