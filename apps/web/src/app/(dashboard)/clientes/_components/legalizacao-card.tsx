@@ -495,7 +495,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
       <div className="flex items-center gap-2 border-b border-border px-5 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="flex items-center gap-2">
-            <Shield className={cn('h-4 w-4', TEXT.emerald)} />
+            <Shield className="h-4 w-4 text-primary" />
             <h5 className="text-[13px] font-semibold">Legalização</h5>
           </div>
         </div>
@@ -1249,10 +1249,10 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                           tabIndex={0}
                           onClick={() => setViewCertId(cert.id)}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewCertId(cert.id) } }}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-border hover:bg-muted/30 hover:border-fuchsia-300 dark:hover:border-fuchsia-800 cursor-pointer transition-colors"
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-border hover:bg-muted/30 hover:border-primary cursor-pointer transition-colors"
                           title="Ver detalhes do certificado"
                         >
-                          <FileLock className={cn('h-5 w-5 shrink-0', TEXT.fuchsia)} />
+                          <FileLock className="h-5 w-5 shrink-0 text-primary" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
                               {cert.titular || cert.id}
@@ -1449,7 +1449,7 @@ export function LegalizacaoCard({ register, clienteId, documento }: LegalizacaoC
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 rounded-lg border p-3 text-sm hover:bg-muted/40 transition-colors"
                   >
-                    <ExternalLink className={cn('h-4 w-4 shrink-0', TEXT.emerald)} />
+                    <ExternalLink className="h-4 w-4 shrink-0 text-primary" />
                     {link.label}
                   </a>
                 ))}

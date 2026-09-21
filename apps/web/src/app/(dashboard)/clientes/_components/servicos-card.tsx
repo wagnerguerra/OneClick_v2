@@ -208,7 +208,7 @@ export function ServicosCard({ clienteId, registrarSalvar }: {
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <div>
               <h4 className="text-sm font-semibold flex items-center gap-2">
-                <Briefcase className={cn('h-4 w-4', TEXT.emerald)} /> Servicos Contratados
+                <Briefcase className="h-4 w-4 text-primary" /> Servicos Contratados
               </h4>
               <p className="text-[11px] text-muted-foreground mt-0.5">Gerencie as areas contratadas, responsaveis e parametros.</p>
             </div>

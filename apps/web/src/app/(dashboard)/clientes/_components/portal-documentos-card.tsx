@@ -288,7 +288,7 @@ export function PortalDocumentosCard({ clienteId }: { clienteId?: string }) {
             {/* ── Publicados ────────────────────────────────────────────── */}
             <section>
               <p className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
-                <Eye className={cn('h-3.5 w-3.5', TEXT.emerald)} />
+                <Eye className="h-3.5 w-3.5 text-primary" />
                 No portal do cliente
                 <span className="font-normal text-muted-foreground">{publicados.length}</span>
               </p>

@@ -1021,7 +1021,7 @@ export function ClienteForm({ mode, clienteId, defaultValues, motivoInativacao }
                   <p className="text-xs text-muted-foreground">{progress.filled} de {progress.total} campos preenchidos</p>
                   {progress.percent < 100 && (
                     <details className="mt-3">
-                      <summary className={cn('text-[11px] cursor-pointer hover:underline', TEXT.emerald)}>Ver campos pendentes</summary>
+                      <summary className="text-[11px] cursor-pointer hover:underline text-primary">Ver campos pendentes</summary>
                       <ul className="mt-2 space-y-1">
                         {/* Sócios pendentes (#HLP0068): só pra PJ, quando ainda não cadastrou nenhum */}
                         {watchedValues.tipoDocumento === 'CNPJ' && sociosCount === 0 && (
@@ -3609,10 +3609,10 @@ function ArquivosSidebar({ clienteId }: { clienteId: string }) {
                   tabIndex={0}
                   onClick={() => setViewCert(cert)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewCert(cert) } }}
-                  className="flex items-start gap-2 text-xs group rounded-md border border-border p-2 bg-muted/30 cursor-pointer hover:bg-muted/50 hover:border-fuchsia-300 dark:hover:border-fuchsia-800 transition-colors"
+                  className="flex items-start gap-2 text-xs group rounded-md border border-border p-2 bg-muted/30 cursor-pointer hover:bg-muted/50 hover:border-primary transition-colors"
                   title="Ver detalhes do certificado"
                 >
-                  <ShieldCheck className={cn('h-4 w-4 shrink-0 mt-0.5', TEXT.fuchsia)} />
+                  <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate font-medium">
