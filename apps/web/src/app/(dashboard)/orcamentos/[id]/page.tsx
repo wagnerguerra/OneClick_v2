@@ -24,7 +24,7 @@ import {
   Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
 } from '@saas/ui'
 import { cn } from '@saas/ui'
-import { TEXT, BADGE, SURFACE } from '@/lib/color-styles'
+import { TEXT, BADGE, SURFACE, type ColorName } from '@/lib/color-styles'
 import { BackButton } from '@/components/ui/back-button'
 import { PageHeaderBar } from '@/components/page-header-bar'
 import { SectionCard } from '@/components/section-card'
@@ -243,23 +243,34 @@ interface Orcamento {
  * reivindica), e escrever um nome ali afirmaria uma certeza que o sistema não
  * tem. Por isso o campo diz o que de fato acontece, em vez de escolher alguém.
  */
-function textoResponsavelExecucao(r: {
+function partesResponsavelExecucao(r: {
   areaNome: string | null
   setores: string[]
   responsavelNome: string | null
   claimFirst: boolean
   totalCandidatos: number
-}): string {
-  const partes: string[] = []
-  if (r.areaNome) partes.push(`Área: ${r.areaNome}`)
-  if (r.setores.length > 0) {
-    partes.push(`${r.setores.length > 1 ? 'Setores' : 'Setor'}: ${r.setores.join(', ')}`)
+}): Array<{ texto: string; tom: ColorName }> {
+  const partes: Array<{ texto: string; tom: ColorName }> = []
+
+  // Unidade organizacional em sky; a pessoa/pendência em outro tom. Três
+  // crachás no mesmo pastel viram um bloco indistinguível — a cor aqui separa
+  // "onde" de "quem", que é a distinção que o campo existe para mostrar.
+  if (r.areaNome) partes.push({ texto: `Área: ${r.areaNome}`, tom: 'sky' })
+  for (const setor of r.setores) partes.push({ texto: `Setor: ${setor}`, tom: 'indigo' })
+
+  // Um crachá por setor, e não um com a lista: separado, cada setor é
+  // legível e quebra linha sozinho; junto, vira uma tira longa que o
+  // flex-wrap não consegue dividir.
+  if (r.responsavelNome) {
+    partes.push({ texto: `Responsável: ${r.responsavelNome}`, tom: 'emerald' })
+  } else if (r.claimFirst) {
+    partes.push({ texto: 'Responsável: a definir — o primeiro do setor que assumir', tom: 'amber' })
+  } else if (r.totalCandidatos > 1) {
+    partes.push({ texto: `Responsável: a definir — ${r.totalCandidatos} candidatos`, tom: 'amber' })
+  } else {
+    partes.push({ texto: 'Responsável: não definido no serviço', tom: 'slate' })
   }
-  if (r.responsavelNome) partes.push(`Responsável: ${r.responsavelNome}`)
-  else if (r.claimFirst) partes.push('Responsável: a definir — o primeiro do setor que assumir')
-  else if (r.totalCandidatos > 1) partes.push(`Responsável: a definir — ${r.totalCandidatos} candidatos`)
-  else partes.push('Responsável: não definido no serviço')
-  return partes.join(', ')
+  return partes
 }
 
 function fmtDataHora(iso: string): string {
@@ -2215,12 +2226,15 @@ export default function OrcamentoDetailPage() {
                             informativo mesmo com o orçamento congelado. */}
                         <div className="col-span-12 space-y-1.5">
                           <Label className="text-[13px] font-semibold text-foreground">Responsável pela execução</Label>
+                          {/* Crachás no mesmo desenho do EmailChipsInput (contêiner
+                              e chip), com duas diferenças de propósito: sem o `×`,
+                              que prometeria remover algo que só se edita no
+                              catálogo; e fundo `bg-muted/40` no lugar do branco de
+                              campo editável, porque aqui não se digita. */}
                           {(orc.responsaveis?.length ?? 0) === 0 ? (
-                            <Input
-                              readOnly
-                              value="Sem serviços no orçamento — nada a executar ainda."
-                              className="h-9 text-sm bg-muted/40 text-muted-foreground"
-                            />
+                            <div className="flex min-h-[36px] flex-wrap items-center gap-1.5 rounded-md border border-input bg-muted/40 px-2 py-1 text-sm text-muted-foreground">
+                              Sem serviços no orçamento — nada a executar ainda.
+                            </div>
                           ) : (
                             <div className="space-y-1.5">
                               {orc.responsaveis!.map(r => (
@@ -2232,12 +2246,16 @@ export default function OrcamentoDetailPage() {
                                   {orc.responsaveis!.length > 1 && (
                                     <span className="text-[11px] text-muted-foreground">{r.servicoNome}</span>
                                   )}
-                                  <Input
-                                    readOnly
-                                    value={textoResponsavelExecucao(r)}
-                                    title={textoResponsavelExecucao(r)}
-                                    className="h-9 text-sm bg-muted/40"
-                                  />
+                                  <div className="flex min-h-[36px] flex-wrap items-center gap-1.5 rounded-md border border-input bg-muted/40 px-2 py-1 text-sm">
+                                    {partesResponsavelExecucao(r).map(p => (
+                                      <span
+                                        key={p.texto}
+                                        className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border', BADGE[p.tom])}
+                                      >
+                                        {p.texto}
+                                      </span>
+                                    ))}
+                                  </div>
                                 </div>
                               ))}
                             </div>
